@@ -1,0 +1,6 @@
+{
+  "id": "sci_003", "name": "大自然的变化", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
+  "objectives": ["认识白天黑夜", "了解日夜变化"],
+  "content": [{"type": "story", "title": "白天和黑夜", "text": "白天太阳出来亮晶晶，小鸟飞，小朋友玩。晚上月亮出来静悄悄，星星眨眼睛，小朋友睡觉啦。",
+     "questions": [{"q": "白天谁出来了？", "options": ["月亮", "太阳", "星星"], "answer": 1}, {"q": "晚上谁出来了？", "options": ["太阳", "月亮", "乌云"], "answer": 1}]}]
+}

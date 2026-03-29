@@ -1,0 +1,6 @@
+{
+  "id": "math_003", "name": "比大小", "ageRange": "3-4", "domain": "math", "duration": 5, "difficulty": 1,
+  "objectives": ["会比较大小、多少", "理解比较概念"],
+  "content": [{"type": "story", "title": "谁的多", "text": "小白兔有3个胡萝卜，小灰兔有5个胡萝卜。小灰兔的比小白兔多！小白兔努力吃草，也有了5个！",
+     "questions": [{"q": "3和5哪个多？", "options": ["3", "5", "一样多"], "answer": 1}]}]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "soc_002", "name": "学会分享", "ageRange": "3-4", "domain": "social", "duration": 5, "difficulty": 1,
+  "objectives": ["学会分享玩具和食物", "懂得分享的快乐"],
+  "content": [{"type": "story", "title": "分享的快乐", "text": "小熊有好多糖果，它把糖果分享给小伙伴们。大家一起吃，好开心！小熊发现分享会让快乐加倍！",
+     "questions": [{"q": "分享会让我们？", "options": ["更开心", "更难过", "更孤单"], "answer": 0}]}]
+}

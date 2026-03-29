@@ -1,0 +1,6 @@
+{
+  "id": "soc_001", "name": "开心与难过", "ageRange": "3-4", "domain": "social", "duration": 5, "difficulty": 1,
+  "objectives": ["认识情绪表达", "学会表达感受"],
+  "content": [{"type": "story", "title": "情绪小怪兽", "text": "开心时我会笑，难过时我会哭，生气时我会瞪眼睛。了解自己的情绪，做情绪的小主人！",
+     "questions": [{"q": "开心时我们会？", "options": ["笑", "哭", "生气"], "answer": 0}]}]
+}

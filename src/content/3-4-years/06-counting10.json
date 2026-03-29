@@ -1,0 +1,6 @@
+{
+  "id": "math_002", "name": "数数1-10", "ageRange": "3-4", "domain": "math", "duration": 5, "difficulty": 1,
+  "objectives": ["会数1-10个物品", "认识数字1-10"],
+  "content": [{"type": "story", "title": "小猪佩奇的生日", "text": "佩奇过生日来了10个小朋友！1、2、3、4、5...10。大家一起吃蛋糕真开心！",
+     "questions": [{"q": "来了几个小朋友？", "options": ["8", "9", "10"], "answer": 2}]}]
+}

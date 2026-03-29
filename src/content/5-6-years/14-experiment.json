@@ -1,0 +1,5 @@
+{
+  "id": "sci_104", "name": "小实验", "ageRange": "5-6", "domain": "science", "duration": 15, "difficulty": 3,
+  "objectives": ["动手做简单实验", "培养科学思维"],
+  "content": [{"type": "experiment", "title": "沉与浮", "materials": ["水盆", "木块", "铁钉", "塑料玩具"], "steps": ["把物品放入水中", "观察是沉还是浮"], "result": "木块和塑料会浮，铁钉会沉"}]
+}

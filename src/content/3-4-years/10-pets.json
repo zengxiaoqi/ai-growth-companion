@@ -1,0 +1,6 @@
+{
+  "id": "sci_002", "name": "可爱的小动物", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
+  "objectives": ["认识常见宠物", "了解动物习性"],
+  "content": [{"type": "story", "title": "我的宠物", "text": "小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞。小朋友们喜欢什么小动物？",
+     "questions": [{"q": "小狗会做什么？", "options": ["游泳", "看家", "飞"], "answer": 1}, {"q": "小鱼生活在哪里？", "options": ["天空", "水里", "地上"], "answer": 1}]}]
+}

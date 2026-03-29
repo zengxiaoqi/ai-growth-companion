@@ -1,0 +1,6 @@
+{
+  "id": "soc_103", "name": "诚实勇敢", "ageRange": "5-6", "domain": "social", "duration": 10, "difficulty": 2,
+  "objectives": ["培养诚实品格", "学会勇敢"],
+  "content": [{"type": "story", "title": "诚实的华盛顿", "text": "华盛顿小时候砍断了爸爸的樱桃树，他勇敢地承认了错误。爸爸不仅没有责怪他，还夸他诚实。",
+     "questions": [{"q": "华盛顿为什么被爸爸表扬？", "options": ["砍树", "承认错误", "跑得快"], "answer": 1}]}]
+}

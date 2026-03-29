@@ -1,0 +1,5 @@
+{
+  "id": "art_103", "name": "手工制作", "ageRange": "5-6", "domain": "art", "duration": 15, "difficulty": 2,
+  "objectives": ["简单手工创作", "锻炼动手能力"],
+  "content": [{"type": "practice", "title": "折纸飞机", "steps": ["准备正方形纸", "对折成三角形", "两边向中线折", "翻过来折翅膀"], "result": "飞得很远的纸飞机"}]
+}

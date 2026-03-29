@@ -1,0 +1,6 @@
+{
+  "id": "math_103", "name": "10以内减法", "ageRange": "5-6", "domain": "math", "duration": 10, "difficulty": 2,
+  "objectives": ["掌握10以内减法", "理解减法意义"],
+  "content": [{"type": "lesson", "title": "减法真简单", "text": "减法就是拿走一部分，数剩下的。比如：5-2=3，5个苹果吃掉2个，还剩3个。",
+     "questions": [{"q": "5-1=?", "options": ["3", "4", "5"], "answer": 1}, {"q": "6-2=?", "options": ["3", "4", "5"], "answer": 1}]}]
+}

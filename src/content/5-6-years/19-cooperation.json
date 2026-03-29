@@ -1,0 +1,5 @@
+{
+  "id": "soc_102", "name": "合作游戏", "ageRange": "5-6", "domain": "social", "duration": 10, "difficulty": 2,
+  "objectives": ["学习合作与交流", "培养团队意识"],
+  "content": [{"type": "game", "title": "搭积木", "description": "和小伙伴一起搭一座城堡，分工合作，你搭墙我搭屋顶。", "skills": ["分工", "交流", "配合"]}]
+}

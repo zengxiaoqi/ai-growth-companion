@@ -1,0 +1,55 @@
+{
+  "id": "math_001",
+  "name": "数数1-5",
+  "ageRange": "3-4",
+  "domain": "math",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "会数1-5个物品",
+    "认识数字1-5",
+    "能够进行简单的点数"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "小兔子数苹果",
+      "text": "兔妈妈给了小兔子一篮子苹果。\n\n小兔子开始数：\n1个苹果，2个苹果，3个苹果，4个苹果，5个苹果！\n\n\"妈妈，我数对了！一共有5个苹果！\"\n兔妈妈笑着说：\"你真棒！\"\n\n小兔子把苹果分给朋友们：\n给小狗1个，给小猫1个，给自己留3个。\n大家一起吃苹果，真开心！",
+      "interactive": {
+        "type": "count",
+        "items": ["🍎", "🍎", "🍎", "🍎", "🍎"],
+        "question": "这里有几个苹果？"
+      }
+    },
+    {
+      "type": "practice",
+      "title": "数一数",
+      "tasks": [
+        {"item": "🐱", "count": 1},
+        {"item": "🐶", "count": 2},
+        {"item": "🐰", "count": 3},
+        {"item": "🐸", "count": 4},
+        {"item": "🦋", "count": 5}
+      ]
+    },
+    {
+      "type": "quiz",
+      "questions": [
+        {
+          "q": "1 + 1 = ?",
+          "options": ["1", "2", "3"],
+          "answer": 1
+        },
+        {
+          "q": "2 + 1 = ?",
+          "options": ["2", "3", "4"],
+          "answer": 1
+        }
+      ]
+    }
+  ],
+  "media": {
+    "images": ["/assets/images/math/counting.png"],
+    "audios": ["/assets/audios/counting.mp3"]
+  }
+}

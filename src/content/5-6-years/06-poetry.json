@@ -1,0 +1,6 @@
+{
+  "id": "lang_105", "name": "古诗启蒙", "ageRange": "5-6", "domain": "language", "duration": 10, "difficulty": 2,
+  "objectives": ["背诵简单古诗", "理解诗意"],
+  "content": [{"type": "lesson", "title": "咏鹅", "poet": "骆宾王", "content": "鹅鹅鹅，曲项向天歌。白毛浮绿水，红掌拨清波。", "meaning": "白白的鹅弯曲着脖子向天唱歌，白色的羽毛漂浮在绿色的水上，红色的脚掌划着清澈的水波。",
+     "questions": [{"q": "鹅的羽毛是什么颜色？", "options": ["白色", "黑色", "灰色"], "answer": 0}]}]
+}

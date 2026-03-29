@@ -1,0 +1,6 @@
+{
+  "id": "art_002", "name": "节奏游戏", "ageRange": "3-4", "domain": "art", "duration": 5, "difficulty": 1,
+  "objectives": ["跟着音乐打节奏", "培养音乐感"],
+  "content": [{"type": "game", "title": "拍拍手", "text": "小燕子穿花衣，年年春天来这里。我们一起拍拍手：拍拍拍、拍拍拍！",
+     "rhythm": [{"beat": "拍拍拍", "pattern": "XX X"}, {"beat": "拍拍拍", "pattern": "XX X"}]}]
+}

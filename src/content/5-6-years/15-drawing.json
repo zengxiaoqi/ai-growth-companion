@@ -1,0 +1,5 @@
+{
+  "id": "art_101", "name": "绘画创作", "ageRange": "5-6", "domain": "art", "duration": 10, "difficulty": 2,
+  "objectives": ["主题绘画创作", "发挥想象力"],
+  "content": [{"type": "practice", "title": "我的家", "hints": ["画一画你的家", "要有房子、窗户、门", "还可以画家人"], "tools": ["画笔", "彩色蜡笔", "水彩"]}]
+}

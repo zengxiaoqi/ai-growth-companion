@@ -1,0 +1,85 @@
+{
+  "id": "lang_101",
+  "name": "认识汉字(一)",
+  "ageRange": "5-6",
+  "domain": "language",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "认识并书写20个基础汉字",
+    "了解汉字的基本笔画",
+    "能够在词语中认读汉字"
+  ],
+  "content": [
+    {
+      "type": "lesson",
+      "title": "日月水火",
+      "characters": [
+        {
+          "char": "日",
+          "meaning": "太阳",
+          "strokes": 4,
+          "words": ["日出", "今日", "生日"],
+          "story": "太阳圆圆的，像一个圆圈，中间有一横，就像太阳发出的光芒。"
+        },
+        {
+          "char": "月",
+          "meaning": "月亮",
+          "strokes": 4,
+          "words": ["月亮", "一月", "月光"],
+          "story": "月亮弯弯的，像小船，两边有短短的竖，就像月亮的边。"
+        },
+        {
+          "char": "水",
+          "meaning": "水",
+          "strokes": 4,
+          "words": ["水果", "喝水", "清水"],
+          "story": "水可以流动，中间有一撇一捺，就像水流的样子。"
+        },
+        {
+          "char": "火",
+          "meaning": "火",
+          "strokes": 4,
+          "words": ["火车", "大火", "点火"],
+          "story": "火苗往上冒，上面是两点，下面是人字形。"
+        }
+      ]
+    },
+    {
+      "type": "practice",
+      "title": "描红练习",
+      "template": "日、月、水、火",
+      "tracing": ["日", "日", "日", "月", "月", "月", "水", "水", "水", "火", "火", "火"]
+    },
+    {
+      "type": "quiz",
+      "questions": [
+        {
+          "q": "哪个是"日"字？",
+          "options": ["☀️", "🌙", "💧"],
+          "answer": 0,
+          "image": true
+        },
+        {
+          "q": ""水"字有几笔？",
+          "options": ["3笔", "4笔", "5笔"],
+          "answer": 1
+        },
+        {
+          "q": ""火"可以用来做什么？",
+          "options": ["取暖", "游泳", "飞行"],
+          "answer": 0
+        }
+      ]
+    }
+  ],
+  "media": {
+    "images": ["/assets/images/lang/characters-1.png"],
+    "videos": ["/assets/videos/writing.mp4"]
+  },
+  "abilities": {
+    "language": 10,
+    "memory": 5,
+    "logic": 3
+  }
+}

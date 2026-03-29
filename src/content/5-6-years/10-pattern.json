@@ -1,0 +1,5 @@
+{
+  "id": "math_105", "name": "找规律", "ageRange": "5-6", "domain": "math", "duration": 10, "difficulty": 2,
+  "objectives": ["发现简单规律", "培养逻辑思维"],
+  "content": [{"type": "game", "title": "规律密码", "patterns": [{"pattern": "🔴🔵🔴🔵?", "answer": "🔴"}, {"pattern": "⭐⭐🌙⭐⭐🌙?", "answer": "⭐"}, {"pattern": "123123?", "answer": "1"}]}]
+}

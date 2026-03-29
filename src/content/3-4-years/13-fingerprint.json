@@ -1,0 +1,6 @@
+{
+  "id": "art_001", "name": "手指画", "ageRange": "3-4", "domain": "art", "duration": 8, "difficulty": 1,
+  "objectives": ["会用手指印画", "感受色彩"],
+  "content": [{"type": "practice", "title": "小手印画", "text": "用手指蘸上颜料，印出漂亮的小手印。红手印、蓝手印、紫手印，变成美丽的彩虹！",
+     "tasks": [{"color": "red", "shape": "圆形"}, {"color": "blue", "shape": "椭圆形"}, {"color": "yellow", "shape": "圆形"}]}]
+}

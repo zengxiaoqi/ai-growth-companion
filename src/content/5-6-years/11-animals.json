@@ -1,0 +1,6 @@
+{
+  "id": "sci_101", "name": "动物分类", "ageRange": "5-6", "domain": "science", "duration": 10, "difficulty": 2,
+  "objectives": ["认识脊椎动物", "了解动物分类"],
+  "content": [{"type": "lesson", "title": "动物大家族", "text": "动物分为脊椎动物和无脊椎动物。狗、猫、鱼、鸟都有骨头，叫做脊椎动物。",
+     "questions": [{"q": "狗属于什么动物？", "options": ["脊椎动物", "无脊椎动物"], "answer": 0}]}]
+}

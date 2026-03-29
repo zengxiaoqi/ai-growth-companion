@@ -1,0 +1,6 @@
+{
+  "id": "sci_001", "name": "我的身体", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
+  "objectives": ["认识身体部位", "了解五官功能"],
+  "content": [{"type": "story", "title": "我的身体", "text": "眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸。我们身体真有用！",
+     "questions": [{"q": "眼睛用来做什么？", "options": ["听", "看", "闻"], "answer": 1}, {"q": "耳朵用来做什么？", "options": ["看", "听", "吃"], "answer": 1}]}]
+}

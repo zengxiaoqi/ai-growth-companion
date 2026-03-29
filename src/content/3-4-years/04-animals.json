@@ -1,0 +1,9 @@
+{
+  "id": "lang_004", "name": "动物朋友", "ageRange": "3-4", "domain": "language", "duration": 8, "difficulty": 1,
+  "objectives": ["认识常见动物", "知道动物叫声", "了解动物习性"],
+  "content": [
+    {"type": "story", "title": "农场里的小动物", "text": "农场里真热闹！小狗汪汪叫，小猫喵喵喵，小牛哞哞叫，小羊咩咩咩。小朋友们快来数一数！",
+     "questions": [{"q": "小狗怎么叫？", "options": ["汪汪", "喵喵", "哞哞"], "answer": 0}, {"q": "小猫怎么叫？", "options": ["汪汪", "喵喵", "咩咩"], "answer": 1}]},
+    {"type": "game", "title": "动物配对", "items": [{"animal": "🐶", "sound": "汪汪"}, {"animal": "🐱", "sound": "喵喵"}, {"animal": "🐮", "sound": "哞哞"}]}
+  ]
+}

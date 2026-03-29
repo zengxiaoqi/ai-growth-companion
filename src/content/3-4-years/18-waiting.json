@@ -1,0 +1,6 @@
+{
+  "id": "soc_003", "name": "排队等候", "ageRange": "3-4", "domain": "social", "duration": 5, "difficulty": 1,
+  "objectives": ["学会轮流和等待", "培养耐心"],
+  "content": [{"type": "story", "title": "小小排队员", "text": "滑滑梯要排队，你滑完我滑。荡秋千要排队，等一等再玩。学会排队，大家都能开心玩！",
+     "questions": [{"q": "玩滑梯时要？", "options": ["插队", "排队", "不看"], "answer": 1}]}]
+}

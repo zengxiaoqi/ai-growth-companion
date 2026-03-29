@@ -1,0 +1,5 @@
+{
+  "id": "lang_104", "name": "看图说话", "ageRange": "5-6", "domain": "language", "duration": 10, "difficulty": 2,
+  "objectives": ["看图描述故事", "连贯表达"],
+  "content": [{"type": "practice", "title": "春天的故事", "images": ["🌸", "🌺", "🦋", "👧"], "hints": ["春天到了", "花朵开了", "蝴蝶飞来了", "小朋友在玩"], "task": "用3-5句话描述图片内容"}]
+}

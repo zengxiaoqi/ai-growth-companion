@@ -1,0 +1,6 @@
+{
+  "id": "lang_102", "name": "认识汉字(二)", "ageRange": "5-6", "domain": "language", "duration": 10, "difficulty": 2,
+  "objectives": ["认识20个常用汉字", "了解汉字含义"],
+  "content": [{"type": "lesson", "title": "人口手足", "characters": [{"char": "人", "meaning": "人类", "words": ["人们", "大人", "病人"]}, {"char": "口", "meaning": "嘴巴", "words": ["口水", "人口", "门口"]}, {"char": "手", "meaning": "手", "words": ["手机", "左手", "右手"]}, {"char": "足", "meaning": "脚", "words": ["足球", "足够", "手足"]}]},
+     {"type": "quiz", "questions": [{"q": "哪个是'人'字？", "options": ["人", "入", "八"], "answer": 0}]}]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "sci_004", "name": "水的世界", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
+  "objectives": ["认识水的特性", "了解水的用途"],
+  "content": [{"type": "story", "title": "水的旅行", "text": "水龙头里流出水，哗哗哗。洗手、洗脸、浇花都用水。小鱼在水里游，水真有用！",
+     "questions": [{"q": "水可以做什么？", "options": ["游泳", "洗手", "飞行"], "answer": 1}]}]
+}

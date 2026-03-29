@@ -1,0 +1,55 @@
+graph TB
+    subgraph 用户层
+        A[孩子端<br/>3-12岁]
+        B[家长端<br/>监控与设置]
+    end
+
+    subgraph AI核心层
+        C[AI陪伴引擎]
+        D[学情分析引擎]
+        E[内容推荐引擎]
+        F[成长路径规划]
+    end
+
+    subgraph 内容层
+        G[年龄分级内容库]
+        H[知识图谱]
+        I[互动游戏库]
+        J[评估题库]
+    end
+
+    subgraph 数据层
+        K[学习行为数据]
+        L[成长档案]
+        M[能力模型]
+    end
+
+    A --> C
+    A --> I
+    B --> D
+    B --> L
+    C --> D
+    C --> E
+    D --> F
+    E --> G
+    E --> H
+    F --> G
+    G --> A
+    C --> K
+    D --> K
+    K --> M
+    M --> F
+
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#f0e6ff
+    style D fill:#f0e6ff
+    style E fill:#f0e6ff
+    style F fill:#f0e6ff
+    style G fill:#e8f5e9
+    style H fill:#e8f5e9
+    style I fill:#e8f5e9
+    style J fill:#e8f5e9
+    style K fill:#ffebee
+    style L fill:#ffebee
+    style M fill:#ffebee

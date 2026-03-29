@@ -1,0 +1,6 @@
+{
+  "id": "math_004", "name": "分类游戏", "ageRange": "3-4", "domain": "math", "duration": 5, "difficulty": 1,
+  "objectives": ["按颜色分类", "按形状分类"],
+  "content": [{"type": "game", "title": "整理玩具", "text": "红色玩具放红盒子，蓝色玩具放蓝盒子，黄色玩具放黄盒子。小朋友快来帮忙！",
+     "tasks": [{"category": "red", "items": ["🔴", "🍎", "🚗"]}, {"category": "blue", "items": ["🔵", "🧢", "🚙"]}, {"category": "yellow", "items": ["🟡", "⭐", "🍌"]}]}]
+}

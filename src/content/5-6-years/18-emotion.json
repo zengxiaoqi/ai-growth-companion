@@ -1,0 +1,6 @@
+{
+  "id": "soc_101", "name": "情绪管理", "ageRange": "5-6", "domain": "social", "duration": 10, "difficulty": 2,
+  "objectives": ["认识情绪", "学会调节情绪"],
+  "content": [{"type": "lesson", "title": "情绪小管家", "text": "生气时深呼吸，悲伤时找朋友倾诉，开心时分享快乐。学会管理情绪，做情绪的主人。",
+     "activities": ["认识各种情绪", "学会调节方法"]}]
+}

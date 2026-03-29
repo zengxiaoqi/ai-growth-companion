@@ -1,0 +1,65 @@
+name: lingxi_companion
+description: 灵犀伴学 - AI 儿童成长伙伴
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # 状态管理
+  provider: ^6.1.1
+  riverpod: ^2.4.9
+  
+  # 网络
+  dio: ^5.3.3
+  
+  # 本地存储
+  shared_preferences: ^2.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # UI 组件
+  cupertino_icons: ^1.0.6
+  cached_network_image: ^3.3.0
+  flutter_svg: ^2.0.9
+  lottie: ^3.0.0
+  
+  # 音频
+  audioplayers: ^5.2.1
+  
+  # 工具
+  uuid: ^4.2.1
+  intl: ^0.18.1
+  json_annotation: ^4.8.1
+  
+  # AI 对话
+  dialog_flowtter: ^0.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  hive_generator: ^2.0.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/audios/
+    - assets/animations/
+  
+  fonts:
+    - family: PingFang
+      fonts:
+        - asset: assets/fonts/PingFang-Regular.ttf
+        - asset: assets/fonts/PingFang-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PingFang-Bold.ttf
+          weight: 700

@@ -1,0 +1,6 @@
+{
+  "id": "lang_103", "name": "绘本阅读", "ageRange": "5-6", "domain": "language", "duration": 10, "difficulty": 2,
+  "objectives": ["简单绘本阅读理解", "培养阅读兴趣"],
+  "content": [{"type": "story", "title": "小红帽", "text": "从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽。有一天，妈妈让小红帽去看望生病的奶奶...", 
+     "questions": [{"q": "小姑娘为什么叫小红帽？", "options": ["喜欢红色", "戴着红帽子", "名字叫红"], "answer": 1}], "pages": 5}]
+}

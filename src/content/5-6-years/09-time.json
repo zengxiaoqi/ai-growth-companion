@@ -1,0 +1,6 @@
+{
+  "id": "math_104", "name": "认识时间", "ageRange": "5-6", "domain": "math", "duration": 10, "difficulty": 2,
+  "objectives": ["认识整点半点", "理解时间概念"],
+  "content": [{"type": "lesson", "title": "时间小管家", "text": "短针指几就是几点，长针指12就是整点。短针指数字，长针指12，就是几点整。",
+     "questions": [{"q": "钟面上长针指12，短针指3，是几点？", "options": ["3点", "12点", "6点"], "answer": 0}]}]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "sci_103", "name": "天气与四季", "ageRange": "5-6", "domain": "science", "duration": 10, "difficulty": 2,
+  "objectives": ["认识四季变化", "了解天气现象"],
+  "content": [{"type": "lesson", "title": "四季的变化", "text": "春天花开了，夏天很热，秋天叶子黄，冬天会下雪。一年有四季，季季都不同。",
+     "questions": [{"q": "春天到了，什么花开了？", "options": ["荷花", "梅花", "桃花"], "answer": 2}]}]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "sci_102", "name": "植物生长", "ageRange": "5-6", "domain": "science", "duration": 10, "difficulty": 2,
+  "objectives": ["了解植物生长过程", "认识植物各部分"],
+  "content": [{"type": "lesson", "title": "种子的旅行", "text": "种子种下去，发芽长叶，慢慢开花结果。植物有根、茎、叶、花、果实。",
+     "questions": [{"q": "植物哪个部分吸收水分？", "options": ["叶子", "根", "花"], "answer": 1}]}]
+}

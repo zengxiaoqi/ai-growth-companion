@@ -1,0 +1,34 @@
+{
+  "id": "lang_003",
+  "name": "形状王国",
+  "ageRange": "3-4",
+  "domain": "language",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "认识圆形、方形、三角形",
+    "能够区分不同形状",
+    "能在生活中找到相应形状"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "形状朋友们",
+      "text": "在形状王国里，住着三个好朋友。\n\n圆形宝宝滚来滚去：\"我是圆形，像球一样！\"\n\n方形宝宝跳来跳去：\"我是方形，有四个角！\"\n\n三角形宝宝站的直：\"我是三角形，有三个角！\"\n\n小朋友们，快来找找它们在哪里吧！",
+      "questions": [
+        {"q": "哪个是圆形？", "options": ["🟦", "🔴", "🔺"], "answer": 1},
+        {"q": "哪个是方形？", "options": ["🔴", "🟦", "🔺"], "answer": 1},
+        {"q": "哪个是三角形？", "options": ["🟦", "🔺", "🔴"], "answer": 1}
+      ]
+    },
+    {
+      "type": "game",
+      "title": "找形状",
+      "shapes": [
+        {"name": "圆形", "items": ["🔴", "🟠", "🟡"], "found": false},
+        {"name": "方形", "items": ["🟦", "🟪", "🟧"], "found": false},
+        {"name": "三角形", "items": ["🔺", "🔻", "⬛"], "found": false}
+      ]
+    }
+  ]
+}

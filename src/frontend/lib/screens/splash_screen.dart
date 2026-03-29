@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'child/child_home_screen.dart';
+import 'parent/parent_home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -31,9 +33,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     
     _controller.forward();
     
-    // 2秒后跳转到主页（这里暂时直接结束）
+    // 2秒后跳转到主页（默认进入家长模式演示）
     Future.delayed(const Duration(seconds: 2), () {
-      // TODO: 检查登录状态，跳转到对应页面
+      if (mounted) {
+        // 默认演示家长模式
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
+        );
+      }
     });
   }
 
@@ -95,6 +102,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       style: TextStyle(
                         fontSize: 16,
                         color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+                    // 演示模式提示
+                    Text(
+                      '正在进入演示模式...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary.withOpacity(0.7),
                       ),
                     ),
                   ],

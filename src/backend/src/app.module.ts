@@ -13,6 +13,7 @@ import { RecommendModule } from './modules/recommend/recommend.module';
 import { ReportModule } from './modules/report/report.module';
 import { GameModule } from './modules/game/game.module';
 import { VoiceModule } from './modules/voice/voice.module';
+import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { VoiceModule } from './modules/voice/voice.module';
     ReportModule,
     GameModule,
     VoiceModule,
+    DatabaseSeederModule,
   ],
 })
 export class AppModule {}

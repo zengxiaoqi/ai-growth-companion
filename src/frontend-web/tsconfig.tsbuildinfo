@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/aichat.tsx","./src/components/loginscreen.tsx","./src/components/modeselection.tsx","./src/components/parentdashboard.tsx","./src/components/registerscreen.tsx","./src/components/studentdashboard.tsx","./src/contexts/authcontext.tsx","./src/lib/utils.ts","./src/services/api.ts","./src/types/index.ts"],"version":"5.8.3"}

@@ -1,0 +1,61 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Custom Colors from Design System */
+  --color-background: #fff7d5;
+  --color-on-surface: #352f00;
+  --color-on-surface-variant: #655c25;
+  
+  --color-primary: #705900;
+  --color-on-primary: #fff2d4;
+  --color-primary-container: #fdd34d;
+  --color-on-primary-container: #5c4900;
+  
+  --color-secondary: #006384;
+  --color-on-secondary: #e6f5ff;
+  --color-secondary-container: #97daff;
+  --color-on-secondary-container: #004d68;
+  
+  --color-tertiary: #586000;
+  --color-on-tertiary: #eefc6f;
+  --color-tertiary-container: #e7f568;
+  --color-on-tertiary-container: #545c00;
+
+  --color-surface-container: #f8e999;
+  --color-surface-container-low: #fff2aa;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #f2e48e;
+  
+  --color-outline: #81783d;
+  --color-outline-variant: #b9ae6e;
+  
+  --color-error: #b02500;
+  --color-error-container: #f95630;
+
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-sans;
+  }
+}
+
+/* Custom Utilities for Tactile Effects */
+@utility tactile-press {
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+@utility shadow-tactile {
+  box-shadow: 0 8px 0 0 rgba(70, 54, 0, 0.2);
+}
+
+@utility shadow-tactile-active {
+  box-shadow: 0 4px 0 0 rgba(70, 54, 0, 0.2);
+}

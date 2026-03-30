@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { 
   Settings, 
   Flag, 
@@ -7,7 +8,6 @@ import {
   Gamepad2, 
   ClipboardList, 
   Star,
-  UserCircle,
   AlertCircle,
   LogOut,
   Sparkles,
@@ -16,23 +16,33 @@ import {
   Calculator,
   Microscope,
   Palette,
-  Users
+  Users,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
+  Trophy
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { Content } from '@/types';
+import type { Content, Recommendation } from '@/types';
 import AIChat from './AIChat';
 
 interface StudentDashboardProps {
   onBack: () => void;
+  onOpenContent: (contentId: number) => void;
+  onOpenAchievements: () => void;
 }
 
-export default function StudentDashboard({ onBack }: StudentDashboardProps) {
+export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements }: StudentDashboardProps) {
   const { user, logout } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [isLoadingRecs, setIsLoadingRecs] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -49,6 +59,19 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
           setContents(contentsRes);
         } catch {
           console.log('Contents API unavailable, using fallback');
+        }
+
+        // Fetch recommendations
+        if (user?.id) {
+          try {
+            setIsLoadingRecs(true);
+            const recsData = await api.getRecommendations({ userId: user.id, ageRange });
+            setRecommendations(recsData);
+          } catch {
+            console.log('Recommendations API unavailable');
+          } finally {
+            setIsLoadingRecs(false);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -78,6 +101,19 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
       case 'art': return Palette;
       case 'social': return Users;
       default: return Users;
+    }
+  };
+
+  // Handle play button click on a content item
+  const handlePlayContent = async (contentId: number) => {
+    if (!user?.id) return;
+    try {
+      await api.startLearning({ childId: user.id, contentId });
+      onOpenContent(contentId);
+    } catch (err) {
+      console.error('Failed to start learning:', err);
+      // Still navigate so user can view content
+      onOpenContent(contentId);
     }
   };
 
@@ -242,6 +278,86 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
           ))}
         </section>
 
+        {/* Recommended for You */}
+        <section className="mb-12 mt-8">
+          <h3 className="text-xl font-black mb-6 px-2 flex items-center gap-2">
+            <Wand2 className="w-5 h-5 text-primary fill-current" />
+            为你推荐
+          </h3>
+
+          {isLoadingRecs ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          ) : recommendations.length === 0 ? null : (
+            <div className="relative group">
+              {/* Scroll Left Arrow */}
+              <button 
+                onClick={() => scrollContainerRef.current?.scrollBy({ left: -260, behavior: 'smooth' })}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-10 h-10 bg-surface-container-lowest rounded-full shadow-lg flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity border border-outline-variant/20 tactile-press"
+              >
+                <ChevronLeft className="w-5 h-5 text-on-surface" />
+              </button>
+
+              {/* Scrollable Cards */}
+              <div 
+                ref={scrollContainerRef}
+                className="flex gap-4 overflow-x-auto pb-2 px-1 snap-x snap-mandatory"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {recommendations.map((rec, idx) => {
+                  const domainStyle = domainIcons[rec.content.domain] || { color: 'bg-surface-container', iconColor: 'text-outline' };
+                  const DomainIcon = getIconComponent(rec.content.domain);
+                  
+                  return (
+                    <motion.div
+                      key={rec.contentId}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.08, duration: 0.4 }}
+                      className="flex-shrink-0 w-60 snap-start"
+                    >
+                      <div className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+                        {/* Domain Icon + Title */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", domainStyle.color)}>
+                            <DomainIcon className={cn("w-5 h-5", domainStyle.iconColor)} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-on-surface text-sm leading-tight line-clamp-2">{rec.content.title}</h4>
+                          </div>
+                        </div>
+
+                        {/* Recommendation Reason */}
+                        <p className="text-xs text-on-surface-variant mb-4 line-clamp-2 flex-1 leading-relaxed">
+                          {rec.reason}
+                        </p>
+
+                        {/* Play Button */}
+                        <button 
+                          onClick={() => handlePlayContent(rec.contentId)}
+                          className="w-full bg-primary text-on-primary py-2.5 rounded-full text-sm font-bold flex items-center justify-center gap-2 tactile-press shadow-tactile active:shadow-tactile-active active:translate-y-0.5 transition-all"
+                        >
+                          <Play className="w-4 h-4 fill-current" />
+                          开始学习
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Scroll Right Arrow */}
+              <button 
+                onClick={() => scrollContainerRef.current?.scrollBy({ left: 260, behavior: 'smooth' })}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-10 h-10 bg-surface-container-lowest rounded-full shadow-lg flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity border border-outline-variant/20 tactile-press"
+              >
+                <ChevronRight className="w-5 h-5 text-on-surface" />
+              </button>
+            </div>
+          )}
+        </section>
+
         {/* Curriculum Section */}
         <section className="mb-12 mt-12">
           <div className="flex justify-between items-center mb-6 px-2">
@@ -263,7 +379,15 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {curriculumData[ageGroup].map((item, idx) => (
+              {curriculumData[ageGroup].map((item, idx) => {
+                const contentId = safeContents.find(c => 
+                  (c.domain === 'language' && item.category === '语言') ||
+                  (c.domain === 'math' && item.category === '数学') ||
+                  (c.domain === 'science' && item.category === '科学') ||
+                  (c.domain === 'art' && item.category === '艺术') ||
+                  (c.domain === 'social' && item.category === '社会')
+                )?.id;
+                return (
                 <div key={idx} className="bg-surface-container-lowest p-6 rounded-[2rem] shadow-sm border border-outline-variant/15 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-4">
@@ -281,7 +405,10 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
                         </div>
                       </div>
                     </div>
-                    <button className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary tactile-press">
+                    <button 
+                      onClick={() => contentId && handlePlayContent(contentId)}
+                      className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary tactile-press"
+                    >
                       <Play className="w-4 h-4 fill-current" />
                     </button>
                   </div>
@@ -293,9 +420,10 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+        )}
         </section>
       </main>
 
@@ -310,10 +438,13 @@ export default function StudentDashboard({ onBack }: StudentDashboardProps) {
             <Gamepad2 className="w-8 h-8 fill-current" />
             <span className="font-black tracking-tight text-[10px] mt-0.5">Play</span>
           </a>
-          <a className="flex flex-col items-center justify-center text-primary opacity-60 p-2 hover:scale-105 hover:opacity-100 transition-all tactile-press" href="#">
-            <UserCircle className="w-6 h-6" />
-            <span className="font-bold tracking-tight text-xs mt-1">Buddy</span>
-          </a>
+          <button
+            onClick={onOpenAchievements}
+            className="flex flex-col items-center justify-center text-primary opacity-60 p-2 hover:scale-105 hover:opacity-100 transition-all tactile-press"
+          >
+            <Trophy className="w-6 h-6" />
+            <span className="font-bold tracking-tight text-xs mt-1">成就</span>
+          </button>
         </div>
       </nav>
 

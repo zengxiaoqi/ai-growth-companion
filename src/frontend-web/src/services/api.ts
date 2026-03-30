@@ -192,6 +192,11 @@ class ApiService {
       body: JSON.stringify(data),
     });
   }
+
+  // Voice TTS
+  getTTSUrl(text: string): string {
+    return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}`;
+  }
 }
 
 export const api = new ApiService();

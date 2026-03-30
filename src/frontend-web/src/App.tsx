@@ -7,13 +7,16 @@ import StudentDashboard from './components/StudentDashboard';
 import ModeSelection from './components/ModeSelection';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
+import ContentDetail from './components/ContentDetail';
+import AchievementShowcase from './components/AchievementShowcase';
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View = 'login' | 'register' | 'selection' | 'parent' | 'student';
+type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements';
 
 function AppContent() {
   const { user, isAuthenticated, isLoading: authLoading, error, login, register, clearError } = useAuth();
   const [view, setView] = useState<View>('login');
+  const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
 
   // When user becomes authenticated, go to selection
   useEffect(() => {
@@ -126,13 +129,57 @@ function AppContent() {
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.5, type: "spring", damping: 20 }}
           >
-            <StudentDashboard onBack={() => setView('selection')} />
+            <StudentDashboard 
+              onBack={() => setView('selection')}
+              onOpenContent={(contentId: number) => {
+                setSelectedContentId(contentId);
+                setView('content-detail');
+              }}
+              onOpenAchievements={() => setView('achievements')}
+            />
+          </motion.div>
+        )}
+
+        {view === 'content-detail' && selectedContentId && (
+          <motion.div
+            key="content-detail"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <ContentDetail 
+              contentId={selectedContentId}
+              childId={user?.type === 'child' ? user.id : undefined}
+              onBack={() => {
+                setSelectedContentId(null);
+                setView('student');
+              }}
+              onComplete={() => {
+                // Could refresh dashboard data here
+              }}
+            />
+          </motion.div>
+        )}
+
+        {view === 'achievements' && (
+          <motion.div
+            key="achievements"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <AchievementShowcase
+              userId={user?.id ?? 0}
+              onBack={() => setView('student')}
+            />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Global Security Badge (Visible in Selection & Student) */}
-      {view !== 'parent' && view !== 'login' && view !== 'register' && (
+      {view !== 'parent' && view !== 'login' && view !== 'register' && view !== 'achievements' && (
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}

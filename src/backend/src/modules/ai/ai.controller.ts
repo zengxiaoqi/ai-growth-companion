@@ -9,14 +9,40 @@ export class AiController {
 
   @Post('chat')
   @ApiOperation({ summary: 'AI 对话' })
-  async chat(@Body() body: { message: string; context?: any; history?: any[] }) {
-    return this.aiService.chat(body.message, body.context, body.history);
+  async chat(
+    @Body()
+    body: {
+      message: string;
+      context?: any;
+      history?: any[];
+      childId?: number;
+    },
+  ) {
+    return this.aiService.chat(
+      body.message,
+      body.context,
+      body.history,
+      body.childId,
+    );
+  }
+
+  @Post('story')
+  @ApiOperation({ summary: 'AI 故事生成（年龄自适应）' })
+  async generateStory(
+    @Body()
+    body: {
+      childId: number;
+      theme?: string;
+      ageRange?: '3-4' | '5-6';
+    },
+  ) {
+    return this.aiService.generateStory(body);
   }
 
   @Post('generate-story')
-  @ApiOperation({ summary: '生成故事' })
-  async generateStory(@Body() body: { topic: string; age: number }) {
-    return this.aiService.generateStory(body.topic, body.age);
+  @ApiOperation({ summary: '生成故事（旧接口）' })
+  async generateStoryLegacy(@Body() body: { topic: string; age: number }) {
+    return this.aiService.generateStoryLegacy(body.topic, body.age);
   }
 
   @Post('evaluate')

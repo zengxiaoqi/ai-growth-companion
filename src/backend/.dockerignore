@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+*.db
+*.sqlite
+.git
+.gitignore
+.vscode
+.idea
+coverage
+test
+README.md

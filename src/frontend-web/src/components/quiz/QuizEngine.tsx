@@ -7,6 +7,8 @@ import {
   Star,
   ArrowRight,
   Sparkles,
+  PartyPopper,
+  Flame,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -107,6 +109,8 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', damping: 20, stiffness: 200 }}
         className="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 text-center space-y-6"
+        role="status"
+        aria-label={`学习完成，得分${pct}%，答对${correctCount}题`}
       >
         {/* Trophy */}
         <motion.div
@@ -123,9 +127,10 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="text-2xl font-black text-on-surface mb-2"
+            className="text-2xl font-black text-on-surface mb-2 flex items-center justify-center gap-2"
           >
-            🎉 学习完成！
+            <PartyPopper className="w-7 h-7 text-tertiary" />
+            学习完成！
           </motion.h3>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -143,6 +148,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="flex items-center justify-center gap-3"
+          aria-label={`${stars}颗星`}
         >
           {Array.from({ length: 3 }).map((_, i) => (
             <motion.div
@@ -189,11 +195,18 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           <span className="text-sm font-bold text-on-surface-variant">
             {currentQuestion.sectionTitle}
           </span>
-          <span className="text-sm font-bold text-primary">
+          <span className="text-sm font-bold text-primary" aria-live="polite">
             {currentIndex + 1} / {totalQuestions}
           </span>
         </div>
-        <div className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden">
+        <div
+          className="w-full h-2.5 bg-surface-container rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={currentIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={totalQuestions}
+          aria-label="答题进度"
+        >
           <motion.div
             className="h-full bg-primary rounded-full"
             initial={{ width: 0 }}
@@ -220,8 +233,9 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
             {currentQuestion.q}
           </h4>
 
-          {/* Options */}
-          <div className="space-y-3">
+          {/* Options — semantic radio group */}
+          <fieldset className="space-y-3 border-0 p-0 m-0">
+            <legend className="sr-only">选择答案</legend>
             {currentQuestion.options.map((option, idx) => {
               const isCorrectOption = idx === currentQuestion.answer;
               const isSelected = idx === selectedOption;
@@ -231,6 +245,10 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
               return (
                 <motion.button
                   key={idx}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedOption === idx}
+                  aria-label={`选项${String.fromCharCode(65 + idx)}: ${option}`}
                   onClick={() => handleSelect(idx)}
                   disabled={isRevealed}
                   initial={{ opacity: 0, y: 10 }}
@@ -275,7 +293,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                 </motion.button>
               );
             })}
-          </div>
+          </fieldset>
 
           {/* Feedback Message */}
           <AnimatePresence>
@@ -284,16 +302,26 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
+                role="status"
+                aria-live="polite"
                 className={cn(
-                  'rounded-xl p-4 text-center font-bold text-lg',
+                  'rounded-xl p-4 text-center font-bold text-lg flex items-center justify-center gap-2',
                   selectedOption === currentQuestion.answer
                     ? 'bg-[#e8f5e9] text-[#2e7d32]'
                     : 'bg-[#fff8e1] text-[#e65100]'
                 )}
               >
-                {selectedOption === currentQuestion.answer
-                  ? '太棒了！🎉'
-                  : '加油哦！再试试~'}
+                {selectedOption === currentQuestion.answer ? (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    太棒了！
+                  </>
+                ) : (
+                  <>
+                    <Flame className="w-5 h-5" />
+                    加油哦！再试试~
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

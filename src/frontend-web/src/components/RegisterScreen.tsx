@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Lock, User, Calendar, Users, Loader2 } from 'lucide-react';
+import { Phone, Lock, User, Calendar, Users, Loader2, Eye, EyeOff } from 'lucide-react';
 import type { RegisterRequest } from '@/types';
 
 interface RegisterScreenProps {
@@ -16,6 +16,8 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
   const [name, setName] = useState('');
   const [type, setType] = useState<'parent' | 'child'>('parent');
   const [age, setAge] = useState<number | undefined>(undefined);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +68,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="请输入手机号"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                   pattern="1[3-9]\d{9}"
                   maxLength={11}
@@ -88,7 +90,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="请输入姓名"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                 />
               </div>
@@ -104,14 +106,22 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请设置密码（至少6位）"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                   minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -125,14 +135,22 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
-                  type="password"
+                  type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="请再次输入密码"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                   minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                  aria-label={showConfirm ? '隐藏密码' : '显示密码'}
+                >
+                  {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 
@@ -148,7 +166,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as 'parent' | 'child')}
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface focus:outline-none focus:border-primary focus:ring-0 transition-colors appearance-none cursor-pointer"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors appearance-none cursor-pointer"
                 >
                   <option value="parent">家长</option>
                   <option value="child">孩子</option>
@@ -171,7 +189,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                     value={age ?? ''}
                     onChange={(e) => setAge(e.target.value ? parseInt(e.target.value) : undefined)}
                     placeholder="请输入年龄"
-                    className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                    className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                     min={3}
                     max={12}
                     required

@@ -17,14 +17,13 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { 
-  Bell, 
-  Settings, 
-  Baby, 
-  Trophy, 
-  Timer, 
-  ShieldCheck, 
-  Eye, 
+import {
+  Settings,
+  Baby,
+  Trophy,
+  Timer,
+  ShieldCheck,
+  Eye,
   ArrowRight,
   UserCircle,
   LogOut,
@@ -38,9 +37,10 @@ import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { GrowthReport, Achievement, ParentControl, AbilityReport, Ability } from '@/types';
+import type { GrowthReport, Achievement, ParentControl, AbilityReport, Ability, User } from '@/types';
 import AIChat from './AIChat';
 import ReportDetail from './ReportDetail';
+import NotificationPanel from './NotificationPanel';
 
 const defaultChartData = [
   { name: '周一', time: 45 },
@@ -95,6 +95,25 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showReportDetail, setShowReportDetail] = useState(false);
 
+  // Child management
+  const [children, setChildren] = useState<User[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+  const [showLinkChild, setShowLinkChild] = useState(false);
+  const [linkPhone, setLinkPhone] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSuccess, setLinkSuccess] = useState(false);
+
+  // Study schedule
+  const [studySchedule, setStudySchedule] = useState<Record<string, { enabled: boolean; start: string; end: string }>>({
+    '周一': { enabled: true, start: '09:00', end: '11:00' },
+    '周二': { enabled: true, start: '09:00', end: '11:00' },
+    '周三': { enabled: true, start: '09:00', end: '11:00' },
+    '周四': { enabled: true, start: '09:00', end: '11:00' },
+    '周五': { enabled: true, start: '09:00', end: '11:00' },
+    '周六': { enabled: false, start: '10:00', end: '12:00' },
+    '周日': { enabled: false, start: '10:00', end: '12:00' },
+  });
+
   // Parent controls editing state
   const [editDailyLimit, setEditDailyLimit] = useState(30);
   const [editAllowedDomains, setEditAllowedDomains] = useState<string[]>(ALL_DOMAINS);
@@ -105,14 +124,27 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.id) return;
-      
+
       try {
         setIsLoading(true);
+
+        // Fetch children list
+        try {
+          const childrenData = await api.getChildren(user.id);
+          setChildren(childrenData);
+          if (childrenData.length > 0 && !selectedChildId) {
+            setSelectedChildId(childrenData[0].id);
+          }
+        } catch {
+          console.log('Children API unavailable');
+        }
+
+        const targetUserId = selectedChildId || user.id;
 
         // Fetch report data
         try {
           const report = await api.getReport({
-            userId: user.id,
+            userId: targetUserId,
             period: 'weekly',
           });
           setReportData(report);
@@ -122,7 +154,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
         // Fetch achievements
         try {
-          const achievementsData = await api.getAchievements(user.id);
+          const achievementsData = await api.getAchievements(targetUserId);
           setAchievements(achievementsData);
         } catch {
           console.log('Achievements API unavailable');
@@ -140,7 +172,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
         // Fetch abilities
         try {
-          const abilitiesData = await api.getAbilities(user.id);
+          const abilitiesData = await api.getAbilities(targetUserId);
           setAbilityReport(abilitiesData);
         } catch {
           console.log('Abilities API unavailable, using fallback data');
@@ -153,7 +185,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     };
 
     fetchData();
-  }, [user?.id]);
+  }, [user?.id, selectedChildId]);
 
   // Transform report data for chart
   const chartData = reportData?.dailyStats?.map(stat => ({
@@ -197,6 +229,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       const updated = await api.updateControls(user.id, {
         dailyLimitMinutes: editDailyLimit,
         allowedDomains: editAllowedDomains,
+        studySchedule,
       });
       setControls(updated);
       setSaveSuccess(true);
@@ -215,6 +248,26 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         : [...prev, domain]
     );
   };
+
+  // Link child handler
+  const handleLinkChild = async () => {
+    if (!linkPhone) return;
+    setLinkError(null);
+    setLinkSuccess(false);
+    try {
+      const newChild = await api.linkChild(linkPhone);
+      setChildren(prev => [...prev, newChild]);
+      if (!selectedChildId) setSelectedChildId(newChild.id);
+      setLinkPhone('');
+      setLinkSuccess(true);
+      setTimeout(() => { setLinkSuccess(false); setShowLinkChild(false); }, 1500);
+    } catch (err: any) {
+      setLinkError(err?.message || '关联失败，请检查手机号');
+    }
+  };
+
+  // Get selected child info
+  const selectedChild = children.find(c => c.id === selectedChildId);
 
   // Recent mastered skills
   const recentMastered = [
@@ -252,15 +305,14 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="p-3 hover:bg-surface-container-low rounded-xl transition-colors">
-              <Bell className="w-6 h-6 text-on-secondary-container" />
-            </button>
-            <button className="p-3 hover:bg-surface-container-low rounded-xl transition-colors">
+            <NotificationPanel userId={user?.id ?? 0} />
+            <button className="p-3 hover:bg-surface-container-low rounded-xl transition-colors" aria-label="设置">
               <Settings className="w-6 h-6 text-on-secondary-container" />
             </button>
-            <button 
+            <button
               onClick={handleLogout}
               className="p-3 hover:bg-error-container/10 rounded-xl transition-colors text-error"
+              aria-label="退出登录"
             >
               <LogOut className="w-6 h-6" />
             </button>
@@ -281,14 +333,68 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               <h2 className="text-4xl font-extrabold tracking-tight">下午好，{userName}</h2>
               <p className="text-lg text-on-surface-variant max-w-lg">这是您孩子的最新学习动态。所有系统运行正常，内容过滤已开启。</p>
             </div>
-            <div className="bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-4 shadow-sm">
+            <div className="relative bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-4 shadow-sm">
               <div className="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center">
                 <Baby className="w-5 h-5 text-on-tertiary-container" />
               </div>
               <div>
                 <p className="text-xs font-bold text-outline uppercase tracking-wider">当前学生</p>
-                <p className="text-sm font-bold">小明 (2年级)</p>
+                {selectedChild ? (
+                  <button
+                    onClick={() => setShowLinkChild(!showLinkChild)}
+                    className="text-sm font-bold flex items-center gap-1 hover:opacity-70 transition-opacity"
+                  >
+                    {selectedChild.name} ({selectedChild.age ? `${selectedChild.age}岁` : '未设置'})
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowLinkChild(true)}
+                    className="text-sm font-bold text-primary hover:opacity-70 transition-opacity"
+                  >
+                    + 关联孩子账号
+                  </button>
+                )}
               </div>
+              {showLinkChild && (
+                <div className="absolute top-full mt-2 right-0 bg-surface-container-lowest rounded-2xl p-4 shadow-xl border border-outline-variant/15 z-50 w-80">
+                  {children.length > 0 && (
+                    <div className="mb-3 space-y-1">
+                      {children.map(child => (
+                        <button
+                          key={child.id}
+                          onClick={() => { setSelectedChildId(child.id); setShowLinkChild(false); }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+                            child.id === selectedChildId ? "bg-primary-container text-on-primary-container" : "hover:bg-surface-container-high"
+                          )}
+                        >
+                          {child.name} ({child.age ? `${child.age}岁` : '未设置'})
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="border-t border-outline-variant/15 pt-3">
+                    <p className="text-xs font-bold text-on-surface-variant mb-2">关联新的孩子账号</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        placeholder="孩子账号手机号"
+                        value={linkPhone}
+                        onChange={(e) => { setLinkPhone(e.target.value); setLinkError(null); }}
+                        className="flex-1 px-3 py-2 rounded-lg border border-outline-variant/30 text-sm focus:outline-none focus:border-primary"
+                      />
+                      <button
+                        onClick={handleLinkChild}
+                        className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold"
+                      >
+                        关联
+                      </button>
+                    </div>
+                    {linkError && <p className="text-xs text-error mt-1">{linkError}</p>}
+                    {linkSuccess && <p className="text-xs text-green-600 mt-1">关联成功！</p>}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -630,14 +736,78 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   </>
                 )}
               </motion.button>
+
+              {/* Study Schedule */}
+              <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/15">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-2xl bg-primary-container/30 flex items-center justify-center">
+                    <BookOpen className="w-8 h-8 text-on-primary-container" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg">学习日程</h4>
+                    <p className="text-sm text-on-surface-variant">设置每日学习时间段</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {Object.entries(studySchedule).map(([day, schedule]) => (
+                    <div key={day} className="flex items-center gap-3">
+                      <button
+                        onClick={() => setStudySchedule(prev => ({
+                          ...prev,
+                          [day]: { ...prev[day], enabled: !prev[day].enabled }
+                        }))}
+                        className={cn(
+                          "w-12 h-6 rounded-full relative transition-colors shrink-0",
+                          schedule.enabled ? "bg-primary" : "bg-outline-variant/30"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 bg-white rounded-full transition-all",
+                          schedule.enabled ? "right-1" : "left-1"
+                        )} />
+                      </button>
+                      <span className={cn("text-sm font-medium w-10", schedule.enabled ? "text-on-surface" : "text-on-surface-variant opacity-50")}>{day}</span>
+                      {schedule.enabled ? (
+                        <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                          <input
+                            type="time"
+                            value={schedule.start}
+                            onChange={(e) => setStudySchedule(prev => ({
+                              ...prev,
+                              [day]: { ...prev[day], start: e.target.value }
+                            }))}
+                            className="px-2 py-1 rounded-lg border border-outline-variant/30 text-xs bg-transparent"
+                          />
+                          <span>-</span>
+                          <input
+                            type="time"
+                            value={schedule.end}
+                            onChange={(e) => setStudySchedule(prev => ({
+                              ...prev,
+                              [day]: { ...prev[day], end: e.target.value }
+                            }))}
+                            className="px-2 py-1 rounded-lg border border-outline-variant/30 text-xs bg-transparent"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant opacity-50">休息日</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="bg-surface-container-low rounded-2xl p-8 flex flex-col justify-between overflow-hidden relative">
               <div className="relative z-10">
                 <span className="bg-on-tertiary-container text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">AI 智能洞察</span>
-                <h3 className="text-3xl font-bold mt-6 text-on-secondary-container leading-tight">孩子在"逻辑思维"领域的兴趣正在显著提升。</h3>
+                <h3 className="text-3xl font-bold mt-6 text-on-secondary-container leading-tight">
+                  {selectedChild
+                    ? `${selectedChild.name}在"逻辑思维"领域的兴趣正在显著提升。`
+                    : '孩子在"逻辑思维"领域的兴趣正在显著提升。'}
+                </h3>
                 <p className="mt-4 text-on-surface-variant leading-relaxed">
-                  基于过去48小时的行为分析，我们建议为小明增加一些初级编程或数学解谜类的内容，这非常符合他目前的认知发展阶段。
+                  基于过去48小时的行为分析，我们建议增加一些初级编程或数学解谜类的内容，这非常符合目前的认知发展阶段。
                 </p>
                 <button className="mt-8 bg-on-secondary-container text-white px-8 py-4 rounded-xl font-bold hover:scale-105 transition-transform flex items-center gap-2">
                   调整学习计划

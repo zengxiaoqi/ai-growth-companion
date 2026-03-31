@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Settings, 
-  Flag, 
-  Play, 
-  BookOpen, 
-  Gamepad2, 
-  ClipboardList, 
+import {
+  Settings,
+  Flag,
+  Play,
+  BookOpen,
+  Gamepad2,
+  ClipboardList,
   Star,
   AlertCircle,
   LogOut,
@@ -21,7 +21,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Wand2,
-  Trophy
+  Trophy,
+  UserCircle
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,9 +34,11 @@ interface StudentDashboardProps {
   onBack: () => void;
   onOpenContent: (contentId: number) => void;
   onOpenAchievements: () => void;
+  onOpenProfile: () => void;
+  onOpenSettings: () => void;
 }
 
-export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements }: StudentDashboardProps) {
+export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements, onOpenProfile, onOpenSettings }: StudentDashboardProps) {
   const { user, logout } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const [contents, setContents] = useState<Content[]>([]);
@@ -178,14 +181,26 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
             <h1 className="text-2xl font-bold tracking-tight">灵犀伴学</h1>
           </div>
           <div className="flex gap-2">
-            <button className="p-3 hover:bg-surface-container rounded-xl transition-colors">
+            <button
+              onClick={onOpenProfile}
+              aria-label="个人中心"
+              className="p-3 hover:bg-surface-container rounded-xl transition-colors"
+            >
+              <UserCircle className="w-6 h-6 text-on-secondary-container" />
+            </button>
+            <button
+              onClick={onOpenSettings}
+              aria-label="设置"
+              className="p-3 hover:bg-surface-container rounded-xl transition-colors"
+            >
               <Settings className="w-6 h-6 text-on-secondary-container" />
             </button>
-            <button 
+            <button
               onClick={() => {
                 logout();
                 onBack();
               }}
+              aria-label="退出登录"
               className="p-3 hover:bg-error-container/10 rounded-xl transition-colors text-error"
             >
               <LogOut className="w-6 h-6" />
@@ -292,9 +307,10 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
           ) : recommendations.length === 0 ? null : (
             <div className="relative group">
               {/* Scroll Left Arrow */}
-              <button 
+              <button
                 onClick={() => scrollContainerRef.current?.scrollBy({ left: -260, behavior: 'smooth' })}
                 className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-10 h-10 bg-surface-container-lowest rounded-full shadow-lg flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity border border-outline-variant/20 tactile-press"
+                aria-label="向左滚动"
               >
                 <ChevronLeft className="w-5 h-5 text-on-surface" />
               </button>
@@ -348,9 +364,10 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
               </div>
 
               {/* Scroll Right Arrow */}
-              <button 
+              <button
                 onClick={() => scrollContainerRef.current?.scrollBy({ left: 260, behavior: 'smooth' })}
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-10 h-10 bg-surface-container-lowest rounded-full shadow-lg flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity border border-outline-variant/20 tactile-press"
+                aria-label="向右滚动"
               >
                 <ChevronRight className="w-5 h-5 text-on-surface" />
               </button>
@@ -449,7 +466,7 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
       </nav>
 
       {/* Emergency FAB */}
-      <button className="fixed right-6 bottom-32 w-16 h-16 bg-error rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-40 border-b-4 border-error-dim">
+      <button aria-label="紧急呼叫" className="fixed right-6 bottom-32 w-16 h-16 bg-error rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-40 border-b-4 border-error-dim">
         <AlertCircle className="w-8 h-8 fill-current" />
       </button>
 

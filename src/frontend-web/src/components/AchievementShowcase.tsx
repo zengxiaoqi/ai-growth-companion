@@ -15,6 +15,9 @@ import {
   Award,
   Target,
   TrendingUp,
+  Sprout,
+  TreePine,
+  TreeDeciduous,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
@@ -96,13 +99,13 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   );
   const level = Math.floor(totalPoints / 100) + 1;
 
-  // Growth tree levels (based on unlocked count)
+  // Growth tree levels — SVG icons instead of emoji
   const treeLevels = [
-    { label: '种子', min: 0, emoji: '🌱' },
-    { label: '小芽', min: 1, emoji: '🌿' },
-    { label: '小树', min: 3, emoji: '🌲' },
-    { label: '大树', min: 6, emoji: '🌳' },
-    { label: '参天大树', min: 10, emoji: '🏆' },
+    { label: '种子', min: 0, Icon: Sprout, color: 'text-green-400' },
+    { label: '小芽', min: 1, Icon: Sprout, color: 'text-green-500' },
+    { label: '小树', min: 3, Icon: TreePine, color: 'text-green-600' },
+    { label: '大树', min: 6, Icon: TreeDeciduous, color: 'text-green-700' },
+    { label: '参天大树', min: 10, Icon: Trophy, color: 'text-primary' },
   ];
 
   const currentTreeLevel = [...treeLevels].reverse().find((l) => unlockedCount >= l.min) || treeLevels[0];
@@ -136,7 +139,8 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
         <div className="flex items-center gap-4 px-6 py-4 max-w-4xl mx-auto">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-surface-container rounded-xl transition-colors"
+            aria-label="返回"
+            className="p-2.5 hover:bg-surface-container rounded-xl transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-on-surface" />
           </button>
@@ -203,7 +207,8 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
           className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15"
         >
           <h3 className="text-lg font-black text-on-surface mb-4 flex items-center gap-2">
-            🌱 成长之树
+            <Sprout className="w-5 h-5 text-green-500" />
+            成长之树
           </h3>
           <div className="flex items-end justify-between gap-2 px-2">
             {treeLevels.map((lvl, i) => {
@@ -216,7 +221,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.15 + i * 0.08, type: 'spring', damping: 12 }}
                     className={cn(
-                      'w-14 h-14 rounded-full flex items-center justify-center text-2xl border-2 transition-all',
+                      'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all',
                       isCurrent
                         ? 'bg-primary-container border-primary shadow-lg scale-110'
                         : isActive
@@ -224,7 +229,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
                         : 'bg-surface-container border-outline-variant/20 opacity-40'
                     )}
                   >
-                    {lvl.emoji}
+                    <lvl.Icon className={cn('w-7 h-7', isActive ? lvl.color : 'text-on-surface-variant')} />
                   </motion.div>
                   <span
                     className={cn(

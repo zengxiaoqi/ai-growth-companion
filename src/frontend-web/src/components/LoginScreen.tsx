@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Lock, Loader2 } from 'lucide-react';
+import { Phone, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface LoginScreenProps {
   onLogin: (phone: string, password: string) => Promise<void>;
@@ -11,6 +11,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoading }: LoginScreenProps) {
   const [phone, setPhone] = useState('13800000001');
   const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +60,7 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="请输入手机号"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                   pattern="1[3-9]\d{9}"
                   maxLength={11}
@@ -77,14 +78,22 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                   <Lock className="w-5 h-5" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-0 transition-colors"
+                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
                   required
                   minLength={6}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             </div>
 

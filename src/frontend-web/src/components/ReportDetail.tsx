@@ -5,6 +5,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts';
@@ -138,7 +139,8 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
         <div className="flex items-center gap-4 w-full px-8 py-6 max-w-7xl mx-auto">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-surface-container-low rounded-xl transition-colors"
+            className="p-2.5 hover:bg-surface-container-low rounded-xl transition-colors"
+            aria-label="返回"
           >
             <ChevronLeft className="w-7 h-7 text-on-secondary-container" />
           </button>
@@ -252,6 +254,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                     cursor={{ fill: 'transparent' }}
                     contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
+                  <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
                   <Bar dataKey="minutes" name="学习时长" radius={[6, 6, 0, 0]} fill="#006384" />
                   <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="#586000" />
                 </BarChart>

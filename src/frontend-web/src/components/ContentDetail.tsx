@@ -305,9 +305,10 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
         {/* Header */}
         <header className="sticky top-0 bg-surface-container-low z-40 border-b border-outline-variant/15">
           <div className="flex items-center gap-4 px-6 py-4 max-w-4xl mx-auto">
-            <button 
+            <button
               onClick={onBack}
-              className="p-2 hover:bg-surface-container rounded-xl transition-colors"
+              aria-label="返回"
+              className="p-2.5 hover:bg-surface-container rounded-xl transition-colors"
             >
               <ArrowLeft className="w-6 h-6 text-on-surface" />
             </button>
@@ -423,6 +424,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
                   <button
                     onClick={handleToggleAudio}
                     disabled={audioLoading}
+                    aria-label={isPlayingAudio ? '暂停播放' : audioLoading ? '加载中' : '播放语音'}
                     className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center flex-shrink-0 tactile-press shadow-tactile active:shadow-tactile-active active:translate-y-0.5 transition-all disabled:opacity-60"
                   >
                     {audioLoading ? (

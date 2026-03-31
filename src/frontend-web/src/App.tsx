@@ -1,22 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import ParentDashboard from './components/ParentDashboard';
-import StudentDashboard from './components/StudentDashboard';
+import { useReducedMotion } from './hooks/useReducedMotion';
 import ModeSelection from './components/ModeSelection';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
-import ContentDetail from './components/ContentDetail';
-import AchievementShowcase from './components/AchievementShowcase';
+
+const ParentDashboard = lazy(() => import('./components/ParentDashboard'));
+const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
+const ContentDetail = lazy(() => import('./components/ContentDetail'));
+const AchievementShowcase = lazy(() => import('./components/AchievementShowcase'));
+const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
+const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements';
+type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings';
+
+function PageLoader() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-on-surface-variant text-sm">加载中...</p>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   const { user, isAuthenticated, isLoading: authLoading, error, login, register, clearError } = useAuth();
   const [view, setView] = useState<View>('login');
   const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
+
+  const viewTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.3 };
+
+  const slideTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.4, ease: "easeOut" as const };
 
   // When user becomes authenticated, go to selection
   useEffect(() => {
@@ -48,7 +72,7 @@ function AppContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              transition={viewTransition}
             >
               <LoginScreen
                 onLogin={async (phone, password) => {
@@ -70,7 +94,7 @@ function AppContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              transition={viewTransition}
             >
               <RegisterScreen
                 onRegister={async (data) => {
@@ -100,7 +124,7 @@ function AppContent() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
+            transition={viewTransition}
           >
             <ModeSelection 
               onSelectMode={(mode) => setView(mode as View)}
@@ -115,9 +139,11 @@ function AppContent() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={slideTransition}
           >
-            <ParentDashboard onBack={() => setView('selection')} />
+            <Suspense fallback={<PageLoader />}>
+              <ParentDashboard onBack={() => setView('selection')} />
+            </Suspense>
           </motion.div>
         )}
 
@@ -127,16 +153,20 @@ function AppContent() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.5, type: "spring", damping: 20 }}
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.5, type: "spring", damping: 20 }}
           >
-            <StudentDashboard 
+            <Suspense fallback={<PageLoader />}>
+              <StudentDashboard
               onBack={() => setView('selection')}
               onOpenContent={(contentId: number) => {
                 setSelectedContentId(contentId);
                 setView('content-detail');
               }}
               onOpenAchievements={() => setView('achievements')}
+              onOpenProfile={() => setView('profile')}
+              onOpenSettings={() => setView('settings')}
             />
+            </Suspense>
           </motion.div>
         )}
 
@@ -146,9 +176,10 @@ function AppContent() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={slideTransition}
           >
-            <ContentDetail 
+            <Suspense fallback={<PageLoader />}>
+            <ContentDetail
               contentId={selectedContentId}
               childId={user?.type === 'child' ? user.id : undefined}
               onBack={() => {
@@ -159,6 +190,7 @@ function AppContent() {
                 // Could refresh dashboard data here
               }}
             />
+            </Suspense>
           </motion.div>
         )}
 
@@ -168,12 +200,42 @@ function AppContent() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={slideTransition}
           >
+            <Suspense fallback={<PageLoader />}>
             <AchievementShowcase
               userId={user?.id ?? 0}
               onBack={() => setView('student')}
             />
+            </Suspense>
+          </motion.div>
+        )}
+
+        {view === 'profile' && (
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={slideTransition}
+          >
+            <Suspense fallback={<PageLoader />}>
+            <ProfileScreen onBack={() => setView('student')} />
+            </Suspense>
+          </motion.div>
+        )}
+
+        {view === 'settings' && (
+          <motion.div
+            key="settings"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={slideTransition}
+          >
+            <Suspense fallback={<PageLoader />}>
+            <SettingsScreen onBack={() => setView('student')} />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>

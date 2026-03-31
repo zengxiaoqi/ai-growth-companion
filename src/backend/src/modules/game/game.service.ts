@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
+import { Content } from '../../database/entities/content.entity';
 
 interface GameResult {
   gameId: string;
@@ -26,6 +27,8 @@ export class GameService {
   constructor(
     @InjectRepository(LearningRecord)
     private learningRecordRepository: Repository<LearningRecord>,
+    @InjectRepository(Content)
+    private contentRepository: Repository<Content>,
   ) {}
 
   /**
@@ -78,13 +81,12 @@ export class GameService {
    */
   async saveGameResult(userId: number, gameId: string, result: GameResult) {
     // 计算得分
-    const score = result.correctAnswers > 0 
+    const score = result.correctAnswers > 0
       ? Math.round((result.correctAnswers / result.totalQuestions) * 100)
       : 0;
 
-    // 记录到学习记录
-    // TODO: Map gameId to actual contentId from database
-    const contentIdNum = parseInt(gameId) || 1;
+    // Map gameId to contentId by matching game domain to content
+    const contentIdNum = await this.resolveContentId(gameId);
     const record = this.learningRecordRepository.create({
       uuid: crypto.randomUUID(),
       userId,
@@ -98,6 +100,15 @@ export class GameService {
     });
 
     return this.learningRecordRepository.save(record);
+  }
+
+  private async resolveContentId(gameId: string): Promise<number> {
+    const domain = this.getGameDomain(gameId);
+    const content = await this.contentRepository.findOne({
+      where: { domain, status: 'published' } as any,
+      order: { id: 'ASC' },
+    });
+    return content?.id ?? 1;
   }
 
   /**

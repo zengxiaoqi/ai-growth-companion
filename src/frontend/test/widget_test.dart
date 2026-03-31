@@ -1,30 +1,81 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:lingxi_companion/main.dart';
+import 'package:lingxi_companion/app.dart';
+import 'package:lingxi_companion/services/storage_service.dart';
+import 'package:lingxi_companion/services/api_service.dart';
+import 'package:lingxi_companion/services/ai_service.dart';
+import 'package:lingxi_companion/providers/user_provider.dart';
+import 'package:lingxi_companion/providers/learning_provider.dart';
+import 'package:lingxi_companion/providers/content_provider.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App shows splash screen initially', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storageService = StorageService(prefs);
+    final apiService = ApiService();
+    final aiService = AiService(apiService);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<StorageService>.value(value: storageService),
+          Provider<ApiService>.value(value: apiService),
+          Provider<AiService>.value(value: aiService),
+          ChangeNotifierProvider(
+            create: (_) => UserProvider(storageService),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => LearningProvider(storageService),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => ContentProvider(),
+          ),
+        ],
+        child: const LingxiApp(),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Should show splash/login screen since no user is logged in
+    expect(find.text('灵犀伴学'), findsOneWidget);
+  });
+
+  testWidgets('App renders MaterialApp with correct title', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storageService = StorageService(prefs);
+    final apiService = ApiService();
+    final aiService = AiService(apiService);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<StorageService>.value(value: storageService),
+          Provider<ApiService>.value(value: apiService),
+          Provider<AiService>.value(value: aiService),
+          ChangeNotifierProvider(
+            create: (_) => UserProvider(storageService),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => LearningProvider(storageService),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => ContentProvider(),
+          ),
+        ],
+        child: const LingxiApp(),
+      ),
+    );
+
+    await tester.pump();
+
+    // Verify MaterialApp is present
+    final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(materialApp.title, '灵犀伴学');
   });
 }

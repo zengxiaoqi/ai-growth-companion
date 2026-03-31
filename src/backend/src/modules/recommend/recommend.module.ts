@@ -5,10 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { Content } from '../../database/entities/content.entity';
 import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
+import { ParentControl } from '../../database/entities/parent-control.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([LearningRecord, Content, AbilityAssessment]),
+    TypeOrmModule.forFeature([LearningRecord, Content, AbilityAssessment, ParentControl]),
   ],
   providers: [RecommendService],
   controllers: [RecommendController],

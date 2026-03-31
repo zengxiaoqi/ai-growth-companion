@@ -29,6 +29,9 @@ export class User {
   @Column({ nullable: true })
   parentId: number;
 
+  @Column({ nullable: true })
+  pin: string;
+
   @Column({ type: 'simple-json', nullable: true })
   settings: any;
 

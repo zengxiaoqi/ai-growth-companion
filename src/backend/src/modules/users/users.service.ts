@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../database/entities/user.entity';
@@ -41,5 +41,26 @@ export class UsersService {
     if (result.affected === 0) {
       throw new NotFoundException('用户不存在');
     }
+  }
+
+  async linkChild(parentId: number, childPhone: string): Promise<User> {
+    const parent = await this.findById(parentId);
+    if (!parent || parent.type !== 'parent') {
+      throw new BadRequestException('仅家长账号可关联孩子');
+    }
+
+    const child = await this.findByPhone(childPhone);
+    if (!child) {
+      throw new NotFoundException('未找到该手机号对应的用户');
+    }
+    if (child.type !== 'child') {
+      throw new BadRequestException('只能关联孩子类型的账号');
+    }
+    if (child.parentId === parentId) {
+      return child;
+    }
+
+    child.parentId = parentId;
+    return this.usersRepository.save(child);
   }
 }

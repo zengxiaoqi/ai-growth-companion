@@ -45,4 +45,16 @@ export class RegisterDto {
   @IsOptional()
   @IsInt()
   parentId?: number;
+
+  @ApiPropertyOptional({ description: '家长管理密码（4位数字）' })
+  @IsOptional()
+  @IsString()
+  pin?: string;
+}
+
+export class VerifyPinDto {
+  @ApiProperty({ description: '家长管理密码（4位数字）' })
+  @IsString()
+  @IsNotEmpty()
+  pin: string;
 }

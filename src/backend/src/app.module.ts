@@ -13,6 +13,8 @@ import { RecommendModule } from './modules/recommend/recommend.module';
 import { ReportModule } from './modules/report/report.module';
 import { GameModule } from './modules/game/game.module';
 import { VoiceModule } from './modules/voice/voice.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { SseModule } from './modules/sse/sse.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 @Module({
@@ -49,6 +51,8 @@ import { DatabaseSeederModule } from './database/seeds/seeder.module';
     ReportModule,
     GameModule,
     VoiceModule,
+    NotificationModule,
+    SseModule,
     DatabaseSeederModule,
   ],
 })

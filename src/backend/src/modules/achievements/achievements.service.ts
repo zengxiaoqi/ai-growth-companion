@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Achievement } from '../../database/entities/achievement.entity';
+import { NotificationService } from '../notification/notification.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class AchievementsService {
   constructor(
     @InjectRepository(Achievement)
     private achievementRepository: Repository<Achievement>,
+    private notificationService: NotificationService,
   ) {}
 
   async create(data: { userId: number; type: string; name: string; description?: string }) {
@@ -19,7 +21,15 @@ export class AchievementsService {
       achievementName: data.name,
       description: data.description,
     });
-    return this.achievementRepository.save(achievement);
+    const saved = await this.achievementRepository.save(achievement);
+
+    // Send notification for new achievement
+    await this.notificationService.notifyAchievement(
+      data.userId,
+      data.name,
+    );
+
+    return saved;
   }
 
   async findById(id: number) {

@@ -19,6 +19,7 @@ import type {
   GrowthReport,
   Recommendation,
   RecommendationParams,
+  Notification,
 } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -92,6 +93,21 @@ class ApiService {
     this.setToken(null);
   }
 
+  // PIN Verification
+  async verifyPin(pin: string): Promise<{ valid: boolean; needsSetup?: boolean }> {
+    return this.request<{ valid: boolean; needsSetup?: boolean }>('/auth/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin }),
+    });
+  }
+
+  async setPin(pin: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/auth/set-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin }),
+    });
+  }
+
   // Users
   async getUser(id: number): Promise<User> {
     return this.request<User>(`/users/${id}`);
@@ -101,6 +117,18 @@ class ApiService {
     return this.request<User>(`/users/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Children
+  async getChildren(parentId: number): Promise<User[]> {
+    return this.request<User[]>(`/users/children/${parentId}`);
+  }
+
+  async linkChild(childPhone: string): Promise<User> {
+    return this.request<User>('/users/link-child', {
+      method: 'POST',
+      body: JSON.stringify({ childPhone }),
     });
   }
 
@@ -197,6 +225,23 @@ class ApiService {
   // Voice TTS
   getTTSUrl(text: string): string {
     return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}`;
+  }
+
+  // Notifications
+  async getNotifications(userId: number): Promise<{ notifications: Notification[]; unreadCount: number }> {
+    return this.request<{ notifications: Notification[]; unreadCount: number }>(`/notifications/${userId}`);
+  }
+
+  async markNotificationRead(id: number): Promise<Notification> {
+    return this.request<Notification>(`/notifications/${id}/read`, {
+      method: 'POST',
+    });
+  }
+
+  async markAllNotificationsRead(userId: number): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/notifications/user/${userId}/read-all`, {
+      method: 'POST',
+    });
   }
 }
 

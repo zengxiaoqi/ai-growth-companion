@@ -190,3 +190,15 @@ export interface ReportParams {
   userId: number;
   period: 'daily' | 'weekly' | 'monthly';
 }
+
+// Notification Types
+export interface Notification {
+  id: number;
+  userId: number;
+  title: string;
+  message: string;
+  type: 'system' | 'achievement' | 'learning' | 'reminder';
+  read: boolean;
+  relatedId?: number;
+  createdAt: string;
+}

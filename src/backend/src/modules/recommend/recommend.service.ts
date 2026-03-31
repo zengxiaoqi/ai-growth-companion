@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { Content } from '../../database/entities/content.entity';
 import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
+import { ParentControl } from '../../database/entities/parent-control.entity';
 
 interface RecommendParams {
   userId: number;
@@ -19,6 +20,8 @@ export class RecommendService {
     private contentRepository: Repository<Content>,
     @InjectRepository(AbilityAssessment)
     private abilityRepository: Repository<AbilityAssessment>,
+    @InjectRepository(ParentControl)
+    private controlRepository: Repository<ParentControl>,
   ) {}
 
   /**
@@ -51,6 +54,7 @@ export class RecommendService {
       domainScores,
       abilities,
       recentRecords.map(r => r.contentId),
+      userId,
     );
 
     const reason = this.generateReason(domainScores, abilities);
@@ -87,22 +91,35 @@ export class RecommendService {
     domainScores: Record<string, number>,
     abilities: AbilityAssessment[],
     excludeIds: number[],
+    userId?: number,
   ) {
-    // 找出用户最弱的领域优先推荐
+    // Find out weak domains to prioritize
     const weakDomains = this.getWeakDomains(abilities, domainScores);
-    
-    // 查询推荐内容
+
+    // Check parent controls for allowed domains
+    let allowedDomains: string[] | null = null;
+    if (userId) {
+      const control = await this.controlRepository.findOne({
+        where: { childId: userId },
+      });
+      if (control?.allowedDomains?.length > 0) {
+        allowedDomains = control.allowedDomains;
+      }
+    }
+
+    // Build query
     const query = this.contentRepository.createQueryBuilder('content')
       .where('content.ageRange = :ageRange', { ageRange })
       .andWhere('content.status = :status', { status: 'published' });
-    
+
     if (excludeIds.length > 0) {
       query.andWhere('content.id NOT IN (:...excludeIds)', { excludeIds });
     }
 
-    // 优先推荐薄弱领域
-    if (weakDomains.length > 0) {
-      query.andWhere('content.domain IN (:...domains)', { domains: weakDomains });
+    // Apply parent domain filter (overrides weak domain logic)
+    const domainsToUse = allowedDomains || weakDomains;
+    if (domainsToUse.length > 0) {
+      query.andWhere('content.domain IN (:...domains)', { domains: domainsToUse });
     }
 
     return query

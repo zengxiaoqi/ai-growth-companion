@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AiService } from './ai.service';
 
@@ -55,5 +55,14 @@ export class AiController {
   @ApiOperation({ summary: '学习建议' })
   async suggestion(@Body() body: { abilities: any; age: number }) {
     return this.aiService.generateSuggestion(body.abilities, body.age);
+  }
+
+  @Get('suggest')
+  @ApiOperation({ summary: '获取学习建议（GET 方式）' })
+  async getSuggestion(
+    @Query('userId') userId?: number,
+    @Query('ageRange') ageRange?: '3-4' | '5-6',
+  ) {
+    return this.aiService.generateSuggestion(null, ageRange === '3-4' ? 4 : ageRange === '5-6' ? 6 : 5);
   }
 }

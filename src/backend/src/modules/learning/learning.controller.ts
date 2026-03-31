@@ -12,8 +12,8 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '开始学习' })
-  async start(@Body() body: { userId: number; contentId: number }) {
-    return this.learningService.create(body.userId, body.contentId);
+  async start(@Body() body: { childId: number; contentId: number }) {
+    return this.learningService.create(body.childId, body.contentId);
   }
 
   @Post('complete/:id')

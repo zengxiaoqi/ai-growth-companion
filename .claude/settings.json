@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "NotebookEdit",
+      "WebFetch",
+      "WebSearch",
+      "TodoWrite",
+      "TaskOutput",
+      "TaskStop"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo rm:*)",
+      "Bash(del /s /q:*)",
+      "Bash(rd /s /q:*)",
+      "Bash(powershell Remove-Item -Recurse -Force:*)",
+      "Bash(format:*)",
+      "Bash(mkfs:*)",
+      "Bash(dd if=:*)",
+      "Bash(shutdown:*)",
+      "Bash(reboot:*)",
+      "Bash(taskkill /f:*)",
+      "Bash(docker system prune -a:*)",
+      "Bash(docker volume prune:*)",
+      "Bash(docker builder prune -a:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git checkout --:*)",
+      "Bash(git restore --source=:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true
+}

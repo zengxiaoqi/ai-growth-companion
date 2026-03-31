@@ -169,7 +169,8 @@ class ApiService {
     searchParams.set('userId', String(params.userId));
     if (params.ageRange) searchParams.set('ageRange', params.ageRange);
     
-    return this.request<Recommendation[]>(`/recommend?${searchParams.toString()}`);
+    const response = await this.request<{ recommended: Recommendation[]; reason: string; nextLevel: unknown }>(`/recommend?${searchParams.toString()}`);
+    return response.recommended;
   }
 
   // Reports

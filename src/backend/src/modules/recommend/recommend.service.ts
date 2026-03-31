@@ -46,16 +46,25 @@ export class RecommendService {
     const domainScores = this.analyzePreferences(recentRecords);
 
     // 4. 获取推荐内容
-    const recommended = await this.getRecommendedContent(
+    const recommendedContents = await this.getRecommendedContent(
       ageRange,
       domainScores,
       abilities,
       recentRecords.map(r => r.contentId),
     );
 
+    const reason = this.generateReason(domainScores, abilities);
+
+    const recommendations = recommendedContents.map((content, index) => ({
+      contentId: content.id,
+      content,
+      reason,
+      priority: recommendedContents.length - index,
+    }));
+
     return {
-      recommended,
-      reason: this.generateReason(domainScores, abilities),
+      recommended: recommendations,
+      reason,
       nextLevel: this.suggestNextLevel(abilities),
     };
   }

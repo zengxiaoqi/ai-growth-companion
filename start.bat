@@ -44,7 +44,7 @@ echo.
 
 set "PROJECT_DIR=%~dp0"
 
-start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && npx ts-node -r tsconfig-paths/register src/main.ts"
+start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && npx nest start --watch"
 
 echo Waiting for backend to start...
 timeout /t 8 /nobreak >nul

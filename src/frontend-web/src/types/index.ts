@@ -115,10 +115,12 @@ export interface Achievement {
 export interface ChatMessage {
   message: string;
   childId?: number;
+  sessionId?: string;
 }
 
 export interface ChatResponse {
   reply: string;
+  sessionId?: string;
   suggestions?: string[];
 }
 

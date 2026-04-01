@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -41,7 +41,6 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
   const [audioLoading, setAudioLoading] = useState(false);
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Parse interactive content from JSON
   const quizSections: QuizSection[] = useMemo(() => {
@@ -102,49 +101,46 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
     }
   }, [contentId]);
 
-  // Cleanup audio on unmount
+  // Cleanup speech on unmount
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      window.speechSynthesis.cancel();
     };
   }, []);
 
-  // Toggle audio playback
+  // Toggle audio playback using Web Speech API
   const handleToggleAudio = useCallback(() => {
     if (!content?.content) return;
 
-    if (isPlayingAudio && audioRef.current) {
-      audioRef.current.pause();
+    if (isPlayingAudio) {
+      window.speechSynthesis.cancel();
       setIsPlayingAudio(false);
       return;
     }
 
-    setAudioLoading(true);
     const textToSpeak = displayText || content.content;
-    const ttsUrl = api.getTTSUrl(textToSpeak);
-    const audio = new Audio(ttsUrl);
-    audioRef.current = audio;
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.85;
+    utterance.pitch = 1.1;
 
-    audio.oncanplaythrough = () => {
+    utterance.onstart = () => {
       setAudioLoading(false);
       setIsPlayingAudio(true);
-      audio.play();
     };
 
-    audio.onended = () => {
+    utterance.onend = () => {
       setIsPlayingAudio(false);
-      audioRef.current = null;
     };
 
-    audio.onerror = () => {
+    utterance.onerror = () => {
       setAudioLoading(false);
+      setIsPlayingAudio(false);
       console.error('TTS audio playback error');
     };
 
-    audio.load();
+    setAudioLoading(true);
+    window.speechSynthesis.speak(utterance);
   }, [content?.content, displayText, isPlayingAudio]);
 
   // Handle start learning

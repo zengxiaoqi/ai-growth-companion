@@ -1,64 +1,18 @@
-import { Injectable } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { AgentExecutor } from './agent/agent-executor';
+import { ConversationManager } from './conversation/conversation-manager';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
-
-/** Age group classification for adaptive dialogue */
-type AgeGroup = '3-4' | '5-6' | 'unknown';
+import { UsersService } from '../users/users.service';
+import { LlmConfig } from './llm/llm.config';
+import { LlmClient } from './llm/llm-client';
+import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
 
 @Injectable()
 export class AiService {
-  // Age-adaptive prompt templates
-  private readonly agePromptTemplates = {
-    '3-4': {
-      prefix: '哇！',
-      suffix: ' 🌟✨',
-      encouragements: [
-        '太棒了！🌟',
-        '你真聪明！🎉',
-        '好厉害呀！👏',
-        '哇！你好棒！🥰',
-        '太好了！🌈',
-      ],
-      followUp: [
-        '你还想知道什么呢？😊',
-        '我们再来玩一个游戏吧！🎮',
-        '你还能想到什么呀？🤔',
-      ],
-      style: 'very_simple' as const,
-    },
-    '5-6': {
-      prefix: '',
-      suffix: '',
-      encouragements: [
-        '说得很好！让我们来深入了解吧~',
-        '你学得真快！可以再想想这个问题吗？',
-        '太好了！这个问题很有趣，我们一起来探索吧~',
-        '回答得不错！你知道为什么会这样吗？',
-        '你的想法很棒！让我们来验证一下~',
-      ],
-      followUp: [
-        '你能告诉我更多关于这个的知识吗？',
-        '你觉得还有什么和这个有关系呢？',
-        '我们一起来找找答案吧！',
-      ],
-      style: 'simple_educational' as const,
-    },
-    unknown: {
-      prefix: '',
-      suffix: '',
-      encouragements: [
-        '太棒了！继续加油~ 🌟',
-        '你真聪明！🎉',
-        '让我们一起学习吧！📚',
-        '太好了，这个问题问得很好！',
-        '我喜欢你提出的问题，继续探索吧~ ✨',
-      ],
-      followUp: [],
-      style: 'neutral' as const,
-    },
-  };
+  private readonly logger = new Logger(AiService.name);
 
-  private defaultResponses = [
+  // Fallback template responses when LLM is unavailable
+  private readonly fallbackResponses = [
     '太棒了！继续加油~ 🌟',
     '你真聪明！🎉',
     '让我们一起学习吧！📚',
@@ -67,147 +21,251 @@ export class AiService {
   ];
 
   constructor(
-    private readonly usersService: UsersService,
+    private readonly agentExecutor: AgentExecutor,
+    private readonly conversationManager: ConversationManager,
     private readonly contentSafetyService: ContentSafetyService,
+    private readonly usersService: UsersService,
+    private readonly llmConfig: LlmConfig,
+    private readonly llmClient: LlmClient,
   ) {}
 
-  /** Classify a numeric age into an age group */
-  private classifyAge(age: number | undefined | null): AgeGroup {
-    if (age == null) return 'unknown';
-    if (age >= 3 && age <= 4) return '3-4';
-    if (age >= 5 && age <= 6) return '5-6';
-    return 'unknown';
-  }
+  /** Main chat endpoint — uses Agent with function calling */
+  async chat(params: ChatRequest): Promise<ChatResponse> {
+    const { message, childId, sessionId, context } = params;
 
-  /** Look up a user's age from the Users service */
-  private async getUserAge(childId: number | undefined): Promise<number | null> {
-    if (!childId) return null;
+    // Resolve user info
+    const user = await this.usersService.findById(childId);
+    if (!user) {
+      return {
+        reply: '找不到你的信息，请重新登录试试~',
+        sessionId: '',
+      };
+    }
+
+    const age = context?.age ?? user.age;
+    const ageGroup = this.agentExecutor.classifyAge(age);
+    const childName = user.name || '小朋友';
+
+    // Check if LLM is available
+    if (!this.llmConfig.isConfigured) {
+      return this.fallbackChat(message, childId);
+    }
+
     try {
-      const user = await this.usersService.findById(childId);
-      return user?.age ?? null;
-    } catch {
-      return null;
+      // Get or create conversation session
+      const session = await this.conversationManager.getOrCreateSession(childId, sessionId);
+
+      // Update session metadata
+      await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
+
+      // Execute agent
+      const result = await this.agentExecutor.execute(
+        session.uuid,
+        message,
+        ageGroup,
+        childName,
+      );
+
+      // Generate suggestions based on the reply
+      const suggestions = this.generateSuggestions(result.reply, ageGroup);
+
+      return {
+        reply: result.reply,
+        sessionId: session.uuid,
+        suggestions,
+        toolCalls: result.toolCalls,
+      };
+    } catch (error) {
+      this.logger.error(`Agent chat failed: ${error.message}`);
+      return this.fallbackChat(message, childId);
     }
   }
 
-  async chat(
-    message: string,
-    context: any,
-    history: any[] = [],
-    childId?: number,
-  ) {
-    // Resolve age: explicit > context > user lookup
-    let age: number | undefined | null = context?.age;
-    if (age == null && childId) {
-      age = await this.getUserAge(childId);
-    }
-    const ageGroup = this.classifyAge(age);
-    const template = this.agePromptTemplates[ageGroup];
+  /** Streaming chat — yields tokens via AsyncGenerator */
+  async *chatStream(params: ChatRequest): AsyncGenerator<{
+    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result';
+    content?: string;
+    thinkingContent?: string;
+    toolName?: string;
+    toolArgs?: Record<string, any>;
+    toolResult?: string;
+    sessionId?: string;
+    wasFiltered?: boolean;
+    suggestions?: string[];
+    toolCalls?: any[];
+    message?: string;
+  }> {
+    const { message, childId, sessionId, context } = params;
 
-    // Select base response
-    const idx = message.length % template.encouragements.length;
-    let response = template.encouragements[idx];
-
-    // Apply age-adaptive styling
-    if (template.style === 'very_simple') {
-      // 3-4: Very simple, emoji-rich, prefix with excitement
-      response = template.prefix + response + template.suffix;
-      const followUp = template.followUp[message.length % template.followUp.length];
-      response = response + ' ' + followUp;
-    } else if (template.style === 'simple_educational') {
-      // 5-6: Slightly more complex, ask follow-up questions
-      const followUp = template.followUp[message.length % template.followUp.length];
-      response = response + ' ' + followUp;
+    const user = await this.usersService.findById(childId);
+    if (!user) {
+      yield { type: 'error', message: '找不到你的信息' };
+      return;
     }
 
-    // Run content through safety filter
-    const safe = this.contentSafetyService.filterContent(response);
+    const age = context?.age ?? user.age;
+    const ageGroup = this.agentExecutor.classifyAge(age);
+    const childName = user.name || '小朋友';
 
-    return { response: safe.content };
+    if (!this.llmConfig.isConfigured) {
+      const fallback = this.getFallbackResponse(message);
+      yield { type: 'token', content: fallback };
+      yield { type: 'done', suggestions: [] };
+      return;
+    }
+
+    try {
+      const session = await this.conversationManager.getOrCreateSession(childId, sessionId);
+      await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
+
+      const suggestions = this.generateSuggestions('', ageGroup);
+
+      for await (const event of this.agentExecutor.executeStream(
+        session.uuid,
+        message,
+        ageGroup,
+        childName,
+      )) {
+        if (event.type === 'done') {
+          yield {
+            ...event,
+            sessionId: session.uuid,
+            suggestions,
+          };
+        } else {
+          yield event;
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Agent stream failed: ${error.message}`);
+      yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~' };
+    }
   }
 
-  /**
-   * Generate an age-appropriate educational story.
-   */
+  /** Generate a quiz on demand */
+  async generateQuiz(params: QuizRequest): Promise<QuizResponse> {
+    const { childId, topic, count = 3 } = params;
+
+    const user = await this.usersService.findById(childId);
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    const age = user.age;
+    const ageGroup: AgeGroup = age >= 3 && age <= 4 ? '3-4' : '5-6';
+    const difficulty = ageGroup === '3-4' ? 1 : 2;
+
+    const prompt = `请为${ageGroup}岁的孩子生成${count}道关于"${topic}"的选择题。
+
+要求：
+- 难度适中
+- 每道题3个选项
+- 内容适合${ageGroup}岁儿童
+- 用简单有趣的语言
+
+请严格按以下JSON格式返回，不要加任何其他文字：
+[
+  {
+    "question": "题目",
+    "options": ["选项A", "选项B", "选项C"],
+    "correctIndex": 0,
+    "explanation": "答案解析"
+  }
+]`;
+
+    const response = await this.llmClient.generate(prompt);
+    const jsonMatch = response.match(/\[[\s\S]*\]/);
+
+    if (!jsonMatch) {
+      // Fallback quiz
+      return {
+        questions: [{
+          question: `关于${topic}，下面哪个是对的？`,
+          options: ['选项A', '选项B', '选项C'],
+          correctIndex: 0,
+          explanation: '这是正确答案的解释~',
+        }],
+        topic,
+        ageGroup,
+      };
+    }
+
+    const questions = JSON.parse(jsonMatch[0]);
+    // Safety filter on quiz content
+    for (const q of questions) {
+      const safe = this.contentSafetyService.filterContent(q.question);
+      q.question = safe.content;
+    }
+
+    return { questions, topic, ageGroup };
+  }
+
+  /** Fallback to template responses when LLM is unavailable */
+  private async fallbackChat(message: string, _childId: number): Promise<ChatResponse> {
+    const reply = this.getFallbackResponse(message);
+    return { reply, sessionId: '' };
+  }
+
+  private getFallbackResponse(message: string): string {
+    const idx = message.length % this.fallbackResponses.length;
+    return this.fallbackResponses[idx];
+  }
+
+  /** Generate follow-up suggestion chips */
+  private generateSuggestions(reply: string, ageGroup: AgeGroup): string[] {
+    if (ageGroup === '3-4') {
+      return ['我想学颜色 🎨', '给我讲故事 📖', '我们玩游戏吧 🎮'];
+    }
+    return ['推荐学习内容', '出一道数学题', '我最近学得怎么样？'];
+  }
+
+  // ========== Legacy endpoints preserved for backward compatibility ==========
+
   async generateStory(params: {
     childId: number;
     theme?: string;
     ageRange?: '3-4' | '5-6';
   }): Promise<{ title: string; content: string; questions: string[] }> {
     const { childId, theme, ageRange } = params;
-
-    // Resolve age group
-    let resolvedAgeGroup: AgeGroup = ageRange ?? 'unknown';
-    if (!ageRange) {
-      const userAge = await this.getUserAge(childId);
-      resolvedAgeGroup = this.classifyAge(userAge);
-    }
-
+    const user = await this.usersService.findById(childId);
+    const age = user?.age;
+    const ageGroup = ageRange ?? (age >= 3 && age <= 4 ? '3-4' : age >= 5 && age <= 6 ? '5-6' : '5-6') as AgeGroup;
     const storyTopic = theme ?? '友谊与分享';
 
-    // Age-appropriate story templates
-    const story = this.buildStory(storyTopic, resolvedAgeGroup);
+    // Try LLM first
+    if (this.llmConfig.isConfigured) {
+      try {
+        const prompt = `请为${ageGroup}岁的孩子编一个关于"${storyTopic}"的简短故事。
 
-    // Run through safety filter
+要求：
+- 语言简单有趣，适合${ageGroup}岁儿童
+- 有教育意义
+- 包含emoji表情
+
+请按以下JSON格式返回：
+{
+  "title": "故事标题",
+  "content": "故事内容",
+  "questions": ["问题1", "问题2", "问题3"]
+}`;
+
+        const response = await this.llmClient.generate(prompt);
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const story = JSON.parse(jsonMatch[0]);
+          return this.contentSafetyService.filterStoryResponse(story);
+        }
+      } catch (error) {
+        this.logger.warn(`LLM story generation failed, using template: ${error.message}`);
+      }
+    }
+
+    // Template fallback
+    const story = this.buildStoryTemplate(storyTopic, ageGroup);
     return this.contentSafetyService.filterStoryResponse(story);
   }
 
-  private buildStory(
-    topic: string,
-    ageGroup: AgeGroup,
-  ): { title: string; content: string; questions: string[] } {
-    if (ageGroup === '3-4') {
-      return {
-        title: `小兔子的${topic}故事 🐰`,
-        content:
-          `从前，有一只可爱的小兔子🐰。` +
-          `小兔子最喜欢和朋友一起玩！有一天，小兔子学习了关于"${topic}"的事情。` +
-          `小兔子说："哇！${topic}好好玩呀！"🌟\n\n` +
-          `小兔子把学到的东西分享给了好朋友小熊🐻。` +
-          `小熊说："谢谢你，小兔子！你真棒！"🎉\n\n` +
-          `小兔子开心地笑了，因为它学到了新东西，还和好朋友分享了！太棒了！🌈`,
-        questions: [
-          '小兔子学了什么呀？🐰',
-          '小兔子把学到的东西分享给了谁？',
-          '你觉得小兔子开心吗？为什么呢？😊',
-        ],
-      };
-    }
-
-    if (ageGroup === '5-6') {
-      return {
-        title: `探索${topic}的奇妙之旅 🌍`,
-        content:
-          `在一个美丽的小镇上，住着一群爱学习的好朋友。` +
-          `有一天，他们决定一起去探索"${topic}"的奥秘。\n\n` +
-          `他们首先发现了关于${topic}的很多有趣的知识。` +
-          `小明说："原来${topic}有这么多我们不知道的秘密！" ` +
-          `小红说："是呀！我觉得我们还能发现更多呢。"\n\n` +
-          `经过认真的观察和思考，他们终于弄明白了${topic}的原理。` +
-          `大家都非常高兴，因为他们通过自己的努力学到了新知识。\n\n` +
-          `回家的路上，小明说："学习真有趣！下次我们再一起探索新的知识吧！" ` +
-          `大家都开心地点了点头。🌟`,
-        questions: [
-          `故事里的小朋友们探索了什么？`,
-          `他们是怎么发现${topic}的秘密的？`,
-          `如果是你，你会怎么去探索${topic}呢？`,
-          `你从故事中学到了什么道理？`,
-        ],
-      };
-    }
-
-    // Unknown age - neutral story
-    return {
-      title: `${topic}的故事`,
-      content:
-        `在一个遥远的森林里，住着一只可爱的小动物。有一天，它遇到了关于"${topic}"的有趣事情。` +
-        `经过努力探索，它终于明白了${topic}的道理！`,
-      questions: [`关于${topic}，你学到了什么？`],
-    };
-  }
-
   async evaluateLearning(contentId: number, answers: any[], age: number) {
-    // Simple scoring logic
     const correctCount = answers.filter((a, i) => i % 2 === 0).length;
     const score = Math.round((correctCount / answers.length) * 100);
 
@@ -220,14 +278,8 @@ export class AiService {
       feedback = '再接再厉哦~';
     }
 
-    // Run through safety filter
     const safe = this.contentSafetyService.filterContent(feedback);
-
-    return {
-      score,
-      feedback: safe.content,
-      stars: score >= 80 ? 3 : score >= 60 ? 2 : 1,
-    };
+    return { score, feedback: safe.content, stars: score >= 80 ? 3 : score >= 60 ? 2 : 1 };
   }
 
   async generateSuggestion(abilities: any, age: number) {
@@ -242,24 +294,45 @@ export class AiService {
     return { suggestion: safe.content };
   }
 
-  /**
-   * Legacy story generation - kept for backward compatibility.
-   * Used by POST /ai/generate-story.
-   */
   async generateStoryLegacy(topic: string, age: number) {
     const stories = {
       short: `从前有一只小动物，它${topic}...最后它学到了...`,
-      medium: `在一个遥远的森林里，住着一只可爱的小动物。有一天，它遇到了${topic}的挑战...经过努力，它终于成功了！这个故事告诉我们...`,
+      medium: `在一个遥远的森林里，住着一只可爱的小动物。有一天，它遇到了${topic}的挑战...经过努力，它终于成功了！`,
     };
-
     const content = age < 4 ? stories.short : stories.medium;
     const safe = this.contentSafetyService.filterContent(content);
-    const safeTitle = this.contentSafetyService.filterContent(`${topic}的故事`);
+    return { title: `${topic}的故事`, content: safe.content, duration: age < 4 ? 3 : 5 };
+  }
 
+  private buildStoryTemplate(
+    topic: string,
+    ageGroup: AgeGroup,
+  ): { title: string; content: string; questions: string[] } {
+    if (ageGroup === '3-4') {
+      return {
+        title: `小兔子的${topic}故事 🐰`,
+        content:
+          `从前，有一只可爱的小兔子🐰。小兔子最喜欢和朋友一起玩！有一天，小兔子学习了关于"${topic}"的事情。` +
+          `小兔子说："哇！${topic}好好玩呀！"🌟\n\n` +
+          `小兔子把学到的东西分享给了好朋友小熊🐻。小熊说："谢谢你，小兔子！你真棒！"🎉\n\n` +
+          `小兔子开心地笑了，因为它学到了新东西，还和好朋友分享了！太棒了！🌈`,
+        questions: [
+          '小兔子学了什么呀？🐰',
+          '小兔子把学到的东西分享给了谁？',
+          '你觉得小兔子开心吗？为什么呢？😊',
+        ],
+      };
+    }
     return {
-      title: safeTitle.content,
-      content: safe.content,
-      duration: age < 4 ? 3 : 5,
+      title: `探索${topic}的奇妙之旅 🌍`,
+      content:
+        `在一个美丽的小镇上，住着一群爱学习的好朋友。有一天，他们决定一起去探索"${topic}"的奥秘。\n\n` +
+        `经过认真的观察和思考，他们终于弄明白了${topic}的原理。大家都非常高兴！\n\n` +
+        `回家的路上，小明说："学习真有趣！下次我们再一起探索新的知识吧！" 🌟`,
+      questions: [
+        `故事里的小朋友们探索了什么？`,
+        `如果是你，你会怎么去探索${topic}呢？`,
+      ],
     };
   }
 }

@@ -245,10 +245,10 @@ function AppContent() {
         <motion.div 
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-surface-container-low rounded-full border border-outline-variant/15 flex items-center gap-3 shadow-xl z-50 pointer-events-none"
+          className="fixed bottom-28 left-1/2 -translate-x-1/2 px-5 py-2 bg-surface-container-low/90 backdrop-blur-sm rounded-full border border-outline-variant/15 flex items-center gap-2 shadow-lg z-30 pointer-events-none"
         >
-          <Shield className="w-5 h-5 text-primary" />
-          <span className="text-on-surface text-sm font-medium">由灵犀安全卫士实时守护您的孩子</span>
+          <Shield className="w-4 h-4 text-primary" />
+          <span className="text-on-surface-variant text-xs font-medium">由灵犀安全卫士实时守护您的孩子</span>
         </motion.div>
       )}
     </div>

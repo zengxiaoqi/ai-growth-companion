@@ -182,6 +182,24 @@ class ApiService {
     });
   }
 
+  // AI Chat Stream (SSE)
+  sendChatMessageStream(data: ChatMessage): Promise<Response> {
+    const params = new URLSearchParams({
+      message: data.message,
+      childId: String(data.childId || ''),
+    });
+    if (data.sessionId) {
+      params.set('sessionId', data.sessionId);
+    }
+
+    const token = this.getToken();
+    return fetch(`${API_BASE_URL}/ai/chat/stream?${params.toString()}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  }
+
   // AI Suggestion
   async getAISuggestion(params: { userId: number; ageRange?: '3-4' | '5-6' }): Promise<{ suggestion: string }> {
     const searchParams = new URLSearchParams();

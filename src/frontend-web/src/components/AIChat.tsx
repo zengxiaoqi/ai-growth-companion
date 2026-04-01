@@ -1,14 +1,31 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
+
+interface ToolStep {
+  id: string;
+  toolName: string;
+  args: Record<string, any>;
+  result?: string;
+  status: 'running' | 'done';
+}
+
+interface ThinkingStep {
+  id: string;
+  content: string;
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  isStreaming?: boolean;
+  // Collapsible process steps
+  thinkingSteps: ThinkingStep[];
+  toolSteps: ToolStep[];
 }
 
 interface AIChatProps {
@@ -20,8 +37,13 @@ export default function AIChat({ childId }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  // Track which process sections are expanded per message
+  const [expandedSections, setExpandedSections] = useState<Record<string, { thinking: boolean; tools: boolean }>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const dragControls = useDragControls();
 
   const scrollToBottom = () => {
@@ -32,7 +54,6 @@ export default function AIChat({ childId }: AIChatProps) {
     scrollToBottom();
   }, [messages]);
 
-  // Add initial greeting when chat opens for the first time
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([
@@ -41,65 +62,217 @@ export default function AIChat({ childId }: AIChatProps) {
           role: 'assistant',
           content: '你好呀！我是你的AI学习伙伴！有什么问题都可以问我哦~',
           timestamp: new Date(),
+          thinkingSteps: [],
+          toolSteps: [],
         },
       ]);
     }
   }, [isOpen, messages.length]);
 
-  // Focus input when chat opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [isOpen]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const toggleSection = (msgId: string, section: 'thinking' | 'tools') => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [msgId]: {
+        thinking: prev[msgId]?.thinking ?? false,
+        tools: prev[msgId]?.tools ?? false,
+        [section]: !(prev[msgId]?.[section] ?? false),
+      },
+    }));
+  };
+
+  const handleSendStream = useCallback(async (overrideMessage?: string) => {
+    const messageText = overrideMessage || input.trim();
+    if (!messageText || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: messageText,
       timestamp: new Date(),
+      thinkingSteps: [],
+      toolSteps: [],
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    if (!overrideMessage) setInput('');
     setIsLoading(true);
+    setSuggestions([]);
+
+    const assistantId = (Date.now() + 1).toString();
 
     try {
-      const response = await api.sendChatMessage({
-        message: input.trim(),
+      const response = await api.sendChatMessageStream({
+        message: messageText,
         childId,
+        sessionId,
       });
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.reply || '抱歉，我暂时无法回答这个问题。',
-        timestamp: new Date(),
-      };
+      if (!response.ok || !response.body) {
+        throw new Error('Stream failed');
+      }
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      // Create placeholder assistant message
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: 'assistant', content: '', timestamp: new Date(), isStreaming: true, thinkingSteps: [], toolSteps: [] },
+      ]);
+
+      let buffer = '';
+      let toolStepCounter = 0;
+      let thinkingCounter = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = '';
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (currentEvent === 'done') {
+                if (data.sessionId) setSessionId(data.sessionId);
+                if (data.suggestions?.length) setSuggestions(data.suggestions);
+              } else if (currentEvent === 'thinking') {
+                // Add thinking step
+                thinkingCounter++;
+                const thinkingId = `thinking-${assistantId}-${thinkingCounter}`;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, thinkingSteps: [...m.thinkingSteps, { id: thinkingId, content: data.content || data }] }
+                      : m
+                  )
+                );
+              } else if (currentEvent === 'tool_start') {
+                // Add running tool step
+                toolStepCounter++;
+                const toolStepId = `tool-${assistantId}-${toolStepCounter}`;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, toolSteps: [...m.toolSteps, { id: toolStepId, toolName: data.toolName || data.content, args: data.toolArgs || {}, status: 'running' }] }
+                      : m
+                  )
+                );
+              } else if (currentEvent === 'tool_result') {
+                // Update last running tool step with result
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const steps = [...m.toolSteps];
+                    // Find last running step with matching name
+                    for (let j = steps.length - 1; j >= 0; j--) {
+                      if (steps[j].status === 'running' && steps[j].toolName === (data.toolName || data.content)) {
+                        steps[j] = { ...steps[j], status: 'done', result: data.toolResult };
+                        break;
+                      }
+                    }
+                    return { ...m, toolSteps: steps };
+                  })
+                );
+              } else if (currentEvent === 'token' && data.content) {
+                fullContent += data.content;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: fullContent }
+                      : m
+                  )
+                );
+              }
+            } catch {}
+            currentEvent = '';
+          }
+        }
+      }
+
+      // Finalize
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: fullContent || '抱歉，我暂时无法回答这个问题。', isStreaming: false }
+            : m
+        )
+      );
     } catch {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '抱歉，网络好像有点问题，请稍后再试~',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      try {
+        const response = await api.sendChatMessage({
+          message: messageText,
+          childId,
+          sessionId,
+        });
+
+        if (response.sessionId) setSessionId(response.sessionId);
+        if (response.suggestions?.length) setSuggestions(response.suggestions);
+
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== assistantId),
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: response.reply || '抱歉，我暂时无法回答这个问题。',
+            timestamp: new Date(),
+            thinkingSteps: [],
+            toolSteps: [],
+          },
+        ]);
+      } catch {
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== assistantId),
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: '抱歉，网络好像有点问题，请稍后再试~',
+            timestamp: new Date(),
+            thinkingSteps: [],
+            toolSteps: [],
+          },
+        ]);
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [input, isLoading, childId, sessionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      handleSendStream();
     }
   };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    handleSendStream(suggestion);
+  };
+
+  const hasProcessSteps = (msg: Message) => msg.thinkingSteps.length > 0 || msg.toolSteps.length > 0;
 
   return (
     <>
@@ -137,12 +310,11 @@ export default function AIChat({ childId }: AIChatProps) {
             aria-label="AI学习伙伴对话"
             aria-modal="true"
           >
-            {/* Header — drag handle area */}
+            {/* Header */}
             <div
               className="bg-tertiary px-5 py-4 flex items-center justify-between cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => dragControls.start(e)}
             >
-              {/* Mobile drag indicator */}
               <div className="absolute left-1/2 -translate-x-1/2 top-2 w-8 h-1 bg-white/30 rounded-full sm:hidden" />
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -177,22 +349,127 @@ export default function AIChat({ childId }: AIChatProps) {
                   )}
                 >
                   {message.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Bot className="w-5 h-5 text-on-tertiary-container" />
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      "max-w-[75%] px-4 py-2.5 rounded-2xl text-sm",
-                      message.role === 'user'
-                        ? 'bg-primary text-on-primary rounded-br-sm'
-                        : 'bg-surface-container text-on-surface rounded-bl-sm'
+                  <div className={cn("max-w-[80%] min-w-0")}>
+                    {/* Collapsible process section */}
+                    {message.role === 'assistant' && hasProcessSteps(message) && (
+                      <div className="mb-1.5">
+                        {/* Thinking section */}
+                        {message.thinkingSteps.length > 0 && (
+                          <div className="rounded-lg overflow-hidden border border-outline-variant/30 mb-1">
+                            <button
+                              onClick={() => toggleSection(message.id, 'thinking')}
+                              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            >
+                              <Brain className="w-3.5 h-3.5" />
+                              <span className="flex-1 text-left">
+                                思考过程 {message.isStreaming && <Loader2 className="w-3 h-3 inline animate-spin" />}
+                              </span>
+                              {expandedSections[message.id]?.thinking ? (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <AnimatePresence>
+                              {expandedSections[message.id]?.thinking && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="px-2.5 py-2 text-xs text-on-surface-variant bg-surface-container/50 border-t border-outline-variant/20 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                    {message.thinkingSteps.map((ts) => (
+                                      <div key={ts.id}>{ts.content}</div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
+                        {/* Tool calls section */}
+                        {message.toolSteps.length > 0 && (
+                          <div className="rounded-lg overflow-hidden border border-outline-variant/30">
+                            <button
+                              onClick={() => toggleSection(message.id, 'tools')}
+                              className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                            >
+                              <Wrench className="w-3.5 h-3.5" />
+                              <span className="flex-1 text-left">
+                                工具调用 ({message.toolSteps.filter(t => t.status === 'done').length}/{message.toolSteps.length})
+                                {message.toolSteps.some(t => t.status === 'running') && <Loader2 className="w-3 h-3 inline animate-spin ml-1" />}
+                              </span>
+                              {expandedSections[message.id]?.tools ? (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <AnimatePresence>
+                              {expandedSections[message.id]?.tools && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="px-2.5 py-2 text-xs text-on-surface-variant bg-surface-container/50 border-t border-outline-variant/20 max-h-40 overflow-y-auto space-y-1.5">
+                                    {message.toolSteps.map((step) => (
+                                      <div key={step.id} className="flex items-start gap-1.5">
+                                        {step.status === 'running' ? (
+                                          <Loader2 className="w-3 h-3 mt-0.5 animate-spin text-primary flex-shrink-0" />
+                                        ) : (
+                                          <span className="w-3 h-3 mt-0.5 rounded-full bg-primary-container flex-shrink-0 flex items-center justify-center text-[8px] text-on-primary-container">&#10003;</span>
+                                        )}
+                                        <span className="font-medium text-on-surface">{step.toolName}</span>
+                                        {step.result && (
+                                          <span className="text-on-surface-variant truncate">
+                                            {(() => {
+                                              try {
+                                                const parsed = JSON.parse(step.result);
+                                                return parsed.error || parsed.message || parsed.content || step.result.slice(0, 60);
+                                              } catch {
+                                                return step.result.slice(0, 60);
+                                              }
+                                            })()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  >
-                    {message.content}
+
+                    {/* Main message content */}
+                    <div
+                      className={cn(
+                        "px-4 py-2.5 rounded-2xl text-sm",
+                        message.role === 'user'
+                          ? 'bg-primary text-on-primary rounded-br-sm'
+                          : 'bg-surface-container text-on-surface rounded-bl-sm'
+                      )}
+                    >
+                      {message.content}
+                      {message.isStreaming && !message.content && (
+                        <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
+                      )}
+                    </div>
                   </div>
                   {message.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5">
                       <User className="w-5 h-5 text-on-primary-container" />
                     </div>
                   )}
@@ -200,7 +477,7 @@ export default function AIChat({ childId }: AIChatProps) {
               ))}
 
               {/* Typing Indicator */}
-              {isLoading && (
+              {isLoading && !messages.some(m => m.isStreaming) && (
                 <div className="flex gap-2 justify-start" role="status" aria-label="AI正在输入">
                   <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-on-tertiary-container" />
@@ -217,6 +494,21 @@ export default function AIChat({ childId }: AIChatProps) {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Suggestion chips */}
+            {suggestions.length > 0 && !isLoading && (
+              <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSuggestionClick(s)}
+                    className="whitespace-nowrap px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-medium hover:bg-tertiary-container/80 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Input */}
             <div className="p-4 border-t border-outline-variant/20">
               <div className="flex gap-2">
@@ -232,7 +524,7 @@ export default function AIChat({ childId }: AIChatProps) {
                   disabled={isLoading}
                 />
                 <button
-                  onClick={handleSend}
+                  onClick={() => handleSendStream()}
                   disabled={!input.trim() || isLoading}
                   aria-label="发送消息"
                   className="w-10 h-10 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press"

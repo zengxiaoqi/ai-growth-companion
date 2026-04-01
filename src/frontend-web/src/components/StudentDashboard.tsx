@@ -28,7 +28,6 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import type { Content, Recommendation } from '@/types';
-import AIChat from './AIChat';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -36,9 +35,10 @@ interface StudentDashboardProps {
   onOpenAchievements: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
+  onOpenCompanion: () => void;
 }
 
-export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements, onOpenProfile, onOpenSettings }: StudentDashboardProps) {
+export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements, onOpenProfile, onOpenSettings, onOpenCompanion }: StudentDashboardProps) {
   const { user, logout } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const [contents, setContents] = useState<Content[]>([]);
@@ -108,12 +108,18 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
   };
 
   // Handle play button click on a content item
+  const [learningError, setLearningError] = useState<string | null>(null);
+
   const handlePlayContent = async (contentId: number) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLearningError('请先登录');
+      return;
+    }
     try {
+      setLearningError(null);
       await api.startLearning({ childId: user.id, contentId });
       onOpenContent(contentId);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start learning:', err);
       // Still navigate so user can view content
       onOpenContent(contentId);
@@ -300,6 +306,13 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
             为你推荐
           </h3>
 
+          {learningError && (
+            <div className="mb-4 mx-2 p-3 bg-error-container/50 rounded-xl flex items-center gap-2 text-error text-sm font-medium">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {learningError}
+            </div>
+          )}
+
           {isLoadingRecs ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
@@ -462,6 +475,13 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
             <Trophy className="w-6 h-6" />
             <span className="font-bold tracking-tight text-xs mt-1">成就</span>
           </button>
+          <button
+            onClick={onOpenCompanion}
+            className="flex flex-col items-center justify-center text-tertiary opacity-60 p-2 hover:scale-105 hover:opacity-100 transition-all tactile-press"
+          >
+            <Sparkles className="w-6 h-6" />
+            <span className="font-bold tracking-tight text-xs mt-1">伙伴</span>
+          </button>
         </div>
       </nav>
 
@@ -469,9 +489,6 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
       <button aria-label="紧急呼叫" className="fixed right-6 bottom-32 w-16 h-16 bg-error rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-40 border-b-4 border-error-dim">
         <AlertCircle className="w-8 h-8 fill-current" />
       </button>
-
-      {/* AI Chat */}
-      <AIChat childId={user?.id} />
     </div>
   );
 }

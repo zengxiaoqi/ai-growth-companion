@@ -13,9 +13,10 @@ const ContentDetail = lazy(() => import('./components/ContentDetail'));
 const AchievementShowcase = lazy(() => import('./components/AchievementShowcase'));
 const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
+const AIChat = lazy(() => import('./components/AIChat'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings';
+type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings' | 'companion';
 
 function PageLoader() {
   return (
@@ -165,6 +166,7 @@ function AppContent() {
               onOpenAchievements={() => setView('achievements')}
               onOpenProfile={() => setView('profile')}
               onOpenSettings={() => setView('settings')}
+              onOpenCompanion={() => setView('companion')}
             />
             </Suspense>
           </motion.div>
@@ -238,11 +240,26 @@ function AppContent() {
             </Suspense>
           </motion.div>
         )}
+
+        {view === 'companion' && (
+          <motion.div
+            key="companion"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={viewTransition}
+            className="min-h-screen"
+          >
+            <Suspense fallback={<PageLoader />}>
+              <AIChat childId={user?.type === 'child' ? user.id : undefined} fullPage onBack={() => setView('student')} />
+            </Suspense>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Global Security Badge (Visible in Selection & Student) */}
-      {view !== 'parent' && view !== 'login' && view !== 'register' && view !== 'achievements' && (
-        <motion.div 
+      {view !== 'parent' && view !== 'login' && view !== 'register' && view !== 'achievements' && view !== 'companion' && (
+        <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed bottom-28 left-1/2 -translate-x-1/2 px-5 py-2 bg-surface-container-low/90 backdrop-blur-sm rounded-full border border-outline-variant/15 flex items-center gap-2 shadow-lg z-30 pointer-events-none"
@@ -250,6 +267,13 @@ function AppContent() {
           <Shield className="w-4 h-4 text-primary" />
           <span className="text-on-surface-variant text-xs font-medium">由灵犀安全卫士实时守护您的孩子</span>
         </motion.div>
+      )}
+
+      {/* Global Floating AI Chat — available on all authenticated views except full-page companion */}
+      {view !== 'companion' && view !== 'login' && view !== 'register' && (
+        <Suspense fallback={null}>
+          <AIChat childId={user?.type === 'child' ? user.id : undefined} />
+        </Suspense>
       )}
     </div>
   );

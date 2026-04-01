@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ArrowLeft, 
-  Play, 
-  CheckCircle, 
-  Loader2, 
-  Clock, 
+import {
+  ArrowLeft,
+  Play,
+  CheckCircle,
+  Loader2,
+  Clock,
   Star,
   MessageCircle,
   Calculator,
@@ -16,6 +16,7 @@ import {
   Volume2,
   Pause,
   BookOpen,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
@@ -144,19 +145,26 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
   }, [content?.content, displayText, isPlayingAudio]);
 
   // Handle start learning
+  const [startError, setStartError] = useState<string | null>(null);
+
   const handleStartLearning = async () => {
-    if (!childId || !contentId) return;
-    
+    if (!childId || !contentId) {
+      setStartError(childId ? '内容ID无效' : '请以孩子身份登录后开始学习');
+      return;
+    }
+
     try {
       setIsStarting(true);
+      setStartError(null);
       const record = await api.startLearning({ childId, contentId });
       setLearningRecord(record);
       // If content has interactive quiz sections, enter quiz mode
       if (hasInteractiveContent) {
         setIsQuizMode(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start learning:', err);
+      setStartError(err?.message || '开始学习失败，请稍后重试');
     } finally {
       setIsStarting(false);
     }
@@ -525,23 +533,31 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             {!learningRecord ? (
               // Start Learning Button
-              <button
-                onClick={handleStartLearning}
-                disabled={isStarting || !childId}
-                className="flex-1 bg-primary text-on-primary py-5 rounded-full text-xl font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isStarting ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    开始中...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-6 h-6 fill-current" />
-                    {hasInteractiveContent ? '开始学习' : '开始学习'}
-                  </>
+              <div className="flex-1 space-y-2">
+                {(startError || !childId) && (
+                  <p className="text-sm text-error text-center font-medium flex items-center justify-center gap-1.5">
+                    <AlertCircle className="w-4 h-4" />
+                    {startError || '请以孩子身份登录后开始学习'}
+                  </p>
                 )}
-              </button>
+                <button
+                  onClick={handleStartLearning}
+                  disabled={isStarting || !childId}
+                  className="w-full bg-primary text-on-primary py-5 rounded-full text-xl font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isStarting ? (
+                    <>
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      开始中...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-6 h-6 fill-current" />
+                      {hasInteractiveContent ? '开始学习' : '开始学习'}
+                    </>
+                  )}
+                </button>
+              </div>
             ) : !showEvaluation && !isQuizMode ? (
               // Complete Learning Section (manual scoring for non-interactive content)
               <div className="flex-1 space-y-4">

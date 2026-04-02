@@ -64,6 +64,6 @@ import { GetParentControlTool } from './agent/tools/get-parent-control';
     GetParentControlTool,
   ],
   controllers: [AiController],
-  exports: [AiService],
+  exports: [AiService, GenerateActivityTool],
 })
 export class AiModule {}

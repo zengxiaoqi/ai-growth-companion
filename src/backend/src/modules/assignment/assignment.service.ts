@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Assignment } from '../../database/entities/assignment.entity';
+import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 
 @Injectable()
 export class AssignmentService {
@@ -11,6 +12,7 @@ export class AssignmentService {
   constructor(
     @InjectRepository(Assignment)
     private readonly assignmentRepo: Repository<Assignment>,
+    private readonly generateActivityTool: GenerateActivityTool,
   ) {}
 
   async create(data: {
@@ -23,12 +25,45 @@ export class AssignmentService {
     difficulty?: number;
     dueDate?: string;
   }): Promise<Assignment> {
+    let activityData = data.activityData;
+
+    // If activityData only contains a topic (no actual game content),
+    // auto-generate the full activity data via LLM
+    if (
+      !activityData ||
+      (activityData.topic &&
+        !activityData.questions &&
+        !activityData.statements &&
+        !activityData.sentences &&
+        !activityData.pairs &&
+        !activityData.leftItems &&
+        !activityData.items &&
+        !activityData.pieces)
+    ) {
+      try {
+        const topic = activityData?.topic || data.domain || '综合';
+        const difficulty = data.difficulty || 1;
+        const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
+        const jsonStr = await this.generateActivityTool.execute({
+          type: data.activityType as any,
+          topic,
+          difficulty,
+          ageGroup,
+          domain: data.domain,
+        });
+        activityData = JSON.parse(jsonStr);
+        this.logger.log(`Auto-generated activity data for topic "${topic}" (${data.activityType})`);
+      } catch (err) {
+        this.logger.warn(`Failed to generate activity data: ${err.message}, using fallback`);
+      }
+    }
+
     const assignment = this.assignmentRepo.create({
       uuid: uuidv4(),
       parentId: data.parentId,
       childId: data.childId,
       activityType: data.activityType,
-      activityData: data.activityData,
+      activityData,
       contentId: data.contentId,
       domain: data.domain,
       difficulty: data.difficulty || 1,

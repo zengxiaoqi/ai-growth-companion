@@ -78,7 +78,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
   if (items.length === 0) return <div className="p-4 text-on-surface-variant">暂无题目</div>;
   if (isFinished) {
     const correct = shuffled.filter((item: any, i: number) => item.order === i + 1).length;
-    return <GameCompletionScreen score={correct} total={items.length} />;
+    return <GameCompletionScreen score={correct} total={items.length} onDismiss={() => { setIsFinished(false); }} />;
   }
 
   return (

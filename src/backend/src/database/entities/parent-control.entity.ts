@@ -23,10 +23,10 @@ export class ParentControl {
   @Column('text', { array: true, nullable: true })
   blockedTopics: string[];
 
-  @Column({ type: 'simple-json' })
+  @Column({ type: 'simple-json', nullable: true })
   studySchedule: any;
 
-  @Column({ type: 'simple-json' })
+  @Column({ type: 'simple-json', nullable: true })
   notifications: any;
 
   @Column({ default: true })

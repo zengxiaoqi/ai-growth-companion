@@ -32,8 +32,12 @@ export class ParentController {
     // Find or create controls for this parent
     const controls = await this.parentService.getByParent(+parentId);
     if (controls.id === 0) {
-      // No existing controls, create first
-      return this.parentService.create(+parentId, body.childId || 0);
+      // No existing controls — create with defaults including required fields
+      const created = await this.parentService.createWithDefaults(+parentId);
+      if (Object.keys(body).length > 0) {
+        return this.parentService.update(created.id, body);
+      }
+      return created;
     }
     return this.parentService.update(controls.id, body);
   }

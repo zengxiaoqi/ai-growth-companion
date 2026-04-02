@@ -45,6 +45,23 @@ export class ParentService {
       uuid: uuidv4(),
       parentId,
       childId,
+      studySchedule: '{}',
+      notifications: '{}',
+    });
+    return this.controlRepository.save(control);
+  }
+
+  async createWithDefaults(parentId: number) {
+    // Check if any control exists for this parent
+    const existing = await this.controlRepository.findOne({ where: { parentId } });
+    if (existing) return existing;
+
+    const control = this.controlRepository.create({
+      uuid: uuidv4(),
+      parentId,
+      childId: 0,
+      studySchedule: '{}',
+      notifications: '{}',
     });
     return this.controlRepository.save(control);
   }

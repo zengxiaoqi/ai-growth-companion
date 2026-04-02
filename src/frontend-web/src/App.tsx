@@ -37,6 +37,7 @@ function AppContent() {
   const [view, setView] = useState<View>('login');
   const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [isAssignmentCompleted, setIsAssignmentCompleted] = useState(false);
   const reducedMotion = useReducedMotion();
 
   const viewTransition = reducedMotion
@@ -173,6 +174,7 @@ function AppContent() {
               onOpenCompanion={() => setView('companion')}
               onOpenAssignment={(assignment) => {
                 setSelectedAssignment(assignment);
+                setIsAssignmentCompleted(false);
                 setView('assignment');
               }}
             />
@@ -234,10 +236,23 @@ function AppContent() {
                   } catch {
                     // Silently handle — game was still completed locally
                   }
-                  setSelectedAssignment(null);
-                  setView('student');
+                  setIsAssignmentCompleted(true);
                 }}
               />
+              {isAssignmentCompleted && (
+                <div className="max-w-lg mx-auto px-4 pb-6">
+                  <button
+                    onClick={() => {
+                      setIsAssignmentCompleted(false);
+                      setSelectedAssignment(null);
+                      setView('student');
+                    }}
+                    className="w-full bg-primary text-on-primary py-3 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+                  >
+                    返回主页
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

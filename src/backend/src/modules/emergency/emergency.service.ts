@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EmergencyCall } from '../../database/entities/emergency-call.entity';
 import { UsersService } from '../users/users.service';
@@ -144,20 +144,30 @@ export class EmergencyService {
 
   private async checkRateLimit(childId: number): Promise<void> {
     const now = new Date();
+
+    // SQLite stores local time strings, so compare with local ISO strings
     const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
-    const recentMinute = await this.emergencyRepository.count({
-      where: { childId, createdAt: MoreThanOrEqual(oneMinuteAgo) },
-    });
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toLocal = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    const recentMinute = await this.emergencyRepository
+      .createQueryBuilder('ec')
+      .where('ec.childId = :childId', { childId })
+      .andWhere('ec.createdAt >= :cutoff', { cutoff: toLocal(oneMinuteAgo) })
+      .getCount();
 
     if (recentMinute >= 1) {
       throw new BadRequestException('操作太频繁，请稍后再试');
     }
 
-    const recentHour = await this.emergencyRepository.count({
-      where: { childId, createdAt: MoreThanOrEqual(oneHourAgo) },
-    });
+    const recentHour = await this.emergencyRepository
+      .createQueryBuilder('ec')
+      .where('ec.childId = :childId', { childId })
+      .andWhere('ec.createdAt >= :cutoff', { cutoff: toLocal(oneHourAgo) })
+      .getCount();
 
     if (recentHour >= 5) {
       throw new BadRequestException('紧急呼叫次数已达上限，请稍后再试');

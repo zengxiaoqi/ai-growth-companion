@@ -224,6 +224,19 @@ export interface ActivityResult {
   interactionData: any;
 }
 
+// Emergency Call Types
+export interface EmergencyCall {
+  id: number;
+  childId: number;
+  parentId: number;
+  parentPhone: string;
+  status: 'pending' | 'sms_sent' | 'call_initiated' | 'completed' | 'failed';
+  smsResult?: string;
+  callResult?: string;
+  errorMessage?: string;
+  createdAt: string;
+}
+
 // Assignment Types
 export interface Assignment {
   id: number;

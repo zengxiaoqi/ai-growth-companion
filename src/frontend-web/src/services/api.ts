@@ -22,6 +22,7 @@ import type {
   Notification,
   Assignment,
   ActivityResult,
+  EmergencyCall,
 } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -308,6 +309,18 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ score: result.score, resultData: result.interactionData }),
     });
+  }
+
+  // Emergency
+  async triggerEmergencyCall(childId: number): Promise<EmergencyCall> {
+    return this.request<EmergencyCall>('/emergency/trigger', {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    });
+  }
+
+  async getEmergencyHistory(childId: number): Promise<EmergencyCall[]> {
+    return this.request<EmergencyCall[]>(`/emergency/history/${childId}`);
   }
 }
 

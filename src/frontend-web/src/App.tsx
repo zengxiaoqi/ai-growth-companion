@@ -55,6 +55,13 @@ function AppContent() {
     }
   }, [isAuthenticated, view]);
 
+  // When user logs out, go back to login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setView('login');
+    }
+  }, [isAuthenticated]);
+
   // Show loading spinner while checking auth
   if (authLoading) {
     return (

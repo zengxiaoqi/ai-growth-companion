@@ -16,6 +16,7 @@ import { VoiceModule } from './modules/voice/voice.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { SseModule } from './modules/sse/sse.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
+import { EmergencyModule } from './modules/emergency/emergency.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 @Module({
@@ -55,6 +56,7 @@ import { DatabaseSeederModule } from './database/seeds/seeder.module';
     NotificationModule,
     SseModule,
     AssignmentModule,
+    EmergencyModule,
     DatabaseSeederModule,
   ],
 })

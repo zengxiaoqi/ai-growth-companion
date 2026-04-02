@@ -29,6 +29,7 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import type { Content, Recommendation, Assignment } from '@/types';
+import EmergencyCallDialog from './EmergencyCallDialog';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -48,6 +49,7 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoadingRecs, setIsLoadingRecs] = useState(true);
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
+  const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch data on mount
@@ -528,9 +530,20 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
       </nav>
 
       {/* Emergency FAB */}
-      <button aria-label="紧急呼叫" className="fixed right-6 bottom-32 w-16 h-16 bg-error rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-40 border-b-4 border-error-dim">
+      <button
+        aria-label="紧急呼叫"
+        onClick={() => setShowEmergencyDialog(true)}
+        className="fixed right-6 bottom-32 w-16 h-16 bg-error rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-40 border-b-4 border-error-dim"
+      >
         <AlertCircle className="w-8 h-8 fill-current" />
       </button>
+
+      <EmergencyCallDialog
+        isOpen={showEmergencyDialog}
+        onClose={() => setShowEmergencyDialog(false)}
+        childId={user?.id ?? 0}
+        childName={user?.name ?? '宝贝'}
+      />
     </div>
   );
 }

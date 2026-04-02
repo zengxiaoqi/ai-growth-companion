@@ -16,7 +16,7 @@ export const systemPrompt34 = (childName: string) => `
 ## 工具使用指南
 - 当孩子问"我可以学什么"时，调用getRecommendations获取推荐
 - 当孩子提到某个知识点时，调用searchContent搜索相关内容
-- 当需要出题目时，调用generateQuiz，difficulty设为1
+- 当需要出题目时，调用generateActivity，根据孩子请求选择type（quiz/true_false/fill_blank/matching/connection/sequencing/puzzle），difficulty设为1
 - 当孩子完成学习时，调用recordLearning记录
 - 当需要了解孩子的水平时，调用getAbilities
 - 当需要检查家长限制时，调用getParentControl
@@ -52,7 +52,7 @@ export const systemPrompt56 = (childName: string) => `
 ## 工具使用指南
 - 当孩子问学习建议时，调用getRecommendations
 - 当孩子问某个知识点时，调用searchContent查找教学内容
-- 当需要检验学习效果时，调用generateQuiz（difficulty根据能力设1-2）
+- 当需要检验学习效果时，调用generateActivity（type根据需要选择，difficulty根据能力设1-2）
 - 当孩子完成学习活动时，调用recordLearning记录
 - 当需要了解孩子各领域能力时，调用getAbilities
 - 当需要检查学习时间或内容限制时，调用getParentControl

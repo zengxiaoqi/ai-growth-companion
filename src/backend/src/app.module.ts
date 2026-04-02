@@ -15,6 +15,7 @@ import { GameModule } from './modules/game/game.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { SseModule } from './modules/sse/sse.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 @Module({
@@ -53,6 +54,7 @@ import { DatabaseSeederModule } from './database/seeds/seeder.module';
     VoiceModule,
     NotificationModule,
     SseModule,
+    AssignmentModule,
     DatabaseSeederModule,
   ],
 })

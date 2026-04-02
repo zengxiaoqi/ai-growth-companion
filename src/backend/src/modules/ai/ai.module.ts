@@ -22,6 +22,9 @@ import { GetLearningHistoryTool } from './agent/tools/get-learning-history';
 import { SearchContentTool } from './agent/tools/search-content';
 import { GetRecommendationsTool } from './agent/tools/get-recommendations';
 import { GenerateQuizTool } from './agent/tools/generate-quiz';
+import { GenerateActivityTool } from './agent/tools/generate-activity';
+import { AssignActivityTool } from './agent/tools/assign-activity';
+import { AssignmentModule } from '../assignment/assignment.module';
 import { RecordLearningTool } from './agent/tools/record-learning';
 import { GetParentControlTool } from './agent/tools/get-parent-control';
 
@@ -33,6 +36,7 @@ import { GetParentControlTool } from './agent/tools/get-parent-control';
     ContentsModule,
     RecommendModule,
     ParentModule,
+    AssignmentModule,
     ConfigModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
@@ -54,6 +58,8 @@ import { GetParentControlTool } from './agent/tools/get-parent-control';
     SearchContentTool,
     GetRecommendationsTool,
     GenerateQuizTool,
+    GenerateActivityTool,
+    AssignActivityTool,
     RecordLearningTool,
     GetParentControlTool,
   ],

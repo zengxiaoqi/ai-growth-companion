@@ -22,12 +22,13 @@ import {
   ChevronRight,
   Wand2,
   Trophy,
-  UserCircle
+  UserCircle,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { Content, Recommendation } from '@/types';
+import type { Content, Recommendation, Assignment } from '@/types';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -36,15 +37,17 @@ interface StudentDashboardProps {
   onOpenProfile: () => void;
   onOpenSettings: () => void;
   onOpenCompanion: () => void;
+  onOpenAssignment?: (assignment: Assignment) => void;
 }
 
-export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements, onOpenProfile, onOpenSettings, onOpenCompanion }: StudentDashboardProps) {
+export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievements, onOpenProfile, onOpenSettings, onOpenCompanion, onOpenAssignment }: StudentDashboardProps) {
   const { user, logout } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isLoadingRecs, setIsLoadingRecs] = useState(true);
+  const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch data on mount
@@ -85,6 +88,14 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
 
     fetchData();
   }, [user?.id, user?.age]);
+
+  // Fetch pending assignments
+  useEffect(() => {
+    if (!user?.id || user.type !== 'child') return;
+    api.getChildAssignments(user.id).then((assignments) => {
+      setPendingAssignments(assignments.filter((a) => a.status === 'pending'));
+    }).catch(() => {});
+  }, [user?.id, user?.type]);
 
   // Domain icons mapping
   const domainIcons: Record<string, { icon: typeof MessageCircle | typeof Calculator | typeof Microscope | typeof Palette | typeof Users, color: string, iconColor: string }> = {
@@ -239,6 +250,37 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
             </div>
           </div>
         </section>
+
+        {/* Pending Assignments */}
+        {pendingAssignments.length > 0 && (
+          <section className="mb-8">
+            <h3 className="text-xl font-black mb-4 px-2 flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-primary fill-current" />
+              待完成任务
+              <span className="bg-error text-white text-xs font-bold px-2 py-0.5 rounded-full">{pendingAssignments.length}</span>
+            </h3>
+            <div className="space-y-3">
+              {pendingAssignments.map((assignment) => (
+                <button
+                  key={assignment.id}
+                  onClick={() => onOpenAssignment?.(assignment)}
+                  className="w-full bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/15 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4 text-left tactile-press"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-tertiary-container flex items-center justify-center flex-shrink-0">
+                    <ClipboardList className="w-6 h-6 text-on-tertiary-container" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-on-surface text-sm truncate">{assignment.activityType}练习</h4>
+                    <p className="text-xs text-on-surface-variant">
+                      难度 {assignment.difficulty} · {assignment.domain || '综合'}
+                    </p>
+                  </div>
+                  <Play className="w-5 h-5 text-primary flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Daily Mission */}
         <section className="mb-12">

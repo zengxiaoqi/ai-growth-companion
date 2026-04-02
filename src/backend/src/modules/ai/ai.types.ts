@@ -46,10 +46,19 @@ export interface QuizResponse {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'done' | 'error';
+  type: 'token' | 'done' | 'error' | 'thinking' | 'tool_start' | 'tool_result' | 'game_data';
   content?: string;
   sessionId?: string;
   wasFiltered?: boolean;
   suggestions?: string[];
   message?: string;
+  // thinking
+  thinkingContent?: string;
+  // tool_start / tool_result
+  toolName?: string;
+  toolArgs?: Record<string, any>;
+  toolResult?: string;
+  // game_data
+  activityType?: string;
+  gameData?: string;
 }

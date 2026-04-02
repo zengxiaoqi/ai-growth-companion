@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
+import type { ActivityType, ActivityData, ActivityResult } from '@/types';
+import GameRenderer from './games/GameRenderer';
 
 interface ToolStep {
   id: string;
@@ -19,6 +21,12 @@ interface ThinkingStep {
   content: string;
 }
 
+interface GameData {
+  activityType: ActivityType;
+  gameData: string;
+  parsed?: ActivityData;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -27,6 +35,7 @@ interface Message {
   isStreaming?: boolean;
   thinkingSteps: ThinkingStep[];
   toolSteps: ToolStep[];
+  gameData?: GameData;
 }
 
 interface AIChatProps {
@@ -47,6 +56,7 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
   const [isMaximized, setIsMaximized] = useState(false);
   const [size, setSize] = useState({ w: 384, h: 500 });
   const [expandedSections, setExpandedSections] = useState<Record<string, { thinking: boolean; tools: boolean }>>({});
+  const [activeGameMsgId, setActiveGameMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragControls = useDragControls();
@@ -174,6 +184,14 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
                   }
                   return { ...m, toolSteps: steps };
                 }));
+              } else if (currentEvent === 'game_data') {
+                // Store game data for interactive rendering
+                try {
+                  const parsed = typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
+                  setMessages((prev) => prev.map((m) =>
+                    m.id === assistantId ? { ...m, gameData: { activityType: data.activityType, gameData: data.gameData, parsed } } : m
+                  ));
+                } catch {}
               } else if (currentEvent === 'token' && data.content) {
                 fullContent += data.content;
                 setMessages((prev) => prev.map((m) =>
@@ -214,6 +232,12 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
   };
 
   const hasProcessSteps = (msg: Message) => msg.thinkingSteps.length > 0 || msg.toolSteps.length > 0;
+
+  const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
+
+  const handleGameComplete = useCallback((_msgId: string, _result: ActivityResult) => {
+    setActiveGameMsgId(null);
+  }, []);
 
   // Full-page mode: no floating button, just the chat UI directly
   if (fullPage) {
@@ -261,6 +285,26 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
                     <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
                   )}
                 </div>
+                {/* Game rendering */}
+                {message.role === 'assistant' && message.gameData?.parsed && (
+                  activeGameMsgId === message.id ? (
+                    <div className="mt-2 bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
+                      <GameRenderer
+                        type={message.gameData.activityType}
+                        data={message.gameData.parsed}
+                        onComplete={(result) => handleGameComplete(message.id, result)}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setActiveGameMsgId(message.id)}
+                      className="mt-2 flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      {isSimpleGame(message.gameData.activityType) ? `开始${message.gameData.parsed.title || '练习'}` : `开始${message.gameData.parsed.title || '游戏'}`}
+                    </button>
+                  )
+                )}
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5">

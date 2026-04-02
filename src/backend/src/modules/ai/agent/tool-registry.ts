@@ -6,6 +6,8 @@ import { GetLearningHistoryTool } from './tools/get-learning-history';
 import { SearchContentTool } from './tools/search-content';
 import { GetRecommendationsTool } from './tools/get-recommendations';
 import { GenerateQuizTool } from './tools/generate-quiz';
+import { GenerateActivityTool } from './tools/generate-activity';
+import { AssignActivityTool } from './tools/assign-activity';
 import { RecordLearningTool } from './tools/record-learning';
 import { GetParentControlTool } from './tools/get-parent-control';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
@@ -22,6 +24,8 @@ export class ToolRegistry {
     private readonly searchContentTool: SearchContentTool,
     private readonly getRecommendationsTool: GetRecommendationsTool,
     private readonly generateQuizTool: GenerateQuizTool,
+    private readonly generateActivityTool: GenerateActivityTool,
+    private readonly assignActivityTool: AssignActivityTool,
     private readonly recordLearningTool: RecordLearningTool,
     private readonly getParentControlTool: GetParentControlTool,
   ) {
@@ -32,6 +36,8 @@ export class ToolRegistry {
       ['searchContent', (args) => this.searchContentTool.execute(args)],
       ['getRecommendations', (args) => this.getRecommendationsTool.execute(args)],
       ['generateQuiz', (args) => this.generateQuizTool.execute(args)],
+      ['generateActivity', (args) => this.generateActivityTool.execute(args)],
+      ['assignActivity', (args) => this.assignActivityTool.execute(args)],
       ['recordLearning', (args) => this.recordLearningTool.execute(args)],
       ['getParentControl', (args) => this.getParentControlTool.execute(args)],
     ]);

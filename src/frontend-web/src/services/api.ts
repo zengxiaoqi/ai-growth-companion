@@ -20,6 +20,8 @@ import type {
   Recommendation,
   RecommendationParams,
   Notification,
+  Assignment,
+  ActivityResult,
 } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -259,6 +261,42 @@ class ApiService {
   async markAllNotificationsRead(userId: number): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/notifications/user/${userId}/read-all`, {
       method: 'POST',
+    });
+  }
+
+  // Assignments
+  async createAssignment(data: {
+    parentId: number;
+    childId: number;
+    activityType: string;
+    activityData?: any;
+    contentId?: number;
+    domain?: string;
+    difficulty?: number;
+    dueDate?: string;
+  }): Promise<Assignment> {
+    return this.request<Assignment>('/assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getChildAssignments(childId: number): Promise<Assignment[]> {
+    return this.request<Assignment[]>(`/assignments/child/${childId}`);
+  }
+
+  async getParentAssignments(parentId: number): Promise<Assignment[]> {
+    return this.request<Assignment[]>(`/assignments/parent/${parentId}`);
+  }
+
+  async getAssignment(id: number): Promise<Assignment> {
+    return this.request<Assignment>(`/assignments/${id}`);
+  }
+
+  async completeAssignment(id: number, result: ActivityResult): Promise<Assignment> {
+    return this.request<Assignment>(`/assignments/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ score: result.score, resultData: result.interactionData }),
     });
   }
 }

@@ -183,7 +183,7 @@ export class AgentExecutor {
     ageGroup: AgeGroup,
     childName: string,
   ): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error';
+    type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error' | 'game_data';
     content?: string;
     toolName?: string;
     toolArgs?: Record<string, any>;
@@ -243,6 +243,15 @@ export class AgentExecutor {
           yield { type: 'tool_start', content: toolName, toolName, toolArgs };
           const result = await this.toolRegistry.execute(toolName, toolArgs);
           yield { type: 'tool_result', content: toolName, toolName, toolArgs, toolResult: result };
+
+          // If this was generateActivity, emit game_data for frontend rendering
+          if (toolName === 'generateActivity') {
+            yield {
+              type: 'game_data',
+              activityType: toolArgs.type,
+              gameData: result,
+            } as any;
+          }
 
           messages.push({
             role: 'tool',

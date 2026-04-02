@@ -204,3 +204,39 @@ export interface Notification {
   relatedId?: number;
   createdAt: string;
 }
+
+// Activity Types
+export type ActivityType = 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle';
+
+export interface ActivityData {
+  type: ActivityType;
+  title: string;
+  [key: string]: any;
+}
+
+export interface ActivityResult {
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  timeSpent?: number;
+  interactionData: any;
+}
+
+// Assignment Types
+export interface Assignment {
+  id: number;
+  uuid: string;
+  parentId: number;
+  childId: number;
+  contentId?: number;
+  activityType: ActivityType;
+  activityData?: ActivityData;
+  domain?: string;
+  difficulty: number;
+  dueDate?: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  completedAt?: string;
+  score?: number;
+  resultData?: any;
+  createdAt: string;
+}

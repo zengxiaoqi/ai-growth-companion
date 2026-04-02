@@ -83,7 +83,7 @@ export class AiService {
 
   /** Streaming chat — yields tokens via AsyncGenerator */
   async *chatStream(params: ChatRequest): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result';
+    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
     content?: string;
     thinkingContent?: string;
     toolName?: string;
@@ -94,6 +94,8 @@ export class AiService {
     suggestions?: string[];
     toolCalls?: any[];
     message?: string;
+    activityType?: string;
+    gameData?: string;
   }> {
     const { message, childId, sessionId, context } = params;
 

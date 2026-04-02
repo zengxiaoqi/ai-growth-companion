@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Assignment } from '../../database/entities/assignment.entity';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
+import { LearningTrackerService } from '../learning/learning-tracker.service';
 
 @Injectable()
 export class AssignmentService {
@@ -13,6 +14,7 @@ export class AssignmentService {
     @InjectRepository(Assignment)
     private readonly assignmentRepo: Repository<Assignment>,
     private readonly generateActivityTool: GenerateActivityTool,
+    private readonly learningTracker: LearningTrackerService,
   ) {}
 
   async create(data: {
@@ -140,7 +142,27 @@ export class AssignmentService {
     assignment.completedAt = new Date();
     assignment.score = result.score;
     assignment.resultData = result.resultData;
-    return this.assignmentRepo.save(assignment);
+    const saved = await this.assignmentRepo.save(assignment);
+
+    // Feed into learning tracker (non-blocking — don't fail assignment save if tracker fails)
+    try {
+      await this.learningTracker.recordActivity({
+        type: 'assignment_completion',
+        childId: assignment.childId,
+        assignmentId: assignment.id,
+        domain: assignment.domain || 'language',
+        score: result.score,
+        metadata: {
+          activityType: assignment.activityType,
+          difficulty: assignment.difficulty,
+          resultData: result.resultData,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to record learning activity for assignment ${id}: ${err.message}`);
+    }
+
+    return saved;
   }
 
   async getPendingCount(childId: number): Promise<number> {

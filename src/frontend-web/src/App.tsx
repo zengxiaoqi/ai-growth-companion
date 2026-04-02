@@ -8,7 +8,7 @@ import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
 import GameRenderer from './components/games/GameRenderer';
 import type { Assignment, ActivityResult } from './types';
-import * as api from './services/api';
+import api from './services/api';
 
 const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
@@ -227,7 +227,7 @@ function AppContent() {
               </div>
               <GameRenderer
                 type={selectedAssignment.activityType}
-                data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, questions: [] }}
+                data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, title: '练习' }}
                 onComplete={async (result: ActivityResult) => {
                   try {
                     await api.completeAssignment(selectedAssignment.id, result);

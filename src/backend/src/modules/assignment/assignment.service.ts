@@ -90,7 +90,45 @@ export class AssignmentService {
   async findById(id: number): Promise<Assignment> {
     const assignment = await this.assignmentRepo.findOne({ where: { id } });
     if (!assignment) throw new NotFoundException(`Assignment ${id} not found`);
+
+    // If activityData only has a topic, auto-generate the full game content
+    await this.ensureActivityData(assignment);
+
     return assignment;
+  }
+
+  /** Generate full game data if the assignment only has a topic string */
+  private async ensureActivityData(assignment: Assignment): Promise<void> {
+    const data = assignment.activityData;
+    if (
+      !data ||
+      (data.topic &&
+        !data.questions &&
+        !data.statements &&
+        !data.sentences &&
+        !data.pairs &&
+        !data.leftItems &&
+        !data.items &&
+        !data.pieces)
+    ) {
+      try {
+        const topic = data?.topic || assignment.domain || '综合';
+        const difficulty = assignment.difficulty || 1;
+        const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
+        const jsonStr = await this.generateActivityTool.execute({
+          type: assignment.activityType as any,
+          topic,
+          difficulty,
+          ageGroup,
+          domain: assignment.domain,
+        });
+        assignment.activityData = JSON.parse(jsonStr);
+        await this.assignmentRepo.save(assignment);
+        this.logger.log(`Generated activity data for assignment ${assignment.id}, topic "${topic}"`);
+      } catch (err) {
+        this.logger.warn(`Failed to generate activity data for assignment ${assignment.id}: ${err.message}`);
+      }
+    }
   }
 
   async complete(id: number, result: {

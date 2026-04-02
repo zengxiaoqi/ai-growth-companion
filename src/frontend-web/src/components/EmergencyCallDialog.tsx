@@ -7,7 +7,6 @@ interface EmergencyCallDialogProps {
   isOpen: boolean;
   onClose: () => void;
   childId: number;
-  childName: string;
 }
 
 type DialogState = 'idle' | 'countdown' | 'calling' | 'success' | 'error';

@@ -12,7 +12,7 @@ interface EmergencyCallDialogProps {
 
 type DialogState = 'idle' | 'countdown' | 'calling' | 'success' | 'error';
 
-export default function EmergencyCallDialog({ isOpen, onClose, childId, childName }: EmergencyCallDialogProps) {
+export default function EmergencyCallDialog({ isOpen, onClose, childId }: EmergencyCallDialogProps) {
   const [state, setState] = useState<DialogState>('idle');
   const [countdown, setCountdown] = useState(5);
   const [errorMsg, setErrorMsg] = useState('');

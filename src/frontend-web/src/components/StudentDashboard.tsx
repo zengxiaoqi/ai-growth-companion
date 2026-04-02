@@ -542,7 +542,6 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
         isOpen={showEmergencyDialog}
         onClose={() => setShowEmergencyDialog(false)}
         childId={user?.id ?? 0}
-        childName={user?.name ?? '宝贝'}
       />
     </div>
   );

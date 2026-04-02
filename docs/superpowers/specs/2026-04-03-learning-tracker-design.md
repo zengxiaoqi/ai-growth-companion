@@ -144,8 +144,7 @@ Replace current direct `LearningService` calls with:
 // with:
 const result = await this.learningTracker.recordActivity({
   type: 'interactive_activity',
-  userId: childId,
-  childId: childId,
+  childId,
   contentId,
   domain,  // new required parameter
   score,
@@ -170,7 +169,6 @@ if (updateData.status === 'completed') {
   const content = await this.contentRepository.findOne({ where: { id: record.contentId } });
   await this.learningTracker.recordActivity({
     type: 'content_completion',
-    userId: record.userId,
     childId: record.userId,
     contentId: record.contentId,
     domain: content?.domain || 'language',

@@ -256,3 +256,35 @@ export interface Assignment {
   resultData?: any;
   createdAt: string;
 }
+
+// Learning Tracker types
+export interface TodayStatsWithSources {
+  totalMinutes: number;
+  completedCount: number;
+  recordsCount: number;
+  sources: {
+    content: number;
+    assignment: number;
+    activity: number;
+    unknown: number;
+  };
+}
+
+export interface AchievementDisplay {
+  id: number;
+  uuid: string;
+  userId: number;
+  achievementType: string;
+  achievementName: string;
+  description?: string;
+  icon?: string;
+  earnedAt: string;
+}
+
+export interface ActivityFeedback {
+  score: number;
+  total: number;
+  correct: number;
+  domain: string;
+  message: string;
+}

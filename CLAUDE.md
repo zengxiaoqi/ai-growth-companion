@@ -75,3 +75,9 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **JWT auth** with 7-day expiry, bcrypt hashing. All protected endpoints use `@UseGuards(JwtAuthGuard)`.
 - **Database resets:** Delete `lingxi.db` and restart backend to reset. The seeder runs automatically when the DB is empty.
 - **API prefix:** All backend routes are under `/api/`.
+
+## gstack
+
+Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
+
+Available gstack skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/retro`, `/investigate`, `/document-release`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`.

@@ -213,6 +213,17 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     ? recentSkills.map(s => ({ label: s.label, color: DOMAIN_CONFIG[s.domain]?.color || 'bg-primary' }))
     : [];
 
+  // Completed assignments for score trend
+  const completedAssignments = assignments
+    .filter(a => a.status === 'completed' && a.score != null && a.completedAt)
+    .sort((a, b) => new Date(a.completedAt!).getTime() - new Date(b.completedAt!).getTime());
+
+  const scoreStats = completedAssignments.length > 0 ? {
+    avg: Math.round(completedAssignments.reduce((s, a) => s + (a.score || 0), 0) / completedAssignments.length),
+    highest: Math.max(...completedAssignments.map(a => a.score || 0)),
+    completionRate: assignments.length > 0 ? Math.round((completedAssignments.length / assignments.length) * 100) : 0,
+  } : null;
+
   if (showReportDetail) {
     return (
       <ReportDetail
@@ -323,6 +334,85 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   <AbilityRadar abilities={abilities} radarData={radarData} />
                   <AbilityTrend trendData={trendData.length > 0 ? trendData : fallbackTrendData} />
                 </section>
+
+                {/* Assignment Score Trend */}
+                {completedAssignments.length > 0 && (
+                  <section className="bg-white rounded-2xl p-6 border border-outline-variant/15 shadow-sm" aria-label="作业成绩趋势">
+                    <h3 className="text-lg font-bold mb-4 text-on-surface">作业成绩趋势</h3>
+                    {/* Stats row */}
+                    {scoreStats && (
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="text-center p-3 bg-blue-50 rounded-xl">
+                          <p className="text-2xl font-black text-blue-600">{scoreStats.avg}</p>
+                          <p className="text-xs text-blue-600/70 mt-1">平均分</p>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-xl">
+                          <p className="text-2xl font-black text-green-600">{scoreStats.highest}</p>
+                          <p className="text-xs text-green-600/70 mt-1">最高分</p>
+                        </div>
+                        <div className="text-center p-3 bg-purple-50 rounded-xl">
+                          <p className="text-2xl font-black text-purple-600">{scoreStats.completionRate}%</p>
+                          <p className="text-xs text-purple-600/70 mt-1">完成率</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* SVG Line Chart */}
+                    <div className="w-full overflow-x-auto">
+                      <svg viewBox="0 0 400 180" className="w-full min-w-[320px]" preserveAspectRatio="xMidYMid meet">
+                        {(() => {
+                          const scores = completedAssignments.map(a => a.score || 0);
+                          const minS = Math.min(...scores);
+                          const maxS = Math.max(...scores);
+                          const range = maxS - minS || 10;
+                          const pad = { t: 20, r: 20, b: 40, l: 40 };
+                          const cw = 400 - pad.l - pad.r;
+                          const ch = 180 - pad.t - pad.b;
+
+                          const getX = (i: number) => pad.l + (i / Math.max(scores.length - 1, 1)) * cw;
+                          const getY = (v: number) => pad.t + ch - ((v - (minS - 5)) / (range + 10)) * ch;
+
+                          const linePoints = scores.map((s, i) => `${getX(i)},${getY(s)}`).join(' ');
+                          const areaPoints = `${getX(0)},${pad.t + ch} ${linePoints} ${getX(scores.length - 1)},${pad.t + ch}`;
+
+                          return (
+                            <>
+                              {/* Grid lines */}
+                              {[0, 25, 50, 75, 100].filter(v => v >= minS - 5 && v <= maxS + 5).map(v => (
+                                <g key={v}>
+                                  <line x1={pad.l} y1={getY(v)} x2={400 - pad.r} y2={getY(v)} stroke="#e5e7eb" strokeWidth="1" />
+                                  <text x={pad.l - 8} y={getY(v)} textAnchor="end" dominantBaseline="middle" className="text-[10px]" fill="#9ca3af">{v}</text>
+                                </g>
+                              ))}
+                              {/* Area fill */}
+                              <polygon points={areaPoints} fill="url(#scoreGradient)" opacity="0.3" />
+                              {/* Line */}
+                              <polyline points={linePoints} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                              {/* Data points */}
+                              {scores.map((s, i) => (
+                                <g key={i}>
+                                  <circle cx={getX(i)} cy={getY(s)} r="4" fill="#6366f1" stroke="white" strokeWidth="2" />
+                                  {/* Date label */}
+                                  <text x={getX(i)} y={pad.t + ch + 18} textAnchor="middle" className="text-[9px]" fill="#9ca3af">
+                                    {completedAssignments[i].completedAt
+                                      ? new Date(completedAssignments[i].completedAt!).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+                                      : ''}
+                                  </text>
+                                </g>
+                              ))}
+                              {/* Gradient definition */}
+                              <defs>
+                                <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
+                                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                            </>
+                          );
+                        })()}
+                      </svg>
+                    </div>
+                  </section>
+                )}
               </div>
             )}
           </div>

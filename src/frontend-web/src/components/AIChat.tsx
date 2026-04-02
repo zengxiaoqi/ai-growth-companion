@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
-import type { ActivityType, ActivityData, ActivityResult } from '@/types';
+import type { ActivityType, ActivityData, ActivityResult, ActivityFeedback } from '@/types';
 import GameRenderer from './games/GameRenderer';
 
 interface ToolStep {
@@ -58,6 +58,8 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   const [size, setSize] = useState({ w: 384, h: 500 });
   const [expandedSections, setExpandedSections] = useState<Record<string, { thinking: boolean; tools: boolean }>>({});
   const [activeGameMsgId, setActiveGameMsgId] = useState<string | null>(null);
+  const [activityFeedback, setActivityFeedback] = useState<ActivityFeedback | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dragControls = useDragControls();
@@ -236,8 +238,23 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
 
-  const handleGameComplete = useCallback((_msgId: string, _result: ActivityResult) => {
+  const handleGameComplete = useCallback((_msgId: string, result: ActivityResult) => {
     setActiveGameMsgId(null);
+    // Show feedback overlay
+    const scorePercent = result.totalQuestions > 0 ? (result.correctAnswers / result.totalQuestions) * 100 : result.score;
+    const feedback: ActivityFeedback = {
+      score: Math.round(scorePercent),
+      total: result.totalQuestions,
+      correct: result.correctAnswers,
+      domain: '',
+      message: scorePercent >= 60
+        ? `太棒了！你答对了 ${result.correctAnswers}/${result.totalQuestions} 题！`
+        : '加油！继续努力！',
+    };
+    setActivityFeedback(feedback);
+    // Auto-dismiss after 5 seconds
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = setTimeout(() => setActivityFeedback(null), 5000);
   }, []);
 
   // Full-page mode: no floating button, just the chat UI directly
@@ -360,6 +377,58 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
             </button>
           </div>
         </div>
+
+        {/* Activity Feedback Overlay (full-page mode) */}
+        <AnimatePresence>
+          {activityFeedback && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              onClick={() => setActivityFeedback(null)}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 p-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 30 }}
+                className="bg-surface-container-lowest rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-outline-variant/20 text-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="text-5xl mb-4">
+                  {activityFeedback.score >= 80 ? '\u{1F389}' : activityFeedback.score >= 60 ? '\u{1F44D}' : '\u{1F4AA}'}
+                </div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">{activityFeedback.message}</h3>
+                <div className="w-full h-4 bg-surface-container rounded-full overflow-hidden my-4">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${activityFeedback.score}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className="h-full rounded-full"
+                    style={{
+                      backgroundColor:
+                        activityFeedback.score >= 80 ? '#4CAF50' :
+                        activityFeedback.score >= 60 ? '#FFC107' : '#FF5722',
+                    }}
+                  />
+                </div>
+                <p className="text-on-surface-variant text-sm">
+                  得分：<span className="font-bold text-on-surface">{activityFeedback.score}</span> 分
+                  {activityFeedback.total > 0 && (
+                    <> &middot; 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
+                  )}
+                </p>
+                <button
+                  onClick={() => setActivityFeedback(null)}
+                  className="mt-6 bg-primary text-on-primary px-6 py-2.5 rounded-full font-bold text-sm tactile-press"
+                >
+                  继续学习
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -516,6 +585,59 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => { setIsOpen(false); setIsMaximized(false); }}
             className="fixed inset-0 bg-black/20 z-[99] sm:hidden" aria-hidden="true" />
+        )}
+      </AnimatePresence>
+
+      {/* Activity Feedback Overlay */}
+      <AnimatePresence>
+        {activityFeedback && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            onClick={() => setActivityFeedback(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-6"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
+              className="bg-surface-container-lowest rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-outline-variant/20 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-5xl mb-4">
+                {activityFeedback.score >= 80 ? '\u{1F389}' : activityFeedback.score >= 60 ? '\u{1F44D}' : '\u{1F4AA}'}
+              </div>
+              <h3 className="text-xl font-bold text-on-surface mb-2">{activityFeedback.message}</h3>
+              {/* Score bar */}
+              <div className="w-full h-4 bg-surface-container rounded-full overflow-hidden my-4">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${activityFeedback.score}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{
+                    backgroundColor:
+                      activityFeedback.score >= 80 ? '#4CAF50' :
+                      activityFeedback.score >= 60 ? '#FFC107' : '#FF5722',
+                  }}
+                />
+              </div>
+              <p className="text-on-surface-variant text-sm">
+                得分：<span className="font-bold text-on-surface">{activityFeedback.score}</span> 分
+                {activityFeedback.total > 0 && (
+                  <> &middot; 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
+                )}
+              </p>
+              <button
+                onClick={() => setActivityFeedback(null)}
+                className="mt-6 bg-primary text-on-primary px-6 py-2.5 rounded-full font-bold text-sm tactile-press"
+              >
+                继续学习
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

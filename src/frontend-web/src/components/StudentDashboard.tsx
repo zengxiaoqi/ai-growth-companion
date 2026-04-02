@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Settings,
   Flag,
@@ -24,11 +24,12 @@ import {
   Trophy,
   UserCircle,
   ClipboardCheck,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { Content, Recommendation, Assignment } from '@/types';
+import type { Content, Recommendation, Assignment, AchievementDisplay, GrowthReport } from '@/types';
 import EmergencyCallDialog from './EmergencyCallDialog';
 
 interface StudentDashboardProps {
@@ -51,6 +52,14 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Achievement display
+  const [achievements, setAchievements] = useState<AchievementDisplay[]>([]);
+  const [showAllAchievements, setShowAllAchievements] = useState(false);
+
+  // Ability radar data
+  const [radarData, setRadarData] = useState<Record<string, number>>({});
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
 
   // Fetch data on mount
   useEffect(() => {
@@ -98,6 +107,22 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
       setPendingAssignments(assignments.filter((a) => a.status === 'pending'));
     }).catch(() => {});
   }, [user?.id, user?.type]);
+
+  // Fetch achievements
+  useEffect(() => {
+    if (!user?.id) return;
+    api.getAchievementDisplays(user.id).then((data) => {
+      setAchievements(data);
+    }).catch(() => {});
+  }, [user?.id]);
+
+  // Fetch ability radar data
+  useEffect(() => {
+    if (!user?.id) return;
+    api.getReport({ userId: user.id, period: 'weekly' }).then((report: GrowthReport) => {
+      if (report.skillProgress) setRadarData(report.skillProgress);
+    }).catch(() => {});
+  }, [user?.id]);
 
   // Domain icons mapping
   const domainIcons: Record<string, { icon: typeof MessageCircle | typeof Calculator | typeof Microscope | typeof Palette | typeof Users, color: string, iconColor: string }> = {
@@ -183,6 +208,24 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
     progress: 60,
     thumbnail: undefined,
   };
+
+  const achievementIcons: Record<string, string> = {
+    first_lesson: '\u{1F4DA}', daily_goal: '\u{1F3AF}', week_streak: '\u{1F525}',
+    language_master: '\u{1F4D6}', math_wizard: '\u{1F522}', science_explorer: '\u{1F52C}',
+    first_homework: '\u{1F4DD}', homework_streak_3: '\u{270F}\u{FE0F}', homework_streak_7: '\u{1F3C6}',
+    perfect_homework: '\u{1F4AF}', homework_master_10: '\u{1F451}',
+    first_activity: '\u{1F3AE}', activity_streak_5: '\u{2B50}', activity_master_20: '\u{1F31F}',
+    perfect_activity: '\u{1F3AF}', art_talent: '\u{1F3A8}', social_star: '\u{1F91D}',
+    daily_learner: '\u{1F4C5}', explorer_5: '\u{1F5FA}\u{FE0F}',
+  };
+
+  const domainConfig = [
+    { key: 'language', label: '\u8BED\u8A00', color: '#FF6B6B' },
+    { key: 'math', label: '\u6570\u5B66', color: '#4ECDC4' },
+    { key: 'science', label: '\u79D1\u5B66', color: '#45B7D1' },
+    { key: 'art', label: '\u827A\u672F', color: '#FFA07A' },
+    { key: 'social', label: '\u793E\u4F1A', color: '#98D8C8' },
+  ];
 
   return (
     <div className="pb-32">
@@ -341,6 +384,145 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
               <span className="font-black text-on-surface">{item.label}</span>
             </button>
           ))}
+        </section>
+
+        {/* Achievement Display - 我的成就 */}
+        <section className="mb-8 mt-8">
+          <h3 className="text-xl font-black mb-6 px-2 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-primary fill-current" />
+            我的成就
+          </h3>
+          {achievements.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-2xl p-8 text-center border border-outline-variant/15">
+              <p className="text-on-surface-variant text-sm">还没有获得成就，继续努力吧！</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <AnimatePresence mode="popLayout">
+                {(showAllAchievements ? achievements : achievements.slice(0, 3)).map((ach, idx) => (
+                  <motion.div
+                    key={ach.id}
+                    layout
+                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                    transition={{ delay: idx * 0.06, duration: 0.35, type: 'spring', stiffness: 200, damping: 22 }}
+                    className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/15 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center flex-shrink-0 text-2xl">
+                      {achievementIcons[ach.achievementType] || ach.icon || '\u{1F3C6}'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-on-surface text-sm truncate">{ach.achievementName}</h4>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        {new Date(ach.earnedAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <Star className="w-5 h-5 text-primary fill-primary flex-shrink-0" />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {achievements.length > 3 && (
+                <button
+                  onClick={() => setShowAllAchievements(!showAllAchievements)}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-primary flex items-center justify-center gap-1 hover:bg-primary-container/20 transition-colors tactile-press"
+                >
+                  {showAllAchievements ? (
+                    <>收起 <ChevronUp className="w-4 h-4" /></>
+                  ) : (
+                    <>查看全部 ({achievements.length}) <ChevronDown className="w-4 h-4" /></>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Ability Radar Chart - 能力概览 */}
+        <section className="mb-8">
+          <h3 className="text-xl font-black mb-6 px-2 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary fill-current" />
+            能力概览
+          </h3>
+          <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15 shadow-sm">
+            <svg viewBox="0 0 300 280" className="w-full max-w-[320px] mx-auto">
+              {(() => {
+                const cx = 150, cy = 130, maxR = 100;
+                const levels = [0.2, 0.4, 0.6, 0.8, 1.0];
+                const angles = domainConfig.map((_, i) => (Math.PI * 2 * i) / domainConfig.length - Math.PI / 2);
+
+                const getPoint = (idx: number, ratio: number) => ({
+                  x: cx + maxR * ratio * Math.cos(angles[idx]),
+                  y: cy + maxR * ratio * Math.sin(angles[idx]),
+                });
+
+                const points = (ratio: number) =>
+                  domainConfig.map((_, i) => { const p = getPoint(i, ratio); return `${p.x},${p.y}`; }).join(' ');
+
+                const values = domainConfig.map(d => Math.min((radarData[d.key] || 0) / 100, 1));
+                const dataPoints = domainConfig.map((_, i) => getPoint(i, values[i]));
+
+                return (
+                  <>
+                    {/* Grid lines */}
+                    {levels.map((level, li) => (
+                      <polygon key={li} points={points(level)} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1" />
+                    ))}
+                    {/* Axis lines */}
+                    {domainConfig.map((_, i) => {
+                      const p = getPoint(i, 1);
+                      return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(0,0,0,0.06)" strokeWidth="1" />;
+                    })}
+                    {/* Data polygon */}
+                    <polygon
+                      points={dataPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(79, 140, 255, 0.2)"
+                      stroke="rgba(79, 140, 255, 0.8)"
+                      strokeWidth="2"
+                    />
+                    {/* Data points + labels */}
+                    {domainConfig.map((d, i) => {
+                      const p = dataPoints[i];
+                      const lp = getPoint(i, 1.25);
+                      const isSelected = selectedDomain === d.key;
+                      return (
+                        <g key={d.key}>
+                          <circle cx={p.x} cy={p.y} r="4" fill={d.color} stroke="white" strokeWidth="2" />
+                          <text
+                            x={lp.x} y={lp.y}
+                            textAnchor="middle" dominantBaseline="middle"
+                            className="text-[11px] font-bold cursor-pointer"
+                            fill={isSelected ? d.color : '#555'}
+                            onClick={() => setSelectedDomain(selectedDomain === d.key ? null : d.key)}
+                          >
+                            {d.label}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </svg>
+            {/* Domain detail row */}
+            <div className="flex justify-center gap-3 mt-4 flex-wrap">
+              {domainConfig.map(d => (
+                <button
+                  key={d.key}
+                  onClick={() => setSelectedDomain(selectedDomain === d.key ? null : d.key)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs font-bold transition-colors tactile-press',
+                    selectedDomain === d.key
+                      ? 'text-white shadow-sm'
+                      : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                  )}
+                  style={selectedDomain === d.key ? { backgroundColor: d.color } : undefined}
+                >
+                  {d.label} {radarData[d.key] ? Math.round(radarData[d.key]) : 0}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* Recommended for You */}

@@ -1,0 +1,14 @@
+http://localhost:3000/api/ai/chat/stream?message=%E6%B5%8B%E8%AF%95&childId=1
+
+event: tool_start
+data: {"content":"generateQuiz","toolName":"generateQuiz","toolArgs":{"difficulty":1,"topic":"颜色","ageGroup":"5-6"}}
+
+event: tool_result
+data: {"content":"generateQuiz","toolName":"generateQuiz","toolResult":"{\"questions\":[{\"question\":\"太阳是什么颜色的？\",\"options\":[\"红色\",\"蓝色\",\"绿色\"],\"correctIndex\":0,\"explanation\":\"太阳是红红的，就像红苹果一样！\"},{\"question\":\"香蕉是什么颜色的？\",\"options\":[\"黄色\",\"紫色\",\"黑色\"],\"correctIndex\":0,\"explanation\":\"香蕉是黄黄的，像小太阳一样！\"},{\"question\":\"小草是什么颜色的？\",\"options\":[\"红色\",\"蓝色\",\"绿色\"],\"correctIndex\":2,\"explanation\":\"小草是绿绿的，大地上长满了绿色的小草！\"}],\"topic\":\"颜色\",\"ageGroup\":\"5-6\"}"}
+
+event: token
+data: {"content":"<think>用户发送\"测试\"，我调用了generateQuiz生成了一个关于颜色的测试题。现在需要展示给孩子回答。\n</think>\n\n好呀！来玩颜色小测验吧！🎨\n\n---\n\n**问题1：** 太阳是什么颜色的？\n\n① 红色  ② 蓝色  ③ 绿色\n\n---\n\n**问题2：** 香蕉是什么颜色的？\n\n① 黄色  ② 紫色  ③ 黑色\n\n---\n\n**问题3：** 小草是什么颜色的？\n\n① 红色  ② 蓝色  ③ 绿色\n\n---\n\n告诉我你的答案吧！😊"}
+
+event: done
+data: {"sessionId":"f7e9b25a-71c9-47ed-a9c6-1445bd26ad76","wasFiltered":false,"suggestions":["推荐学习内容","出一道数学题","我最近学得怎么样？"]}
+

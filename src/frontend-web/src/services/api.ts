@@ -23,6 +23,8 @@ import type {
   Assignment,
   ActivityResult,
   EmergencyCall,
+  TodayStatsWithSources,
+  AchievementDisplay,
 } from '@/types';
 
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -318,6 +320,15 @@ class ApiService {
 
   async getEmergencyHistory(childId: number): Promise<EmergencyCall[]> {
     return this.request<EmergencyCall[]>(`/emergency/history/${childId}`);
+  }
+
+  // Learning tracker
+  async getTodayStatsDetail(userId: number): Promise<TodayStatsWithSources> {
+    return this.request<TodayStatsWithSources>(`/learning/today-detail/${userId}`);
+  }
+
+  async getAchievementDisplays(userId: number): Promise<AchievementDisplay[]> {
+    return this.request<AchievementDisplay[]>(`/achievements/user/${userId}`);
   }
 }
 

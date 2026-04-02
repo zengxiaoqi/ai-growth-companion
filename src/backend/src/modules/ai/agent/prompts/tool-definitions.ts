@@ -116,15 +116,16 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'recordLearning',
-      description: '记录一次学习结果。当孩子完成了一个测验或学习活动后调用，用于更新学习记录。',
+      description: '记录一次学习结果。当孩子完成了一个测验或学习活动后调用，用于更新学习记录和能力评估。请根据对话上下文判断学习领域。',
       parameters: {
         type: 'object',
         properties: {
           childId: { type: 'number', description: '孩子的用户ID' },
           contentId: { type: 'number', description: '学习内容的ID' },
           score: { type: 'number', description: '得分 0-100', minimum: 0, maximum: 100 },
+          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: '学习领域：language=语言, math=数学, science=科学, art=艺术, social=社会。根据对话内容推断。' },
         },
-        required: ['childId', 'contentId', 'score'],
+        required: ['childId', 'contentId', 'score', 'domain'],
       },
     },
   },

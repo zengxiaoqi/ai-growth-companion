@@ -32,25 +32,20 @@ import {
   Loader2,
   CheckCircle2,
   Save,
+  Plus,
+  Play,
+  Clock,
+  CheckCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { GrowthReport, Achievement, ParentControl, AbilityReport, Ability, User } from '@/types';
+import type { GrowthReport, Achievement, ParentControl, AbilityReport, User, Assignment } from '@/types';
 import AIChat from './AIChat';
 import ReportDetail from './ReportDetail';
 import NotificationPanel from './NotificationPanel';
-
-const defaultChartData = [
-  { name: '周一', time: 45 },
-  { name: '周二', time: 72 },
-  { name: '周三', time: 95 },
-  { name: '周四', time: 60 },
-  { name: '周五', time: 78 },
-  { name: '周六', time: 102 },
-  { name: '周日', time: 35 },
-];
 
 const DOMAIN_CONFIG: Record<string, { label: string; color: string; containerColor: string; textColor: string }> = {
   language: { label: '语言', color: 'bg-secondary', containerColor: 'bg-secondary-container/30', textColor: 'text-on-secondary-container' },
@@ -61,24 +56,6 @@ const DOMAIN_CONFIG: Record<string, { label: string; color: string; containerCol
 };
 
 const RADAR_COLORS = ['#006384', '#586000', '#705900', '#b9ae6e', '#b02500'];
-
-// Fallback ability data when API is unavailable
-const fallbackAbilities: Ability[] = [
-  { id: 1, userId: 0, domain: 'language', level: 3, progress: 72, updatedAt: new Date().toISOString() },
-  { id: 2, userId: 0, domain: 'math', level: 2, progress: 58, updatedAt: new Date().toISOString() },
-  { id: 3, userId: 0, domain: 'science', level: 4, progress: 85, updatedAt: new Date().toISOString() },
-  { id: 4, userId: 0, domain: 'art', level: 3, progress: 67, updatedAt: new Date().toISOString() },
-  { id: 5, userId: 0, domain: 'social', level: 2, progress: 45, updatedAt: new Date().toISOString() },
-];
-
-const fallbackTrendData = [
-  { week: '第1周', language: 40, math: 35, science: 50, art: 30, social: 25 },
-  { week: '第2周', language: 45, math: 40, science: 55, art: 38, social: 30 },
-  { week: '第3周', language: 52, math: 42, science: 60, art: 45, social: 35 },
-  { week: '第4周', language: 58, math: 48, science: 68, art: 50, social: 38 },
-  { week: '第5周', language: 65, math: 52, science: 75, art: 55, social: 40 },
-  { week: '第6周', language: 72, math: 58, science: 85, art: 67, social: 45 },
-];
 
 const ALL_DOMAINS = ['language', 'math', 'science', 'art', 'social'];
 
@@ -92,6 +69,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [controls, setControls] = useState<ParentControl | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [abilityReport, setAbilityReport] = useState<AbilityReport | null>(null);
+  const [trendData, setTrendData] = useState<{ week: string; language: number; math: number; science: number; art: number; social: number }[]>([]);
+  const [recentSkills, setRecentSkills] = useState<{ domain: string; level: number; label: string }[]>([]);
+  const [reportInsights, setReportInsights] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showReportDetail, setShowReportDetail] = useState(false);
 
@@ -119,6 +99,25 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [editAllowedDomains, setEditAllowedDomains] = useState<string[]>(ALL_DOMAINS);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Assignments
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [showAssignPanel, setShowAssignPanel] = useState(false);
+  const [assignTopic, setAssignTopic] = useState('');
+  const [assignDomain, setAssignDomain] = useState('language');
+  const [assignDifficulty, setAssignDifficulty] = useState(1);
+  const [assignType, setAssignType] = useState<string>('quiz');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const ACTIVITY_TYPES = [
+    { value: 'quiz', label: '选择题' },
+    { value: 'true_false', label: '判断题' },
+    { value: 'fill_blank', label: '填空题' },
+    { value: 'matching', label: '配对游戏' },
+    { value: 'connection', label: '连线游戏' },
+    { value: 'sequencing', label: '排序游戏' },
+    { value: 'puzzle', label: '拼图游戏' },
+  ];
 
   // Fetch data on mount
   useEffect(() => {
@@ -177,6 +176,35 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         } catch {
           console.log('Abilities API unavailable, using fallback data');
         }
+
+        // Fetch ability trend
+        try {
+          const trend = await api.getAbilityTrend(targetUserId, 6);
+          if (trend && trend.length > 0) setTrendData(trend);
+        } catch {
+          console.log('Trend API unavailable, using fallback data');
+        }
+
+        // Fetch recent skills
+        try {
+          const skills = await api.getRecentSkills(targetUserId, 3);
+          setRecentSkills(skills);
+        } catch {
+          console.log('Recent skills API unavailable');
+        }
+
+        // Extract insights from report
+        if (reportData?.insights) {
+          setReportInsights(reportData.insights);
+        }
+
+        // Fetch assignments for parent
+        try {
+          const assignData = await api.getParentAssignments(user!.id);
+          setAssignments(assignData);
+        } catch {
+          console.log('Assignments API unavailable');
+        }
       } catch (err) {
         console.error('Failed to fetch parent dashboard data:', err);
       } finally {
@@ -191,7 +219,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const chartData = reportData?.dailyStats?.map(stat => ({
     name: new Date(stat.date).toLocaleDateString('zh-CN', { weekday: 'short' }),
     time: Math.round(stat.totalTime / 60), // Convert to minutes
-  })) || defaultChartData;
+  })) || [];
 
   // Calculate total achievement score
   const totalScore = achievements.reduce((sum, a) => sum + (a.unlockedAt ? a.progress : 0), 0);
@@ -206,7 +234,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   };
 
   // Abilities data for radar chart
-  const abilities = abilityReport?.abilities?.length ? abilityReport.abilities : fallbackAbilities;
+  const abilities = abilityReport?.abilities?.length ? abilityReport.abilities : ALL_DOMAINS.map((domain, i) => ({
+    id: i, userId: 0, domain, level: 0, progress: 0, updatedAt: new Date().toISOString(),
+  }));
 
   const radarData = abilities.map(a => {
     const config = DOMAIN_CONFIG[a.domain];
@@ -217,10 +247,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     };
   });
 
-  // Trend data (use fallback for now; in production this would come from historical API)
-  const trendData = fallbackTrendData;
-
-  // Handle save controls
+  // Abilities data for radar chart
   const handleSaveControls = useCallback(async () => {
     if (!user?.id) return;
     setIsSaving(true);
@@ -239,7 +266,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [user?.id, editDailyLimit, editAllowedDomains]);
+  }, [user?.id, editDailyLimit, editAllowedDomains, studySchedule]);
 
   const toggleDomain = (domain: string) => {
     setEditAllowedDomains(prev =>
@@ -269,12 +296,33 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   // Get selected child info
   const selectedChild = children.find(c => c.id === selectedChildId);
 
-  // Recent mastered skills
-  const recentMastered = [
-    { label: '100以内加减法', color: 'bg-secondary' },
-    { label: '初级英语发音', color: 'bg-tertiary' },
-    { label: '二十四节气认知', color: 'bg-error' },
-  ];
+  // Create assignment handler
+  const handleCreateAssignment = useCallback(async () => {
+    if (!user?.id || !selectedChildId || !assignTopic.trim()) return;
+    setIsAssigning(true);
+    try {
+      const assignment = await api.createAssignment({
+        parentId: user.id,
+        childId: selectedChildId,
+        activityType: assignType,
+        domain: assignDomain,
+        difficulty: assignDifficulty,
+        activityData: { topic: assignTopic.trim() },
+      });
+      setAssignments(prev => [assignment, ...prev]);
+      setAssignTopic('');
+      setShowAssignPanel(false);
+    } catch (err) {
+      console.error('Failed to create assignment:', err);
+    } finally {
+      setIsAssigning(false);
+    }
+  }, [user?.id, selectedChildId, assignType, assignDomain, assignDifficulty, assignTopic]);
+
+  // Recent mastered skills (from API)
+  const recentMastered = recentSkills.length > 0
+    ? recentSkills.map(s => ({ label: s.label, color: DOMAIN_CONFIG[s.domain]?.color || 'bg-primary' }))
+    : [];
 
   if (showReportDetail) {
     return (
@@ -411,25 +459,31 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               </div>
               
               <div className="h-64 mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#81783d', fontSize: 12, fontWeight: 700 }}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'transparent' }}
-                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    />
-                    <Bar dataKey="time" radius={[8, 8, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.time === Math.max(...chartData.map(d => d.time)) ? '#006384' : '#f8e999'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#81783d', fontSize: 12, fontWeight: 700 }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'transparent' }}
+                        contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      />
+                      <Bar dataKey="time" radius={[8, 8, 0, 0]}>
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.time === Math.max(...chartData.map(d => d.time)) ? '#006384' : '#f8e999'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-on-surface-variant">
+                    <p>暂无学习数据</p>
+                  </div>
+                )}
               </div>
 
               {/* View Full Report Button */}
@@ -450,7 +504,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   <p className="text-5xl font-black mt-2">{totalScore.toLocaleString()} <span className="text-lg font-medium opacity-60">积分</span></p>
                   <div className="mt-8 flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-primary-container" />
-                    <span className="text-sm font-bold">超越了 85% 的同龄学生</span>
+                    <span className="text-sm font-bold">继续加油，超越自我！</span>
                   </div>
                 </div>
                 <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-primary-container/20 rounded-full blur-2xl"></div>
@@ -459,12 +513,14 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               <div className="flex-1 bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
                 <h3 className="text-lg font-bold">最近掌握</h3>
                 <div className="mt-4 space-y-3">
-                  {recentMastered.map((item, i) => (
+                  {recentMastered.length > 0 ? recentMastered.map((item, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div className={cn("w-2 h-2 rounded-full", item.color)}></div>
                       <span className="text-sm font-medium">{item.label}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-sm text-on-surface-variant">暂无数据</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -552,45 +608,51 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               </div>
 
               <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
-                    <XAxis 
-                      dataKey="week" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#81783d', fontSize: 12, fontWeight: 600 }}
-                    />
-                    <YAxis 
-                      domain={[0, 100]} 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fill: '#81783d', fontSize: 11 }}
-                    />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    />
-                    <Legend 
-                      wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
-                    />
-                    {ALL_DOMAINS.map((domain, i) => {
-                      const config = DOMAIN_CONFIG[domain];
-                      const strokeColors = ['#006384', '#586000', '#705900', '#b9ae6e', '#b02500'];
-                      return (
-                        <Line
-                          key={domain}
-                          type="monotone"
-                          dataKey={domain}
-                          name={config.label}
-                          stroke={strokeColors[i]}
-                          strokeWidth={2.5}
-                          dot={{ r: 3, fill: strokeColors[i] }}
-                          activeDot={{ r: 5 }}
-                        />
-                      );
-                    })}
-                  </LineChart>
-                </ResponsiveContainer>
+                {trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
+                      <XAxis
+                        dataKey="week"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#81783d', fontSize: 12, fontWeight: 600 }}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#81783d', fontSize: 11 }}
+                      />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
+                      />
+                      {ALL_DOMAINS.map((domain, i) => {
+                        const config = DOMAIN_CONFIG[domain];
+                        const strokeColors = ['#006384', '#586000', '#705900', '#b9ae6e', '#b02500'];
+                        return (
+                          <Line
+                            key={domain}
+                            type="monotone"
+                            dataKey={domain}
+                            name={config.label}
+                            stroke={strokeColors[i]}
+                            strokeWidth={2.5}
+                            dot={{ r: 3, fill: strokeColors[i] }}
+                            activeDot={{ r: 5 }}
+                          />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-on-surface-variant">
+                    <p>暂无能力趋势数据</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </section>
@@ -802,12 +864,14 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               <div className="relative z-10">
                 <span className="bg-on-tertiary-container text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter">AI 智能洞察</span>
                 <h3 className="text-3xl font-bold mt-6 text-on-secondary-container leading-tight">
-                  {selectedChild
-                    ? `${selectedChild.name}在"逻辑思维"领域的兴趣正在显著提升。`
-                    : '孩子在"逻辑思维"领域的兴趣正在显著提升。'}
+                  {reportInsights.length > 0
+                    ? `${selectedChild ? selectedChild.name : '孩子'}${reportInsights[0]}`
+                    : `${selectedChild ? selectedChild.name : '孩子'}正在不断成长中！`}
                 </h3>
                 <p className="mt-4 text-on-surface-variant leading-relaxed">
-                  基于过去48小时的行为分析，我们建议增加一些初级编程或数学解谜类的内容，这非常符合目前的认知发展阶段。
+                  {reportInsights.length > 1
+                    ? reportInsights.slice(1).join('；')
+                    : '继续陪伴孩子学习，会看到更多变化。'}
                 </p>
                 <button className="mt-8 bg-on-secondary-container text-white px-8 py-4 rounded-xl font-bold hover:scale-105 transition-transform flex items-center gap-2">
                   调整学习计划
@@ -823,6 +887,200 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 />
               </div>
             </div>
+          </section>
+
+          {/* Assignment Management */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-bold">任务管理</h3>
+              <button
+                onClick={() => setShowAssignPanel(!showAssignPanel)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm hover:scale-105 transition-transform"
+              >
+                <Plus className="w-4 h-4" />
+                布置任务
+              </button>
+            </div>
+
+            {/* Create Assignment Panel */}
+            {showAssignPanel && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/15 space-y-5"
+              >
+                <h4 className="font-bold text-lg">布置新任务</h4>
+
+                {/* Topic Input */}
+                <div>
+                  <label className="text-sm font-bold text-on-surface-variant block mb-1">题目主题</label>
+                  <input
+                    type="text"
+                    placeholder="例：认识数字 1-10、动物名称..."
+                    value={assignTopic}
+                    onChange={(e) => setAssignTopic(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-outline-variant/30 text-sm focus:outline-none focus:border-primary bg-background"
+                  />
+                </div>
+
+                {/* Activity Type */}
+                <div>
+                  <label className="text-sm font-bold text-on-surface-variant block mb-2">活动类型</label>
+                  <div className="flex flex-wrap gap-2">
+                    {ACTIVITY_TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        onClick={() => setAssignType(t.value)}
+                        className={cn(
+                          "px-3 py-2 rounded-lg text-sm font-bold transition-all",
+                          assignType === t.value
+                            ? "bg-primary text-on-primary shadow-sm"
+                            : "bg-surface-container border border-outline-variant/30 hover:border-primary/50"
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Domain */}
+                <div>
+                  <label className="text-sm font-bold text-on-surface-variant block mb-2">学习领域</label>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_DOMAINS.map(domain => {
+                      const config = DOMAIN_CONFIG[domain];
+                      return (
+                        <button
+                          key={domain}
+                          onClick={() => setAssignDomain(domain)}
+                          className={cn(
+                            "px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5",
+                            assignDomain === domain
+                              ? "bg-on-secondary-container text-white"
+                              : "bg-surface-container border border-outline-variant/30"
+                          )}
+                        >
+                          <span className={cn(
+                            "w-5 h-5 rounded text-white text-[10px] font-black flex items-center justify-center",
+                            assignDomain === domain ? config.color : "bg-outline-variant/30"
+                          )}>
+                            {config.label[0]}
+                          </span>
+                          {config.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Difficulty */}
+                <div>
+                  <label className="text-sm font-bold text-on-surface-variant block mb-2">难度等级</label>
+                  <div className="flex gap-2">
+                    {[
+                      { level: 1, label: '简单' },
+                      { level: 2, label: '中等' },
+                      { level: 3, label: '困难' },
+                    ].map(d => (
+                      <button
+                        key={d.level}
+                        onClick={() => setAssignDifficulty(d.level)}
+                        className={cn(
+                          "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                          assignDifficulty === d.level
+                            ? "bg-tertiary text-on-tertiary"
+                            : "bg-surface-container border border-outline-variant/30 hover:border-primary/50"
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <button
+                  onClick={handleCreateAssignment}
+                  disabled={isAssigning || !assignTopic.trim() || !selectedChildId}
+                  className={cn(
+                    "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all",
+                    isAssigning || !assignTopic.trim() || !selectedChildId
+                      ? "bg-outline-variant/30 text-on-surface-variant cursor-not-allowed"
+                      : "bg-primary text-on-primary hover:scale-[1.02] active:scale-[0.98]"
+                  )}
+                >
+                  {isAssigning ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ClipboardList className="w-5 h-5" />
+                  )}
+                  {isAssigning ? '生成中...' : '布置任务'}
+                </button>
+              </motion.div>
+            )}
+
+            {/* Assignment List */}
+            {assignments.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-bold text-on-surface-variant">已布置的任务</h4>
+                {assignments.map(assignment => {
+                  const domainConfig = DOMAIN_CONFIG[assignment.domain || ''];
+                  const isCompleted = assignment.status === 'completed';
+                  const isPending = assignment.status === 'pending';
+                  return (
+                    <div
+                      key={assignment.id}
+                      className={cn(
+                        "bg-surface-container-lowest rounded-2xl p-4 border flex items-center gap-4",
+                        isCompleted ? "border-[#4caf50]/30" : "border-outline-variant/15"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                        isCompleted ? "bg-[#e8f5e9]" : isPending ? "bg-primary-container/30" : "bg-tertiary-container/30"
+                      )}>
+                        {isCompleted ? (
+                          <CheckCircle className="w-5 h-5 text-[#2e7d32]" />
+                        ) : isPending ? (
+                          <Clock className="w-5 h-5 text-primary" />
+                        ) : (
+                          <Play className="w-5 h-5 text-on-tertiary-container" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm truncate">
+                            {assignment.activityData?.topic || assignment.activityType}
+                          </span>
+                          {domainConfig && (
+                            <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", domainConfig.containerColor, domainConfig.textColor)}>
+                              {domainConfig.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-on-surface-variant">
+                          <span>{ACTIVITY_TYPES.find(t => t.value === assignment.activityType)?.label || assignment.activityType}</span>
+                          {isCompleted && assignment.score != null && (
+                            <span className="text-[#2e7d32] font-bold">得分: {assignment.score}</span>
+                          )}
+                          {assignment.createdAt && (
+                            <span>{new Date(assignment.createdAt).toLocaleDateString('zh-CN')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "px-3 py-1 rounded-full text-xs font-bold shrink-0",
+                        isCompleted ? "bg-[#e8f5e9] text-[#2e7d32]" : "bg-primary-container text-on-primary-container"
+                      )}>
+                        {isCompleted ? '已完成' : '待完成'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </main>
       )}

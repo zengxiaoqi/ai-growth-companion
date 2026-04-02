@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ParentService } from './parent.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -24,7 +24,7 @@ export class ParentController {
     return this.parentService.create(body.parentId, body.childId);
   }
 
-  @Put('controls/:id')
+  @Patch('controls/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新家长控制设置' })

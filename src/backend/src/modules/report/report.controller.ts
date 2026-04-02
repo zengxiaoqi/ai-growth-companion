@@ -17,4 +17,22 @@ export class ReportController {
       period,
     });
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('trend')
+  async getAbilityTrend(
+    @Query('userId') userId: string,
+    @Query('weeks') weeks: string = '6',
+  ) {
+    return this.reportService.getAbilityTrend(+userId, +weeks);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('recent-skills')
+  async getRecentSkills(
+    @Query('userId') userId: string,
+    @Query('limit') limit: string = '3',
+  ) {
+    return this.reportService.getRecentMasteredSkills(+userId, +limit);
+  }
 }

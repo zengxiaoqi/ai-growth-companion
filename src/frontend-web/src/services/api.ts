@@ -226,8 +226,18 @@ class ApiService {
     const searchParams = new URLSearchParams();
     searchParams.set('userId', String(params.userId));
     if (params.period) searchParams.set('period', params.period);
-    
+
     return this.request<GrowthReport>(`/report?${searchParams.toString()}`);
+  }
+
+  // Report - Ability Trend
+  async getAbilityTrend(userId: number, weeks: number = 6): Promise<{ week: string; language: number; math: number; science: number; art: number; social: number }[]> {
+    return this.request(`/report/trend?userId=${userId}&weeks=${weeks}`);
+  }
+
+  // Report - Recent Mastered Skills
+  async getRecentSkills(userId: number, limit: number = 3): Promise<{ domain: string; level: number; label: string }[]> {
+    return this.request(`/report/recent-skills?userId=${userId}&limit=${limit}`);
   }
 
   // Parent Controls

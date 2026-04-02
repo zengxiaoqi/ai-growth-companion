@@ -22,7 +22,7 @@ import {
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
-import type { GrowthReport, Achievement, ReportParams } from '@/types';
+import type { GrowthReport, Achievement } from '@/types';
 import AIChat from './AIChat';
 
 type Period = 'daily' | 'weekly' | 'monthly';
@@ -41,31 +41,6 @@ const DOMAIN_CONFIG: Record<string, { label: string; color: string; textColor: s
   social: { label: '社会', color: 'bg-error', textColor: 'text-error' },
 };
 
-const fallbackDailyStats = [
-  { date: '2026-03-24', totalTime: 2700, completedLessons: 3, averageScore: 85 },
-  { date: '2026-03-25', totalTime: 4320, completedLessons: 5, averageScore: 78 },
-  { date: '2026-03-26', totalTime: 5700, completedLessons: 6, averageScore: 92 },
-  { date: '2026-03-27', totalTime: 3600, completedLessons: 4, averageScore: 88 },
-  { date: '2026-03-28', totalTime: 4680, completedLessons: 5, averageScore: 81 },
-  { date: '2026-03-29', totalTime: 6120, completedLessons: 7, averageScore: 90 },
-  { date: '2026-03-30', totalTime: 2100, completedLessons: 2, averageScore: 75 },
-];
-
-const fallbackSkillProgress: Record<string, number> = {
-  language: 72,
-  math: 58,
-  science: 85,
-  art: 67,
-  social: 45,
-};
-
-const fallbackAchievements: Achievement[] = [
-  { id: 1, name: '语言小达人', description: '完成10个语言类课程', icon: '📚', unlockedAt: '2026-03-28', progress: 10, totalRequired: 10 },
-  { id: 2, name: '数学探索者', description: '完成5个数学类课程', icon: '🔢', unlockedAt: '2026-03-25', progress: 5, totalRequired: 5 },
-  { id: 3, name: '科学好奇心', description: '连续3天学习科学内容', icon: '🔬', unlockedAt: undefined, progress: 2, totalRequired: 3 },
-  { id: 4, name: '小小艺术家', description: '创作5幅艺术作品', icon: '🎨', unlockedAt: undefined, progress: 3, totalRequired: 5 },
-];
-
 interface ReportDetailProps {
   userId: number;
   onBack: () => void;
@@ -82,7 +57,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
       setIsLoading(true);
       try {
         const [report, achs] = await Promise.all([
-          api.getReport({ userId, period } as ReportParams).catch(() => null),
+          api.getReport({ userId, period }).catch(() => null),
           api.getAchievements(userId).catch(() => []),
         ]);
         if (report) setReportData(report);
@@ -97,9 +72,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
   }, [userId, period]);
 
   // Daily stats for chart
-  const dailyStats = reportData?.dailyStats?.length
-    ? reportData.dailyStats
-    : fallbackDailyStats;
+  const dailyStats = reportData?.dailyStats ?? [];
 
   const barChartData = dailyStats.map(stat => ({
     name: new Date(stat.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
@@ -109,28 +82,21 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
   }));
 
   // Skill progress
-  const skillProgress = reportData?.skillProgress?.['language'] !== undefined
-    ? reportData.skillProgress
-    : fallbackSkillProgress;
+  const skillProgress = reportData?.skillProgress ?? { language: 0, math: 0, science: 0, art: 0, social: 0 };
 
   // Summary stats
   const totalTime = reportData?.totalLearningTime
     ? Math.round(reportData.totalLearningTime / 60)
-    : dailyStats.reduce((s, d) => s + Math.round(d.totalTime / 60), 0);
-  const totalLessons = reportData?.totalLessonsCompleted
-    ?? dailyStats.reduce((s, d) => s + d.completedLessons, 0);
-  const avgScore = reportData?.averageScore
-    ?? Math.round(dailyStats.reduce((s, d) => s + d.averageScore, 0) / dailyStats.length);
+    : 0;
+  const totalLessons = reportData?.totalLessonsCompleted ?? 0;
+  const avgScore = reportData?.averageScore ?? 0;
 
-  const displayAchievements = achievements.length > 0 ? achievements.slice(0, 4) : fallbackAchievements;
+  const displayAchievements = achievements.length > 0 ? achievements.slice(0, 4) : [];
 
-  // AI suggestions (static for now - generated client-side)
-  const aiSuggestions = [
-    '小明在科学领域表现突出，建议适当增加难度以保持学习兴趣。',
-    '社会交往能力需要更多练习，推荐多参与互动类课程。',
-    '语言能力进步稳定，可以尝试引入更复杂的阅读材料。',
-    '建议每天保持30-45分钟的学习时间，效果最佳。',
-  ];
+  // AI suggestions from report insights
+  const aiSuggestions = (reportData?.insights?.length ?? 0) > 0
+    ? reportData!.insights!
+    : [];
 
   return (
     <div className="pb-32">
@@ -236,29 +202,35 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
             </div>
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#81783d', fontSize: 11, fontWeight: 600 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#81783d', fontSize: 11 }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
-                  <Bar dataKey="minutes" name="学习时长" radius={[6, 6, 0, 0]} fill="#006384" />
-                  <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="#586000" />
-                </BarChart>
-              </ResponsiveContainer>
+              {barChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#81783d', fontSize: 11, fontWeight: 600 }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#81783d', fontSize: 11 }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'transparent' }}
+                      contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
+                    <Bar dataKey="minutes" name="学习时长" radius={[6, 6, 0, 0]} fill="#006384" />
+                    <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="#586000" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-on-surface-variant">
+                  <p>暂无学习数据</p>
+                </div>
+              )}
             </div>
           </motion.section>
 
@@ -311,7 +283,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               <h3 className="text-2xl font-bold text-on-secondary-container">成就亮点</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {displayAchievements.map((ach, i) => (
+              {displayAchievements.length > 0 ? displayAchievements.map((ach, i) => (
                 <motion.div
                   key={ach.id}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -342,7 +314,12 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                     <p className="text-[10px] text-on-surface-variant mt-1">{ach.progress} / {ach.totalRequired}</p>
                   </div>
                 </motion.div>
-              ))}
+              )) : (
+                <div className="col-span-full text-center py-8 text-on-surface-variant">
+                  <Trophy className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">暂无成就，继续学习解锁更多成就！</p>
+                </div>
+              )}
             </div>
           </motion.section>
 
@@ -358,20 +335,27 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                 <Sparkles className="w-7 h-7 text-primary-container" />
                 <h3 className="text-2xl font-bold">AI 学习建议</h3>
               </div>
-              <div className="space-y-4">
-                {aiSuggestions.map((suggestion, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.4, delay: 0.5 + i * 0.1 }}
-                    className="flex items-start gap-3 bg-white/10 rounded-xl p-4"
-                  >
-                    <TrendingUp className="w-5 h-5 text-primary-container shrink-0 mt-0.5" />
-                    <p className="text-sm leading-relaxed">{suggestion}</p>
-                  </motion.div>
-                ))}
-              </div>
+              {aiSuggestions.length > 0 ? (
+                <div className="space-y-4">
+                  {aiSuggestions.map((suggestion, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4, delay: 0.5 + i * 0.1 }}
+                      className="flex items-start gap-3 bg-white/10 rounded-xl p-4"
+                    >
+                      <TrendingUp className="w-5 h-5 text-primary-container shrink-0 mt-0.5" />
+                      <p className="text-sm leading-relaxed">{suggestion}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-4">
+                  <TrendingUp className="w-5 h-5 text-primary-container shrink-0" />
+                  <p className="text-sm leading-relaxed">继续学习，AI 会根据孩子的表现生成个性化建议。</p>
+                </div>
+              )}
             </div>
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary-container/10 rounded-full blur-3xl"></div>
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-tertiary-container/10 rounded-full blur-3xl"></div>

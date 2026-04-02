@@ -186,6 +186,8 @@ export interface GrowthReport {
   dailyStats: DailyStats[];
   skillProgress: Record<string, number>;
   achievements: Achievement[];
+  insights?: string[];
+  streak?: number;
 }
 
 export interface ReportParams {

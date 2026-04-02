@@ -27,6 +27,12 @@ import { AssignActivityTool } from './agent/tools/assign-activity';
 import { AssignmentModule } from '../assignment/assignment.module';
 import { RecordLearningTool } from './agent/tools/record-learning';
 import { GetParentControlTool } from './agent/tools/get-parent-control';
+import { ListChildrenTool } from './agent/tools/list-children';
+import { ViewReportTool } from './agent/tools/view-report';
+import { ViewAbilitiesTool } from './agent/tools/view-abilities';
+import { UpdateParentControlTool } from './agent/tools/update-parent-control';
+import { ListAssignmentsTool } from './agent/tools/list-assignments';
+import { ReportModule } from '../report/report.module';
 
 @Module({
   imports: [
@@ -37,6 +43,7 @@ import { GetParentControlTool } from './agent/tools/get-parent-control';
     RecommendModule,
     ParentModule,
     AssignmentModule,
+    ReportModule,
     ConfigModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
@@ -62,6 +69,11 @@ import { GetParentControlTool } from './agent/tools/get-parent-control';
     AssignActivityTool,
     RecordLearningTool,
     GetParentControlTool,
+    ListChildrenTool,
+    ViewReportTool,
+    ViewAbilitiesTool,
+    UpdateParentControlTool,
+    ListAssignmentsTool,
   ],
   controllers: [AiController],
   exports: [AiService, GenerateActivityTool],

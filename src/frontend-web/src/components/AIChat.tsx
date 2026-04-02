@@ -40,13 +40,14 @@ interface Message {
 
 interface AIChatProps {
   childId?: number;
+  parentId?: number;
   /** When true, renders as a full-page view instead of a floating widget */
   fullPage?: boolean;
   /** Back navigation for full-page mode */
   onBack?: () => void;
 }
 
-export default function AIChat({ childId, fullPage = false, onBack }: AIChatProps) {
+export default function AIChat({ childId, parentId, fullPage = false, onBack }: AIChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -127,7 +128,7 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
     const assistantId = (Date.now() + 1).toString();
 
     try {
-      const response = await api.sendChatMessageStream({ message: messageText, childId, sessionId });
+      const response = await api.sendChatMessageStream({ message: messageText, childId, parentId, sessionId });
       if (!response.ok || !response.body) throw new Error('Stream failed');
 
       const reader = response.body.getReader();
@@ -209,7 +210,7 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
       ));
     } catch {
       try {
-        const response = await api.sendChatMessage({ message: messageText, childId, sessionId });
+        const response = await api.sendChatMessage({ message: messageText, childId, parentId, sessionId });
         if (response.sessionId) setSessionId(response.sessionId);
         if (response.suggestions?.length) setSuggestions(response.suggestions);
         setMessages((prev) => [...prev.filter((m) => m.id !== assistantId), {
@@ -225,7 +226,7 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, childId, sessionId]);
+  }, [input, isLoading, childId, parentId, sessionId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStream(); }

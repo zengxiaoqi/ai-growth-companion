@@ -13,11 +13,12 @@ export class AiController {
   @Post('chat')
   @ApiOperation({ summary: 'AI 对话（Agent 模式）' })
   async chat(
-    @Body() body: { message: string; childId: number; sessionId?: string; context?: any },
+    @Body() body: { message: string; childId?: number; parentId?: number; sessionId?: string; context?: any },
   ) {
     return this.aiService.chat({
       message: body.message,
       childId: body.childId,
+      parentId: body.parentId,
       sessionId: body.sessionId,
       context: body.context,
     });
@@ -28,6 +29,7 @@ export class AiController {
   async chatStream(
     @Query('message') message: string,
     @Query('childId') childId: string,
+    @Query('parentId') parentId: string,
     @Query('sessionId') sessionId: string,
     @Res() res: Response,
   ) {
@@ -40,7 +42,8 @@ export class AiController {
     try {
       const stream = this.aiService.chatStream({
         message,
-        childId: +childId,
+        childId: childId ? +childId : undefined,
+        parentId: parentId ? +parentId : undefined,
         sessionId: sessionId || undefined,
       });
 

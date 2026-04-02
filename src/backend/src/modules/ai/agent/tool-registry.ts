@@ -10,6 +10,11 @@ import { GenerateActivityTool } from './tools/generate-activity';
 import { AssignActivityTool } from './tools/assign-activity';
 import { RecordLearningTool } from './tools/record-learning';
 import { GetParentControlTool } from './tools/get-parent-control';
+import { ListChildrenTool } from './tools/list-children';
+import { ViewReportTool } from './tools/view-report';
+import { ViewAbilitiesTool } from './tools/view-abilities';
+import { UpdateParentControlTool } from './tools/update-parent-control';
+import { ListAssignmentsTool } from './tools/list-assignments';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
 
 @Injectable()
@@ -28,6 +33,11 @@ export class ToolRegistry {
     private readonly assignActivityTool: AssignActivityTool,
     private readonly recordLearningTool: RecordLearningTool,
     private readonly getParentControlTool: GetParentControlTool,
+    private readonly listChildrenTool: ListChildrenTool,
+    private readonly viewReportTool: ViewReportTool,
+    private readonly viewAbilitiesTool: ViewAbilitiesTool,
+    private readonly updateParentControlTool: UpdateParentControlTool,
+    private readonly listAssignmentsTool: ListAssignmentsTool,
   ) {
     this.handlers = new Map([
       ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
@@ -40,6 +50,11 @@ export class ToolRegistry {
       ['assignActivity', (args) => this.assignActivityTool.execute(args)],
       ['recordLearning', (args) => this.recordLearningTool.execute(args)],
       ['getParentControl', (args) => this.getParentControlTool.execute(args)],
+      ['listChildren', (args) => this.listChildrenTool.execute(args)],
+      ['viewReport', (args) => this.viewReportTool.execute(args)],
+      ['viewAbilities', (args) => this.viewAbilitiesTool.execute(args)],
+      ['updateParentControl', (args) => this.updateParentControlTool.execute(args)],
+      ['listAssignments', (args) => this.listAssignmentsTool.execute(args)],
     ]);
   }
 

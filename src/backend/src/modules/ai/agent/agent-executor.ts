@@ -3,7 +3,7 @@ import { LlmClient } from '../llm/llm-client';
 import { ToolRegistry } from './tool-registry';
 import { ConversationManager } from '../conversation/conversation-manager';
 import { ContentSafetyService } from '../../../common/services/content-safety.service';
-import { systemPrompt34, systemPrompt56 } from './prompts/system-prompts';
+import { systemPrompt34, systemPrompt56, systemPromptParent } from './prompts/system-prompts';
 import type { ChatCompletionMessageParam, ChatCompletionMessageFunctionToolCall } from 'openai/resources/chat/completions/completions';
 import type { ToolCallInfo, AgeGroup } from '../ai.types';
 
@@ -58,7 +58,8 @@ export class AgentExecutor {
   }
 
   /** Build system prompt based on age group */
-  buildSystemPrompt(ageGroup: AgeGroup, childName: string): string {
+  buildSystemPrompt(ageGroup: AgeGroup | 'parent', childName: string): string {
+    if (ageGroup === 'parent') return systemPromptParent(childName);
     if (ageGroup === '3-4') return systemPrompt34(childName);
     if (ageGroup === '5-6') return systemPrompt56(childName);
     return systemPrompt56(childName); // default to 5-6 style
@@ -70,7 +71,7 @@ export class AgentExecutor {
   async execute(
     sessionId: string,
     userMessage: string,
-    ageGroup: AgeGroup,
+    ageGroup: AgeGroup | 'parent',
     childName: string,
   ): Promise<{ reply: string; toolCalls: ToolCallInfo[] }> {
     // Save user message
@@ -180,7 +181,7 @@ export class AgentExecutor {
   async *executeStream(
     sessionId: string,
     userMessage: string,
-    ageGroup: AgeGroup,
+    ageGroup: AgeGroup | 'parent',
     childName: string,
   ): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error' | 'game_data';

@@ -115,6 +115,7 @@ export interface Achievement {
 export interface ChatMessage {
   message: string;
   childId?: number;
+  parentId?: number;
   sessionId?: string;
 }
 

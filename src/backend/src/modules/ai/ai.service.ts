@@ -31,10 +31,49 @@ export class AiService {
 
   /** Main chat endpoint — uses Agent with function calling */
   async chat(params: ChatRequest): Promise<ChatResponse> {
-    const { message, childId, sessionId, context } = params;
+    const { message, childId, parentId, sessionId, context } = params;
 
-    // Resolve user info
-    const user = await this.usersService.findById(childId);
+    // Parent mode: parentId present, no childId
+    if (parentId && !childId) {
+      const parent = await this.usersService.findById(parentId);
+      if (!parent) {
+        return {
+          reply: '找不到您的信息，请重新登录试试~',
+          sessionId: '',
+        };
+      }
+
+      if (!this.llmConfig.isConfigured) {
+        return this.fallbackChat(message, parentId);
+      }
+
+      const session = await this.conversationManager.getOrCreateSession(parentId, sessionId);
+      const parentName = parent.name || '家长';
+
+      // Update session metadata
+      await this.conversationManager.updateMetadata(session.uuid, { ageGroup: 'parent', childName: parentName });
+
+      // Execute agent in parent mode
+      const result = await this.agentExecutor.execute(
+        session.uuid,
+        message,
+        'parent',
+        parentName,
+      );
+
+      // Generate parent suggestions
+      const suggestions = this.generateParentSuggestions();
+
+      return {
+        reply: result.reply,
+        sessionId: session.uuid,
+        suggestions,
+        toolCalls: result.toolCalls,
+      };
+    }
+
+    // Child mode
+    const user = await this.usersService.findById(childId!);
     if (!user) {
       return {
         reply: '找不到你的信息，请重新登录试试~',
@@ -48,12 +87,12 @@ export class AiService {
 
     // Check if LLM is available
     if (!this.llmConfig.isConfigured) {
-      return this.fallbackChat(message, childId);
+      return this.fallbackChat(message, childId!);
     }
 
     try {
       // Get or create conversation session
-      const session = await this.conversationManager.getOrCreateSession(childId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(childId!, sessionId);
 
       // Update session metadata
       await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
@@ -77,7 +116,7 @@ export class AiService {
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
-      return this.fallbackChat(message, childId);
+      return this.fallbackChat(message, childId!);
     }
   }
 
@@ -97,9 +136,50 @@ export class AiService {
     activityType?: string;
     gameData?: string;
   }> {
-    const { message, childId, sessionId, context } = params;
+    const { message, childId, parentId, sessionId, context } = params;
 
-    const user = await this.usersService.findById(childId);
+    // Parent mode: parentId present, no childId
+    if (parentId && !childId) {
+      const parent = await this.usersService.findById(parentId);
+      if (!parent) {
+        yield { type: 'error', message: '找不到您的信息' };
+        return;
+      }
+
+      if (!this.llmConfig.isConfigured) {
+        const fallback = this.getFallbackResponse(message);
+        yield { type: 'token', content: fallback };
+        yield { type: 'done', suggestions: [] };
+        return;
+      }
+
+      const session = await this.conversationManager.getOrCreateSession(parentId, sessionId);
+      const parentName = parent.name || '家长';
+      await this.conversationManager.updateMetadata(session.uuid, { ageGroup: 'parent', childName: parentName });
+
+      const suggestions = this.generateParentSuggestions();
+
+      for await (const event of this.agentExecutor.executeStream(
+        session.uuid,
+        message,
+        'parent',
+        parentName,
+      )) {
+        if (event.type === 'done') {
+          yield {
+            ...event,
+            sessionId: session.uuid,
+            suggestions,
+          };
+        } else {
+          yield event;
+        }
+      }
+      return;
+    }
+
+    // Child mode
+    const user = await this.usersService.findById(childId!);
     if (!user) {
       yield { type: 'error', message: '找不到你的信息' };
       return;
@@ -117,7 +197,7 @@ export class AiService {
     }
 
     try {
-      const session = await this.conversationManager.getOrCreateSession(childId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(childId!, sessionId);
       await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
 
       const suggestions = this.generateSuggestions('', ageGroup);
@@ -219,6 +299,11 @@ export class AiService {
       return ['我想学颜色 🎨', '给我讲故事 📖', '我们玩游戏吧 🎮'];
     }
     return ['推荐学习内容', '出一道数学题', '我最近学得怎么样？'];
+  }
+
+  /** Generate suggestions for parent mode */
+  private generateParentSuggestions(): string[] {
+    return ['查看学习报告', '设置学习时间限制', '布置作业', '查看孩子能力'];
   }
 
   // ========== Legacy endpoints preserved for backward compatibility ==========

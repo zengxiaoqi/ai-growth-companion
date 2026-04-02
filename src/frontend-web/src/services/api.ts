@@ -187,13 +187,10 @@ class ApiService {
 
   // AI Chat Stream (SSE)
   sendChatMessageStream(data: ChatMessage): Promise<Response> {
-    const params = new URLSearchParams({
-      message: data.message,
-      childId: String(data.childId || ''),
-    });
-    if (data.sessionId) {
-      params.set('sessionId', data.sessionId);
-    }
+    const params = new URLSearchParams({ message: data.message });
+    if (data.childId) params.append('childId', String(data.childId));
+    if (data.parentId) params.append('parentId', String(data.parentId));
+    if (data.sessionId) params.set('sessionId', data.sessionId);
 
     const token = this.getToken();
     return fetch(`${API_BASE_URL}/ai/chat/stream?${params.toString()}`, {

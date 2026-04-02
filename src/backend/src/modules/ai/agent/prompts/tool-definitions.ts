@@ -167,4 +167,81 @@ export const toolDefinitions: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'listChildren',
+      description: '获取家长关联的所有孩子列表。当家长想查看或切换孩子时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          parentId: { type: 'number', description: '家长用户ID' },
+        },
+        required: ['parentId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'viewReport',
+      description: '查看孩子的学习报告，包含学习时长、完成课程数、平均分、连续学习天数等。当家长问孩子学习情况时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          childId: { type: 'number', description: '孩子用户ID' },
+          period: { type: 'string', enum: ['daily', 'weekly', 'monthly'], description: '报告周期，默认weekly' },
+        },
+        required: ['childId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'viewAbilities',
+      description: '查看孩子各领域能力评估（语言、数学、科学、艺术、社会）及近期趋势。当家长问孩子能力水平时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          childId: { type: 'number', description: '孩子用户ID' },
+        },
+        required: ['childId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'updateParentControl',
+      description: '修改家长控制设置，包括每日学习时间限制、允许的学习领域、屏蔽的主题等。当家长要求调整设置时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          parentId: { type: 'number', description: '家长用户ID' },
+          childId: { type: 'number', description: '孩子用户ID（可选）' },
+          dailyLimitMinutes: { type: 'number', description: '每日学习时间限制（分钟）' },
+          allowedDomains: { type: 'array', items: { type: 'string' }, description: '允许的学习领域' },
+          blockedTopics: { type: 'array', items: { type: 'string' }, description: '屏蔽的主题' },
+          eyeProtectionEnabled: { type: 'boolean', description: '是否开启护眼模式' },
+          restReminderMinutes: { type: 'number', description: '休息提醒间隔（分钟）' },
+        },
+        required: ['parentId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'listAssignments',
+      description: '查看孩子的作业列表，包含作业类型、状态、分数等。当家长问作业情况时调用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          childId: { type: 'number', description: '孩子用户ID' },
+        },
+        required: ['childId'],
+      },
+    },
+  },
 ];

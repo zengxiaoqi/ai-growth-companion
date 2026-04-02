@@ -337,8 +337,8 @@ function AppContent() {
         </motion.div>
       )}
 
-      {/* Global Floating AI Chat — available on all authenticated views except full-page companion */}
-      {view !== 'companion' && view !== 'login' && view !== 'register' && (
+      {/* Global Floating AI Chat — available on all authenticated views except full-page companion and parent dashboard */}
+      {view !== 'companion' && view !== 'login' && view !== 'register' && view !== 'parent' && (
         <Suspense fallback={null}>
           <AIChat childId={user?.type === 'child' ? user.id : undefined} />
         </Suspense>

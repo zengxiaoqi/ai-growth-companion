@@ -4,7 +4,8 @@ export type AgeGroup = '3-4' | '5-6' | 'unknown';
 
 export interface ChatRequest {
   message: string;
-  childId: number;
+  childId?: number;
+  parentId?: number;
   sessionId?: string;
   context?: {
     age?: number;

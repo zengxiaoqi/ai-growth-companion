@@ -12,7 +12,23 @@ export class ParentService {
   ) {}
 
   async getByParent(parentId: number) {
-    return this.controlRepository.find({ where: { parentId } });
+    const controls = await this.controlRepository.find({ where: { parentId } });
+    // Return the first control if exists, otherwise create a default one
+    if (controls.length > 0) return controls[0];
+
+    // Return a default control object
+    return {
+      id: 0,
+      parentId,
+      dailyLimitMinutes: 30,
+      allowedDomains: ['language', 'math', 'science', 'art', 'social'],
+      blockedTopics: [],
+      studySchedule: null,
+      notifications: null,
+      eyeProtectionEnabled: true,
+      restReminderMinutes: 20,
+      contentFilterEnabled: true,
+    };
   }
 
   async getByChild(childId: number) {

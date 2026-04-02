@@ -1,13 +1,16 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, ArrowLeft } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useReducedMotion } from './hooks/useReducedMotion';
 import ModeSelection from './components/ModeSelection';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
+import GameRenderer from './components/games/GameRenderer';
+import type { Assignment, ActivityResult } from './types';
+import * as api from './services/api';
 
-const ParentDashboard = lazy(() => import('./components/ParentDashboard'));
+const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
 const ContentDetail = lazy(() => import('./components/ContentDetail'));
 const AchievementShowcase = lazy(() => import('./components/AchievementShowcase'));
@@ -16,7 +19,7 @@ const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 const AIChat = lazy(() => import('./components/AIChat'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings' | 'companion';
+type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings' | 'companion' | 'assignment';
 
 function PageLoader() {
   return (
@@ -33,6 +36,7 @@ function AppContent() {
   const { user, isAuthenticated, isLoading: authLoading, error, login, register, clearError } = useAuth();
   const [view, setView] = useState<View>('login');
   const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const reducedMotion = useReducedMotion();
 
   const viewTransition = reducedMotion
@@ -167,6 +171,10 @@ function AppContent() {
               onOpenProfile={() => setView('profile')}
               onOpenSettings={() => setView('settings')}
               onOpenCompanion={() => setView('companion')}
+              onOpenAssignment={(assignment) => {
+                setSelectedAssignment(assignment);
+                setView('assignment');
+              }}
             />
             </Suspense>
           </motion.div>
@@ -193,6 +201,44 @@ function AppContent() {
               }}
             />
             </Suspense>
+          </motion.div>
+        )}
+
+        {view === 'assignment' && selectedAssignment && (
+          <motion.div
+            key="assignment"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={slideTransition}
+          >
+            <div className="min-h-screen bg-background">
+              <div className="sticky top-0 z-10 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/15 px-4 py-3 flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedAssignment(null);
+                    setView('student');
+                  }}
+                  className="p-2 rounded-full hover:bg-surface-container-high transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-on-surface" />
+                </button>
+                <h2 className="font-bold text-on-surface">{selectedAssignment.activityType}练习</h2>
+              </div>
+              <GameRenderer
+                type={selectedAssignment.activityType}
+                data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, questions: [] }}
+                onComplete={async (result: ActivityResult) => {
+                  try {
+                    await api.completeAssignment(selectedAssignment.id, result);
+                  } catch {
+                    // Silently handle — game was still completed locally
+                  }
+                  setSelectedAssignment(null);
+                  setView('student');
+                }}
+              />
+            </div>
           </motion.div>
         )}
 

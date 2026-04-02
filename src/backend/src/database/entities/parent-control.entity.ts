@@ -29,6 +29,15 @@ export class ParentControl {
   @Column({ type: 'simple-json' })
   notifications: any;
 
+  @Column({ default: true })
+  eyeProtectionEnabled: boolean;
+
+  @Column({ default: 20 })
+  restReminderMinutes: number;
+
+  @Column({ default: true })
+  contentFilterEnabled: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

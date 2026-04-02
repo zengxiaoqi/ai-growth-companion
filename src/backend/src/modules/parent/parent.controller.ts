@@ -24,11 +24,17 @@ export class ParentController {
     return this.parentService.create(body.parentId, body.childId);
   }
 
-  @Patch('controls/:id')
+  @Patch('controls/:parentId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '更新家长控制设置' })
-  async update(@Param('id') id: string, @Body() body: any) {
-    return this.parentService.update(+id, body);
+  async update(@Param('parentId') parentId: string, @Body() body: any) {
+    // Find or create controls for this parent
+    const controls = await this.parentService.getByParent(+parentId);
+    if (controls.id === 0) {
+      // No existing controls, create first
+      return this.parentService.create(+parentId, body.childId || 0);
+    }
+    return this.parentService.update(controls.id, body);
   }
 }

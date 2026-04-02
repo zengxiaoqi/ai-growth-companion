@@ -27,7 +27,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
     if (!selectedLeft) return;
     setUserConnections((prev) => {
       const next = new Map(prev);
-      // Remove any existing connection from this left item
+      // Remove any existing connection from this left item or to this right item
       for (const [k, v] of next) {
         if (k === selectedLeft || v === id) next.delete(k);
       }
@@ -67,7 +67,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-lg mx-auto">
       <div className="text-center">
         <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
@@ -75,7 +75,8 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
         </p>
       </div>
 
-      <div className="flex gap-4 items-start">
+      {/* Mobile: stacked layout (default), Desktop: side-by-side (md:) */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {/* Left column */}
         <div className="flex-1 space-y-3">
           {leftItems.map((item: any) => {
@@ -85,8 +86,9 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
               <motion.button key={item.id}
                 onClick={() => handleLeftClick(item.id)}
                 whileTap={{ scale: 0.95 }}
+                aria-label={`左侧: ${item.label}${connected ? '（已配对）' : isSelected ? '（已选中）' : ''}`}
                 className={cn(
-                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all flex items-center gap-2 justify-center',
+                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all flex items-center gap-2 justify-center min-h-[52px]',
                   isSelected && 'border-primary bg-primary-container text-on-primary-container ring-2 ring-primary ring-offset-2',
                   connected && !isSelected && 'border-[#4caf50] bg-[#e8f5e9]/50 text-on-surface',
                   !isSelected && !connected && 'border-outline-variant/30 bg-surface-container-lowest text-on-surface hover:border-primary/50',
@@ -100,8 +102,8 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
         </div>
 
         {/* Center connection indicator */}
-        <div className="flex flex-col items-center justify-center py-8">
-          <Link2 className="w-8 h-8 text-primary/30" />
+        <div className="flex md:flex-col items-center justify-center py-2 md:py-8">
+          <Link2 className="w-8 h-8 text-primary/30 md:rotate-0 rotate-90" />
         </div>
 
         {/* Right column */}
@@ -113,8 +115,9 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 onClick={() => handleRightClick(item.id)}
                 whileTap={{ scale: 0.95 }}
                 disabled={!selectedLeft && !connected}
+                aria-label={`右侧: ${item.label}${connected ? '（已配对）' : ''}`}
                 className={cn(
-                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all',
+                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all min-h-[52px]',
                   connected && 'border-[#4caf50] bg-[#e8f5e9]/50 text-on-surface',
                   !connected && selectedLeft && 'border-primary/30 bg-surface-container-lowest text-on-surface hover:border-primary/50 hover:bg-primary-container/10',
                   !connected && !selectedLeft && 'border-outline-variant/30 bg-surface-container text-on-surface-variant',
@@ -131,7 +134,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
         {userConnections.size >= connections.length && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleCheck}
-              className="w-full bg-primary text-on-primary py-3 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2">
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               提交答案 <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>

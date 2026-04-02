@@ -278,7 +278,11 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
                 )}>
                   {message.role === 'assistant' ? (
                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                      {message.gameData?.parsed ? (
+                        <p>我为你准备了练习题，点击下方按钮开始挑战吧！ 🎮</p>
+                      ) : (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                      )}
                     </div>
                   ) : message.content}
                   {message.isStreaming && !message.content && (
@@ -439,7 +443,11 @@ export default function AIChat({ childId, fullPage = false, onBack }: AIChatProp
                     )}>
                       {message.role === 'assistant' ? (
                         <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          {message.gameData?.parsed ? (
+                            <p>我为你准备了练习题，点击下方按钮开始吧！ 🎮</p>
+                          ) : (
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          )}
                         </div>
                       ) : message.content}
                       {message.isStreaming && !message.content && (

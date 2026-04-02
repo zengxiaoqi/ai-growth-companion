@@ -75,7 +75,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-md mx-auto">
       <div className="text-center">
         <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
@@ -84,10 +84,10 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
       </div>
 
       <div
-        className="grid gap-2 mx-auto"
+        className="grid gap-3 mx-auto"
         style={{
           gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
-          maxWidth: `${grid.cols * 90}px`,
+          maxWidth: `${Math.min(grid.cols * 100, 400)}px`,
         }}
       >
         {slots.map((pieceId, idx) => {
@@ -99,8 +99,9 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
               key={idx}
               onClick={() => handleSlotClick(idx)}
               whileTap={{ scale: 0.95 }}
+              aria-label={piece ? `${piece.label}${isSelected ? '（已选中）' : ''}` : '空位置'}
               className={cn(
-                'aspect-square rounded-2xl border-2 flex flex-col items-center justify-center font-bold transition-all',
+                'aspect-square rounded-2xl border-2 flex flex-col items-center justify-center font-bold transition-all min-h-[60px]',
                 isSelected && 'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
                 piece && !isSelected && 'border-outline-variant/30 bg-surface-container-lowest hover:border-primary/50',
                 !piece && 'border-outline-variant/15 bg-surface-container/30',
@@ -118,7 +119,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
       </div>
 
       <button onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-3 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press">
+        className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
         检查拼图
       </button>
     </div>

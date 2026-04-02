@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame } from 'lucide-react'
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import GameCompletionScreen from './GameCompletionScreen';
+import type { ReviewItem } from './GameCompletionScreen';
 
 interface QuizGameProps {
   data: ActivityData;
@@ -17,35 +18,50 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   const [isRevealed, setIsRevealed] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [userAnswers, setUserAnswers] = useState<number[]>([]);
 
   const current = questions[currentIndex];
   const total = questions.length;
 
   const handleSelect = useCallback((idx: number) => {
-    if (isRevealed || !current) return;
+    if (isRevealed) return;
     setSelectedOption(idx);
+  }, [isRevealed]);
+
+  const handleSubmit = useCallback(() => {
+    if (selectedOption === null || !current) return;
     setIsRevealed(true);
-    if (idx === current.correctIndex) setCorrectCount((c) => c + 1);
-  }, [isRevealed, current]);
+    setUserAnswers((prev) => [...prev, selectedOption]);
+    if (selectedOption === current.correctIndex) setCorrectCount((c) => c + 1);
+  }, [selectedOption, current]);
 
   const handleNext = useCallback(() => {
     if (currentIndex >= total - 1) {
-      const final = correctCount + (selectedOption === current?.correctIndex ? 0 : 0);
       setIsFinished(true);
-      onComplete({ score: final, totalQuestions: total, correctAnswers: final, interactionData: { questions } });
     } else {
       setCurrentIndex((i) => i + 1);
       setSelectedOption(null);
       setIsRevealed(false);
     }
-  }, [currentIndex, total, correctCount, selectedOption, current, onComplete, questions]);
+  }, [currentIndex, total]);
+
+  const handleDismiss = useCallback(() => {
+    onComplete({ score: correctCount, totalQuestions: total, correctAnswers: correctCount, interactionData: { questions } });
+  }, [correctCount, total, onComplete, questions]);
 
   if (questions.length === 0) {
-    return <div className="p-4 text-on-surface-variant">暂无题目</div>;
+    return <div className="p-4 text-on-surface-variant" role="status">暂无题目</div>;
   }
 
   if (isFinished) {
-    return <GameCompletionScreen score={correctCount} total={total} />;
+    const reviewData: ReviewItem[] = questions.map((q: any, i: number) => ({
+      question: q.question,
+      userAnswer: q.options[userAnswers[i]] ?? '未作答',
+      correctAnswer: q.options[q.correctIndex],
+      isCorrect: userAnswers[i] === q.correctIndex,
+      explanation: q.explanation,
+    }));
+    return <GameCompletionScreen score={correctCount} total={total} reviewData={reviewData} onDismiss={handleDismiss} />;
   }
 
   return (
@@ -71,21 +87,24 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
               return (
                 <motion.button key={idx} type="button" onClick={() => handleSelect(idx)} disabled={isRevealed}
                   whileHover={!isRevealed ? { scale: 1.02 } : undefined} whileTap={!isRevealed ? { scale: 0.98 } : undefined}
+                  aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
                   className={cn(
-                    'w-full text-left px-4 py-3 rounded-xl border-2 font-bold flex items-center gap-3 transition-all',
+                    'w-full text-left px-4 py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px]',
                     isRevealed && isCorrect && 'bg-[#e8f5e9] border-[#4caf50] text-[#2e7d32]',
                     isRevealed && isSelected && !isCorrect && 'bg-[#ffebee] border-[#f44336] text-[#c62828]',
-                    !isRevealed && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
+                    !isRevealed && isSelected && 'bg-primary-container/30 border-primary text-on-surface',
+                    !isRevealed && !isSelected && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
                     isRevealed && !isCorrect && !isSelected && 'opacity-50',
                   )}>
                   <span className={cn(
-                    'w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0',
+                    'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
                     isRevealed && isCorrect && 'bg-[#4caf50] text-white',
                     isRevealed && isSelected && !isCorrect && 'bg-[#f44336] text-white',
-                    !isRevealed && 'bg-primary-container text-on-primary-container',
+                    !isRevealed && isSelected && 'bg-primary text-on-primary',
+                    !isRevealed && !isSelected && 'bg-primary-container text-on-primary-container',
                   )}>
-                    {isRevealed && isCorrect ? <CheckCircle className="w-4 h-4" /> :
-                     isRevealed && isSelected ? <XCircle className="w-4 h-4" /> :
+                    {isRevealed && isCorrect ? <CheckCircle className="w-5 h-5" /> :
+                     isRevealed && isSelected ? <XCircle className="w-5 h-5" /> :
                      String.fromCharCode(65 + idx)}
                   </span>
                   <span className="flex-1">{opt}</span>
@@ -103,12 +122,22 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Next */}
+      {/* Submit or Next */}
       <AnimatePresence>
+        {!isRevealed && selectedOption !== null && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <button onClick={handleSubmit}
+              aria-label="确认答案"
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              确认答案
+            </button>
+          </motion.div>
+        )}
         {isRevealed && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleNext}
-              className="w-full bg-primary text-on-primary py-3 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2">
+              aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
+              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}
             </button>
           </motion.div>

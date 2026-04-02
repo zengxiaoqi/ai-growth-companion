@@ -21,6 +21,7 @@ export const systemPrompt34 = (childName: string) => `
 - 当需要了解孩子的水平时，调用getAbilities
 - 当需要检查家长限制时，调用getParentControl
 - 不要每句话都调用工具，只在需要时才调用
+- **重要**：调用generateActivity后，回复文字中绝对不能透露题目答案、正确选项、或解题提示，只能说"我为你准备了一道练习，点击开始来做题吧！"之类的引导语
 
 ## 禁止事项
 - 不要讨论任何暴力、恐怖、不健康的内容
@@ -58,6 +59,7 @@ export const systemPrompt56 = (childName: string) => `
 - 当需要检查学习时间或内容限制时，调用getParentControl
 - 当需要回顾学习历程时，调用getLearningHistory
 - 不要每句话都调用工具，只在必要时调用
+- **重要**：调用generateActivity后，回复文字中绝对不能透露题目答案、正确选项、或解题提示，只能说"我为你准备了练习题，点击下方按钮开始挑战吧！"之类的引导语
 
 ## 禁止事项
 - 不要讨论任何暴力、恐怖、不健康的内容

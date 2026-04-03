@@ -271,7 +271,8 @@ export class AgentExecutor {
         continue;
       }
 
-      // Final response — use the response from the non-streaming call (already has tool context)
+      // Final response — the LLM already gave us the text in the non-streaming call
+      // (tool-call rounds use non-streaming chatCompletion, so the final answer is in assistantMessage)
       // Emit thinking content if present
       const finalThinking = extractThinking(assistantMessage.content || '');
       if (finalThinking) {
@@ -280,16 +281,17 @@ export class AgentExecutor {
 
       let cleanContent = stripThinking(assistantMessage.content || '');
 
-      // If the non-streaming response was only thinking (no visible content), try streaming
+      // If the non-streaming response was only thinking (no visible content), make one more call without tools
       if (!cleanContent) {
-        let streamed = '';
-        for await (const token of this.llmClient.chatCompletionStream(messages, undefined)) {
-          streamed += token;
+        this.logger.log(`[STREAM] Non-streaming response was empty, making follow-up call without tools`);
+        try {
+          const followUp = await this.llmClient.chatCompletion(messages, undefined);
+          cleanContent = stripThinking(followUp.choices[0]?.message?.content || '');
+        } catch (err: any) {
+          this.logger.warn(`[STREAM] Follow-up call failed: ${err.message}`);
         }
-        cleanContent = stripThinking(streamed);
       }
 
-      // Debug logging
       this.logger.log(`[STREAM] cleanContent length=${cleanContent.length}`);
 
       // Emit the cleaned content

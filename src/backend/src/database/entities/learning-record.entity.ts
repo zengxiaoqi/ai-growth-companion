@@ -19,7 +19,7 @@ export class LearningRecord {
   @ManyToOne(() => Content)
   content: Content;
 
-  @Column()
+  @Column({ nullable: true })
   contentId: number;
 
   @CreateDateColumn()

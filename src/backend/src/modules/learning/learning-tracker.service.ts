@@ -43,11 +43,11 @@ export class LearningTrackerService {
   async recordActivity(params: RecordActivityParams): Promise<RecordActivityResult> {
     this.logger.log(`Recording activity: type=${params.type}, child=${params.childId}, domain=${params.domain}, score=${params.score}`);
 
-    // 1. Create learning record directly (bypass foreign key constraint when contentId=0)
-    const contentId = params.contentId || 0;
+    // 1. Create learning record — use NULL contentId when no specific content
+    const contentId = params.contentId || null;
     let record: LearningRecord;
 
-    if (contentId > 0) {
+    if (contentId) {
       // Has a real content — use LearningService (enforces time limits, sends SSE)
       record = await this.learningService.create(params.childId, contentId);
     } else {
@@ -56,7 +56,7 @@ export class LearningTrackerService {
       record = this.recordRepo.create({
         uuid: uuidv4(),
         userId: params.childId,
-        contentId: 0,
+        contentId: null,
         status: 'in_progress',
       });
       record = await this.recordRepo.save(record);

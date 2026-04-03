@@ -306,7 +306,7 @@ export class AgentExecutor {
       yield {
         type: 'done',
         sessionId,
-        wasFiltered: safeResult.content !== fullContent,
+        wasFiltered: safeResult.wasFiltered,
         toolCalls: toolCallLog,
       };
       return;

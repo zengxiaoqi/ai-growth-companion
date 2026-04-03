@@ -57,19 +57,24 @@ export class LearningController {
   @ApiBearerAuth()
   @ApiOperation({ summary: '记录互动学习活动（AI对话等）' })
   async recordActivity(@Body() body: { childId: number; domain: string; score: number; durationSeconds?: number }) {
-    const result = await this.learningTracker.recordActivity({
-      type: 'interactive_activity',
-      childId: body.childId,
-      domain: body.domain || 'language',
-      score: body.score,
-      durationSeconds: body.durationSeconds,
-    });
-    return {
-      success: true,
-      recordId: result.learningRecord.id,
-      abilityUpdated: result.abilityUpdated,
-      achievementsAwarded: result.achievementsAwarded,
-    };
+    try {
+      const result = await this.learningTracker.recordActivity({
+        type: 'interactive_activity',
+        childId: body.childId,
+        domain: body.domain || 'language',
+        score: body.score,
+        durationSeconds: body.durationSeconds,
+      });
+      return {
+        success: true,
+        recordId: result.learningRecord.id,
+        abilityUpdated: result.abilityUpdated,
+        achievementsAwarded: result.achievementsAwarded,
+      };
+    } catch (err) {
+      console.error('[record-activity] ERROR:', err.message, err.stack);
+      throw err;
+    }
   }
 
   @Get('history/:userId')

@@ -90,7 +90,12 @@ export class LearningTrackerService {
         newScore = score;
       }
 
-      await this.abilitiesService.create(childId, domain, newScore);
+      await this.abilitiesService.create(childId, domain, newScore, {
+        source,
+        previousScore: latest?.score,
+        newScore,
+        timestamp: new Date().toISOString(),
+      });
       return true;
     } catch (error) {
       this.logger.warn(`Failed to update ability for child=${childId}, domain=${domain}: ${error.message}`);

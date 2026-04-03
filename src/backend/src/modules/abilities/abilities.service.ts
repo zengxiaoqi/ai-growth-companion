@@ -11,7 +11,7 @@ export class AbilitiesService {
     private assessmentRepository: Repository<AbilityAssessment>,
   ) {}
 
-  async create(userId: number, domain: string, score: number) {
+  async create(userId: number, domain: string, score: number, evidence?: any) {
     const level = this.getLevel(score);
     const assessment = this.assessmentRepository.create({
       uuid: uuidv4(),
@@ -19,6 +19,7 @@ export class AbilitiesService {
       domain,
       score,
       level,
+      evidence: evidence || {},
     });
     return this.assessmentRepository.save(assessment);
   }

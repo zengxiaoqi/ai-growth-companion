@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Settings,
@@ -56,6 +56,7 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
   // Achievement display
   const [achievements, setAchievements] = useState<AchievementDisplay[]>([]);
   const [showAllAchievements, setShowAllAchievements] = useState(false);
+  const [achievementRefresh, setAchievementRefresh] = useState(0);
 
   // Ability radar data
   const [radarData, setRadarData] = useState<Record<string, number>>({});
@@ -109,12 +110,23 @@ export default function StudentDashboard({ onBack, onOpenContent, onOpenAchievem
   }, [user?.id, user?.type]);
 
   // Fetch achievements
-  useEffect(() => {
+  const refreshAchievements = useCallback(() => {
     if (!user?.id) return;
     api.getAchievementDisplays(user.id).then((data) => {
       setAchievements(data);
     }).catch(() => {});
   }, [user?.id]);
+
+  useEffect(() => {
+    refreshAchievements();
+  }, [refreshAchievements, achievementRefresh]);
+
+  // Listen for achievement updates from AIChat
+  useEffect(() => {
+    const handler = () => setAchievementRefresh((n) => n + 1);
+    window.addEventListener('achievements-updated', handler);
+    return () => window.removeEventListener('achievements-updated', handler);
+  }, []);
 
   // Fetch ability radar data
   useEffect(() => {

@@ -78,8 +78,16 @@ export class LearningTrackerService {
     // 2. Update ability assessment
     const abilityUpdated = await this.updateAbility(params.childId, params.domain, params.score, params.type);
 
-    // 3. Check and award achievements
+    // 3. Check and award achievements — include current activity in stats manually
+    // to avoid race condition where the just-saved record isn't visible yet
     const stats = await this.gatherStats(params.childId);
+    // Increment counts for the activity we just recorded
+    if (params.type === 'interactive_activity') stats.completedActivities++;
+    if (params.type === 'assignment_completion') stats.completedAssignments++;
+    stats.totalLearningRecords++;
+    if (params.domain && !stats.distinctDomains.includes(params.domain)) {
+      stats.distinctDomains.push(params.domain);
+    }
     const achievementsAwarded = await this.achievementsService.checkAchievements(
       params.childId,
       { type: params.type, score: params.score, domain: params.domain },

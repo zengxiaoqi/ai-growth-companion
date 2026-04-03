@@ -264,6 +264,10 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         childId,
         domain,
         score: Math.round(scorePercent),
+      }).then((res) => {
+        if (res.achievementsAwarded?.length) {
+          window.dispatchEvent(new CustomEvent('achievements-updated'));
+        }
       }).catch(() => {});
     }
   }, [childId]);

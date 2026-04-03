@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -47,7 +47,8 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 const fallbackIcons = [Trophy, Star, BookOpen, Calculator, Microscope, Palette, Users, Sparkles, Award, Target];
 
-function getIcon(iconName: string, index: number) {
+function getIcon(iconName: string | null | undefined, index: number) {
+  if (!iconName) return fallbackIcons[index % fallbackIcons.length];
   const key = iconName.toLowerCase().replace(/[\s_-]+/g, '-');
   return iconMap[key] || fallbackIcons[index % fallbackIcons.length];
 }
@@ -68,26 +69,32 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    const fetchAchievements = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await api.getAchievements(userId);
-        setAchievements(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Failed to fetch achievements:', err);
-        setError('加载成就数据失败');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (userId) {
-      fetchAchievements();
+  const fetchAchievements = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await api.getAchievements(userId);
+      setAchievements(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch achievements:', err);
+      setError('加载成就数据失败');
+    } finally {
+      setIsLoading(false);
     }
   }, [userId]);
+
+  useEffect(() => {
+    if (userId) fetchAchievements();
+  }, [userId, fetchAchievements, refreshKey]);
+
+  // Listen for achievement updates from AIChat
+  useEffect(() => {
+    const handler = () => setRefreshKey((n) => n + 1);
+    window.addEventListener('achievements-updated', handler);
+    return () => window.removeEventListener('achievements-updated', handler);
+  }, []);
 
   // Derived stats
   const unlockedCount = achievements.filter((a) => a.unlockedAt).length;

@@ -518,14 +518,34 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                           ) : (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           )}
-                        </div>
-                      ) : message.content}
-                      {message.isStreaming && !message.content && (
-                        <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
-                      )}
+                     </div>
+                  ) : message.content}
+                  {message.isStreaming && !message.content && (
+                    <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
+                  )}
+                </div>
+                {/* Game rendering */}
+                {message.role === 'assistant' && message.gameData?.parsed && (
+                  activeGameMsgId === message.id ? (
+                    <div className="mt-2 bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
+                      <GameRenderer
+                        type={message.gameData.activityType}
+                        data={message.gameData.parsed}
+                        onComplete={(result) => handleGameComplete(message.id, result)}
+                      />
                     </div>
-                  </div>
-                  {message.role === 'user' && (
+                  ) : (
+                    <button
+                      onClick={() => setActiveGameMsgId(message.id)}
+                      className="mt-2 flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>开始挑战</span>
+                    </button>
+                  )
+                )}
+              </div>
+              {message.role === 'user' && (
                     <div className="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5">
                       <User className="w-4 h-4 text-on-primary-container" />
                     </div>

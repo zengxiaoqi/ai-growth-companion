@@ -135,6 +135,7 @@ export class AiService {
     message?: string;
     activityType?: string;
     gameData?: string;
+    domain?: string;
   }> {
     const { message, childId, parentId, sessionId, context } = params;
 

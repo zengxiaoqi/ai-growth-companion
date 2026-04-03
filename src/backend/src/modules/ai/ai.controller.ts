@@ -69,7 +69,7 @@ export class AiController {
         } else if (event.type === 'token') {
           res.write(`event: token\ndata: ${JSON.stringify({ content: event.content })}\n\n`);
         } else if (event.type === 'game_data') {
-          res.write(`event: game_data\ndata: ${JSON.stringify({ activityType: event.activityType, gameData: event.gameData })}\n\n`);
+          res.write(`event: game_data\ndata: ${JSON.stringify({ activityType: event.activityType, gameData: event.gameData, domain: event.domain })}\n\n`);
         }
       }
     } catch (error) {

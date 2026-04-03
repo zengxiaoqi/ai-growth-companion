@@ -327,6 +327,18 @@ class ApiService {
     return this.request<TodayStatsWithSources>(`/learning/today-detail/${userId}`);
   }
 
+  async recordActivity(data: { childId: number; domain: string; score: number; durationSeconds?: number }): Promise<{
+    success: boolean;
+    recordId: number;
+    abilityUpdated: boolean;
+    achievementsAwarded: string[];
+  }> {
+    return this.request('/learning/record-activity', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getAchievementDisplays(userId: number): Promise<AchievementDisplay[]> {
     return this.request<AchievementDisplay[]>(`/achievements/user/${userId}`);
   }

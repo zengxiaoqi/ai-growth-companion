@@ -251,6 +251,7 @@ export class AgentExecutor {
               type: 'game_data',
               activityType: toolArgs.type,
               gameData: result,
+              domain: toolArgs.domain || 'language',
             } as any;
           }
 

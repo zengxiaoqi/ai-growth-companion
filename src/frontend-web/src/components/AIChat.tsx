@@ -25,6 +25,7 @@ interface GameData {
   activityType: ActivityType;
   gameData: string;
   parsed?: ActivityData;
+  domain?: string;
 }
 
 interface Message {
@@ -192,7 +193,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                 try {
                   const parsed = typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
                   setMessages((prev) => prev.map((m) =>
-                    m.id === assistantId ? { ...m, gameData: { activityType: data.activityType, gameData: data.gameData, parsed } } : m
+                    m.id === assistantId ? { ...m, gameData: { activityType: data.activityType, gameData: data.gameData, parsed, domain: data.domain } } : m
                   ));
                 } catch {}
               } else if (currentEvent === 'token' && data.content) {
@@ -238,15 +239,16 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
 
-  const handleGameComplete = useCallback((_msgId: string, result: ActivityResult) => {
+  const handleGameComplete = useCallback((_msgId: string, result: ActivityResult, gameDomain?: string) => {
     setActiveGameMsgId(null);
     // Show feedback overlay
     const scorePercent = result.totalQuestions > 0 ? (result.correctAnswers / result.totalQuestions) * 100 : result.score;
+    const domain = gameDomain || 'language';
     const feedback: ActivityFeedback = {
       score: Math.round(scorePercent),
       total: result.totalQuestions,
       correct: result.correctAnswers,
-      domain: '',
+      domain,
       message: scorePercent >= 60
         ? `太棒了！你答对了 ${result.correctAnswers}/${result.totalQuestions} 题！`
         : '加油！继续努力！',
@@ -255,7 +257,16 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
     // Auto-dismiss after 5 seconds
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     feedbackTimerRef.current = setTimeout(() => setActivityFeedback(null), 5000);
-  }, []);
+
+    // Record activity to backend for learning tracking & achievements
+    if (childId) {
+      api.recordActivity({
+        childId,
+        domain,
+        score: Math.round(scorePercent),
+      }).catch(() => {});
+    }
+  }, [childId]);
 
   // Full-page mode: no floating button, just the chat UI directly
   if (fullPage) {
@@ -314,7 +325,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                       <GameRenderer
                         type={message.gameData.activityType}
                         data={message.gameData.parsed}
-                        onComplete={(result) => handleGameComplete(message.id, result)}
+                        onComplete={(result) => handleGameComplete(message.id, result, message.gameData?.domain)}
                       />
                     </div>
                   ) : (
@@ -531,7 +542,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                       <GameRenderer
                         type={message.gameData.activityType}
                         data={message.gameData.parsed}
-                        onComplete={(result) => handleGameComplete(message.id, result)}
+                        onComplete={(result) => handleGameComplete(message.id, result, message.gameData?.domain)}
                       />
                     </div>
                   ) : (

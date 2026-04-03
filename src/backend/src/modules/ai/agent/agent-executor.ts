@@ -271,28 +271,26 @@ export class AgentExecutor {
         continue;
       }
 
-      // Final response — stream it
-      // Buffer all tokens first, then separate thinking from content
-      let fullContent = '';
-      for await (const token of this.llmClient.chatCompletionStream(messages, undefined)) {
-        fullContent += token;
+      // Final response — use the response from the non-streaming call (already has tool context)
+      // Emit thinking content if present
+      const finalThinking = extractThinking(assistantMessage.content || '');
+      if (finalThinking) {
+        yield { type: 'thinking', thinkingContent: finalThinking };
+      }
+
+      let cleanContent = stripThinking(assistantMessage.content || '');
+
+      // If the non-streaming response was only thinking (no visible content), try streaming
+      if (!cleanContent) {
+        let streamed = '';
+        for await (const token of this.llmClient.chatCompletionStream(messages, undefined)) {
+          streamed += token;
+        }
+        cleanContent = stripThinking(streamed);
       }
 
       // Debug logging
-      this.logger.log(`[STREAM] raw length=${fullContent.length}, startsWith(<think)=${fullContent.startsWith('<think')}, has </think->=${fullContent.includes('</think->')}, has \\n>\\n=${fullContent.includes('\n>\n')}`);
-      this.logger.log(`[STREAM] first 80 chars: ${JSON.stringify(fullContent.slice(0, 80))}`);
-
-      // Emit thinking content if present
-      const thinkingContent = extractThinking(fullContent);
-      this.logger.log(`[STREAM] extracted thinking length=${thinkingContent.length}`);
-
-      if (thinkingContent) {
-        yield { type: 'thinking', thinkingContent };
-      }
-
-      // Strip thinking blocks from complete content
-      const cleanContent = stripThinking(fullContent);
-      this.logger.log(`[STREAM] cleanContent length=${cleanContent.length}, startsWith(<think)=${cleanContent.startsWith('<think')}`);
+      this.logger.log(`[STREAM] cleanContent length=${cleanContent.length}`);
 
       // Emit the cleaned content
       if (cleanContent) {

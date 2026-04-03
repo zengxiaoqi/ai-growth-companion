@@ -16,10 +16,11 @@ async function bootstrap() {
     credentials: true,
   });
   
-  // 全局验证管道
+  // 全局异常过滤 — log errors in dev
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     transform: true,
+    enableDebugMessages: true,
   }));
   
   // Swagger 文档

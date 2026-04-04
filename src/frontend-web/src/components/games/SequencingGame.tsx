@@ -1,6 +1,6 @@
 ﻿import { useState, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown } from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import GameCompletionScreen from './GameCompletionScreen';

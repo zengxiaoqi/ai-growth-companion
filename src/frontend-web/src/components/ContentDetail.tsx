@@ -1,28 +1,28 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AlertCircle,
   ArrowLeft,
-  Play,
-  CheckCircle,
-  Loader2,
-  Clock,
-  Star,
-  MessageCircle,
+  BookOpen,
   Calculator,
+  CheckCircle,
+  Clock,
+  Loader2,
+  MessageCircle,
   Microscope,
   Palette,
-  Users,
-  Sparkles,
-  Volume2,
   Pause,
-  BookOpen,
-  AlertCircle,
-} from 'lucide-react';
+  Play,
+  Sparkles,
+  Star,
+  Users,
+  Volume2,
+} from '@/icons';
 import { cn } from '../lib/utils';
 import api from '../services/api';
 import { getAudioVolume } from '@/lib/app-settings';
 import type { Content, LearningRecord } from '@/types';
 import QuizEngine, { type QuizSection } from './quiz/QuizEngine';
+import { Button, Card, EmptyState, IconButton, TopBar } from './ui';
 
 interface ContentDetailProps {
   contentId: number;
@@ -31,100 +31,140 @@ interface ContentDetailProps {
   onComplete?: (record: LearningRecord) => void;
 }
 
+interface DomainMeta {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeClass: string;
+}
+
+const DOMAIN_META: Record<string, DomainMeta> = {
+  language: {
+    label: '语言',
+    icon: MessageCircle,
+    badgeClass: 'bg-secondary-container text-on-secondary-container',
+  },
+  math: {
+    label: '数学',
+    icon: Calculator,
+    badgeClass: 'bg-tertiary-container text-on-tertiary-container',
+  },
+  science: {
+    label: '科学',
+    icon: Microscope,
+    badgeClass: 'bg-primary-container text-on-primary-container',
+  },
+  art: {
+    label: '艺术',
+    icon: Palette,
+    badgeClass: 'bg-surface-container-high text-on-surface',
+  },
+  social: {
+    label: '社会',
+    icon: Users,
+    badgeClass: 'bg-error-container/20 text-error',
+  },
+};
+
+function parseSections(raw?: string): QuizSection[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => Array.isArray((item as Record<string, unknown>).questions)) as QuizSection[];
+  } catch {
+    return [];
+  }
+}
+
+function resolveDisplayText(raw?: string): string {
+  if (!raw) return '';
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return raw;
+
+    const blocks = parsed
+      .map((item) => {
+        if (!item || typeof item !== 'object') return '';
+        const section = item as Record<string, unknown>;
+        const title = typeof section.title === 'string' ? section.title.trim() : '';
+        const text = typeof section.text === 'string' ? section.text.trim() : '';
+
+        if (title && text) return `${title}\n${text}`;
+        return title || text || '';
+      })
+      .filter(Boolean);
+
+    return blocks.join('\n\n') || raw;
+  } catch {
+    return raw;
+  }
+}
+
 export default function ContentDetail({ contentId, childId, onBack, onComplete }: ContentDetailProps) {
   const [content, setContent] = useState<Content | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [startError, setStartError] = useState<string | null>(null);
+
+  const [learningRecord, setLearningRecord] = useState<LearningRecord | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [learningRecord, setLearningRecord] = useState<LearningRecord | null>(null);
-  const [score, setScore] = useState<number>(85);
+
+  const [score, setScore] = useState(85);
   const [showEvaluation, setShowEvaluation] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
+
   const [isQuizMode, setIsQuizMode] = useState(false);
   const [quizCompleted, setQuizCompleted] = useState(false);
 
-  // Parse interactive content from JSON
-  const quizSections: QuizSection[] = useMemo(() => {
-    if (!content?.content) return [];
-    try {
-      const parsed = JSON.parse(content.content);
-      if (Array.isArray(parsed)) {
-        const sectionsWithQuestions = parsed.filter(
-          (item: Record<string, unknown>) =>
-            Array.isArray(item.questions) && item.questions.length > 0
-        );
-        if (sectionsWithQuestions.length > 0) {
-          return sectionsWithQuestions as QuizSection[];
-        }
-      }
-    } catch {
-      // Not JSON - plain text content
-    }
-    return [];
-  }, [content?.content]);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
 
-  const hasInteractiveContent = quizSections.length > 0;
-
-  // Plain text to display (for non-JSON or story text)
-  const displayText = useMemo(() => {
-    if (!content?.content) return null;
-    try {
-      const parsed = JSON.parse(content.content);
-      if (Array.isArray(parsed)) {
-        // Extract story text from sections
-        return parsed
-          .filter((item: Record<string, unknown>) => typeof item.text === 'string')
-          .map((item: Record<string, unknown>) => item.text as string)
-          .join('\n\n');
-      }
-    } catch {
-      return content.content;
-    }
-    return null;
-  }, [content?.content]);
-
-  // Fetch content on mount
   useEffect(() => {
     const fetchContent = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         const data = await api.getContent(contentId);
         setContent(data);
-      } catch (err) {
-        console.error('Failed to fetch content:', err);
+      } catch (error) {
+        console.error('Failed to fetch content detail:', error);
+        setContent(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (contentId) {
-      fetchContent();
-    }
+    if (contentId) fetchContent();
   }, [contentId]);
 
-  // Cleanup speech on unmount
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  }, []);
+  useEffect(() => () => window.speechSynthesis.cancel(), []);
 
-  // Toggle audio playback using Web Speech API
+  const quizSections = useMemo(() => parseSections(content?.content), [content?.content]);
+  const hasInteractiveContent = quizSections.length > 0;
+  const displayText = useMemo(() => resolveDisplayText(content?.content), [content?.content]);
+
+  const domainMeta = useMemo(() => {
+    if (!content) return null;
+    return DOMAIN_META[content.domain] || {
+      label: '学习',
+      icon: Sparkles,
+      badgeClass: 'bg-surface-container text-on-surface',
+    };
+  }, [content]);
+
   const handleToggleAudio = useCallback(() => {
-    if (!content?.content) return;
+    if (!displayText) return;
 
     if (isPlayingAudio) {
       window.speechSynthesis.cancel();
       setIsPlayingAudio(false);
+      setAudioLoading(false);
       return;
     }
 
-    const textToSpeak = displayText || content.content;
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    const utterance = new SpeechSynthesisUtterance(displayText);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.85;
-    utterance.pitch = 1.1;
+    utterance.rate = 0.9;
+    utterance.pitch = 1.05;
     utterance.volume = getAudioVolume();
 
     utterance.onstart = () => {
@@ -132,480 +172,340 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
       setIsPlayingAudio(true);
     };
 
-    utterance.onend = () => {
-      setIsPlayingAudio(false);
-    };
-
+    utterance.onend = () => setIsPlayingAudio(false);
     utterance.onerror = () => {
       setAudioLoading(false);
       setIsPlayingAudio(false);
-      console.error('TTS audio playback error');
     };
 
     setAudioLoading(true);
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
-  }, [content?.content, displayText, isPlayingAudio]);
+  }, [displayText, isPlayingAudio]);
 
-  // Handle start learning
-  const [startError, setStartError] = useState<string | null>(null);
+  const handleStartLearning = useCallback(async () => {
+    if (!childId) {
+      setStartError('请使用孩子账号开始学习。');
+      return;
+    }
 
-  const handleStartLearning = async () => {
-    if (!childId || !contentId) {
-      setStartError(childId ? '内容ID无效' : '请以孩子身份登录后开始学习');
+    if (!contentId) {
+      setStartError('内容 ID 无效，请返回后重试。');
       return;
     }
 
     try {
       setIsStarting(true);
       setStartError(null);
+
       const record = await api.startLearning({ childId, contentId });
       setLearningRecord(record);
-      // If content has interactive quiz sections, enter quiz mode
+
       if (hasInteractiveContent) {
         setIsQuizMode(true);
       }
-    } catch (err: any) {
-      console.error('Failed to start learning:', err);
-      setStartError(err?.message || '开始学习失败，请稍后重试');
+    } catch (error: any) {
+      setStartError(error?.message || '开始学习失败，请稍后再试。');
     } finally {
       setIsStarting(false);
     }
-  };
+  }, [childId, contentId, hasInteractiveContent]);
 
-  // Handle quiz completion
-  const handleQuizComplete = useCallback(
-    async (correctCount: number, totalQuestions: number) => {
+  const completeLearning = useCallback(
+    async (nextScore: number, feedback: string) => {
       if (!learningRecord) return;
-
-      const quizScore =
-        totalQuestions > 0
-          ? Math.round((correctCount / totalQuestions) * 100)
-          : 85;
-      setScore(quizScore);
-      setQuizCompleted(true);
-      setIsQuizMode(false);
 
       try {
         setIsCompleting(true);
+
         const record = await api.completeLearning({
           recordId: learningRecord.id,
-          score: quizScore,
-          feedback: `答对 ${correctCount}/${totalQuestions} 题`,
+          score: nextScore,
+          feedback,
         });
+
         setLearningRecord(record);
         setShowEvaluation(true);
         onComplete?.(record);
-      } catch (err) {
-        console.error('Failed to complete learning:', err);
+      } catch (error) {
+        console.error('Failed to complete learning:', error);
       } finally {
         setIsCompleting(false);
       }
     },
-    [learningRecord, onComplete]
+    [learningRecord, onComplete],
   );
 
-  // Handle complete learning
-  const handleComplete = async () => {
-    if (!learningRecord) return;
-    
-    try {
-      setIsCompleting(true);
-      const record = await api.completeLearning({
-        recordId: learningRecord.id,
-        score,
-        feedback: '完成学习',
-      });
-      setLearningRecord(record);
-      setShowEvaluation(true);
-      onComplete?.(record);
-    } catch (err) {
-      console.error('Failed to complete learning:', err);
-    } finally {
-      setIsCompleting(false);
-    }
-  };
+  const handleQuizComplete = useCallback(
+    async (correctCount: number, totalQuestions: number) => {
+      const quizScore = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 85;
+      setScore(quizScore);
+      setQuizCompleted(true);
+      setIsQuizMode(false);
+      await completeLearning(quizScore, `答对 ${correctCount}/${totalQuestions} 题`);
+    },
+    [completeLearning],
+  );
 
-  // Domain icons
-  const getDomainIcon = (domain: string) => {
-    switch (domain) {
-      case 'language': return MessageCircle;
-      case 'math': return Calculator;
-      case 'science': return Microscope;
-      case 'art': return Palette;
-      case 'social': return Users;
-      default: return Sparkles;
-    }
-  };
-
-  // Domain colors
-  const getDomainColor = (domain: string) => {
-    switch (domain) {
-      case 'language': return { bg: 'bg-secondary-container', text: 'text-on-secondary-container' };
-      case 'math': return { bg: 'bg-tertiary-container', text: 'text-on-tertiary-container' };
-      case 'science': return { bg: 'bg-primary-container', text: 'text-on-primary-container' };
-      case 'art': return { bg: 'bg-surface-container-highest', text: 'text-outline' };
-      case 'social': return { bg: 'bg-[#ffefec]', text: 'text-error' };
-      default: return { bg: 'bg-surface-container', text: 'text-on-surface' };
-    }
-  };
-
-  // Domain labels
-  const getDomainLabel = (domain: string) => {
-    switch (domain) {
-      case 'language': return '语言';
-      case 'math': return '数学';
-      case 'science': return '科学';
-      case 'art': return '艺术';
-      case 'social': return '社会';
-      default: return '学习';
-    }
-  };
+  const handleCompleteReading = useCallback(async () => {
+    await completeLearning(score, '完成学习内容');
+  }, [completeLearning, score]);
 
   if (isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="fixed inset-0 bg-background z-50 flex items-center justify-center"
-      >
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          <p className="text-on-surface-variant font-medium">加载中...</p>
-        </div>
-      </motion.div>
+      <div className="min-h-app pb-safe">
+        <TopBar
+          title="学习详情"
+          subtitle="正在加载内容..."
+          leftSlot={(
+            <IconButton aria-label="返回" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </IconButton>
+          )}
+        />
+        <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6 md:px-6">
+          <Card className="h-52 animate-shimmer" />
+          <Card className="h-24 animate-shimmer" />
+          <Card className="h-44 animate-shimmer" />
+        </main>
+      </div>
     );
   }
 
-  if (!content) {
+  if (!content || !domainMeta) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="fixed inset-0 bg-background z-50 flex items-center justify-center"
-      >
-        <div className="text-center">
-          <p className="text-on-surface-variant">内容不存在</p>
-          <button 
-            onClick={onBack}
-            className="mt-4 px-6 py-3 bg-primary text-on-primary rounded-full font-bold"
-          >
-            返回
-          </button>
-        </div>
-      </motion.div>
+      <div className="min-h-app pb-safe">
+        <TopBar
+          title="学习详情"
+          subtitle="未找到内容"
+          leftSlot={(
+            <IconButton aria-label="返回" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </IconButton>
+          )}
+        />
+        <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-6">
+          <EmptyState
+            title="内容不存在或已下线"
+            description="你可以返回学习主页，选择其他课程。"
+            actionLabel="返回"
+            onAction={onBack}
+            icon={<BookOpen className="h-6 w-6 text-primary" />}
+          />
+        </main>
+      </div>
     );
   }
 
-  const DomainIcon = getDomainIcon(content.domain);
-  const domainColors = getDomainColor(content.domain);
+  const DomainIcon = domainMeta.icon;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, x: '100%' }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed inset-0 bg-background z-50 overflow-y-auto"
-      >
-        {/* Header */}
-        <header className="sticky top-0 bg-surface-container-low z-40 border-b border-outline-variant/15">
-          <div className="flex items-center gap-4 px-6 py-4 max-w-4xl mx-auto">
-            <button
-              onClick={onBack}
-              aria-label="返回"
-              className="p-2.5 hover:bg-surface-container rounded-xl transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-on-surface" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-on-surface truncate">{content.title}</h1>
-              <p className="text-sm text-on-surface-variant">{getDomainLabel(content.domain)} · {content.ageRange}岁</p>
+    <div className="min-h-app pb-[calc(10rem+var(--safe-area-bottom))]">
+      <TopBar
+        title={content.title}
+        subtitle={`${domainMeta.label} · ${content.ageRange} 岁`}
+        leftSlot={(
+          <IconButton aria-label="返回" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </IconButton>
+        )}
+      />
+
+      <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6">
+        {content.thumbnail ? (
+          <Card className="relative overflow-hidden p-0">
+            <img src={content.thumbnail} alt={content.title} className="h-56 w-full object-cover md:h-72" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className={cn('absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black', domainMeta.badgeClass)}>
+              <DomainIcon className="h-4 w-4" />
+              {domainMeta.label}
+            </div>
+          </Card>
+        ) : null}
+
+        <Card className="space-y-4 p-5">
+          <div>
+            <h2 className="text-2xl font-black text-on-surface">{content.title}</h2>
+            {content.subtitle ? <p className="mt-1 text-sm text-on-surface-variant">{content.subtitle}</p> : null}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="flex items-center gap-2 rounded-xl bg-surface-container px-3 py-2 text-sm font-semibold text-on-surface">
+              <Clock className="h-4 w-4 text-primary" />
+              {content.durationMinutes} 分钟
+            </div>
+            <div className="flex items-center gap-2 rounded-xl bg-surface-container px-3 py-2 text-sm font-semibold text-on-surface">
+              <Star className="h-4 w-4 text-tertiary" />
+              难度 {content.difficulty}
+            </div>
+            <div className={cn('flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold', domainMeta.badgeClass)}>
+              <DomainIcon className="h-4 w-4" />
+              {domainMeta.label}
             </div>
           </div>
-        </header>
+        </Card>
 
-        <main className="max-w-4xl mx-auto px-6 py-8 pb-32">
-          {/* Thumbnail */}
-          {content.thumbnail && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="relative rounded-2xl overflow-hidden mb-8 shadow-lg"
-            >
-              <img 
-                src={content.thumbnail} 
-                alt={content.title}
-                className="w-full h-64 object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className={cn(
-                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold",
-                  domainColors.bg, domainColors.text
-                )}>
-                  <DomainIcon className="w-4 h-4" />
-                  {getDomainLabel(content.domain)}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Content Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-6"
-          >
-            {/* Title & Description */}
-            <div>
-              <h2 className="text-3xl font-black text-on-surface mb-2">{content.title}</h2>
-              {content.subtitle && (
-                <p className="text-lg text-on-surface-variant">{content.subtitle}</p>
-              )}
+        {displayText && !isQuizMode && !quizCompleted ? (
+          <Card className="space-y-3 p-5">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-black text-on-surface">学习内容</h3>
+              {hasInteractiveContent ? (
+                <span className="ml-auto rounded-full bg-primary-container px-3 py-1 text-xs font-black text-on-primary-container">
+                  含互动练习
+                </span>
+              ) : null}
             </div>
-
-            {/* Meta Info */}
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-xl">
-                <Clock className="w-5 h-5 text-primary" />
-                <span className="font-bold text-on-surface">{content.durationMinutes} 分钟</span>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-xl">
-                <Star className="w-5 h-5 text-tertiary" />
-                <span className="font-bold text-on-surface">难度 {content.difficulty}</span>
-              </div>
-              <div className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl",
-                domainColors.bg
-              )}>
-                <DomainIcon className={cn("w-5 h-5", domainColors.text)} />
-                <span className={cn("font-bold", domainColors.text)}>{getDomainLabel(content.domain)}</span>
-              </div>
+            <div className="max-h-[48vh] overflow-y-auto whitespace-pre-line rounded-xl bg-surface p-4 text-sm leading-7 text-on-surface-variant">
+              {displayText}
             </div>
+          </Card>
+        ) : null}
 
-            {/* Content Body */}
-            {content.content && !isQuizMode && !quizCompleted && (
-              <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15">
-                <div className="flex items-center gap-2 mb-4">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-bold text-on-surface">学习内容</h3>
-                  {hasInteractiveContent && (
-                    <span className="ml-auto bg-primary-container text-on-primary-container text-xs font-black px-3 py-1 rounded-full">
-                      含互动练习
-                    </span>
-                  )}
-                </div>
-                <div className="prose prose-sm max-w-none text-on-surface-variant whitespace-pre-line">
-                  {displayText || content.content}
-                </div>
-              </div>
-            )}
+        {isQuizMode && hasInteractiveContent ? (
+          <Card className="p-4 md:p-5">
+            <QuizEngine sections={quizSections} onComplete={handleQuizComplete} />
+          </Card>
+        ) : null}
 
-            {/* Interactive Quiz Mode */}
-            {isQuizMode && hasInteractiveContent && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              >
-                <QuizEngine
-                  sections={quizSections}
-                  onComplete={handleQuizComplete}
-                />
-              </motion.div>
-            )}
-
-            {/* Voice Player */}
-            {content.content && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Play/Pause Button */}
-                  <button
-                    onClick={handleToggleAudio}
-                    disabled={audioLoading}
-                    aria-label={isPlayingAudio ? '暂停播放' : audioLoading ? '加载中' : '播放语音'}
-                    className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center flex-shrink-0 tactile-press shadow-tactile active:shadow-tactile-active active:translate-y-0.5 transition-all disabled:opacity-60"
-                  >
-                    {audioLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : isPlayingAudio ? (
-                      <Pause className="w-5 h-5 fill-current" />
-                    ) : (
-                      <Volume2 className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Waveform + Label */}
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-bold text-on-surface block mb-2">
-                      {isPlayingAudio ? '正在播放语音...' : '播放语音'}
-                    </span>
-                    {/* Waveform Animation */}
-                    <div className="flex items-center gap-[3px] h-5">
-                      {Array.from({ length: 24 }).map((_, i) => (
-                        <motion.div
-                          key={i}
-                          className={cn(
-                            "w-[3px] rounded-full",
-                            isPlayingAudio ? "bg-primary" : "bg-outline-variant/40"
-                          )}
-                          animate={isPlayingAudio ? {
-                            height: [4, 12 + Math.random() * 12, 4],
-                          } : { height: 4 }}
-                          transition={isPlayingAudio ? {
-                            duration: 0.6 + Math.random() * 0.4,
-                            repeat: Infinity,
-                            repeatType: 'reverse',
-                            delay: i * 0.05,
-                            ease: 'easeInOut',
-                          } : {}}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Media */}
-            {content.mediaUrls && content.mediaUrls.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-on-surface">媒体资源</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {content.mediaUrls.map((url, idx) => (
-                    <div key={idx} className="rounded-xl overflow-hidden bg-surface-container">
-                      <img src={url} alt={`Media ${idx + 1}`} className="w-full h-32 object-cover" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-
-          {/* AI Evaluation */}
-          <AnimatePresence>
-            {showEvaluation && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="mt-8 bg-on-secondary-container text-on-secondary rounded-2xl p-6 relative overflow-hidden"
-              >
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="w-5 h-5 text-primary-container" />
-                    <span className="text-sm font-bold uppercase tracking-wider opacity-80">AI 评估</span>
-                  </div>
-                  <h3 className="text-2xl font-black mb-2">太棒了！</h3>
-                  <p className="opacity-90 mb-4">
-                    你完成了「{content.title}」的学习，获得了 {score} 分！
-                    继续保持，你正在成为学习小达人！
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-primary-container" />
-                      <span className="font-bold">+{score} 积分</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Star className="w-5 h-5 text-primary-container fill-current" />
-                      <span className="font-bold">+1 星星</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-primary-container/20 rounded-full blur-2xl"></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
-
-        {/* Bottom Action Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="fixed bottom-0 left-0 right-0 bg-surface-container-low/95 backdrop-blur-xl border-t border-outline-variant/15 p-6 z-40"
-        >
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
-            {!learningRecord ? (
-              // Start Learning Button
-              <div className="flex-1 space-y-2">
-                {(startError || !childId) && (
-                  <p className="text-sm text-error text-center font-medium flex items-center justify-center gap-1.5">
-                    <AlertCircle className="w-4 h-4" />
-                    {startError || '请以孩子身份登录后开始学习'}
-                  </p>
-                )}
-                <button
-                  onClick={handleStartLearning}
-                  disabled={isStarting || !childId}
-                  className="w-full bg-primary text-on-primary py-5 rounded-full text-xl font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isStarting ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      开始中...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-6 h-6 fill-current" />
-                      {hasInteractiveContent ? '开始学习' : '开始学习'}
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : !showEvaluation && !isQuizMode ? (
-              // Complete Learning Section (manual scoring for non-interactive content)
-              <div className="flex-1 space-y-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-on-surface-variant font-bold">评分:</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={score}
-                    onChange={(e) => setScore(Number(e.target.value))}
-                    className="flex-1 accent-primary"
-                  />
-                  <span className="font-black text-primary text-xl w-12">{score}</span>
-                </div>
-                <button
-                  onClick={handleComplete}
-                  disabled={isCompleting}
-                  className="w-full bg-tertiary text-on-tertiary py-5 rounded-full text-xl font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all flex items-center justify-center gap-3 disabled:opacity-60"
-                >
-                  {isCompleting ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      提交中...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-6 h-6" />
-                      完成学习
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : isQuizMode ? null : (
-              // Completed - Back Button
+        {displayText ? (
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
               <button
-                onClick={onBack}
-                className="flex-1 bg-secondary text-on-secondary py-5 rounded-full text-xl font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all flex items-center justify-center gap-3"
+                type="button"
+                onClick={handleToggleAudio}
+                disabled={audioLoading}
+                className="touch-target flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary shadow-tactile transition-all active:translate-y-0.5 active:shadow-tactile-active disabled:opacity-60"
+                aria-label={isPlayingAudio ? '暂停语音播放' : '播放语音'}
               >
-                <ArrowLeft className="w-6 h-6" />
-                返回首页
+                {audioLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : isPlayingAudio ? (
+                  <Pause className="h-5 w-5" />
+                ) : (
+                  <Volume2 className="h-5 w-5" />
+                )}
               </button>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+              <div>
+                <p className="text-sm font-black text-on-surface">{isPlayingAudio ? '语音朗读中...' : '语音朗读'}</p>
+                <p className="text-xs text-on-surface-variant">点击可播放或暂停当前学习内容</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {content.mediaUrls && content.mediaUrls.length > 0 ? (
+          <Card className="space-y-3 p-5">
+            <h3 className="text-lg font-black text-on-surface">媒体资源</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {content.mediaUrls.map((url, index) => (
+                <div key={index} className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface">
+                  <img src={url} alt={`学习资源 ${index + 1}`} className="h-28 w-full object-cover md:h-36" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : null}
+
+        {showEvaluation ? (
+          <Card className="relative overflow-hidden border-secondary-container/25 bg-on-secondary-container p-6 text-on-secondary">
+            <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary-container/25 blur-2xl" />
+            <div className="relative z-10">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary-container/20 px-3 py-1 text-xs font-black">
+                <Sparkles className="h-4 w-4" />
+                AI 评估
+              </div>
+              <h3 className="text-2xl font-black">太棒了！</h3>
+              <p className="mt-2 text-sm leading-6 opacity-95">
+                你已经完成《{content.title}》学习，获得 {score} 分。继续保持，下一次会更出色！
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <div className="inline-flex items-center gap-1 rounded-full bg-primary-container/25 px-3 py-1.5 text-sm font-bold">
+                  <CheckCircle className="h-4 w-4" />
+                  +{score} 积分
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full bg-primary-container/25 px-3 py-1.5 text-sm font-bold">
+                  <Star className="h-4 w-4" />
+                  +1 星星
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+      </main>
+
+      <div className="fixed bottom-safe left-0 right-0 z-40 border-t border-outline-variant/15 bg-surface-container-low/95 px-4 pb-safe pt-3 backdrop-blur-xl">
+        <div className="mx-auto w-full max-w-4xl">
+          {!learningRecord ? (
+            <div className="space-y-2">
+              {(startError || !childId) && (
+                <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-error" role="alert">
+                  <AlertCircle className="h-4 w-4" />
+                  {startError || '请使用孩子账号开始学习。'}
+                </p>
+              )}
+              <Button
+                size="lg"
+                className="w-full rounded-full text-base"
+                disabled={isStarting || !childId}
+                onClick={handleStartLearning}
+              >
+                {isStarting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    正在开始...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5" />
+                    {hasInteractiveContent ? '开始学习与练习' : '开始学习'}
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : !showEvaluation && !isQuizMode ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl bg-surface px-3 py-2.5">
+                <span className="text-sm font-bold text-on-surface-variant">学习评分</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={score}
+                  onChange={(event) => setScore(Number(event.target.value))}
+                  className="h-2 flex-1 cursor-pointer accent-primary"
+                  aria-label="调整学习评分"
+                />
+                <span className="w-10 text-right text-base font-black text-primary">{score}</span>
+              </div>
+              <Button
+                size="lg"
+                className="w-full rounded-full text-base"
+                variant="secondary"
+                onClick={handleCompleteReading}
+                disabled={isCompleting}
+              >
+                {isCompleting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    提交中...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5" />
+                    完成学习
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : isQuizMode ? null : (
+            <Button size="lg" className="w-full rounded-full text-base" variant="secondary" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+              返回主页
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

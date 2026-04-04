@@ -1,18 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
-  X,
-  Trophy,
   BookOpen,
-  Clock,
-  Megaphone,
   CheckCheck,
+  Clock,
   Loader2,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+  Megaphone,
+  Trophy,
+  X,
+} from '@/icons';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
 import type { Notification } from '@/types';
+import { EmptyState, IconButton } from './ui';
 
 interface NotificationPanelProps {
   userId: number;
@@ -29,164 +30,168 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!userId) return;
+
     const fetchNotifications = async () => {
+      setIsLoading(true);
       try {
         const data = await api.getNotifications(userId);
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
       } catch {
-        // Silently fail
+        // 通知接口失败时不阻断主流程
+      } finally {
+        setIsLoading(false);
       }
     };
-    if (userId) fetchNotifications();
+
+    fetchNotifications();
   }, [userId]);
 
-  // Close on outside click
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
-
-  const handleMarkRead = async (id: number) => {
-    try {
-      await api.markNotificationRead(id);
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, read: true } : n))
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch {
-      // Silently fail
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    try {
-      await api.markAllNotificationsRead(userId);
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
-    } catch {
-      // Silently fail
-    }
-  };
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMin = Math.floor(diffMs / 60000);
+
     if (diffMin < 1) return '刚刚';
-    if (diffMin < 60) return `${diffMin}分钟前`;
+    if (diffMin < 60) return `${diffMin} 分钟前`;
+
     const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour}小时前`;
+    if (diffHour < 24) return `${diffHour} 小时前`;
+
     const diffDay = Math.floor(diffHour / 24);
-    if (diffDay < 7) return `${diffDay}天前`;
+    if (diffDay < 7) return `${diffDay} 天前`;
+
     return date.toLocaleDateString('zh-CN');
+  };
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await api.markNotificationRead(id);
+      setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // 静默失败，避免影响用户阅读
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllNotificationsRead(userId);
+      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+      setUnreadCount(0);
+    } catch {
+      // 静默失败
+    }
   };
 
   return (
     <div className="relative" ref={panelRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-3 hover:bg-surface-container-low rounded-xl transition-colors relative"
-      >
-        <Bell className="w-6 h-6 text-on-secondary-container" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-error text-on-error text-[10px] font-black rounded-full flex items-center justify-center">
+      <IconButton aria-label="打开通知" onClick={() => setIsOpen((open) => !open)}>
+        <Bell className="h-5 w-5 text-on-secondary-container" />
+        {unreadCount > 0 ? (
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-error text-[10px] font-black text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
-        )}
-      </button>
+        ) : null}
+      </IconButton>
 
       <AnimatePresence>
-        {isOpen && (
+        {isOpen ? (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="absolute right-0 top-full mt-2 w-96 max-h-[480px] bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/15 overflow-hidden z-50"
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+            className="panel-card absolute right-0 top-full z-50 mt-2 w-[min(92vw,24rem)] overflow-hidden"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10">
-              <h3 className="font-bold text-lg">通知</h3>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
+            <div className="flex items-center justify-between border-b border-outline-variant/12 px-4 py-3">
+              <h3 className="text-sm font-black text-on-surface">消息通知</h3>
+              <div className="flex items-center gap-1">
+                {unreadCount > 0 ? (
                   <button
                     onClick={handleMarkAllRead}
-                    className="text-xs font-medium text-primary hover:opacity-70 transition-opacity flex items-center gap-1"
+                    className="touch-target inline-flex items-center gap-1 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-primary-container/20"
                   >
-                    <CheckCheck className="w-3.5 h-3.5" />
+                    <CheckCheck className="h-4 w-4" />
                     全部已读
                   </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-1 hover:bg-surface-container-high rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                ) : null}
+                <IconButton aria-label="关闭通知" onClick={() => setIsOpen(false)}>
+                  <X className="h-4 w-4" />
+                </IconButton>
               </div>
             </div>
 
-            {/* Notification List */}
-            <div className="overflow-y-auto max-h-[400px]">
+            <div className="max-h-[24rem] overflow-y-auto">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="text-center py-12 text-on-surface-variant">
-                  <Bell className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">暂无通知</p>
+                <div className="p-3">
+                  <EmptyState
+                    title="暂无通知"
+                    description="有新的学习动态时会第一时间提醒你。"
+                    icon={<Bell className="h-6 w-6 text-primary" />}
+                  />
                 </div>
               ) : (
-                notifications.map(notification => {
+                notifications.map((notification) => {
                   const config = TYPE_CONFIG[notification.type] || TYPE_CONFIG.system;
                   const Icon = config.icon;
+
                   return (
                     <button
                       key={notification.id}
-                      onClick={() => !notification.read && handleMarkRead(notification.id)}
+                      onClick={() => {
+                        if (!notification.read) {
+                          handleMarkRead(notification.id);
+                        }
+                      }}
                       className={cn(
-                        "w-full text-left px-5 py-4 flex gap-3 transition-colors border-b border-outline-variant/5",
+                        'w-full border-b border-outline-variant/10 px-4 py-3 text-left transition-colors last:border-b-0',
                         notification.read
-                          ? "opacity-60"
-                          : "bg-primary-container/10 hover:bg-primary-container/20"
+                          ? 'bg-transparent opacity-75'
+                          : 'bg-primary-container/10 hover:bg-primary-container/18',
                       )}
                     >
-                      <div className={cn("mt-0.5", config.color)}>
-                        <Icon className="w-5 h-5" />
+                      <div className="flex gap-3">
+                        <div className={cn('mt-0.5', config.color)}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn('text-sm leading-snug text-on-surface', !notification.read && 'font-black')}>
+                            {notification.title}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{notification.message}</p>
+                          <p className="mt-1.5 text-[11px] font-medium text-outline">{formatTime(notification.createdAt)}</p>
+                        </div>
+                        {!notification.read ? <span className="mt-2 h-2 w-2 rounded-full bg-primary" /> : null}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm leading-snug", !notification.read && "font-bold")}>
-                          {notification.title}
-                        </p>
-                        <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                          {notification.message}
-                        </p>
-                        <p className="text-[10px] text-outline mt-1.5">
-                          {formatTime(notification.createdAt)}
-                        </p>
-                      </div>
-                      {!notification.read && (
-                        <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                      )}
                     </button>
                   );
                 })
               )}
             </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

@@ -33,6 +33,9 @@ const NEEDS_AGE_GROUP_TOOLS = new Set([
   'generateActivity',
   'assignActivity',
 ]);
+const SUPPORTED_ACTIVITY_TYPES = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'] as const;
+type SupportedActivityType = (typeof SUPPORTED_ACTIVITY_TYPES)[number];
+const SUPPORTED_ACTIVITY_TYPE_SET = new Set<string>(SUPPORTED_ACTIVITY_TYPES);
 
 const THINK_CLOSE_TAG = '</think' + '>';
 
@@ -57,6 +60,31 @@ function extractThinking(text: string): string {
     return text.slice(start, tagEnd).trim();
   }
   return '';
+}
+
+function isSupportedActivityType(value: unknown): value is SupportedActivityType {
+  return typeof value === 'string' && SUPPORTED_ACTIVITY_TYPE_SET.has(value);
+}
+
+function safeParseJsonObject(text: string): Record<string, any> | null {
+  if (typeof text !== 'string') return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {}
+
+  const codeBlockMatch = trimmed.match(/```json\s*([\s\S]*?)```/i) || trimmed.match(/```\s*([\s\S]*?)```/i);
+  if (codeBlockMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {}
+  }
+
+  return null;
 }
 
 @Injectable()
@@ -284,12 +312,18 @@ export class AgentExecutor {
 
           // If this was generateActivity, emit game_data for frontend rendering
           if (toolName === 'generateActivity') {
-            yield {
-              type: 'game_data',
-              activityType: normalizedToolArgs.type,
-              gameData: result,
-              domain: normalizedToolArgs.domain || 'language',
-            } as any;
+            const resultPayload = safeParseJsonObject(result);
+            const activityType = this.resolveGenerateActivityType(normalizedToolArgs, resultPayload);
+            if (activityType && !this.isToolErrorPayload(resultPayload)) {
+              yield {
+                type: 'game_data',
+                activityType,
+                gameData: result,
+                domain: normalizedToolArgs.domain || 'language',
+              } as any;
+            } else {
+              this.logger.warn(`[STREAM] Skip invalid game_data payload for generateActivity`);
+            }
           }
 
           messages.push({
@@ -355,6 +389,47 @@ export class AgentExecutor {
     yield { type: 'done', sessionId, toolCalls: toolCallLog };
   }
 
+  private resolveGenerateActivityType(
+    toolArgs: Record<string, any>,
+    resultPayload: Record<string, any> | null,
+  ): SupportedActivityType | undefined {
+    if (this.isToolErrorPayload(resultPayload)) return undefined;
+
+    const fromResult = this.inferActivityType(resultPayload);
+    if (fromResult) return fromResult;
+
+    const fromArgs = this.inferActivityType(toolArgs);
+    if (fromArgs) return fromArgs;
+
+    return undefined;
+  }
+
+  private isToolErrorPayload(payload: Record<string, any> | null): boolean {
+    return Boolean(payload && typeof payload.error === 'string' && payload.error.trim());
+  }
+
+  private inferActivityType(payload: unknown): SupportedActivityType | undefined {
+    if (!payload || typeof payload !== 'object') return undefined;
+    const value = payload as Record<string, any>;
+
+    if (isSupportedActivityType(value.type)) return value.type;
+    if (isSupportedActivityType(value.activityType)) return value.activityType;
+
+    for (const key of SUPPORTED_ACTIVITY_TYPES) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) return key;
+    }
+
+    if (Array.isArray(value.questions)) return 'quiz';
+    if (Array.isArray(value.statements)) return 'true_false';
+    if (Array.isArray(value.sentences)) return 'fill_blank';
+    if (Array.isArray(value.pairs)) return 'matching';
+    if (Array.isArray(value.connections) || (Array.isArray(value.leftItems) && Array.isArray(value.rightItems))) return 'connection';
+    if (Array.isArray(value.items)) return 'sequencing';
+    if (Array.isArray(value.pieces)) return 'puzzle';
+
+    return undefined;
+  }
+
   private normalizeToolArgs(
     toolName: string,
     toolArgs: Record<string, any>,
@@ -362,6 +437,13 @@ export class AgentExecutor {
     executionContext?: { childId?: number; parentId?: number },
   ): Record<string, any> {
     const normalized = { ...toolArgs };
+
+    if (toolName === 'generateActivity') {
+      const inferredType = this.inferActivityType(normalized);
+      if (inferredType) {
+        normalized.type = inferredType;
+      }
+    }
 
     if (executionContext?.childId != null && CHILD_ID_TOOLS.has(toolName) && normalized.childId == null) {
       normalized.childId = executionContext.childId;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Lock, User, Calendar, Users, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Phone, Lock, User, Calendar, Users, Loader2, Eye, EyeOff } from '@/icons';
 import type { RegisterRequest } from '@/types';
 
 interface RegisterScreenProps {
@@ -35,7 +35,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-app bg-background flex flex-col">
       {/* Header */}
       <header className="w-full bg-surface">
         <div className="flex justify-center items-center w-full px-8 py-6">

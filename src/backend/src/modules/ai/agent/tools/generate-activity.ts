@@ -3,9 +3,39 @@ import { LlmClient } from '../../llm/llm-client';
 
 export type ActivityType = 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle';
 
-const EXTERNAL_VISUAL_RE = /(看图|图片|图中|下图|这张图|观察图|篮子里|盒子里|盘子里)/;
-const COUNTING_RE = /(数一数|有几个|多少个|一共有多少)/;
-const EMOJI_RE = /\p{Extended_Pictographic}/gu;
+type GenerateActivityArgs = {
+  type: ActivityType;
+  topic: string;
+  difficulty: number;
+  ageGroup: string;
+  domain?: string;
+};
+
+type ValidationResult = {
+  ok: boolean;
+  reason?: string;
+};
+
+const MAX_GENERATION_ATTEMPTS = 3;
+const SUPPORTED_TYPES: ActivityType[] = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'];
+const ANIMAL_TOPIC_RE = /(\u52a8\u7269|\u519c\u573a|\u68ee\u6797|\u6d77\u6d0b|\u5ba0\u7269|\u5bb6\u79bd|\u5bb6\u755c|\u5c0f\u9e21|\u5c0f\u9e2d|\u5c0f\u732b|\u5c0f\u72d7|animal|farm|zoo|pet|wild|livestock)/i;
+const ANIMAL_TERMS = [
+  '\u52a8\u7269', '\u725b', '\u7f8a', '\u732a', '\u9e21', '\u9e2d', '\u9e45', '\u9a6c', '\u72d7', '\u732b', '\u5154', '\u9c7c',
+  '\u9e1f', '\u9e7f', '\u718a', '\u72d0\u72f8', '\u677e\u9f20', '\u9752\u86d9', '\u6d77\u8c5a', '\u9cb8', '\u4e4c\u9f9f',
+  'animal', 'cow', 'sheep', 'pig', 'chicken', 'duck', 'horse', 'dog', 'cat', 'rabbit', 'fish',
+];
+const TOPIC_STOP_WORDS = new Set([
+  '\u8ba4\u8bc6', '\u5b66\u4e60', '\u7ec3\u4e60', '\u7ee7\u7eed', '\u66f4\u591a', '\u4e00\u4e2a', '\u4e00\u4e0b',
+  '\u5173\u4e8e', '\u4e3b\u9898', '\u6e38\u620f', '\u6d3b\u52a8', '\u9898\u76ee', '\u513f\u7ae5', '\u5b69\u5b50',
+  '\u77e5\u8bc6', '\u57fa\u7840', '\u8bad\u7ec3', '\u6311\u6218',
+]);
+const TOPIC_CORE_TERMS = [
+  '\u52a8\u7269', '\u519c\u573a', '\u68ee\u6797', '\u6d77\u6d0b', '\u6816\u606f', '\u4f4f\u5728',
+  '\u4e60\u6027', '\u884c\u4e3a', '\u6210\u957f', '\u5b75\u5316', '\u751f\u547d\u5468\u671f',
+  '\u5206\u7c7b', '\u7231\u5403', '\u98df\u7269', '\u5bb6\u79bd', '\u5bb6\u755c',
+  '\u5c0f\u9e21', '\u5c0f\u9e2d', '\u5c0f\u732b', '\u5c0f\u72d7',
+  'animal', 'farm', 'zoo', 'pet', 'wild', 'habitat', 'diet', 'classification', 'growth', 'life', 'cycle',
+];
 
 @Injectable()
 export class GenerateActivityTool {
@@ -13,138 +43,226 @@ export class GenerateActivityTool {
 
   constructor(private readonly llmClient: LlmClient) {}
 
-  async execute(args: {
-    type: ActivityType;
-    topic: string;
-    difficulty: number;
-    ageGroup: string;
-    domain?: string;
-  }): Promise<string> {
-    try {
-      const prompt = this.buildPrompt(args);
-      const response = await this.llmClient.generate(prompt);
-      const parsed = this.extractJsonObject(response);
-      if (!parsed) {
-        return JSON.stringify(this.getFallback(args));
+  async execute(args: GenerateActivityArgs): Promise<string> {
+    const normalizedArgs = this.normalizeArgs(args);
+    const failures: string[] = [];
+
+    this.logger.log(`[generateActivity] start ${JSON.stringify({
+      type: normalizedArgs.type,
+      topic: normalizedArgs.topic,
+      difficulty: normalizedArgs.difficulty,
+      ageGroup: normalizedArgs.ageGroup,
+      domain: normalizedArgs.domain || null,
+      maxAttempts: MAX_GENERATION_ATTEMPTS,
+    })}`);
+
+    for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
+      try {
+        const prompt = this.buildPrompt(normalizedArgs, attempt, failures);
+        const response = await this.llmClient.generate(prompt);
+        const parsed = this.extractJsonObject(response);
+        if (!parsed) {
+          const reason = 'model did not return parseable JSON';
+          failures.push(`attempt ${attempt}: ${reason}`);
+          this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({
+            attempt,
+            reason,
+            topic: normalizedArgs.topic,
+            type: normalizedArgs.type,
+          })}`);
+          continue;
+        }
+
+        const sanitized = this.sanitizeActivity(normalizedArgs, parsed);
+        const alignment = this.validateTopicAlignment(normalizedArgs, sanitized);
+        if (!alignment.ok) {
+          const reason = alignment.reason || 'topic alignment check failed';
+          failures.push(`attempt ${attempt}: ${reason}`);
+          this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({
+            attempt,
+            reason,
+            topic: normalizedArgs.topic,
+            type: normalizedArgs.type,
+            summary: this.summarizeActivity(sanitized),
+          })}`);
+          continue;
+        }
+
+        this.logger.log(`[generateActivity] success ${JSON.stringify({
+          attempt,
+          topic: normalizedArgs.topic,
+          type: normalizedArgs.type,
+          summary: this.summarizeActivity(sanitized),
+        })}`);
+        return JSON.stringify(sanitized);
+      } catch (error: any) {
+        const reason = error?.message || 'unknown error';
+        failures.push(`attempt ${attempt}: ${reason}`);
+        this.logger.warn(`[generateActivity] attempt_exception ${JSON.stringify({
+          attempt,
+          reason,
+          topic: normalizedArgs.topic,
+          type: normalizedArgs.type,
+        })}`);
       }
-      return JSON.stringify(this.sanitizeActivity(args, parsed));
-    } catch (error: any) {
-      this.logger.error(`generateActivity failed: ${error.message}`);
-      return JSON.stringify(this.getFallback(args));
+    }
+
+    const detail = failures.join(' | ');
+    this.logger.error(`[generateActivity] failed_after_retries ${JSON.stringify({
+      topic: normalizedArgs.topic,
+      type: normalizedArgs.type,
+      attempts: MAX_GENERATION_ATTEMPTS,
+      failures,
+    })}`);
+    throw new Error(`Unable to generate a topic-aligned activity. details=${detail}`);
+  }
+
+  private summarizeActivity(activity: any): Record<string, any> {
+    return {
+      type: this.toText(activity?.type),
+      title: this.toText(activity?.title),
+      topic: this.toText(activity?.topic),
+      counts: {
+        questions: Array.isArray(activity?.questions) ? activity.questions.length : 0,
+        statements: Array.isArray(activity?.statements) ? activity.statements.length : 0,
+        sentences: Array.isArray(activity?.sentences) ? activity.sentences.length : 0,
+        pairs: Array.isArray(activity?.pairs) ? activity.pairs.length : 0,
+        leftItems: Array.isArray(activity?.leftItems) ? activity.leftItems.length : 0,
+        rightItems: Array.isArray(activity?.rightItems) ? activity.rightItems.length : 0,
+        connections: Array.isArray(activity?.connections) ? activity.connections.length : 0,
+        items: Array.isArray(activity?.items) ? activity.items.length : 0,
+        pieces: Array.isArray(activity?.pieces) ? activity.pieces.length : 0,
+      },
+    };
+  }
+
+  private normalizeArgs(args: GenerateActivityArgs): GenerateActivityArgs {
+    const type = this.toText(args.type) as ActivityType;
+    const topic = this.toText(args.topic);
+    const difficulty = this.toSafeInt(args.difficulty, 1);
+    const ageGroup = this.toText(args.ageGroup);
+    const domain = this.toText(args.domain);
+
+    if (!SUPPORTED_TYPES.includes(type)) {
+      throw new Error(`Unsupported activity type: ${args.type}`);
+    }
+    if (!topic) {
+      throw new Error('topic is required');
+    }
+    if (!['3-4', '5-6'].includes(ageGroup)) {
+      throw new Error(`Unsupported ageGroup: ${ageGroup}`);
+    }
+
+    return {
+      type,
+      topic,
+      difficulty: Math.max(1, Math.min(3, difficulty)),
+      ageGroup,
+      domain: domain || undefined,
+    };
+  }
+
+  private buildPrompt(args: GenerateActivityArgs, attempt: number, failures: string[]): string {
+    const schema = this.schemaForType(args.type);
+    const typeRules = this.typeRules(args.type);
+    const topicRules = this.topicRules(args.topic);
+    const failureNotes = failures.length > 0
+      ? [
+          'Previous attempt failed. Avoid repeating these issues:',
+          ...failures.slice(-2).map((item) => `- ${item}`),
+        ].join('\n')
+      : '';
+
+    const noGenericRules = [
+      '- Do not output generic template content unrelated to the topic.',
+      '- Avoid patterns like "wake up / breakfast / go to school / go home", "sun/moon/apple/fish", "1+1=3".',
+      '- If topic is animals, include concrete animal knowledge points, not only counting.',
+      '- Return strict JSON only. No markdown. No explanations.',
+    ].join('\n');
+
+    return [
+      'You are a children learning activity generator.',
+      `Age group: ${args.ageGroup}. Topic: ${args.topic}. Difficulty: ${args.difficulty}. Type: ${args.type}.`,
+      args.domain ? `Domain: ${args.domain}.` : '',
+      `Attempt: ${attempt}.`,
+      failureNotes,
+      'Type constraints:',
+      ...typeRules.map((rule) => `- ${rule}`),
+      'Topic constraints:',
+      ...topicRules.map((rule) => `- ${rule}`),
+      noGenericRules,
+      'Return JSON schema:',
+      schema,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  private schemaForType(type: ActivityType): string {
+    switch (type) {
+      case 'quiz':
+        return '{"type":"quiz","title":"...","topic":"...","ageGroup":"...","questions":[{"question":"...","options":["...","...","..."],"correctIndex":0,"explanation":"..."}]}';
+      case 'true_false':
+        return '{"type":"true_false","title":"...","topic":"...","ageGroup":"...","statements":[{"statement":"...","isCorrect":true,"explanation":"..."}]}';
+      case 'fill_blank':
+        return '{"type":"fill_blank","title":"...","topic":"...","ageGroup":"...","sentences":[{"text":"...___...","answer":"...","hint":"...","options":["...","...","..."]}]}';
+      case 'matching':
+        return '{"type":"matching","title":"...","topic":"...","ageGroup":"...","pairs":[{"id":"p1","left":"...","right":"..."}]}';
+      case 'connection':
+        return '{"type":"connection","title":"...","topic":"...","ageGroup":"...","leftItems":[{"id":"l1","label":"...","emoji":"..."}],"rightItems":[{"id":"r1","label":"..."}],"connections":[{"left":"l1","right":"r1"}]}';
+      case 'sequencing':
+        return '{"type":"sequencing","title":"...","topic":"...","ageGroup":"...","items":[{"id":"s1","label":"...","order":1}]}';
+      case 'puzzle':
+        return '{"type":"puzzle","title":"...","topic":"...","ageGroup":"...","pieces":[{"id":"pz1","position":0,"label":"...","emoji":"..."}],"gridSize":{"rows":2,"cols":2}}';
+      default:
+        return '{}';
     }
   }
 
-  private buildPrompt(args: {
-    type: ActivityType;
-    topic: string;
-    difficulty: number;
-    ageGroup: string;
-    domain?: string;
-  }): string {
-    const difficultyDesc =
-      args.difficulty === 1 ? '简单' : args.difficulty === 2 ? '中等' : '有挑战';
-    const ageDesc = `${args.ageGroup}岁`;
+  private typeRules(type: ActivityType): string[] {
+    const common = [
+      'Use short and answerable sentences.',
+      'At least 3 valid items (prefer 4+ for matching/connection).',
+    ];
 
-    const schemas: Record<ActivityType, { desc: string; schema: string }> = {
-      quiz: {
-        desc: '选择题',
-        schema: `{
-  "title": "标题",
-  "questions": [
-    { "question": "题目文字", "options": ["选项A", "选项B", "选项C"], "correctIndex": 0, "explanation": "答案解析" }
-  ]
-}`,
-      },
-      true_false: {
-        desc: '判断题',
-        schema: `{
-  "title": "标题",
-  "statements": [
-    { "statement": "判断语句", "isCorrect": true, "explanation": "答案解析" }
-  ]
-}`,
-      },
-      fill_blank: {
-        desc: '填空题',
-        schema: `{
-  "title": "标题",
-  "sentences": [
-    { "text": "___是红色的水果", "answer": "苹果", "hint": "提示文字", "options": ["苹果", "香蕉", "葡萄"] }
-  ]
-}`,
-      },
-      matching: {
-        desc: '配对游戏',
-        schema: `{
-  "title": "标题",
-  "pairs": [
-    { "left": "🔴", "right": "红色", "id": "p1" },
-    { "left": "🔵", "right": "蓝色", "id": "p2" }
-  ]
-}`,
-      },
-      connection: {
-        desc: '连线游戏',
-        schema: `{
-  "title": "标题",
-  "leftItems": [{ "id": "l1", "label": "苹果", "emoji": "🍎" }],
-  "rightItems": [{ "id": "r1", "label": "水果" }],
-  "connections": [{ "left": "l1", "right": "r1" }]
-}`,
-      },
-      sequencing: {
-        desc: '排序游戏',
-        schema: `{
-  "title": "标题",
-  "items": [
-    { "id": "s1", "label": "第一步", "order": 1 },
-    { "id": "s2", "label": "第二步", "order": 2 }
-  ]
-}`,
-      },
-      puzzle: {
-        desc: '拼图游戏',
-        schema: `{
-  "title": "标题",
-  "pieces": [
-    { "id": "pz1", "position": 0, "label": "左上", "emoji": "🌟" },
-    { "id": "pz2", "position": 1, "label": "右上", "emoji": "✨" }
-  ],
-  "gridSize": { "rows": 2, "cols": 2 }
-}`,
-      },
-    };
-
-    const countGuidance = {
-      quiz: '生成3道题',
-      true_false: '生成3道判断题',
-      fill_blank: '生成3道填空题',
-      matching: '生成4对配对',
-      connection: '生成4组连线',
-      sequencing: '生成4-5个排序项',
-      puzzle: '生成适合2x2或3x3网格的拼图',
-    }[args.type];
-
-    const schemaInfo = schemas[args.type];
-
-    return `请为${ageDesc}的孩子生成一个关于"${args.topic}"的${schemaInfo.desc}。
-要求：
-- 难度：${difficultyDesc}
-- 内容适合${ageDesc}儿童
-- 语言要简短、有趣、可直接作答
-- ${countGuidance}
-- 题目必须自包含，不能引用外部图片信息（例如“看图”“图中”“下图”“篮子里”）
-- 对于选择题，correctIndex 必须是数字，且从 0 开始（0/1/2...）
-- 数数题必须在题干里直接给出可数元素（emoji 或明确数量）
-
-请严格按以下 JSON 返回，不要加其他文字：
-${schemaInfo.schema}`;
+    switch (type) {
+      case 'quiz':
+        return [...common, 'Generate 3-5 questions.', 'At least 3 options per question.', 'correctIndex must be a zero-based number.'];
+      case 'true_false':
+        return [...common, 'Generate 3-5 statements.', 'isCorrect must be a boolean.'];
+      case 'fill_blank':
+        return [...common, 'Generate 3-5 fill-in sentences.', 'answer must appear in options.'];
+      case 'matching':
+        return [...common, 'Generate 4-8 pairs.', 'left/right should be in the same knowledge domain.'];
+      case 'connection':
+        return [...common, 'Generate 4-8 connections.', 'connections must reference existing ids.'];
+      case 'sequencing':
+        return [...common, 'Generate 4-6 ordered steps.', 'order must be sequential and meaningful.'];
+      case 'puzzle':
+        return [...common, 'Generate 2x2 or 3x3 puzzle data.', 'pieces should match grid size.'];
+      default:
+        return common;
+    }
   }
 
-  private sanitizeActivity(
-    args: { type: ActivityType; topic: string; difficulty: number; ageGroup: string; domain?: string },
-    raw: any,
-  ): any {
+  private topicRules(topic: string): string[] {
+    const rules = [`Everything must stay on topic: ${topic}`];
+    const t = topic.toLowerCase();
+
+    if (this.isAnimalTopic(t)) {
+      rules.push('Include at least two concrete animals or animal traits.');
+      rules.push('Do not reduce to pure counting; include real animal knowledge.');
+    }
+    if (t.includes('\u4f4f') || t.includes('\u6816\u606f')) rules.push('Must include habitat or where-animal-lives information.');
+    if (t.includes('\u4e60\u6027')) rules.push('Must include behavior or habits.');
+    if (t.includes('\u6210\u957f') || t.includes('\u751f\u547d\u5468\u671f')) rules.push('Must include growth stages or life cycle.');
+    if (t.includes('\u5206\u7c7b')) rules.push('Must include classification information.');
+    if (t.includes('\u7231\u5403') || t.includes('\u98df\u7269')) rules.push('Must include diet information.');
+
+    return rules;
+  }
+
+  private sanitizeActivity(args: GenerateActivityArgs, raw: any): any {
     switch (args.type) {
       case 'quiz':
         return this.sanitizeQuiz(args, raw);
@@ -161,102 +279,91 @@ ${schemaInfo.schema}`;
       case 'puzzle':
         return this.sanitizePuzzle(args, raw);
       default:
-        return this.getFallback(args);
+        throw new Error(`Unsupported type: ${args.type}`);
     }
   }
 
-  private sanitizeQuiz(
-    args: { type: ActivityType; topic: string; difficulty: number; ageGroup: string; domain?: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}练习`);
-    const normalized = Array.isArray(raw?.questions)
-      ? raw.questions
-          .map((q: any, idx: number) => this.normalizeQuizQuestion(args, q, idx))
-          .filter((q: any) => !!q)
-      : [];
+  private sanitizeQuiz(args: GenerateActivityArgs, raw: any) {
+    const questions = Array.isArray(raw?.questions) ? raw.questions : [];
+    const normalized = questions
+      .map((q: any) => {
+        const question = this.toText(q?.question);
+        const options = Array.isArray(q?.options) ? q.options.map((opt: any) => this.toText(opt)).filter(Boolean) : [];
+        if (!question || options.length < 3) return null;
+        const correctIndex = this.resolveCorrectIndex(q, options);
+        return {
+          question,
+          options: options.slice(0, 6),
+          correctIndex,
+          explanation: this.toText(q?.explanation, `Correct answer: ${options[correctIndex]}`),
+        };
+      })
+      .filter(Boolean);
 
-    while (normalized.length < 3) {
-      normalized.push(this.createSelfContainedCountingQuestion(args, normalized.length));
-    }
+    if (normalized.length < 3) throw new Error(`quiz items too few: ${normalized.length}`);
 
     return {
       type: 'quiz',
-      title,
+      title: this.toText(raw?.title, `${args.topic} practice`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       questions: normalized.slice(0, 5),
     };
   }
 
-  private sanitizeTrueFalse(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}判断题`);
+  private sanitizeTrueFalse(args: GenerateActivityArgs, raw: any) {
     const statements = Array.isArray(raw?.statements)
       ? raw.statements
           .map((s: any) => ({
             statement: this.toText(s?.statement),
             isCorrect: this.toBoolean(s?.isCorrect),
-            explanation: this.toText(s?.explanation, '继续加油！'),
+            explanation: this.toText(s?.explanation, 'Keep going!'),
           }))
-          .filter((s: any) => !!s.statement)
+          .filter((s: any) => s.statement)
       : [];
 
-    if (statements.length === 0) {
-      return this.getFallback({ type: 'true_false', topic: args.topic, ageGroup: args.ageGroup } as any);
-    }
+    if (statements.length < 3) throw new Error(`true_false items too few: ${statements.length}`);
 
     return {
       type: 'true_false',
-      title,
+      title: this.toText(raw?.title, `${args.topic} true/false`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       statements: statements.slice(0, 5),
     };
   }
 
-  private sanitizeFillBlank(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}填空`);
+  private sanitizeFillBlank(args: GenerateActivityArgs, raw: any) {
     const sentences = Array.isArray(raw?.sentences)
       ? raw.sentences
           .map((s: any) => {
+            const text = this.toText(s?.text);
             const answer = this.toText(s?.answer);
-            const options = this.normalizeOptions(s?.options, answer ? [answer] : []);
-            if (!answer) return null;
-            if (!options.includes(answer)) options.unshift(answer);
+            const options = Array.isArray(s?.options) ? s.options.map((opt: any) => this.toText(opt)).filter(Boolean) : [];
+            if (!text || !answer || options.length < 2) return null;
+            const normalizedOptions = options.includes(answer) ? options : [answer, ...options];
             return {
-              text: this.toText(s?.text, `___ 与 ${args.topic} 有关`),
+              text,
               answer,
-              hint: this.toText(s?.hint, '请从选项里选一个'),
-              options: options.slice(0, 5),
+              hint: this.toText(s?.hint, 'Choose from options.'),
+              options: Array.from(new Set(normalizedOptions)).slice(0, 6),
             };
           })
-          .filter((s: any) => !!s)
+          .filter(Boolean)
       : [];
 
-    if (sentences.length === 0) {
-      return this.getFallback({ type: 'fill_blank', topic: args.topic, ageGroup: args.ageGroup } as any);
-    }
+    if (sentences.length < 3) throw new Error(`fill_blank items too few: ${sentences.length}`);
 
     return {
       type: 'fill_blank',
-      title,
+      title: this.toText(raw?.title, `${args.topic} fill blank`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       sentences: sentences.slice(0, 5),
     };
   }
 
-  private sanitizeMatching(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}配对`);
+  private sanitizeMatching(args: GenerateActivityArgs, raw: any) {
     const pairs = Array.isArray(raw?.pairs)
       ? raw.pairs
           .map((p: any, idx: number) => ({
@@ -267,22 +374,18 @@ ${schemaInfo.schema}`;
           .filter((p: any) => p.left && p.right)
       : [];
 
-    if (pairs.length < 2) return this.getFallback({ type: 'matching', topic: args.topic, ageGroup: args.ageGroup } as any);
+    if (pairs.length < 3) throw new Error(`matching items too few: ${pairs.length}`);
 
     return {
       type: 'matching',
-      title,
+      title: this.toText(raw?.title, `${args.topic} matching`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       pairs: pairs.slice(0, 8),
     };
   }
 
-  private sanitizeConnection(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}连线`);
+  private sanitizeConnection(args: GenerateActivityArgs, raw: any) {
     const leftItems = Array.isArray(raw?.leftItems)
       ? raw.leftItems
           .map((it: any, idx: number) => ({
@@ -300,22 +403,25 @@ ${schemaInfo.schema}`;
           }))
           .filter((it: any) => it.label)
       : [];
+
+    const leftIds = new Set(leftItems.map((it: any) => it.id));
+    const rightIds = new Set(rightItems.map((it: any) => it.id));
     const connections = Array.isArray(raw?.connections)
       ? raw.connections
           .map((c: any) => ({
             left: this.toText(c?.left),
             right: this.toText(c?.right),
           }))
-          .filter((c: any) => c.left && c.right)
+          .filter((c: any) => leftIds.has(c.left) && rightIds.has(c.right))
       : [];
 
-    if (leftItems.length < 2 || rightItems.length < 2 || connections.length < 2) {
-      return this.getFallback({ type: 'connection', topic: args.topic, ageGroup: args.ageGroup } as any);
+    if (leftItems.length < 3 || rightItems.length < 3 || connections.length < 3) {
+      throw new Error(`connection data too few: left=${leftItems.length}, right=${rightItems.length}, links=${connections.length}`);
     }
 
     return {
       type: 'connection',
-      title,
+      title: this.toText(raw?.title, `${args.topic} connection`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       leftItems: leftItems.slice(0, 8),
@@ -324,11 +430,7 @@ ${schemaInfo.schema}`;
     };
   }
 
-  private sanitizeSequencing(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}排序`);
+  private sanitizeSequencing(args: GenerateActivityArgs, raw: any) {
     const items = Array.isArray(raw?.items)
       ? raw.items
           .map((it: any, idx: number) => ({
@@ -337,130 +439,189 @@ ${schemaInfo.schema}`;
             order: this.toSafeInt(it?.order, idx + 1),
           }))
           .filter((it: any) => it.label)
+          .sort((a: any, b: any) => a.order - b.order)
       : [];
 
-    if (items.length < 3) return this.getFallback({ type: 'sequencing', topic: args.topic, ageGroup: args.ageGroup } as any);
+    if (items.length < 3) throw new Error(`sequencing items too few: ${items.length}`);
 
     return {
       type: 'sequencing',
-      title,
+      title: this.toText(raw?.title, `${args.topic} sequencing`),
       topic: args.topic,
       ageGroup: args.ageGroup,
       items: items.slice(0, 8),
     };
   }
 
-  private sanitizePuzzle(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-  ) {
-    const title = this.toText(raw?.title, `${args.topic}拼图`);
+  private sanitizePuzzle(args: GenerateActivityArgs, raw: any) {
+    const rows = Math.max(2, Math.min(3, this.toSafeInt(raw?.gridSize?.rows, 2)));
+    const cols = Math.max(2, Math.min(3, this.toSafeInt(raw?.gridSize?.cols, 2)));
+    const requiredPieces = rows * cols;
     const pieces = Array.isArray(raw?.pieces)
       ? raw.pieces
           .map((p: any, idx: number) => ({
             id: this.toText(p?.id, `pz${idx + 1}`),
             position: this.toSafeInt(p?.position, idx),
-            label: this.toText(p?.label, `位置${idx + 1}`),
-            emoji: this.toText(p?.emoji, '⭐'),
+            label: this.toText(p?.label, `pos ${idx + 1}`),
+            emoji: this.toText(p?.emoji, 'piece'),
           }))
           .filter((p: any) => p.id)
       : [];
-    const rows = this.toSafeInt(raw?.gridSize?.rows, 2);
-    const cols = this.toSafeInt(raw?.gridSize?.cols, 2);
 
-    if (pieces.length < 4) return this.getFallback({ type: 'puzzle', topic: args.topic, ageGroup: args.ageGroup } as any);
+    if (pieces.length < requiredPieces) throw new Error(`puzzle pieces too few: need=${requiredPieces}, got=${pieces.length}`);
 
     return {
       type: 'puzzle',
-      title,
+      title: this.toText(raw?.title, `${args.topic} puzzle`),
       topic: args.topic,
       ageGroup: args.ageGroup,
-      pieces: pieces.slice(0, 9),
-      gridSize: { rows: Math.max(2, Math.min(3, rows)), cols: Math.max(2, Math.min(3, cols)) },
+      pieces: pieces.slice(0, requiredPieces),
+      gridSize: { rows, cols },
     };
   }
 
-  private normalizeQuizQuestion(
-    args: { topic: string; ageGroup: string },
-    raw: any,
-    seed: number,
-  ) {
-    const options = this.normalizeOptions(raw?.options);
-    if (options.length < 2) return null;
+  private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
+    const topic = this.toText(args.topic).toLowerCase();
+    const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
+    if (!bodyContent) return { ok: false, reason: 'activity body is empty' };
 
-    let question = this.toText(raw?.question);
-    const invalidVisualDependency =
-      !question ||
-      EXTERNAL_VISUAL_RE.test(question) ||
-      (COUNTING_RE.test(question) && this.getEmojiCount(question) < 2);
-
-    if (invalidVisualDependency) {
-      return this.createSelfContainedCountingQuestion(args, seed);
+    const requiredGroups = this.requiredKeywordGroups(topic);
+    for (const group of requiredGroups) {
+      if (!group.some((kw) => bodyContent.includes(kw))) {
+        return { ok: false, reason: `missing topic group: ${group.join('/')}` };
+      }
     }
 
-    const correctIndex = this.resolveCorrectIndex(raw, options);
-    const explanation = this.toText(raw?.explanation, `正确答案是：${options[correctIndex]}`);
-    question = question.slice(0, 120);
+    if (this.isAnimalTopic(topic)) {
+      const animalHits = Array.from(new Set(
+        ANIMAL_TERMS
+          .map((term) => term.toLowerCase())
+          .filter((term) => bodyContent.includes(term)),
+      ));
+      if (animalHits.length < 2) {
+        return { ok: false, reason: `animal topic lacks concrete animal diversity, hits=${animalHits.join(',') || 'none'}` };
+      }
 
-    return {
-      question,
-      options,
-      correctIndex,
-      explanation,
-    };
+      const offTopicGeneric = /(wake up|breakfast|go to school|go home|1\+1=3|\u592a\u9633\u767d\u5929\u51fa\u73b0|\u8d77\u5e8a|\u5403\u65e9\u996d|\u53bb\u4e0a\u5b66|\u56de\u5bb6)/.test(bodyContent);
+      if (offTopicGeneric) return { ok: false, reason: 'generic fallback content detected' };
+    }
+
+    const topicKeywords = this.extractTopicKeywords(topic);
+    if (topicKeywords.length > 0 && !topicKeywords.some((kw) => bodyContent.includes(kw))) {
+      return { ok: false, reason: `content misses topic keywords: ${topicKeywords.join(', ')}` };
+    }
+
+    return { ok: true };
   }
 
-  private createSelfContainedCountingQuestion(args: { topic: string; ageGroup: string }, seed: number) {
-    const emoji = this.pickTopicEmoji(args.topic, seed);
-    const count = 2 + ((seed + Math.floor(Math.random() * 6)) % 7); // 2-8
-    const questionVisual = emoji.repeat(count);
-    const correct = count;
-
-    const candidates = new Set<number>([correct]);
-    for (const delta of [-2, -1, 1, 2, 3]) {
-      const n = Math.max(1, correct + delta);
-      if (candidates.size < 3) candidates.add(n);
-    }
-
-    const optionNumbers = Array.from(candidates).slice(0, 3);
-    for (let i = optionNumbers.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [optionNumbers[i], optionNumbers[j]] = [optionNumbers[j], optionNumbers[i]];
-    }
-
-    const options = optionNumbers.map((n) => `${n}个 ${emoji.repeat(Math.min(8, n))}`);
-    const correctIndex = optionNumbers.findIndex((n) => n === correct);
-
-    return {
-      question: `数一数：${questionVisual} 一共有几个？`,
-      options,
-      correctIndex: correctIndex >= 0 ? correctIndex : 0,
-      explanation: `题目里有 ${correct} 个。`,
-    };
+  private requiredKeywordGroups(topic: string): string[][] {
+    const groups: string[][] = [];
+    if (topic.includes('\u4f4f') || topic.includes('\u6816\u606f')) groups.push(['\u4f4f', '\u54ea\u91cc', '\u6816\u606f', '\u5bb6']);
+    if (topic.includes('\u4e60\u6027')) groups.push(['\u4e60\u6027', '\u559c\u6b22', '\u4f1a', '\u901a\u5e38']);
+    if (topic.includes('\u6210\u957f') || topic.includes('\u751f\u547d\u5468\u671f')) groups.push(['\u6210\u957f', '\u957f\u5927', '\u5e7c\u5d3d', '\u5b75\u5316', '\u9636\u6bb5']);
+    if (topic.includes('\u5206\u7c7b')) groups.push(['\u5206\u7c7b', '\u5c5e\u4e8e', '\u54ea\u4e00\u7c7b']);
+    if (topic.includes('\u7231\u5403') || topic.includes('\u98df\u7269')) groups.push(['\u7231\u5403', '\u5403', '\u98df\u7269']);
+    if (topic.includes('\u519c\u573a')) groups.push(['\u519c\u573a', '\u5976\u725b', '\u5c0f\u732a', '\u6bcd\u9e21', '\u7ef5\u7f8a']);
+    if (topic.includes('\u68ee\u6797')) groups.push(['\u68ee\u6797', '\u72d0\u72f8', '\u9e7f', '\u718a', '\u677e\u9f20']);
+    return groups;
   }
 
-  private pickTopicEmoji(topic: string, seed: number): string {
-    const text = this.toText(topic).toLowerCase();
-    const map: Array<{ keys: string[]; emoji: string }> = [
-      { keys: ['苹果', '水果', 'fruit', 'apple'], emoji: '🍎' },
-      { keys: ['香蕉', 'banana'], emoji: '🍌' },
-      { keys: ['动物', 'animal'], emoji: '🐶' },
-      { keys: ['花', 'flower'], emoji: '🌸' },
-      { keys: ['星', 'star'], emoji: '⭐' },
-      { keys: ['数字', '数', 'math', '数学'], emoji: '🔢' },
-    ];
-    const matched = map.find((m) => m.keys.some((k) => text.includes(k)));
-    if (matched) return matched.emoji;
-    const defaults = ['🍎', '⭐', '🌸', '🧸', '🐱', '🍊'];
-    return defaults[seed % defaults.length];
+  private collectActivityBodyText(activity: any): string {
+    if (!activity || typeof activity !== 'object') return '';
+    const parts: string[] = [];
+    const pushText = (value: any) => {
+      const text = this.toText(value);
+      if (text) parts.push(text);
+    };
+
+    if (Array.isArray(activity.questions)) {
+      for (const q of activity.questions) {
+        pushText(q?.question);
+        (Array.isArray(q?.options) ? q.options : []).forEach(pushText);
+        pushText(q?.explanation);
+      }
+    }
+    if (Array.isArray(activity.statements)) {
+      for (const s of activity.statements) {
+        pushText(s?.statement);
+        pushText(s?.explanation);
+      }
+    }
+    if (Array.isArray(activity.sentences)) {
+      for (const s of activity.sentences) {
+        pushText(s?.text);
+        pushText(s?.answer);
+        pushText(s?.hint);
+        (Array.isArray(s?.options) ? s.options : []).forEach(pushText);
+      }
+    }
+    if (Array.isArray(activity.pairs)) {
+      for (const p of activity.pairs) {
+        pushText(p?.left);
+        pushText(p?.right);
+      }
+    }
+    if (Array.isArray(activity.leftItems)) {
+      for (const it of activity.leftItems) {
+        pushText(it?.label);
+        pushText(it?.emoji);
+      }
+    }
+    if (Array.isArray(activity.rightItems)) {
+      for (const it of activity.rightItems) {
+        pushText(it?.label);
+      }
+    }
+    if (Array.isArray(activity.items)) {
+      for (const it of activity.items) {
+        pushText(it?.label);
+      }
+    }
+    if (Array.isArray(activity.pieces)) {
+      for (const p of activity.pieces) {
+        pushText(p?.label);
+        pushText(p?.emoji);
+      }
+    }
+
+    return parts.join(' | ');
+  }
+
+  private isAnimalTopic(topic: string): boolean {
+    return ANIMAL_TOPIC_RE.test(topic);
+  }
+
+  private extractTopicKeywords(topic: string): string[] {
+    const clean = topic.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]+/g, ' ').trim().toLowerCase();
+    if (!clean) return [];
+
+    const segments = clean.split(/\s+/).filter(Boolean);
+    const collected: string[] = [];
+    for (const seg of segments) {
+      if (/^[\u4e00-\u9fa5]+$/.test(seg)) {
+        const matchedCore = TOPIC_CORE_TERMS
+          .filter((term) => /[\u4e00-\u9fa5]/.test(term) && seg.includes(term.toLowerCase()))
+          .map((term) => term.toLowerCase());
+        if (matchedCore.length > 0) {
+          collected.push(...matchedCore);
+        } else if (seg.length <= 4) {
+          collected.push(seg);
+        }
+      } else if (seg.length >= 3) {
+        collected.push(seg);
+      }
+    }
+
+    const filtered = collected.filter((t) => !TOPIC_STOP_WORDS.has(t));
+    return Array.from(new Set(filtered)).slice(0, 8);
   }
 
   private resolveCorrectIndex(raw: any, options: string[]): number {
     const len = options.length;
-    const explicitAnswerText = this.toText(raw?.correctAnswer || raw?.answer || raw?.correctOption);
-    if (explicitAnswerText) {
-      const textMatch = options.findIndex((opt) => opt === explicitAnswerText || opt.includes(explicitAnswerText));
-      if (textMatch >= 0) return textMatch;
+    const textAnswer = this.toText(raw?.correctAnswer || raw?.answer || raw?.correctOption);
+    if (textAnswer) {
+      const byText = options.findIndex((opt) => opt === textAnswer || opt.includes(textAnswer));
+      if (byText >= 0) return byText;
     }
 
     const candidates = [raw?.correctIndex, raw?.answerIndex, raw?.correct];
@@ -473,50 +634,30 @@ ${schemaInfo.schema}`;
     return 0;
   }
 
-  private normalizeOptions(input: any, mustInclude: string[] = []): string[] {
-    const source = Array.isArray(input) ? input : [];
-    const normalized = source
-      .map((item) => this.toText(typeof item === 'object' ? item?.label ?? item?.text ?? item?.value : item))
-      .filter((v) => !!v);
-
-    for (const item of mustInclude) {
-      if (item && !normalized.includes(item)) normalized.unshift(item);
-    }
-
-    const unique: string[] = [];
-    for (const opt of normalized) {
-      if (!unique.includes(opt)) unique.push(opt);
-    }
-    return unique.slice(0, 6);
-  }
-
   private extractJsonObject(text: string): any | null {
-    if (!text) return null;
-    const trimmed = text.trim();
+    const source = this.toText(text);
+    if (!source) return null;
+
     try {
-      return JSON.parse(trimmed);
+      return JSON.parse(source);
     } catch {}
 
-    const codeBlockMatch = trimmed.match(/```json\s*([\s\S]*?)```/i) || trimmed.match(/```\s*([\s\S]*?)```/i);
+    const codeBlockMatch = source.match(/```json\s*([\s\S]*?)```/i) || source.match(/```\s*([\s\S]*?)```/i);
     if (codeBlockMatch?.[1]) {
       try {
         return JSON.parse(codeBlockMatch[1].trim());
       } catch {}
     }
 
-    const firstBrace = trimmed.indexOf('{');
-    const lastBrace = trimmed.lastIndexOf('}');
+    const firstBrace = source.indexOf('{');
+    const lastBrace = source.lastIndexOf('}');
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       try {
-        return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+        return JSON.parse(source.slice(firstBrace, lastBrace + 1));
       } catch {}
     }
-    return null;
-  }
 
-  private getEmojiCount(text: string): number {
-    const matches = text.match(EMOJI_RE);
-    return matches ? matches.length : 0;
+    return null;
   }
 
   private toText(value: any, fallback = ''): string {
@@ -532,111 +673,9 @@ ${schemaInfo.schema}`;
 
   private toBoolean(value: any): boolean {
     if (typeof value === 'boolean') return value;
-    const text = this.toText(value).toLowerCase();
-    if (['true', '1', 'yes', '对', '正确', '是'].includes(text)) return true;
-    if (['false', '0', 'no', '错', '错误', '否'].includes(text)) return false;
+    const t = this.toText(value).toLowerCase();
+    if (['true', '1', 'yes', 'y', '\u662f', '\u5bf9', '\u6b63\u786e'].includes(t)) return true;
+    if (['false', '0', 'no', 'n', '\u5426', '\u9519', '\u9519\u8bef'].includes(t)) return false;
     return false;
   }
-
-  /** Fallback templates when LLM fails */
-  private getFallback(args: { type: ActivityType; topic: string; ageGroup: string }): any {
-    const base = { title: `${args.topic}练习`, topic: args.topic, ageGroup: args.ageGroup };
-
-    switch (args.type) {
-      case 'quiz':
-        return {
-          ...base,
-          type: 'quiz',
-          questions: [
-            this.createSelfContainedCountingQuestion(args, 0),
-            this.createSelfContainedCountingQuestion(args, 1),
-            this.createSelfContainedCountingQuestion(args, 2),
-          ],
-        };
-      case 'true_false':
-        return {
-          ...base,
-          type: 'true_false',
-          statements: [
-            { statement: `${args.topic}很有趣`, isCorrect: true, explanation: '没错，学习很有趣！' },
-            { statement: '1+1=3', isCorrect: false, explanation: '1+1=2。' },
-            { statement: '太阳白天出现', isCorrect: true, explanation: '是的。' },
-          ],
-        };
-      case 'fill_blank':
-        return {
-          ...base,
-          type: 'fill_blank',
-          sentences: [
-            { text: '___ 是红色的水果', answer: '苹果', hint: '常见水果', options: ['苹果', '香蕉', '葡萄'] },
-            { text: '___ 有四条腿', answer: '小狗', hint: '会汪汪叫', options: ['小狗', '小鸟', '小鱼'] },
-            { text: '天空是 ___ 色', answer: '蓝', hint: '晴天常见颜色', options: ['蓝', '黑', '粉'] },
-          ],
-        };
-      case 'matching':
-        return {
-          ...base,
-          type: 'matching',
-          pairs: [
-            { left: '🔴', right: '红色', id: 'p1' },
-            { left: '🔵', right: '蓝色', id: 'p2' },
-            { left: '⭐', right: '星星', id: 'p3' },
-            { left: '🌙', right: '月亮', id: 'p4' },
-          ],
-        };
-      case 'connection':
-        return {
-          ...base,
-          type: 'connection',
-          leftItems: [
-            { id: 'l1', label: '太阳', emoji: '☀️' },
-            { id: 'l2', label: '月亮', emoji: '🌙' },
-            { id: 'l3', label: '苹果', emoji: '🍎' },
-            { id: 'l4', label: '小鱼', emoji: '🐟' },
-          ],
-          rightItems: [
-            { id: 'r1', label: '白天' },
-            { id: 'r2', label: '夜晚' },
-            { id: 'r3', label: '水果' },
-            { id: 'r4', label: '会游泳' },
-          ],
-          connections: [
-            { left: 'l1', right: 'r1' },
-            { left: 'l2', right: 'r2' },
-            { left: 'l3', right: 'r3' },
-            { left: 'l4', right: 'r4' },
-          ],
-        };
-      case 'sequencing':
-        return {
-          ...base,
-          type: 'sequencing',
-          items: [
-            { id: 's1', label: '起床', order: 1 },
-            { id: 's2', label: '吃早餐', order: 2 },
-            { id: 's3', label: '去上学', order: 3 },
-            { id: 's4', label: '回家', order: 4 },
-          ],
-        };
-      case 'puzzle':
-        return {
-          ...base,
-          type: 'puzzle',
-          pieces: [
-            { id: 'pz1', position: 0, label: '左上', emoji: '🌟' },
-            { id: 'pz2', position: 1, label: '右上', emoji: '✨' },
-            { id: 'pz3', position: 2, label: '左下', emoji: '🎈' },
-            { id: 'pz4', position: 3, label: '右下', emoji: '🎉' },
-          ],
-          gridSize: { rows: 2, cols: 2 },
-        };
-      default:
-        return {
-          ...base,
-          type: 'quiz',
-          questions: [this.createSelfContainedCountingQuestion(args, 0)],
-        };
-    }
-  }
 }
-

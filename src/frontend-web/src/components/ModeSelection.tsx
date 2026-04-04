@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  Rocket,
+  AlertCircle,
   Lock,
-  UserCircle,
+  Rocket,
+  Shield,
+  Sparkles,
   TrendingUp,
-  AlertCircle
-} from 'lucide-react';
+  UserCircle,
+} from '@/icons';
 import type { User } from '@/types';
-import { AppMode } from '../App';
+import type { AppMode } from '../App';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { Button, Card } from './ui';
 
 interface ModeSelectionProps {
   onSelectMode: (mode: AppMode) => void;
@@ -17,172 +20,204 @@ interface ModeSelectionProps {
 }
 
 export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps) {
+  const auth = useAuth();
   const [pin, setPin] = useState(['', '', '', '']);
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinLoading, setPinLoading] = useState(false);
-  const auth = useAuth();
+  const pinRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-    const handlePinChange = (index: number, value: string) => {
-        if (!/^\d*$/.test(value)) return;
-        const newPin = [...pin];
-        newPin[index] = value.slice(-1);
-        setPin(newPin);
-        setPinError(null);
+  const pinValue = useMemo(() => pin.join(''), [pin]);
 
-        // Auto-focus next input
-        if (value && index < 3) {
-            const nextInput = document.getElementById(`pin-${index + 1}`);
-            nextInput?.focus();
-        }
-    };
+  const handlePinChange = (index: number, value: string) => {
+    const next = value.replace(/\D/g, '').slice(-1);
+    const copy = [...pin];
+    copy[index] = next;
+    setPin(copy);
+    setPinError(null);
 
+    if (next && index < pin.length - 1) {
+      pinRefs.current[index + 1]?.focus();
+    }
+  };
 
-    const handleStudentMode = () => {
-        onSelectMode('student');
-    };
+  const handlePinKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' && !pin[index] && index > 0) {
+      pinRefs.current[index - 1]?.focus();
+    }
+  };
 
-    const handleParentLogin = async () => {
-        if (!auth.isAuthenticated || user?.type !== 'parent') {
-            setPinError('请先登录家长账号');
-            return;
-        }
+  const handleParentLogin = async () => {
+    if (!auth.isAuthenticated || user?.type !== 'parent') {
+      setPinError('请先登录家长账号，再进入家长中心。');
+      return;
+    }
 
-        const pinValue = pin.join('');
-        if (pinValue.length !== 4) {
-            setPinError('请输入4位管理密码');
-            return;
-        }
+    if (pinValue.length !== 4) {
+      setPinError('请输入 4 位管理密码。');
+      return;
+    }
 
-        setPinLoading(true);
+    setPinLoading(true);
+    setPinError(null);
+
+    try {
+      const result = await api.verifyPin(pinValue);
+      if (!result.valid) {
+        setPinError('管理密码错误，请重试。');
+        return;
+      }
+
+      if (result.needsSetup) {
         try {
-            const result = await api.verifyPin(pinValue);
-            if (result.valid) {
-                if (result.needsSetup) {
-                  // Prompt to set a PIN for future use
-                  try {
-                    await api.setPin(pinValue);
-                  } catch {
-                    // Setting PIN failed, still allow access this time
-                  }
-                }
-                onSelectMode('parent');
-            } else {
-                setPinError('管理密码错误');
-            }
-        } catch (err: any) {
-            setPinError(err?.message || '管理密码错误');
-        } finally {
-            setPinLoading(false);
+          await api.setPin(pinValue);
+        } catch {
+          // 首次设置失败时不阻断当前进入流程
         }
-    };
+      }
 
-    return (
-        <div className="flex flex-col min-h-screen">
-            <header className="w-full bg-surface">
-                <div className="flex justify-between items-center w-full px-8 py-6 max-w-7xl mx-auto">
-                    <h1 className="text-2xl font-bold tracking-tight">灵犀伴学</h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-on-surface-variant text-sm font-medium">请选择使用模式</span>
-                        <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
-                            <UserCircle className="w-6 h-6 text-primary" />
-                        </div>
-                    </div>
+      onSelectMode('parent');
+    } catch (err: any) {
+      setPinError(err?.message || '管理密码验证失败，请稍后再试。');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  return (
+    <div className="app-shell min-h-app overflow-hidden px-safe pb-safe pt-safe">
+      <div className="pointer-events-none absolute -left-16 top-12 h-56 w-56 rounded-full bg-primary-container/30 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 top-28 h-64 w-64 rounded-full bg-secondary-container/25 blur-3xl" />
+
+      <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 py-6 md:py-10">
+        <header className="space-y-3 text-center md:text-left">
+          <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container/65 px-4 py-1.5 text-xs font-black text-on-tertiary-container">
+            <Sparkles className="h-4 w-4" />
+            触控友好模式已开启
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-on-surface md:text-4xl">请选择使用模式</h1>
+          <p className="text-sm font-medium text-on-surface-variant md:text-base">
+            学生端适合沉浸学习，家长端可查看进展并管理学习计划。
+          </p>
+        </header>
+
+        <section className="grid gap-5 md:grid-cols-2 md:gap-6">
+          <Card className="relative overflow-hidden p-6 md:p-7">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary-container/35 blur-3xl" />
+            <div className="relative z-10 flex h-full flex-col gap-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container">
+                  <Rocket className="h-7 w-7" />
                 </div>
-            </header>
-
-            <main className="flex-grow flex items-center justify-center px-6 py-12">
-                <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-stretch">
-                    {/* Student Mode */}
-                    <section className="group relative bg-surface-container-lowest rounded-xl p-10 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm">
-                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary-container/30 rounded-full blur-3xl group-hover:bg-primary-container/50 transition-colors"></div>
-                        <div className="relative z-10 flex flex-col items-center">
-                            <div className="w-40 h-40 mb-8 rounded-full bg-primary-container flex items-center justify-center shadow-inner border-b-8 border-primary/20">
-                                <img
-                                    alt="Mascot"
-                                    className="w-24 h-24"
-                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcJOU_G2u01vuHUYluCZTjtWD4VhAzEtBxbPsOrSC-7zMwek86PYCQeGBRl2ZXSOFDGcbxmFeCbL7JfKhvPeodVjaqpELlu8SN5HeeS4n-mXbX5RXtEpO31539ATVu2GAi4qNYbYpuRG9nEVURqEZLqCqxFRGhVvrilL3XneAJY00kny1l1RaS2eFhdY040n61ZzvlCvLGLAnL-2Tdupnf3ULMkVbu3W7p4MlJiC2zASO8dOINAnwlrkn7sy1OBz-JiCfKjIW7ets"
-                                    referrerPolicy="no-referrer"
-                                />
-                            </div>
-                            <h2 className="text-4xl font-black tracking-tight text-primary mb-4">宝贝模式</h2>
-                            <p className="text-on-surface-variant text-lg leading-relaxed max-w-[280px]">
-                                探索有趣的知识，开启快乐的学习旅程！
-                            </p>
-                        </div>
-                        <div className="mt-12 w-full">
-                            <button
-                                onClick={handleStudentMode}
-                                className="w-full bg-primary text-on-primary py-6 rounded-full font-bold text-xl shadow-tactile active:shadow-tactile-active active:translate-y-[4px] transition-all flex items-center justify-center gap-3 tactile-press"
-                            >
-                                <span>进入游乐园</span>
-                                <Rocket className="w-6 h-6 fill-current" />
-                            </button>
-                        </div>
-                    </section>
-
-                    {/* Parent Mode */}
-                    <section className="group relative bg-on-secondary-container rounded-lg p-10 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-300 border border-outline-variant/10">
-                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary-container/30 rounded-full blur-3xl group-hover:bg-primary-container/50 transition-colors"></div>
-                        <div className="relative z-10 flex flex-col items-center w-full">
-                            <div className="w-40 h-40 mb-8 rounded-2xl bg-on-secondary/10 flex items-center justify-center shadow-inner border-b-8 border-on-secondary/20">
-                                <TrendingUp className="w-16 h-16 text-on-secondary stroke-[1.5px]" />
-                            </div>
-                            <h2 className="text-3xl font-bold tracking-tight text-on-secondary mb-4">家长控制中心</h2>
-                            <p className="text-secondary-fixed-dim text-md leading-relaxed mb-10 max-w-[300px] opacity-80">
-                                查看学习进度、设置学习时间及管理课程内容。
-                            </p>
-
-                            <div className="w-full space-y-4">
-                                <label className="block text-secondary-container text-sm font-medium uppercase tracking-widest">请输入家长管理密码</label>
-                                <div className="flex justify-center gap-4">
-                                    {pin.map((digit, i) => (
-                                        <input
-                                            key={i}
-                                            id={`pin-${i}`}
-                                            className="w-14 h-16 bg-on-secondary/10 border-b-2 border-secondary-container text-on-secondary text-2xl text-center focus:outline-none focus:ring-2 focus:ring-on-secondary focus:ring-offset-2 transition-colors rounded-t-md"
-                                            maxLength={1}
-                                            type="password"
-                                            value={digit}
-                                            onChange={(e) => handlePinChange(i, e.target.value)}
-                                            disabled={pinLoading}
-                                        />
-                                    ))}
-                                </div>
-                                {pinError && (
-                                    <div className="flex items-center justify-center gap-2 text-error text-sm font-medium">
-                                        <AlertCircle className="w-4 h-4" />
-                                        {pinError}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="mt-12 w-full">
-                            <button
-                                onClick={handleParentLogin}
-                                disabled={pinLoading}
-                                className="w-full bg-on-secondary text-on-secondary-container py-5 rounded-lg font-bold text-lg hover:bg-secondary-container transition-colors flex items-center justify-center gap-3 tactile-press disabled:opacity-50"
-                            >
-                                <span>{pinLoading ? '验证中...' : '验证并进入'}</span>
-                                {!pinLoading && <Lock className="w-5 h-5" />}
-                            </button>
-                            <button
-                                onClick={() => auth.logout()}
-                                className="mt-4 text-secondary-container/60 text-sm font-medium hover:text-on-secondary transition-colors"
-                            >
-                                忘记密码？
-                            </button>
-                        </div>
-                    </section>
+                <div>
+                  <h2 className="text-2xl font-black text-primary">学生模式</h2>
+                  <p className="text-sm font-semibold text-on-surface-variant">课程、挑战与 AI 伙伴</p>
                 </div>
-            </main>
+              </div>
 
-            <footer className="w-full h-32 flex items-end justify-center pointer-events-none overflow-hidden">
-                <div className="flex gap-4 opacity-10 translate-y-8">
-                    <div className="w-32 h-32 bg-primary rounded-full"></div>
-                    <div className="w-48 h-48 bg-secondary rounded-full -translate-y-12"></div>
-                    <div className="w-32 h-32 bg-tertiary rounded-full"></div>
+              <p className="text-sm leading-relaxed text-on-surface-variant md:text-base">
+                进入学习主界面，开始今日任务、完成互动练习，并解锁成长成就。
+              </p>
+
+              <Button
+                onClick={() => onSelectMode('student')}
+                className="mt-auto w-full rounded-2xl text-base"
+                size="lg"
+              >
+                <Rocket className="h-5 w-5" />
+                进入学生端
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="relative overflow-hidden p-6 md:p-7">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-secondary-container/35 blur-3xl" />
+            <div className="relative z-10 flex h-full flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary-container text-on-secondary-container">
+                  <TrendingUp className="h-7 w-7" />
                 </div>
-            </footer>
-        </div>
-    );
+                <div>
+                  <h2 className="text-2xl font-black text-on-surface">家长模式</h2>
+                  <p className="text-sm font-semibold text-on-surface-variant">报告、管控与作业管理</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface px-4 py-3 text-sm text-on-surface-variant">
+                <div className="mb-2 flex items-center gap-2 font-semibold text-on-surface">
+                  <UserCircle className="h-4 w-4" />
+                  当前账号：{user?.name || '未登录'}
+                </div>
+                <p>{user?.type === 'parent' ? '已登录家长账号，可直接验证 PIN。' : '请先使用家长账号登录。'}</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-bold text-on-surface">输入 4 位管理密码</label>
+                <div className="flex gap-2 sm:gap-3">
+                  {pin.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={(node) => {
+                        pinRefs.current[index] = node;
+                      }}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={1}
+                      type="password"
+                      value={digit}
+                      aria-label={`PIN 第 ${index + 1} 位`}
+                      className="touch-target h-12 w-12 rounded-xl border border-outline-variant/35 bg-surface text-center text-lg font-black text-on-surface focus:border-primary focus:outline-none"
+                      onChange={(event) => handlePinChange(index, event.target.value)}
+                      onKeyDown={(event) => handlePinKeyDown(index, event)}
+                      disabled={pinLoading}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {pinError && (
+                <div className="flex items-start gap-2 rounded-xl bg-error-container/20 px-3 py-2 text-sm font-semibold text-error">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+
+              <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+                <Button
+                  onClick={handleParentLogin}
+                  disabled={pinLoading}
+                  className="w-full rounded-2xl"
+                  variant="secondary"
+                  size="lg"
+                >
+                  {pinLoading ? (
+                    <>验证中...</>
+                  ) : (
+                    <>
+                      <Lock className="h-5 w-5" />
+                      验证并进入家长端
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => auth.logout()}
+                  variant="ghost"
+                  className="w-full rounded-2xl sm:w-auto"
+                >
+                  退出账号
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        <footer className="flex justify-center pb-2 text-xs font-semibold text-on-surface-variant">
+          <span className="inline-flex items-center gap-1.5">
+            <Shield className="h-4 w-4" />
+            全程启用安全保护与家长管控能力
+          </span>
+        </footer>
+      </main>
+    </div>
+  );
 }
+

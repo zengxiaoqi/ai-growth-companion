@@ -25,12 +25,13 @@ import {
   ClipboardCheck,
   ChevronUp,
   type LucideIcon,
-} from 'lucide-react';
+} from '@/icons';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import type { Content, Recommendation, Assignment, AchievementDisplay, GrowthReport } from '@/types';
 import EmergencyCallDialog from './EmergencyCallDialog';
+import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -307,11 +308,11 @@ export default function StudentDashboard({
   const userName = user?.name || '小朋友';
 
   return (
-    <div className="app-shell min-h-screen pb-40">
+    <div className="app-shell min-h-app pb-[calc(10rem+var(--safe-area-bottom))]">
       <div className="pointer-events-none absolute -left-16 top-20 h-64 w-64 rounded-full bg-primary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-10 top-[35%] h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
 
-      <header className="sticky top-0 z-40 px-3 pt-3 md:px-6">
+      <header className="sticky top-0 z-40 px-3 pt-safe md:px-6">
         <div className="panel-card-strong mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 overflow-hidden rounded-2xl border border-primary-container/60 bg-surface-container-lowest shadow-card">
@@ -328,13 +329,13 @@ export default function StudentDashboard({
           </div>
 
           <div className="flex gap-1.5 md:gap-2">
-            <button onClick={onOpenProfile} aria-label="打开个人中心" className="rounded-xl p-2.5 transition-colors hover:bg-surface-container">
+            <button onClick={onOpenProfile} aria-label="打开个人中心" className="touch-target rounded-xl p-2.5 transition-colors hover:bg-surface-container">
               <UserCircle className="h-5 w-5 text-on-secondary-container md:h-6 md:w-6" />
             </button>
-            <button onClick={onOpenSettings} aria-label="打开设置" className="rounded-xl p-2.5 transition-colors hover:bg-surface-container">
+            <button onClick={onOpenSettings} aria-label="打开设置" className="touch-target rounded-xl p-2.5 transition-colors hover:bg-surface-container">
               <Settings className="h-5 w-5 text-on-secondary-container md:h-6 md:w-6" />
             </button>
-            <button onClick={handleLogout} aria-label="退出登录" className="rounded-xl p-2.5 text-error transition-colors hover:bg-error-container/10">
+            <button onClick={handleLogout} aria-label="退出登录" className="touch-target rounded-xl p-2.5 text-error transition-colors hover:bg-error-container/10">
               <LogOut className="h-5 w-5 md:h-6 md:w-6" />
             </button>
           </div>
@@ -384,24 +385,35 @@ export default function StudentDashboard({
               今日待完成
             </h3>
             <div className="space-y-3">
-              {pendingAssignments.map((assignment) => (
-                <button
-                  key={assignment.id}
-                  onClick={() => onOpenAssignment?.(assignment)}
-                  className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
-                >
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-tertiary-container">
-                    <ClipboardList className="h-6 w-6 text-on-tertiary-container" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-bold text-on-surface">{assignment.activityType} 练习</h4>
-                    <p className="text-xs text-on-surface-variant">
-                      难度 {assignment.difficulty} · {assignment.domain || '综合'}
-                    </p>
-                  </div>
-                  <Play className="h-5 w-5 flex-shrink-0 text-primary" />
-                </button>
-              ))}
+              {pendingAssignments.map((assignment) => {
+                const normalizedType = normalizeActivityType(assignment.activityType, assignment.activityData);
+                const normalizedData = normalizeActivityData(
+                  normalizedType,
+                  assignment.activityData ?? { type: normalizedType, title: '练习' },
+                );
+                return (
+                  <button
+                    key={assignment.id}
+                    onClick={() => onOpenAssignment?.({
+                      ...assignment,
+                      activityType: normalizedType,
+                      activityData: normalizedData,
+                    })}
+                    className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
+                  >
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-tertiary-container">
+                      <ClipboardList className="h-6 w-6 text-on-tertiary-container" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="truncate text-sm font-bold text-on-surface">{normalizedType} 练习</h4>
+                      <p className="text-xs text-on-surface-variant">
+                        难度 {assignment.difficulty} · {assignment.domain || '综合'}
+                      </p>
+                    </div>
+                    <Play className="h-5 w-5 flex-shrink-0 text-primary" />
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}
@@ -769,17 +781,17 @@ export default function StudentDashboard({
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-6">
+      <nav className="fixed bottom-safe left-0 right-0 z-50 px-4 pb-safe">
         <div className="floating-nav mx-auto flex max-w-3xl items-center justify-around rounded-full px-4 py-2.5">
-          <button onClick={() => scrollToSection('curriculum')} className="flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
+          <button onClick={() => scrollToSection('curriculum')} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
             <BookOpen className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">课程</span>
           </button>
-          <button onClick={onOpenCompanion} className="flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner">
+          <button onClick={onOpenCompanion} className="touch-target flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner">
             <Sparkles className="h-7 w-7" />
             <span className="mt-0.5 text-[10px] font-black">AI伙伴</span>
           </button>
-          <button onClick={onOpenAchievements} className="flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
+          <button onClick={onOpenAchievements} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
             <Trophy className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">成就</span>
           </button>

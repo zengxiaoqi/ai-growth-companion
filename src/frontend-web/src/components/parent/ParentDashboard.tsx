@@ -1,17 +1,47 @@
-﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { LogOut, AlertCircle, MessageCircle, BarChart3, Settings, ClipboardList, Sparkles, Clock3, Trophy } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  BarChart3,
+  ClipboardList,
+  Clock3,
+  LogOut,
+  MessageCircle,
+  Settings,
+  Sparkles,
+  Trophy,
+} from '@/icons';
+import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
-import type { GrowthReport, Achievement, ParentControl, AbilityReport, User, Assignment, Ability } from '@/types';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import type {
+  Ability,
+  AbilityReport,
+  Achievement,
+  Assignment,
+  GrowthReport,
+  ParentControl,
+  User,
+} from '@/types';
 import AIChatPage from '../AIChatPage';
 import ReportDetail from '../ReportDetail';
-import ChildSelector from './ChildSelector';
-import GrowthReportSection from './GrowthReportSection';
+import { Card, EmptyState, IconButton } from '../ui';
 import AbilityRadar from './AbilityRadar';
 import AbilityTrend from './AbilityTrend';
-import ParentalControls from './ParentalControls';
+import AIInsightsPanel from './AIInsightsPanel';
 import AssignmentManager from './AssignmentManager';
+import ChildSelector from './ChildSelector';
 import { DOMAIN_CONFIG, fallbackAbilities, fallbackTrendData } from './constants';
+import GrowthReportSection from './GrowthReportSection';
+import ParentalControls from './ParentalControls';
 
 interface ParentDashboardProps {
   onBack: () => void;
@@ -24,7 +54,7 @@ const tabs = [
   { key: 'assignments' as const, label: '作业', Icon: ClipboardList },
 ];
 
-type TabKey = typeof tabs[number]['key'];
+type TabKey = (typeof tabs)[number]['key'];
 
 const INITIAL_STUDY_SCHEDULE: Record<string, { enabled: boolean; start: string; end: string }> = {
   周一: { enabled: true, start: '09:00', end: '11:00' },
@@ -36,13 +66,15 @@ const INITIAL_STUDY_SCHEDULE: Record<string, { enabled: boolean; start: string; 
   周日: { enabled: false, start: '10:00', end: '12:00' },
 };
 
-function NoChildSelected() {
+function NoChildSelected({ onBackToChat }: { onBackToChat?: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center py-20 text-on-surface-variant">
-      <AlertCircle className="mb-4 h-16 w-16 opacity-30" />
-      <p className="text-lg font-bold">请先选择一个孩子</p>
-      <p className="mt-1 text-sm">可在顶部选择或关联孩子账号</p>
-    </div>
+    <EmptyState
+      title="请先选择一个孩子"
+      description="你可以在顶部选择孩子账号，或先关联一个孩子账号后继续。"
+      actionLabel={onBackToChat ? '切换到对话' : undefined}
+      onAction={onBackToChat}
+      icon={<AlertCircle className="h-6 w-6 text-primary" />}
+    />
   );
 }
 
@@ -51,31 +83,38 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const controlsRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabKey>('chat');
-  const [reportData, setReportData] = useState<GrowthReport | null>(null);
-  const [controls, setControls] = useState<ParentControl | null>(null);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [abilityReport, setAbilityReport] = useState<AbilityReport | null>(null);
-  const [trendData, setTrendData] = useState<{ week: string; language: number; math: number; science: number; art: number; social: number }[]>([]);
-  const [recentSkills, setRecentSkills] = useState<{ domain: string; level: number; label: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showReportDetail, setShowReportDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [children, setChildren] = useState<User[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+
+  const [reportData, setReportData] = useState<GrowthReport | null>(null);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [controls, setControls] = useState<ParentControl | null>(null);
+  const [abilityReport, setAbilityReport] = useState<AbilityReport | null>(null);
+  const [trendData, setTrendData] = useState<
+    { week: string; language: number; math: number; science: number; art: number; social: number }[]
+  >([]);
+  const [recentSkills, setRecentSkills] = useState<{ domain: string; level: number; label: string }[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
 
   useEffect(() => {
     const fetchChildren = async () => {
       if (!user?.id) return;
+
       try {
         const childrenData = await api.getChildren(user.id);
         setChildren(childrenData);
         if (childrenData.length > 0) {
-          setSelectedChildId(childrenData[0].id);
+          setSelectedChildId((prev) => prev ?? childrenData[0].id);
+        } else {
+          setSelectedChildId(null);
         }
       } catch {
-        // Not critical
+        setChildren([]);
+        setSelectedChildId(null);
       }
     };
 
@@ -83,95 +122,161 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   }, [user?.id]);
 
   useEffect(() => {
-    const fetchChildData = async () => {
+    const fetchDashboardData = async () => {
       if (!user?.id) return;
       setIsLoading(true);
-      setError(null);
 
-      const targetUserId = selectedChildId || user.id;
+      let hasFailure = false;
 
-      try {
-        const [
-          reportResult,
-          achievementsResult,
-          controlsResult,
-          abilitiesResult,
-          trendResult,
-          skillsResult,
-          assignmentsResult,
-        ] = await Promise.allSettled([
-          api.getReport({ userId: targetUserId, period: 'weekly' }),
-          api.getAchievements(targetUserId),
-          api.getControls(user.id),
-          api.getAbilities(targetUserId),
-          api.getAbilityTrend(targetUserId, 6),
-          api.getRecentSkills(targetUserId, 3),
-          api.getParentAssignments(user.id),
-        ]);
+      const baseResults = await Promise.allSettled([
+        api.getControls(user.id),
+        api.getParentAssignments(user.id),
+      ]);
 
-        if (reportResult.status === 'fulfilled') setReportData(reportResult.value);
-        if (achievementsResult.status === 'fulfilled') setAchievements(achievementsResult.value);
-        if (controlsResult.status === 'fulfilled') setControls(controlsResult.value);
-        if (abilitiesResult.status === 'fulfilled') setAbilityReport(abilitiesResult.value);
-        if (trendResult.status === 'fulfilled' && trendResult.value?.length > 0) setTrendData(trendResult.value);
-        if (skillsResult.status === 'fulfilled') setRecentSkills(skillsResult.value);
-        if (assignmentsResult.status === 'fulfilled') setAssignments(assignmentsResult.value);
-      } catch (err) {
-        console.error('Failed to fetch parent dashboard data:', err);
-        setError('部分数据加载失败，请稍后重试');
-      } finally {
-        setIsLoading(false);
+      if (baseResults[0].status === 'fulfilled') {
+        setControls(baseResults[0].value);
+      } else {
+        hasFailure = true;
       }
+
+      if (baseResults[1].status === 'fulfilled') {
+        setAssignments(baseResults[1].value);
+      } else {
+        hasFailure = true;
+      }
+
+      if (!selectedChildId) {
+        setReportData(null);
+        setAchievements([]);
+        setAbilityReport(null);
+        setTrendData([]);
+        setRecentSkills([]);
+        setIsLoading(false);
+        setError(hasFailure ? '部分数据加载失败，请稍后重试。' : null);
+        return;
+      }
+
+      const childResults = await Promise.allSettled([
+        api.getReport({ userId: selectedChildId, period: 'weekly' }),
+        api.getAchievements(selectedChildId),
+        api.getAbilities(selectedChildId),
+        api.getAbilityTrend(selectedChildId, 6),
+        api.getRecentSkills(selectedChildId, 3),
+      ]);
+
+      if (childResults[0].status === 'fulfilled') {
+        setReportData(childResults[0].value);
+      } else {
+        hasFailure = true;
+      }
+
+      if (childResults[1].status === 'fulfilled') {
+        setAchievements(childResults[1].value);
+      } else {
+        hasFailure = true;
+      }
+
+      if (childResults[2].status === 'fulfilled') {
+        setAbilityReport(childResults[2].value);
+      } else {
+        hasFailure = true;
+      }
+
+      if (childResults[3].status === 'fulfilled') {
+        setTrendData(childResults[3].value?.length > 0 ? childResults[3].value : []);
+      } else {
+        hasFailure = true;
+      }
+
+      if (childResults[4].status === 'fulfilled') {
+        setRecentSkills(childResults[4].value);
+      } else {
+        hasFailure = true;
+      }
+
+      setError(hasFailure ? '部分数据加载失败，请稍后重试。' : null);
+      setIsLoading(false);
     };
 
-    fetchChildData();
-  }, [user?.id, selectedChildId]);
+    fetchDashboardData();
+  }, [selectedChildId, user?.id]);
 
-  const chartData = useMemo(() => reportData?.dailyStats?.map((stat) => ({
-    name: new Date(stat.date).toLocaleDateString('zh-CN', { weekday: 'short' }),
-    time: Math.round(stat.totalTime / 60),
-  })) || [], [reportData]);
+  const selectedChild = useMemo(
+    () => children.find((child) => child.id === selectedChildId),
+    [children, selectedChildId],
+  );
 
-  const totalScore = useMemo(() => achievements.reduce((sum, a) => sum + (a.unlockedAt ? a.progress : 0), 0), [achievements]);
+  const chartData = useMemo(
+    () =>
+      reportData?.dailyStats?.map((stat) => ({
+        name: new Date(stat.date).toLocaleDateString('zh-CN', { weekday: 'short' }),
+        time: Math.round(stat.totalTime / 60),
+      })) || [],
+    [reportData],
+  );
+
+  const totalScore = useMemo(
+    () => achievements.reduce((sum, item) => sum + (item.unlockedAt ? item.progress : 0), 0),
+    [achievements],
+  );
 
   const abilities: Ability[] = useMemo(
     () => (abilityReport?.abilities?.length ? abilityReport.abilities : fallbackAbilities),
     [abilityReport],
   );
 
-  const radarData = useMemo(() => abilities.map((a) => ({
-    domain: DOMAIN_CONFIG[a.domain]?.label || a.domain,
-    progress: a.progress,
-    fullMark: 100,
-  })), [abilities]);
+  const radarData = useMemo(
+    () =>
+      abilities.map((ability) => ({
+        domain: DOMAIN_CONFIG[ability.domain]?.label || ability.domain,
+        progress: ability.progress,
+        fullMark: 100,
+      })),
+    [abilities],
+  );
 
   const recentMastered = useMemo(
-    () => (recentSkills.length > 0
-      ? recentSkills.map((s) => ({ label: s.label, color: DOMAIN_CONFIG[s.domain]?.color || 'bg-primary' }))
-      : []),
+    () =>
+      recentSkills.length > 0
+        ? recentSkills.map((skill) => ({ label: skill.label, color: DOMAIN_CONFIG[skill.domain]?.color || 'bg-primary' }))
+        : [],
     [recentSkills],
   );
 
-  const selectedChild = useMemo(() => children.find((c) => c.id === selectedChildId), [children, selectedChildId]);
-
   const completedAssignments = useMemo(
-    () => assignments
-      .filter((a) => a.status === 'completed' && a.score != null && a.completedAt)
-      .sort((a, b) => new Date(a.completedAt!).getTime() - new Date(b.completedAt!).getTime()),
+    () =>
+      assignments
+        .filter((assignment) => assignment.status === 'completed' && assignment.score != null && assignment.completedAt)
+        .sort((a, b) => new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime()),
     [assignments],
   );
 
   const scoreStats = useMemo(() => {
     if (completedAssignments.length === 0) return null;
     return {
-      avg: Math.round(completedAssignments.reduce((s, a) => s + (a.score || 0), 0) / completedAssignments.length),
-      highest: Math.max(...completedAssignments.map((a) => a.score || 0)),
+      avg: Math.round(completedAssignments.reduce((sum, item) => sum + (item.score || 0), 0) / completedAssignments.length),
+      highest: Math.max(...completedAssignments.map((item) => item.score || 0)),
       completionRate: assignments.length > 0 ? Math.round((completedAssignments.length / assignments.length) * 100) : 0,
     };
-  }, [completedAssignments, assignments.length]);
+  }, [assignments.length, completedAssignments]);
+
+  const assignmentTrendData = useMemo(
+    () =>
+      completedAssignments.map((assignment) => ({
+        date:
+          assignment.completedAt
+            ? new Date(assignment.completedAt).toLocaleDateString('zh-CN', {
+                month: 'numeric',
+                day: 'numeric',
+              })
+            : '--',
+        score: assignment.score || 0,
+      })),
+    [completedAssignments],
+  );
 
   const quickOverview = useMemo(() => {
-    const pendingCount = assignments.filter((a) => a.status === 'pending').length;
+    const pendingCount = assignments.filter((assignment) => assignment.status === 'pending').length;
     return [
       {
         label: '本周学习时长',
@@ -181,86 +286,87 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       },
       {
         label: '待完成作业',
-        value: `${pendingCount}`,
+        value: String(pendingCount),
         Icon: ClipboardList,
         style: 'bg-primary-container/45 text-on-primary-container',
       },
       {
         label: '累计成就分',
-        value: `${totalScore}`,
+        value: String(totalScore),
         Icon: Trophy,
         style: 'bg-tertiary-container/35 text-on-tertiary-container',
       },
     ];
   }, [assignments, reportData, totalScore]);
 
+  const reportInsights = useMemo(() => reportData?.insights || [], [reportData?.insights]);
+
   const handleLogout = useCallback(() => {
     logout();
     onBack();
   }, [logout, onBack]);
 
-  const handleSaveControls = useCallback(async (data: {
-    dailyLimitMinutes: number;
-    allowedDomains: string[];
-    studySchedule: Record<string, unknown>;
-    eyeProtectionEnabled?: boolean;
-  }) => {
-    if (!user?.id) return;
-    const updated = await api.updateControls(user.id, data);
-    setControls(updated);
-  }, [user?.id]);
+  const handleSaveControls = useCallback(
+    async (data: {
+      dailyLimitMinutes: number;
+      allowedDomains: string[];
+      studySchedule: Record<string, unknown>;
+      eyeProtectionEnabled?: boolean;
+    }) => {
+      if (!user?.id) return;
+      const updated = await api.updateControls(user.id, data);
+      setControls(updated);
+    },
+    [user?.id],
+  );
 
-  const handleLinkChild = useCallback(async (phone: string): Promise<User> => {
-    const newChild = await api.linkChild(phone);
-    setChildren((prev) => [...prev, newChild]);
-    if (!selectedChildId) setSelectedChildId(newChild.id);
-    return newChild;
-  }, [selectedChildId]);
+  const handleLinkChild = useCallback(
+    async (phone: string): Promise<User> => {
+      const newChild = await api.linkChild(phone);
+      setChildren((prev) => [...prev, newChild]);
+      setSelectedChildId((prev) => prev ?? newChild.id);
+      return newChild;
+    },
+    [],
+  );
 
-  const handleCreateAssignment = useCallback(async (data: {
-    activityType: string;
-    domain: string;
-    difficulty: number;
-    topic: string;
-  }) => {
-    if (!user?.id || !selectedChildId) return;
-    const assignment = await api.createAssignment({
-      parentId: user.id,
-      childId: selectedChildId,
-      activityType: data.activityType,
-      domain: data.domain,
-      difficulty: data.difficulty,
-      activityData: { topic: data.topic },
-    });
-    setAssignments((prev) => [assignment, ...prev]);
-  }, [user?.id, selectedChildId]);
+  const handleCreateAssignment = useCallback(
+    async (data: {
+      activityType: string;
+      domain: string;
+      difficulty: number;
+      topic: string;
+    }) => {
+      if (!user?.id || !selectedChildId) return;
+      const assignment = await api.createAssignment({
+        parentId: user.id,
+        childId: selectedChildId,
+        activityType: data.activityType,
+        domain: data.domain,
+        difficulty: data.difficulty,
+        activityData: { topic: data.topic },
+      });
+      setAssignments((prev) => [assignment, ...prev]);
+    },
+    [selectedChildId, user?.id],
+  );
 
   if (showReportDetail) {
-    return (
-      <ReportDetail
-        userId={user?.id ?? 0}
-        onBack={() => setShowReportDetail(false)}
-      />
-    );
+    return <ReportDetail userId={user?.id ?? 0} onBack={() => setShowReportDetail(false)} />;
   }
 
   return (
-    <div className="app-shell h-screen min-h-screen bg-background pb-4">
+    <div className="app-shell min-h-app bg-background pb-safe">
       <div className="pointer-events-none absolute -left-10 top-16 h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-20 top-52 h-80 w-80 rounded-full bg-primary-container/25 blur-3xl" />
 
-      <header className="sticky top-0 z-40 px-3 pt-3 md:px-6">
+      <header className="sticky top-0 z-40 px-3 pt-safe md:px-6">
         <div className="panel-card-strong mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
                 {user?.avatar ? (
-                  <img
-                    alt="家长头像"
-                    className="h-full w-full object-cover"
-                    src={user.avatar}
-                    referrerPolicy="no-referrer"
-                  />
+                  <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
                 ) : (
                   <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
                 )}
@@ -272,13 +378,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               </div>
             </div>
 
-            <button
-              onClick={handleLogout}
-              className="rounded-xl p-2.5 text-error transition-colors hover:bg-error-container/10"
-              aria-label="退出登录"
-            >
+            <IconButton onClick={handleLogout} aria-label="退出登录" className="text-error hover:bg-error-container/20">
               <LogOut className="h-5 w-5" />
-            </button>
+            </IconButton>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -290,30 +392,36 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               selectedChild={selectedChild}
             />
 
-            {selectedChild && (
+            {selectedChild ? (
               <div className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-bold text-on-surface-variant">
                 当前孩子: {selectedChild.name}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </header>
 
-      {error && (
+      {error ? (
         <div className="mx-auto mt-3 w-full max-w-6xl px-4 md:px-6">
-          <div className="panel-card flex items-center gap-3 border-error/30 bg-error-container/15 px-4 py-3">
+          <Card className="flex items-center gap-3 border-error/30 bg-error-container/15 px-4 py-3">
             <AlertCircle className="h-4 w-4 shrink-0 text-error" />
             <p className="flex-1 text-sm font-medium text-error">{error}</p>
-            <button onClick={() => setError(null)} className="text-xs font-bold text-error hover:opacity-70">关闭</button>
-          </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="touch-target text-xs font-bold text-error hover:opacity-75"
+            >
+              关闭
+            </button>
+          </Card>
         </div>
-      )}
+      ) : null}
 
-      <main className="relative mx-auto mt-3 flex h-[calc(100vh-9.5rem)] w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 md:px-6">
-        {selectedChildId && activeTab !== 'chat' && (
+      <main className="relative mx-auto mt-3 flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-[calc(6.5rem+var(--safe-area-bottom))] md:px-6">
+        {selectedChildId && activeTab !== 'chat' ? (
           <section className="content-visibility-auto mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {quickOverview.map((item) => (
-              <div key={item.label} className="panel-card flex items-center gap-3 px-4 py-3">
+              <Card key={item.label} className="flex items-center gap-3 px-4 py-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.style}`}>
                   <item.Icon className="h-5 w-5" />
                 </div>
@@ -321,21 +429,21 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   <p className="text-xs font-bold text-on-surface-variant">{item.label}</p>
                   <p className="text-base font-black text-on-surface">{item.value}</p>
                 </div>
-              </div>
+              </Card>
             ))}
           </section>
-        )}
+        ) : null}
 
-        {activeTab === 'chat' && (
+        {activeTab === 'chat' ? (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-hidden p-1.5 md:p-2">
             <AIChatPage parentId={user?.id} childId={selectedChildId ?? undefined} />
           </div>
-        )}
+        ) : null}
 
-        {activeTab === 'report' && (
+        {activeTab === 'report' ? (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
             {!selectedChildId ? (
-              <NoChildSelected />
+              <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : isLoading ? (
               <div className="space-y-4 p-2">
                 <div className="h-8 w-48 animate-shimmer rounded-xl" />
@@ -344,6 +452,12 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               </div>
             ) : (
               <div className="space-y-6">
+                <AIInsightsPanel
+                  childName={selectedChild?.name || '孩子'}
+                  insights={reportInsights}
+                  onAdjustPlan={() => setActiveTab('controls')}
+                />
+
                 <GrowthReportSection
                   chartData={chartData}
                   totalScore={totalScore}
@@ -356,12 +470,12 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   <AbilityTrend trendData={trendData.length > 0 ? trendData : fallbackTrendData} />
                 </section>
 
-                {completedAssignments.length > 0 && (
+                {completedAssignments.length > 0 ? (
                   <section className="panel-card p-5 md:p-6" aria-label="作业成绩趋势">
                     <h3 className="mb-4 text-lg font-black text-on-surface">作业成绩趋势</h3>
 
-                    {scoreStats && (
-                      <div className="mb-6 grid grid-cols-3 gap-3">
+                    {scoreStats ? (
+                      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="rounded-xl bg-secondary-container/30 p-3 text-center">
                           <p className="text-2xl font-black text-on-secondary-container">{scoreStats.avg}</p>
                           <p className="mt-1 text-xs text-on-secondary-container/70">平均分</p>
@@ -375,70 +489,54 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                           <p className="mt-1 text-xs text-on-primary-container/70">完成率</p>
                         </div>
                       </div>
-                    )}
+                    ) : null}
 
-                    <div className="w-full overflow-x-auto">
-                      <svg viewBox="0 0 400 180" className="w-full min-w-[320px]" preserveAspectRatio="xMidYMid meet">
-                        {(() => {
-                          const scores = completedAssignments.map((a) => a.score || 0);
-                          const minS = Math.min(...scores);
-                          const maxS = Math.max(...scores);
-                          const range = maxS - minS || 10;
-                          const pad = { t: 20, r: 20, b: 40, l: 40 };
-                          const cw = 400 - pad.l - pad.r;
-                          const ch = 180 - pad.t - pad.b;
-
-                          const getX = (i: number) => pad.l + (i / Math.max(scores.length - 1, 1)) * cw;
-                          const getY = (v: number) => pad.t + ch - ((v - (minS - 5)) / (range + 10)) * ch;
-
-                          const linePoints = scores.map((s, i) => `${getX(i)},${getY(s)}`).join(' ');
-                          const areaPoints = `${getX(0)},${pad.t + ch} ${linePoints} ${getX(scores.length - 1)},${pad.t + ch}`;
-
-                          return (
-                            <>
-                              {[0, 25, 50, 75, 100].filter((v) => v >= minS - 5 && v <= maxS + 5).map((v) => (
-                                <g key={v}>
-                                  <line x1={pad.l} y1={getY(v)} x2={400 - pad.r} y2={getY(v)} stroke="#b9ae6e" strokeWidth="1" />
-                                  <text x={pad.l - 8} y={getY(v)} textAnchor="end" dominantBaseline="middle" className="text-[10px]" fill="#655c25">{v}</text>
-                                </g>
-                              ))}
-
-                              <polygon points={areaPoints} fill="url(#scoreGradient)" opacity="0.32" />
-                              <polyline points={linePoints} fill="none" stroke="#006384" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-                              {scores.map((s, i) => (
-                                <g key={i}>
-                                  <circle cx={getX(i)} cy={getY(s)} r="4" fill="#006384" stroke="white" strokeWidth="2" />
-                                  <text x={getX(i)} y={pad.t + ch + 18} textAnchor="middle" className="text-[9px]" fill="#655c25">
-                                    {completedAssignments[i].completedAt
-                                      ? new Date(completedAssignments[i].completedAt!).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-                                      : ''}
-                                  </text>
-                                </g>
-                              ))}
-
-                              <defs>
-                                <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="#006384" stopOpacity="0.4" />
-                                  <stop offset="100%" stopColor="#006384" stopOpacity="0" />
-                                </linearGradient>
-                              </defs>
-                            </>
-                          );
-                        })()}
-                      </svg>
+                    <div className="h-64 w-full" role="img" aria-label={`作业成绩趋势图，共 ${assignmentTrendData.length} 次作业`}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={assignmentTrendData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
+                          <XAxis
+                            dataKey="date"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#81783d', fontSize: 11, fontWeight: 700 }}
+                          />
+                          <YAxis
+                            domain={[0, 100]}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#81783d', fontSize: 11 }}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: '0.9rem',
+                              border: '1px solid rgba(129,120,61,0.15)',
+                              boxShadow: '0 6px 18px rgba(70,54,0,0.12)',
+                            }}
+                            formatter={(value) => [`${Number(value || 0)} 分`, '作业得分']}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="score"
+                            stroke="#006384"
+                            strokeWidth={2.5}
+                            dot={{ r: 3.5, fill: '#006384' }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
                     </div>
                   </section>
-                )}
+                ) : null}
               </div>
             )}
           </div>
-        )}
+        ) : null}
 
-        {activeTab === 'controls' && (
+        {activeTab === 'controls' ? (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
             {!selectedChildId ? (
-              <NoChildSelected />
+              <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : (
               <ParentalControls
                 controls={controls}
@@ -449,12 +547,12 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               />
             )}
           </div>
-        )}
+        ) : null}
 
-        {activeTab === 'assignments' && (
+        {activeTab === 'assignments' ? (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
             {!selectedChildId ? (
-              <NoChildSelected />
+              <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : (
               <AssignmentManager
                 assignments={assignments}
@@ -464,42 +562,43 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               />
             )}
           </div>
-        )}
+        ) : null}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 md:px-6">
+      <nav className="fixed bottom-safe left-0 right-0 z-50 px-4 pb-safe md:px-6">
         <div className="floating-nav mx-auto flex max-w-6xl items-center justify-around rounded-full px-2 py-1.5">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-all tactile-press ${
+              className={cn(
+                'touch-target flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-all tactile-press',
                 activeTab === tab.key
                   ? 'bg-primary-container/35 text-primary'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
+                  : 'text-on-surface-variant hover:text-on-surface',
+              )}
             >
-              <tab.Icon className={`h-5 w-5 ${activeTab === tab.key ? 'fill-current' : ''}`} />
+              <tab.Icon className={cn('h-5 w-5', activeTab === tab.key && 'fill-current')} />
               <span className="mt-0.5 text-[10px] font-bold">{tab.label}</span>
             </button>
           ))}
         </div>
       </nav>
 
-      {!selectedChildId && activeTab !== 'chat' && (
+      {!selectedChildId && activeTab !== 'chat' ? (
         <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2">
           <div className="rounded-full bg-surface-container-low px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
             先选择孩子后可使用更多功能
           </div>
         </div>
-      )}
+      ) : null}
 
-      {selectedChildId && activeTab === 'chat' && (
+      {selectedChildId && activeTab === 'chat' ? (
         <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-surface-container-low/95 px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
           AI 正在根据 {selectedChild?.name || '当前孩子'} 的学习情况给出建议
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

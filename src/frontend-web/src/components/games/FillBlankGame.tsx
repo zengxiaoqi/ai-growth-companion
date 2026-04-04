@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Volume2 } from 'lucide-react';
+import { ArrowRight, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import { useGameVoice } from '@/hooks/useGameVoice';

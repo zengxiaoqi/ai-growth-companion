@@ -1,15 +1,17 @@
-import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Loader2, ArrowLeft } from 'lucide-react';
+﻿import { useEffect, useMemo, useState, lazy, Suspense, type ReactNode } from 'react';
+import { motion } from 'motion/react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Shield, Loader2, ArrowLeft } from '@/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { useReducedMotion } from './hooks/useReducedMotion';
-import ModeSelection from './components/ModeSelection';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
+import ModeSelection from './components/ModeSelection';
 import GameRenderer from './components/games/GameRenderer';
-import type { Assignment, ActivityResult } from './types';
+import type { ActivityResult, Assignment } from './types';
 import api from './services/api';
 import { applyAppUISettings, resolveAppUISettings } from './lib/app-settings';
+import { AppToastProvider } from './components/ui';
+import { normalizeActivityData, normalizeActivityType } from './components/ai-chat/activity-normalizer';
 
 const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
@@ -21,397 +23,279 @@ const AIChat = lazy(() => import('./components/AIChat'));
 const AIChatPage = lazy(() => import('./components/AIChatPage'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View =
-  | 'login'
-  | 'register'
-  | 'selection'
-  | 'parent'
-  | 'student'
-  | 'content-detail'
-  | 'achievements'
-  | 'profile'
-  | 'settings'
-  | 'companion'
-  | 'assignment';
 
-type TransitionPreset = 'fade' | 'slide' | 'scale';
-type ViewRegistryEntry = {
-  preset: TransitionPreset;
-  className?: string;
-  render: () => ReactNode;
-  visible?: boolean;
-};
-
-const SECURITY_BADGE_HIDDEN_VIEWS = new Set<View>([
-  'parent',
-  'login',
-  'register',
-  'achievements',
-  'companion',
-]);
-
-const FLOATING_CHAT_HIDDEN_VIEWS = new Set<View>([
-  'companion',
-  'login',
-  'register',
-  'parent',
-]);
-
-function PageLoader() {
+function PageLoader({ label = '加载中...' }: { label?: string }) {
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="min-h-app flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-on-surface-variant text-sm">加载中...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-on-surface-variant">{label}</p>
       </div>
     </div>
   );
 }
 
-function AppViewTransition({
-  viewKey,
-  preset,
-  reducedMotion,
-  className,
-  children,
-}: {
-  viewKey: string;
-  preset: TransitionPreset;
-  reducedMotion: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  if (reducedMotion) {
-    return (
-      <motion.div
-        key={viewKey}
-        initial={{ opacity: 1 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 1 }}
-        transition={{ duration: 0 }}
-        className={className}
-      >
-        {children}
-      </motion.div>
-    );
-  }
+function GuestOnly({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <PageLoader />;
+  if (isAuthenticated) return <Navigate to="/mode" replace />;
+  return <>{children}</>;
+}
 
-  if (preset === 'slide') {
-    return (
-      <motion.div
-        key={viewKey}
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -50 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className={className}
-      >
-        {children}
-      </motion.div>
-    );
-  }
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <PageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
-  if (preset === 'scale') {
+function LoginRoute() {
+  const navigate = useNavigate();
+  const { login, error, isLoading, clearError } = useAuth();
+
+  return (
+    <LoginScreen
+      onLogin={async (phone, password) => {
+        await login({ phone, password });
+        navigate('/mode', { replace: true });
+      }}
+      onSwitchToRegister={() => {
+        clearError();
+        navigate('/register');
+      }}
+      error={error}
+      isLoading={isLoading}
+    />
+  );
+}
+
+function RegisterRoute() {
+  const navigate = useNavigate();
+  const { register, error, isLoading, clearError } = useAuth();
+
+  return (
+    <RegisterScreen
+      onRegister={async (data) => {
+        await register(data);
+        navigate('/mode', { replace: true });
+      }}
+      onSwitchToLogin={() => {
+        clearError();
+        navigate('/login');
+      }}
+      error={error}
+      isLoading={isLoading}
+    />
+  );
+}
+
+function ModeRoute() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  return (
+    <ModeSelection
+      user={user}
+      onSelectMode={(mode) => navigate(mode === 'parent' ? '/parent' : '/student')}
+    />
+  );
+}
+
+function StudentHomeRoute() {
+  const navigate = useNavigate();
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [isAssignmentCompleted, setIsAssignmentCompleted] = useState(false);
+
+  if (selectedAssignment) {
+    const resolvedType = normalizeActivityType(selectedAssignment.activityType, selectedAssignment.activityData);
+    const resolvedData = normalizeActivityData(
+      resolvedType,
+      selectedAssignment.activityData ?? { type: resolvedType, title: '练习' },
+    );
+
     return (
-      <motion.div
-        key={viewKey}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 1.05 }}
-        transition={{ duration: 0.5, type: 'spring', damping: 20 }}
-        className={className}
-      >
-        {children}
-      </motion.div>
+      <div className="min-h-app bg-background">
+        <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-outline-variant/15 bg-surface-container-lowest/95 px-4 py-3 backdrop-blur-sm">
+          <button
+            onClick={() => {
+              setSelectedAssignment(null);
+              setIsAssignmentCompleted(false);
+            }}
+            className="touch-target rounded-full p-2 transition-colors hover:bg-surface-container-high"
+            aria-label="返回"
+          >
+            <ArrowLeft className="h-5 w-5 text-on-surface" />
+          </button>
+          <h2 className="font-bold text-on-surface">{resolvedType}练习</h2>
+        </div>
+
+        <GameRenderer
+          type={resolvedType}
+          data={resolvedData}
+          onComplete={async (result: ActivityResult) => {
+            try {
+              await api.completeAssignment(selectedAssignment.id, result);
+            } catch {
+              // Completed locally even if upload fails.
+            }
+            setIsAssignmentCompleted(true);
+          }}
+        />
+
+        {isAssignmentCompleted && (
+          <div className="mx-auto max-w-lg px-4 pb-safe pb-6">
+            <button
+              onClick={() => {
+                setIsAssignmentCompleted(false);
+                setSelectedAssignment(null);
+              }}
+              className="w-full touch-target rounded-full bg-primary py-3 font-bold text-on-primary shadow-tactile transition-all active:translate-y-1 active:shadow-tactile-active"
+            >
+              返回主页
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
   return (
-    <motion.div
-      key={viewKey}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <Suspense fallback={<PageLoader />}>
+      <StudentDashboard
+        onBack={() => navigate('/mode')}
+        onOpenContent={(contentId) => navigate(`/student/content/${contentId}`)}
+        onOpenAchievements={() => navigate('/student/achievements')}
+        onOpenProfile={() => navigate('/student/profile')}
+        onOpenSettings={() => navigate('/student/settings')}
+        onOpenCompanion={() => navigate('/student/companion')}
+        onOpenAssignment={(assignment) => {
+          setSelectedAssignment(assignment);
+          setIsAssignmentCompleted(false);
+        }}
+      />
+    </Suspense>
   );
 }
 
-function AppContent() {
-  const { user, isAuthenticated, isLoading: authLoading, error, login, register, clearError } = useAuth();
-  const [view, setView] = useState<View>('login');
-  const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
-  const [isAssignmentCompleted, setIsAssignmentCompleted] = useState(false);
-  const reducedMotion = useReducedMotion();
+function StudentContentRoute() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const contentId = Number(id);
   const childId = user?.type === 'child' ? user.id : undefined;
-  const showSecurityBadge = !SECURITY_BADGE_HIDDEN_VIEWS.has(view);
-  const showFloatingChat = !FLOATING_CHAT_HIDDEN_VIEWS.has(view);
 
-  // When user becomes authenticated, go to selection
-  useEffect(() => {
-    if (isAuthenticated && (view === 'login' || view === 'register')) {
-      setView('selection');
-    }
-  }, [isAuthenticated, view]);
+  if (!Number.isFinite(contentId) || contentId <= 0) {
+    return <Navigate to="/student" replace />;
+  }
 
-  // When user logs out, go back to login
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setView('login');
-    }
-  }, [isAuthenticated]);
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <ContentDetail
+        contentId={contentId}
+        childId={childId}
+        onBack={() => navigate('/student')}
+        onComplete={() => {}}
+      />
+    </Suspense>
+  );
+}
 
-  // Show loading spinner while checking auth
+function StudentAchievementsRoute() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AchievementShowcase userId={user?.id ?? 0} onBack={() => navigate('/student')} />
+    </Suspense>
+  );
+}
+
+function StudentProfileRoute() {
+  const navigate = useNavigate();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <ProfileScreen onBack={() => navigate('/student')} />
+    </Suspense>
+  );
+}
+
+function StudentSettingsRoute() {
+  const navigate = useNavigate();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <SettingsScreen onBack={() => navigate('/student')} />
+    </Suspense>
+  );
+}
+
+function StudentCompanionRoute() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const childId = user?.type === 'child' ? user.id : undefined;
+
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AIChatPage childId={childId} onBack={() => navigate('/student')} />
+    </Suspense>
+  );
+}
+
+function ParentRoute() {
+  const navigate = useNavigate();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <ParentDashboard onBack={() => navigate('/mode')} />
+    </Suspense>
+  );
+}
+
+function ProtectedShell() {
+  const location = useLocation();
+  const { user } = useAuth();
+
   useEffect(() => {
     applyAppUISettings(resolveAppUISettings(user?.settings as Record<string, unknown> | undefined));
   }, [user?.settings]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          <p className="text-on-surface-variant font-medium">加载中...</p>
-        </div>
-      </div>
-    );
-  }
+  const hideSecurityBadge = useMemo(() => {
+    const path = location.pathname;
+    return path.startsWith('/parent') || path.startsWith('/student/achievements') || path.startsWith('/student/companion');
+  }, [location.pathname]);
 
-  if (!isAuthenticated) {
-    const authView = view === 'register' ? 'register' : 'login';
-    const authViewRegistry: Record<'login' | 'register', ViewRegistryEntry> = {
-      login: {
-        preset: 'fade',
-        render: () => (
-          <LoginScreen
-            onLogin={async (phone, password) => {
-              await login({ phone, password });
-            }}
-            onSwitchToRegister={() => {
-              clearError();
-              setView('register');
-            }}
-            error={error}
-            isLoading={authLoading}
-          />
-        ),
-      },
-      register: {
-        preset: 'fade',
-        render: () => (
-          <RegisterScreen
-            onRegister={async (data) => {
-              await register(data);
-            }}
-            onSwitchToLogin={() => {
-              clearError();
-              setView('login');
-            }}
-            error={error}
-            isLoading={authLoading}
-          />
-        ),
-      },
-    };
-    const activeAuthView = authViewRegistry[authView];
+  const showFloatingChat = useMemo(() => {
+    const path = location.pathname;
+    return !path.startsWith('/parent') && !path.startsWith('/student/companion');
+  }, [location.pathname]);
 
-    return (
-      <div className="min-h-screen bg-background">
-        <AnimatePresence mode="wait">
-          <AppViewTransition
-            viewKey={authView}
-            preset={activeAuthView.preset}
-            reducedMotion={reducedMotion}
-            className={activeAuthView.className}
-          >
-            {activeAuthView.render()}
-          </AppViewTransition>
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  const authenticatedViewRegistry: Partial<Record<View, ViewRegistryEntry>> = {
-    selection: {
-      preset: 'fade',
-      render: () => (
-        <ModeSelection
-          onSelectMode={(mode) => setView(mode as View)}
-          user={user}
-        />
-      ),
-    },
-    parent: {
-      preset: 'slide',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <ParentDashboard onBack={() => setView('selection')} />
-        </Suspense>
-      ),
-    },
-    student: {
-      preset: 'scale',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <StudentDashboard
-            onBack={() => setView('selection')}
-            onOpenContent={(contentId: number) => {
-              setSelectedContentId(contentId);
-              setView('content-detail');
-            }}
-            onOpenAchievements={() => setView('achievements')}
-            onOpenProfile={() => setView('profile')}
-            onOpenSettings={() => setView('settings')}
-            onOpenCompanion={() => setView('companion')}
-            onOpenAssignment={(assignment) => {
-              setSelectedAssignment(assignment);
-              setIsAssignmentCompleted(false);
-              setView('assignment');
-            }}
-          />
-        </Suspense>
-      ),
-    },
-    'content-detail': {
-      preset: 'slide',
-      visible: selectedContentId != null,
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <ContentDetail
-            contentId={selectedContentId as number}
-            childId={childId}
-            onBack={() => {
-              setSelectedContentId(null);
-              setView('student');
-            }}
-            onComplete={() => {
-              // Could refresh dashboard data here
-            }}
-          />
-        </Suspense>
-      ),
-    },
-    assignment: {
-      preset: 'slide',
-      visible: selectedAssignment != null,
-      render: () => {
-        if (!selectedAssignment) return null;
-        return (
-          <div className="min-h-screen bg-background">
-            <div className="sticky top-0 z-10 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/15 px-4 py-3 flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setSelectedAssignment(null);
-                  setView('student');
-                }}
-                className="p-2 rounded-full hover:bg-surface-container-high transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-on-surface" />
-              </button>
-              <h2 className="font-bold text-on-surface">{selectedAssignment.activityType}练习</h2>
-            </div>
-            <GameRenderer
-              type={selectedAssignment.activityType}
-              data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, title: '练习' }}
-              onComplete={async (result: ActivityResult) => {
-                try {
-                  await api.completeAssignment(selectedAssignment.id, result);
-                } catch {
-                  // Silently handle - game was still completed locally
-                }
-                setIsAssignmentCompleted(true);
-              }}
-            />
-            {isAssignmentCompleted && (
-              <div className="max-w-lg mx-auto px-4 pb-6">
-                <button
-                  onClick={() => {
-                    setIsAssignmentCompleted(false);
-                    setSelectedAssignment(null);
-                    setView('student');
-                  }}
-                  className="w-full bg-primary text-on-primary py-3 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
-                >
-                  返回主页
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    achievements: {
-      preset: 'slide',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <AchievementShowcase
-            userId={user?.id ?? 0}
-            onBack={() => setView('student')}
-          />
-        </Suspense>
-      ),
-    },
-    profile: {
-      preset: 'slide',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <ProfileScreen onBack={() => setView('student')} />
-        </Suspense>
-      ),
-    },
-    settings: {
-      preset: 'slide',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <SettingsScreen onBack={() => setView('student')} />
-        </Suspense>
-      ),
-    },
-    companion: {
-      preset: 'fade',
-      className: 'min-h-screen',
-      render: () => (
-        <Suspense fallback={<PageLoader />}>
-          <AIChatPage childId={childId} onBack={() => setView('student')} />
-        </Suspense>
-      ),
-    },
-  };
-  const activeMainView = authenticatedViewRegistry[view];
-  const isMainViewVisible = activeMainView?.visible ?? true;
+  const childId = user?.type === 'child' ? user.id : undefined;
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary-container">
-      <AnimatePresence mode="wait">
-        {activeMainView && isMainViewVisible && (
-          <AppViewTransition
-            viewKey={view}
-            preset={activeMainView.preset}
-            reducedMotion={reducedMotion}
-            className={activeMainView.className}
-          >
-            {activeMainView.render()}
-          </AppViewTransition>
-        )}
-      </AnimatePresence>
+    <div className="min-h-app bg-background selection:bg-primary-container">
+      <Routes>
+        <Route path="/mode" element={<ModeRoute />} />
+        <Route path="/student" element={<StudentHomeRoute />} />
+        <Route path="/student/content/:id" element={<StudentContentRoute />} />
+        <Route path="/student/achievements" element={<StudentAchievementsRoute />} />
+        <Route path="/student/profile" element={<StudentProfileRoute />} />
+        <Route path="/student/settings" element={<StudentSettingsRoute />} />
+        <Route path="/student/companion" element={<StudentCompanionRoute />} />
+        <Route path="/parent" element={<ParentRoute />} />
+        <Route path="*" element={<Navigate to="/mode" replace />} />
+      </Routes>
 
-      {/* Global Security Badge (Visible in Selection & Student) */}
-      {showSecurityBadge && (
+      {!hideSecurityBadge && (
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-28 left-1/2 -translate-x-1/2 px-5 py-2 bg-surface-container-low/90 backdrop-blur-sm rounded-full border border-outline-variant/15 flex items-center gap-2 shadow-lg z-30 pointer-events-none"
+          className="pointer-events-none fixed bottom-[max(7rem,var(--safe-area-bottom))] left-1/2 z-30 -translate-x-1/2 rounded-full border border-outline-variant/15 bg-surface-container-low/90 px-5 py-2 shadow-lg backdrop-blur-sm"
         >
-          <Shield className="w-4 h-4 text-primary" />
-          <span className="text-on-surface-variant text-xs font-medium">由灵犀安全卫士实时守护您的孩子</span>
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-on-surface-variant">由灵犀安全卫士实时守护您的孩子</span>
+          </div>
         </motion.div>
       )}
 
-      {/* Global Floating AI Chat - available on all authenticated views except full-page companion and parent dashboard */}
       {showFloatingChat && (
         <Suspense fallback={null}>
           <AIChat childId={childId} />
@@ -421,10 +305,46 @@ function AppContent() {
   );
 }
 
+function AppRouter() {
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={(
+          <GuestOnly>
+            <LoginRoute />
+          </GuestOnly>
+        )}
+      />
+      <Route
+        path="/register"
+        element={(
+          <GuestOnly>
+            <RegisterRoute />
+          </GuestOnly>
+        )}
+      />
+      <Route
+        path="*"
+        element={(
+          <RequireAuth>
+            <ProtectedShell />
+          </RequireAuth>
+        )}
+      />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AppToastProvider>
+        <BrowserRouter>
+          <AppRouter />
+        </BrowserRouter>
+      </AppToastProvider>
     </AuthProvider>
   );
 }
+

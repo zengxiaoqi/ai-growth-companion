@@ -1,18 +1,42 @@
 import type { ActivityData, ActivityType } from '@/types';
 
+const ACTIVITY_TYPES: ActivityType[] = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'];
+
 function toSafeInt(value: any, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
-export function normalizeActivityData(activityType: ActivityType, rawData: any): ActivityData {
+function isActivityType(value: unknown): value is ActivityType {
+  return typeof value === 'string' && ACTIVITY_TYPES.includes(value as ActivityType);
+}
+
+export function normalizeActivityType(activityType: unknown, rawData?: any): ActivityType {
+  if (isActivityType(activityType)) return activityType;
+  if (isActivityType(rawData?.type)) return rawData.type;
+  if (isActivityType(rawData?.activityType)) return rawData.activityType;
+
+  if (Array.isArray(rawData?.questions)) return 'quiz';
+  if (Array.isArray(rawData?.statements)) return 'true_false';
+  if (Array.isArray(rawData?.sentences)) return 'fill_blank';
+  if (Array.isArray(rawData?.pairs)) return 'matching';
+  if (Array.isArray(rawData?.connections) || (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))) return 'connection';
+  if (Array.isArray(rawData?.items)) return 'sequencing';
+  if (Array.isArray(rawData?.pieces)) return 'puzzle';
+
+  return 'quiz';
+}
+
+export function normalizeActivityData(activityType: ActivityType | string | undefined, rawData: any): ActivityData {
+  const resolvedType = normalizeActivityType(activityType, rawData);
+
   const base: ActivityData = {
     ...(rawData && typeof rawData === 'object' ? rawData : {}),
-    type: activityType,
-    title: typeof rawData?.title === 'string' ? rawData.title : 'äº’åŠ¨ç»ƒä¹ ',
+    type: resolvedType,
+    title: typeof rawData?.title === 'string' ? rawData.title : '»¥¶¯Á·Ï°',
   };
 
-  if (activityType === 'quiz') {
+  if (resolvedType === 'quiz') {
     const rawQuestions = Array.isArray(rawData?.questions) ? rawData.questions : [];
     const questions = rawQuestions
       .map((q: any) => {
@@ -44,4 +68,3 @@ export function normalizeActivityData(activityType: ActivityType, rawData: any):
 
   return base;
 }
-

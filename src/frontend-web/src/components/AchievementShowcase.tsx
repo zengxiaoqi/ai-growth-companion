@@ -1,27 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
   ArrowLeft,
-  Trophy,
-  Star,
+  Award,
   BookOpen,
   Calculator,
+  Lock,
   Microscope,
   Palette,
-  Users,
   Sparkles,
-  Loader2,
-  Lock,
-  Award,
+  Sprout,
+  Star,
   Target,
   TrendingUp,
-  Sprout,
-  TreePine,
-  TreeDeciduous,
-} from 'lucide-react';
+  Trophy,
+  Users,
+} from '@/icons';
 import { cn } from '../lib/utils';
 import api from '../services/api';
 import type { Achievement, AchievementDisplay } from '@/types';
+import { Button, Card, EmptyState, IconButton, Skeleton, TopBar } from './ui';
 
 interface AchievementShowcaseProps {
   onBack: () => void;
@@ -40,8 +37,7 @@ interface NormalizedAchievement {
   totalRequired: number;
 }
 
-// Map icon string from API to lucide component
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   trophy: Trophy,
   star: Star,
   book: BookOpen,
@@ -59,43 +55,77 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 const fallbackIcons = [Trophy, Star, BookOpen, Calculator, Microscope, Palette, Users, Sparkles, Award, Target];
 
-function getIcon(iconName: string | null | undefined, index: number) {
+const badgeColors = [
+  'bg-primary-container text-on-primary-container',
+  'bg-secondary-container text-on-secondary-container',
+  'bg-tertiary-container text-on-tertiary-container',
+  'bg-surface-container-high text-on-surface',
+  'bg-success-container text-on-success-container',
+  'bg-warning-container text-on-warning-container',
+];
+
+const levelMilestones = [
+  { label: '启蒙种子', min: 0 },
+  { label: '探索芽芽', min: 1 },
+  { label: '成长小树', min: 3 },
+  { label: '闪耀大树', min: 6 },
+  { label: '冠军树王', min: 10 },
+];
+
+function resolveIcon(iconName: string | undefined, index: number) {
   if (!iconName) return fallbackIcons[index % fallbackIcons.length];
-  const key = iconName.toLowerCase().replace(/[\s_-]+/g, '-');
+  const key = iconName.toLowerCase().replace(/[\s_]+/g, '-');
   return iconMap[key] || fallbackIcons[index % fallbackIcons.length];
 }
 
-// Icon color palette for badges
-const badgeColors = [
-  { bg: 'bg-secondary-container', text: 'text-on-secondary-container' },
-  { bg: 'bg-tertiary-container', text: 'text-on-tertiary-container' },
-  { bg: 'bg-primary-container', text: 'text-on-primary-container' },
-  { bg: 'bg-surface-container-high', text: 'text-on-surface-variant' },
-  { bg: 'bg-success-container', text: 'text-on-success-container' },
-  { bg: 'bg-warning-container', text: 'text-on-warning-container' },
-];
+function getProgressRatio(progress: number, totalRequired: number) {
+  if (!totalRequired || totalRequired <= 0) return 0;
+  return Math.min(1, Math.max(0, progress / totalRequired));
+}
+
+function LoadingView({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="min-h-app pb-safe">
+      <TopBar
+        title="我的成就"
+        subtitle="正在加载成长数据..."
+        leftSlot={(
+          <IconButton aria-label="返回" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </IconButton>
+        )}
+      />
+      <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6 md:px-6">
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+          <Skeleton className="h-24 rounded-2xl" />
+        </div>
+        <Skeleton className="h-44 rounded-2xl" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Skeleton className="h-40 rounded-2xl" />
+          <Skeleton className="h-40 rounded-2xl" />
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function AchievementShowcase({ onBack, userId }: AchievementShowcaseProps) {
   const [achievements, setAchievements] = useState<AchievementItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshSeed, setRefreshSeed] = useState(0);
 
   const normalizeAchievement = useCallback((item: AchievementItem): NormalizedAchievement => {
     const unlockedAt = item.unlockedAt ?? item.earnedAt;
-    const name = item.name ?? item.achievementName ?? '未命名成就';
-    const description = item.description ?? '';
     const totalRequired = item.totalRequired && item.totalRequired > 0 ? item.totalRequired : 1;
-    const progress = typeof item.progress === 'number'
-      ? item.progress
-      : unlockedAt
-        ? totalRequired
-        : 0;
+    const progress = typeof item.progress === 'number' ? item.progress : unlockedAt ? totalRequired : 0;
 
     return {
       id: item.id,
-      name,
-      description,
+      name: item.name ?? item.achievementName ?? '未命名成就',
+      description: item.description ?? '完成学习任务即可逐步解锁。',
       icon: item.icon,
       unlockedAt,
       progress,
@@ -104,311 +134,207 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   }, []);
 
   const fetchAchievements = useCallback(async () => {
+    if (!userId) {
+      setAchievements([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const data = await api.getAchievements(userId) as AchievementItem[];
+      const data = (await api.getAchievements(userId)) as AchievementItem[];
       setAchievements(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch achievements:', err);
-      setError('加载成就数据失败');
+      setError('成就数据加载失败，请稍后再试。');
     } finally {
       setIsLoading(false);
     }
   }, [userId]);
 
   useEffect(() => {
-    if (userId) fetchAchievements();
-  }, [userId, fetchAchievements, refreshKey]);
+    fetchAchievements();
+  }, [fetchAchievements, refreshSeed]);
 
-  // Listen for achievement updates from AIChat
   useEffect(() => {
-    const handler = () => setRefreshKey((n) => n + 1);
+    const handler = () => setRefreshSeed((value) => value + 1);
     window.addEventListener('achievements-updated', handler);
     return () => window.removeEventListener('achievements-updated', handler);
   }, []);
 
-  // Derived stats
-  const normalizedAchievements = achievements.map(normalizeAchievement);
-  const unlockedCount = normalizedAchievements.filter((a) => a.unlockedAt).length;
-  const totalCount = normalizedAchievements.length;
-  const totalStars = unlockedCount * 3; // 3 stars per unlocked achievement
-  const totalPoints = normalizedAchievements.reduce(
-    (sum, a) => sum + (a.unlockedAt ? a.totalRequired * 10 : a.progress),
-    0
+  const normalizedAchievements = useMemo(
+    () => achievements.map(normalizeAchievement),
+    [achievements, normalizeAchievement],
   );
+
+  const unlockedCount = normalizedAchievements.filter((item) => Boolean(item.unlockedAt)).length;
+  const totalCount = normalizedAchievements.length;
+  const totalPoints = normalizedAchievements.reduce((sum, item) => {
+    if (item.unlockedAt) return sum + item.totalRequired * 10;
+    return sum + item.progress;
+  }, 0);
+  const totalStars = unlockedCount * 3;
   const level = Math.floor(totalPoints / 100) + 1;
 
-  // Growth tree levels — SVG icons instead of emoji
-  const treeLevels = [
-    { label: '种子', min: 0, Icon: Sprout, color: 'text-success' },
-    { label: '小芽', min: 1, Icon: Sprout, color: 'text-success' },
-    { label: '小树', min: 3, Icon: TreePine, color: 'text-on-success-container' },
-    { label: '大树', min: 6, Icon: TreeDeciduous, color: 'text-on-success-container' },
-    { label: '参天大树', min: 10, Icon: Trophy, color: 'text-primary' },
-  ];
-
-  const currentTreeLevel = [...treeLevels].reverse().find((l) => unlockedCount >= l.min) || treeLevels[0];
-  const nextTreeLevel = treeLevels.find((l) => unlockedCount < l.min);
+  const currentMilestone = [...levelMilestones].reverse().find((item) => unlockedCount >= item.min) || levelMilestones[0];
+  const nextMilestone = levelMilestones.find((item) => unlockedCount < item.min);
 
   if (isLoading) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="fixed inset-0 bg-background z-50 flex items-center justify-center"
-      >
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          <p className="text-on-surface-variant font-medium">加载成就中...</p>
-        </div>
-      </motion.div>
-    );
+    return <LoadingView onBack={onBack} />;
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: '100%' }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed inset-0 bg-background z-50 overflow-y-auto"
-    >
-      {/* Header */}
-      <header className="sticky top-0 bg-surface-container-low z-40 border-b border-outline-variant/15">
-        <div className="flex items-center gap-4 px-6 py-4 max-w-4xl mx-auto">
-          <button
-            onClick={onBack}
-            aria-label="返回"
-            className="p-2.5 hover:bg-surface-container rounded-xl transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-on-surface" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-on-surface">我的成就</h1>
-            <p className="text-sm text-on-surface-variant">
-              已解锁 {unlockedCount} / {totalCount} 个成就
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-primary fill-current" />
-          </div>
-        </div>
-      </header>
+    <div className="min-h-app pb-safe">
+      <TopBar
+        title="我的成就"
+        subtitle={`已解锁 ${unlockedCount}/${totalCount} 项`}
+        leftSlot={(
+          <IconButton aria-label="返回" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </IconButton>
+        )}
+      />
 
-      <main className="max-w-4xl mx-auto px-6 py-8 pb-16 space-y-8">
-        {/* Error State */}
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 md:px-6">
         {error && (
-          <div className="bg-error-container/20 text-error rounded-2xl p-6 text-center">
-            <p className="font-bold">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-3 px-6 py-2 bg-error text-on-error rounded-full font-bold text-sm"
-            >
-              重试
-            </button>
-          </div>
+          <Card className="border-error-container/40 bg-error-container/15 p-4">
+            <p className="text-sm font-semibold text-error">{error}</p>
+            <Button className="mt-3" variant="danger" onClick={fetchAchievements}>
+              重新加载
+            </Button>
+          </Card>
         )}
 
-        {/* Stats Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-3 gap-4"
-        >
-          <div className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 text-center">
-            <div className="flex items-center justify-center gap-1 mb-2">
-              <Star className="w-5 h-5 text-tertiary fill-current" />
+        <section className="grid grid-cols-3 gap-3">
+          <Card className="p-4 text-center">
+            <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container">
+              <Star className="h-5 w-5" />
             </div>
             <p className="text-2xl font-black text-on-surface">{totalStars}</p>
-            <p className="text-xs font-bold text-on-surface-variant mt-1">星星总数</p>
-          </div>
-          <div className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 text-center">
-            <div className="flex items-center justify-center gap-1 mb-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
+            <p className="text-xs font-semibold text-on-surface-variant">星星总数</p>
+          </Card>
+
+          <Card className="p-4 text-center">
+            <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
+              <TrendingUp className="h-5 w-5" />
             </div>
             <p className="text-2xl font-black text-on-surface">{totalPoints}</p>
-            <p className="text-xs font-bold text-on-surface-variant mt-1">积分</p>
-          </div>
-          <div className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 text-center">
-            <div className="flex items-center justify-center gap-1 mb-2">
-              <Award className="w-5 h-5 text-secondary" />
+            <p className="text-xs font-semibold text-on-surface-variant">成长积分</p>
+          </Card>
+
+          <Card className="p-4 text-center">
+            <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-secondary-container text-on-secondary-container">
+              <Award className="h-5 w-5" />
             </div>
             <p className="text-2xl font-black text-on-surface">Lv.{level}</p>
-            <p className="text-xs font-bold text-on-surface-variant mt-1">等级</p>
-          </div>
-        </motion.div>
+            <p className="text-xs font-semibold text-on-surface-variant">当前等级</p>
+          </Card>
+        </section>
 
-        {/* Growth Tree */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15"
-        >
-          <h3 className="text-lg font-black text-on-surface mb-4 flex items-center gap-2">
-            <Sprout className="w-5 h-5 text-success" />
-            成长之树
-          </h3>
-          <div className="flex items-end justify-between gap-2 px-2">
-            {treeLevels.map((lvl, i) => {
-              const isActive = unlockedCount >= lvl.min;
-              const isCurrent = lvl.label === currentTreeLevel.label;
+        <Card className="p-5">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-on-surface">
+            <Sprout className="h-5 w-5 text-success" />
+            成长里程碑
+          </h2>
+
+          <div className="flex flex-wrap gap-2">
+            {levelMilestones.map((item) => {
+              const active = unlockedCount >= item.min;
+              const current = item.label === currentMilestone.label;
               return (
-                <div key={i} className="flex flex-col items-center gap-2 flex-1">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.15 + i * 0.08, type: 'spring', damping: 12 }}
-                    className={cn(
-                      'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all',
-                      isCurrent
-                        ? 'bg-primary-container border-primary shadow-lg scale-110'
-                        : isActive
-                        ? 'bg-primary-container/50 border-primary/30'
-                        : 'bg-surface-container border-outline-variant/20 opacity-40'
-                    )}
-                  >
-                    <lvl.Icon className={cn('w-7 h-7', isActive ? lvl.color : 'text-on-surface-variant')} />
-                  </motion.div>
-                  <span
-                    className={cn(
-                      'text-[10px] font-bold text-center leading-tight',
-                      isCurrent ? 'text-primary' : 'text-on-surface-variant'
-                    )}
-                  >
-                    {lvl.label}
-                  </span>
-                  {i < treeLevels.length - 1 && (
-                    <div
-                      className={cn(
-                        'h-1 w-full rounded-full',
-                        isActive ? 'bg-primary/50' : 'bg-outline-variant/20'
-                      )}
-                    />
+                <div
+                  key={item.label}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs font-bold transition-colors',
+                    current
+                      ? 'border-primary bg-primary-container text-on-primary-container'
+                      : active
+                      ? 'border-secondary-container bg-secondary-container/25 text-on-surface'
+                      : 'border-outline-variant/25 bg-surface text-on-surface-variant',
                   )}
+                >
+                  {item.label}
                 </div>
               );
             })}
           </div>
-          {nextTreeLevel && (
-            <p className="text-center text-sm text-on-surface-variant mt-4">
-              再解锁 <span className="font-black text-primary">{nextTreeLevel.min - unlockedCount}</span> 个成就即可升级为「{nextTreeLevel.label}」
-            </p>
-          )}
-        </motion.div>
 
-        {/* Badge Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <h3 className="text-lg font-black text-on-surface mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary fill-current" />
+          {nextMilestone ? (
+            <p className="mt-3 text-sm text-on-surface-variant">
+              再解锁 <span className="font-black text-primary">{nextMilestone.min - unlockedCount}</span> 项成就，即可升级为
+              <span className="font-black text-primary"> {nextMilestone.label}</span>。
+            </p>
+          ) : (
+            <p className="mt-3 text-sm font-semibold text-success">你已经达到最高里程碑，继续保持！</p>
+          )}
+        </Card>
+
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-on-surface">
+            <Trophy className="h-5 w-5 text-primary" />
             成就徽章
-          </h3>
+          </h2>
 
           {normalizedAchievements.length === 0 ? (
-            <div className="bg-surface-container-lowest rounded-2xl p-12 border border-outline-variant/15 text-center">
-              <Sparkles className="w-12 h-12 text-outline-variant mx-auto mb-4" />
-              <p className="text-on-surface-variant font-bold">还没有成就</p>
-              <p className="text-sm text-on-surface-variant mt-2">开始学习来解锁你的第一个成就吧！</p>
-            </div>
+            <EmptyState
+              title="还没有解锁成就"
+              description="完成一节学习内容，就能点亮你的第一个徽章。"
+              actionLabel="去学习"
+              onAction={onBack}
+              icon={<Sparkles className="h-6 w-6 text-primary" />}
+            />
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {normalizedAchievements.map((achievement, idx) => {
-                const isUnlocked = !!achievement.unlockedAt;
-                const IconComponent = getIcon(achievement.icon, idx);
-                const colorSet = badgeColors[idx % badgeColors.length];
+            <div className="grid gap-3 sm:grid-cols-2">
+              {normalizedAchievements.map((achievement, index) => {
+                const unlocked = Boolean(achievement.unlockedAt);
+                const Icon = resolveIcon(achievement.icon, index);
+                const ratio = getProgressRatio(achievement.progress, achievement.totalRequired);
 
                 return (
-                  <motion.div
+                  <Card
                     key={achievement.id}
-                    initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      delay: 0.25 + idx * 0.06,
-                      type: 'spring',
-                      damping: 15,
-                      stiffness: 200,
-                    }}
-                    whileHover={{ scale: 1.03 }}
-                    className={cn(
-                      'bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 relative overflow-hidden',
-                      !isUnlocked && 'opacity-60'
-                    )}
+                    className={cn('relative overflow-hidden p-4', !unlocked && 'opacity-80')}
                   >
-                    {/* Badge Icon */}
-                    <div className="flex items-start gap-3 mb-3">
+                    <div className="mb-3 flex items-start gap-3">
                       <div
                         className={cn(
-                          'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
-                          isUnlocked ? colorSet.bg : 'bg-surface-container'
+                          'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
+                          unlocked ? badgeColors[index % badgeColors.length] : 'bg-surface-container text-on-surface-variant',
                         )}
                       >
-                        {isUnlocked ? (
-                          <IconComponent
-                            className={cn('w-6 h-6', colorSet.text)}
-                          />
-                        ) : (
-                          <Lock className="w-6 h-6 text-on-surface-variant" />
-                        )}
+                        {unlocked ? <Icon className="h-6 w-6" /> : <Lock className="h-5 w-5" />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-on-surface text-sm leading-tight line-clamp-1">
-                          {achievement.name}
-                        </h4>
-                        <p className="text-xs text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
-                          {achievement.description}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-1 text-sm font-black text-on-surface">{achievement.name}</h3>
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-on-surface-variant">{achievement.description}</p>
+                      </div>
+                    </div>
+
+                    {unlocked ? (
+                      <p className="text-xs font-semibold text-primary">
+                        解锁时间：{new Date(achievement.unlockedAt || '').toLocaleDateString('zh-CN')}
+                      </p>
+                    ) : (
+                      <div>
+                        <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.round(ratio * 100)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1.5 text-xs font-semibold text-on-surface-variant">
+                          进度 {achievement.progress}/{achievement.totalRequired}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Progress / Date */}
-                    <div className="flex items-center justify-between">
-                      {isUnlocked ? (
-                        <span className="text-[10px] font-bold text-primary">
-                          {new Date(achievement.unlockedAt!).toLocaleDateString('zh-CN')}
-                        </span>
-                      ) : (
-                        <div className="flex-1">
-                          <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary/50 rounded-full"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  achievement.totalRequired > 0
-                                    ? (achievement.progress / achievement.totalRequired) * 100
-                                    : 0
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-on-surface-variant font-bold mt-1 block">
-                            {achievement.progress}/{achievement.totalRequired}
-                          </span>
-                        </div>
-                      )}
-                      {!isUnlocked && (
-                        <span className="text-[10px] font-black text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-md ml-2">
-                          未解锁
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Shine effect for unlocked */}
-                    {isUnlocked && (
-                      <div className="absolute -top-4 -right-4 w-16 h-16 bg-primary/5 rounded-full blur-xl" />
                     )}
-                  </motion.div>
+                  </Card>
                 );
               })}
             </div>
           )}
-        </motion.div>
+        </section>
       </main>
-    </motion.div>
+    </div>
   );
 }

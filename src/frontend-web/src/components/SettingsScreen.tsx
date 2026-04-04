@@ -1,22 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
-  Volume2,
-  Type,
-  Moon,
-  Info,
-  ChevronRight,
-  Shield,
-  Save,
-  Loader2,
-  CheckCircle2,
-  Camera,
-  ImagePlus,
   Bot,
-  User,
+  Camera,
+  CheckCircle2,
+  Info,
+  Loader2,
+  Moon,
   RotateCcw,
-} from 'lucide-react';
-import { motion } from 'motion/react';
+  Save,
+  Shield,
+  Type,
+  User,
+  Volume2,
+} from '@/icons';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -28,6 +25,7 @@ import {
   resolveChatAvatarSettings,
   saveStoredAppUISettings,
 } from '@/lib/app-settings';
+import { Button, Card, IconButton, TopBar } from './ui';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -35,14 +33,14 @@ interface SettingsScreenProps {
 
 async function compressAvatarFile(file: File): Promise<string> {
   if (file.size > 20 * 1024 * 1024) {
-    throw new Error('图片过大，请选择 20MB 以内的照片');
+    throw new Error('图片过大，请选择 20MB 以内的图片。');
   }
 
   const readAsDataUrl = (blob: Blob) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('读取图片失败'));
+      reader.onerror = () => reject(new Error('图片读取失败，请重试。'));
       reader.readAsDataURL(blob);
     });
 
@@ -50,7 +48,7 @@ async function compressAvatarFile(file: File): Promise<string> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('解析图片失败'));
+    img.onerror = () => reject(new Error('无法解析图片文件。'));
     img.src = objectUrl;
   }).finally(() => {
     URL.revokeObjectURL(objectUrl);
@@ -64,8 +62,11 @@ async function compressAvatarFile(file: File): Promise<string> {
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
+
   const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('无法处理图片');
+  if (!ctx) {
+    throw new Error('图片处理失败，请稍后再试。');
+  }
 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
@@ -74,7 +75,7 @@ async function compressAvatarFile(file: File): Promise<string> {
   const encode = (quality: number) =>
     new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
-        (result) => (result ? resolve(result) : reject(new Error('图片压缩失败'))),
+        (result) => (result ? resolve(result) : reject(new Error('图片压缩失败，请重试。'))),
         'image/jpeg',
         quality,
       );
@@ -84,97 +85,74 @@ async function compressAvatarFile(file: File): Promise<string> {
   let blob = await encode(0.82);
   if (blob.size > maxBlobSize) blob = await encode(0.7);
   if (blob.size > maxBlobSize) blob = await encode(0.58);
+
   if (blob.size > 60 * 1024) {
-    throw new Error('图片仍然过大，请换一张更清晰度低一些的照片');
+    throw new Error('图片仍然过大，请换一张分辨率更低的图片。');
   }
 
   return readAsDataUrl(blob);
 }
 
-function UserAvatarPreview({ src }: { src?: string }) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt="用户头像"
-        className="h-full w-full rounded-full object-cover"
+function Switch({ checked, onChange, ariaLabel }: { checked: boolean; onChange: () => void; ariaLabel: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={onChange}
+      className={cn(
+        'touch-target relative h-7 w-12 rounded-full transition-colors',
+        checked ? 'bg-primary' : 'bg-outline-variant/35',
+      )}
+    >
+      <span
+        className={cn(
+          'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all',
+          checked ? 'left-6' : 'left-1',
+        )}
       />
-    );
-  }
-  return <User className="w-7 h-7 text-white" />;
+    </button>
+  );
 }
 
-function AIAvatarPreview({ src }: { src?: string }) {
+function AvatarPreview({ src, fallback }: { src?: string; fallback: ReactNode }) {
   if (src) {
-    return (
-      <img
-        src={src}
-        alt="AI头像"
-        className="h-full w-full rounded-full object-cover"
-      />
-    );
+    return <img src={src} alt="头像预览" className="h-full w-full rounded-full object-cover" />;
   }
-  return <Bot className="w-7 h-7 text-white" />;
+  return <>{fallback}</>;
 }
 
-function AvatarCustomizerCard({
+function SettingsRow({
+  icon,
   title,
   description,
-  avatarContainerClassName,
-  preview,
-  onPickFromAlbum,
-  onPickFromCamera,
-  onReset,
+  action,
 }: {
+  icon: ReactNode;
   title: string;
   description: string;
-  avatarContainerClassName: string;
-  preview: ReactNode;
-  onPickFromAlbum: () => void;
-  onPickFromCamera: () => void;
-  onReset: () => void;
+  action: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-      <p className="text-sm font-bold text-on-surface mb-3">{title}</p>
-      <div className="mb-3 flex items-center gap-3">
-        <div className={avatarContainerClassName}>
-          {preview}
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-outline-variant/15 bg-surface p-3 md:p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container">
+          {icon}
         </div>
-        <div className="text-xs text-on-surface-variant">{description}</div>
+        <div className="min-w-0">
+          <p className="text-sm font-black text-on-surface">{title}</p>
+          <p className="text-xs text-on-surface-variant">{description}</p>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={onPickFromAlbum}
-          className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60 inline-flex items-center gap-1.5"
-        >
-          <ImagePlus className="w-3.5 h-3.5" />
-          相册
-        </button>
-        <button
-          onClick={onPickFromCamera}
-          className="rounded-full bg-secondary-container/40 px-3 py-1.5 text-xs font-semibold text-on-secondary-container hover:bg-secondary-container/55 inline-flex items-center gap-1.5"
-        >
-          <Camera className="w-3.5 h-3.5" />
-          拍照
-        </button>
-        <button
-          onClick={onReset}
-          className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-highest inline-flex items-center gap-1.5"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          默认
-        </button>
-      </div>
+      <div className="shrink-0">{action}</div>
     </div>
   );
 }
 
 export default function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<AppUISettings>(() =>
-    resolveAppUISettings(undefined),
-  );
+  const [settings, setSettings] = useState<AppUISettings>(() => resolveAppUISettings(undefined));
   const [chatAvatars, setChatAvatars] = useState<ChatAvatarSettings>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -199,127 +177,25 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
   const userAvatar = chatAvatars.userAvatar || user?.avatar || undefined;
   const aiAvatar = chatAvatars.aiAvatar || undefined;
 
-  const updateAvatarFromFile = async (
-    target: 'userAvatar' | 'aiAvatar',
-    file?: File,
-  ) => {
+  const updateAvatarFromFile = async (target: 'userAvatar' | 'aiAvatar', file?: File) => {
     if (!file) return;
+
     try {
       setError(null);
       const dataUrl = await compressAvatarFile(file);
       setChatAvatars((prev) => ({ ...prev, [target]: dataUrl }));
     } catch (err: any) {
-      setError(err?.message || '头像处理失败，请重试');
+      setError(err?.message || '头像处理失败，请重试。');
     }
   };
 
   const onPickAvatarFile =
     (target: 'userAvatar' | 'aiAvatar') =>
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
+    async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       await updateAvatarFromFile(target, file);
       event.target.value = '';
     };
-
-  const settingsGroups = useMemo(
-    () => [
-      {
-        title: '显示设置',
-        items: [
-          {
-            icon: Type,
-            label: '字体大小',
-            description: settings.fontSize === 'normal' ? '标准' : '大号',
-            action: (
-              <button
-                onClick={() =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    fontSize: prev.fontSize === 'normal' ? 'large' : 'normal',
-                  }))
-                }
-                className={cn(
-                  'w-12 h-6 rounded-full relative transition-colors',
-                  settings.fontSize === 'large' ? 'bg-primary' : 'bg-outline-variant/30',
-                )}
-              >
-                <div
-                  className={cn(
-                    'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
-                    settings.fontSize === 'large' ? 'right-1' : 'left-1',
-                  )}
-                />
-              </button>
-            ),
-          },
-          {
-            icon: Moon,
-            label: '深色模式',
-            description: settings.darkMode ? '已开启' : '未开启',
-            action: (
-              <button
-                onClick={() => setSettings((prev) => ({ ...prev, darkMode: !prev.darkMode }))}
-                className={cn(
-                  'w-12 h-6 rounded-full relative transition-colors',
-                  settings.darkMode ? 'bg-primary' : 'bg-outline-variant/30',
-                )}
-              >
-                <div
-                  className={cn(
-                    'absolute top-1 w-4 h-4 bg-white rounded-full transition-all',
-                    settings.darkMode ? 'right-1' : 'left-1',
-                  )}
-                />
-              </button>
-            ),
-          },
-        ],
-      },
-      {
-        title: '音频设置',
-        items: [
-          {
-            icon: Volume2,
-            label: '音量',
-            description: `${settings.volume}%`,
-            action: (
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={settings.volume}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, volume: Number(e.target.value) }))
-                }
-                className="w-24 h-2 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, #006384 ${settings.volume}%, #b9ae6e ${settings.volume}%)`,
-                }}
-              />
-            ),
-          },
-        ],
-      },
-      {
-        title: '关于',
-        items: [
-          {
-            icon: Shield,
-            label: '内容安全',
-            description: '实时过滤不适内容',
-            action: <ChevronRight className="w-5 h-5 text-on-surface-variant" />,
-          },
-          {
-            icon: Info,
-            label: '关于灵犀伴学',
-            description: 'v1.0.0',
-            action: <ChevronRight className="w-5 h-5 text-on-surface-variant" />,
-          },
-        ],
-      },
-    ],
-    [settings.darkMode, settings.fontSize, settings.volume],
-  );
 
   const handleSave = async () => {
     setError(null);
@@ -332,6 +208,7 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
 
     try {
       setIsSaving(true);
+
       const mergedSettings = mergeUserSettings(
         user.settings as Record<string, unknown> | undefined,
         {
@@ -339,63 +216,99 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
           chatAvatars,
         },
       );
+
       const payloadSize = JSON.stringify({ settings: mergedSettings }).length;
       if (payloadSize > 90000) {
-        throw new Error('头像数据过大，请重新选择一张更小的图片后再保存');
+        throw new Error('头像数据过大，请换一张更小的图片后再保存。');
       }
+
       const updated = await api.updateUser(user.id, { settings: mergedSettings });
       localStorage.setItem('auth_user', JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent('user-settings-updated', { detail: updated }));
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 1500);
     } catch (err: any) {
-      setError(err?.message || '保存失败，请稍后重试');
+      setError(err?.message || '保存失败，请稍后重试。');
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-surface w-full sticky top-0 z-40">
-        <div className="flex items-center gap-4 w-full px-8 py-6 max-w-3xl mx-auto">
-          <button
-            onClick={onBack}
-            className="p-2.5 hover:bg-surface-container-low rounded-xl transition-colors"
-            aria-label="返回"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <h1 className="text-xl font-bold">设置</h1>
-        </div>
-      </header>
+    <div className="min-h-app pb-safe">
+      <TopBar
+        title="设置"
+        subtitle="外观、音量与对话头像"
+        leftSlot={(
+          <IconButton aria-label="返回" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </IconButton>
+        )}
+      />
 
-      <main className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-        <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 overflow-hidden p-5">
-          <h2 className="text-sm font-bold text-on-surface-variant uppercase tracking-wider mb-4">
-            对话头像
-          </h2>
+      <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-6">
+        <Card className="space-y-4 p-4 md:p-5">
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">对话头像</h2>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AvatarCustomizerCard
-              title="我的头像"
-              description="AI 对话中的“我”将使用这个头像"
-              avatarContainerClassName="h-14 w-14 rounded-full bg-primary flex items-center justify-center overflow-hidden"
-              preview={<UserAvatarPreview src={userAvatar} />}
-              onPickFromAlbum={() => userAlbumInputRef.current?.click()}
-              onPickFromCamera={() => userCameraInputRef.current?.click()}
-              onReset={() => setChatAvatars((prev) => ({ ...prev, userAvatar: undefined }))}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="space-y-3 p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-primary text-white">
+                  <AvatarPreview src={userAvatar} fallback={<User className="h-7 w-7" />} />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-on-surface">我的头像</p>
+                  <p className="text-xs text-on-surface-variant">用于聊天中“我”的头像展示</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => userAlbumInputRef.current?.click()}>
+                  选自相册
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => userCameraInputRef.current?.click()}>
+                  <Camera className="h-4 w-4" />
+                  拍照
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setChatAvatars((prev) => ({ ...prev, userAvatar: undefined }))}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  还原
+                </Button>
+              </div>
+            </Card>
 
-            <AvatarCustomizerCard
-              title="AI 头像"
-              description="AI 对话中的助手头像可自定义"
-              avatarContainerClassName="h-14 w-14 rounded-full bg-tertiary flex items-center justify-center overflow-hidden"
-              preview={<AIAvatarPreview src={aiAvatar} />}
-              onPickFromAlbum={() => aiAlbumInputRef.current?.click()}
-              onPickFromCamera={() => aiCameraInputRef.current?.click()}
-              onReset={() => setChatAvatars((prev) => ({ ...prev, aiAvatar: undefined }))}
-            />
+            <Card className="space-y-3 p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-tertiary text-white">
+                  <AvatarPreview src={aiAvatar} fallback={<Bot className="h-7 w-7" />} />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-on-surface">AI 头像</p>
+                  <p className="text-xs text-on-surface-variant">用于聊天中助手头像展示</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => aiAlbumInputRef.current?.click()}>
+                  选自相册
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => aiCameraInputRef.current?.click()}>
+                  <Camera className="h-4 w-4" />
+                  拍照
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setChatAvatars((prev) => ({ ...prev, aiAvatar: undefined }))}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  还原
+                </Button>
+              </div>
+            </Card>
           </div>
 
           <input
@@ -428,69 +341,109 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             className="hidden"
             onChange={onPickAvatarFile('aiAvatar')}
           />
-        </section>
+        </Card>
 
-        {settingsGroups.map((group) => (
-          <motion.section
-            key={group.title}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 overflow-hidden"
-          >
-            <h2 className="px-6 pt-5 pb-2 text-sm font-bold text-on-surface-variant uppercase tracking-wider">
-              {group.title}
-            </h2>
-            {group.items.map((item, i) => (
-              <div
-                key={item.label}
-                className={cn(
-                  'flex items-center justify-between px-6 py-4',
-                  i < group.items.length - 1 && 'border-b border-outline-variant/10',
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center">
-                    <item.icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">{item.label}</p>
-                    <p className="text-sm text-on-surface-variant">{item.description}</p>
-                  </div>
-                </div>
-                {item.action}
-              </div>
-            ))}
-          </motion.section>
-        ))}
+        <Card className="space-y-3 p-4 md:p-5">
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">显示与声音</h2>
 
-        {error && <p className="text-sm font-medium text-error text-center">{error}</p>}
+          <SettingsRow
+            icon={<Type className="h-5 w-5 text-primary" />}
+            title="字体大小"
+            description={settings.fontSize === 'normal' ? '标准字号' : '放大字号'}
+            action={(
+              <Switch
+                checked={settings.fontSize === 'large'}
+                onChange={() =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    fontSize: prev.fontSize === 'normal' ? 'large' : 'normal',
+                  }))
+                }
+                ariaLabel="切换字体大小"
+              />
+            )}
+          />
 
-        <motion.button
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
+          <SettingsRow
+            icon={<Moon className="h-5 w-5 text-primary" />}
+            title="深色模式"
+            description={settings.darkMode ? '已开启' : '已关闭'}
+            action={(
+              <Switch
+                checked={settings.darkMode}
+                onChange={() => setSettings((prev) => ({ ...prev, darkMode: !prev.darkMode }))}
+                ariaLabel="切换深色模式"
+              />
+            )}
+          />
+
+          <SettingsRow
+            icon={<Volume2 className="h-5 w-5 text-primary" />}
+            title="音量"
+            description={`当前 ${settings.volume}%`}
+            action={(
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={settings.volume}
+                onChange={(event) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    volume: Number(event.target.value),
+                  }))
+                }
+                className="h-2 w-28 cursor-pointer rounded-full accent-primary"
+                aria-label="设置应用音量"
+              />
+            )}
+          />
+        </Card>
+
+        <Card className="space-y-3 p-4 md:p-5">
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">关于</h2>
+
+          <SettingsRow
+            icon={<Shield className="h-5 w-5 text-primary" />}
+            title="内容安全"
+            description="实时过滤不适宜内容，保护学习环境。"
+            action={<span className="text-xs font-bold text-success">已启用</span>}
+          />
+
+          <SettingsRow
+            icon={<Info className="h-5 w-5 text-primary" />}
+            title="应用版本"
+            description="灵犀伴学 Web 端"
+            action={<span className="text-xs font-bold text-on-surface-variant">v1.0.0</span>}
+          />
+        </Card>
+
+        {error ? <p className="text-sm font-semibold text-error">{error}</p> : null}
+
+        <Button
+          className="w-full"
+          size="lg"
           onClick={handleSave}
           disabled={isSaving}
-          className={cn(
-            'w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-colors',
-            saveSuccess
-              ? 'bg-primary-container text-on-primary-container'
-              : 'bg-primary text-on-primary hover:opacity-90',
-          )}
+          variant={saveSuccess ? 'secondary' : 'primary'}
         >
           {isSaving ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              正在保存...
+            </>
           ) : saveSuccess ? (
             <>
-              <CheckCircle2 className="w-5 h-5" />
-              已保存
+              <CheckCircle2 className="h-5 w-5" />
+              保存成功
             </>
           ) : (
             <>
-              <Save className="w-5 h-5" />
+              <Save className="h-5 w-5" />
               保存设置
             </>
           )}
-        </motion.button>
+        </Button>
       </main>
     </div>
   );

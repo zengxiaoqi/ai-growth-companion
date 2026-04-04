@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play, Mic, MicOff, Volume2, VolumeX, ArrowDown } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play, Mic, MicOff, Volume2, VolumeX, ArrowDown } from '@/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ import type {
   ConversationMessageHistory,
 } from '@/types';
 import GameRenderer from './games/GameRenderer';
-import { normalizeActivityData } from './ai-chat/activity-normalizer';
+import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
 
 interface ToolStep {
   id: string;
@@ -52,6 +52,7 @@ interface Message {
   toolSteps: ToolStep[];
   gameData?: GameData;
   gameDataList?: GameData[];
+  completedGameIndexes?: number[];
 }
 
 /** Hook to manage TTS audio playback across messages */
@@ -512,9 +513,10 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 // Store game data for interactive rendering
                 try {
                   const rawParsed = typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
-                  const parsed = normalizeActivityData(data.activityType, rawParsed);
+                  const activityType = normalizeActivityType(data.activityType, rawParsed);
+                  const parsed = normalizeActivityData(activityType, rawParsed);
                   const normalizedGameData: GameData = {
-                    activityType: data.activityType,
+                    activityType,
                     gameData: typeof data.gameData === 'string' ? data.gameData : JSON.stringify(data.gameData),
                     parsed,
                     domain: data.domain,
@@ -632,8 +634,30 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
   const showStarterPrompts = messages.length <= 1 && suggestions.length === 0 && !isLoading;
+  const isFormalContentReady = useCallback((msg: Message, games: GameData[]) => {
+    if (games.length === 0) return true;
+    const completed = new Set(msg.completedGameIndexes || []);
+    return games.every((_, idx) => completed.has(idx));
+  }, []);
+
+  const formatFormalContent = useCallback((raw: string) => {
+    const source = (raw || '').trim();
+    if (!source) return '';
+
+    return source
+      .replace(/\s*\|\|\s*/g, '\n')
+      .replace(/\s*[-]{2,}\s*/g, '\n\n')
+      .replace(/(?:\n\s*){3,}/g, '\n\n')
+      .trim();
+  }, []);
 
   const handleGameComplete = useCallback((msgId: string, gameIndex: number, result: ActivityResult, gameDomain?: string) => {
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== msgId) return m;
+      const completed = Array.isArray(m.completedGameIndexes) ? m.completedGameIndexes : [];
+      if (completed.includes(gameIndex)) return m;
+      return { ...m, completedGameIndexes: [...completed, gameIndex].sort((a, b) => a - b) };
+    }));
     setActiveGameKey(null);
     // Show feedback overlay
     const scorePercent = result.totalQuestions > 0 ? (result.correctAnswers / result.totalQuestions) * 100 : result.score;
@@ -684,7 +708,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
         {/* Header */}
         <div className="sticky top-0 z-20 bg-tertiary px-5 py-4 flex items-center gap-3">
           {onBack && (
-            <button onClick={onBack} aria-label="返回" className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+            <button onClick={onBack} aria-label="返回" className="touch-target w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
@@ -722,7 +746,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           <button
             onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
             className={cn(
-              "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+              "touch-target w-9 h-9 rounded-full flex items-center justify-center transition-colors",
               autoRead ? "bg-white/30 text-white" : "bg-white/10 text-white/60 hover:text-white"
             )}
             aria-label={autoRead ? '关闭自动朗读' : '开启自动朗读'}
@@ -775,6 +799,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
 
             {messages.map((message) => {
               const messageGames = getMessageGames(message);
+              const showFormalContent = isFormalContentReady(message, messageGames);
+              const formattedContent = formatFormalContent(message.content);
               return (
               <div key={message.id} className={cn('flex gap-2', message.role === 'user' ? 'justify-end' : 'justify-start')}>
                 {message.role === 'assistant' && (
@@ -796,10 +822,14 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                   )}>
                     {message.role === 'assistant' ? (
                       <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                        {messageGames.length > 0 ? (
-                          <p>{message.content || '我为你准备了一组练习，点击下方按钮开始吧。'}</p>
+                        {messageGames.length > 0 && !showFormalContent ? (
+                          <p>请先完成题目，完成后会显示格式化的总结与讲解。</p>
                         ) : (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {messageGames.length > 0
+                              ? (formattedContent || '练习已完成，继续加油。')
+                              : message.content}
+                          </ReactMarkdown>
                         )}
                       </div>
                     ) : message.content}
@@ -815,6 +845,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                       {messageGames.map((game, gameIndex) => {
                         if (!game.parsed) return null;
                         const gameKey = `${message.id}-${gameIndex}`;
+                        const isCompleted = message.completedGameIndexes?.includes(gameIndex);
                         return activeGameKey === gameKey ? (
                           <div key={gameKey} className="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
                             <GameRenderer
@@ -830,7 +861,10 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                             className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
                           >
                             <Play className="w-4 h-4 fill-current" />
-                            <span>{isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`}</span>
+                            <span>{isCompleted
+                              ? `查看 ${game.parsed.title || '练习'}`
+                              : (isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`)}
+                            </span>
                           </button>
                         );
                       })}
@@ -872,7 +906,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           {showJumpButton && (
             <button
               onClick={() => scrollToBottom()}
-              className="absolute bottom-3 right-3 h-9 w-9 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
+              className="touch-target absolute bottom-3 right-3 h-9 w-9 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
               aria-label="回到底部"
             >
               <ArrowDown className="mx-auto h-4 w-4" />
@@ -1030,7 +1064,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             <div className="sticky top-0 z-20 bg-tertiary px-5 py-3 flex items-center justify-between flex-shrink-0"
               onPointerDown={(e) => !isMaximized && dragControls.start(e)}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                <div className="touch-target w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
                   {aiAvatarSrc ? (
                     <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
                   ) : (
@@ -1065,18 +1099,18 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               <div className="flex items-center gap-1">
                 <button onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
                   className={cn(
-                    "w-7 h-7 rounded-full flex items-center justify-center transition-colors",
+                    "touch-target w-7 h-7 rounded-full flex items-center justify-center transition-colors",
                     autoRead ? "bg-white/30 text-white" : "bg-white/10 text-white/60 hover:text-white"
                   )}
                   aria-label={autoRead ? '关闭自动朗读' : '开启自动朗读'}>
                   <Volume2 className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => setIsMaximized(!isMaximized)} aria-label={isMaximized ? '还原' : '最大化'}
-                  className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+                  className="touch-target w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
                   {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
                 <button onClick={() => { setIsOpen(false); setIsMaximized(false); }} aria-label="关闭 AI 对话"
-                  className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+                  className="touch-target w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1133,6 +1167,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
 
                 {messages.map((message) => {
                   const messageGames = getMessageGames(message);
+                  const showFormalContent = isFormalContentReady(message, messageGames);
+                  const formattedContent = formatFormalContent(message.content);
                   return (
                   <div key={message.id} className={cn('flex gap-2', message.role === 'user' ? 'justify-end' : 'justify-start')}>
                     {message.role === 'assistant' && (
@@ -1154,10 +1190,14 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                       )}>
                         {message.role === 'assistant' ? (
                           <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                            {messageGames.length > 0 ? (
-                              <p>{message.content || '我为你准备了一组练习，点击下方按钮开始吧。'}</p>
+                            {messageGames.length > 0 && !showFormalContent ? (
+                              <p>请先完成题目，完成后会显示格式化的总结与讲解。</p>
                             ) : (
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {messageGames.length > 0
+                                  ? (formattedContent || '练习已完成，继续加油。')
+                                  : message.content}
+                              </ReactMarkdown>
                             )}
                           </div>
                         ) : message.content}
@@ -1173,6 +1213,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                           {messageGames.map((game, gameIndex) => {
                             if (!game.parsed) return null;
                             const gameKey = `${message.id}-${gameIndex}`;
+                            const isCompleted = message.completedGameIndexes?.includes(gameIndex);
                             return activeGameKey === gameKey ? (
                               <div key={gameKey} className="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
                                 <GameRenderer
@@ -1188,7 +1229,10 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                                 className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
                               >
                                 <Play className="w-4 h-4 fill-current" />
-                                <span>{isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`}</span>
+                                <span>{isCompleted
+                                  ? `查看 ${game.parsed.title || '练习'}`
+                                  : (isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`)}
+                                </span>
                               </button>
                             );
                           })}
@@ -1231,7 +1275,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               {showJumpButton && (
                 <button
                   onClick={() => scrollToBottom()}
-                  className="absolute bottom-3 right-3 h-8 w-8 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
+                  className="touch-target absolute bottom-3 right-3 h-8 w-8 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
                   aria-label="回到底部"
                 >
                   <ArrowDown className="mx-auto h-4 w-4" />
@@ -1264,7 +1308,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                   <button
                     onClick={handleToggleRecording}
                     className={cn(
-                      'w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                      'touch-target w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
                       isRecording ? 'bg-red-500 text-white animate-voice-pulse' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                     )}
                     aria-label={isRecording ? '停止录音' : '开始录音'}
@@ -1285,7 +1329,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 <button
                   onClick={() => handleSendStream()}
                   disabled={!input.trim() || isLoading}
-                  className="w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0"
+                  className="touch-target w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>

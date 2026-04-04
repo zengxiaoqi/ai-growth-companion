@@ -28,8 +28,8 @@ function TestConsumer() {
       <span data-testid="user-name">{auth.user?.name || 'none'}</span>
       <span data-testid="loading">{String(auth.isLoading)}</span>
       <span data-testid="error">{auth.error || 'none'}</span>
-      <button onClick={() => auth.login({ phone: '13800000001', password: 'pass' })}>login</button>
-      <button onClick={() => auth.register({ phone: '13800000001', password: 'pass', name: 'Test', type: 'child' })}>register</button>
+      <button onClick={() => auth.login({ phone: '13800000001', password: 'pass' }).catch(() => {})}>login</button>
+      <button onClick={() => auth.register({ phone: '13800000001', password: 'pass', name: 'Test', type: 'child' }).catch(() => {})}>register</button>
       <button onClick={auth.logout}>logout</button>
     </div>
   );

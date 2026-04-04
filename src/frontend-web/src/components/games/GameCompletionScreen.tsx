@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Star, Sparkles, PartyPopper, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { Trophy, Star, Sparkles, PartyPopper, ChevronDown, ChevronRight, CheckCircle, XCircle } from '@/icons';
 import { cn } from '@/lib/utils';
 
 export interface ReviewItem {

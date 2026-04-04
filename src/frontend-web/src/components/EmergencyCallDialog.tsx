@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Phone, CheckCircle, AlertTriangle, Loader2 } from '@/icons';
 import api from '../services/api';
 
 interface EmergencyCallDialogProps {

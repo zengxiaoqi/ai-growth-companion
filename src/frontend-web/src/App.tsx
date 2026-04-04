@@ -46,7 +46,7 @@ function AppContent() {
 
   const slideTransition = reducedMotion
     ? { duration: 0 }
-    : { duration: 0.4, ease: "easeOut" as const };
+    : { type: "spring" as const, damping: 25, stiffness: 300 };
 
   // When user becomes authenticated, go to selection
   useEffect(() => {

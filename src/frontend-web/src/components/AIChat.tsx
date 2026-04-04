@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -39,6 +39,80 @@ interface Message {
   gameData?: GameData;
 }
 
+/** Hook to manage TTS audio playback across messages */
+function useVoicePlayback() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingMsgId, setPlayingMsgId] = useState<string | null>(null);
+
+  const play = useCallback((msgId: string, text: string) => {
+    const plainText = text
+      .replace(/!\[.*?\]\(.*?\)/g, '')
+      .replace(/\[([^\]]*)\]\(.*?\)/g, '$1')
+      .replace(/[#*`_~>|]/g, '')
+      .replace(/\n+/g, '。')
+      .trim()
+      .slice(0, 2000);
+    if (!plainText) return;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const audio = new Audio(api.getTTSUrl(plainText));
+    audioRef.current = audio;
+    setPlayingMsgId(msgId);
+
+    audio.onended = () => { setPlayingMsgId(null); audioRef.current = null; };
+    audio.onerror = () => { setPlayingMsgId(null); audioRef.current = null; };
+    audio.play().catch(() => { setPlayingMsgId(null); audioRef.current = null; });
+  }, []);
+
+  const stop = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingMsgId(null);
+  }, []);
+
+  const toggle = useCallback((msgId: string, text: string) => {
+    if (playingMsgId === msgId) {
+      stop();
+    } else {
+      play(msgId, text);
+    }
+  }, [playingMsgId, play, stop]);
+
+  return { playingMsgId, play, stop, toggle };
+}
+
+/** Speaker button for AI message bubbles */
+function SpeakerButton({ msgId, content, playingMsgId, onToggle }: {
+  msgId: string; content: string; playingMsgId: string | null; onToggle: (id: string, text: string) => void;
+}) {
+  const isPlaying = playingMsgId === msgId;
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(msgId, content); }}
+      className={cn(
+        "mt-1.5 flex items-center gap-1 text-xs transition-colors",
+        isPlaying ? "text-primary" : "text-on-surface-variant/60 hover:text-on-surface-variant"
+      )}
+      aria-label={isPlaying ? '停止播放' : '播放语音'}
+    >
+      {isPlaying ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+      {isPlaying && (
+        <span className="flex items-center gap-0.5 h-3">
+          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '0ms' }} />
+          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '150ms' }} />
+          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '300ms' }} />
+        </span>
+      )}
+    </button>
+  );
+}
+
 interface AIChatProps {
   childId?: number;
   parentId?: number;
@@ -60,6 +134,10 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   const [expandedSections, setExpandedSections] = useState<Record<string, { thinking: boolean; tools: boolean }>>({});
   const [activeGameMsgId, setActiveGameMsgId] = useState<string | null>(null);
   const [activityFeedback, setActivityFeedback] = useState<ActivityFeedback | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [autoRead, setAutoRead] = useState(false);
+  const { playingMsgId, play: playMessage, stop: stopPlayback, toggle: togglePlayback } = useVoicePlayback();
+  const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -235,6 +313,54 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStream(); }
   };
 
+  const handleToggleRecording = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+      setIsRecording(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-CN';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  }, [isRecording]);
+
+  // Auto-read: when a new assistant message finishes streaming, play it
+  useEffect(() => {
+    if (!autoRead) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === 'assistant' && !lastMsg.isStreaming && !lastMsg.gameData?.parsed && lastMsg.content) {
+      playMessage(lastMsg.id, lastMsg.content);
+    }
+  }, [messages, autoRead, playMessage]);
+
   const hasProcessSteps = (msg: Message) => msg.thinkingSteps.length > 0 || msg.toolSteps.length > 0;
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
@@ -286,10 +412,21 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
           <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <Bot className="w-6 h-6 text-white" />
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="text-white font-bold text-lg">AI 学习伙伴</h3>
             <p className="text-white/70 text-xs">随时为你解答问题</p>
           </div>
+          <button
+            onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+              autoRead ? "bg-white/30 text-white" : "bg-white/10 text-white/60 hover:text-white"
+            )}
+            aria-label={autoRead ? '关闭自动朗读' : '开启自动朗读'}
+            title={autoRead ? '关闭自动朗读' : '开启自动朗读'}
+          >
+            <Volume2 className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Messages */}
@@ -312,7 +449,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                   {message.role === 'assistant' ? (
                     <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
                       {message.gameData?.parsed ? (
-                        <p>我为你准备了练习题，点击下方按钮开始挑战吧！ 🎮</p>
+                        <p>{message.content || '我为你准备了练习题，点击下方按钮开始挑战吧！'} 🎮</p>
                       ) : (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                       )}
@@ -322,6 +459,10 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                     <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
                   )}
                 </div>
+                {/* TTS speaker button (full-page) */}
+                {message.role === 'assistant' && !message.gameData?.parsed && message.content && !message.isStreaming && (
+                  <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                )}
                 {/* Game rendering */}
                 {message.role === 'assistant' && message.gameData?.parsed && (
                   activeGameMsgId === message.id ? (
@@ -381,9 +522,19 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
 
         {/* Input */}
         <div className="p-4 border-t border-outline-variant/20">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+              <button onClick={handleToggleRecording}
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0",
+                  isRecording ? "bg-red-500 text-white animate-voice-pulse" : "bg-surface-container text-on-surface-variant hover:text-on-surface"
+                )}
+                aria-label={isRecording ? '停止录音' : '开始录音'}>
+                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+            )}
             <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown} placeholder="输入你的问题..."
+              onKeyDown={handleKeyDown} placeholder={isRecording ? "正在听你说..." : "输入你的问题..."}
               className="flex-1 bg-surface-container border border-outline-variant/30 rounded-full px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors"
               disabled={isLoading} />
             <button onClick={() => handleSendStream()} disabled={!input.trim() || isLoading}
@@ -423,8 +574,8 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                     className="h-full rounded-full"
                     style={{
                       backgroundColor:
-                        activityFeedback.score >= 80 ? '#4CAF50' :
-                        activityFeedback.score >= 60 ? '#FFC107' : '#FF5722',
+                        activityFeedback.score >= 80 ? 'var(--color-success)' :
+                        activityFeedback.score >= 60 ? 'var(--color-warning)' : 'var(--color-danger)',
                     }}
                   />
                 </div>
@@ -490,6 +641,14 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center transition-colors",
+                    autoRead ? "bg-white/30 text-white" : "bg-white/10 text-white/60 hover:text-white"
+                  )}
+                  aria-label={autoRead ? '关闭自动朗读' : '开启自动朗读'}>
+                  <Volume2 className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => setIsMaximized(!isMaximized)} aria-label={isMaximized ? '还原' : '最大化'}
                   className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
                   {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -529,7 +688,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                       {message.role === 'assistant' ? (
                         <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
                           {message.gameData?.parsed ? (
-                            <p>我为你准备了练习题，点击下方按钮开始吧！ 🎮</p>
+                            <p>{message.content || '我为你准备了练习题，点击下方按钮开始吧！'} 🎮</p>
                           ) : (
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                           )}
@@ -539,6 +698,10 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                     <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
                   )}
                 </div>
+                {/* TTS speaker button (floating widget) */}
+                {message.role === 'assistant' && !message.gameData?.parsed && message.content && !message.isStreaming && (
+                  <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                )}
                 {/* Game rendering */}
                 {message.role === 'assistant' && message.gameData?.parsed && (
                   activeGameMsgId === message.id ? (
@@ -599,13 +762,23 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
 
             {/* Input */}
             <div className="p-3 border-t border-outline-variant/20 flex-shrink-0">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
+                  <button onClick={handleToggleRecording}
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0",
+                      isRecording ? "bg-red-500 text-white animate-voice-pulse" : "bg-surface-container text-on-surface-variant hover:text-on-surface"
+                    )}
+                    aria-label={isRecording ? '停止录音' : '开始录音'}>
+                    {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </button>
+                )}
                 <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown} placeholder="输入你的问题..."
-                  className="flex-1 bg-surface-container border border-outline-variant/30 rounded-full px-4 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors"
+                  onKeyDown={handleKeyDown} placeholder={isRecording ? "正在听你说..." : "输入你的问题..."}
+                  className="flex-1 bg-surface-container border border-outline-variant/30 rounded-full px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors"
                   disabled={isLoading} />
                 <button onClick={() => handleSendStream()} disabled={!input.trim() || isLoading}
-                  className="w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press">
+                  className="w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0">
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>

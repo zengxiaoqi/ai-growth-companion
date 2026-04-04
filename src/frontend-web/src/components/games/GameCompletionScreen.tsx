@@ -123,20 +123,20 @@ export default function GameCompletionScreen({ score, total, reviewData, onDismi
               {reviewData.map((item, i) => (
                 <div key={i} className={cn(
                   'rounded-xl p-3 border-2',
-                  item.isCorrect ? 'bg-[#e8f5e9]/50 border-[#4caf50]/30' : 'bg-[#ffebee]/50 border-[#f44336]/30',
+                  item.isCorrect ? 'bg-success-container/50 border-success/30' : 'bg-danger-container/50 border-danger/30',
                 )}>
                   <div className="flex items-start gap-2">
                     {item.isCorrect ? (
-                      <CheckCircle className="w-4 h-4 text-[#4caf50] flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-[#f44336] flex-shrink-0 mt-0.5" />
+                      <XCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-on-surface">{i + 1}. {item.question}</p>
                       {!item.isCorrect && (
-                        <p className="text-xs text-[#c62828] mt-0.5">你的答案：{item.userAnswer}</p>
+                        <p className="text-xs text-on-danger-container mt-0.5">你的答案：{item.userAnswer}</p>
                       )}
-                      <p className={cn('text-xs mt-0.5', item.isCorrect ? 'text-[#2e7d32]' : 'text-[#2e7d32]' )}>
+                      <p className={cn('text-xs mt-0.5', item.isCorrect ? 'text-on-success-container' : 'text-on-success-container' )}>
                         正确答案：{item.correctAnswer}
                       </p>
                       {item.explanation && (

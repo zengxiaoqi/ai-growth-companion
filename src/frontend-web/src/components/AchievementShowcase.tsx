@@ -58,11 +58,9 @@ const badgeColors = [
   { bg: 'bg-secondary-container', text: 'text-on-secondary-container' },
   { bg: 'bg-tertiary-container', text: 'text-on-tertiary-container' },
   { bg: 'bg-primary-container', text: 'text-on-primary-container' },
-  { bg: 'bg-[#ffefec]', text: 'text-error' },
-  { bg: 'bg-surface-container-highest', text: 'text-on-surface-variant' },
-  { bg: 'bg-[#e8f5e9]', text: 'text-[#2e7d32]' },
-  { bg: 'bg-[#fff8e1]', text: 'text-[#e65100]' },
-  { bg: 'bg-[#e3f2fd]', text: 'text-[#1565c0]' },
+  { bg: 'bg-surface-container-high', text: 'text-on-surface-variant' },
+  { bg: 'bg-success-container', text: 'text-on-success-container' },
+  { bg: 'bg-warning-container', text: 'text-on-warning-container' },
 ];
 
 export default function AchievementShowcase({ onBack, userId }: AchievementShowcaseProps) {
@@ -108,10 +106,10 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
 
   // Growth tree levels — SVG icons instead of emoji
   const treeLevels = [
-    { label: '种子', min: 0, Icon: Sprout, color: 'text-green-400' },
-    { label: '小芽', min: 1, Icon: Sprout, color: 'text-green-500' },
-    { label: '小树', min: 3, Icon: TreePine, color: 'text-green-600' },
-    { label: '大树', min: 6, Icon: TreeDeciduous, color: 'text-green-700' },
+    { label: '种子', min: 0, Icon: Sprout, color: 'text-success' },
+    { label: '小芽', min: 1, Icon: Sprout, color: 'text-success' },
+    { label: '小树', min: 3, Icon: TreePine, color: 'text-on-success-container' },
+    { label: '大树', min: 6, Icon: TreeDeciduous, color: 'text-on-success-container' },
     { label: '参天大树', min: 10, Icon: Trophy, color: 'text-primary' },
   ];
 
@@ -214,7 +212,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
           className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15"
         >
           <h3 className="text-lg font-black text-on-surface mb-4 flex items-center gap-2">
-            <Sprout className="w-5 h-5 text-green-500" />
+            <Sprout className="w-5 h-5 text-success" />
             成长之树
           </h3>
           <div className="flex items-end justify-between gap-2 px-2">

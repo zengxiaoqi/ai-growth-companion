@@ -52,55 +52,52 @@ export default function AssignmentManager({
   return (
     <section className="space-y-6" aria-label="任务管理">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">任务管理</h2>
+        <h2 className="text-2xl font-black">任务管理</h2>
         <button
-          onClick={() => setShowAssignPanel(!showAssignPanel)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm hover:scale-105 transition-transform"
+          onClick={() => setShowAssignPanel((prev) => !prev)}
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition-transform hover:scale-105"
           aria-expanded={showAssignPanel}
           aria-controls="assign-panel"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-4 w-4" />
           布置任务
         </button>
       </div>
 
-      {/* Create Assignment Panel */}
       {showAssignPanel && (
         <motion.div
           id="assign-panel"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/15 space-y-5"
+          className="panel-card space-y-5 p-6"
         >
-          <h3 className="font-bold text-lg">布置新任务</h3>
+          <h3 className="text-lg font-black">创建新任务</h3>
 
-          {/* Topic Input */}
           <div>
-            <label htmlFor="assign-topic" className="text-sm font-bold text-on-surface-variant block mb-1">题目主题</label>
+            <label htmlFor="assign-topic" className="mb-1 block text-sm font-bold text-on-surface-variant">主题</label>
             <input
               id="assign-topic"
               type="text"
-              placeholder="例：认识数字 1-10、动物名称..."
+              placeholder="例如：认识数字 1-10、动物名称"
               value={assignTopic}
               onChange={(e) => setAssignTopic(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-outline-variant/30 text-sm focus:outline-none focus:border-primary bg-background"
+              className="w-full rounded-xl border border-outline-variant/30 bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
             />
           </div>
 
-          {/* Activity Type */}
           <div>
-            <span className="text-sm font-bold text-on-surface-variant block mb-2">活动类型</span>
+            <span className="mb-2 block text-sm font-bold text-on-surface-variant">活动类型</span>
             <div className="flex flex-wrap gap-2">
-              {ACTIVITY_TYPES.map(t => (
+              {ACTIVITY_TYPES.map((t) => (
                 <button
                   key={t.value}
                   onClick={() => setAssignType(t.value)}
                   className={cn(
-                    "px-3 py-2 rounded-lg text-sm font-bold transition-all",
+                    'rounded-lg px-3 py-2 text-sm font-bold transition-all',
                     assignType === t.value
-                      ? "bg-primary text-on-primary shadow-sm"
-                      : "bg-surface-container border border-outline-variant/30 hover:border-primary/50"
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'border border-outline-variant/30 bg-surface-container hover:border-primary/50',
                   )}
                   aria-pressed={assignType === t.value}
                 >
@@ -110,28 +107,28 @@ export default function AssignmentManager({
             </div>
           </div>
 
-          {/* Domain */}
           <div>
-            <span className="text-sm font-bold text-on-surface-variant block mb-2">学习领域</span>
+            <span className="mb-2 block text-sm font-bold text-on-surface-variant">学习领域</span>
             <div className="flex flex-wrap gap-2">
-              {['language', 'math', 'science', 'art', 'social'].map(domain => {
+              {['language', 'math', 'science', 'art', 'social'].map((domain) => {
                 const config = DOMAIN_CONFIG[domain];
                 return (
                   <button
                     key={domain}
                     onClick={() => setAssignDomain(domain)}
                     className={cn(
-                      "px-3 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5",
+                      'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-all',
                       assignDomain === domain
-                        ? "bg-on-secondary-container text-white"
-                        : "bg-surface-container border border-outline-variant/30"
+                        ? 'bg-on-secondary-container text-white'
+                        : 'border border-outline-variant/30 bg-surface-container',
                     )}
                     aria-pressed={assignDomain === domain}
                   >
                     <span className={cn(
-                      "w-5 h-5 rounded text-white text-[10px] font-black flex items-center justify-center",
-                      assignDomain === domain ? config.color : "bg-outline-variant/30"
-                    )}>
+                      'flex h-5 w-5 items-center justify-center rounded text-[10px] font-black text-white',
+                      assignDomain === domain ? config.color : 'bg-outline-variant/30',
+                    )}
+                    >
                       {config.label[0]}
                     </span>
                     {config.label}
@@ -141,23 +138,22 @@ export default function AssignmentManager({
             </div>
           </div>
 
-          {/* Difficulty */}
           <div>
-            <span className="text-sm font-bold text-on-surface-variant block mb-2">难度等级</span>
+            <span className="mb-2 block text-sm font-bold text-on-surface-variant">难度等级</span>
             <div className="flex gap-2">
               {[
                 { level: 1, label: '简单' },
                 { level: 2, label: '中等' },
                 { level: 3, label: '困难' },
-              ].map(d => (
+              ].map((d) => (
                 <button
                   key={d.level}
                   onClick={() => setAssignDifficulty(d.level)}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+                    'rounded-lg px-4 py-2 text-sm font-bold transition-all',
                     assignDifficulty === d.level
-                      ? "bg-tertiary text-on-tertiary"
-                      : "bg-surface-container border border-outline-variant/30 hover:border-primary/50"
+                      ? 'bg-tertiary text-on-tertiary'
+                      : 'border border-outline-variant/30 bg-surface-container hover:border-primary/50',
                   )}
                   aria-pressed={assignDifficulty === d.level}
                 >
@@ -167,32 +163,26 @@ export default function AssignmentManager({
             </div>
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleCreate}
             disabled={isAssigning || !assignTopic.trim() || !selectedChildId}
             className={cn(
-              "w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all",
+              'flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-all',
               isAssigning || !assignTopic.trim() || !selectedChildId
-                ? "bg-outline-variant/30 text-on-surface-variant cursor-not-allowed"
-                : "bg-primary text-on-primary hover:scale-[1.02] active:scale-[0.98]"
+                ? 'cursor-not-allowed bg-outline-variant/30 text-on-surface-variant'
+                : 'bg-primary text-on-primary hover:scale-[1.01] active:scale-[0.99]',
             )}
           >
-            {isAssigning ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <ClipboardList className="w-5 h-5" />
-            )}
-            {isAssigning ? '生成中...' : '布置任务'}
+            {isAssigning ? <Loader2 className="h-5 w-5 animate-spin" /> : <ClipboardList className="h-5 w-5" />}
+            {isAssigning ? '创建中...' : '确认布置'}
           </button>
         </motion.div>
       )}
 
-      {/* Assignment List */}
       {assignments.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="font-bold text-on-surface-variant">已布置的任务</h3>
-          {assignments.map(assignment => {
+          <h3 className="font-bold text-on-surface-variant">已布置任务</h3>
+          {assignments.map((assignment) => {
             const domainConfig = DOMAIN_CONFIG[assignment.domain || ''];
             const isCompleted = assignment.status === 'completed';
             const isPending = assignment.status === 'pending';
@@ -200,47 +190,49 @@ export default function AssignmentManager({
               <div
                 key={assignment.id}
                 className={cn(
-                  "bg-surface-container-lowest rounded-2xl p-4 border flex items-center gap-4",
-                  isCompleted ? "border-[#4caf50]/30" : "border-outline-variant/15"
+                  'panel-card flex items-center gap-4 border p-4',
+                  isCompleted ? 'border-success/30' : 'border-outline-variant/15',
                 )}
               >
                 <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                  isCompleted ? "bg-[#e8f5e9]" : isPending ? "bg-primary-container/30" : "bg-tertiary-container/30"
-                )}>
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                  isCompleted ? 'bg-success-container' : isPending ? 'bg-primary-container/30' : 'bg-tertiary-container/30',
+                )}
+                >
                   {isCompleted ? (
-                    <CheckCircle className="w-5 h-5 text-[#2e7d32]" />
+                    <CheckCircle className="h-5 w-5 text-on-success-container" />
                   ) : isPending ? (
-                    <Clock className="w-5 h-5 text-primary" />
+                    <Clock className="h-5 w-5 text-primary" />
                   ) : (
-                    <Play className="w-5 h-5 text-on-tertiary-container" />
+                    <Play className="h-5 w-5 text-on-tertiary-container" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm truncate">
-                      {assignment.activityData?.topic || assignment.activityType}
-                    </span>
+                    <span className="truncate text-sm font-bold">{assignment.activityData?.topic || assignment.activityType}</span>
                     {domainConfig && (
-                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", domainConfig.containerColor, domainConfig.textColor)}>
+                      <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold', domainConfig.containerColor, domainConfig.textColor)}>
                         {domainConfig.label}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-on-surface-variant">
-                    <span>{ACTIVITY_TYPES.find(t => t.value === assignment.activityType)?.label || assignment.activityType}</span>
+                  <div className="mt-1 flex items-center gap-3 text-xs text-on-surface-variant">
+                    <span>{ACTIVITY_TYPES.find((t) => t.value === assignment.activityType)?.label || assignment.activityType}</span>
                     {isCompleted && assignment.score != null && (
-                      <span className="text-[#2e7d32] font-bold">得分: {assignment.score}</span>
+                      <span className="font-bold text-on-success-container">得分: {assignment.score}</span>
                     )}
                     {assignment.createdAt && (
                       <span>{new Date(assignment.createdAt).toLocaleDateString('zh-CN')}</span>
                     )}
                   </div>
                 </div>
+
                 <div className={cn(
-                  "px-3 py-1 rounded-full text-xs font-bold shrink-0",
-                  isCompleted ? "bg-[#e8f5e9] text-[#2e7d32]" : "bg-primary-container text-on-primary-container"
-                )}>
+                  'shrink-0 rounded-full px-3 py-1 text-xs font-bold',
+                  isCompleted ? 'bg-success-container text-on-success-container' : 'bg-primary-container text-on-primary-container',
+                )}
+                >
                   {isCompleted ? '已完成' : '待完成'}
                 </div>
               </div>
@@ -248,11 +240,10 @@ export default function AssignmentManager({
           })}
         </div>
       ) : (
-        /* Bug fix: empty state */
-        <div className="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 text-center">
-          <Inbox className="w-12 h-12 mx-auto text-on-surface-variant opacity-30" />
-          <p className="mt-3 text-on-surface-variant font-medium">还没有布置任务</p>
-          <p className="mt-1 text-sm text-on-surface-variant opacity-60">点击上方"布置任务"按钮为孩子创建学习任务</p>
+        <div className="panel-card p-8 text-center">
+          <Inbox className="mx-auto h-12 w-12 text-on-surface-variant opacity-30" />
+          <p className="mt-3 font-medium text-on-surface-variant">还没有布置任务</p>
+          <p className="mt-1 text-sm text-on-surface-variant/70">点击上方“布置任务”按钮为孩子创建学习任务</p>
         </div>
       )}
     </section>

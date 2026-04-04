@@ -252,9 +252,9 @@ class ApiService {
     });
   }
 
-  // Voice TTS
-  getTTSUrl(text: string): string {
-    return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}`;
+  // Voice TTS - returns audio stream URL
+  getTTSUrl(text: string, voice: string = 'zh-CN-XiaoxiaoNeural'): string {
+    return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`;
   }
 
   // Notifications

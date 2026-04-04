@@ -28,16 +28,16 @@ interface GrowthReportSectionProps {
 
 function SkeletonCard() {
   return (
-    <div className="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 shadow-sm animate-pulse">
-      <div className="flex justify-between items-start mb-8">
+    <div className="panel-card p-8 animate-shimmer">
+      <div className="mb-8 flex items-start justify-between">
         <div>
-          <div className="h-7 w-28 bg-surface-container rounded mb-2" />
-          <div className="h-4 w-36 bg-surface-container rounded" />
+          <div className="mb-2 h-7 w-28 rounded bg-surface-container" />
+          <div className="h-4 w-36 rounded bg-surface-container" />
         </div>
-        <div className="h-6 w-14 bg-surface-container rounded-full" />
+        <div className="h-6 w-14 rounded-full bg-surface-container" />
       </div>
-      <div className="h-64 mt-4 bg-surface-container rounded-xl" />
-      <div className="mt-6 h-12 bg-surface-container rounded-xl" />
+      <div className="mt-4 h-64 rounded-xl bg-surface-container" />
+      <div className="mt-6 h-12 rounded-xl bg-surface-container" />
     </div>
   );
 }
@@ -52,22 +52,17 @@ export default function GrowthReportSection({
 }: GrowthReportSectionProps) {
   return (
     <section aria-label="成长报告">
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        {/* Main Growth Chart */}
-        <div className="md:col-span-8 bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 shadow-sm">
-          <div className="flex justify-between items-start mb-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <div className="panel-card md:col-span-8 p-5 md:p-7">
+          <div className="mb-6 flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-on-secondary-container">成长报告</h2>
-              <p className="text-on-surface-variant">本周学习时长统计</p>
+              <h2 className="text-2xl font-black text-on-surface">成长报告</h2>
+              <p className="text-sm text-on-surface-variant">本周学习时长统计</p>
             </div>
-            <span className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full">近7天</span>
+            <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-bold text-on-secondary-container">近7天</span>
           </div>
 
-          <div
-            className="h-64 mt-4"
-            role="img"
-            aria-label={`本周学习时长柱状图，共${chartData.length}天数据`}
-          >
+          <div className="h-64" role="img" aria-label={`本周学习时长柱状图，共${chartData.length}天数据`}>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
@@ -83,49 +78,47 @@ export default function GrowthReportSection({
                   />
                   <Bar dataKey="time" radius={[8, 8, 0, 0]}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.time === Math.max(...chartData.map(d => d.time)) ? '#006384' : '#f8e999'} />
+                      <Cell key={`cell-${index}`} fill={entry.time === Math.max(...chartData.map((d) => d.time)) ? '#006384' : '#f8e999'} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-on-surface-variant">
+              <div className="flex h-full items-center justify-center text-on-surface-variant">
                 <p>暂无学习数据</p>
               </div>
             )}
           </div>
 
-          {/* View Full Report Button */}
           <button
             onClick={onViewFullReport}
-            className="mt-6 w-full bg-on-secondary-container text-white px-6 py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-on-secondary-container px-6 py-3 font-bold text-white transition-all hover:brightness-110"
           >
             查看完整学习报告
-            <ArrowRight className="w-5 h-5" />
+            <ArrowRight className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Achievement Summary */}
-        <div className="md:col-span-4 flex flex-col gap-6">
-          <div className="flex-1 bg-on-secondary-container text-on-secondary rounded-2xl p-6 relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-lg font-bold opacity-80">总学习成就</h3>
-              <p className="text-5xl font-black mt-2">{totalScore.toLocaleString()} <span className="text-lg font-medium opacity-60">积分</span></p>
-              <div className="mt-8 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-primary-container" />
-                <span className="text-sm font-bold">继续加油，超越自我！</span>
-              </div>
+        <div className="md:col-span-4 flex flex-col gap-4">
+          <div className="panel-card-strong flex-1 overflow-hidden bg-on-secondary-container p-6 text-on-secondary">
+            <h3 className="text-sm font-bold opacity-80">累计成长积分</h3>
+            <p className="mt-2 text-4xl font-black">
+              {totalScore.toLocaleString()}
+              <span className="ml-2 text-lg font-semibold opacity-60">分</span>
+            </p>
+            <div className="mt-6 flex items-center gap-2 text-sm font-bold">
+              <Trophy className="h-5 w-5 text-primary-container" />
+              持续学习可解锁更多成就
             </div>
-            <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-primary-container/20 rounded-full blur-2xl"></div>
           </div>
 
-          <div className="flex-1 bg-surface-container-low rounded-2xl p-6 border border-outline-variant/10">
-            <h3 className="text-lg font-bold">最近掌握</h3>
-            <div className="mt-4 space-y-3">
+          <div className="panel-card flex-1 p-6">
+            <h3 className="text-lg font-black text-on-surface">最近掌握</h3>
+            <div className="mt-4 space-y-2.5">
               {recentMastered.length > 0 ? recentMastered.map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className={cn("w-2 h-2 rounded-full", item.color)}></div>
-                  <span className="text-sm font-medium">{item.label}</span>
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className={cn('h-2 w-2 rounded-full', item.color)} />
+                  <span className="text-sm font-medium text-on-surface">{item.label}</span>
                 </div>
               )) : (
                 <p className="text-sm text-on-surface-variant">暂无数据</p>

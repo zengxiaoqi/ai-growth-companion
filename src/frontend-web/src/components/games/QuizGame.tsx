@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
+import { useGameVoice } from '@/hooks/useGameVoice';
 import GameCompletionScreen from './GameCompletionScreen';
 import type { ReviewItem } from './GameCompletionScreen';
 
@@ -19,21 +20,39 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   const [correctCount, setCorrectCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
+  const { speak } = useGameVoice();
 
   const current = questions[currentIndex];
   const total = questions.length;
 
+  // Read question aloud when it appears
+  useEffect(() => {
+    if (current?.question && !isFinished) {
+      const opts = (current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。');
+      speak(`${current.question}。选项有：${opts}`);
+    }
+  }, [currentIndex, isFinished]);
+
   const handleSelect = useCallback((idx: number) => {
     if (isRevealed) return;
     setSelectedOption(idx);
-  }, [isRevealed]);
+    // Read the selected option
+    if (current?.options?.[idx]) {
+      speak(current.options[idx]);
+    }
+  }, [isRevealed, current, speak]);
 
   const handleSubmit = useCallback(() => {
     if (selectedOption === null || !current) return;
     setIsRevealed(true);
     setUserAnswers((prev) => [...prev, selectedOption]);
-    if (selectedOption === current.correctIndex) setCorrectCount((c) => c + 1);
-  }, [selectedOption, current]);
+    if (selectedOption === current.correctIndex) {
+      setCorrectCount((c) => c + 1);
+      speak('太棒了，答对了！');
+    } else {
+      speak(`加油哦！正确答案是${current.options[current.correctIndex]}`);
+    }
+  }, [selectedOption, current, speak]);
 
   const handleNext = useCallback(() => {
     if (currentIndex >= total - 1) {
@@ -79,7 +98,14 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
       <AnimatePresence mode="wait">
         <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
           className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 space-y-4">
-          <h4 className="text-lg font-black text-on-surface">{current.question}</h4>
+          <div className="flex items-start gap-2">
+            <h4 className="text-lg font-black text-on-surface flex-1">{current.question}</h4>
+            <button onClick={() => current.question && speak(`${current.question}。${(current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。')}`)}
+              className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary-container hover:bg-primary-container/80 transition-colors"
+              aria-label="朗读题目">
+              <Volume2 className="w-4 h-4" />
+            </button>
+          </div>
           <div className="space-y-2">
             {current.options.map((opt: string, idx: number) => {
               const isCorrect = idx === current.correctIndex;
@@ -90,16 +116,16 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
                   aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
                   className={cn(
                     'w-full text-left px-4 py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px]',
-                    isRevealed && isCorrect && 'bg-[#e8f5e9] border-[#4caf50] text-[#2e7d32]',
-                    isRevealed && isSelected && !isCorrect && 'bg-[#ffebee] border-[#f44336] text-[#c62828]',
+                    isRevealed && isCorrect && 'bg-success-container border-success text-on-success-container',
+                    isRevealed && isSelected && !isCorrect && 'bg-danger-container border-danger text-on-danger-container',
                     !isRevealed && isSelected && 'bg-primary-container/30 border-primary text-on-surface',
                     !isRevealed && !isSelected && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
                     isRevealed && !isCorrect && !isSelected && 'opacity-50',
                   )}>
                   <span className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
-                    isRevealed && isCorrect && 'bg-[#4caf50] text-white',
-                    isRevealed && isSelected && !isCorrect && 'bg-[#f44336] text-white',
+                    isRevealed && isCorrect && 'bg-success text-on-success',
+                    isRevealed && isSelected && 'bg-danger text-on-danger',
                     !isRevealed && isSelected && 'bg-primary text-on-primary',
                     !isRevealed && !isSelected && 'bg-primary-container text-on-primary-container',
                   )}>
@@ -115,7 +141,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
           {isRevealed && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               className={cn('rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
-                selectedOption === current.correctIndex ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fff8e1] text-[#e65100]')}>
+                selectedOption === current.correctIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
               {selectedOption === current.correctIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
             </motion.div>
           )}

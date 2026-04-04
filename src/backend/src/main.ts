@@ -1,10 +1,13 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { loggerConfig } from './common/logger.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: loggerConfig,
+  });
   
   // 全局前缀
   app.setGlobalPrefix('api');
@@ -34,7 +37,8 @@ async function bootstrap() {
   
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`🚀 灵犀伴学 API 已启动: http://localhost:${port}`);
-  console.log(`📚 Swagger 文档: http://localhost:${port}/api/docs`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`灵犀伴学 API 已启动: http://localhost:${port}`);
+  logger.log(`Swagger 文档: http://localhost:${port}/api/docs`);
 }
 bootstrap();

@@ -33,12 +33,14 @@ const PERIOD_TABS: { key: Period; label: string }[] = [
   { key: 'monthly', label: '月报' },
 ];
 
+import { DOMAIN_CONFIG as PARENT_DOMAIN_CONFIG } from './parent/constants';
+
 const DOMAIN_CONFIG: Record<string, { label: string; color: string; textColor: string }> = {
-  language: { label: '语言', color: 'bg-secondary', textColor: 'text-on-secondary-container' },
-  math: { label: '数学', color: 'bg-tertiary', textColor: 'text-on-tertiary-container' },
-  science: { label: '科学', color: 'bg-primary', textColor: 'text-on-primary-container' },
-  art: { label: '艺术', color: 'bg-surface-container-high', textColor: 'text-on-surface' },
-  social: { label: '社会', color: 'bg-error', textColor: 'text-error' },
+  language: { label: PARENT_DOMAIN_CONFIG.language.label, color: PARENT_DOMAIN_CONFIG.language.color, textColor: PARENT_DOMAIN_CONFIG.language.textColor },
+  math: { label: PARENT_DOMAIN_CONFIG.math.label, color: PARENT_DOMAIN_CONFIG.math.color, textColor: PARENT_DOMAIN_CONFIG.math.textColor },
+  science: { label: PARENT_DOMAIN_CONFIG.science.label, color: PARENT_DOMAIN_CONFIG.science.color, textColor: PARENT_DOMAIN_CONFIG.science.textColor },
+  art: { label: PARENT_DOMAIN_CONFIG.art.label, color: PARENT_DOMAIN_CONFIG.art.color, textColor: PARENT_DOMAIN_CONFIG.art.textColor },
+  social: { label: PARENT_DOMAIN_CONFIG.social.label, color: PARENT_DOMAIN_CONFIG.social.color, textColor: PARENT_DOMAIN_CONFIG.social.textColor },
 };
 
 interface ReportDetailProps {

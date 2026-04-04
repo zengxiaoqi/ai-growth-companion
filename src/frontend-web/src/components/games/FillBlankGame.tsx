@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
+import { useGameVoice } from '@/hooks/useGameVoice';
 import GameCompletionScreen from './GameCompletionScreen';
 import type { ReviewItem } from './GameCompletionScreen';
 
@@ -19,21 +20,37 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
   const [correctCount, setCorrectCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
+  const { speak } = useGameVoice();
 
   const current = sentences[currentIndex];
   const total = sentences.length;
 
+  // Read sentence aloud when it appears
+  useEffect(() => {
+    if (current?.text && !isFinished) {
+      const blankText = current.text.replace('___', '什么');
+      const opts = (current.options || []).join('、');
+      speak(`${blankText}。选项有：${opts}`);
+    }
+  }, [currentIndex, isFinished]);
+
   const handleSelect = useCallback((option: string) => {
     if (isRevealed) return;
     setSelected(option);
-  }, [isRevealed]);
+    speak(option);
+  }, [isRevealed, speak]);
 
   const handleSubmit = useCallback(() => {
     if (selected === null || !current) return;
     setIsRevealed(true);
     setUserAnswers((prev) => [...prev, selected]);
-    if (selected === current.answer) setCorrectCount((c) => c + 1);
-  }, [selected, current]);
+    if (selected === current.answer) {
+      setCorrectCount((c) => c + 1);
+      speak('太棒了，答对了！');
+    } else {
+      speak(`加油哦！正确答案是${current.answer}`);
+    }
+  }, [selected, current, speak]);
 
   const handleNext = useCallback(() => {
     if (currentIndex >= total - 1) {
@@ -72,8 +89,8 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
         {i < parts.length - 1 && (
           <span className={cn(
             'inline-block min-w-[3em] border-b-2 px-1 text-center font-bold',
-            isRevealed && isCorrect ? 'border-[#4caf50] text-[#2e7d32]' :
-            isRevealed ? 'border-[#f44336] text-[#c62828]' :
+            isRevealed && isCorrect ? 'border-success text-on-success-container' :
+            isRevealed ? 'border-danger text-on-danger-container' :
             'border-primary text-primary',
           )}>
             {selected || '???'}
@@ -96,7 +113,18 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
       <AnimatePresence mode="wait">
         <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
           className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15 space-y-5">
-          <div className="text-xl font-black text-on-surface leading-relaxed">{renderText(current.text)}</div>
+          <div className="flex items-start gap-2">
+            <div className="text-xl font-black text-on-surface leading-relaxed flex-1">{renderText(current.text)}</div>
+            <button onClick={() => {
+              const blankText = current.text.replace('___', '什么');
+              const opts = (current.options || []).join('、');
+              speak(`${blankText}。选项有：${opts}`);
+            }}
+              className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary-container hover:bg-primary-container/80 transition-colors"
+              aria-label="朗读题目">
+              <Volume2 className="w-4 h-4" />
+            </button>
+          </div>
 
           {current.hint && !isRevealed && (
             <p className="text-sm text-on-surface-variant bg-tertiary-container/30 rounded-lg px-3 py-2">
@@ -112,8 +140,8 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
                 className={cn(
                   'px-5 py-4 rounded-xl border-2 font-bold text-lg transition-all min-h-[48px]',
                   !isRevealed && opt === selected && 'bg-primary-container/30 border-primary text-on-surface',
-                  isRevealed && opt === current.answer ? 'bg-[#e8f5e9] border-[#4caf50] text-[#2e7d32]' :
-                  isRevealed && opt === selected ? 'bg-[#ffebee] border-[#f44336] text-[#c62828]' :
+                  isRevealed && opt === current.answer ? 'bg-success-container border-success text-on-success-container' :
+                  isRevealed && opt === selected ? 'bg-danger-container border-danger text-on-danger-container' :
                   !isRevealed && opt !== selected ? 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50' :
                   'bg-surface-container border-outline-variant/30 text-on-surface',
                   isRevealed && opt !== current.answer && opt !== selected && 'opacity-50',

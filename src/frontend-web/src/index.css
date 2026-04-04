@@ -71,6 +71,47 @@
 @layer base {
   :root {
     color-scheme: light;
+    --app-audio-volume: 0.8;
+  }
+
+  html[data-font-size="large"] {
+    font-size: 18px;
+  }
+
+  :root.theme-dark {
+    color-scheme: dark;
+    --color-background: #1f1f17;
+    --color-surface: #25251c;
+    --color-on-surface: #f2efcf;
+    --color-on-surface-variant: #d3cca2;
+
+    --color-primary: #f7ca40;
+    --color-on-primary: #3c2f00;
+    --color-primary-container: #705900;
+    --color-on-primary-container: #fff2d4;
+
+    --color-secondary: #7cd3ff;
+    --color-on-secondary: #00344a;
+    --color-secondary-container: #005777;
+    --color-on-secondary-container: #def4ff;
+
+    --color-tertiary: #d4e160;
+    --color-on-tertiary: #303500;
+    --color-tertiary-container: #586000;
+    --color-on-tertiary-container: #eefc6f;
+
+    --color-surface-container: #2f2e21;
+    --color-surface-container-low: #2a291d;
+    --color-surface-container-lowest: #232218;
+    --color-surface-container-high: #363524;
+    --color-surface-container-highest: #3f3e2a;
+
+    --color-outline: #9c9358;
+    --color-outline-variant: #6f673b;
+
+    --color-error: #ff8a66;
+    --color-error-container: #702410;
+    --color-error-dim: #d6471d;
   }
 
   * {
@@ -84,6 +125,13 @@
       radial-gradient(circle at 88% 6%, rgb(151 218 255 / 0.28), transparent 38%),
       linear-gradient(180deg, #fff7d5 0%, #fff2bf 48%, #ffeeb5 100%);
     min-height: 100vh;
+  }
+
+  :root.theme-dark body {
+    background-image:
+      radial-gradient(circle at 12% 10%, rgb(112 89 0 / 0.35), transparent 34%),
+      radial-gradient(circle at 88% 6%, rgb(0 99 132 / 0.28), transparent 38%),
+      linear-gradient(180deg, #1f1f17 0%, #222219 48%, #25251c 100%);
   }
 
   button {

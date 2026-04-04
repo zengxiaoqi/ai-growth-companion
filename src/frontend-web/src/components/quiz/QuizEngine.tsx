@@ -50,6 +50,15 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
   const currentQuestion = allQuestions[currentIndex];
   const totalQuestions = allQuestions.length;
   const isLastQuestion = currentIndex === totalQuestions - 1;
+  const getAnswerIndex = useCallback((question: QuizQuestion) => {
+    const raw = Number((question as any).answer);
+    const optionsLen = Array.isArray(question.options) ? question.options.length : 0;
+    if (Number.isFinite(raw) && raw >= 0 && raw < optionsLen) return Math.trunc(raw);
+    const oneBased = Math.trunc(raw) - 1;
+    if (Number.isFinite(oneBased) && oneBased >= 0 && oneBased < optionsLen) return oneBased;
+    return 0;
+  }, []);
+  const currentAnswerIndex = currentQuestion ? getAnswerIndex(currentQuestion as QuizQuestion) : 0;
 
   const handleSelect = useCallback(
     (optionIndex: number) => {
@@ -58,7 +67,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
       setSelectedOption(optionIndex);
       setIsRevealed(true);
 
-      const isCorrect = optionIndex === currentQuestion.answer;
+      const isCorrect = optionIndex === currentAnswerIndex;
       if (isCorrect) {
         setCorrectCount((prev) => prev + 1);
       }
@@ -72,7 +81,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
         },
       ]);
     },
-    [currentQuestion, isRevealed]
+    [currentQuestion, isRevealed, currentAnswerIndex]
   );
 
   const handleNext = useCallback(() => {
@@ -237,7 +246,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           <fieldset className="space-y-3 border-0 p-0 m-0">
             <legend className="sr-only">选择答案</legend>
             {currentQuestion.options.map((option, idx) => {
-              const isCorrectOption = idx === currentQuestion.answer;
+              const isCorrectOption = idx === currentAnswerIndex;
               const isSelected = idx === selectedOption;
               const showCorrect = isRevealed && isCorrectOption;
               const showWrong = isRevealed && isSelected && !isCorrectOption;
@@ -306,12 +315,12 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                 aria-live="polite"
                 className={cn(
                   'rounded-xl p-4 text-center font-bold text-lg flex items-center justify-center gap-2',
-                  selectedOption === currentQuestion.answer
+                  selectedOption === currentAnswerIndex
                     ? 'bg-[#e8f5e9] text-[#2e7d32]'
                     : 'bg-[#fff8e1] text-[#e65100]'
                 )}
               >
-                {selectedOption === currentQuestion.answer ? (
+                {selectedOption === currentAnswerIndex ? (
                   <>
                     <Sparkles className="w-5 h-5" />
                     太棒了！

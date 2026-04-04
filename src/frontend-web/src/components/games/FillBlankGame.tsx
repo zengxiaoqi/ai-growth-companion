@@ -63,8 +63,21 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
   }, [currentIndex, total]);
 
   const handleDismiss = useCallback(() => {
-    onComplete({ score: correctCount, totalQuestions: total, correctAnswers: correctCount, interactionData: { sentences } });
-  }, [correctCount, total, onComplete, sentences]);
+    const reviewData: ReviewItem[] = sentences.map((s: any, i: number) => ({
+      question: s.text.replace('___', '______'),
+      userAnswer: userAnswers[i] ?? '未作答',
+      correctAnswer: s.answer,
+      isCorrect: userAnswers[i] === s.answer,
+      explanation: s.hint,
+    }));
+
+    onComplete({
+      score: correctCount,
+      totalQuestions: total,
+      correctAnswers: correctCount,
+      interactionData: { sentences, userAnswers, reviewData },
+    });
+  }, [correctCount, total, onComplete, sentences, userAnswers]);
 
   if (sentences.length === 0) return <div className="p-4 text-on-surface-variant" role="status">暂无题目</div>;
   if (isFinished) {

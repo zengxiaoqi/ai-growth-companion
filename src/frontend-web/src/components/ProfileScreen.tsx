@@ -34,11 +34,13 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
     setIsSaving(true);
     setError(null);
     try {
-      await api.updateUser(user.id, {
-        nickname: name,
+      const updated = await api.updateUser(user.id, {
+        name,
         avatar,
         ...(age ? { age: parseInt(age) } : {}),
       });
+      localStorage.setItem('auth_user', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('user-settings-updated', { detail: updated }));
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err: any) {

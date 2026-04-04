@@ -166,6 +166,82 @@ export class ConversationManager {
     this.activeSessions.delete(sessionId);
   }
 
+  async getConversationByUuid(sessionId: string): Promise<Conversation | null> {
+    return this.conversationRepo.findOne({
+      where: { uuid: sessionId },
+    });
+  }
+
+  async listSessions(params: { childId: number; page?: number; limit?: number }) {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(50, Math.max(1, params.limit || 20));
+
+    const [list, total] = await this.conversationRepo.findAndCount({
+      where: { childId: params.childId },
+      order: { updatedAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    const sessionIds = list.map((item) => item.id);
+    const messageCountMap = new Map<number, number>();
+
+    if (sessionIds.length > 0) {
+      const rows = await this.messageRepo
+        .createQueryBuilder('m')
+        .select('m.conversationId', 'conversationId')
+        .addSelect('COUNT(*)', 'count')
+        .where('m.conversationId IN (:...ids)', { ids: sessionIds })
+        .groupBy('m.conversationId')
+        .getRawMany();
+
+      for (const row of rows) {
+        messageCountMap.set(Number(row.conversationId), Number(row.count));
+      }
+    }
+
+    return {
+      list: list.map((item) => ({
+        id: item.id,
+        uuid: item.uuid,
+        childId: item.childId,
+        status: item.status,
+        metadata: item.metadata,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        messageCount: messageCountMap.get(item.id) || 0,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getSessionMessages(params: { sessionId: string; page?: number; limit?: number }) {
+    const conversation = await this.getConversationByUuid(params.sessionId);
+    if (!conversation) {
+      return { conversation: null, list: [], total: 0, page: 1, limit: 20 };
+    }
+
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(200, Math.max(1, params.limit || 50));
+    const [rows, total] = await this.messageRepo.findAndCount({
+      where: { conversationId: conversation.id },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    const list = [...rows].reverse();
+    return {
+      conversation,
+      list,
+      total,
+      page,
+      limit,
+    };
+  }
+
   /** Get conversation history for display */
   async getHistory(childId: number, limit = 50): Promise<ConversationMessage[]> {
     const conv = await this.conversationRepo.findOne({

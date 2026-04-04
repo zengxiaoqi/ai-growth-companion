@@ -11,7 +11,28 @@ function isFunctionToolCall(tc: any): tc is ChatCompletionMessageFunctionToolCal
   return tc && tc.type === 'function' && tc.function;
 }
 
-const MAX_TOOL_ITERATIONS = 5;
+const MAX_TOOL_ITERATIONS = 8;
+const CHILD_ID_TOOLS = new Set([
+  'getUserProfile',
+  'getAbilities',
+  'getLearningHistory',
+  'getRecommendations',
+  'recordLearning',
+  'getParentControl',
+  'viewReport',
+  'viewAbilities',
+  'listAssignments',
+]);
+const PARENT_ID_TOOLS = new Set([
+  'listChildren',
+  'assignActivity',
+  'updateParentControl',
+]);
+const NEEDS_AGE_GROUP_TOOLS = new Set([
+  'generateQuiz',
+  'generateActivity',
+  'assignActivity',
+]);
 
 const THINK_CLOSE_TAG = '</think' + '>';
 
@@ -58,11 +79,23 @@ export class AgentExecutor {
   }
 
   /** Build system prompt based on age group */
-  buildSystemPrompt(ageGroup: AgeGroup | 'parent', childName: string): string {
-    if (ageGroup === 'parent') return systemPromptParent(childName);
-    if (ageGroup === '3-4') return systemPrompt34(childName);
-    if (ageGroup === '5-6') return systemPrompt56(childName);
-    return systemPrompt56(childName); // default to 5-6 style
+  buildSystemPrompt(
+    ageGroup: AgeGroup | 'parent',
+    childName: string,
+    executionContext?: { childId?: number; parentId?: number },
+  ): string {
+    const contextHints = [
+      '## Runtime Context',
+      executionContext?.childId != null ? `- Current childId: ${executionContext.childId}` : '',
+      executionContext?.parentId != null ? `- Current parentId: ${executionContext.parentId}` : '',
+      '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
+      '- If childId is already known, do not call listChildren only to discover childId.',
+    ].filter(Boolean).join('\n');
+
+    if (ageGroup === 'parent') return `${systemPromptParent(childName)}\n\n${contextHints}`;
+    if (ageGroup === '3-4') return `${systemPrompt34(childName)}\n\n${contextHints}`;
+    if (ageGroup === '5-6') return `${systemPrompt56(childName)}\n\n${contextHints}`;
+    return `${systemPrompt56(childName)}\n\n${contextHints}`; // default to 5-6 style
   }
 
   /**
@@ -73,12 +106,13 @@ export class AgentExecutor {
     userMessage: string,
     ageGroup: AgeGroup | 'parent',
     childName: string,
+    executionContext?: { childId?: number; parentId?: number },
   ): Promise<{ reply: string; toolCalls: ToolCallInfo[] }> {
     // Save user message
     await this.conversationManager.addMessage(sessionId, 'user', userMessage);
 
     // Build system prompt
-    const systemPrompt = this.buildSystemPrompt(ageGroup, childName);
+    const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
 
     // Load conversation history
     const history = await this.conversationManager.buildMessageArray(sessionId);
@@ -129,7 +163,8 @@ export class AgentExecutor {
             toolArgs = {};
           }
 
-          const result = await this.toolRegistry.execute(toolName, toolArgs);
+          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, ageGroup, executionContext);
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
 
           // Add tool result to messages
           messages.push({
@@ -146,7 +181,7 @@ export class AgentExecutor {
 
           toolCallLog.push({
             tool: toolName,
-            args: toolArgs,
+            args: normalizedToolArgs,
             resultSummary: result.slice(0, 100),
           });
         }
@@ -183,6 +218,7 @@ export class AgentExecutor {
     userMessage: string,
     ageGroup: AgeGroup | 'parent',
     childName: string,
+    executionContext?: { childId?: number; parentId?: number },
   ): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error' | 'game_data';
     content?: string;
@@ -197,7 +233,7 @@ export class AgentExecutor {
     // Save user message
     await this.conversationManager.addMessage(sessionId, 'user', userMessage);
 
-    const systemPrompt = this.buildSystemPrompt(ageGroup, childName);
+    const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
     const history = await this.conversationManager.buildMessageArray(sessionId);
     const messages: ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
@@ -241,17 +277,18 @@ export class AgentExecutor {
             toolArgs = {};
           }
 
-          yield { type: 'tool_start', content: toolName, toolName, toolArgs };
-          const result = await this.toolRegistry.execute(toolName, toolArgs);
-          yield { type: 'tool_result', content: toolName, toolName, toolArgs, toolResult: result };
+          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, ageGroup, executionContext);
+          yield { type: 'tool_start', content: toolName, toolName, toolArgs: normalizedToolArgs };
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
+          yield { type: 'tool_result', content: toolName, toolName, toolArgs: normalizedToolArgs, toolResult: result };
 
           // If this was generateActivity, emit game_data for frontend rendering
           if (toolName === 'generateActivity') {
             yield {
               type: 'game_data',
-              activityType: toolArgs.type,
+              activityType: normalizedToolArgs.type,
               gameData: result,
-              domain: toolArgs.domain || 'language',
+              domain: normalizedToolArgs.domain || 'language',
             } as any;
           }
 
@@ -266,7 +303,7 @@ export class AgentExecutor {
             toolName,
           });
 
-          toolCallLog.push({ tool: toolName, args: toolArgs, resultSummary: result.slice(0, 100) });
+          toolCallLog.push({ tool: toolName, args: normalizedToolArgs, resultSummary: result.slice(0, 100) });
         }
         continue;
       }
@@ -316,5 +353,30 @@ export class AgentExecutor {
     // Fallback
     yield { type: 'token', content: '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟' };
     yield { type: 'done', sessionId, toolCalls: toolCallLog };
+  }
+
+  private normalizeToolArgs(
+    toolName: string,
+    toolArgs: Record<string, any>,
+    ageGroup: AgeGroup | 'parent',
+    executionContext?: { childId?: number; parentId?: number },
+  ): Record<string, any> {
+    const normalized = { ...toolArgs };
+
+    if (executionContext?.childId != null && CHILD_ID_TOOLS.has(toolName) && normalized.childId == null) {
+      normalized.childId = executionContext.childId;
+    }
+
+    if (executionContext?.parentId != null && PARENT_ID_TOOLS.has(toolName) && normalized.parentId == null) {
+      normalized.parentId = executionContext.parentId;
+    }
+
+    if (NEEDS_AGE_GROUP_TOOLS.has(toolName) && normalized.ageGroup == null) {
+      if (ageGroup === '3-4' || ageGroup === '5-6') {
+        normalized.ageGroup = ageGroup;
+      }
+    }
+
+    return normalized;
   }
 }

@@ -63,4 +63,13 @@ export class UsersService {
     child.parentId = parentId;
     return this.usersRepository.save(child);
   }
+
+  async canAccessChild(viewerId: number, viewerType: string, childId: number): Promise<boolean> {
+    if (viewerType === 'child') return viewerId === childId;
+    if (viewerType === 'parent') {
+      const child = await this.findById(childId);
+      return Boolean(child && child.parentId === viewerId);
+    }
+    return false;
+  }
 }

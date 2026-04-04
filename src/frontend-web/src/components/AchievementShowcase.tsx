@@ -21,11 +21,23 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
-import type { Achievement } from '@/types';
+import type { Achievement, AchievementDisplay } from '@/types';
 
 interface AchievementShowcaseProps {
   onBack: () => void;
   userId: number;
+}
+
+type AchievementItem = Achievement & Partial<AchievementDisplay>;
+
+interface NormalizedAchievement {
+  id: number;
+  name: string;
+  description: string;
+  icon?: string;
+  unlockedAt?: string;
+  progress: number;
+  totalRequired: number;
 }
 
 // Map icon string from API to lucide component
@@ -64,16 +76,38 @@ const badgeColors = [
 ];
 
 export default function AchievementShowcase({ onBack, userId }: AchievementShowcaseProps) {
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [achievements, setAchievements] = useState<AchievementItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const normalizeAchievement = useCallback((item: AchievementItem): NormalizedAchievement => {
+    const unlockedAt = item.unlockedAt ?? item.earnedAt;
+    const name = item.name ?? item.achievementName ?? '未命名成就';
+    const description = item.description ?? '';
+    const totalRequired = item.totalRequired && item.totalRequired > 0 ? item.totalRequired : 1;
+    const progress = typeof item.progress === 'number'
+      ? item.progress
+      : unlockedAt
+        ? totalRequired
+        : 0;
+
+    return {
+      id: item.id,
+      name,
+      description,
+      icon: item.icon,
+      unlockedAt,
+      progress,
+      totalRequired,
+    };
+  }, []);
 
   const fetchAchievements = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await api.getAchievements(userId);
+      const data = await api.getAchievements(userId) as AchievementItem[];
       setAchievements(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch achievements:', err);
@@ -95,10 +129,11 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   }, []);
 
   // Derived stats
-  const unlockedCount = achievements.filter((a) => a.unlockedAt).length;
-  const totalCount = achievements.length;
+  const normalizedAchievements = achievements.map(normalizeAchievement);
+  const unlockedCount = normalizedAchievements.filter((a) => a.unlockedAt).length;
+  const totalCount = normalizedAchievements.length;
   const totalStars = unlockedCount * 3; // 3 stars per unlocked achievement
-  const totalPoints = achievements.reduce(
+  const totalPoints = normalizedAchievements.reduce(
     (sum, a) => sum + (a.unlockedAt ? a.totalRequired * 10 : a.progress),
     0
   );
@@ -274,7 +309,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
             成就徽章
           </h3>
 
-          {achievements.length === 0 ? (
+          {normalizedAchievements.length === 0 ? (
             <div className="bg-surface-container-lowest rounded-2xl p-12 border border-outline-variant/15 text-center">
               <Sparkles className="w-12 h-12 text-outline-variant mx-auto mb-4" />
               <p className="text-on-surface-variant font-bold">还没有成就</p>
@@ -282,7 +317,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {achievements.map((achievement, idx) => {
+              {normalizedAchievements.map((achievement, idx) => {
                 const isUnlocked = !!achievement.unlockedAt;
                 const IconComponent = getIcon(achievement.icon, idx);
                 const colorSet = badgeColors[idx % badgeColors.length];

@@ -25,9 +25,26 @@ import type {
   EmergencyCall,
   TodayStatsWithSources,
   AchievementDisplay,
+  LearningPoint,
+  WrongQuestion,
+  StudyPlanRecord,
+  ConversationSession,
+  ConversationMessageHistory,
 } from '@/types';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = (() => {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (fromEnv && fromEnv.trim()) {
+    return fromEnv.replace(/\/$/, '');
+  }
+
+  if (typeof window !== 'undefined') {
+    const backendProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${backendProtocol}//${window.location.hostname}:3000/api`;
+  }
+
+  return 'http://localhost:3000/api';
+})();
 
 class ApiService {
   private token: string | null = null;
@@ -62,10 +79,33 @@ class ApiService {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    const controller = new AbortController();
+    const timeoutMs = 20000;
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        controller.abort();
+      } else {
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('请求超时，请检查网络连接或后端服务是否可访问');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
@@ -120,7 +160,7 @@ class ApiService {
 
   async updateUser(id: number, data: UpdateUserRequest): Promise<User> {
     return this.request<User>(`/users/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
@@ -327,7 +367,23 @@ class ApiService {
     return this.request<TodayStatsWithSources>(`/learning/today-detail/${userId}`);
   }
 
-  async recordActivity(data: { childId: number; domain: string; score: number; durationSeconds?: number }): Promise<{
+  async recordActivity(data: {
+    childId: number;
+    domain: string;
+    score: number;
+    durationSeconds?: number;
+    sessionId?: string;
+    activityType?: string;
+    interactionData?: Record<string, any>;
+    reviewItems?: Array<{
+      question: string;
+      userAnswer?: string;
+      correctAnswer?: string;
+      isCorrect: boolean;
+      explanation?: string;
+    }>;
+    topic?: string;
+  }): Promise<{
     success: boolean;
     recordId: number;
     abilityUpdated: boolean;
@@ -337,6 +393,78 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async getLearningPoints(
+    childId: number,
+    params?: {
+      domain?: string;
+      status?: 'cooldown' | 'available';
+      from?: string;
+      to?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{ list: LearningPoint[]; total: number; page: number; limit: number }> {
+    const search = new URLSearchParams();
+    if (params?.domain) search.set('domain', params.domain);
+    if (params?.status) search.set('status', params.status);
+    if (params?.from) search.set('from', params.from);
+    if (params?.to) search.set('to', params.to);
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/learning/points/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+  }
+
+  async getWrongQuestions(
+    childId: number,
+    params?: { domain?: string; status?: string; page?: number; limit?: number },
+  ): Promise<{ list: WrongQuestion[]; total: number; page: number; limit: number }> {
+    const search = new URLSearchParams();
+    if (params?.domain) search.set('domain', params.domain);
+    if (params?.status) search.set('status', params.status);
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/learning/wrong-questions/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+  }
+
+  async getStudyPlans(
+    childId: number,
+    params?: { sourceType?: string; page?: number; limit?: number },
+  ): Promise<{ list: StudyPlanRecord[]; total: number; page: number; limit: number }> {
+    const search = new URLSearchParams();
+    if (params?.sourceType) search.set('sourceType', params.sourceType);
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/learning/plans/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+  }
+
+  async getConversationSessions(
+    childId: number,
+    params?: { page?: number; limit?: number },
+  ): Promise<{ list: ConversationSession[]; total: number; page: number; limit: number }> {
+    const search = new URLSearchParams();
+    search.set('childId', String(childId));
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/ai/history/sessions?${search.toString()}`);
+  }
+
+  async getConversationMessages(
+    sessionId: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<{
+    sessionId: string;
+    childId?: number;
+    list: ConversationMessageHistory[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const search = new URLSearchParams();
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/ai/history/sessions/${encodeURIComponent(sessionId)}/messages${search.toString() ? `?${search.toString()}` : ''}`);
   }
 
   async getAchievementDisplays(userId: number): Promise<AchievementDisplay[]> {

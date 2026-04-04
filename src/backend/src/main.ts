@@ -35,8 +35,9 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  const port = Number(process.env.PORT || 3000);
+  const host = process.env.HOST || '0.0.0.0';
+  await app.listen(port, host);
   const logger = new Logger('Bootstrap');
   logger.log(`灵犀伴学 API 已启动: http://localhost:${port}`);
   logger.log(`Swagger 文档: http://localhost:${port}/api/docs`);

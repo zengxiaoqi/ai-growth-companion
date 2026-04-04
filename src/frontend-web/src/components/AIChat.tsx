@@ -1,12 +1,26 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+﻿import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User, ChevronDown, ChevronRight, Brain, Wrench, Maximize2, Minimize2, GripVertical, ArrowLeft, Play, Mic, MicOff, Volume2, VolumeX, ArrowDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
-import type { ActivityType, ActivityData, ActivityResult, ActivityFeedback } from '@/types';
+import { getAudioVolume } from '@/lib/app-settings';
+import { resolveChatAvatarSettings } from '@/lib/app-settings';
+import { useAuth } from '@/contexts/AuthContext';
+import type {
+  ActivityType,
+  ActivityData,
+  ActivityResult,
+  ActivityFeedback,
+  LearningPoint,
+  WrongQuestion,
+  StudyPlanRecord,
+  ConversationSession,
+  ConversationMessageHistory,
+} from '@/types';
 import GameRenderer from './games/GameRenderer';
+import { normalizeActivityData } from './ai-chat/activity-normalizer';
 
 interface ToolStep {
   id: string;
@@ -37,6 +51,7 @@ interface Message {
   thinkingSteps: ThinkingStep[];
   toolSteps: ToolStep[];
   gameData?: GameData;
+  gameDataList?: GameData[];
 }
 
 /** Hook to manage TTS audio playback across messages */
@@ -60,6 +75,7 @@ function useVoicePlayback() {
     }
 
     const audio = new Audio(api.getTTSUrl(plainText));
+    audio.volume = getAudioVolume();
     audioRef.current = audio;
     setPlayingMsgId(msgId);
 
@@ -123,6 +139,16 @@ interface AIChatProps {
 }
 
 export default function AIChat({ childId, parentId, fullPage = false, onBack }: AIChatProps) {
+  const FAB_SIZE = 64;
+  const FAB_EDGE_MARGIN = 12;
+  const FAB_DEFAULT_RIGHT = 24;
+  const FAB_DEFAULT_BOTTOM = 220;
+
+  const starterPrompts = [
+    '帮我安排今天的学习计划',
+    '出3道数学小游戏',
+    '讲一个简短睡前故事',
+  ];
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -132,37 +158,189 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   const [isMaximized, setIsMaximized] = useState(false);
   const [size, setSize] = useState({ w: 384, h: 500 });
   const [expandedSections, setExpandedSections] = useState<Record<string, { thinking: boolean; tools: boolean }>>({});
-  const [activeGameMsgId, setActiveGameMsgId] = useState<string | null>(null);
+  const [activeGameKey, setActiveGameKey] = useState<string | null>(null);
   const [activityFeedback, setActivityFeedback] = useState<ActivityFeedback | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [autoRead, setAutoRead] = useState(false);
+  const [autoRead, setAutoRead] = useState(true);
+  const [showJumpButton, setShowJumpButton] = useState(false);
+  const [fabPosition, setFabPosition] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === 'undefined') return { x: FAB_EDGE_MARGIN, y: FAB_EDGE_MARGIN };
+    return {
+      x: Math.max(FAB_EDGE_MARGIN, window.innerWidth - FAB_SIZE - FAB_DEFAULT_RIGHT),
+      y: Math.max(FAB_EDGE_MARGIN, window.innerHeight - FAB_SIZE - FAB_DEFAULT_BOTTOM),
+    };
+  });
+  const [isFabDragging, setIsFabDragging] = useState(false);
+  const [viewMode, setViewMode] = useState<'chat' | 'archive'>('chat');
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [learningPoints, setLearningPoints] = useState<LearningPoint[]>([]);
+  const [wrongQuestions, setWrongQuestions] = useState<WrongQuestion[]>([]);
+  const [studyPlans, setStudyPlans] = useState<StudyPlanRecord[]>([]);
+  const [conversationSessions, setConversationSessions] = useState<ConversationSession[]>([]);
+  const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null);
+  const [historyMessages, setHistoryMessages] = useState<ConversationMessageHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [avatarState, setAvatarState] = useState<{ userAvatar?: string; aiAvatar?: string }>({});
+  const { user } = useAuth();
   const { playingMsgId, play: playMessage, stop: stopPlayback, toggle: togglePlayback } = useVoicePlayback();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fabDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    offsetX: number;
+    offsetY: number;
+    dragged: boolean;
+  } | null>(null);
+  const suppressFabClickRef = useRef(false);
   const dragControls = useDragControls();
   const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const hasVoiceInput = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const resolveAvatars = useCallback(() => {
+    const contextUser = user as { id?: number; avatar?: string; settings?: Record<string, unknown> } | null;
+    let localUser: { id?: number; avatar?: string; settings?: Record<string, unknown> } | null = null;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('auth_user');
+        if (raw) localUser = JSON.parse(raw);
+      } catch {
+        localUser = null;
+      }
+    }
 
-  useEffect(() => { scrollToBottom(); }, [messages]);
+    const baseUser =
+      localUser && contextUser?.id && localUser.id === contextUser.id
+        ? localUser
+        : (contextUser || localUser);
+    const avatarPrefs = resolveChatAvatarSettings(baseUser?.settings);
+
+    return {
+      userAvatar: avatarPrefs.userAvatar || baseUser?.avatar,
+      aiAvatar: avatarPrefs.aiAvatar,
+    };
+  }, [user]);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowJumpButton(distanceToBottom > 140);
+  }, []);
+
+  const clampFabPosition = useCallback((x: number, y: number) => {
+    if (typeof window === 'undefined') return { x, y };
+    const maxX = Math.max(FAB_EDGE_MARGIN, window.innerWidth - FAB_SIZE - FAB_EDGE_MARGIN);
+    const maxY = Math.max(FAB_EDGE_MARGIN, window.innerHeight - FAB_SIZE - FAB_EDGE_MARGIN);
+    return {
+      x: Math.min(Math.max(x, FAB_EDGE_MARGIN), maxX),
+      y: Math.min(Math.max(y, FAB_EDGE_MARGIN), maxY),
+    };
+  }, [FAB_EDGE_MARGIN, FAB_SIZE]);
+
+  const resizeInput = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+  useEffect(() => { resizeInput(); }, [input, resizeInput, isOpen, fullPage]);
+  useEffect(() => { setAvatarState(resolveAvatars()); }, [resolveAvatars]);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    const syncAvatars = () => setAvatarState(resolveAvatars());
+    window.addEventListener('user-settings-updated', syncAvatars as EventListener);
+    window.addEventListener('storage', syncAvatars);
+    return () => {
+      window.removeEventListener('user-settings-updated', syncAvatars as EventListener);
+      window.removeEventListener('storage', syncAvatars);
+    };
+  }, [resolveAvatars]);
+
+  useEffect(() => {
+    if (fullPage) return;
+    const syncFabPosition = () => {
+      setFabPosition((prev) => {
+        const clamped = clampFabPosition(prev.x, prev.y);
+        if (clamped.x === prev.x && clamped.y === prev.y) return prev;
+        return clamped;
+      });
+    };
+    syncFabPosition();
+    window.addEventListener('resize', syncFabPosition);
+    return () => window.removeEventListener('resize', syncFabPosition);
+  }, [fullPage, clampFabPosition]);
+
+  useEffect(() => {
+    if ((isOpen || fullPage) && messages.length === 0) {
       setMessages([{
         id: '1', role: 'assistant',
-        content: '你好呀！我是你的AI学习伙伴！有什么问题都可以问我哦~',
+        content: '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
         timestamp: new Date(), thinkingSteps: [], toolSteps: [],
       }]);
     }
-  }, [isOpen, messages.length]);
+  }, [isOpen, fullPage, messages.length]);
 
   useEffect(() => {
     if (isOpen || fullPage) setTimeout(() => inputRef.current?.focus(), 300);
   }, [isOpen, fullPage]);
+
+  const activeChildId = childId;
+  const userAvatarSrc = avatarState.userAvatar;
+  const aiAvatarSrc = avatarState.aiAvatar;
+
+  const loadArchiveData = useCallback(async () => {
+    if (!activeChildId) return;
+    setArchiveLoading(true);
+    try {
+      const [pointsRes, wrongRes, planRes, sessionRes] = await Promise.allSettled([
+        api.getLearningPoints(activeChildId, { limit: 20 }),
+        api.getWrongQuestions(activeChildId, { limit: 20 }),
+        api.getStudyPlans(activeChildId, { limit: 20 }),
+        api.getConversationSessions(activeChildId, { limit: 20 }),
+      ]);
+
+      if (pointsRes.status === 'fulfilled') setLearningPoints(pointsRes.value.list || []);
+      if (wrongRes.status === 'fulfilled') setWrongQuestions(wrongRes.value.list || []);
+      if (planRes.status === 'fulfilled') setStudyPlans(planRes.value.list || []);
+      if (sessionRes.status === 'fulfilled') setConversationSessions(sessionRes.value.list || []);
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, [activeChildId]);
+
+  const loadHistoryMessages = useCallback(async (targetSessionId: string) => {
+    setHistoryLoading(true);
+    try {
+      const result = await api.getConversationMessages(targetSessionId, { limit: 100 });
+      setHistoryMessages(result.list || []);
+    } catch {
+      setHistoryMessages([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'archive' && (isOpen || fullPage)) {
+      loadArchiveData().catch(() => {});
+    }
+  }, [viewMode, isOpen, fullPage, loadArchiveData]);
+
+  useEffect(() => {
+    if (!selectedHistorySessionId) return;
+    loadHistoryMessages(selectedHistorySessionId).catch(() => {});
+  }, [selectedHistorySessionId, loadHistoryMessages]);
 
   // Resize handler
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
@@ -194,9 +372,53 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
     }));
   };
 
+  const handleFabPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    fabDragRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      dragged: false,
+    };
+    setIsFabDragging(false);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleFabPointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = fabDragRef.current;
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    const moved = Math.hypot(e.clientX - dragState.startClientX, e.clientY - dragState.startClientY);
+    if (!dragState.dragged && moved < 4) return;
+    dragState.dragged = true;
+    setIsFabDragging(true);
+    setFabPosition(clampFabPosition(e.clientX - dragState.offsetX, e.clientY - dragState.offsetY));
+  }, [clampFabPosition]);
+
+  const endFabDrag = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = fabDragRef.current;
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    if (dragState.dragged) suppressFabClickRef.current = true;
+    fabDragRef.current = null;
+    setIsFabDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, []);
+
+  const handleFabClick = useCallback(() => {
+    if (suppressFabClickRef.current) {
+      suppressFabClickRef.current = false;
+      return;
+    }
+    setIsOpen(true);
+  }, []);
+
   const handleSendStream = useCallback(async (overrideMessage?: string) => {
     const messageText = overrideMessage || input.trim();
     if (!messageText || isLoading) return;
+    if (viewMode !== 'chat') setViewMode('chat');
 
     const userMessage: Message = {
       id: Date.now().toString(), role: 'user', content: messageText,
@@ -269,9 +491,29 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
               } else if (currentEvent === 'game_data') {
                 // Store game data for interactive rendering
                 try {
-                  const parsed = typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
+                  const rawParsed = typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
+                  const parsed = normalizeActivityData(data.activityType, rawParsed);
+                  const normalizedGameData: GameData = {
+                    activityType: data.activityType,
+                    gameData: typeof data.gameData === 'string' ? data.gameData : JSON.stringify(data.gameData),
+                    parsed,
+                    domain: data.domain,
+                  };
                   setMessages((prev) => prev.map((m) =>
-                    m.id === assistantId ? { ...m, gameData: { activityType: data.activityType, gameData: data.gameData, parsed, domain: data.domain } } : m
+                    m.id === assistantId
+                      ? {
+                        ...m,
+                        gameData: normalizedGameData,
+                        gameDataList: [
+                          ...(m.gameDataList?.length
+                            ? m.gameDataList
+                            : m.gameData
+                              ? [m.gameData]
+                              : []),
+                          normalizedGameData,
+                        ],
+                      }
+                      : m
                   ));
                 } catch {}
               } else if (currentEvent === 'token' && data.content) {
@@ -300,18 +542,23 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         }]);
       } catch {
         setMessages((prev) => [...prev.filter((m) => m.id !== assistantId), {
-          id: assistantId, role: 'assistant', content: '抱歉，网络好像有点问题，请稍后再试~',
+          id: assistantId, role: 'assistant', content: '抱歉，网络好像有点问题，请稍后再试。',
           timestamp: new Date(), thinkingSteps: [], toolSteps: [],
         }]);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, childId, parentId, sessionId]);
+  }, [input, isLoading, childId, parentId, sessionId, viewMode]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStream(); }
   };
+
+  const getMessageGames = useCallback((msg: Message): GameData[] => {
+    if (msg.gameDataList?.length) return msg.gameDataList;
+    return msg.gameData ? [msg.gameData] : [];
+  }, []);
 
   const handleToggleRecording = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -356,20 +603,26 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   useEffect(() => {
     if (!autoRead) return;
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.role === 'assistant' && !lastMsg.isStreaming && !lastMsg.gameData?.parsed && lastMsg.content) {
+    if (lastMsg?.role === 'assistant' && !lastMsg.isStreaming && getMessageGames(lastMsg).length === 0 && lastMsg.content) {
       playMessage(lastMsg.id, lastMsg.content);
     }
-  }, [messages, autoRead, playMessage]);
+  }, [messages, autoRead, playMessage, getMessageGames]);
 
   const hasProcessSteps = (msg: Message) => msg.thinkingSteps.length > 0 || msg.toolSteps.length > 0;
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
+  const showStarterPrompts = messages.length <= 1 && suggestions.length === 0 && !isLoading;
 
-  const handleGameComplete = useCallback((_msgId: string, result: ActivityResult, gameDomain?: string) => {
-    setActiveGameMsgId(null);
+  const handleGameComplete = useCallback((msgId: string, gameIndex: number, result: ActivityResult, gameDomain?: string) => {
+    setActiveGameKey(null);
     // Show feedback overlay
     const scorePercent = result.totalQuestions > 0 ? (result.correctAnswers / result.totalQuestions) * 100 : result.score;
     const domain = gameDomain || 'language';
+    const gameMessage = messages.find((item) => item.id === msgId);
+    const game = gameMessage ? getMessageGames(gameMessage)[gameIndex] : undefined;
+    const topic = game?.parsed?.title || '';
+    const activityType = game?.activityType;
+    const reviewItems = result.interactionData?.reviewData || result.interactionData?.reviewItems;
     const feedback: ActivityFeedback = {
       score: Math.round(scorePercent),
       total: result.totalQuestions,
@@ -385,36 +638,66 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
     feedbackTimerRef.current = setTimeout(() => setActivityFeedback(null), 5000);
 
     // Record activity to backend for learning tracking & achievements
-    if (childId) {
+    if (activeChildId) {
       api.recordActivity({
-        childId,
+        childId: activeChildId,
         domain,
         score: Math.round(scorePercent),
-      }).then((res) => {
-        if (res.achievementsAwarded?.length) {
-          window.dispatchEvent(new CustomEvent('achievements-updated'));
+        sessionId,
+        activityType,
+        interactionData: result.interactionData,
+        reviewItems,
+        topic,
+      }).then(() => {
+        window.dispatchEvent(new CustomEvent('achievements-updated'));
+        if (viewMode === 'archive') {
+          loadArchiveData().catch(() => {});
         }
       }).catch(() => {});
     }
-  }, [childId]);
+  }, [messages, activeChildId, sessionId, viewMode, loadArchiveData, getMessageGames]);
 
   // Full-page mode: no floating button, just the chat UI directly
   if (fullPage) {
     return (
-      <div className="flex flex-col h-full bg-surface-container-lowest">
+      <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-container-lowest">
         {/* Header */}
-        <div className="bg-tertiary px-5 py-4 flex items-center gap-3">
+        <div className="sticky top-0 z-20 bg-tertiary px-5 py-4 flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} aria-label="返回" className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+            {aiAvatarSrc ? (
+              <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
+            ) : (
+              <Bot className="w-6 h-6 text-white" />
+            )}
           </div>
           <div className="flex-1">
             <h3 className="text-white font-bold text-lg">AI 学习伙伴</h3>
-            <p className="text-white/70 text-xs">随时为你解答问题</p>
+            <p className="text-white/70 text-xs">随时回答问题，也能出题陪练</p>
+          </div>
+          <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">
+            <button
+              onClick={() => setViewMode('chat')}
+              className={cn(
+                'rounded-full px-2.5 py-1 text-xs font-bold transition-colors',
+                viewMode === 'chat' ? 'bg-white text-tertiary' : 'text-white/75 hover:text-white',
+              )}
+            >
+              对话
+            </button>
+            <button
+              onClick={() => setViewMode('archive')}
+              className={cn(
+                'rounded-full px-2.5 py-1 text-xs font-bold transition-colors',
+                viewMode === 'archive' ? 'bg-white text-tertiary' : 'text-white/75 hover:text-white',
+              )}
+            >
+              学习记录
+            </button>
           </div>
           <button
             onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
@@ -430,90 +713,164 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" aria-live="polite">
-          {messages.map((message) => (
-            <div key={message.id} className={cn("flex gap-2", message.role === 'user' ? 'justify-end' : 'justify-start')}>
-              {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Bot className="w-5 h-5 text-on-tertiary-container" />
+        <div className="relative min-h-0 flex-1">
+          {viewMode === 'archive' ? (
+            <LearningArchivePanel
+              childId={activeChildId}
+              loading={archiveLoading}
+              learningPoints={learningPoints}
+              wrongQuestions={wrongQuestions}
+              studyPlans={studyPlans}
+              conversationSessions={conversationSessions}
+              selectedSessionId={selectedHistorySessionId}
+              historyMessages={historyMessages}
+              historyLoading={historyLoading}
+              onSelectSession={setSelectedHistorySessionId}
+              onRefresh={() => loadArchiveData()}
+            />
+          ) : (
+            <>
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleMessagesScroll}
+            className="h-full overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-surface-container-lowest via-surface-container-lowest to-surface-container/25"
+            aria-live="polite"
+          >
+            {showStarterPrompts && (
+              <div className="panel-card p-3.5">
+                <p className="mb-2 text-xs font-bold text-on-surface-variant">快速开始</p>
+                <div className="flex flex-wrap gap-2">
+                  {starterPrompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => handleSendStream(prompt)}
+                      className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
-              )}
-              <div className={cn("max-w-[80%] min-w-0")}>
-                {message.role === 'assistant' && hasProcessSteps(message) && (
-                  <ProcessSection message={message} expandedSections={expandedSections} toggleSection={toggleSection} />
+              </div>
+            )}
+
+            {messages.map((message) => {
+              const messageGames = getMessageGames(message);
+              return (
+              <div key={message.id} className={cn('flex gap-2', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                {message.role === 'assistant' && (
+                  <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                    {aiAvatarSrc ? (
+                      <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
+                    ) : (
+                      <Bot className="w-5 h-5 text-on-tertiary-container" />
+                    )}
+                  </div>
                 )}
-                <div className={cn(
-                  "px-4 py-2.5 rounded-2xl text-sm",
-                  message.role === 'user' ? 'bg-primary text-on-primary rounded-br-sm' : 'bg-surface-container text-on-surface rounded-bl-sm'
-                )}>
-                  {message.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                      {message.gameData?.parsed ? (
-                        <p>{message.content || '我为你准备了练习题，点击下方按钮开始挑战吧！'} 🎮</p>
-                      ) : (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                      )}
+                <div className={cn('max-w-[80%] min-w-0')}>
+                  {message.role === 'assistant' && hasProcessSteps(message) && (
+                    <ProcessSection message={message} expandedSections={expandedSections} toggleSection={toggleSection} />
+                  )}
+                  <div className={cn(
+                    'px-4 py-2.5 rounded-2xl text-sm',
+                    message.role === 'user' ? 'bg-primary text-on-primary rounded-br-sm' : 'bg-surface-container text-on-surface rounded-bl-sm',
+                  )}>
+                    {message.role === 'assistant' ? (
+                      <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
+                        {messageGames.length > 0 ? (
+                          <p>{message.content || '我为你准备了一组练习，点击下方按钮开始吧。'}</p>
+                        ) : (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                        )}
+                      </div>
+                    ) : message.content}
+                    {message.isStreaming && !message.content && (
+                      <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
+                    )}
+                  </div>
+                  {message.role === 'assistant' && messageGames.length === 0 && message.content && !message.isStreaming && (
+                    <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                  )}
+                  {message.role === 'assistant' && messageGames.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {messageGames.map((game, gameIndex) => {
+                        if (!game.parsed) return null;
+                        const gameKey = `${message.id}-${gameIndex}`;
+                        return activeGameKey === gameKey ? (
+                          <div key={gameKey} className="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
+                            <GameRenderer
+                              type={game.activityType}
+                              data={game.parsed}
+                              onComplete={(result) => handleGameComplete(message.id, gameIndex, result, game.domain)}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            key={gameKey}
+                            onClick={() => setActiveGameKey(gameKey)}
+                            className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
+                          >
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>{isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  ) : message.content}
-                  {message.isStreaming && !message.content && (
-                    <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
                   )}
                 </div>
-                {/* TTS speaker button (full-page) */}
-                {message.role === 'assistant' && !message.gameData?.parsed && message.content && !message.isStreaming && (
-                  <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                {message.role === 'user' && (
+                  <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                    {userAvatarSrc ? (
+                      <img src={userAvatarSrc} alt="我的头像" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5 text-on-primary-container" />
+                    )}
+                  </div>
                 )}
-                {/* Game rendering */}
-                {message.role === 'assistant' && message.gameData?.parsed && (
-                  activeGameMsgId === message.id ? (
-                    <div className="mt-2 bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
-                      <GameRenderer
-                        type={message.gameData.activityType}
-                        data={message.gameData.parsed}
-                        onComplete={(result) => handleGameComplete(message.id, result, message.gameData?.domain)}
-                      />
-                    </div>
+              </div>
+            );})}
+            {isLoading && !messages.some((m) => m.isStreaming) && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {aiAvatarSrc ? (
+                    <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
                   ) : (
-                    <button
-                      onClick={() => setActiveGameMsgId(message.id)}
-                      className="mt-2 flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      {isSimpleGame(message.gameData.activityType) ? `开始${message.gameData.parsed.title || '练习'}` : `开始${message.gameData.parsed.title || '游戏'}`}
-                    </button>
-                  )
-                )}
-              </div>
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <User className="w-5 h-5 text-on-primary-container" />
+                    <Bot className="w-5 h-5 text-on-tertiary-container" />
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-          {isLoading && !messages.some(m => m.isStreaming) && (
-            <div className="flex gap-2 justify-start">
-              <div className="w-8 h-8 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0">
-                <Bot className="w-5 h-5 text-on-tertiary-container" />
-              </div>
-              <div className="bg-surface-container px-4 py-2.5 rounded-2xl rounded-bl-sm">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                <div className="bg-surface-container px-4 py-2.5 rounded-2xl rounded-bl-sm">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {showJumpButton && (
+            <button
+              onClick={() => scrollToBottom()}
+              className="absolute bottom-3 right-3 h-9 w-9 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
+              aria-label="回到底部"
+            >
+              <ArrowDown className="mx-auto h-4 w-4" />
+            </button>
           )}
-          <div ref={messagesEndRef} />
+            </>
+          )}
         </div>
 
         {/* Suggestions */}
-        {suggestions.length > 0 && !isLoading && (
-          <div className="px-4 pb-2 flex gap-2 overflow-x-auto">
+        {viewMode === 'chat' && suggestions.length > 0 && !isLoading && (
+          <div className="px-4 pb-2 pt-1 flex gap-2 overflow-x-auto">
             {suggestions.map((s, i) => (
-              <button key={i} onClick={() => handleSendStream(s)}
-                className="whitespace-nowrap px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-medium hover:bg-tertiary-container/80 transition-colors">
+              <button
+                key={i}
+                onClick={() => handleSendStream(s)}
+                className="whitespace-nowrap px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-medium hover:bg-tertiary-container/80 transition-colors"
+              >
                 {s}
               </button>
             ))}
@@ -521,28 +878,41 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         )}
 
         {/* Input */}
-        <div className="p-4 border-t border-outline-variant/20">
-          <div className="flex gap-2 items-center">
-            {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-              <button onClick={handleToggleRecording}
+        {viewMode === 'chat' && (
+        <div className="p-4 border-t border-outline-variant/20 bg-surface-container-lowest/95">
+          <div className="flex gap-2 items-end">
+            {hasVoiceInput && (
+              <button
+                onClick={handleToggleRecording}
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0",
-                  isRecording ? "bg-red-500 text-white animate-voice-pulse" : "bg-surface-container text-on-surface-variant hover:text-on-surface"
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                  isRecording ? 'bg-red-500 text-white animate-voice-pulse' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                 )}
-                aria-label={isRecording ? '停止录音' : '开始录音'}>
+                aria-label={isRecording ? '停止录音' : '开始录音'}
+              >
                 {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
               </button>
             )}
-            <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown} placeholder={isRecording ? "正在听你说..." : "输入你的问题..."}
-              className="flex-1 bg-surface-container border border-outline-variant/30 rounded-full px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors"
-              disabled={isLoading} />
-            <button onClick={() => handleSendStream()} disabled={!input.trim() || isLoading}
-              className="w-10 h-10 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isRecording ? '正在听你说...' : '输入问题，按 Enter 发送，Shift+Enter 换行'}
+              className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[120px]"
+              disabled={isLoading}
+            />
+            <button
+              onClick={() => handleSendStream()}
+              disabled={!input.trim() || isLoading}
+              className="w-10 h-10 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press"
+            >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>
           </div>
         </div>
+        )}
 
         {/* Activity Feedback Overlay (full-page mode) */}
         <AnimatePresence>
@@ -580,9 +950,9 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                   />
                 </div>
                 <p className="text-on-surface-variant text-sm">
-                  得分：<span className="font-bold text-on-surface">{activityFeedback.score}</span> 分
+                  得分: <span className="font-bold text-on-surface">{activityFeedback.score}</span>
                   {activityFeedback.total > 0 && (
-                    <> &middot; 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
+                    <> · 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
                   )}
                 </p>
                 <button
@@ -603,9 +973,17 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   return (
     <>
       {/* Floating Action Button */}
-      <button onClick={() => setIsOpen(true)} aria-label="打开AI学习伙伴"
+      <button
+        onClick={handleFabClick}
+        onPointerDown={handleFabPointerDown}
+        onPointerMove={handleFabPointerMove}
+        onPointerUp={endFabDrag}
+        onPointerCancel={endFabDrag}
+        aria-label="打开 AI 学习伙伴"
+        style={{ left: fabPosition.x, top: fabPosition.y }}
         className={cn(
-          "fixed right-6 bottom-24 w-16 h-16 bg-tertiary rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-[100] border-b-4 border-tertiary-dim transition-all hover:scale-110",
+          "fixed w-16 h-16 bg-tertiary rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-[100] border-b-4 border-tertiary-dim touch-none select-none transition-all",
+          !isFabDragging && "hover:scale-110",
           isOpen && "opacity-0 pointer-events-none"
         )}>
         <MessageCircle className="w-8 h-8 fill-current" />
@@ -620,25 +998,49 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
             exit={{ opacity: 0, y: 100, scale: 0.9 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className={cn(
-              "fixed right-4 bottom-20 bg-surface-container-lowest rounded-3xl shadow-2xl z-[100] flex flex-col overflow-hidden border border-outline-variant/20",
+              "fixed right-4 bottom-20 bg-surface-container-lowest rounded-3xl shadow-2xl z-[100] flex h-[min(78vh,680px)] flex-col overflow-hidden border border-outline-variant/20",
               isMaximized
                 ? "inset-4 bottom-20 rounded-3xl"
                 : ""
             )}
-            style={!isMaximized ? { width: size.w, height: size.h } : undefined}
-            role="dialog" aria-label="AI学习伙伴对话" aria-modal="true"
+            style={!isMaximized ? { width: size.w, height: size.h, maxHeight: 'calc(100dvh - 96px)' } : undefined}
+            role="dialog" aria-label="AI 学习伙伴对话" aria-modal="true"
           >
             {/* Header */}
-            <div className="bg-tertiary px-5 py-3 flex items-center justify-between flex-shrink-0"
+            <div className="sticky top-0 z-20 bg-tertiary px-5 py-3 flex items-center justify-between flex-shrink-0"
               onPointerDown={(e) => !isMaximized && dragControls.start(e)}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                  {aiAvatarSrc ? (
+                    <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
+                  ) : (
+                    <Bot className="w-5 h-5 text-white" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-white font-bold text-sm">AI 学习伙伴</h3>
-                  <p className="text-white/70 text-[10px]">随时为你解答问题</p>
+                  <p className="text-white/70 text-[10px]">随时问，随时答</p>
                 </div>
+              </div>
+              <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">
+                <button
+                  onClick={() => setViewMode('chat')}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+                    viewMode === 'chat' ? 'bg-white text-tertiary' : 'text-white/75 hover:text-white',
+                  )}
+                >
+                  对话
+                </button>
+                <button
+                  onClick={() => setViewMode('archive')}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+                    viewMode === 'archive' ? 'bg-white text-tertiary' : 'text-white/75 hover:text-white',
+                  )}
+                >
+                  记录
+                </button>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => { setAutoRead(!autoRead); if (autoRead) stopPlayback(); }}
@@ -653,7 +1055,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                   className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
                   {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
-                <button onClick={() => { setIsOpen(false); setIsMaximized(false); }} aria-label="关闭AI对话"
+                <button onClick={() => { setIsOpen(false); setIsMaximized(false); }} aria-label="关闭 AI 对话"
                   className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
@@ -669,91 +1071,165 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4" aria-live="polite">
-              {messages.map((message) => (
-                <div key={message.id} className={cn("flex gap-2", message.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  {message.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Bot className="w-4 h-4 text-on-tertiary-container" />
+            <div className="relative min-h-0 flex-1">
+              {viewMode === 'archive' ? (
+                <LearningArchivePanel
+                  childId={activeChildId}
+                  loading={archiveLoading}
+                  learningPoints={learningPoints}
+                  wrongQuestions={wrongQuestions}
+                  studyPlans={studyPlans}
+                  conversationSessions={conversationSessions}
+                  selectedSessionId={selectedHistorySessionId}
+                  historyMessages={historyMessages}
+                  historyLoading={historyLoading}
+                  onSelectSession={setSelectedHistorySessionId}
+                  onRefresh={() => loadArchiveData()}
+                />
+              ) : (
+                <>
+              <div
+                ref={messagesContainerRef}
+                onScroll={handleMessagesScroll}
+                className="h-full overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-surface-container-lowest via-surface-container-lowest to-surface-container/25"
+                aria-live="polite"
+              >
+                {showStarterPrompts && (
+                  <div className="panel-card p-3">
+                    <p className="mb-2 text-[11px] font-bold text-on-surface-variant">快速开始</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {starterPrompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => handleSendStream(prompt)}
+                          className="rounded-full bg-primary-container/45 px-2.5 py-1 text-[11px] font-semibold text-on-primary-container hover:bg-primary-container/60"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                  <div className={cn("max-w-[80%] min-w-0")}>
-                    {message.role === 'assistant' && hasProcessSteps(message) && (
-                      <ProcessSection message={message} expandedSections={expandedSections} toggleSection={toggleSection} />
-                    )}
-                    <div className={cn(
-                      "px-3.5 py-2 rounded-2xl text-sm",
-                      message.role === 'user' ? 'bg-primary text-on-primary rounded-br-sm' : 'bg-surface-container text-on-surface rounded-bl-sm'
-                    )}>
-                      {message.role === 'assistant' ? (
-                        <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
-                          {message.gameData?.parsed ? (
-                            <p>{message.content || '我为你准备了练习题，点击下方按钮开始吧！'} 🎮</p>
-                          ) : (
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-                          )}
-                     </div>
-                  ) : message.content}
-                  {message.isStreaming && !message.content && (
-                    <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
-                  )}
-                </div>
-                {/* TTS speaker button (floating widget) */}
-                {message.role === 'assistant' && !message.gameData?.parsed && message.content && !message.isStreaming && (
-                  <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                  </div>
                 )}
-                {/* Game rendering */}
-                {message.role === 'assistant' && message.gameData?.parsed && (
-                  activeGameMsgId === message.id ? (
-                    <div className="mt-2 bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
-                      <GameRenderer
-                        type={message.gameData.activityType}
-                        data={message.gameData.parsed}
-                        onComplete={(result) => handleGameComplete(message.id, result, message.gameData?.domain)}
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setActiveGameMsgId(message.id)}
-                      className="mt-2 flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>开始挑战</span>
-                    </button>
-                  )
-                )}
-              </div>
-              {message.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <User className="w-4 h-4 text-on-primary-container" />
-                    </div>
-                  )}
-                </div>
-              ))}
 
-              {isLoading && !messages.some(m => m.isStreaming) && (
-                <div className="flex gap-2 justify-start">
-                  <div className="w-7 h-7 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-on-tertiary-container" />
+                {messages.map((message) => {
+                  const messageGames = getMessageGames(message);
+                  return (
+                  <div key={message.id} className={cn('flex gap-2', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                    {message.role === 'assistant' && (
+                      <div className="w-7 h-7 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                        {aiAvatarSrc ? (
+                          <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
+                        ) : (
+                          <Bot className="w-4 h-4 text-on-tertiary-container" />
+                        )}
+                      </div>
+                    )}
+                    <div className={cn('max-w-[80%] min-w-0')}>
+                      {message.role === 'assistant' && hasProcessSteps(message) && (
+                        <ProcessSection message={message} expandedSections={expandedSections} toggleSection={toggleSection} />
+                      )}
+                      <div className={cn(
+                        'px-3.5 py-2 rounded-2xl text-sm',
+                        message.role === 'user' ? 'bg-primary text-on-primary rounded-br-sm' : 'bg-surface-container text-on-surface rounded-bl-sm',
+                      )}>
+                        {message.role === 'assistant' ? (
+                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-hr:my-2 prose-strong:text-on-surface">
+                            {messageGames.length > 0 ? (
+                              <p>{message.content || '我为你准备了一组练习，点击下方按钮开始吧。'}</p>
+                            ) : (
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                            )}
+                          </div>
+                        ) : message.content}
+                        {message.isStreaming && !message.content && (
+                          <span className="inline-block w-1.5 h-4 bg-on-surface animate-pulse" />
+                        )}
+                      </div>
+                      {message.role === 'assistant' && messageGames.length === 0 && message.content && !message.isStreaming && (
+                        <SpeakerButton msgId={message.id} content={message.content} playingMsgId={playingMsgId} onToggle={togglePlayback} />
+                      )}
+                      {message.role === 'assistant' && messageGames.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {messageGames.map((game, gameIndex) => {
+                            if (!game.parsed) return null;
+                            const gameKey = `${message.id}-${gameIndex}`;
+                            return activeGameKey === gameKey ? (
+                              <div key={gameKey} className="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/20">
+                                <GameRenderer
+                                  type={game.activityType}
+                                  data={game.parsed}
+                                  onComplete={(result) => handleGameComplete(message.id, gameIndex, result, game.domain)}
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                key={gameKey}
+                                onClick={() => setActiveGameKey(gameKey)}
+                                className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-tertiary-container/80 transition-colors tactile-press w-full"
+                              >
+                                <Play className="w-4 h-4 fill-current" />
+                                <span>{isSimpleGame(game.activityType) ? `开始 ${game.parsed.title || '练习'}` : `开始 ${game.parsed.title || '游戏'}`}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {message.role === 'user' && (
+                      <div className="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                        {userAvatarSrc ? (
+                          <img src={userAvatarSrc} alt="我的头像" className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="w-4 h-4 text-on-primary-container" />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-surface-container px-3.5 py-2.5 rounded-2xl rounded-bl-sm">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                );})}
+
+                {isLoading && !messages.some((m) => m.isStreaming) && (
+                  <div className="flex gap-2 justify-start">
+                    <div className="w-7 h-7 rounded-full bg-tertiary-container flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {aiAvatarSrc ? (
+                        <img src={aiAvatarSrc} alt="AI头像" className="h-full w-full object-cover" />
+                      ) : (
+                        <Bot className="w-4 h-4 text-on-tertiary-container" />
+                      )}
+                    </div>
+                    <div className="bg-surface-container px-3.5 py-2.5 rounded-2xl rounded-bl-sm">
+                      <div className="flex gap-1">
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {showJumpButton && (
+                <button
+                  onClick={() => scrollToBottom()}
+                  className="absolute bottom-3 right-3 h-8 w-8 rounded-full bg-on-secondary-container text-white shadow-lg hover:brightness-110"
+                  aria-label="回到底部"
+                >
+                  <ArrowDown className="mx-auto h-4 w-4" />
+                </button>
               )}
-              <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
 
             {/* Suggestions */}
-            {suggestions.length > 0 && !isLoading && (
-              <div className="px-4 pb-2 flex gap-2 overflow-x-auto flex-shrink-0">
+            {viewMode === 'chat' && suggestions.length > 0 && !isLoading && (
+              <div className="px-4 pb-2 pt-1 flex gap-2 overflow-x-auto flex-shrink-0">
                 {suggestions.map((s, i) => (
-                  <button key={i} onClick={() => handleSendStream(s)}
-                    className="whitespace-nowrap px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-medium hover:bg-tertiary-container/80 transition-colors">
+                  <button
+                    key={i}
+                    onClick={() => handleSendStream(s)}
+                    className="whitespace-nowrap px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-xs font-medium hover:bg-tertiary-container/80 transition-colors"
+                  >
                     {s}
                   </button>
                 ))}
@@ -761,28 +1237,41 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
             )}
 
             {/* Input */}
-            <div className="p-3 border-t border-outline-variant/20 flex-shrink-0">
-              <div className="flex gap-2 items-center">
-                {typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) && (
-                  <button onClick={handleToggleRecording}
+            {viewMode === 'chat' && (
+            <div className="p-3 border-t border-outline-variant/20 flex-shrink-0 bg-surface-container-lowest/95">
+              <div className="flex gap-2 items-end">
+                {hasVoiceInput && (
+                  <button
+                    onClick={handleToggleRecording}
                     className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0",
-                      isRecording ? "bg-red-500 text-white animate-voice-pulse" : "bg-surface-container text-on-surface-variant hover:text-on-surface"
+                      'w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                      isRecording ? 'bg-red-500 text-white animate-voice-pulse' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                     )}
-                    aria-label={isRecording ? '停止录音' : '开始录音'}>
+                    aria-label={isRecording ? '停止录音' : '开始录音'}
+                  >
                     {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </button>
                 )}
-                <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown} placeholder={isRecording ? "正在听你说..." : "输入你的问题..."}
-                  className="flex-1 bg-surface-container border border-outline-variant/30 rounded-full px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors"
-                  disabled={isLoading} />
-                <button onClick={() => handleSendStream()} disabled={!input.trim() || isLoading}
-                  className="w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0">
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isRecording ? '正在听你说...' : '输入问题，Enter 发送'}
+                  className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[110px]"
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={() => handleSendStream()}
+                  disabled={!input.trim() || isLoading}
+                  className="w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0"
+                >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
             </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -833,9 +1322,9 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
                 />
               </div>
               <p className="text-on-surface-variant text-sm">
-                得分：<span className="font-bold text-on-surface">{activityFeedback.score}</span> 分
+                得分: <span className="font-bold text-on-surface">{activityFeedback.score}</span>
                 {activityFeedback.total > 0 && (
-                  <> &middot; 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
+                  <> · 正确 {activityFeedback.correct}/{activityFeedback.total} 题</>
                 )}
               </p>
               <button
@@ -849,6 +1338,181 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function LearningArchivePanel({
+  childId,
+  loading,
+  learningPoints,
+  wrongQuestions,
+  studyPlans,
+  conversationSessions,
+  selectedSessionId,
+  historyMessages,
+  historyLoading,
+  onSelectSession,
+  onRefresh,
+}: {
+  childId?: number;
+  loading: boolean;
+  learningPoints: LearningPoint[];
+  wrongQuestions: WrongQuestion[];
+  studyPlans: StudyPlanRecord[];
+  conversationSessions: ConversationSession[];
+  selectedSessionId: string | null;
+  historyMessages: ConversationMessageHistory[];
+  historyLoading: boolean;
+  onSelectSession: (sessionId: string | null) => void;
+  onRefresh: () => void;
+}) {
+  if (!childId) {
+    return (
+      <div className="h-full overflow-y-auto p-4">
+        <div className="panel-card p-4 text-sm text-on-surface-variant">
+          当前没有绑定学生账号，无法查看学习记录。
+        </div>
+      </div>
+    );
+  }
+
+  const wrongCount = wrongQuestions.filter((item) => item.status !== 'mastered').length;
+  const masteredCount = wrongQuestions.filter((item) => item.status === 'mastered').length;
+  const now = Date.now();
+
+  return (
+    <div className="h-full overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-surface-container-lowest via-surface-container-lowest to-surface-container/20">
+      <div className="panel-card flex items-center justify-between px-3 py-2">
+        <div className="text-xs font-bold text-on-surface-variant">学习记录总览</div>
+        <button
+          onClick={onRefresh}
+          className="rounded-full bg-primary-container/40 px-3 py-1 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60"
+        >
+          刷新
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="panel-card p-2 text-center">
+          <p className="text-lg font-black text-on-surface">{learningPoints.length}</p>
+          <p className="text-[10px] text-on-surface-variant">学习点</p>
+        </div>
+        <div className="panel-card p-2 text-center">
+          <p className="text-lg font-black text-on-surface">{wrongCount}</p>
+          <p className="text-[10px] text-on-surface-variant">待巩固</p>
+        </div>
+        <div className="panel-card p-2 text-center">
+          <p className="text-lg font-black text-on-surface">{masteredCount}</p>
+          <p className="text-[10px] text-on-surface-variant">已掌握</p>
+        </div>
+      </div>
+
+      <div className="panel-card p-3">
+        <h4 className="mb-2 text-sm font-bold text-on-surface">学到的内容</h4>
+        {loading ? (
+          <p className="text-xs text-on-surface-variant">加载中...</p>
+        ) : learningPoints.length === 0 ? (
+          <p className="text-xs text-on-surface-variant">暂无学习点记录</p>
+        ) : (
+          <div className="space-y-2">
+            {learningPoints.slice(0, 8).map((point) => {
+              const cooling = new Date(point.cooldownUntil).getTime() > now;
+              return (
+                <div key={point.id} className="rounded-xl bg-surface-container px-3 py-2">
+                  <p className="text-xs font-semibold text-on-surface">{point.pointLabel}</p>
+                  <p className="mt-0.5 text-[10px] text-on-surface-variant">
+                    {point.domain || '综合'} · {cooling ? '冷却中' : '可推荐'} · {new Date(point.lastLearnedAt).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-card p-3">
+        <h4 className="mb-2 text-sm font-bold text-on-surface">错题本</h4>
+        {wrongQuestions.length === 0 ? (
+          <p className="text-xs text-on-surface-variant">暂无错题记录</p>
+        ) : (
+          <div className="space-y-2">
+            {wrongQuestions.slice(0, 8).map((wrong) => (
+              <div key={wrong.id} className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2">
+                <p className="text-xs font-semibold text-on-surface">{wrong.questionText}</p>
+                <p className="mt-1 text-[10px] text-on-surface-variant">
+                  你的答案: {wrong.userAnswer || '未作答'} · 正确答案: {wrong.correctAnswer || '-'}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-card p-3">
+        <h4 className="mb-2 text-sm font-bold text-on-surface">历史计划</h4>
+        {studyPlans.length === 0 ? (
+          <p className="text-xs text-on-surface-variant">暂无历史计划</p>
+        ) : (
+          <div className="space-y-2">
+            {studyPlans.slice(0, 8).map((plan) => (
+              <div key={plan.id} className="rounded-xl bg-surface-container px-3 py-2">
+                <p className="text-xs font-semibold text-on-surface">{plan.title}</p>
+                <p className="mt-0.5 text-[10px] text-on-surface-variant">
+                  {plan.sourceType === 'ai_generated' ? 'AI计划' : '家长作业'} · {new Date(plan.createdAt).toLocaleString('zh-CN')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-card p-3">
+        <h4 className="mb-2 text-sm font-bold text-on-surface">历史对话</h4>
+        {conversationSessions.length === 0 ? (
+          <p className="text-xs text-on-surface-variant">暂无历史会话</p>
+        ) : (
+          <div className="space-y-2">
+            {conversationSessions.slice(0, 8).map((session) => (
+              <button
+                key={session.uuid}
+                onClick={() => onSelectSession(selectedSessionId === session.uuid ? null : session.uuid)}
+                className={cn(
+                  'w-full rounded-xl px-3 py-2 text-left transition-colors',
+                  selectedSessionId === session.uuid
+                    ? 'bg-primary-container/35 text-on-primary-container'
+                    : 'bg-surface-container text-on-surface hover:bg-surface-container-high',
+                )}
+              >
+                <p className="text-xs font-semibold">会话 {session.uuid.slice(0, 8)}</p>
+                <p className="text-[10px] opacity-80">
+                  {session.messageCount} 条消息 · {new Date(session.updatedAt).toLocaleString('zh-CN')}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedSessionId && (
+          <div className="mt-3 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-2">
+            <p className="mb-2 text-[11px] font-bold text-on-surface-variant">会话详情</p>
+            {historyLoading ? (
+              <p className="text-xs text-on-surface-variant">加载中...</p>
+            ) : historyMessages.length === 0 ? (
+              <p className="text-xs text-on-surface-variant">暂无消息</p>
+            ) : (
+              <div className="max-h-56 space-y-1 overflow-y-auto">
+                {historyMessages.map((msg) => (
+                  <div key={msg.id} className="rounded-lg bg-surface-container px-2 py-1.5">
+                    <p className="text-[10px] font-bold text-on-surface-variant">{msg.role}</p>
+                    <p className="text-xs text-on-surface line-clamp-3">{msg.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -918,3 +1582,4 @@ function ProcessSection({ message, expandedSections, toggleSection }: {
     </div>
   );
 }
+

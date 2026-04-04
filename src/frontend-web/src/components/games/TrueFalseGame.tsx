@@ -61,8 +61,21 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
   }, [currentIndex, total]);
 
   const handleDismiss = useCallback(() => {
-    onComplete({ score: correctCount, totalQuestions: total, correctAnswers: correctCount, interactionData: { statements } });
-  }, [correctCount, total, onComplete, statements]);
+    const reviewData: ReviewItem[] = statements.map((s: any, i: number) => ({
+      question: s.statement,
+      userAnswer: userAnswers[i] === true ? '对' : userAnswers[i] === false ? '错' : '未作答',
+      correctAnswer: s.isCorrect ? '对' : '错',
+      isCorrect: userAnswers[i] === s.isCorrect,
+      explanation: s.explanation,
+    }));
+
+    onComplete({
+      score: correctCount,
+      totalQuestions: total,
+      correctAnswers: correctCount,
+      interactionData: { statements, userAnswers, reviewData },
+    });
+  }, [correctCount, total, onComplete, statements, userAnswers]);
 
   if (statements.length === 0) return <div className="p-4 text-on-surface-variant" role="status">暂无题目</div>;
   if (isFinished) {

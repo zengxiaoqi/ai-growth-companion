@@ -9,6 +9,7 @@ import RegisterScreen from './components/RegisterScreen';
 import GameRenderer from './components/games/GameRenderer';
 import type { Assignment, ActivityResult } from './types';
 import api from './services/api';
+import { applyAppUISettings, resolveAppUISettings } from './lib/app-settings';
 
 const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
@@ -61,6 +62,11 @@ function AppContent() {
       setView('login');
     }
   }, [isAuthenticated]);
+
+  // Show loading spinner while checking auth
+  useEffect(() => {
+    applyAppUISettings(resolveAppUISettings(user?.settings as Record<string, unknown> | undefined));
+  }, [user?.settings]);
 
   // Show loading spinner while checking auth
   if (authLoading) {

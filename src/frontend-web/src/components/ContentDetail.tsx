@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
+import { getAudioVolume } from '@/lib/app-settings';
 import type { Content, LearningRecord } from '@/types';
 import QuizEngine, { type QuizSection } from './quiz/QuizEngine';
 
@@ -124,6 +125,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
     utterance.lang = 'zh-CN';
     utterance.rate = 0.85;
     utterance.pitch = 1.1;
+    utterance.volume = getAudioVolume();
 
     utterance.onstart = () => {
       setAudioLoading(false);

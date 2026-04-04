@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LearningService } from './learning.service';
 import { AbilitiesService } from '../abilities/abilities.service';
 import { AchievementsService } from '../achievements/achievements.service';
+import { LearningArchiveService, WrongQuestionReviewItem } from './learning-archive.service';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,6 +18,11 @@ export interface RecordActivityParams {
   domain: string;
   score: number;
   durationSeconds?: number;
+  sessionId?: string;
+  activityType?: string;
+  topic?: string;
+  reviewItems?: WrongQuestionReviewItem[];
+  interactionData?: Record<string, any>;
   metadata?: Record<string, any>;
 }
 
@@ -34,6 +40,7 @@ export class LearningTrackerService {
     private readonly learningService: LearningService,
     private readonly abilitiesService: AbilitiesService,
     private readonly achievementsService: AchievementsService,
+    private readonly archiveService: LearningArchiveService,
     @InjectRepository(LearningRecord)
     private readonly recordRepo: Repository<LearningRecord>,
     @InjectRepository(Achievement)
@@ -71,6 +78,11 @@ export class LearningTrackerService {
         source: params.type,
         assignmentId: params.assignmentId,
         domain: params.domain,
+        sessionId: params.sessionId,
+        activityType: params.activityType,
+        topic: params.topic,
+        reviewItems: params.reviewItems,
+        ...params.interactionData,
         ...params.metadata,
       },
     });
@@ -93,6 +105,33 @@ export class LearningTrackerService {
       { type: params.type, score: params.score, domain: params.domain },
       stats,
     );
+
+    if (params.type === 'interactive_activity') {
+      try {
+        if (params.topic) {
+          await this.archiveService.recordActivityLearning({
+            childId: params.childId,
+            sessionId: params.sessionId,
+            domain: params.domain,
+            topic: params.topic,
+            activityType: params.activityType,
+            interactionData: params.interactionData,
+          });
+        }
+
+        if (params.reviewItems?.length) {
+          await this.archiveService.recordWrongQuestions({
+            childId: params.childId,
+            sessionId: params.sessionId,
+            domain: params.domain,
+            activityType: params.activityType,
+            reviewItems: params.reviewItems,
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to archive activity details: ${error.message}`);
+      }
+    }
 
     this.logger.log(`Activity recorded: record=${record.id}, abilityUpdated=${abilityUpdated}, achievements=${achievementsAwarded.length}`);
 

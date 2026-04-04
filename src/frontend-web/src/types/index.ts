@@ -33,7 +33,10 @@ export interface AuthResponse {
 
 export interface UpdateUserRequest {
   nickname?: string;
+  name?: string;
   avatar?: string;
+  age?: number;
+  settings?: Record<string, unknown>;
 }
 
 // Content Types
@@ -222,7 +225,16 @@ export interface ActivityResult {
   totalQuestions: number;
   correctAnswers: number;
   timeSpent?: number;
-  interactionData: any;
+  interactionData: {
+    reviewData?: Array<{
+      question: string;
+      userAnswer?: string;
+      correctAnswer?: string;
+      isCorrect: boolean;
+      explanation?: string;
+    }>;
+    [key: string]: any;
+  };
 }
 
 // Emergency Call Types
@@ -287,4 +299,75 @@ export interface ActivityFeedback {
   correct: number;
   domain: string;
   message: string;
+}
+
+// Learning archive types
+export interface LearningPoint {
+  id: number;
+  childId: number;
+  sessionId?: string;
+  domain?: string;
+  pointKey: string;
+  pointLabel: string;
+  source: 'chat_summary' | 'activity';
+  lastLearnedAt: string;
+  cooldownUntil: string;
+  evidence?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WrongQuestion {
+  id: number;
+  childId: number;
+  sessionId?: string;
+  domain?: string;
+  activityType?: string;
+  questionHash: string;
+  questionText: string;
+  userAnswer?: string;
+  correctAnswer?: string;
+  explanation?: string;
+  status: 'new' | 'reviewed' | 'mastered' | string;
+  occurredAt: string;
+  lastReviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyPlanRecord {
+  id: number;
+  childId: number;
+  parentId?: number;
+  sourceType: 'ai_generated' | 'parent_assignment' | string;
+  sourceId?: number;
+  title: string;
+  planContent?: Record<string, any>;
+  status: string;
+  sessionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationSession {
+  id: number;
+  uuid: string;
+  childId: number;
+  status: string;
+  metadata?: Record<string, any>;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConversationMessageHistory {
+  id: number;
+  conversationId: number;
+  role: 'system' | 'user' | 'assistant' | 'tool' | string;
+  content: string;
+  toolCalls?: any[];
+  toolResult?: any;
+  toolCallId?: string;
+  toolName?: string;
+  createdAt: string;
 }

@@ -24,6 +24,15 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
 
   const current = questions[currentIndex];
   const total = questions.length;
+  const getCorrectIndex = useCallback((question: any) => {
+    const optionsLen = Array.isArray(question?.options) ? question.options.length : 0;
+    const rawIndex = Number(question?.correctIndex);
+    if (Number.isFinite(rawIndex) && rawIndex >= 0 && rawIndex < optionsLen) return Math.trunc(rawIndex);
+    const oneBasedIndex = Math.trunc(rawIndex) - 1;
+    if (Number.isFinite(oneBasedIndex) && oneBasedIndex >= 0 && oneBasedIndex < optionsLen) return oneBasedIndex;
+    return 0;
+  }, []);
+  const currentCorrectIndex = current ? getCorrectIndex(current) : 0;
 
   // Read question aloud when it appears
   useEffect(() => {
@@ -46,13 +55,13 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
     if (selectedOption === null || !current) return;
     setIsRevealed(true);
     setUserAnswers((prev) => [...prev, selectedOption]);
-    if (selectedOption === current.correctIndex) {
+    if (selectedOption === currentCorrectIndex) {
       setCorrectCount((c) => c + 1);
       speak('太棒了，答对了！');
     } else {
-      speak(`加油哦！正确答案是${current.options[current.correctIndex]}`);
+      speak(`加油哦！正确答案是${current.options[currentCorrectIndex]}`);
     }
-  }, [selectedOption, current, speak]);
+  }, [selectedOption, current, speak, currentCorrectIndex]);
 
   const handleNext = useCallback(() => {
     if (currentIndex >= total - 1) {
@@ -65,21 +74,40 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   }, [currentIndex, total]);
 
   const handleDismiss = useCallback(() => {
-    onComplete({ score: correctCount, totalQuestions: total, correctAnswers: correctCount, interactionData: { questions } });
-  }, [correctCount, total, onComplete, questions]);
+    const reviewData: ReviewItem[] = questions.map((q: any, i: number) => {
+      const correctIndex = getCorrectIndex(q);
+      return {
+        question: q.question,
+        userAnswer: q.options[userAnswers[i]] ?? '未作答',
+        correctAnswer: q.options[correctIndex],
+        isCorrect: userAnswers[i] === correctIndex,
+        explanation: q.explanation,
+      };
+    });
+
+    onComplete({
+      score: correctCount,
+      totalQuestions: total,
+      correctAnswers: correctCount,
+      interactionData: { questions, userAnswers, reviewData },
+    });
+  }, [correctCount, total, onComplete, questions, userAnswers, getCorrectIndex]);
 
   if (questions.length === 0) {
     return <div className="p-4 text-on-surface-variant" role="status">暂无题目</div>;
   }
 
   if (isFinished) {
-    const reviewData: ReviewItem[] = questions.map((q: any, i: number) => ({
-      question: q.question,
-      userAnswer: q.options[userAnswers[i]] ?? '未作答',
-      correctAnswer: q.options[q.correctIndex],
-      isCorrect: userAnswers[i] === q.correctIndex,
-      explanation: q.explanation,
-    }));
+    const reviewData: ReviewItem[] = questions.map((q: any, i: number) => {
+      const correctIndex = getCorrectIndex(q);
+      return {
+        question: q.question,
+        userAnswer: q.options[userAnswers[i]] ?? '未作答',
+        correctAnswer: q.options[correctIndex],
+        isCorrect: userAnswers[i] === correctIndex,
+        explanation: q.explanation,
+      };
+    });
     return <GameCompletionScreen score={correctCount} total={total} reviewData={reviewData} onDismiss={handleDismiss} />;
   }
 
@@ -108,7 +136,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
           </div>
           <div className="space-y-2">
             {current.options.map((opt: string, idx: number) => {
-              const isCorrect = idx === current.correctIndex;
+              const isCorrect = idx === currentCorrectIndex;
               const isSelected = idx === selectedOption;
               return (
                 <motion.button key={idx} type="button" onClick={() => handleSelect(idx)} disabled={isRevealed}
@@ -141,8 +169,8 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
           {isRevealed && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               className={cn('rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
-                selectedOption === current.correctIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
-              {selectedOption === current.correctIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
+                selectedOption === currentCorrectIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
+              {selectedOption === currentCorrectIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
             </motion.div>
           )}
         </motion.div>

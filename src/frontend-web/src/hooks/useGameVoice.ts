@@ -1,5 +1,6 @@
 import { useRef, useCallback } from 'react';
 import api from '@/services/api';
+import { getAudioVolume } from '@/lib/app-settings';
 
 /**
  * Hook for TTS voice playback in game components.
@@ -27,6 +28,7 @@ export function useGameVoice() {
     if (!plainText) return;
 
     const audio = new Audio(api.getTTSUrl(plainText));
+    audio.volume = getAudioVolume();
     audioRef.current = audio;
     audio.onerror = () => { audioRef.current = null; };
     audio.play().catch(() => { audioRef.current = null; });

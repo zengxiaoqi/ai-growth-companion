@@ -6,7 +6,14 @@ import {
 import * as winston from 'winston';
 import * as path from 'path';
 
-const logDir = path.resolve(__dirname, '..', 'logs');
+import * as fs from 'fs';
+
+// __dirname in compiled code is dist/common, so go up 2 levels to reach src/backend/
+const backendRoot = path.resolve(__dirname, '..', '..');
+const logDir = path.join(backendRoot, 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
 
 export const loggerConfig = WinstonModule.createLogger({
   transports: [

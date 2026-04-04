@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Assignment } from '../../database/entities/assignment.entity';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 import { LearningTrackerService } from '../learning/learning-tracker.service';
+import { LearningArchiveService } from '../learning/learning-archive.service';
 
 @Injectable()
 export class AssignmentService {
@@ -15,6 +16,7 @@ export class AssignmentService {
     private readonly assignmentRepo: Repository<Assignment>,
     private readonly generateActivityTool: GenerateActivityTool,
     private readonly learningTracker: LearningTrackerService,
+    private readonly learningArchive: LearningArchiveService,
   ) {}
 
   async create(data: {
@@ -72,7 +74,29 @@ export class AssignmentService {
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       status: 'pending',
     });
-    return this.assignmentRepo.save(assignment);
+    const saved = await this.assignmentRepo.save(assignment);
+
+    try {
+      await this.learningArchive.createStudyPlanRecord({
+        childId: data.childId,
+        parentId: data.parentId,
+        sourceType: 'parent_assignment',
+        sourceId: saved.id,
+        title: activityData?.topic || `${saved.activityType} 作业`,
+        planContent: {
+          activityType: saved.activityType,
+          domain: saved.domain,
+          difficulty: saved.difficulty,
+          dueDate: saved.dueDate,
+          activityData: saved.activityData,
+        },
+        status: saved.status,
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to create study plan record for assignment ${saved.id}: ${err.message}`);
+    }
+
+    return saved;
   }
 
   async findByChild(childId: number): Promise<Assignment[]> {
@@ -152,6 +176,9 @@ export class AssignmentService {
         assignmentId: assignment.id,
         domain: assignment.domain || 'language',
         score: result.score,
+        activityType: assignment.activityType,
+        topic: assignment.activityData?.topic,
+        interactionData: result.resultData,
         metadata: {
           activityType: assignment.activityType,
           difficulty: assignment.difficulty,

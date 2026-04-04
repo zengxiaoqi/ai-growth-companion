@@ -3,6 +3,7 @@ import { AgentExecutor } from './agent/agent-executor';
 import { ConversationManager } from './conversation/conversation-manager';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
 import { UsersService } from '../users/users.service';
+import { LearningArchiveService } from '../learning/learning-archive.service';
 import { LlmConfig } from './llm/llm.config';
 import { LlmClient } from './llm/llm-client';
 import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
@@ -25,6 +26,7 @@ export class AiService {
     private readonly conversationManager: ConversationManager,
     private readonly contentSafetyService: ContentSafetyService,
     private readonly usersService: UsersService,
+    private readonly learningArchiveService: LearningArchiveService,
     private readonly llmConfig: LlmConfig,
     private readonly llmClient: LlmClient,
   ) {}
@@ -59,6 +61,7 @@ export class AiService {
         message,
         'parent',
         parentName,
+        { parentId },
       );
 
       // Generate parent suggestions
@@ -103,7 +106,16 @@ export class AiService {
         message,
         ageGroup,
         childName,
+        { childId: childId!, parentId },
       );
+
+      void this.learningArchiveService.recordChatTurnSummary({
+        childId: childId!,
+        parentId,
+        sessionId: session.uuid,
+        userMessage: message,
+        assistantReply: result.reply,
+      });
 
       // Generate suggestions based on the reply
       const suggestions = this.generateSuggestions(result.reply, ageGroup);
@@ -165,6 +177,7 @@ export class AiService {
         message,
         'parent',
         parentName,
+        { parentId },
       )) {
         if (event.type === 'done') {
           yield {
@@ -202,14 +215,30 @@ export class AiService {
       await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
 
       const suggestions = this.generateSuggestions('', ageGroup);
+      let finalReply = '';
 
       for await (const event of this.agentExecutor.executeStream(
         session.uuid,
         message,
         ageGroup,
         childName,
+        { childId: childId!, parentId },
       )) {
+        if (event.type === 'token' && event.content) {
+          finalReply += event.content;
+        }
+
         if (event.type === 'done') {
+          if (finalReply.trim()) {
+            void this.learningArchiveService.recordChatTurnSummary({
+              childId: childId!,
+              parentId,
+              sessionId: session.uuid,
+              userMessage: message,
+              assistantReply: finalReply,
+            });
+          }
+
           yield {
             ...event,
             sessionId: session.uuid,
@@ -223,6 +252,72 @@ export class AiService {
       this.logger.error(`Agent stream failed: ${error.message}`);
       yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~' };
     }
+  }
+
+  async getConversationSessions(params: {
+    viewerId: number;
+    viewerType: string;
+    childId: number;
+    page?: number;
+    limit?: number;
+  }) {
+    const canAccess = await this.usersService.canAccessChild(
+      params.viewerId,
+      params.viewerType,
+      params.childId,
+    );
+    if (!canAccess) {
+      throw new Error('FORBIDDEN_CHILD_ACCESS');
+    }
+
+    return this.conversationManager.listSessions({
+      childId: params.childId,
+      page: params.page,
+      limit: params.limit,
+    });
+  }
+
+  async getConversationSessionMessages(params: {
+    viewerId: number;
+    viewerType: string;
+    sessionId: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const conversation = await this.conversationManager.getConversationByUuid(params.sessionId);
+    if (!conversation) {
+      return {
+        sessionId: params.sessionId,
+        list: [],
+        total: 0,
+        page: Math.max(1, params.page || 1),
+        limit: Math.min(200, Math.max(1, params.limit || 50)),
+      };
+    }
+
+    const canAccess = await this.usersService.canAccessChild(
+      params.viewerId,
+      params.viewerType,
+      conversation.childId,
+    );
+    if (!canAccess) {
+      throw new Error('FORBIDDEN_CHILD_ACCESS');
+    }
+
+    const result = await this.conversationManager.getSessionMessages({
+      sessionId: params.sessionId,
+      page: params.page,
+      limit: params.limit,
+    });
+
+    return {
+      sessionId: params.sessionId,
+      childId: conversation.childId,
+      list: result.list,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+    };
   }
 
   /** Generate a quiz on demand */

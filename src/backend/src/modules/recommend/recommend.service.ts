@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { Content } from '../../database/entities/content.entity';
 import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
 import { ParentControl } from '../../database/entities/parent-control.entity';
+import { LearningPoint } from '../../database/entities/learning-point.entity';
 
 interface RecommendParams {
   userId: number;
@@ -22,7 +23,18 @@ export class RecommendService {
     private abilityRepository: Repository<AbilityAssessment>,
     @InjectRepository(ParentControl)
     private controlRepository: Repository<ParentControl>,
+    @InjectRepository(LearningPoint)
+    private learningPointRepository: Repository<LearningPoint>,
   ) {}
+
+  private normalizePointKey(raw: string): string {
+    const normalized = (raw || '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return normalized || 'unknown-topic';
+  }
 
   /**
    * 智能推荐算法
@@ -93,6 +105,14 @@ export class RecommendService {
     excludeIds: number[],
     userId?: number,
   ) {
+    const cooldownPoints = userId
+      ? await this.learningPointRepository.find({
+          where: { childId: userId, cooldownUntil: MoreThan(new Date()) },
+          select: ['pointKey'],
+        })
+      : [];
+    const cooldownPointSet = new Set(cooldownPoints.map((p) => p.pointKey));
+
     // Find out weak domains to prioritize
     const weakDomains = this.getWeakDomains(abilities, domainScores);
 
@@ -122,10 +142,18 @@ export class RecommendService {
       query.andWhere('content.domain IN (:...domains)', { domains: domainsToUse });
     }
 
-    return query
+    const candidates = await query
       .orderBy('content.difficulty', 'ASC')
-      .take(5)
+      .take(30)
       .getMany();
+
+    const filtered = candidates.filter((content) => {
+      if (!content.topic) return true;
+      const pointKey = this.normalizePointKey(content.topic);
+      return !cooldownPointSet.has(pointKey);
+    });
+
+    return filtered.slice(0, 5);
   }
 
   private getWeakDomains(abilities: AbilityAssessment[], domainScores: Record<string, number>) {

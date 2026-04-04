@@ -129,16 +129,23 @@ function SpeakerButton({ msgId, content, playingMsgId, onToggle }: {
   );
 }
 
-interface AIChatProps {
+interface AIChatSharedProps {
   childId?: number;
   parentId?: number;
-  /** When true, renders as a full-page view instead of a floating widget */
-  fullPage?: boolean;
+}
+
+interface AIChatImplProps extends AIChatSharedProps {
+  layout: 'floating' | 'full-page';
+  onBack?: () => void;
+}
+
+interface AIChatPageProps extends AIChatSharedProps {
   /** Back navigation for full-page mode */
   onBack?: () => void;
 }
 
-export default function AIChat({ childId, parentId, fullPage = false, onBack }: AIChatProps) {
+function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
+  const isFullPage = layout === 'full-page';
   const FAB_SIZE = 64;
   const FAB_EDGE_MARGIN = 12;
   const FAB_DEFAULT_RIGHT = 24;
@@ -254,7 +261,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   }, []);
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
-  useEffect(() => { resizeInput(); }, [input, resizeInput, isOpen, fullPage]);
+  useEffect(() => { resizeInput(); }, [input, resizeInput, isOpen, isFullPage]);
   useEffect(() => { setAvatarState(resolveAvatars()); }, [resolveAvatars]);
 
   useEffect(() => {
@@ -268,7 +275,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   }, [resolveAvatars]);
 
   useEffect(() => {
-    if (fullPage) return;
+    if (isFullPage) return;
     const syncFabPosition = () => {
       setFabPosition((prev) => {
         const clamped = clampFabPosition(prev.x, prev.y);
@@ -279,21 +286,21 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
     syncFabPosition();
     window.addEventListener('resize', syncFabPosition);
     return () => window.removeEventListener('resize', syncFabPosition);
-  }, [fullPage, clampFabPosition]);
+  }, [isFullPage, clampFabPosition]);
 
   useEffect(() => {
-    if ((isOpen || fullPage) && messages.length === 0) {
+    if ((isOpen || isFullPage) && messages.length === 0) {
       setMessages([{
         id: '1', role: 'assistant',
         content: '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
         timestamp: new Date(), thinkingSteps: [], toolSteps: [],
       }]);
     }
-  }, [isOpen, fullPage, messages.length]);
+  }, [isOpen, isFullPage, messages.length]);
 
   useEffect(() => {
-    if (isOpen || fullPage) setTimeout(() => inputRef.current?.focus(), 300);
-  }, [isOpen, fullPage]);
+    if (isOpen || isFullPage) setTimeout(() => inputRef.current?.focus(), 300);
+  }, [isOpen, isFullPage]);
 
   const activeChildId = childId;
   const userAvatarSrc = avatarState.userAvatar;
@@ -332,23 +339,28 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   }, []);
 
   useEffect(() => {
-    if (viewMode === 'archive' && (isOpen || fullPage)) {
+    if (viewMode === 'archive' && (isOpen || isFullPage)) {
       loadArchiveData().catch(() => {});
     }
-  }, [viewMode, isOpen, fullPage, loadArchiveData]);
+  }, [viewMode, isOpen, isFullPage, loadArchiveData]);
 
   useEffect(() => {
     if (!selectedHistorySessionId) return;
     loadHistoryMessages(selectedHistorySessionId).catch(() => {});
   }, [selectedHistorySessionId, loadHistoryMessages]);
 
-  // Resize handler
-  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+  // Resize handler (pointer-based for mouse + touch + pen)
+  const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-    const handleMove = (ev: MouseEvent) => {
-      if (!resizeRef.current) return;
+    e.preventDefault();
+    const activePointerId = e.pointerId;
+    const handleEl = e.currentTarget;
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+    handleEl.setPointerCapture(activePointerId);
+
+    const handleMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== activePointerId || !resizeRef.current) return;
       const dx = resizeRef.current.startX - ev.clientX; // drag left edge to widen
       const dy = ev.clientY - resizeRef.current.startY; // drag bottom to heighten
       setSize({
@@ -356,13 +368,21 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
         h: Math.min(Math.max(resizeRef.current.startH + dy, 400), window.innerHeight - 100),
       });
     };
-    const handleUp = () => {
+
+    const handleUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== activePointerId) return;
+      if (handleEl.hasPointerCapture(activePointerId)) {
+        handleEl.releasePointerCapture(activePointerId);
+      }
       resizeRef.current = null;
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
+      document.removeEventListener('pointermove', handleMove);
+      document.removeEventListener('pointerup', handleUp);
+      document.removeEventListener('pointercancel', handleUp);
     };
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
+
+    document.addEventListener('pointermove', handleMove);
+    document.addEventListener('pointerup', handleUp);
+    document.addEventListener('pointercancel', handleUp);
   }, [size]);
 
   const toggleSection = (msgId: string, section: 'thinking' | 'tools') => {
@@ -658,7 +678,7 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
   }, [messages, activeChildId, sessionId, viewMode, loadArchiveData, getMessageGames]);
 
   // Full-page mode: no floating button, just the chat UI directly
-  if (fullPage) {
+  if (isFullPage) {
     return (
       <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-surface-container-lowest">
         {/* Header */}
@@ -1064,8 +1084,8 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
 
             {/* Resize handle */}
             {!isMaximized && (
-              <div className="absolute top-0 left-0 bottom-0 w-3 cursor-ew-resize z-10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                onMouseDown={handleResizeMouseDown}>
+              <div className="absolute top-0 left-0 bottom-0 z-10 flex w-3 cursor-ew-resize touch-none items-center justify-center opacity-0 transition-opacity hover:opacity-100"
+                onPointerDown={handleResizePointerDown}>
                 <GripVertical className="w-2 h-8 text-on-surface-variant/30" />
               </div>
             )}
@@ -1339,6 +1359,14 @@ export default function AIChat({ childId, parentId, fullPage = false, onBack }: 
       </AnimatePresence>
     </>
   );
+}
+
+export default function AIChat(props: AIChatSharedProps) {
+  return <AIChatImpl {...props} layout="floating" />;
+}
+
+export function AIChatPage(props: AIChatPageProps) {
+  return <AIChatImpl {...props} layout="full-page" />;
 }
 
 function LearningArchivePanel({

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback, useRef } from 'react';
 import { motion } from 'motion/react';
 import { ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,16 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
   const [isFinished, setIsFinished] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const pointerDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    sourceIndex: number;
+    overIndex: number;
+    active: boolean;
+  } | null>(null);
+  const suppressTapRef = useRef(false);
 
   // Tap-to-swap: primary interaction for young children
   const handleItemTap = useCallback((index: number) => {
@@ -31,6 +41,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
       setSelectedIndex(null);
       return;
     }
+
     // Swap the two items
     setShuffled((prev) => {
       const next = [...prev];
@@ -42,24 +53,100 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
     setSelectedIndex(null);
   }, [selectedIndex]);
 
-  // Drag support as fallback (for older children / desktop)
-  const handleDragStart = useCallback((index: number) => {
-    setDragIndex(index);
-  }, []);
+  const reorderItems = useCallback((sourceIndex: number, targetIndex: number) => {
+    if (sourceIndex === targetIndex) return;
 
-  const handleDrop = useCallback((targetIndex: number) => {
-    if (dragIndex === null || dragIndex === targetIndex) {
-      setDragIndex(null);
-      return;
-    }
     setShuffled((prev) => {
       const next = [...prev];
-      const [moved] = next.splice(dragIndex, 1);
+      const [moved] = next.splice(sourceIndex, 1);
       next.splice(targetIndex, 0, moved);
       return next.map((item, i) => ({ ...item, currentIndex: i }));
     });
+    setSelectedIndex(null);
+  }, []);
+
+  // Drag support as fallback (for older children / desktop)
+  const handleDragStart = useCallback((index: number) => {
+    setSelectedIndex(null);
+    setDragIndex(index);
+    setDropTargetIndex(index);
+  }, []);
+
+  const handleDrop = useCallback((targetIndex: number) => {
+    if (dragIndex === null) {
+      setDropTargetIndex(null);
+      return;
+    }
+    reorderItems(dragIndex, targetIndex);
     setDragIndex(null);
-  }, [dragIndex]);
+    setDropTargetIndex(null);
+  }, [dragIndex, reorderItems]);
+
+  // Pointer drag fallback for touch/pad devices
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>, index: number) => {
+    if (e.pointerType === 'mouse') return;
+
+    pointerDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      sourceIndex: index,
+      overIndex: index,
+      active: false,
+    };
+    setDropTargetIndex(null);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = pointerDragRef.current;
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+
+    const moved = Math.hypot(e.clientX - dragState.startX, e.clientY - dragState.startY);
+    if (!dragState.active && moved < 8) return;
+
+    if (!dragState.active) {
+      dragState.active = true;
+      setSelectedIndex(null);
+      setDragIndex(dragState.sourceIndex);
+      setDropTargetIndex(dragState.sourceIndex);
+    }
+
+    e.preventDefault();
+    const targetEl = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-seq-index]') as HTMLElement | null;
+    if (!targetEl) return;
+
+    const nextIndex = Number(targetEl.dataset.seqIndex);
+    if (Number.isNaN(nextIndex) || nextIndex === dragState.overIndex) return;
+
+    dragState.overIndex = nextIndex;
+    setDropTargetIndex(nextIndex);
+  }, []);
+
+  const handlePointerEnd = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const dragState = pointerDragRef.current;
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+
+    if (dragState.active) {
+      reorderItems(dragState.sourceIndex, dragState.overIndex);
+      suppressTapRef.current = true;
+    }
+
+    pointerDragRef.current = null;
+    setDragIndex(null);
+    setDropTargetIndex(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }, [reorderItems]);
+
+  const handleItemClick = useCallback((index: number) => {
+    if (suppressTapRef.current) {
+      suppressTapRef.current = false;
+      return;
+    }
+    handleItemTap(index);
+  }, [handleItemTap]);
 
   const handleCheck = useCallback(() => {
     let correct = 0;
@@ -86,7 +173,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
       <div className="text-center">
         <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
-          {selectedIndex !== null ? '再点击另一个来交换位置' : '点击两个来交换顺序'}
+          {selectedIndex !== null ? '再点一个进行交换' : '点击两个卡片交换顺序（也支持拖动）'}
         </p>
       </div>
 
@@ -94,20 +181,30 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
         {shuffled.map((item: any, index: number) => (
           <motion.button
             key={item.id}
+            data-seq-index={index}
             layout
-            onClick={() => handleItemTap(index)}
+            onClick={() => handleItemClick(index)}
+            onPointerDown={(e) => handlePointerDown(e, index)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
             whileTap={{ scale: 0.97 }}
-            aria-label={`第${index + 1}位: ${item.label}${selectedIndex === index ? '（已选中）' : ''}`}
+            aria-label={`第 ${index + 1} 位：${item.label}${selectedIndex === index ? '（已选中）' : ''}`}
             className={cn(
               'w-full flex items-center gap-3 bg-surface-container-lowest p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[52px] transition-all',
               selectedIndex === index && 'border-primary bg-primary-container/20 ring-2 ring-primary ring-offset-2',
               selectedIndex !== null && selectedIndex !== index && 'border-primary/30 hover:border-primary/50',
               dragIndex === index && 'opacity-70',
+              dropTargetIndex === index && dragIndex !== null && 'border-primary/60 bg-primary-container/10',
             )}
             draggable
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => handleDrop(index)}
+            onDragEnd={() => {
+              setDragIndex(null);
+              setDropTargetIndex(null);
+            }}
           >
             <ArrowUpDown className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
             <span className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-base font-black flex-shrink-0">
@@ -118,8 +215,10 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
         ))}
       </div>
 
-      <button onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
+      <button
+        onClick={handleCheck}
+        className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+      >
         检查顺序
       </button>
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft,
   Volume2,
@@ -91,26 +91,82 @@ async function compressAvatarFile(file: File): Promise<string> {
   return readAsDataUrl(blob);
 }
 
-function AvatarPreview({
-  src,
-  isAI,
-}: {
-  src?: string;
-  isAI?: boolean;
-}) {
+function UserAvatarPreview({ src }: { src?: string }) {
   if (src) {
     return (
       <img
         src={src}
-        alt={isAI ? 'AI头像' : '用户头像'}
+        alt="用户头像"
         className="h-full w-full rounded-full object-cover"
       />
     );
   }
-  return isAI ? (
-    <Bot className="w-7 h-7 text-white" />
-  ) : (
-    <User className="w-7 h-7 text-white" />
+  return <User className="w-7 h-7 text-white" />;
+}
+
+function AIAvatarPreview({ src }: { src?: string }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt="AI头像"
+        className="h-full w-full rounded-full object-cover"
+      />
+    );
+  }
+  return <Bot className="w-7 h-7 text-white" />;
+}
+
+function AvatarCustomizerCard({
+  title,
+  description,
+  avatarContainerClassName,
+  preview,
+  onPickFromAlbum,
+  onPickFromCamera,
+  onReset,
+}: {
+  title: string;
+  description: string;
+  avatarContainerClassName: string;
+  preview: ReactNode;
+  onPickFromAlbum: () => void;
+  onPickFromCamera: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
+      <p className="text-sm font-bold text-on-surface mb-3">{title}</p>
+      <div className="mb-3 flex items-center gap-3">
+        <div className={avatarContainerClassName}>
+          {preview}
+        </div>
+        <div className="text-xs text-on-surface-variant">{description}</div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={onPickFromAlbum}
+          className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60 inline-flex items-center gap-1.5"
+        >
+          <ImagePlus className="w-3.5 h-3.5" />
+          相册
+        </button>
+        <button
+          onClick={onPickFromCamera}
+          className="rounded-full bg-secondary-container/40 px-3 py-1.5 text-xs font-semibold text-on-secondary-container hover:bg-secondary-container/55 inline-flex items-center gap-1.5"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          拍照
+        </button>
+        <button
+          onClick={onReset}
+          className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-highest inline-flex items-center gap-1.5"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          默认
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -321,75 +377,25 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
           </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-              <p className="text-sm font-bold text-on-surface mb-3">我的头像</p>
-              <div className="mb-3 flex items-center gap-3">
-                <div className="h-14 w-14 rounded-full bg-primary flex items-center justify-center overflow-hidden">
-                  <AvatarPreview src={userAvatar} />
-                </div>
-                <div className="text-xs text-on-surface-variant">
-                  AI 对话中的“我”将使用这个头像
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => userAlbumInputRef.current?.click()}
-                  className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60 inline-flex items-center gap-1.5"
-                >
-                  <ImagePlus className="w-3.5 h-3.5" />
-                  相册
-                </button>
-                <button
-                  onClick={() => userCameraInputRef.current?.click()}
-                  className="rounded-full bg-secondary-container/40 px-3 py-1.5 text-xs font-semibold text-on-secondary-container hover:bg-secondary-container/55 inline-flex items-center gap-1.5"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  拍照
-                </button>
-                <button
-                  onClick={() => setChatAvatars((prev) => ({ ...prev, userAvatar: undefined }))}
-                  className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-highest inline-flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  默认
-                </button>
-              </div>
-            </div>
+            <AvatarCustomizerCard
+              title="我的头像"
+              description="AI 对话中的“我”将使用这个头像"
+              avatarContainerClassName="h-14 w-14 rounded-full bg-primary flex items-center justify-center overflow-hidden"
+              preview={<UserAvatarPreview src={userAvatar} />}
+              onPickFromAlbum={() => userAlbumInputRef.current?.click()}
+              onPickFromCamera={() => userCameraInputRef.current?.click()}
+              onReset={() => setChatAvatars((prev) => ({ ...prev, userAvatar: undefined }))}
+            />
 
-            <div className="rounded-2xl border border-outline-variant/20 bg-surface p-4">
-              <p className="text-sm font-bold text-on-surface mb-3">AI 头像</p>
-              <div className="mb-3 flex items-center gap-3">
-                <div className="h-14 w-14 rounded-full bg-tertiary flex items-center justify-center overflow-hidden">
-                  <AvatarPreview src={aiAvatar} isAI />
-                </div>
-                <div className="text-xs text-on-surface-variant">
-                  AI 对话中的助手头像可自定义
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => aiAlbumInputRef.current?.click()}
-                  className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60 inline-flex items-center gap-1.5"
-                >
-                  <ImagePlus className="w-3.5 h-3.5" />
-                  相册
-                </button>
-                <button
-                  onClick={() => aiCameraInputRef.current?.click()}
-                  className="rounded-full bg-secondary-container/40 px-3 py-1.5 text-xs font-semibold text-on-secondary-container hover:bg-secondary-container/55 inline-flex items-center gap-1.5"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  拍照
-                </button>
-                <button
-                  onClick={() => setChatAvatars((prev) => ({ ...prev, aiAvatar: undefined }))}
-                  className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-highest inline-flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  默认
-                </button>
-              </div>
-            </div>
+            <AvatarCustomizerCard
+              title="AI 头像"
+              description="AI 对话中的助手头像可自定义"
+              avatarContainerClassName="h-14 w-14 rounded-full bg-tertiary flex items-center justify-center overflow-hidden"
+              preview={<AIAvatarPreview src={aiAvatar} />}
+              onPickFromAlbum={() => aiAlbumInputRef.current?.click()}
+              onPickFromCamera={() => aiCameraInputRef.current?.click()}
+              onReset={() => setChatAvatars((prev) => ({ ...prev, aiAvatar: undefined }))}
+            />
           </div>
 
           <input

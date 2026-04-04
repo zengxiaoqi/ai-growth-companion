@@ -5,7 +5,6 @@ import {
   Flag,
   Play,
   BookOpen,
-  Gamepad2,
   ClipboardList,
   Star,
   AlertCircle,
@@ -776,17 +775,13 @@ export default function StudentDashboard({
             <BookOpen className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">课程</span>
           </button>
-          <button onClick={() => scrollToSection('recommendations')} className="flex flex-col items-center justify-center rounded-full bg-primary-container p-3 text-on-primary-container shadow-inner">
-            <Gamepad2 className="h-7 w-7 fill-current" />
-            <span className="mt-0.5 text-[10px] font-black">探索</span>
+          <button onClick={onOpenCompanion} className="flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner">
+            <Sparkles className="h-7 w-7" />
+            <span className="mt-0.5 text-[10px] font-black">AI伙伴</span>
           </button>
           <button onClick={onOpenAchievements} className="flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
             <Trophy className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">成就</span>
-          </button>
-          <button onClick={onOpenCompanion} className="flex flex-col items-center justify-center p-2 text-tertiary/80 transition-colors hover:text-tertiary">
-            <Sparkles className="h-6 w-6" />
-            <span className="mt-1 text-xs font-bold">伙伴</span>
           </button>
         </div>
       </nav>

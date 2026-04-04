@@ -3,7 +3,7 @@ import { LogOut, AlertCircle, MessageCircle, BarChart3, Settings, ClipboardList,
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import type { GrowthReport, Achievement, ParentControl, AbilityReport, User, Assignment, Ability } from '@/types';
-import AIChat from '../AIChat';
+import AIChatPage from '../AIChatPage';
 import ReportDetail from '../ReportDetail';
 import ChildSelector from './ChildSelector';
 import GrowthReportSection from './GrowthReportSection';
@@ -328,7 +328,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
         {activeTab === 'chat' && (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-hidden p-1.5 md:p-2">
-            <AIChat fullPage parentId={user?.id} childId={selectedChildId ?? undefined} />
+            <AIChatPage parentId={user?.id} childId={selectedChildId ?? undefined} />
           </div>
         )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Loader2, ArrowLeft } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -18,9 +18,44 @@ const AchievementShowcase = lazy(() => import('./components/AchievementShowcase'
 const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 const AIChat = lazy(() => import('./components/AIChat'));
+const AIChatPage = lazy(() => import('./components/AIChatPage'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
-type View = 'login' | 'register' | 'selection' | 'parent' | 'student' | 'content-detail' | 'achievements' | 'profile' | 'settings' | 'companion' | 'assignment';
+type View =
+  | 'login'
+  | 'register'
+  | 'selection'
+  | 'parent'
+  | 'student'
+  | 'content-detail'
+  | 'achievements'
+  | 'profile'
+  | 'settings'
+  | 'companion'
+  | 'assignment';
+
+type TransitionPreset = 'fade' | 'slide' | 'scale';
+type ViewRegistryEntry = {
+  preset: TransitionPreset;
+  className?: string;
+  render: () => ReactNode;
+  visible?: boolean;
+};
+
+const SECURITY_BADGE_HIDDEN_VIEWS = new Set<View>([
+  'parent',
+  'login',
+  'register',
+  'achievements',
+  'companion',
+]);
+
+const FLOATING_CHAT_HIDDEN_VIEWS = new Set<View>([
+  'companion',
+  'login',
+  'register',
+  'parent',
+]);
 
 function PageLoader() {
   return (
@@ -33,6 +68,78 @@ function PageLoader() {
   );
 }
 
+function AppViewTransition({
+  viewKey,
+  preset,
+  reducedMotion,
+  className,
+  children,
+}: {
+  viewKey: string;
+  preset: TransitionPreset;
+  reducedMotion: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (reducedMotion) {
+    return (
+      <motion.div
+        key={viewKey}
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 1 }}
+        transition={{ duration: 0 }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
+  if (preset === 'slide') {
+    return (
+      <motion.div
+        key={viewKey}
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -50 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
+  if (preset === 'scale') {
+    return (
+      <motion.div
+        key={viewKey}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 1.05 }}
+        transition={{ duration: 0.5, type: 'spring', damping: 20 }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      key={viewKey}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function AppContent() {
   const { user, isAuthenticated, isLoading: authLoading, error, login, register, clearError } = useAuth();
   const [view, setView] = useState<View>('login');
@@ -40,14 +147,9 @@ function AppContent() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isAssignmentCompleted, setIsAssignmentCompleted] = useState(false);
   const reducedMotion = useReducedMotion();
-
-  const viewTransition = reducedMotion
-    ? { duration: 0 }
-    : { duration: 0.3 };
-
-  const slideTransition = reducedMotion
-    ? { duration: 0 }
-    : { type: "spring" as const, damping: 25, stiffness: 300 };
+  const childId = user?.type === 'child' ? user.id : undefined;
+  const showSecurityBadge = !SECURITY_BADGE_HIDDEN_VIEWS.has(view);
+  const showFloatingChat = !FLOATING_CHAT_HIDDEN_VIEWS.has(view);
 
   // When user becomes authenticated, go to selection
   useEffect(() => {
@@ -68,7 +170,6 @@ function AppContent() {
     applyAppUISettings(resolveAppUISettings(user?.settings as Record<string, unknown> | undefined));
   }, [user?.settings]);
 
-  // Show loading spinner while checking auth
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -80,259 +181,226 @@ function AppContent() {
     );
   }
 
-  // Not authenticated - show login or register
   if (!isAuthenticated) {
+    const authView = view === 'register' ? 'register' : 'login';
+    const authViewRegistry: Record<'login' | 'register', ViewRegistryEntry> = {
+      login: {
+        preset: 'fade',
+        render: () => (
+          <LoginScreen
+            onLogin={async (phone, password) => {
+              await login({ phone, password });
+            }}
+            onSwitchToRegister={() => {
+              clearError();
+              setView('register');
+            }}
+            error={error}
+            isLoading={authLoading}
+          />
+        ),
+      },
+      register: {
+        preset: 'fade',
+        render: () => (
+          <RegisterScreen
+            onRegister={async (data) => {
+              await register(data);
+            }}
+            onSwitchToLogin={() => {
+              clearError();
+              setView('login');
+            }}
+            error={error}
+            isLoading={authLoading}
+          />
+        ),
+      },
+    };
+    const activeAuthView = authViewRegistry[authView];
+
     return (
       <div className="min-h-screen bg-background">
         <AnimatePresence mode="wait">
-          {view === 'login' && (
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={viewTransition}
-            >
-              <LoginScreen
-                onLogin={async (phone, password) => {
-                  await login({ phone, password });
-                }}
-                onSwitchToRegister={() => {
-                  clearError();
-                  setView('register');
-                }}
-                error={error}
-                isLoading={authLoading}
-              />
-            </motion.div>
-          )}
-
-          {view === 'register' && (
-            <motion.div
-              key="register"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={viewTransition}
-            >
-              <RegisterScreen
-                onRegister={async (data) => {
-                  await register(data);
-                }}
-                onSwitchToLogin={() => {
-                  clearError();
-                  setView('login');
-                }}
-                error={error}
-                isLoading={authLoading}
-              />
-            </motion.div>
-          )}
+          <AppViewTransition
+            viewKey={authView}
+            preset={activeAuthView.preset}
+            reducedMotion={reducedMotion}
+            className={activeAuthView.className}
+          >
+            {activeAuthView.render()}
+          </AppViewTransition>
         </AnimatePresence>
       </div>
     );
   }
 
-  // Authenticated - show main app
-  return (
-    <div className="min-h-screen bg-background selection:bg-primary-container">
-      <AnimatePresence mode="wait">
-        {view === 'selection' && (
-          <motion.div
-            key="selection"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={viewTransition}
-          >
-            <ModeSelection 
-              onSelectMode={(mode) => setView(mode as View)}
-              user={user}
+  const authenticatedViewRegistry: Partial<Record<View, ViewRegistryEntry>> = {
+    selection: {
+      preset: 'fade',
+      render: () => (
+        <ModeSelection
+          onSelectMode={(mode) => setView(mode as View)}
+          user={user}
+        />
+      ),
+    },
+    parent: {
+      preset: 'slide',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <ParentDashboard onBack={() => setView('selection')} />
+        </Suspense>
+      ),
+    },
+    student: {
+      preset: 'scale',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <StudentDashboard
+            onBack={() => setView('selection')}
+            onOpenContent={(contentId: number) => {
+              setSelectedContentId(contentId);
+              setView('content-detail');
+            }}
+            onOpenAchievements={() => setView('achievements')}
+            onOpenProfile={() => setView('profile')}
+            onOpenSettings={() => setView('settings')}
+            onOpenCompanion={() => setView('companion')}
+            onOpenAssignment={(assignment) => {
+              setSelectedAssignment(assignment);
+              setIsAssignmentCompleted(false);
+              setView('assignment');
+            }}
+          />
+        </Suspense>
+      ),
+    },
+    'content-detail': {
+      preset: 'slide',
+      visible: selectedContentId != null,
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <ContentDetail
+            contentId={selectedContentId as number}
+            childId={childId}
+            onBack={() => {
+              setSelectedContentId(null);
+              setView('student');
+            }}
+            onComplete={() => {
+              // Could refresh dashboard data here
+            }}
+          />
+        </Suspense>
+      ),
+    },
+    assignment: {
+      preset: 'slide',
+      visible: selectedAssignment != null,
+      render: () => {
+        if (!selectedAssignment) return null;
+        return (
+          <div className="min-h-screen bg-background">
+            <div className="sticky top-0 z-10 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/15 px-4 py-3 flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setSelectedAssignment(null);
+                  setView('student');
+                }}
+                className="p-2 rounded-full hover:bg-surface-container-high transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-on-surface" />
+              </button>
+              <h2 className="font-bold text-on-surface">{selectedAssignment.activityType}练习</h2>
+            </div>
+            <GameRenderer
+              type={selectedAssignment.activityType}
+              data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, title: '练习' }}
+              onComplete={async (result: ActivityResult) => {
+                try {
+                  await api.completeAssignment(selectedAssignment.id, result);
+                } catch {
+                  // Silently handle - game was still completed locally
+                }
+                setIsAssignmentCompleted(true);
+              }}
             />
-          </motion.div>
-        )}
-
-        {view === 'parent' && (
-          <motion.div
-            key="parent"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
-          >
-            <Suspense fallback={<PageLoader />}>
-              <ParentDashboard onBack={() => setView('selection')} />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'student' && (
-          <motion.div
-            key="student"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={reducedMotion ? { duration: 0 } : { duration: 0.5, type: "spring", damping: 20 }}
-          >
-            <Suspense fallback={<PageLoader />}>
-              <StudentDashboard
-              onBack={() => setView('selection')}
-              onOpenContent={(contentId: number) => {
-                setSelectedContentId(contentId);
-                setView('content-detail');
-              }}
-              onOpenAchievements={() => setView('achievements')}
-              onOpenProfile={() => setView('profile')}
-              onOpenSettings={() => setView('settings')}
-              onOpenCompanion={() => setView('companion')}
-              onOpenAssignment={(assignment) => {
-                setSelectedAssignment(assignment);
-                setIsAssignmentCompleted(false);
-                setView('assignment');
-              }}
-            />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'content-detail' && selectedContentId && (
-          <motion.div
-            key="content-detail"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
-          >
-            <Suspense fallback={<PageLoader />}>
-            <ContentDetail
-              contentId={selectedContentId}
-              childId={user?.type === 'child' ? user.id : undefined}
-              onBack={() => {
-                setSelectedContentId(null);
-                setView('student');
-              }}
-              onComplete={() => {
-                // Could refresh dashboard data here
-              }}
-            />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'assignment' && selectedAssignment && (
-          <motion.div
-            key="assignment"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
-          >
-            <div className="min-h-screen bg-background">
-              <div className="sticky top-0 z-10 bg-surface-container-lowest/95 backdrop-blur-sm border-b border-outline-variant/15 px-4 py-3 flex items-center gap-3">
+            {isAssignmentCompleted && (
+              <div className="max-w-lg mx-auto px-4 pb-6">
                 <button
                   onClick={() => {
+                    setIsAssignmentCompleted(false);
                     setSelectedAssignment(null);
                     setView('student');
                   }}
-                  className="p-2 rounded-full hover:bg-surface-container-high transition-colors"
+                  className="w-full bg-primary text-on-primary py-3 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
                 >
-                  <ArrowLeft className="w-5 h-5 text-on-surface" />
+                  返回主页
                 </button>
-                <h2 className="font-bold text-on-surface">{selectedAssignment.activityType}练习</h2>
               </div>
-              <GameRenderer
-                type={selectedAssignment.activityType}
-                data={selectedAssignment.activityData ?? { type: selectedAssignment.activityType, title: '练习' }}
-                onComplete={async (result: ActivityResult) => {
-                  try {
-                    await api.completeAssignment(selectedAssignment.id, result);
-                  } catch {
-                    // Silently handle — game was still completed locally
-                  }
-                  setIsAssignmentCompleted(true);
-                }}
-              />
-              {isAssignmentCompleted && (
-                <div className="max-w-lg mx-auto px-4 pb-6">
-                  <button
-                    onClick={() => {
-                      setIsAssignmentCompleted(false);
-                      setSelectedAssignment(null);
-                      setView('student');
-                    }}
-                    className="w-full bg-primary text-on-primary py-3 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
-                  >
-                    返回主页
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
+            )}
+          </div>
+        );
+      },
+    },
+    achievements: {
+      preset: 'slide',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <AchievementShowcase
+            userId={user?.id ?? 0}
+            onBack={() => setView('student')}
+          />
+        </Suspense>
+      ),
+    },
+    profile: {
+      preset: 'slide',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <ProfileScreen onBack={() => setView('student')} />
+        </Suspense>
+      ),
+    },
+    settings: {
+      preset: 'slide',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <SettingsScreen onBack={() => setView('student')} />
+        </Suspense>
+      ),
+    },
+    companion: {
+      preset: 'fade',
+      className: 'min-h-screen',
+      render: () => (
+        <Suspense fallback={<PageLoader />}>
+          <AIChatPage childId={childId} onBack={() => setView('student')} />
+        </Suspense>
+      ),
+    },
+  };
+  const activeMainView = authenticatedViewRegistry[view];
+  const isMainViewVisible = activeMainView?.visible ?? true;
 
-        {view === 'achievements' && (
-          <motion.div
-            key="achievements"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
+  return (
+    <div className="min-h-screen bg-background selection:bg-primary-container">
+      <AnimatePresence mode="wait">
+        {activeMainView && isMainViewVisible && (
+          <AppViewTransition
+            viewKey={view}
+            preset={activeMainView.preset}
+            reducedMotion={reducedMotion}
+            className={activeMainView.className}
           >
-            <Suspense fallback={<PageLoader />}>
-            <AchievementShowcase
-              userId={user?.id ?? 0}
-              onBack={() => setView('student')}
-            />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'profile' && (
-          <motion.div
-            key="profile"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
-          >
-            <Suspense fallback={<PageLoader />}>
-            <ProfileScreen onBack={() => setView('student')} />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'settings' && (
-          <motion.div
-            key="settings"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={slideTransition}
-          >
-            <Suspense fallback={<PageLoader />}>
-            <SettingsScreen onBack={() => setView('student')} />
-            </Suspense>
-          </motion.div>
-        )}
-
-        {view === 'companion' && (
-          <motion.div
-            key="companion"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={viewTransition}
-            className="min-h-screen"
-          >
-            <Suspense fallback={<PageLoader />}>
-              <AIChat childId={user?.type === 'child' ? user.id : undefined} fullPage onBack={() => setView('student')} />
-            </Suspense>
-          </motion.div>
+            {activeMainView.render()}
+          </AppViewTransition>
         )}
       </AnimatePresence>
 
       {/* Global Security Badge (Visible in Selection & Student) */}
-      {view !== 'parent' && view !== 'login' && view !== 'register' && view !== 'achievements' && view !== 'companion' && (
+      {showSecurityBadge && (
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -343,10 +411,10 @@ function AppContent() {
         </motion.div>
       )}
 
-      {/* Global Floating AI Chat — available on all authenticated views except full-page companion and parent dashboard */}
-      {view !== 'companion' && view !== 'login' && view !== 'register' && view !== 'parent' && (
+      {/* Global Floating AI Chat - available on all authenticated views except full-page companion and parent dashboard */}
+      {showFloatingChat && (
         <Suspense fallback={null}>
-          <AIChat childId={user?.type === 'child' ? user.id : undefined} />
+          <AIChat childId={childId} />
         </Suspense>
       )}
     </div>

@@ -16,6 +16,7 @@ import { normalizeActivityData, normalizeActivityType } from './components/ai-ch
 const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
 const ContentDetail = lazy(() => import('./components/ContentDetail'));
+const StructuredLessonView = lazy(() => import('./components/StructuredLessonView'));
 const AchievementShowcase = lazy(() => import('./components/AchievementShowcase'));
 const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
@@ -190,13 +191,52 @@ function StudentContentRoute() {
 
   return (
     <Suspense fallback={<PageLoader />}>
-      <ContentDetail
+      <ContentDetailRouter
         contentId={contentId}
         childId={childId}
         onBack={() => navigate('/student')}
         onComplete={() => {}}
       />
     </Suspense>
+  );
+}
+
+function ContentDetailRouter({ contentId, childId, onBack, onComplete }: {
+  contentId: number;
+  childId?: number;
+  onBack: () => void;
+  onComplete: (record: any) => void;
+}) {
+  const [isStructured, setIsStructured] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.getContent(contentId).then((content) => {
+      const data = typeof content.content === 'string' ? JSON.parse(content.content) : content.content;
+      setIsStructured(data?.type === 'structured_lesson');
+    }).catch(() => {
+      setIsStructured(false);
+    });
+  }, [contentId]);
+
+  if (isStructured === null) return <PageLoader />;
+
+  if (isStructured) {
+    return (
+      <StructuredLessonView
+        contentId={contentId}
+        childId={childId}
+        onBack={onBack}
+      />
+    );
+  }
+
+  return (
+    <ContentDetail
+      contentId={contentId}
+      childId={childId}
+      onBack={onBack}
+      onComplete={onComplete}
+    />
   );
 }
 

@@ -10,7 +10,7 @@ import { LearningModule } from '../learning/learning.module';
   imports: [
     TypeOrmModule.forFeature([Assignment]),
     forwardRef(() => AiModule),
-    LearningModule,
+    forwardRef(() => LearningModule),
   ],
   providers: [AssignmentService],
   controllers: [AssignmentController],

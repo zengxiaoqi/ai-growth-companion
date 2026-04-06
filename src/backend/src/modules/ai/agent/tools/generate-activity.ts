@@ -14,15 +14,30 @@ type GenerateActivityArgs = {
 type ValidationResult = {
   ok: boolean;
   reason?: string;
+  debug?: Record<string, any>;
+};
+
+type JsonExtractionResult = {
+  value: any | null;
+  method: 'direct' | 'code_block' | 'brace_slice' | 'none';
+  parseError?: string;
+  candidateLength?: number;
+  candidatePreview?: string;
 };
 
 const MAX_GENERATION_ATTEMPTS = 3;
 const SUPPORTED_TYPES: ActivityType[] = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'];
 const ANIMAL_TOPIC_RE = /(\u52a8\u7269|\u519c\u573a|\u68ee\u6797|\u6d77\u6d0b|\u5ba0\u7269|\u5bb6\u79bd|\u5bb6\u755c|\u5c0f\u9e21|\u5c0f\u9e2d|\u5c0f\u732b|\u5c0f\u72d7|animal|farm|zoo|pet|wild|livestock)/i;
+const NUMBER_TOPIC_RE = /(\u6570\u5b66|\u6570\u5b57|\u8ba4\u6570|\u6570\u6570|\u52a0\u6cd5|\u51cf\u6cd5|math|number|count|arithmetic)/i;
+const GENERIC_FALLBACK_RE = /(wake up|breakfast|go to school|go home|sun|moon|apple|fish|1\+1=3|\u592a\u9633\u767d\u5929\u51fa\u73b0|\u8d77\u5e8a|\u5403\u65e9\u996d|\u53bb\u4e0a\u5b66|\u56de\u5bb6)/i;
 const ANIMAL_TERMS = [
   '\u52a8\u7269', '\u725b', '\u7f8a', '\u732a', '\u9e21', '\u9e2d', '\u9e45', '\u9a6c', '\u72d7', '\u732b', '\u5154', '\u9c7c',
   '\u9e1f', '\u9e7f', '\u718a', '\u72d0\u72f8', '\u677e\u9f20', '\u9752\u86d9', '\u6d77\u8c5a', '\u9cb8', '\u4e4c\u9f9f',
   'animal', 'cow', 'sheep', 'pig', 'chicken', 'duck', 'horse', 'dog', 'cat', 'rabbit', 'fish',
+];
+const NUMBER_TERMS = [
+  '\u96f6', '\u4e00', '\u4e8c', '\u4e09', '\u56db', '\u4e94', '\u516d', '\u4e03', '\u516b', '\u4e5d', '\u5341', '\u6570\u5b57', '\u6570\u5b66',
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'number', 'count',
 ];
 const TOPIC_STOP_WORDS = new Set([
   '\u8ba4\u8bc6', '\u5b66\u4e60', '\u7ec3\u4e60', '\u7ee7\u7eed', '\u66f4\u591a', '\u4e00\u4e2a', '\u4e00\u4e0b',
@@ -33,8 +48,10 @@ const TOPIC_CORE_TERMS = [
   '\u52a8\u7269', '\u519c\u573a', '\u68ee\u6797', '\u6d77\u6d0b', '\u6816\u606f', '\u4f4f\u5728',
   '\u4e60\u6027', '\u884c\u4e3a', '\u6210\u957f', '\u5b75\u5316', '\u751f\u547d\u5468\u671f',
   '\u5206\u7c7b', '\u7231\u5403', '\u98df\u7269', '\u5bb6\u79bd', '\u5bb6\u755c',
+  '\u6570\u5b57', '\u6570\u5b66', '\u8ba4\u6570', '\u6570\u6570', '\u52a0\u6cd5', '\u51cf\u6cd5',
   '\u5c0f\u9e21', '\u5c0f\u9e2d', '\u5c0f\u732b', '\u5c0f\u72d7',
   'animal', 'farm', 'zoo', 'pet', 'wild', 'habitat', 'diet', 'classification', 'growth', 'life', 'cycle',
+  'math', 'number', 'count', 'arithmetic',
 ];
 
 @Injectable()
@@ -46,8 +63,10 @@ export class GenerateActivityTool {
   async execute(args: GenerateActivityArgs): Promise<string> {
     const normalizedArgs = this.normalizeArgs(args);
     const failures: string[] = [];
+    const runId = this.createRunId();
 
     this.logger.log(`[generateActivity] start ${JSON.stringify({
+      runId,
       type: normalizedArgs.type,
       topic: normalizedArgs.topic,
       difficulty: normalizedArgs.difficulty,
@@ -59,16 +78,41 @@ export class GenerateActivityTool {
     for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
       try {
         const prompt = this.buildPrompt(normalizedArgs, attempt, failures);
+        this.logger.log(`[generateActivity] llm_request ${JSON.stringify({
+          runId,
+          attempt,
+          topic: normalizedArgs.topic,
+          type: normalizedArgs.type,
+          promptLength: prompt.length,
+          promptPreview: this.truncateForLog(prompt, 1200),
+        })}`);
         const response = await this.llmClient.generate(prompt);
-        const parsed = this.extractJsonObject(response);
+        this.logger.log(`[generateActivity] llm_response ${JSON.stringify({
+          runId,
+          attempt,
+          topic: normalizedArgs.topic,
+          type: normalizedArgs.type,
+          responseLength: response.length,
+          responsePreview: this.truncateForLog(response, 1200),
+        })}`);
+
+        const parsedResult = this.extractJsonObjectWithMeta(response);
+        const parsed = parsedResult.value;
         if (!parsed) {
           const reason = 'model did not return parseable JSON';
           failures.push(`attempt ${attempt}: ${reason}`);
           this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({
+            runId,
             attempt,
             reason,
             topic: normalizedArgs.topic,
             type: normalizedArgs.type,
+            parseMeta: {
+              method: parsedResult.method,
+              parseError: parsedResult.parseError,
+              candidateLength: parsedResult.candidateLength,
+              candidatePreview: parsedResult.candidatePreview,
+            },
           })}`);
           continue;
         }
@@ -79,16 +123,19 @@ export class GenerateActivityTool {
           const reason = alignment.reason || 'topic alignment check failed';
           failures.push(`attempt ${attempt}: ${reason}`);
           this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({
+            runId,
             attempt,
             reason,
             topic: normalizedArgs.topic,
             type: normalizedArgs.type,
             summary: this.summarizeActivity(sanitized),
+            validationDebug: alignment.debug,
           })}`);
           continue;
         }
 
         this.logger.log(`[generateActivity] success ${JSON.stringify({
+          runId,
           attempt,
           topic: normalizedArgs.topic,
           type: normalizedArgs.type,
@@ -99,16 +146,19 @@ export class GenerateActivityTool {
         const reason = error?.message || 'unknown error';
         failures.push(`attempt ${attempt}: ${reason}`);
         this.logger.warn(`[generateActivity] attempt_exception ${JSON.stringify({
+          runId,
           attempt,
           reason,
           topic: normalizedArgs.topic,
           type: normalizedArgs.type,
+          stackPreview: this.truncateForLog(this.toText(error?.stack), 800),
         })}`);
       }
     }
 
     const detail = failures.join(' | ');
     this.logger.error(`[generateActivity] failed_after_retries ${JSON.stringify({
+      runId,
       topic: normalizedArgs.topic,
       type: normalizedArgs.type,
       attempts: MAX_GENERATION_ATTEMPTS,
@@ -177,6 +227,7 @@ export class GenerateActivityTool {
       '- Do not output generic template content unrelated to the topic.',
       '- Avoid patterns like "wake up / breakfast / go to school / go home", "sun/moon/apple/fish", "1+1=3".',
       '- If topic is animals, include concrete animal knowledge points, not only counting.',
+      '- For fill_blank, never set all answers to the topic text itself. Use concrete knowledge answers.',
       '- Return strict JSON only. No markdown. No explanations.',
     ].join('\n');
 
@@ -231,7 +282,7 @@ export class GenerateActivityTool {
       case 'true_false':
         return [...common, 'Generate 3-5 statements.', 'isCorrect must be a boolean.'];
       case 'fill_blank':
-        return [...common, 'Generate 3-5 fill-in sentences.', 'answer must appear in options.'];
+        return [...common, 'Generate 3-5 fill-in sentences.', 'Each sentence must contain a blank marker like ___.', 'answer must appear in options.', 'Do not reuse the same answer for all sentences.'];
       case 'matching':
         return [...common, 'Generate 4-8 pairs.', 'left/right should be in the same knowledge domain.'];
       case 'connection':
@@ -252,6 +303,10 @@ export class GenerateActivityTool {
     if (this.isAnimalTopic(t)) {
       rules.push('Include at least two concrete animals or animal traits.');
       rules.push('Do not reduce to pure counting; include real animal knowledge.');
+    }
+    if (this.isNumberTopic(t)) {
+      rules.push('Include concrete numbers (for example 0-10 or Chinese numerals), not generic placeholders.');
+      rules.push('For fill blanks, answers should be actual numbers or math words, not the full topic phrase.');
     }
     if (t.includes('\u4f4f') || t.includes('\u6816\u606f')) rules.push('Must include habitat or where-animal-lives information.');
     if (t.includes('\u4e60\u6027')) rules.push('Must include behavior or habits.');
@@ -483,12 +538,28 @@ export class GenerateActivityTool {
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
-    if (!bodyContent) return { ok: false, reason: 'activity body is empty' };
-
+    const topicKeywords = this.extractTopicKeywords(topic);
     const requiredGroups = this.requiredKeywordGroups(topic);
+    const debugBase = {
+      topic,
+      topicKeywords,
+      requiredGroups,
+      bodyLength: bodyContent.length,
+      bodyPreview: this.truncateForLog(bodyContent, 320),
+    };
+
+    if (!bodyContent) return { ok: false, reason: 'activity body is empty', debug: debugBase };
+
     for (const group of requiredGroups) {
       if (!group.some((kw) => bodyContent.includes(kw))) {
-        return { ok: false, reason: `missing topic group: ${group.join('/')}` };
+        return {
+          ok: false,
+          reason: `missing topic group: ${group.join('/')}`,
+          debug: {
+            ...debugBase,
+            missingGroup: group,
+          },
+        };
       }
     }
 
@@ -499,16 +570,86 @@ export class GenerateActivityTool {
           .filter((term) => bodyContent.includes(term)),
       ));
       if (animalHits.length < 2) {
-        return { ok: false, reason: `animal topic lacks concrete animal diversity, hits=${animalHits.join(',') || 'none'}` };
+        return {
+          ok: false,
+          reason: `animal topic lacks concrete animal diversity, hits=${animalHits.join(',') || 'none'}`,
+          debug: {
+            ...debugBase,
+            animalHits,
+          },
+        };
       }
 
-      const offTopicGeneric = /(wake up|breakfast|go to school|go home|1\+1=3|\u592a\u9633\u767d\u5929\u51fa\u73b0|\u8d77\u5e8a|\u5403\u65e9\u996d|\u53bb\u4e0a\u5b66|\u56de\u5bb6)/.test(bodyContent);
-      if (offTopicGeneric) return { ok: false, reason: 'generic fallback content detected' };
+      const offTopicGeneric = GENERIC_FALLBACK_RE.test(bodyContent);
+      if (offTopicGeneric) {
+        return {
+          ok: false,
+          reason: 'generic fallback content detected',
+          debug: {
+            ...debugBase,
+            animalHits,
+            genericPatternDetected: true,
+          },
+        };
+      }
     }
 
-    const topicKeywords = this.extractTopicKeywords(topic);
-    if (topicKeywords.length > 0 && !topicKeywords.some((kw) => bodyContent.includes(kw))) {
-      return { ok: false, reason: `content misses topic keywords: ${topicKeywords.join(', ')}` };
+    if (GENERIC_FALLBACK_RE.test(bodyContent)) {
+      return {
+        ok: false,
+        reason: 'generic fallback content detected',
+        debug: {
+          ...debugBase,
+          genericPatternDetected: true,
+        },
+      };
+    }
+
+    const keywordHits = topicKeywords.filter((kw) => bodyContent.includes(kw));
+    if (topicKeywords.length > 0 && keywordHits.length === 0) {
+      return {
+        ok: false,
+        reason: `content misses topic keywords: ${topicKeywords.join(', ')}`,
+        debug: {
+          ...debugBase,
+          keywordHits,
+        },
+      };
+    }
+
+    const quality = this.validateContentQuality(args, activity);
+    if (!quality.ok) return quality;
+
+    return { ok: true };
+  }
+
+  private validateContentQuality(args: GenerateActivityArgs, activity: any): ValidationResult {
+    if (args.type !== 'fill_blank') return { ok: true };
+    const sentences = Array.isArray(activity?.sentences) ? activity.sentences : [];
+    if (sentences.length < 3) return { ok: false, reason: 'fill_blank sentences too few' };
+
+    if (sentences.some((s: any) => !this.hasBlankMarker(this.toText(s?.text)))) {
+      return { ok: false, reason: 'fill_blank sentence missing blank marker' };
+    }
+
+    const answers = sentences.map((s: any) => this.toText(s?.answer).toLowerCase()).filter(Boolean);
+    if (answers.length < 3) return { ok: false, reason: 'fill_blank answers too few' };
+    const uniqueAnswers = new Set(answers);
+    if (uniqueAnswers.size < 2) return { ok: false, reason: 'fill_blank answers have no diversity' };
+
+    const topicText = this.toText(args.topic).toLowerCase();
+    const topicAnswerCount = answers.filter((ans) => ans === topicText).length;
+    if (topicAnswerCount >= Math.max(2, Math.ceil(sentences.length * 0.6))) {
+      return { ok: false, reason: 'fill_blank answers reuse topic text' };
+    }
+
+    if (this.isNumberTopic(topicText)) {
+      const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
+      const termHits = NUMBER_TERMS.filter((term) => bodyContent.includes(term.toLowerCase())).length;
+      const digitHits = (bodyContent.match(/\b\d+\b/g) || []).length;
+      if (termHits + digitHits < 3) {
+        return { ok: false, reason: 'number topic lacks concrete number content' };
+      }
     }
 
     return { ok: true };
@@ -591,6 +732,14 @@ export class GenerateActivityTool {
     return ANIMAL_TOPIC_RE.test(topic);
   }
 
+  private isNumberTopic(topic: string): boolean {
+    return NUMBER_TOPIC_RE.test(topic);
+  }
+
+  private hasBlankMarker(text: string): boolean {
+    return /_{2,}|\(\s*\)|\[\s*\]|\uff08\s*\uff09/.test(text);
+  }
+
   private extractTopicKeywords(topic: string): string[] {
     const clean = topic.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]+/g, ' ').trim().toLowerCase();
     if (!clean) return [];
@@ -634,30 +783,67 @@ export class GenerateActivityTool {
     return 0;
   }
 
-  private extractJsonObject(text: string): any | null {
+  private extractJsonObjectWithMeta(text: string): JsonExtractionResult {
     const source = this.toText(text);
-    if (!source) return null;
+    if (!source) {
+      return {
+        value: null,
+        method: 'none',
+        parseError: 'empty model response',
+      };
+    }
+
+    const parseErrors: string[] = [];
 
     try {
-      return JSON.parse(source);
-    } catch {}
+      return {
+        value: JSON.parse(source),
+        method: 'direct',
+        candidateLength: source.length,
+        candidatePreview: this.truncateForLog(source, 280),
+      };
+    } catch (error: any) {
+      parseErrors.push(`direct_parse: ${this.toText(error?.message, 'failed')}`);
+    }
 
     const codeBlockMatch = source.match(/```json\s*([\s\S]*?)```/i) || source.match(/```\s*([\s\S]*?)```/i);
     if (codeBlockMatch?.[1]) {
+      const candidate = codeBlockMatch[1].trim();
       try {
-        return JSON.parse(codeBlockMatch[1].trim());
-      } catch {}
+        return {
+          value: JSON.parse(candidate),
+          method: 'code_block',
+          candidateLength: candidate.length,
+          candidatePreview: this.truncateForLog(candidate, 280),
+        };
+      } catch (error: any) {
+        parseErrors.push(`code_block_parse: ${this.toText(error?.message, 'failed')}`);
+      }
     }
 
     const firstBrace = source.indexOf('{');
     const lastBrace = source.lastIndexOf('}');
     if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const candidate = source.slice(firstBrace, lastBrace + 1);
       try {
-        return JSON.parse(source.slice(firstBrace, lastBrace + 1));
-      } catch {}
+        return {
+          value: JSON.parse(candidate),
+          method: 'brace_slice',
+          candidateLength: candidate.length,
+          candidatePreview: this.truncateForLog(candidate, 280),
+        };
+      } catch (error: any) {
+        parseErrors.push(`brace_slice_parse: ${this.toText(error?.message, 'failed')}`);
+      }
     }
 
-    return null;
+    return {
+      value: null,
+      method: 'none',
+      parseError: parseErrors.join(' | '),
+      candidateLength: source.length,
+      candidatePreview: this.truncateForLog(source, 280),
+    };
   }
 
   private toText(value: any, fallback = ''): string {
@@ -677,5 +863,15 @@ export class GenerateActivityTool {
     if (['true', '1', 'yes', 'y', '\u662f', '\u5bf9', '\u6b63\u786e'].includes(t)) return true;
     if (['false', '0', 'no', 'n', '\u5426', '\u9519', '\u9519\u8bef'].includes(t)) return false;
     return false;
+  }
+
+  private truncateForLog(text: string, max = 400): string {
+    if (!text) return '';
+    if (text.length <= max) return text;
+    return `${text.slice(0, max)}...(truncated)`;
+  }
+
+  private createRunId(): string {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 }

@@ -15,6 +15,7 @@ import { ViewReportTool } from './tools/view-report';
 import { ViewAbilitiesTool } from './tools/view-abilities';
 import { UpdateParentControlTool } from './tools/update-parent-control';
 import { ListAssignmentsTool } from './tools/list-assignments';
+import { GenerateCoursePackTool } from './tools/generate-course-pack';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
 
 @Injectable()
@@ -38,6 +39,7 @@ export class ToolRegistry {
     private readonly viewAbilitiesTool: ViewAbilitiesTool,
     private readonly updateParentControlTool: UpdateParentControlTool,
     private readonly listAssignmentsTool: ListAssignmentsTool,
+    private readonly generateCoursePackTool: GenerateCoursePackTool,
   ) {
     this.handlers = new Map([
       ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
@@ -55,6 +57,7 @@ export class ToolRegistry {
       ['viewAbilities', (args) => this.viewAbilitiesTool.execute(args)],
       ['updateParentControl', (args) => this.updateParentControlTool.execute(args)],
       ['listAssignments', (args) => this.listAssignmentsTool.execute(args)],
+      ['generateCoursePack', (args) => this.generateCoursePackTool.execute(args)],
     ]);
   }
 

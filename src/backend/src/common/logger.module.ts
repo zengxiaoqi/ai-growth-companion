@@ -31,6 +31,7 @@ export const loggerConfig = WinstonModule.createLogger({
     // All logs to file
     new winston.transports.File({
       filename: path.join(logDir, 'app.log'),
+      options: { encoding: 'utf8' },
       format: winston.format.combine(
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.printf(
@@ -48,6 +49,7 @@ export const loggerConfig = WinstonModule.createLogger({
     new winston.transports.File({
       filename: path.join(logDir, 'error.log'),
       level: 'error',
+      options: { encoding: 'utf8' },
       format: winston.format.combine(
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.printf(

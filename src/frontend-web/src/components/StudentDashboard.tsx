@@ -93,6 +93,15 @@ const DOMAIN_META: Record<DomainKey, DomainMeta> = {
 
 const DOMAIN_ORDER: DomainKey[] = ['language', 'math', 'science', 'art', 'social'];
 const BASE_SKILLS = ['看', '听', '说'];
+const ACTIVITY_LABELS: Record<string, string> = {
+  quiz: '测评',
+  true_false: '判断',
+  fill_blank: '填空',
+  matching: '配对',
+  connection: '连线',
+  sequencing: '排序',
+  puzzle: '拼图',
+};
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {
   first_lesson: '\u{1F4DA}',
@@ -241,6 +250,51 @@ export default function StudentDashboard({
     '5-6': safeContents.filter((c) => c.ageRange === '5-6').map(toCurriculumItem),
   }), [safeContents]);
 
+  const contentById = useMemo(() => {
+    const map = new Map<number, Content>();
+    safeContents.forEach((item) => map.set(item.id, item));
+    return map;
+  }, [safeContents]);
+
+  const isStructuredLessonAssignment = useCallback((assignment: Assignment) => {
+    if (!assignment.contentId) return false;
+    const linkedContent = contentById.get(assignment.contentId);
+    return !linkedContent || linkedContent.contentType === 'structured_lesson';
+  }, [contentById]);
+
+  const lessonTodoEntries = useMemo(() => {
+    const seen = new Set<number>();
+    const list: Array<{ contentId: number; title: string; topic?: string }> = [];
+
+    for (const assignment of pendingAssignments) {
+      if (!isStructuredLessonAssignment(assignment) || !assignment.contentId) continue;
+      if (seen.has(assignment.contentId)) continue;
+
+      const linkedContent = contentById.get(assignment.contentId);
+      const topic =
+        (typeof assignment.activityData?.topic === 'string' && assignment.activityData.topic.trim()) ||
+        (typeof linkedContent?.topic === 'string' && linkedContent.topic.trim()) ||
+        undefined;
+      const title =
+        linkedContent?.title ||
+        (topic ? `${topic} 六步课程` : '六步学习课程');
+
+      seen.add(assignment.contentId);
+      list.push({
+        contentId: assignment.contentId,
+        title,
+        topic,
+      });
+    }
+
+    return list;
+  }, [contentById, isStructuredLessonAssignment, pendingAssignments]);
+
+  const standaloneAssignments = useMemo(
+    () => pendingAssignments.filter((assignment) => !isStructuredLessonAssignment(assignment)),
+    [isStructuredLessonAssignment, pendingAssignments],
+  );
+
   const domainContentId = useMemo(() => {
     const next: Partial<Record<DomainKey, number>> = {};
     for (const content of safeContents) {
@@ -252,6 +306,15 @@ export default function StudentDashboard({
   }, [safeContents]);
 
   const dailyMission = useMemo(() => {
+    if (lessonTodoEntries.length > 0) {
+      const firstLesson = contentById.get(lessonTodoEntries[0].contentId);
+      return {
+        title: firstLesson?.title || lessonTodoEntries[0].title,
+        progress: 48,
+        thumbnail: firstLesson?.thumbnail || firstLesson?.mediaUrls?.[0],
+      };
+    }
+
     if (safeContents.length > 0) {
       return {
         title: safeContents[0].title,
@@ -265,7 +328,7 @@ export default function StudentDashboard({
       progress: 60,
       thumbnail: undefined,
     };
-  }, [safeContents, pendingAssignments.length]);
+  }, [contentById, lessonTodoEntries, pendingAssignments.length, safeContents]);
 
   const quickStats = useMemo(() => ([
     { label: '待完成', value: pendingAssignments.length, icon: ClipboardCheck, tone: 'bg-error-container/20 text-error' },
@@ -385,12 +448,43 @@ export default function StudentDashboard({
               今日待完成
             </h3>
             <div className="space-y-3">
-              {pendingAssignments.map((assignment) => {
+              {lessonTodoEntries.map((lessonEntry) => (
+                <button
+                  key={`lesson-${lessonEntry.contentId}`}
+                  onClick={() => handlePlayContent(lessonEntry.contentId)}
+                  className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
+                >
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-container">
+                    <BookOpen className="h-6 w-6 text-on-primary-container" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-bold text-on-surface">{lessonEntry.title}</h4>
+                    <p className="text-xs text-on-surface-variant">
+                      看 · 听 · 读 · 写 · 练 · 评
+                      {lessonEntry.topic ? ` · ${lessonEntry.topic}` : ''}
+                    </p>
+                  </div>
+                  <Play className="h-5 w-5 flex-shrink-0 text-primary" />
+                </button>
+              ))}
+
+              {standaloneAssignments.map((assignment) => {
                 const normalizedType = normalizeActivityType(assignment.activityType, assignment.activityData);
                 const normalizedData = normalizeActivityData(
                   normalizedType,
                   assignment.activityData ?? { type: normalizedType, title: '练习' },
                 );
+                const linkedContent = assignment.contentId ? contentById.get(assignment.contentId) : undefined;
+                const title =
+                  (typeof normalizedData.title === 'string' && normalizedData.title.trim()) ||
+                  (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
+                  linkedContent?.title ||
+                  `${ACTIVITY_LABELS[normalizedType] || normalizedType} 练习`;
+                const topic =
+                  (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
+                  linkedContent?.topic ||
+                  '';
+
                 return (
                   <button
                     key={assignment.id}
@@ -405,9 +499,10 @@ export default function StudentDashboard({
                       <ClipboardList className="h-6 w-6 text-on-tertiary-container" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-bold text-on-surface">{normalizedType} 练习</h4>
+                      <h4 className="truncate text-sm font-bold text-on-surface">{title}</h4>
                       <p className="text-xs text-on-surface-variant">
-                        难度 {assignment.difficulty} · {assignment.domain || '综合'}
+                        {topic ? `${topic} · ` : ''}
+                        {ACTIVITY_LABELS[normalizedType] || normalizedType} · 难度 {assignment.difficulty} · {assignment.domain || linkedContent?.domain || '综合'}
                       </p>
                     </div>
                     <Play className="h-5 w-5 flex-shrink-0 text-primary" />

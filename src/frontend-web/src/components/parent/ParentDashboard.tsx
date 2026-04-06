@@ -38,6 +38,8 @@ import AbilityRadar from './AbilityRadar';
 import AbilityTrend from './AbilityTrend';
 import AIInsightsPanel from './AIInsightsPanel';
 import AssignmentManager from './AssignmentManager';
+import CoursePackManager from './CoursePackManager';
+import LessonGenerator from './LessonGenerator';
 import ChildSelector from './ChildSelector';
 import { DOMAIN_CONFIG, fallbackAbilities, fallbackTrendData } from './constants';
 import GrowthReportSection from './GrowthReportSection';
@@ -351,6 +353,32 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     [selectedChildId, user?.id],
   );
 
+  const handleUpdateAssignment = useCallback(
+    async (
+      assignmentId: number,
+      data: {
+        activityType: string;
+        domain: string;
+        difficulty: number;
+        topic: string;
+      },
+    ) => {
+      const updated = await api.updateAssignment(assignmentId, {
+        activityType: data.activityType,
+        domain: data.domain,
+        difficulty: data.difficulty,
+        topic: data.topic,
+      });
+      setAssignments((prev) => prev.map((assignment) => (assignment.id === assignmentId ? updated : assignment)));
+    },
+    [],
+  );
+
+  const handleDeleteAssignment = useCallback(async (assignmentId: number) => {
+    await api.deleteAssignment(assignmentId);
+    setAssignments((prev) => prev.filter((assignment) => assignment.id !== assignmentId));
+  }, []);
+
   if (showReportDetail) {
     return <ReportDetail userId={user?.id ?? 0} onBack={() => setShowReportDetail(false)} />;
   }
@@ -554,12 +582,18 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
             {!selectedChildId ? (
               <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : (
-              <AssignmentManager
-                assignments={assignments}
-                parentId={user?.id ?? 0}
-                selectedChildId={selectedChildId}
-                onCreateAssignment={handleCreateAssignment}
-              />
+              <div className="space-y-6">
+                <LessonGenerator selectedChildId={selectedChildId} childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined} />
+                <CoursePackManager selectedChildId={selectedChildId} />
+                <AssignmentManager
+                  assignments={assignments}
+                  parentId={user?.id ?? 0}
+                  selectedChildId={selectedChildId}
+                  onCreateAssignment={handleCreateAssignment}
+                  onUpdateAssignment={handleUpdateAssignment}
+                  onDeleteAssignment={handleDeleteAssignment}
+                />
+              </div>
             )}
           </div>
         ) : null}

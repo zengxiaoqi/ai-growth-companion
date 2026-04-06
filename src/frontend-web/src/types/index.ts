@@ -75,6 +75,7 @@ export interface CompleteLearningRequest {
   recordId: number;
   score: number;
   feedback?: string;
+  durationSeconds?: number;
 }
 
 export interface LearningRecord {
@@ -83,7 +84,10 @@ export interface LearningRecord {
   contentId: number;
   startTime: string;
   endTime?: string;
+  startedAt?: string;
+  completedAt?: string;
   score?: number;
+  durationSeconds?: number;
   status: 'in_progress' | 'completed';
 }
 
@@ -349,6 +353,63 @@ export interface StudyPlanRecord {
   updatedAt: string;
 }
 
+export interface GenerateCoursePackRequest {
+  topic: string;
+  childId?: number;
+  ageGroup?: '3-4' | '5-6';
+  durationMinutes?: number;
+  focus?: 'literacy' | 'math' | 'science' | 'mixed';
+  difficulty?: number;
+  includeGame?: boolean;
+  includeAudio?: boolean;
+  includeVideo?: boolean;
+  parentPrompt?: string;
+  sessionId?: string;
+}
+
+export interface CoursePackRecord extends StudyPlanRecord {
+  sourceType: 'ai_course_pack' | string;
+}
+
+export type CoursePackExportFormat =
+  | 'capcut_json'
+  | 'narration_txt'
+  | 'narration_mp3'
+  | 'teaching_video_mp4'
+  | 'storyboard_csv'
+  | 'subtitle_srt'
+  | 'subtitle_srt_bilingual'
+  | 'bundle_zip';
+
+export interface SaveCoursePackVersionRequest {
+  title?: string;
+  planContent?: Record<string, any>;
+  note?: string;
+  sessionId?: string;
+}
+
+export interface EnrichCoursePackBilingualRequest {
+  saveAsVersion?: boolean;
+  overwrite?: boolean;
+  sessionId?: string;
+}
+
+export interface GenerateWeeklyCoursePackRequest {
+  topic: string;
+  childId: number;
+  ageGroup?: '3-4' | '5-6';
+  durationMinutes?: number;
+  focus?: 'literacy' | 'math' | 'science' | 'mixed';
+  difficulty?: number;
+  includeGame?: boolean;
+  includeAudio?: boolean;
+  includeVideo?: boolean;
+  parentPrompt?: string;
+  sessionId?: string;
+  startDate?: string;
+  days?: number;
+}
+
 export interface ConversationSession {
   id: number;
   uuid: string;
@@ -370,4 +431,58 @@ export interface ConversationMessageHistory {
   toolCallId?: string;
   toolName?: string;
   createdAt: string;
+}
+
+// Structured Lesson Types
+export interface StructuredLessonStep {
+  id: string;
+  label: string;
+  icon: string;
+  order: number;
+  module: {
+    type: 'video' | 'audio' | 'reading' | 'writing' | 'game' | 'quiz';
+    [key: string]: any;
+  };
+  assignmentId?: number;
+}
+
+export interface StructuredLessonContent {
+  type: 'structured_lesson';
+  version: 1;
+  topic: string;
+  ageGroup: '3-4' | '5-6';
+  summary: string;
+  outcomes: string[];
+  steps: StructuredLessonStep[];
+  parentGuide: {
+    beforeClass: string[];
+    duringClass: string[];
+    afterClass: string[];
+  };
+  generatedAt: string;
+}
+
+export interface GenerateLessonParams {
+  topic: string;
+  childId: number;
+  ageGroup?: '3-4' | '5-6';
+  domain?: 'language' | 'math' | 'science' | 'art' | 'social';
+  focus?: 'literacy' | 'math' | 'science' | 'mixed';
+  difficulty?: number;
+  durationMinutes?: number;
+  parentPrompt?: string;
+}
+
+export interface LessonProgress {
+  contentId: number;
+  childId: number;
+  completedSteps: string[];
+  overallScore: number;
+  stepResults: Record<string, { status: string; score: number | null }>;
+}
+
+export interface StepResult {
+  score?: number;
+  durationSeconds?: number;
+  interactionData?: Record<string, any>;
 }

@@ -8,6 +8,9 @@ echo.
 
 cd /d "%~dp0"
 
+set "RESET_DB=0"
+if /I "%~1"=="--reset-db" set "RESET_DB=1"
+
 :: 1. Install backend deps
 if not exist "src\backend\node_modules" (
     echo [1/4] Installing backend deps...
@@ -30,13 +33,22 @@ if not exist "src\frontend-web\node_modules" (
     echo [2/4] Frontend deps OK
 )
 
-:: 3. Reset database
+:: 3. Database policy
+if not "%RESET_DB%"=="1" goto :skip_reset
 if exist "src\backend\lingxi.db" (
     echo [3/4] Resetting database...
     del /f "src\backend\lingxi.db" 2>nul
 ) else (
+    echo [3/4] Reset requested, but DB not found - will auto-seed
+)
+goto :db_done
+:skip_reset
+if exist "src\backend\lingxi.db" (
+    echo [3/4] Keeping existing database (default)
+) else (
     echo [3/4] First run - will auto-seed
 )
+:db_done
 
 :: 4. Start services
 echo [4/4] Starting services...
@@ -63,6 +75,7 @@ echo   Backend  : http://localhost:3000/api
 echo   API Docs : http://localhost:3000/api/docs
 echo.
 echo   Test Account: 13800000001 / password123
+echo   Tip: run start.bat --reset-db to reset database
 echo.
 echo   Close this window will NOT stop services.
 echo   To stop: close the Backend/Frontend windows, or run stop.bat

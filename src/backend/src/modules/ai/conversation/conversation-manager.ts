@@ -115,35 +115,98 @@ export class ConversationManager {
       order: { createdAt: 'ASC' },
     });
 
-    // Take the most recent messages
-    const recent = messages.slice(-maxMessages);
+    // Build valid blocks so we never split assistant(tool_calls) from tool results.
+    const blocks: ChatCompletionMessageParam[][] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
 
-    const result: ChatCompletionMessageParam[] = [];
-    for (const msg of recent) {
       if (msg.role === 'system') {
-        result.push({ role: 'system', content: msg.content });
-      } else if (msg.role === 'user') {
-        result.push({ role: 'user', content: msg.content });
-      } else if (msg.role === 'assistant') {
-        if (msg.toolCalls && msg.toolCalls.length > 0) {
-          result.push({
-            role: 'assistant',
-            content: msg.content || null,
-            tool_calls: msg.toolCalls,
-          });
-        } else {
-          result.push({ role: 'assistant', content: msg.content });
+        blocks.push([{ role: 'system', content: msg.content }]);
+        continue;
+      }
+
+      if (msg.role === 'user') {
+        blocks.push([{ role: 'user', content: msg.content }]);
+        continue;
+      }
+
+      if (msg.role === 'assistant') {
+        const toolCalls = Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
+        if (toolCalls.length === 0) {
+          blocks.push([{ role: 'assistant', content: msg.content }]);
+          continue;
         }
-      } else if (msg.role === 'tool') {
-        result.push({
-          role: 'tool',
-          content: msg.content,
-          tool_call_id: msg.toolCallId,
-        } as ChatCompletionMessageParam);
+
+        const pendingToolIds = new Set(
+          toolCalls
+            .map((call: any) => (typeof call?.id === 'string' ? call.id : null))
+            .filter((id: string | null): id is string => Boolean(id)),
+        );
+
+        if (pendingToolIds.size === 0) {
+          blocks.push([{ role: 'assistant', content: msg.content }]);
+          continue;
+        }
+
+        const block: ChatCompletionMessageParam[] = [{
+          role: 'assistant',
+          content: msg.content || null,
+          tool_calls: toolCalls,
+        } as ChatCompletionMessageParam];
+
+        let j = i + 1;
+        while (j < messages.length && pendingToolIds.size > 0) {
+          const toolMsg = messages[j];
+          if (toolMsg.role !== 'tool') break;
+
+          if (toolMsg.toolCallId && pendingToolIds.has(toolMsg.toolCallId)) {
+            block.push({
+              role: 'tool',
+              content: toolMsg.content,
+              tool_call_id: toolMsg.toolCallId,
+            } as ChatCompletionMessageParam);
+            pendingToolIds.delete(toolMsg.toolCallId);
+          }
+          j++;
+        }
+
+        if (pendingToolIds.size === 0) {
+          blocks.push(block);
+        } else {
+          this.logger.warn(
+            `Skip incomplete tool-call block in session ${sessionId}: missing ${pendingToolIds.size} tool result(s)`,
+          );
+        }
+
+        i = j - 1;
+        continue;
+      }
+
+      // Drop dangling tool messages that don't have a preceding assistant(tool_calls) in this scan.
+      if (msg.role === 'tool') {
+        continue;
       }
     }
 
-    return result;
+    // Keep tail blocks without breaking a block boundary.
+    const selectedBlocks: ChatCompletionMessageParam[][] = [];
+    let selectedCount = 0;
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const block = blocks[i];
+      const blockSize = block.length;
+
+      if (selectedCount + blockSize > maxMessages) {
+        if (selectedBlocks.length === 0) {
+          selectedBlocks.unshift(block);
+        }
+        break;
+      }
+
+      selectedBlocks.unshift(block);
+      selectedCount += blockSize;
+    }
+
+    return selectedBlocks.flat();
   }
 
   /** Update session metadata */

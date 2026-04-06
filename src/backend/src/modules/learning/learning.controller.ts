@@ -1,21 +1,28 @@
 ﻿import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
+  Res,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Response } from 'express';
 import { Repository } from 'typeorm';
 import { Content } from '../../database/entities/content.entity';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { LearningArchiveService, WrongQuestionReviewItem } from './learning-archive.service';
+import { LessonContentService } from './lesson-content.service';
+import { LessonVideoQueueService } from './lesson-video-queue.service';
 import { LearningService } from './learning.service';
 import { LearningTrackerService } from './learning-tracker.service';
 
@@ -26,6 +33,8 @@ export class LearningController {
     private readonly learningService: LearningService,
     private readonly learningTracker: LearningTrackerService,
     private readonly learningArchive: LearningArchiveService,
+    private readonly lessonContentService: LessonContentService,
+    private readonly lessonVideoQueue: LessonVideoQueueService,
     private readonly usersService: UsersService,
     @InjectRepository(Content)
     private readonly contentRepo: Repository<Content>,
@@ -53,6 +62,19 @@ export class LearningController {
     throw new ForbiddenException('无访问权限');
   }
 
+  private resolveChildId(req: any, childId?: string): number {
+    const viewerType = req.user?.type;
+    const numeric =
+      viewerType === 'child'
+        ? Number(req.user?.sub)
+        : Number(childId);
+
+    if (!Number.isInteger(numeric) || numeric <= 0) {
+      throw new BadRequestException('childId is required');
+    }
+    return numeric;
+  }
+
   @Post('start')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -71,7 +93,31 @@ export class LearningController {
     if (!record) return null;
 
     await this.assertAccessToChild(req, record.userId);
-    const updatedRecord = await this.learningService.update(+id, { ...body, status: 'completed' });
+    const nowMs = Date.now();
+    const startedAtMs = record.startedAt ? new Date(record.startedAt).getTime() : nowMs;
+    const fallbackDurationSeconds = Math.max(1, Math.floor((nowMs - startedAtMs) / 1000));
+    const requestedDuration = typeof body.durationSeconds === 'number' ? body.durationSeconds : null;
+    const durationSeconds = requestedDuration && Number.isFinite(requestedDuration)
+      ? Math.max(1, Math.floor(requestedDuration))
+      : fallbackDurationSeconds;
+
+    const updatePayload: any = {
+      status: 'completed',
+      completedAt: new Date(),
+      durationSeconds,
+    };
+
+    if (typeof body.score === 'number') {
+      updatePayload.score = body.score;
+    }
+    if (Array.isArray(body.answers)) {
+      updatePayload.answers = body.answers;
+    }
+    if (body.interactionData && typeof body.interactionData === 'object') {
+      updatePayload.interactionData = body.interactionData;
+    }
+
+    const updatedRecord = await this.learningService.update(+id, updatePayload);
 
     if (updatedRecord) {
       try {
@@ -81,8 +127,8 @@ export class LearningController {
           childId: updatedRecord.userId,
           contentId: updatedRecord.contentId,
           domain: content?.domain || 'language',
-          score: body.score || 0,
-          durationSeconds: body.durationSeconds,
+          score: typeof updatedRecord.score === 'number' ? updatedRecord.score : 0,
+          durationSeconds: updatedRecord.durationSeconds,
         });
       } catch {
         // Keep completion success if tracker fails.
@@ -217,6 +263,209 @@ export class LearningController {
     });
   }
 
+  // ─── Structured Lesson Endpoints ───────────────────────────────────
+
+  @Post('lessons/generate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '一键生成结构化课程（六步学习）' })
+  async generateLesson(
+    @Request() req: any,
+    @Body()
+    body: {
+      topic: string;
+      childId: number;
+      ageGroup?: '3-4' | '5-6';
+      domain?: 'language' | 'math' | 'science' | 'art' | 'social';
+      focus?: 'literacy' | 'math' | 'science' | 'mixed';
+      difficulty?: number;
+      durationMinutes?: number;
+      parentPrompt?: string;
+    },
+  ) {
+    const parentId = req.user?.sub;
+    const viewerType = req.user?.type;
+    if (viewerType !== 'parent') {
+      throw new ForbiddenException('仅家长可生成课程');
+    }
+    await this.assertAccessToChild(req, body.childId);
+
+    return this.lessonContentService.generateDraft({
+      ...body,
+      parentId,
+    });
+  }
+
+  @Patch('lessons/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '修改课程草稿（AI对话式修改）' })
+  async modifyLesson(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { modification: string },
+  ) {
+    const parentId = req.user?.sub;
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可修改课程');
+    }
+    return this.lessonContentService.modifyDraft(+id, parentId, body.modification);
+  }
+
+  @Post('lessons/:id/confirm')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '确认并发布课程' })
+  async confirmLesson(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { childId: number },
+  ) {
+    const parentId = req.user?.sub;
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可确认课程');
+    }
+    await this.assertAccessToChild(req, body.childId);
+    return this.lessonContentService.confirmAndPublish(+id, parentId, body.childId);
+  }
+
+  @Get('lessons/:id/progress')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '查询课程步骤进度' })
+  async getLessonProgress(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Query('childId') childId: string,
+  ) {
+    const numericChildId = +childId;
+    await this.assertAccessToChild(req, numericChildId);
+    return this.lessonContentService.getLessonProgress(+id, numericChildId);
+  }
+
+  @Post('lessons/:id/teaching-video/tasks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '创建教学视频生成任务（异步）' })
+  async enqueueLessonTeachingVideoTask(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { childId?: number },
+  ) {
+    const resolvedChildId = this.resolveChildId(req, body?.childId != null ? String(body.childId) : undefined);
+    await this.assertAccessToChild(req, resolvedChildId);
+
+    const task = await this.lessonVideoQueue.enqueue(+id, resolvedChildId);
+    return {
+      taskId: task.id,
+      status: task.status,
+      progress: task.progress,
+      provider: task.provider,
+      errorMessage: task.errorMessage || null,
+      ready: task.status === 'completed',
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+    };
+  }
+
+  @Get('lessons/:id/teaching-video/tasks/:taskId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '查询教学视频任务状态' })
+  async getLessonTeachingVideoTask(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('taskId') taskId: string,
+    @Query('childId') childId?: string,
+  ) {
+    const resolvedChildId = this.resolveChildId(req, childId);
+    await this.assertAccessToChild(req, resolvedChildId);
+
+    const numericTaskId = Number(taskId);
+    if (!Number.isInteger(numericTaskId) || numericTaskId <= 0) {
+      throw new BadRequestException('taskId is invalid');
+    }
+
+    const task = await this.lessonVideoQueue.getTask(+id, numericTaskId, resolvedChildId);
+    return {
+      taskId: task.id,
+      status: task.status,
+      progress: task.progress,
+      provider: task.provider,
+      errorMessage: task.errorMessage || null,
+      ready: task.status === 'completed',
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+    };
+  }
+
+  @Get('lessons/:id/teaching-video')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '下载已生成的课程教学视频（MP4）' })
+  async getLessonTeachingVideo(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Query('childId') childId?: string,
+    @Query('taskId') taskId?: string,
+  ) {
+    const resolvedChildId = this.resolveChildId(req, childId);
+    await this.assertAccessToChild(req, resolvedChildId);
+
+    const numericTaskId = Number(taskId);
+    const task = Number.isInteger(numericTaskId) && numericTaskId > 0
+      ? await this.lessonVideoQueue.getTask(+id, numericTaskId, resolvedChildId)
+      : await this.lessonVideoQueue.getLatestTask(+id, resolvedChildId);
+
+    if (!task) {
+      throw new NotFoundException('视频任务不存在，请先创建任务');
+    }
+    if (task.status !== 'completed') {
+      throw new BadRequestException('视频尚未生成完成');
+    }
+
+    const content = await this.contentRepo.findOne({ where: { id: +id } });
+    const safeTitle = String(content?.title || `lesson-${id}`)
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .trim();
+    const body = await this.lessonVideoQueue.readVideoBuffer(task);
+    const filename = `${safeTitle || `lesson-${id}`}-teaching-video.mp4`;
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
+    res.send(body);
+  }
+
+  @Post('lessons/:id/complete-step')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '完成课程的一个步骤' })
+  async completeLessonStep(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      childId: number;
+      stepId: string;
+      score?: number;
+      durationSeconds?: number;
+      interactionData?: Record<string, any>;
+    },
+  ) {
+    await this.assertAccessToChild(req, body.childId);
+    return this.lessonContentService.completeStep({
+      contentId: +id,
+      childId: body.childId,
+      stepId: body.stepId,
+      score: body.score,
+      durationSeconds: body.durationSeconds,
+      interactionData: body.interactionData,
+    });
+  }
+
+  // ─── Existing Endpoints ────────────────────────────────────────────
+
   @Get('plans/:childId')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -238,3 +487,5 @@ export class LearningController {
     });
   }
 }
+
+

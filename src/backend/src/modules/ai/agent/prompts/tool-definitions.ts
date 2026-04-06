@@ -5,11 +5,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getUserProfile',
-      description: '获取用户的基本信息，包括姓名、年龄、性别。当需要了解用户是谁时调用。',
+      description: 'Get a child user profile including name, age, and basic attributes.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
       },
@@ -19,11 +19,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getAbilities',
-      description: '获取用户在各领域（语言、数学、科学、艺术、社会）的能力评估分数和等级。当需要了解孩子的学习水平或规划学习路径时调用。',
+      description: 'Get ability scores across learning domains for a child.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
       },
@@ -33,12 +33,12 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getLearningHistory',
-      description: '获取用户最近的学习记录，包括学习的内容、得分、时长、完成状态。当需要了解孩子的学习情况时调用。',
+      description: 'Get recent learning records such as content, score, duration, and completion status.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
-          limit: { type: 'number', description: '返回记录数量，默认10条', default: 10 },
+          childId: { type: 'number', description: 'Child user ID' },
+          limit: { type: 'number', description: 'Number of records to return, default 10', default: 10 },
         },
         required: ['childId'],
       },
@@ -48,13 +48,13 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'searchContent',
-      description: '搜索课程内容。可以根据年龄段、学习领域、关键词来搜索适合的学习内容。',
+      description: 'Search curriculum content by keyword, age range, and optional domain.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: '搜索关键词，如主题或标题' },
-          ageRange: { type: 'string', enum: ['3-4', '5-6'], description: '目标年龄段' },
-          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: '学习领域' },
+          query: { type: 'string', description: 'Search keyword' },
+          ageRange: { type: 'string', enum: ['3-4', '5-6'], description: 'Target age range' },
+          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: 'Learning domain' },
         },
         required: ['query', 'ageRange'],
       },
@@ -64,11 +64,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getRecommendations',
-      description: '获取个性化学习内容推荐。根据用户的能力水平和学习历史推荐最适合的下一步学习内容。',
+      description: 'Get personalized learning recommendations for a child.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
       },
@@ -78,12 +78,12 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'generateQuiz',
-      description: '(已弃用，请使用generateActivity)自动生成适合年龄的小测验题目。',
+      description: 'Generate a quiz. Deprecated in practice; prefer generateActivity.',
       parameters: {
         type: 'object',
         properties: {
-          topic: { type: 'string', description: '测验主题' },
-          difficulty: { type: 'number', description: '难度等级 1-3', minimum: 1, maximum: 3 },
+          topic: { type: 'string', description: 'Quiz topic' },
+          difficulty: { type: 'number', description: 'Difficulty 1-3', minimum: 1, maximum: 3 },
           ageGroup: { type: 'string', enum: ['3-4', '5-6'] },
         },
         required: ['topic', 'difficulty', 'ageGroup'],
@@ -94,19 +94,19 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'generateActivity',
-      description: '生成互动学习活动。支持多种类型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对游戏)、connection(连线游戏)、sequencing(排序游戏)、puzzle(拼图游戏)。当孩子想玩游戏、做练习、检验学习效果时调用。根据孩子的请求选择合适的活动类型，如果孩子没有指定类型，则根据主题自动选择最合适的。',
+      description: 'Generate an interactive activity/game for children.',
       parameters: {
         type: 'object',
         properties: {
           type: {
             type: 'string',
             enum: ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'],
-            description: '活动类型：quiz=选择题, true_false=判断题, fill_blank=填空题, matching=配对, connection=连线, sequencing=排序, puzzle=拼图',
+            description: 'Activity type',
           },
-          topic: { type: 'string', description: '学习主题，如"颜色"、"数字"、"动物"' },
-          difficulty: { type: 'number', description: '难度等级 1-3', minimum: 1, maximum: 3 },
-          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: '目标年龄组' },
-          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: '学习领域（可选）' },
+          topic: { type: 'string', description: 'Learning topic' },
+          difficulty: { type: 'number', description: 'Difficulty 1-3', minimum: 1, maximum: 3 },
+          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: 'Target age group' },
+          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: 'Learning domain (optional)' },
         },
         required: ['type', 'topic', 'difficulty', 'ageGroup'],
       },
@@ -116,14 +116,14 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'recordLearning',
-      description: '记录一次学习结果。当孩子完成了一个测验或学习活动后调用，用于更新学习记录和能力评估。请根据对话上下文判断学习领域。',
+      description: 'Record one learning result to update learning history and abilities.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
-          contentId: { type: 'number', description: '学习内容的ID' },
-          score: { type: 'number', description: '得分 0-100', minimum: 0, maximum: 100 },
-          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: '学习领域：language=语言, math=数学, science=科学, art=艺术, social=社会。根据对话内容推断。' },
+          childId: { type: 'number', description: 'Child user ID' },
+          contentId: { type: 'number', description: 'Content ID' },
+          score: { type: 'number', description: 'Score 0-100', minimum: 0, maximum: 100 },
+          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: 'Learning domain' },
         },
         required: ['childId', 'contentId', 'score', 'domain'],
       },
@@ -133,22 +133,22 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'assignActivity',
-      description: '家长给孩子布置学习任务。AI自动生成互动学习活动并创建布置任务。仅限家长模式使用。',
+      description: 'Assign an AI-generated activity to a child (parent mode).',
       parameters: {
         type: 'object',
         properties: {
-          parentId: { type: 'number', description: '家长用户ID' },
-          childId: { type: 'number', description: '孩子用户ID' },
+          parentId: { type: 'number', description: 'Parent user ID' },
+          childId: { type: 'number', description: 'Child user ID' },
           activityType: {
             type: 'string',
             enum: ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'],
-            description: '活动类型',
+            description: 'Activity type',
           },
-          topic: { type: 'string', description: '学习主题' },
-          difficulty: { type: 'number', description: '难度等级 1-3', minimum: 1, maximum: 3 },
-          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: '目标年龄组' },
-          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: '学习领域（可选）' },
-          dueDate: { type: 'string', description: '截止日期（可选，如2026-04-05）' },
+          topic: { type: 'string', description: 'Learning topic' },
+          difficulty: { type: 'number', description: 'Difficulty 1-3', minimum: 1, maximum: 3 },
+          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: 'Target age group' },
+          domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: 'Learning domain (optional)' },
+          dueDate: { type: 'string', description: 'Optional due date (YYYY-MM-DD)' },
         },
         required: ['parentId', 'childId', 'activityType', 'topic', 'difficulty', 'ageGroup'],
       },
@@ -158,11 +158,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'getParentControl',
-      description: '获取家长设置的限制条件，包括每日时间限制、允许的学习领域、屏蔽的主题。当需要检查是否可以推荐某个内容或继续学习时调用。',
+      description: 'Get parent control settings such as daily limits and blocked topics.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子的用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
       },
@@ -172,11 +172,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'listChildren',
-      description: '获取家长关联的所有孩子列表。当家长想查看或切换孩子时调用。',
+      description: 'List all children linked to a parent account.',
       parameters: {
         type: 'object',
         properties: {
-          parentId: { type: 'number', description: '家长用户ID' },
+          parentId: { type: 'number', description: 'Parent user ID' },
         },
         required: ['parentId'],
       },
@@ -186,12 +186,12 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'viewReport',
-      description: '查看孩子的学习报告，包含学习时长、完成课程数、平均分、连续学习天数等。当家长问孩子学习情况时调用。',
+      description: 'View child learning report including minutes, completed tasks, and score trends.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子用户ID' },
-          period: { type: 'string', enum: ['daily', 'weekly', 'monthly'], description: '报告周期，默认weekly' },
+          childId: { type: 'number', description: 'Child user ID' },
+          period: { type: 'string', enum: ['daily', 'weekly', 'monthly'], description: 'Report period, default weekly' },
         },
         required: ['childId'],
       },
@@ -201,11 +201,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'viewAbilities',
-      description: '查看孩子各领域能力评估（语言、数学、科学、艺术、社会）及近期趋势。当家长问孩子能力水平时调用。',
+      description: 'View child ability levels and recent trend across domains.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
       },
@@ -215,17 +215,17 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'updateParentControl',
-      description: '修改家长控制设置，包括每日学习时间限制、允许的学习领域、屏蔽的主题等。当家长要求调整设置时调用。',
+      description: 'Update parent control settings such as limits and allowed domains.',
       parameters: {
         type: 'object',
         properties: {
-          parentId: { type: 'number', description: '家长用户ID' },
-          childId: { type: 'number', description: '孩子用户ID（可选）' },
-          dailyLimitMinutes: { type: 'number', description: '每日学习时间限制（分钟）' },
-          allowedDomains: { type: 'array', items: { type: 'string' }, description: '允许的学习领域' },
-          blockedTopics: { type: 'array', items: { type: 'string' }, description: '屏蔽的主题' },
-          eyeProtectionEnabled: { type: 'boolean', description: '是否开启护眼模式' },
-          restReminderMinutes: { type: 'number', description: '休息提醒间隔（分钟）' },
+          parentId: { type: 'number', description: 'Parent user ID' },
+          childId: { type: 'number', description: 'Child user ID (optional)' },
+          dailyLimitMinutes: { type: 'number', description: 'Daily learning limit in minutes' },
+          allowedDomains: { type: 'array', items: { type: 'string' }, description: 'Allowed learning domains' },
+          blockedTopics: { type: 'array', items: { type: 'string' }, description: 'Blocked topics' },
+          eyeProtectionEnabled: { type: 'boolean', description: 'Whether eye protection mode is enabled' },
+          restReminderMinutes: { type: 'number', description: 'Rest reminder interval in minutes' },
         },
         required: ['parentId'],
       },
@@ -235,13 +235,36 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'listAssignments',
-      description: '查看孩子的作业列表，包含作业类型、状态、分数等。当家长问作业情况时调用。',
+      description: 'List assignments for a child.',
       parameters: {
         type: 'object',
         properties: {
-          childId: { type: 'number', description: '孩子用户ID' },
+          childId: { type: 'number', description: 'Child user ID' },
         },
         required: ['childId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generateCoursePack',
+      description:
+        'Generate a complete home-learning course pack from one parent sentence, including listening/speaking/reading/writing modules, game data, visual-story prompts, and video storyboard.',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: 'Course topic from parent request' },
+          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: 'Target age group' },
+          durationMinutes: { type: 'number', description: 'Total course duration in minutes (10-45)' },
+          focus: { type: 'string', enum: ['literacy', 'math', 'science', 'mixed'], description: 'Primary focus area' },
+          difficulty: { type: 'number', minimum: 1, maximum: 3, description: 'Difficulty level' },
+          includeGame: { type: 'boolean', description: 'Whether to include interactive game payload' },
+          includeAudio: { type: 'boolean', description: 'Whether to include listening/audio script module' },
+          includeVideo: { type: 'boolean', description: 'Whether to include video storyboard module' },
+          parentPrompt: { type: 'string', description: 'Original parent request sentence' },
+        },
+        required: ['topic'],
       },
     },
   },

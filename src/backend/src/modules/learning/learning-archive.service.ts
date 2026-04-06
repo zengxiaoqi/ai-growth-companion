@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, MoreThan, Repository } from 'typeorm';
+import { Between, In, MoreThan, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { LearningPoint } from '../../database/entities/learning-point.entity';
 import { WrongQuestion } from '../../database/entities/wrong-question.entity';
@@ -243,7 +243,7 @@ export class LearningArchiveService {
   async createStudyPlanRecord(params: {
     childId: number;
     parentId?: number;
-    sourceType: 'ai_generated' | 'parent_assignment';
+    sourceType: 'ai_generated' | 'parent_assignment' | 'ai_course_pack';
     sourceId?: number;
     title: string;
     planContent?: Record<string, any>;
@@ -262,6 +262,65 @@ export class LearningArchiveService {
       sessionId: params.sessionId || null,
     });
     return this.planRepo.save(row);
+  }
+
+  async getStudyPlanById(id: number): Promise<StudyPlanRecord | null> {
+    return this.planRepo.findOne({ where: { id } });
+  }
+
+  async getStudyPlansByIds(ids: number[]): Promise<StudyPlanRecord[]> {
+    const normalized = [...new Set((ids || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+    if (normalized.length === 0) return [];
+    return this.planRepo.find({
+      where: { id: In(normalized) },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateStudyPlanRecord(
+    id: number,
+    patch: {
+      title?: string;
+      planContent?: Record<string, any> | null;
+      status?: string;
+      sourceId?: number | null;
+      sessionId?: string | null;
+      parentId?: number | null;
+    },
+  ): Promise<StudyPlanRecord | null> {
+    const row = await this.getStudyPlanById(id);
+    if (!row) return null;
+
+    if (patch.title != null) row.title = String(patch.title).trim().slice(0, 180) || row.title;
+    if (patch.planContent !== undefined) row.planContent = patch.planContent;
+    if (patch.status != null) row.status = patch.status;
+    if (patch.sourceId !== undefined) row.sourceId = patch.sourceId;
+    if (patch.sessionId !== undefined) row.sessionId = patch.sessionId;
+    if (patch.parentId !== undefined) row.parentId = patch.parentId;
+
+    return this.planRepo.save(row);
+  }
+
+  async getStudyPlanVersions(params: {
+    childId: number;
+    sourceType: string;
+    rootSourceId: number;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.min(100, Math.max(1, params.limit || 20));
+    const qb = this.planRepo
+      .createQueryBuilder('plan')
+      .where('plan.childId = :childId', { childId: params.childId })
+      .andWhere('plan.sourceType = :sourceType', { sourceType: params.sourceType })
+      .andWhere('(plan.sourceId = :rootId OR plan.id = :rootId)', { rootId: params.rootSourceId })
+      .orderBy('plan.createdAt', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit);
+
+    const [list, total] = await qb.getManyAndCount();
+    return { list, total, page, limit };
   }
 
   async getLearningPoints(params: {
@@ -354,4 +413,3 @@ export class LearningArchiveService {
     return new Set(rows.map((row) => row.pointKey));
   }
 }
-

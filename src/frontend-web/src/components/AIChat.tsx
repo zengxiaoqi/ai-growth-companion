@@ -147,16 +147,23 @@ interface AIChatPageProps extends AIChatSharedProps {
 
 function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const isFullPage = layout === 'full-page';
+  const isParentMode = Boolean(parentId);
   const FAB_SIZE = 64;
   const FAB_EDGE_MARGIN = 12;
   const FAB_DEFAULT_RIGHT = 24;
   const FAB_DEFAULT_BOTTOM = 220;
 
-  const starterPrompts = [
-    '帮我安排今天的学习计划',
-    '出3道数学小游戏',
-    '讲一个简短睡前故事',
-  ];
+  const starterPrompts = isParentMode
+    ? [
+        '看看孩子这周学得怎么样',
+        '根据学情调整下周学习计划',
+        '给孩子安排今天的学习任务',
+      ]
+    : [
+        '帮我安排今天的学习计划',
+        '出3道数学小游戏',
+        '讲一个简短睡前故事',
+      ];
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -293,11 +300,13 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
     if ((isOpen || isFullPage) && messages.length === 0) {
       setMessages([{
         id: '1', role: 'assistant',
-        content: '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
+        content: isParentMode
+          ? '你好，我是你的 AI 家庭学习助手。我可以帮你查看孩子学习情况，分析薄弱点，并一起调整学习计划和任务安排。'
+          : '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
         timestamp: new Date(), thinkingSteps: [], toolSteps: [],
       }]);
     }
-  }, [isOpen, isFullPage, messages.length]);
+  }, [isOpen, isFullPage, isParentMode, messages.length]);
 
   useEffect(() => {
     if (isOpen || isFullPage) setTimeout(() => inputRef.current?.focus(), 300);

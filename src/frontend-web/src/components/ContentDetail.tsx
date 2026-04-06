@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -65,25 +65,116 @@ const DOMAIN_META: Record<string, DomainMeta> = {
   },
 };
 
+const MIN_READING_SECONDS = 20;
+
 function parseSections(raw?: string): QuizSection[] {
   if (!raw) return [];
   try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item) => Array.isArray((item as Record<string, unknown>).questions)) as QuizSection[];
+    const normalized = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(normalized)) return [];
+    return normalized.filter((item) => Array.isArray((item as Record<string, unknown>).questions)) as QuizSection[];
   } catch {
     return [];
   }
 }
 
-function resolveDisplayText(raw?: string): string {
-  if (!raw) return '';
+const CONTENT_KEY_LABEL_MAP: Record<string, string> = {
+  seasons: '四季',
+  spring: '春天',
+  summer: '夏天',
+  autumn: '秋天',
+  winter: '冬天',
+  emotions: '情绪',
+  strategies: '方法',
+  operations: '运算',
+  range: '范围',
+  examples: '示例',
+  steps: '步骤',
+  materials: '材料',
+};
+
+function normalizeContent(raw?: unknown): unknown {
+  if (raw == null) return '';
+  if (typeof raw !== 'string') return raw;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
 
   try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return raw;
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
 
-    const blocks = parsed
+function prettifyKey(key: string): string {
+  return CONTENT_KEY_LABEL_MAP[key] || key;
+}
+
+function flattenValueToLines(value: unknown, depth = 0): string[] {
+  if (value == null) return [];
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return [String(value)];
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [];
+
+    const primitiveItems = value
+      .map((item) => {
+        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'number' || typeof item === 'boolean') return String(item);
+        return '';
+      })
+      .filter(Boolean);
+
+    if (primitiveItems.length === value.length) {
+      return [primitiveItems.join('、')];
+    }
+
+    return value.flatMap((item) => flattenValueToLines(item, depth));
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return [];
+
+    const lines: string[] = [];
+    for (const [rawKey, child] of entries) {
+      const childLines = flattenValueToLines(child, depth + 1);
+      if (childLines.length === 0) continue;
+
+      const key = prettifyKey(rawKey);
+      if (childLines.length === 1) {
+        lines.push(`${key}：${childLines[0]}`);
+        continue;
+      }
+
+      const indent = '  '.repeat(Math.min(depth + 1, 3));
+      lines.push(`${key}：`);
+      lines.push(...childLines.map((line) => `${indent}${line}`));
+    }
+
+    return lines;
+  }
+
+  return [];
+}
+
+function resolveDisplayText(raw?: string): string {
+  const normalized = normalizeContent(raw);
+  if (!normalized) return '';
+
+  if (typeof normalized === 'string') return normalized;
+
+  if (Array.isArray(normalized)) {
+    const blocks = normalized
       .map((item) => {
         if (!item || typeof item !== 'object') return '';
         const section = item as Record<string, unknown>;
@@ -95,10 +186,13 @@ function resolveDisplayText(raw?: string): string {
       })
       .filter(Boolean);
 
-    return blocks.join('\n\n') || raw;
-  } catch {
-    return raw;
+    if (blocks.length > 0) {
+      return blocks.join('\n\n');
+    }
   }
+
+  const lines = flattenValueToLines(normalized);
+  return lines.join('\n');
 }
 
 export default function ContentDetail({ contentId, childId, onBack, onComplete }: ContentDetailProps) {
@@ -118,6 +212,10 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [learningElapsedSeconds, setLearningElapsedSeconds] = useState(0);
+  const [hasScrolledThroughContent, setHasScrolledThroughContent] = useState(false);
+  const [hasPlayedAudioForLearning, setHasPlayedAudioForLearning] = useState(false);
+  const contentBodyRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -141,6 +239,44 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
   const quizSections = useMemo(() => parseSections(content?.content), [content?.content]);
   const hasInteractiveContent = quizSections.length > 0;
   const displayText = useMemo(() => resolveDisplayText(content?.content), [content?.content]);
+  const hasLearningAction = hasScrolledThroughContent || hasPlayedAudioForLearning;
+  const canCompleteReading =
+    !!learningRecord &&
+    !hasInteractiveContent &&
+    learningElapsedSeconds >= MIN_READING_SECONDS &&
+    hasLearningAction;
+
+  useEffect(() => {
+    if (!learningRecord) {
+      setLearningElapsedSeconds(0);
+      return;
+    }
+
+    const startedAt =
+      learningRecord.startedAt ||
+      learningRecord.startTime ||
+      new Date().toISOString();
+    const startedAtMs = new Date(startedAt).getTime();
+    const tick = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+      setLearningElapsedSeconds(elapsed);
+    };
+
+    tick();
+    const timerId = window.setInterval(tick, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [learningRecord]);
+
+  useEffect(() => {
+    if (!learningRecord || !displayText) return;
+    const container = contentBodyRef.current;
+    if (!container) return;
+
+    if (container.scrollHeight <= container.clientHeight + 8) {
+      setHasScrolledThroughContent(true);
+    }
+  }, [displayText, learningRecord]);
 
   const domainMeta = useMemo(() => {
     if (!content) return null;
@@ -170,6 +306,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
     utterance.onstart = () => {
       setAudioLoading(false);
       setIsPlayingAudio(true);
+      setHasPlayedAudioForLearning(true);
     };
 
     utterance.onend = () => setIsPlayingAudio(false);
@@ -200,6 +337,9 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
 
       const record = await api.startLearning({ childId, contentId });
       setLearningRecord(record);
+      setHasScrolledThroughContent(false);
+      setHasPlayedAudioForLearning(false);
+      setLearningElapsedSeconds(0);
 
       if (hasInteractiveContent) {
         setIsQuizMode(true);
@@ -222,6 +362,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
           recordId: learningRecord.id,
           score: nextScore,
           feedback,
+          durationSeconds: learningElapsedSeconds,
         });
 
         setLearningRecord(record);
@@ -233,8 +374,17 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
         setIsCompleting(false);
       }
     },
-    [learningRecord, onComplete],
+    [learningElapsedSeconds, learningRecord, onComplete],
   );
+
+  const handleContentScroll = useCallback(() => {
+    const container = contentBodyRef.current;
+    if (!container) return;
+    const reachedBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 8;
+    if (reachedBottom) {
+      setHasScrolledThroughContent(true);
+    }
+  }, []);
 
   const handleQuizComplete = useCallback(
     async (correctCount: number, totalQuestions: number) => {
@@ -356,7 +506,11 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
                 </span>
               ) : null}
             </div>
-            <div className="max-h-[48vh] overflow-y-auto whitespace-pre-line rounded-xl bg-surface p-4 text-sm leading-7 text-on-surface-variant">
+            <div
+              ref={contentBodyRef}
+              onScroll={handleContentScroll}
+              className="max-h-[48vh] overflow-y-auto whitespace-pre-line rounded-xl bg-surface p-4 text-sm leading-7 text-on-surface-variant"
+            >
               {displayText}
             </div>
           </Card>
@@ -483,7 +637,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
                 className="w-full rounded-full text-base"
                 variant="secondary"
                 onClick={handleCompleteReading}
-                disabled={isCompleting}
+                disabled={isCompleting || !canCompleteReading}
               >
                 {isCompleting ? (
                   <>
@@ -497,6 +651,13 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
                   </>
                 )}
               </Button>
+              {!canCompleteReading ? (
+                <p className="text-center text-xs text-on-surface-variant">
+                  {learningElapsedSeconds < MIN_READING_SECONDS
+                    ? `请先学习 ${MIN_READING_SECONDS - learningElapsedSeconds} 秒`
+                    : '请先滑动阅读学习内容，或使用语音朗读后再完成学习'}
+                </p>
+              ) : null}
             </div>
           ) : isQuizMode ? null : (
             <Button size="lg" className="w-full rounded-full text-base" variant="secondary" onClick={onBack}>

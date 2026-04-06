@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AiService } from './ai.service';
@@ -32,18 +32,21 @@ import { ViewReportTool } from './agent/tools/view-report';
 import { ViewAbilitiesTool } from './agent/tools/view-abilities';
 import { UpdateParentControlTool } from './agent/tools/update-parent-control';
 import { ListAssignmentsTool } from './agent/tools/list-assignments';
+import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import { ReportModule } from '../report/report.module';
+import { VoiceModule } from '../voice/voice.module';
 
 @Module({
   imports: [
     UsersModule,
     AbilitiesModule,
-    LearningModule,
+    forwardRef(() => LearningModule),
     ContentsModule,
     RecommendModule,
     ParentModule,
-    AssignmentModule,
+    forwardRef(() => AssignmentModule),
     ReportModule,
+    VoiceModule,
     ConfigModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
@@ -74,8 +77,9 @@ import { ReportModule } from '../report/report.module';
     ViewAbilitiesTool,
     UpdateParentControlTool,
     ListAssignmentsTool,
+    GenerateCoursePackTool,
   ],
   controllers: [AiController],
-  exports: [AiService, GenerateActivityTool],
+  exports: [AiService, GenerateActivityTool, GenerateCoursePackTool, LlmClient],
 })
 export class AiModule {}

@@ -32,6 +32,7 @@ const NEEDS_AGE_GROUP_TOOLS = new Set([
   'generateQuiz',
   'generateActivity',
   'assignActivity',
+  'generateCoursePack',
 ]);
 const SUPPORTED_ACTIVITY_TYPES = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'] as const;
 type SupportedActivityType = (typeof SUPPORTED_ACTIVITY_TYPES)[number];
@@ -118,6 +119,7 @@ export class AgentExecutor {
       executionContext?.parentId != null ? `- Current parentId: ${executionContext.parentId}` : '',
       '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
       '- If childId is already known, do not call listChildren only to discover childId.',
+      '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
     ].filter(Boolean).join('\n');
 
     if (ageGroup === 'parent') return `${systemPromptParent(childName)}\n\n${contextHints}`;

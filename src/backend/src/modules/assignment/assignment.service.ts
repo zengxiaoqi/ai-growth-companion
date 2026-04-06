@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,6 +6,8 @@ import { Assignment } from '../../database/entities/assignment.entity';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 import { LearningTrackerService } from '../learning/learning-tracker.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
+
+const ACTIVITY_GENERATION_TIMEOUT_MS = 45000;
 
 @Injectable()
 export class AssignmentService {
@@ -31,35 +33,21 @@ export class AssignmentService {
   }): Promise<Assignment> {
     let activityData = data.activityData;
 
-    // If activityData only contains a topic (no actual game content),
-    // auto-generate the full activity data via LLM
-    if (
-      !activityData ||
-      (activityData.topic &&
-        !activityData.questions &&
-        !activityData.statements &&
-        !activityData.sentences &&
-        !activityData.pairs &&
-        !activityData.leftItems &&
-        !activityData.items &&
-        !activityData.pieces)
-    ) {
-      try {
-        const topic = activityData?.topic || data.domain || '综合';
-        const difficulty = data.difficulty || 1;
-        const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
-        const jsonStr = await this.generateActivityTool.execute({
-          type: data.activityType as any,
+    if (this.shouldGenerateActivityData(activityData)) {
+      const topic = this.resolveTopic(activityData?.topic, data.domain);
+      const difficulty = data.difficulty || 1;
+      const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
+
+      activityData = await this.generateActivityDataByAI(
+        {
+          activityType: data.activityType,
           topic,
           difficulty,
           ageGroup,
           domain: data.domain,
-        });
-        activityData = JSON.parse(jsonStr);
-        this.logger.log(`Auto-generated activity data for topic "${topic}" (${data.activityType})`);
-      } catch (err) {
-        this.logger.warn(`Failed to generate activity data: ${err.message}, using fallback`);
-      }
+        },
+        { strict: true },
+      );
     }
 
     const assignment = this.assignmentRepo.create({
@@ -82,7 +70,7 @@ export class AssignmentService {
         parentId: data.parentId,
         sourceType: 'parent_assignment',
         sourceId: saved.id,
-        title: activityData?.topic || `${saved.activityType} 作业`,
+        title: activityData?.topic || `${saved.activityType} assignment`,
         planContent: {
           activityType: saved.activityType,
           domain: saved.domain,
@@ -92,7 +80,7 @@ export class AssignmentService {
         },
         status: saved.status,
       });
-    } catch (err) {
+    } catch (err: any) {
       this.logger.warn(`Failed to create study plan record for assignment ${saved.id}: ${err.message}`);
     }
 
@@ -117,43 +105,200 @@ export class AssignmentService {
     const assignment = await this.assignmentRepo.findOne({ where: { id } });
     if (!assignment) throw new NotFoundException(`Assignment ${id} not found`);
 
-    // If activityData only has a topic, auto-generate the full game content
     await this.ensureActivityData(assignment);
 
     return assignment;
   }
 
-  /** Generate full game data if the assignment only has a topic string */
+  async update(
+    id: number,
+    parentId: number,
+    data: {
+      activityType?: string;
+      activityData?: any;
+      domain?: string;
+      difficulty?: number;
+      dueDate?: string | null;
+      topic?: string;
+    },
+  ): Promise<Assignment> {
+    const assignment = await this.findById(id);
+    this.assertParentCanManagePendingAssignment(assignment, parentId);
+
+    const nextActivityType = data.activityType || assignment.activityType;
+    const nextDomain = data.domain ?? assignment.domain;
+    const nextDifficulty = data.difficulty || assignment.difficulty || 1;
+    const nextAgeGroup = nextDifficulty <= 1 ? '3-4' : '5-6';
+
+    let nextActivityData = data.activityData ?? assignment.activityData;
+    if (data.topic !== undefined) {
+      const sanitizedTopic = data.topic.trim();
+      nextActivityData = {
+        ...(nextActivityData && typeof nextActivityData === 'object' ? nextActivityData : {}),
+        topic: sanitizedTopic,
+      };
+    }
+
+    const shouldRegenerate =
+      data.activityType !== undefined ||
+      data.topic !== undefined ||
+      this.shouldGenerateActivityData(nextActivityData);
+
+    if (shouldRegenerate) {
+      const topic = this.resolveTopic(nextActivityData?.topic, nextDomain);
+      nextActivityData = await this.generateActivityDataByAI(
+        {
+          activityType: nextActivityType,
+          topic,
+          difficulty: nextDifficulty,
+          ageGroup: nextAgeGroup,
+          domain: nextDomain,
+          assignmentId: assignment.id,
+        },
+        { strict: true },
+      );
+    }
+
+    assignment.activityType = nextActivityType;
+    assignment.activityData = nextActivityData;
+    assignment.domain = nextDomain;
+    assignment.difficulty = nextDifficulty;
+    if (data.dueDate !== undefined) {
+      assignment.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    }
+
+    return this.assignmentRepo.save(assignment);
+  }
+
+  async remove(id: number, parentId: number): Promise<{ success: boolean }> {
+    const assignment = await this.findById(id);
+    this.assertParentCanManagePendingAssignment(assignment, parentId);
+    await this.assignmentRepo.remove(assignment);
+    return { success: true };
+  }
+
+  private assertParentCanManagePendingAssignment(assignment: Assignment, parentId: number): void {
+    if (assignment.parentId !== parentId) {
+      throw new ForbiddenException('You can only manage your own assignments');
+    }
+    if (assignment.status !== 'pending') {
+      throw new BadRequestException('Only pending assignments can be edited or deleted');
+    }
+  }
+
   private async ensureActivityData(assignment: Assignment): Promise<void> {
     const data = assignment.activityData;
-    if (
-      !data ||
-      (data.topic &&
-        !data.questions &&
-        !data.statements &&
-        !data.sentences &&
-        !data.pairs &&
-        !data.leftItems &&
-        !data.items &&
-        !data.pieces)
-    ) {
-      try {
-        const topic = data?.topic || assignment.domain || '综合';
-        const difficulty = assignment.difficulty || 1;
-        const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
-        const jsonStr = await this.generateActivityTool.execute({
-          type: assignment.activityType as any,
+    if (this.shouldGenerateActivityData(data)) {
+      const topic = this.resolveTopic(data?.topic, assignment.domain);
+      const difficulty = assignment.difficulty || 1;
+      const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
+
+      const generated = await this.generateActivityDataByAI(
+        {
+          activityType: assignment.activityType,
           topic,
           difficulty,
           ageGroup,
           domain: assignment.domain,
-        });
-        assignment.activityData = JSON.parse(jsonStr);
+          assignmentId: assignment.id,
+        },
+        { strict: false },
+      );
+
+      if (generated) {
+        assignment.activityData = generated;
         await this.assignmentRepo.save(assignment);
-        this.logger.log(`Generated activity data for assignment ${assignment.id}, topic "${topic}"`);
-      } catch (err) {
-        this.logger.warn(`Failed to generate activity data for assignment ${assignment.id}: ${err.message}`);
       }
+    }
+  }
+
+  private shouldGenerateActivityData(activityData: any): boolean {
+    return !this.hasStructuredActivityData(activityData);
+  }
+
+  private hasStructuredActivityData(activityData: any): boolean {
+    if (!activityData || typeof activityData !== 'object') return false;
+
+    return (
+      (Array.isArray(activityData.questions) && activityData.questions.length > 0) ||
+      (Array.isArray(activityData.statements) && activityData.statements.length > 0) ||
+      (Array.isArray(activityData.sentences) && activityData.sentences.length > 0) ||
+      (Array.isArray(activityData.pairs) && activityData.pairs.length > 0) ||
+      ((Array.isArray(activityData.leftItems) && activityData.leftItems.length > 0) &&
+        (Array.isArray(activityData.rightItems) && activityData.rightItems.length > 0) &&
+        (Array.isArray(activityData.connections) && activityData.connections.length > 0)) ||
+      (Array.isArray(activityData.items) && activityData.items.length > 0) ||
+      (Array.isArray(activityData.pieces) && activityData.pieces.length > 0)
+    );
+  }
+
+  private resolveTopic(topic?: string, domain?: string): string {
+    const normalizedTopic = typeof topic === 'string' ? topic.trim() : '';
+    const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+    return normalizedTopic || normalizedDomain || 'general';
+  }
+
+  private async generateActivityDataByAI(
+    params: {
+      activityType: string;
+      topic: string;
+      difficulty: number;
+      ageGroup: string;
+      domain?: string;
+      assignmentId?: number;
+    },
+    options: { strict: boolean },
+  ): Promise<any | null> {
+    const scope = params.assignmentId ? `assignment ${params.assignmentId}` : 'new assignment';
+
+    try {
+      const jsonStr = await this.withTimeout(
+        this.generateActivityTool.execute({
+          type: params.activityType as any,
+          topic: params.topic,
+          difficulty: params.difficulty,
+          ageGroup: params.ageGroup,
+          domain: params.domain,
+        }),
+        ACTIVITY_GENERATION_TIMEOUT_MS,
+      );
+
+      const generated = JSON.parse(jsonStr);
+      if (!this.hasStructuredActivityData(generated)) {
+        throw new Error('AI returned no playable content');
+      }
+
+      this.logger.log(
+        `Generated activity data for ${scope} topic="${params.topic}" type=${params.activityType}`,
+      );
+      return generated;
+    } catch (err: any) {
+      this.logger.warn(
+        `AI generation failed for ${scope}: ${err.message}`,
+      );
+
+      if (options.strict) {
+        throw new BadRequestException('AI 生成题目失败，请稍后重试');
+      }
+
+      return null;
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    let timer: NodeJS.Timeout | null = null;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`generation timeout after ${timeoutMs}ms`));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -168,7 +313,6 @@ export class AssignmentService {
     assignment.resultData = result.resultData;
     const saved = await this.assignmentRepo.save(assignment);
 
-    // Feed into learning tracker (non-blocking — don't fail assignment save if tracker fails)
     try {
       await this.learningTracker.recordActivity({
         type: 'assignment_completion',
@@ -185,7 +329,7 @@ export class AssignmentService {
           resultData: result.resultData,
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       this.logger.warn(`Failed to record learning activity for assignment ${id}: ${err.message}`);
     }
 

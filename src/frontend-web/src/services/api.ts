@@ -28,6 +28,12 @@ import type {
   LearningPoint,
   WrongQuestion,
   StudyPlanRecord,
+  CoursePackRecord,
+  CoursePackExportFormat,
+  SaveCoursePackVersionRequest,
+  EnrichCoursePackBilingualRequest,
+  GenerateWeeklyCoursePackRequest,
+  GenerateCoursePackRequest,
   ConversationSession,
   ConversationMessageHistory,
 } from '@/types';
@@ -67,7 +73,8 @@ class ApiService {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs: number = 20000,
   ): Promise<T> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -80,7 +87,6 @@ class ApiService {
     }
 
     const controller = new AbortController();
-    const timeoutMs = 20000;
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
     if (options.signal) {
@@ -203,9 +209,10 @@ class ApiService {
   }
 
   async completeLearning(data: CompleteLearningRequest): Promise<LearningRecord> {
-    return this.request<LearningRecord>('/learning/complete', {
+    const { recordId, ...payload } = data;
+    return this.request<LearningRecord>(`/learning/complete/${recordId}`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -225,6 +232,163 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async generateCoursePack(data: GenerateCoursePackRequest): Promise<Record<string, any>> {
+    return this.request('/ai/course-pack', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, 120000);
+  }
+
+  async getCoursePacks(
+    childId: number,
+    params?: { page?: number; limit?: number },
+  ): Promise<{ list: CoursePackRecord[]; total: number; page: number; limit: number }> {
+    const search = new URLSearchParams();
+    search.set('childId', String(childId));
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    return this.request(`/ai/course-packs?${search.toString()}`);
+  }
+
+  async getCoursePackById(id: number): Promise<CoursePackRecord | null> {
+    return this.request(`/ai/course-packs/${id}`);
+  }
+
+  async getCoursePackVersions(
+    id: number,
+    params?: { page?: number; limit?: number },
+  ): Promise<{ list: CoursePackRecord[]; total: number; page: number; limit: number; rootSourceId: number }> {
+    const search = new URLSearchParams();
+    if (params?.page) search.set('page', String(params.page));
+    if (params?.limit) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    return this.request(`/ai/course-packs/${id}/versions${qs ? `?${qs}` : ''}`);
+  }
+
+  async saveCoursePackVersion(id: number, data: SaveCoursePackVersionRequest): Promise<Record<string, any>> {
+    return this.request(`/ai/course-packs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async enrichCoursePackBilingual(
+    id: number,
+    data: EnrichCoursePackBilingualRequest = { saveAsVersion: true, overwrite: false },
+  ): Promise<Record<string, any>> {
+    return this.request(`/ai/course-packs/${id}/enrich-bilingual`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateWeeklyCoursePacks(data: GenerateWeeklyCoursePackRequest): Promise<Record<string, any>> {
+    return this.request('/ai/course-packs/generate-weekly', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, 300000);
+  }
+
+  async downloadCoursePackExport(
+    id: number,
+    format: CoursePackExportFormat = 'capcut_json',
+  ): Promise<void> {
+    const token = this.getToken();
+    const params = new URLSearchParams();
+    params.set('format', format);
+
+    const response = await fetch(`${API_BASE_URL}/ai/course-packs/${id}/export?${params.toString()}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      let message = `Download failed: ${response.status}`;
+      try {
+        const body = await response.json();
+        message = body?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const fileName = this.resolveDownloadFilename(disposition, `course-pack-${id}.${this.extByFormat(format)}`);
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  async downloadCoursePackBatchExport(
+    ids: number[],
+    formats: CoursePackExportFormat[] = ['bundle_zip'],
+  ): Promise<void> {
+    const token = this.getToken();
+    const response = await fetch(`${API_BASE_URL}/ai/course-packs/export-batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ ids, formats }),
+    });
+
+    if (!response.ok) {
+      let message = `Download failed: ${response.status}`;
+      try {
+        const body = await response.json();
+        message = body?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const fileName = this.resolveDownloadFilename(disposition, `course-pack-batch.zip`);
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  private resolveDownloadFilename(contentDisposition: string, fallback: string): string {
+    if (!contentDisposition) return fallback;
+    const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match?.[1]) {
+      try {
+        return decodeURIComponent(utf8Match[1]);
+      } catch {
+        return utf8Match[1];
+      }
+    }
+    const normalMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+    if (normalMatch?.[1]) return normalMatch[1];
+    return fallback;
+  }
+
+  private extByFormat(format: CoursePackExportFormat): string {
+    if (format === 'bundle_zip') return 'zip';
+    if (format === 'narration_txt') return 'txt';
+    if (format === 'narration_mp3') return 'mp3';
+    if (format === 'teaching_video_mp4') return 'mp4';
+    if (format === 'storyboard_csv') return 'csv';
+    if (format === 'subtitle_srt') return 'srt';
+    if (format === 'subtitle_srt_bilingual') return 'srt';
+    return 'json';
   }
 
   // AI Chat Stream (SSE)
@@ -328,6 +492,29 @@ class ApiService {
     return this.request<Assignment>('/assignments', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async updateAssignment(
+    id: number,
+    data: {
+      activityType?: string;
+      activityData?: any;
+      domain?: string;
+      difficulty?: number;
+      dueDate?: string | null;
+      topic?: string;
+    },
+  ): Promise<Assignment> {
+    return this.request<Assignment>(`/assignments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAssignment(id: number): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/assignments/${id}`, {
+      method: 'DELETE',
     });
   }
 
@@ -469,6 +656,114 @@ class ApiService {
 
   async getAchievementDisplays(userId: number): Promise<AchievementDisplay[]> {
     return this.request<AchievementDisplay[]>(`/achievements/user/${userId}`);
+  }
+
+  // Structured Lessons
+  async generateLesson(params: GenerateCoursePackRequest & { childId: number }): Promise<Content> {
+    return this.request<Content>('/learning/lessons/generate', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }, 120000);
+  }
+
+  async modifyLesson(id: number, modification: string): Promise<Content> {
+    return this.request<Content>(`/learning/lessons/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ modification }),
+    }, 60000);
+  }
+
+  async confirmLesson(id: number, childId: number): Promise<Content> {
+    return this.request<Content>(`/learning/lessons/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    });
+  }
+
+  async getLessonProgress(id: number, childId: number): Promise<import('@/types').LessonProgress> {
+    return this.request<import('@/types').LessonProgress>(`/learning/lessons/${id}/progress?childId=${childId}`);
+  }
+
+  async completeLessonStep(
+    id: number,
+    stepId: string,
+    childId: number,
+    result: import('@/types').StepResult,
+  ): Promise<{
+    success: boolean;
+    recordId: number;
+    abilityUpdated: boolean;
+    achievementsAwarded: string[];
+  }> {
+    return this.request(`/learning/lessons/${id}/complete-step`, {
+      method: 'POST',
+      body: JSON.stringify({ childId, stepId, ...result }),
+    });
+  }
+
+  async createLessonTeachingVideoTask(
+    id: number,
+    childId?: number,
+  ): Promise<{
+    taskId: number;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    provider: string;
+    errorMessage?: string | null;
+    ready: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    return this.request(`/learning/lessons/${id}/teaching-video/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(childId ? { childId } : {}),
+    });
+  }
+
+  async getLessonTeachingVideoTask(
+    id: number,
+    taskId: number,
+    childId?: number,
+  ): Promise<{
+    taskId: number;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress: number;
+    provider: string;
+    errorMessage?: string | null;
+    ready: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }> {
+    const query = childId && Number.isFinite(childId) ? `?childId=${childId}` : '';
+    return this.request(`/learning/lessons/${id}/teaching-video/tasks/${taskId}${query}`);
+  }
+
+  async downloadLessonTeachingVideo(id: number, childId?: number, taskId?: number): Promise<Blob> {
+    const token = this.getToken();
+    const search = new URLSearchParams();
+    if (childId && Number.isFinite(childId)) {
+      search.set('childId', String(childId));
+    }
+    if (taskId && Number.isFinite(taskId)) {
+      search.set('taskId', String(taskId));
+    }
+    const query = search.toString();
+    const response = await fetch(`${API_BASE_URL}/learning/lessons/${id}/teaching-video${query ? `?${query}` : ''}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      let message = `Video request failed: ${response.status}`;
+      try {
+        const body = await response.json();
+        message = body?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    return response.blob();
   }
 }
 

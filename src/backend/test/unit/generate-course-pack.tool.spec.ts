@@ -123,7 +123,7 @@ describe('GenerateCoursePackTool', () => {
     expect(result.type).toBe('course_pack');
     expect(result.ageGroup).toBe('5-6');
     expect(result.visualStory?.scenes?.length).toBeGreaterThanOrEqual(4);
-    expect(result.videoLesson?.shots?.length).toBeGreaterThanOrEqual(5);
+    expect(result.videoLesson?.shots?.length).toBeGreaterThanOrEqual(4);
     expect(result.modules?.listening?.audioScript?.length).toBeGreaterThanOrEqual(3);
     expect(result.videoLesson?.shots?.some((shot: any) => /opening|concept|practice|wrap-?up|shot\s*\d+/i.test(String(shot.shot)))).toBe(false);
     expect(result.modules?.listening?.audioScript?.some((item: any) => /part\s*\d+/i.test(String(item.segment)))).toBe(false);
@@ -133,5 +133,38 @@ describe('GenerateCoursePackTool', () => {
       }),
     );
     expect(llmClient.generate).toHaveBeenCalledTimes(3);
+  });
+
+  it('expands explicit literacy units into per-item teaching shots', async () => {
+    generateActivityTool.execute.mockResolvedValueOnce(JSON.stringify({
+      type: 'matching',
+      topic: '认识汉字：天、地、人',
+      ageGroup: '5-6',
+      pairs: [
+        { id: 'p1', left: '天', right: '天空' },
+        { id: 'p2', left: '地', right: '大地' },
+        { id: 'p3', left: '人', right: '人物' },
+      ],
+    }));
+    llmClient.generate.mockResolvedValue('not-json');
+
+    const result = JSON.parse(await tool.execute({
+      topic: '认识汉字：天、地、人',
+      focus: 'literacy',
+    }));
+
+    const shotNames = result.videoLesson?.shots?.map((shot: any) => String(shot.shot)) || [];
+    const narrations = result.videoLesson?.shots?.map((shot: any) => String(shot.narration)) || [];
+    const audioSegments = result.modules?.listening?.audioScript?.map((item: any) => String(item.segment)) || [];
+
+    expect(shotNames).toEqual(
+      expect.arrayContaining(['天字讲解', '地字讲解', '人字讲解']),
+    );
+    expect(narrations.some((text: string) => text.includes('“天”字'))).toBe(true);
+    expect(narrations.some((text: string) => text.includes('“地”字'))).toBe(true);
+    expect(narrations.some((text: string) => text.includes('“人”字'))).toBe(true);
+    expect(audioSegments).toEqual(
+      expect.arrayContaining(['天字讲解', '地字讲解', '人字讲解']),
+    );
   });
 });

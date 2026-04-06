@@ -79,6 +79,67 @@ export class GenerateCoursePackTool {
     return JSON.stringify(this.fallbackCoursePack(normalized, gameBundle));
   }
 
+  ensureTeachingMediaPack(pack: Record<string, any>): Record<string, any> {
+    const source = pack && typeof pack === 'object' ? pack : {};
+    const topic = this.toText(source?.topic || source?.title, '学习主题');
+    const normalized = this.normalizeArgs({
+      topic,
+      ageGroup: source?.ageGroup,
+      durationMinutes: this.toSafeInt(
+        source?.durationMinutes,
+        Math.max(10, Math.ceil(this.toSafeInt(source?.videoLesson?.durationSec, 120) / 60)),
+      ),
+      focus: this.deriveFocusFromPack(source),
+      difficulty: this.toSafeInt(source?.difficulty, 2),
+      includeAudio: true,
+      includeVideo: true,
+      includeGame: false,
+      parentPrompt: this.toText(source?.parentPrompt, topic),
+    });
+
+    const next = JSON.parse(JSON.stringify(source || {}));
+    next.topic = this.toText(next.topic, normalized.topic);
+    next.ageGroup = this.toText(next.ageGroup, normalized.ageGroup);
+    next.focus = this.toText(next.focus, normalized.focus);
+    next.durationMinutes = this.toSafeInt(next.durationMinutes, normalized.durationMinutes);
+    next.visualStory = next.visualStory && typeof next.visualStory === 'object' ? next.visualStory : {};
+    next.modules = next.modules && typeof next.modules === 'object' ? next.modules : {};
+    next.modules.listening =
+      next.modules.listening && typeof next.modules.listening === 'object' ? next.modules.listening : {};
+    next.videoLesson = next.videoLesson && typeof next.videoLesson === 'object' ? next.videoLesson : {};
+    next.videoLesson.renderGuide =
+      next.videoLesson.renderGuide && typeof next.videoLesson.renderGuide === 'object'
+        ? next.videoLesson.renderGuide
+        : {};
+
+    const existingScenes = Array.isArray(next.visualStory.scenes) ? next.visualStory.scenes : [];
+    const existingShots = Array.isArray(next.videoLesson.shots) ? next.videoLesson.shots : [];
+    const existingAudio = Array.isArray(next.modules.listening.audioScript)
+      ? next.modules.listening.audioScript
+      : [];
+
+    if (this.shouldUseFallbackScenes(existingScenes, normalized)) {
+      next.visualStory.scenes = this.buildTopicSceneFallback(normalized);
+    }
+    if (this.shouldUseFallbackShots(existingShots, normalized)) {
+      next.videoLesson.shots = this.buildTopicShotFallback(normalized);
+    }
+    if (this.shouldUseFallbackAudioScript(existingAudio, normalized)) {
+      next.modules.listening.audioScript = this.buildTopicAudioFallback(normalized);
+    }
+
+    next.videoLesson.title = this.toText(next.videoLesson.title, `${normalized.topic} 视频讲解`);
+    next.videoLesson.durationSec = this.toSafeInt(
+      next.videoLesson.durationSec,
+      next.videoLesson.shots?.reduce((sum: number, shot: any) => sum + this.toSafeInt(shot?.durationSec, 12), 0) || 120,
+    );
+    next.videoLesson.renderGuide.aspectRatio = this.toText(next.videoLesson.renderGuide.aspectRatio, '16:9');
+    next.videoLesson.renderGuide.voiceStyle = this.toText(next.videoLesson.renderGuide.voiceStyle, 'friendly teacher');
+    next.videoLesson.renderGuide.musicStyle = this.toText(next.videoLesson.renderGuide.musicStyle, 'light and playful');
+
+    return next;
+  }
+
   private async generateGameBundle(normalized: NormalizedArgs): Promise<{
     activityType: ActivityType;
     domain: string;
@@ -185,6 +246,20 @@ export class GenerateCoursePackTool {
     ]
       .filter(Boolean)
       .join('\n');
+  }
+
+  private deriveFocusFromPack(pack: Record<string, any>): CourseFocus {
+    const focus = this.toText(pack?.focus).toLowerCase();
+    if (focus === 'literacy' || focus === 'math' || focus === 'science' || focus === 'mixed') {
+      return focus;
+    }
+
+    const source = [this.toText(pack?.topic), this.toText(pack?.title), this.toText(pack?.summary)].join(' ');
+
+    if (/汉字|识字|字词|拼音|阅读|朗读/.test(source)) return 'literacy';
+    if (/数字|数数|加法|减法|数学|图形|排序/.test(source)) return 'math';
+    if (/科学|动物|植物|天气|季节|实验|观察/.test(source)) return 'science';
+    return 'mixed';
   }
 
   private sanitizeCoursePack(

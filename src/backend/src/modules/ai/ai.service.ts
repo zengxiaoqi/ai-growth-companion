@@ -429,7 +429,9 @@ export class AiService {
       throw new Error('COURSE_PACK_NOT_FOUND');
     }
 
-    const pack = (row.planContent || {}) as Record<string, any>;
+    const pack = this.generateCoursePackTool.ensureTeachingMediaPack(
+      ((row.planContent || {}) as Record<string, any>) || {},
+    );
     const format = params.format || 'capcut_json';
     const title = this.toSafeFilename(String(pack.title || row.title || `course-pack-${row.id}`));
     const capcutBody = JSON.stringify(this.buildCapCutPayload(pack, row.id), null, 2);
@@ -618,7 +620,9 @@ export class AiService {
   }
 
   async renderTeachingVideoFromPack(pack: Record<string, any>): Promise<Buffer | null> {
-    const safePack = pack && typeof pack === 'object' ? pack : {};
+    const safePack = this.generateCoursePackTool.ensureTeachingMediaPack(
+      (pack && typeof pack === 'object' ? pack : {}) as Record<string, any>,
+    );
     const narrationMp3 = await this.buildNarrationMp3(safePack);
     return this.buildTeachingVideoMp4(safePack, narrationMp3);
   }

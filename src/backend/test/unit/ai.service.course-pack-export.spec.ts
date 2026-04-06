@@ -24,6 +24,7 @@ describe('AiService course pack export', () => {
   };
   const generateCoursePackTool = {
     execute: jest.fn(),
+    ensureTeachingMediaPack: jest.fn(),
   };
 
   let service: AiService;
@@ -34,6 +35,7 @@ describe('AiService course pack export', () => {
     usersService.canAccessChild.mockResolvedValue(true);
     usersService.findById.mockResolvedValue({ id: 22, age: 5, name: 'Kid' });
     learningArchiveService.updateStudyPlanRecord.mockResolvedValue(null);
+    generateCoursePackTool.ensureTeachingMediaPack.mockImplementation((pack: any) => pack);
 
     service = new AiService(
       agentExecutor as any,
@@ -108,6 +110,66 @@ describe('AiService course pack export', () => {
 
     const content = await zip.file(bilingualName as string)?.async('string');
     expect(content).toContain('Sun Moon Mountains Rivers\nSun Moon Mountains Rivers');
+  });
+
+  it('expands generic literacy packs into per-character teaching narration before export', async () => {
+    learningArchiveService.getStudyPlanById.mockResolvedValue({
+      id: 41,
+      childId: 22,
+      sourceType: 'ai_course_pack',
+      title: '识字课',
+      planContent: {
+        title: '识字课',
+        topic: '认识汉字：天、地、人',
+        ageGroup: '5-6',
+        videoLesson: {
+          shots: [{ shot: '1', caption: '认识汉字：天、地、人', durationSec: 6 }],
+        },
+      },
+    });
+    generateCoursePackTool.ensureTeachingMediaPack.mockImplementation((pack: any) => ({
+      ...pack,
+      videoLesson: {
+        ...(pack.videoLesson || {}),
+        shots: [
+          { shot: '天字讲解', caption: '天字讲解', narration: '先来认识天字，它表示天空。', durationSec: 6 },
+          { shot: '地字讲解', caption: '地字讲解', narration: '再来认识地字，它表示大地。', durationSec: 6 },
+          { shot: '人字讲解', caption: '人字讲解', narration: '最后认识人字，它像一个人站立。', durationSec: 6 },
+        ],
+      },
+      visualStory: {
+        scenes: [
+          { scene: '天字讲解', onScreenText: '天字讲解', narration: '先来认识天字，它表示天空。', durationSec: 6 },
+          { scene: '地字讲解', onScreenText: '地字讲解', narration: '再来认识地字，它表示大地。', durationSec: 6 },
+          { scene: '人字讲解', onScreenText: '人字讲解', narration: '最后认识人字，它像一个人站立。', durationSec: 6 },
+        ],
+      },
+      modules: {
+        listening: {
+          audioScript: [
+            { segment: '天', narration: '先来认识天字，它表示天空。', durationSec: 6 },
+            { segment: '地', narration: '再来认识地字，它表示大地。', durationSec: 6 },
+            { segment: '人', narration: '最后认识人字，它像一个人站立。', durationSec: 6 },
+          ],
+        },
+      },
+    }));
+
+    const exported = await service.exportCoursePack({
+      viewerId: 1,
+      viewerType: 'parent',
+      id: 41,
+      format: 'subtitle_srt',
+    });
+
+    expect(generateCoursePackTool.ensureTeachingMediaPack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topic: '认识汉字：天、地、人',
+      }),
+    );
+    expect(String(exported.body)).toContain('天字讲解');
+    expect(String(exported.body)).toContain('地字讲解');
+    expect(String(exported.body)).toContain('人字讲解');
   });
 
   it('exports enriched capcut payload with transitions, tracks, and edit plan', async () => {

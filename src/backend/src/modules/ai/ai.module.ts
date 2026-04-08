@@ -33,6 +33,7 @@ import { ViewAbilitiesTool } from './agent/tools/view-abilities';
 import { UpdateParentControlTool } from './agent/tools/update-parent-control';
 import { ListAssignmentsTool } from './agent/tools/list-assignments';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
+import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
 import { ReportModule } from '../report/report.module';
 import { VoiceModule } from '../voice/voice.module';
 
@@ -78,8 +79,9 @@ import { VoiceModule } from '../voice/voice.module';
     UpdateParentControlTool,
     ListAssignmentsTool,
     GenerateCoursePackTool,
+    GenerateVideoDataTool,
   ],
   controllers: [AiController],
-  exports: [AiService, GenerateActivityTool, GenerateCoursePackTool, LlmClient],
+  exports: [AiService, GenerateActivityTool, GenerateCoursePackTool, GenerateVideoDataTool, LlmClient],
 })
 export class AiModule {}

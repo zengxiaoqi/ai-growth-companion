@@ -765,6 +765,49 @@ class ApiService {
 
     return response.blob();
   }
+
+  async getLessonVideoStatus(
+    id: number,
+    childId?: number,
+    taskId?: number,
+  ): Promise<{
+    exists: boolean;
+    taskId?: number;
+    status?: string;
+    progress?: number;
+    approvalStatus?: string;
+    rejectionReason?: string | null;
+    errorMessage?: string | null;
+    ready?: boolean;
+  }> {
+    const search = new URLSearchParams();
+    if (childId && Number.isFinite(childId)) {
+      search.set('childId', String(childId));
+    }
+    if (taskId && Number.isFinite(taskId)) {
+      search.set('taskId', String(taskId));
+    }
+    const query = search.toString();
+    return this.request(`/learning/lessons/${id}/video-status${query ? `?${query}` : ''}`);
+  }
+
+  async approveLessonVideo(
+    id: number,
+    childId: number,
+    approved: boolean,
+    feedback?: string,
+    taskId?: number,
+  ): Promise<{ success: boolean; approvalStatus: string }> {
+    return this.request(`/learning/lessons/${id}/video-approve`, {
+      method: 'POST',
+      body: JSON.stringify({
+        childId,
+        approved,
+        feedback: feedback || undefined,
+        taskId: taskId || undefined,
+      }),
+    });
+  }
 }
 
 export const api = new ApiService();

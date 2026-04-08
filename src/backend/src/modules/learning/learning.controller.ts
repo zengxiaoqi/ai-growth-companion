@@ -18,6 +18,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Response } from 'express';
 import { Repository } from 'typeorm';
 import { Content } from '../../database/entities/content.entity';
+import { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 import { LearningArchiveService, WrongQuestionReviewItem } from './learning-archive.service';
@@ -38,6 +39,8 @@ export class LearningController {
     private readonly usersService: UsersService,
     @InjectRepository(Content)
     private readonly contentRepo: Repository<Content>,
+    @InjectRepository(VideoGenerationTask)
+    private readonly videoTaskRepo: Repository<VideoGenerationTask>,
   ) {}
 
   private async assertAccessToChild(req: any, childId: number): Promise<void> {
@@ -425,6 +428,11 @@ export class LearningController {
       throw new BadRequestException('视频尚未生成完成');
     }
 
+    // Student must have approved video; parent can always view
+    if (req.user?.type === 'child' && task.approvalStatus !== 'approved') {
+      throw new ForbiddenException('视频尚未通过审批');
+    }
+
     const content = await this.contentRepo.findOne({ where: { id: +id } });
     const safeTitle = String(content?.title || `lesson-${id}`)
       .replace(/[\\/:*?"<>|]+/g, '-')
@@ -435,6 +443,75 @@ export class LearningController {
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
     res.send(body);
+  }
+
+  @Get('lessons/:id/video-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '查询视频任务状态及审批状态' })
+  async getVideoStatus(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Query('childId') childId?: string,
+    @Query('taskId') taskId?: string,
+  ) {
+    const resolvedChildId = this.resolveChildId(req, childId);
+    await this.assertAccessToChild(req, resolvedChildId);
+
+    const numericTaskId = Number(taskId);
+    const task = Number.isInteger(numericTaskId) && numericTaskId > 0
+      ? await this.lessonVideoQueue.getTask(+id, numericTaskId, resolvedChildId)
+      : await this.lessonVideoQueue.getLatestTask(+id, resolvedChildId);
+
+    if (!task) {
+      return { exists: false };
+    }
+
+    return {
+      exists: true,
+      taskId: task.id,
+      status: task.status,
+      progress: task.progress,
+      approvalStatus: task.approvalStatus,
+      rejectionReason: task.rejectionReason || null,
+      errorMessage: task.errorMessage || null,
+      ready: task.status === 'completed',
+    };
+  }
+
+  @Post('lessons/:id/video-approve')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '审批教学视频（家长）' })
+  async approveVideo(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { childId: number; approved: boolean; feedback?: string; taskId?: number },
+  ) {
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可审批视频');
+    }
+    await this.assertAccessToChild(req, body.childId);
+
+    const task = body.taskId
+      ? await this.lessonVideoQueue.getTask(+id, body.taskId, body.childId)
+      : await this.lessonVideoQueue.getLatestTask(+id, body.childId);
+
+    if (!task) {
+      throw new NotFoundException('视频任务不存在');
+    }
+    if (task.status !== 'completed') {
+      throw new BadRequestException('视频尚未生成完成');
+    }
+
+    task.approvalStatus = body.approved ? 'approved' : 'rejected';
+    task.rejectionReason = body.approved ? null : (body.feedback || '').slice(0, 500) || null;
+    await this.videoTaskRepo.save(task);
+
+    return {
+      success: true,
+      approvalStatus: task.approvalStatus,
+    };
   }
 
   @Post('lessons/:id/complete-step')

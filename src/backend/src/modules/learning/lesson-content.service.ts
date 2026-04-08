@@ -11,6 +11,13 @@ import { AiService } from '../ai/ai.service';
 import { AssignmentService } from '../assignment/assignment.service';
 import { LearningTrackerService } from './learning-tracker.service';
 import { LlmClient } from '../ai/llm/llm-client';
+import {
+  derivePracticeSceneDocument,
+  deriveWatchSceneDocument,
+  deriveWriteSceneDocument,
+  sanitizeSceneDocument,
+  type LessonSceneDocument,
+} from './lesson-scene';
 
 type AgeGroup = '3-4' | '5-6';
 type LessonDomain = 'language' | 'math' | 'science' | 'art' | 'social';
@@ -159,6 +166,7 @@ export class LessonContentService {
       const coursePackRaw = await this.generateCoursePackTool.execute({
         topic,
         ageGroup,
+        domain,
         focus,
         difficulty,
         durationMinutes,
@@ -261,6 +269,8 @@ export class LessonContentService {
       '- Keep all content age-appropriate and in Chinese for learner-facing text.',
       '- Return the COMPLETE updated lesson JSON (same structure).',
       '- Do NOT change the "type", "version", or "steps[].id" fields.',
+      '- Preserve steps[].module.scene unless the parent request explicitly changes that step.',
+      '- If watch/write/practice content changes, update the related steps[].module.scene to stay in sync.',
       '- Return strict JSON only. No markdown. No explanation.',
     ].join('\n');
 
@@ -268,13 +278,11 @@ export class LessonContentService {
     const updated = this.parseJson(llmResponse);
 
     if (updated && updated.steps) {
-      const merged = {
-        ...lesson,
-        ...updated,
-        type: 'structured_lesson' as const,
-        version: 1,
-      };
+      const merged = this.mergeModifiedLesson(lesson, updated);
+      const nextTopic = this.toText((merged as any)?.topic, lesson.topic);
       content.content = merged as any;
+      content.title = this.toText((updated as any)?.title, nextTopic ? `${nextTopic} 鍏ㄦ柟浣嶅涔犺` : content.title);
+      content.subtitle = this.toText((merged as any)?.summary, content.subtitle || '');
       const saved = await this.contentRepo.save(content);
       this.logger.log(`Lesson modified: contentId=${contentId}`);
       return saved;
@@ -497,6 +505,10 @@ export class LessonContentService {
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
     const parentGuide = coursePack.parentGuide || {};
+    const watchScene = this.resolveWatchScene(coursePack, meta.topic);
+    const writeScene = this.resolveWriteScene(coursePack, meta.topic);
+    const practiceType = this.resolveGameType(coursePack.focus || 'mixed');
+    const practiceScene = this.resolvePracticeScene(coursePack, practiceData, practiceType, meta.topic);
 
     const steps: LessonStep[] = [
       {
@@ -506,6 +518,7 @@ export class LessonContentService {
         order: 1,
         module: {
           type: 'video',
+          scene: watchScene,
           visualStory: coursePack.visualStory || {},
           videoLesson: coursePack.videoLesson || {},
         },
@@ -537,6 +550,7 @@ export class LessonContentService {
         order: 4,
         module: {
           type: 'writing',
+          scene: writeScene,
           writing: modules.writing || {},
         },
       },
@@ -547,8 +561,9 @@ export class LessonContentService {
         order: 5,
         module: {
           type: 'game',
+          scene: practiceScene,
           game: {
-            activityType: this.resolveGameType(coursePack.focus || 'mixed'),
+            activityType: practiceType,
             activityData: practiceData || {},
           },
         },
@@ -660,5 +675,212 @@ export class LessonContentService {
     }
 
     return null;
+  }
+
+  private resolveWatchScene(coursePack: Record<string, any>, topic: string): LessonSceneDocument {
+    return sanitizeSceneDocument(coursePack?.watch?.scene, 'watch', 'playback')
+      || deriveWatchSceneDocument({
+        visualStory: coursePack.visualStory || {},
+        videoLesson: coursePack.videoLesson || {},
+      }, topic);
+  }
+
+  private resolveWriteScene(coursePack: Record<string, any>, topic: string): LessonSceneDocument {
+    return sanitizeSceneDocument(coursePack?.write?.scene || coursePack?.modules?.writing?.scene, 'write', 'guided_trace')
+      || deriveWriteSceneDocument(coursePack?.modules?.writing || {}, topic);
+  }
+
+  private resolvePracticeScene(
+    coursePack: Record<string, any>,
+    practiceData: Record<string, any> | null,
+    activityType: 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle',
+    topic: string,
+  ): LessonSceneDocument {
+    return sanitizeSceneDocument(coursePack?.practice?.scene, 'practice', 'activity_shell')
+      || derivePracticeSceneDocument(
+        activityType,
+        (practiceData || { type: activityType, title: `${topic} 互动练习` }) as any,
+        topic,
+      );
+  }
+
+  private mergeModifiedLesson(
+    originalLesson: StructuredLessonContent,
+    updatedLesson: Record<string, any>,
+  ): StructuredLessonContent {
+    const merged = {
+      ...originalLesson,
+      ...updatedLesson,
+      type: 'structured_lesson' as const,
+      version: 1 as const,
+    };
+
+    const topic = this.toText(merged.topic, originalLesson.topic);
+    const stepsById = new Map(
+      (Array.isArray(updatedLesson?.steps) ? updatedLesson.steps : [])
+        .filter((step: any) => step && typeof step === 'object' && step.id),
+    );
+
+    const steps = originalLesson.steps.map((originalStep) => {
+      const updatedStep = stepsById.get(originalStep.id) || {};
+      const mergedStep: LessonStep = {
+        ...originalStep,
+        ...updatedStep,
+        module: {
+          ...(originalStep.module || {}),
+          ...((updatedStep as any)?.module || {}),
+        },
+      };
+
+      return this.syncModifiedStepScene(mergedStep, originalStep, topic);
+    });
+
+    return {
+      ...merged,
+      topic,
+      ageGroup: merged.ageGroup === '3-4' || merged.ageGroup === '5-6' ? merged.ageGroup : originalLesson.ageGroup,
+      summary: this.toText(merged.summary, originalLesson.summary),
+      outcomes: Array.isArray(merged.outcomes) ? merged.outcomes : originalLesson.outcomes,
+      steps,
+      parentGuide: {
+        beforeClass: Array.isArray(merged.parentGuide?.beforeClass) ? merged.parentGuide.beforeClass : originalLesson.parentGuide.beforeClass,
+        duringClass: Array.isArray(merged.parentGuide?.duringClass) ? merged.parentGuide.duringClass : originalLesson.parentGuide.duringClass,
+        afterClass: Array.isArray(merged.parentGuide?.afterClass) ? merged.parentGuide.afterClass : originalLesson.parentGuide.afterClass,
+      },
+    };
+  }
+
+  private syncModifiedStepScene(
+    step: LessonStep,
+    originalStep: LessonStep,
+    topic: string,
+  ): LessonStep {
+    const module = step.module || {};
+    const originalModule = originalStep?.module || {};
+
+    if (step.id === 'watch' || module.type === 'video') {
+      return {
+        ...step,
+        module: {
+          ...module,
+          scene: this.resolveModifiedWatchScene(module, originalModule, topic),
+        },
+      };
+    }
+
+    if (step.id === 'write' || module.type === 'writing') {
+      return {
+        ...step,
+        module: {
+          ...module,
+          scene: this.resolveModifiedWriteScene(module, originalModule, topic),
+        },
+      };
+    }
+
+    if (step.id === 'practice' || module.type === 'game') {
+      return {
+        ...step,
+        module: {
+          ...module,
+          scene: this.resolveModifiedPracticeScene(module, originalModule, topic),
+        },
+      };
+    }
+
+    return step;
+  }
+
+  private resolveModifiedWatchScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'watch', 'playback');
+    const sourceChanged = this.didSceneSourceChange(
+      { visualStory: originalModule?.visualStory, videoLesson: originalModule?.videoLesson },
+      { visualStory: module?.visualStory, videoLesson: module?.videoLesson },
+    );
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return deriveWatchSceneDocument(
+        { visualStory: module?.visualStory || {}, videoLesson: module?.videoLesson || {} },
+        topic,
+      );
+    }
+
+    return nextScene
+      || sanitizeSceneDocument(originalModule?.scene, 'watch', 'playback')
+      || deriveWatchSceneDocument(
+        { visualStory: module?.visualStory || {}, videoLesson: module?.videoLesson || {} },
+        topic,
+      );
+  }
+
+  private resolveModifiedWriteScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'write', 'guided_trace');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.writing, module?.writing);
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return deriveWriteSceneDocument(module?.writing || {}, topic);
+    }
+
+    return nextScene
+      || sanitizeSceneDocument(originalModule?.scene, 'write', 'guided_trace')
+      || deriveWriteSceneDocument(module?.writing || {}, topic);
+  }
+
+  private resolveModifiedPracticeScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'practice', 'activity_shell');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.game, module?.game);
+    const activityType = this.toText(module?.game?.activityType || originalModule?.game?.activityType, 'quiz') as any;
+    const activityData = (module?.game?.activityData || module?.game || originalModule?.game?.activityData || {
+      type: activityType,
+      title: `${topic} 浜掑姩缁冧範`,
+    }) as Record<string, any>;
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return derivePracticeSceneDocument(activityType, activityData, topic);
+    }
+
+    return nextScene
+      || sanitizeSceneDocument(originalModule?.scene, 'practice', 'activity_shell')
+      || derivePracticeSceneDocument(activityType, activityData, topic);
+  }
+
+  private didSceneDocChange(previousScene: unknown, nextScene: unknown): boolean {
+    return this.safeStableStringify(previousScene) !== this.safeStableStringify(nextScene);
+  }
+
+  private didSceneSourceChange(previousSource: unknown, nextSource: unknown): boolean {
+    return this.safeStableStringify(previousSource) !== this.safeStableStringify(nextSource);
+  }
+
+  private safeStableStringify(value: unknown): string {
+    try {
+      return JSON.stringify(value ?? null) || 'null';
+    } catch {
+      return String(value ?? 'null');
+    }
   }
 }

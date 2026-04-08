@@ -13,6 +13,7 @@ import { LearningTrackerService } from './learning-tracker.service';
 import { LearningArchiveService } from './learning-archive.service';
 import { LessonContentService } from './lesson-content.service';
 import { LessonVideoQueueService } from './lesson-video-queue.service';
+import { RemotionRenderService } from './remotion-render.service';
 import { LearningController } from './learning.controller';
 import { SseModule } from '../sse/sse.module';
 import { AchievementsModule } from '../achievements/achievements.module';
@@ -42,8 +43,8 @@ import { AssignmentModule } from '../assignment/assignment.module';
     ContentsModule,
     forwardRef(() => AssignmentModule),
   ],
-  providers: [LearningService, LearningTrackerService, LearningArchiveService, LessonContentService, LessonVideoQueueService],
+  providers: [LearningService, LearningTrackerService, LearningArchiveService, LessonContentService, LessonVideoQueueService, RemotionRenderService],
   controllers: [LearningController],
-  exports: [LearningService, LearningTrackerService, LearningArchiveService, LessonContentService, LessonVideoQueueService],
+  exports: [LearningService, LearningTrackerService, LearningArchiveService, LessonContentService, LessonVideoQueueService, RemotionRenderService],
 })
 export class LearningModule {}

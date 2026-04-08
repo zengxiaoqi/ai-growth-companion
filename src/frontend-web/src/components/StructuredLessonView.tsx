@@ -18,6 +18,8 @@ import type { Content, StructuredLessonContent, StructuredLessonStep, LessonProg
 import GameRenderer from './games/GameRenderer';
 import { Button, Card } from './ui';
 import { normalizeActivityType, normalizeActivityData } from './ai-chat/activity-normalizer';
+import LessonScenePlayer from '@/scenes/LessonScenePlayer';
+import { resolveLessonSceneDocument } from '@/scenes/scene-helpers';
 
 interface StructuredLessonViewProps {
   contentId: number;
@@ -415,6 +417,65 @@ function scenesHaveAnimationTemplates(scenes: any[]): boolean {
   return scenes.some((s) => s?.animationTemplate);
 }
 
+function normalizeWordRevealWords(scene: any): string[] {
+  const rawWords = scene?.animationParams?.words;
+  if (!Array.isArray(rawWords)) return [];
+
+  return rawWords
+    .map((word) => (typeof word === 'string' ? word.trim() : ''))
+    .filter(Boolean);
+}
+
+function shouldFallbackToLegacyWatch(scenes: any[]): boolean {
+  if (scenes.length < 2) return false;
+  if (!scenes.every((scene) => scene?.animationTemplate === 'language.word-reveal')) return false;
+
+  const uniqueWordSets = new Set(
+    scenes
+      .map((scene) => normalizeWordRevealWords(scene).join('|'))
+      .filter(Boolean),
+  );
+
+  if (uniqueWordSets.size !== 1) return false;
+  const [onlyWordSet = ''] = Array.from(uniqueWordSets);
+  return onlyWordSet.split('|').filter(Boolean).length <= 1;
+}
+
+function inferStorySceneBgType(scene: any): 'day' | 'night' | 'indoor' {
+  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' ');
+  if (/(夜|晚上|星星|月亮|黑夜)/.test(source)) return 'night';
+  if (/(教室|课堂|室内|老师)/.test(source)) return 'indoor';
+  return 'day';
+}
+
+function createStorySceneParams(scene: any): Record<string, unknown> {
+  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' ');
+  const items = Array.from(new Set((source.match(/春|夏|秋|冬|花|太阳|树叶|雪花/g) || []))).slice(0, 4);
+
+  return {
+    bgType: inferStorySceneBgType(scene),
+    characters: ['老师', '小朋友'],
+    items,
+  };
+}
+
+function repairLowInformationAnimationScenes(scenes: any[]): any[] {
+  if (!shouldFallbackToLegacyWatch(scenes)) return scenes;
+
+  const source = scenes
+    .map((scene) => [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' '))
+    .join(' ');
+  const isSeasonTopic = /(四季|季节|春夏秋冬)/.test(source);
+
+  return scenes.map((scene, index) => ({
+    ...scene,
+    animationTemplate: isSeasonTopic ? 'science.seasons-cycle' : 'language.story-scene',
+    animationParams: isSeasonTopic
+      ? { seasonNames: ['春', '夏', '秋', '冬'], focusSeason: index % 4, showLabels: true }
+      : createStorySceneParams(scene),
+  }));
+}
+
 function WatchStep({
   module: m,
   contentId,
@@ -425,16 +486,31 @@ function WatchStep({
   module: any;
   contentId: number;
   childId?: number;
-  onComplete: (score?: number) => void;
+  onComplete: (score?: number, data?: Record<string, any>) => void;
   isCompleted: boolean;
 }) {
+  const sceneDocument = useMemo(() => resolveLessonSceneDocument('watch', m), [m]);
+  if (sceneDocument) {
+    return (
+      <LessonScenePlayer
+        document={sceneDocument}
+        isCompleted={isCompleted}
+        onComplete={(score, data) => onComplete(score || 90, data)}
+      />
+    );
+  }
+
   const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
+  const repairedScenes = repairLowInformationAnimationScenes(scenes);
 
   // ── Animation template path (new) ──
-  if (scenesHaveAnimationTemplates(scenes)) {
+  const canUseAnimationTemplates =
+    scenesHaveAnimationTemplates(repairedScenes);
+
+  if (canUseAnimationTemplates) {
     return (
       <AnimationWatchStep
-        scenes={scenes}
+        scenes={repairedScenes}
         isCompleted={isCompleted}
         onComplete={onComplete}
       />
@@ -470,13 +546,44 @@ function AnimationWatchStep({
     onComplete: (score?: number) => void;
   }> | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const mappedScenes = useMemo(
+    () =>
+      scenes.map((s: any) => ({
+        templateId: s.animationTemplate || '',
+        params: s.animationParams || {},
+        narration: s.narration || '',
+        onScreenText: s.onScreenText || '',
+        durationSec: s.durationSec || 10,
+      })),
+    [scenes],
+  );
+
   useEffect(() => {
     let cancelled = false;
     import('@/animations/components/AnimationScenePlayer').then((mod) => {
       if (!cancelled) setPlayer(() => mod.default);
+    }).catch((err) => {
+      console.error('[AnimationWatchStep] Failed to load AnimationScenePlayer:', err);
+      if (!cancelled) {
+        setLoadError(err instanceof Error ? err.message : String(err));
+        setPlayer(() => () => null);
+      }
     });
     return () => { cancelled = true; };
   }, []);
+
+  if (loadError) {
+    return (
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+          <span className="text-sm text-error">动画加载失败: {loadError}</span>
+          <span className="text-xs text-on-surface-variant">请刷新页面重试</span>
+        </div>
+      </Card>
+    );
+  }
 
   if (!AnimationScenePlayer) {
     return (
@@ -489,7 +596,7 @@ function AnimationWatchStep({
     );
   }
 
-  return <AnimationScenePlayer scenes={scenes} isCompleted={isCompleted} onComplete={onComplete} />;
+  return <AnimationScenePlayer scenes={mappedScenes} isCompleted={isCompleted} onComplete={onComplete} />;
 }
 
 // ─── Legacy Watch Step (video generation + fallback) ─────────────────
@@ -563,8 +670,13 @@ function LegacyWatchStep({
         localUrl = URL.createObjectURL(blob);
         setVideoUrl(localUrl);
         setVideoProgress(100);
-      } catch {
-        if (!cancelled) setVideoError('教学视频生成失败，已切换到文本讲解模式');
+      } catch (err: any) {
+        const msg = err?.message || '';
+        if (msg.includes('尚未通过审批') || msg.includes('审批')) {
+          if (!cancelled) setVideoError('视频正在等待家长审批，暂时使用文字讲解模式');
+        } else {
+          if (!cancelled) setVideoError('教学视频生成失败，已切换到文本讲解模式');
+        }
       } finally {
         if (!cancelled) setVideoLoading(false);
       }
@@ -873,6 +985,17 @@ function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onCompl
 // ─── Write Step ─────────────────────────────────────────────────────────
 
 function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score?: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
+  const sceneDocument = useMemo(() => resolveLessonSceneDocument('write', m), [m]);
+  if (sceneDocument) {
+    return (
+      <LessonScenePlayer
+        document={sceneDocument}
+        isCompleted={isCompleted}
+        onComplete={(score, data) => onComplete(score || 80, data)}
+      />
+    );
+  }
+
   const writing = m.writing || {};
   const tracingItems: string[] = writing.tracingItems || [];
   const tasks: string[] = writing.practiceTasks || [];
@@ -952,6 +1075,17 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
 // ─── Practice Step (Game) ───────────────────────────────────────────────
 
 function PracticeStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
+  const sceneDocument = useMemo(() => resolveLessonSceneDocument('practice', m), [m]);
+  if (sceneDocument) {
+    return (
+      <LessonScenePlayer
+        document={sceneDocument}
+        isCompleted={isCompleted}
+        onComplete={(score, data) => onComplete(score || 85, data)}
+      />
+    );
+  }
+
   const game = m.game || {};
   const gameType = normalizeActivityType(game.activityType || 'quiz', game.activityData);
   const gameData = normalizeActivityData(

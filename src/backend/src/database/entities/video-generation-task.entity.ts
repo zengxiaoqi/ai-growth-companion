@@ -8,6 +8,8 @@ import {
 
 export type VideoGenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
+export type VideoApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
+
 @Entity('video_generation_tasks')
 export class VideoGenerationTask {
   @PrimaryGeneratedColumn()
@@ -51,6 +53,12 @@ export class VideoGenerationTask {
 
   @Column({ nullable: true, length: 500 })
   errorMessage: string | null;
+
+  @Column({ length: 20, default: 'pending_approval' })
+  approvalStatus: VideoApprovalStatus;
+
+  @Column({ nullable: true, length: 500 })
+  rejectionReason: string | null;
 
   @Column({ nullable: true })
   startedAt: Date | null;

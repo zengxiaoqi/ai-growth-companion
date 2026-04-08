@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Sparkles, Check, RotateCcw } from '@/icons';
+import { Loader2, Sparkles, Check, RotateCcw, Play, XCircle } from '@/icons';
 import api from '@/services/api';
 import type { Content, StructuredLessonContent, StructuredLessonStep } from '@/types';
+import LessonScenePlayer from '@/scenes/LessonScenePlayer';
+import { resolveLessonSceneDocument } from '@/scenes/scene-helpers';
 import { Button, Card } from '../ui';
 
 interface LessonGeneratorProps {
@@ -37,6 +39,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
   const [topic, setTopic] = useState('');
   const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
   const [domain, setDomain] = useState<(typeof DOMAIN_OPTIONS)[number]['value']>('language');
+  const [domainTouched, setDomainTouched] = useState(false);
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>(childAgeGroup || '5-6');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +53,38 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
   const [generationProgress, setGenerationProgress] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Video approval state
+  const [videoTaskId, setVideoTaskId] = useState<number | null>(null);
+  const [videoStatus, setVideoStatus] = useState<'idle' | 'polling' | 'completed' | 'failed'>('idle');
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [approvalStatus, setApprovalStatus] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (videoPollRef.current) clearInterval(videoPollRef.current);
     };
   }, []);
+
+  const resetVideoPreviewState = () => {
+    if (videoPollRef.current) {
+      clearInterval(videoPollRef.current);
+      videoPollRef.current = null;
+    }
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+    }
+    setVideoTaskId(null);
+    setVideoStatus('idle');
+    setVideoProgress(0);
+    setApprovalStatus(null);
+    setVideoUrl(null);
+    setIsApproving(false);
+  };
 
   const handleGenerate = async () => {
     if (!topic.trim() || !selectedChildId) return;
@@ -71,6 +100,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
         topic: topic.trim(),
         childId: selectedChildId,
         ageGroup,
+        domain: domainTouched ? domain : undefined,
         focus,
         durationMinutes: 20,
       } as any);
@@ -95,6 +125,8 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
               setLessonData(lesson);
               setIsGenerating(false);
               setGenerationProgress('');
+              // Auto-enqueue video generation
+              setTimeout(() => startVideoGeneration(), 500);
             } else if (latest.status === 'generation_failed') {
               if (pollRef.current) clearInterval(pollRef.current);
               pollRef.current = null;
@@ -130,6 +162,8 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
         setLessonData(lesson);
         setIsGenerating(false);
         setGenerationProgress('');
+        // Auto-enqueue video generation
+        setTimeout(() => startVideoGeneration(), 500);
       }
     } catch (err: any) {
       setError(err?.message || '生成课程失败');
@@ -152,6 +186,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
         : updated.content;
       setLessonData(lesson);
       setModificationText('');
+      resetVideoPreviewState();
     } catch (err: any) {
       setError(err?.message || '修改课程失败');
     } finally {
@@ -177,11 +212,91 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
 
   const handleReset = () => {
     setTopic('');
+    setDomainTouched(false);
     setGeneratedContent(null);
     setLessonData(null);
     setModificationText('');
     setError(null);
     setExpandedStep(null);
+    resetVideoPreviewState();
+  };
+
+  // ── Video generation + approval ─────────────────────────────────
+  const startVideoGeneration = async () => {
+    if (!generatedContent || !selectedChildId) return;
+    try {
+      const task = await api.createLessonTeachingVideoTask(generatedContent.id, selectedChildId);
+      setVideoTaskId(task.taskId);
+      setVideoStatus('polling');
+      setVideoProgress(task.progress || 0);
+      pollVideoStatus(task.taskId);
+    } catch (err: any) {
+      // Video generation failed silently — lesson can still be published without video
+      console.warn('Video task enqueue failed:', err?.message);
+    }
+  };
+
+  const pollVideoStatus = (taskId: number) => {
+    if (videoPollRef.current) clearInterval(videoPollRef.current);
+    videoPollRef.current = setInterval(async () => {
+      try {
+        const result = await api.getLessonVideoStatus(generatedContent!.id, selectedChildId!, taskId);
+        if (!result.exists) return;
+
+        setVideoProgress(result.progress || 0);
+
+        if (result.status === 'completed') {
+          if (videoPollRef.current) clearInterval(videoPollRef.current);
+          videoPollRef.current = null;
+          setVideoStatus('completed');
+          setApprovalStatus(result.approvalStatus || 'pending_approval');
+
+          // Fetch video blob for preview
+          try {
+            const blob = await api.downloadLessonTeachingVideo(generatedContent!.id, selectedChildId!, taskId);
+            const url = URL.createObjectURL(blob);
+            if (videoUrl) URL.revokeObjectURL(videoUrl);
+            setVideoUrl(url);
+          } catch {
+            // Preview unavailable — parent can still approve by status
+          }
+        } else if (result.status === 'failed') {
+          if (videoPollRef.current) clearInterval(videoPollRef.current);
+          videoPollRef.current = null;
+          setVideoStatus('failed');
+        }
+      } catch {
+        // Polling error — keep trying
+      }
+    }, 3000);
+
+    // Safety timeout: 5 minutes
+    setTimeout(() => {
+      if (videoPollRef.current) {
+        clearInterval(videoPollRef.current);
+        videoPollRef.current = null;
+        if (videoStatus === 'polling') setVideoStatus('failed');
+      }
+    }, 300000);
+  };
+
+  const handleApproveVideo = async (approved: boolean) => {
+    if (!generatedContent || !selectedChildId) return;
+    setIsApproving(true);
+    try {
+      const result = await api.approveLessonVideo(
+        generatedContent.id,
+        selectedChildId,
+        approved,
+        undefined,
+        videoTaskId || undefined,
+      );
+      setApprovalStatus(result.approvalStatus);
+    } catch (err: any) {
+      setError(err?.message || '视频审批失败');
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   return (
@@ -227,7 +342,10 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
               <label className="mb-1 block text-xs font-medium text-on-surface-variant">领域</label>
               <select
                 value={domain}
-                onChange={(e) => setDomain(e.target.value as any)}
+                onChange={(e) => {
+                  setDomain(e.target.value as any);
+                  setDomainTouched(true);
+                }}
                 className="w-full rounded-lg border border-outline-variant/30 bg-surface-container px-2 py-2 text-sm text-on-surface"
                 disabled={isGenerating}
               >
@@ -371,12 +489,118 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
             </Card>
           )}
 
+          {/* Video Generation & Approval Section */}
+          {generatedContent.status === 'draft' && (
+            <Card className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Play className="h-4 w-4 text-primary" />
+                {videoStatus !== 'polling' && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      resetVideoPreviewState();
+                      startVideoGeneration();
+                    }}
+                  >
+                    重新生成预览
+                  </Button>
+                )}
+                <h5 className="text-sm font-semibold text-on-surface">教学动画视频</h5>
+              </div>
+
+              {/* Polling / Generating */}
+              {videoStatus === 'polling' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                    <span>正在生成教学动画...</span>
+                    <span>{Math.round(videoProgress)}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${Math.max(5, videoProgress)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Generation Failed */}
+              {videoStatus === 'failed' && (
+                <div className="flex items-center gap-2 rounded-lg bg-error-container/10 px-3 py-2 text-xs text-error">
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  <span>视频生成失败，课程仍可正常发布（无视频预览）</span>
+                </div>
+              )}
+
+              {/* Video completed — show preview + approval */}
+              {videoStatus === 'completed' && (
+                <div className="space-y-3">
+                  {videoUrl && (
+                    <video
+                      src={videoUrl}
+                      controls
+                      className="w-full rounded-lg bg-black"
+                      style={{ maxHeight: 280 }}
+                    />
+                  )}
+
+                  {approvalStatus === 'pending_approval' && (
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleApproveVideo(true)}
+                        disabled={isApproving}
+                        className="flex-1"
+                        size="sm"
+                      >
+                        {isApproving ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Check className="mr-1 h-3 w-3" />
+                        )}
+                        通过视频
+                      </Button>
+                      <Button
+                        onClick={() => handleApproveVideo(false)}
+                        disabled={isApproving}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        <XCircle className="mr-1 h-3 w-3" />
+                        重新生成
+                      </Button>
+                    </div>
+                  )}
+
+                  {approvalStatus === 'approved' && (
+                    <div className="flex items-center gap-2 rounded-lg bg-primary-container/10 px-3 py-2 text-xs font-medium text-primary">
+                      <Check className="h-4 w-4" />
+                      视频已通过审批
+                    </div>
+                  )}
+
+                  {approvalStatus === 'rejected' && (
+                    <div className="flex items-center gap-2 rounded-lg bg-error-container/10 px-3 py-2 text-xs text-error">
+                      <XCircle className="h-4 w-4" />
+                      视频已驳回，将重新生成
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No video task yet (idle) */}
+              {videoStatus === 'idle' && (
+                <p className="text-xs text-on-surface-variant">视频将在课程确认后自动生成</p>
+              )}
+            </Card>
+          )}
+
           {/* Confirm / Published Status */}
           <div className="flex items-center gap-3">
             {generatedContent.status === 'draft' ? (
               <Button
                 onClick={handleConfirm}
-                disabled={isConfirming}
+                disabled={isConfirming || isApproving}
                 className="flex-1"
               >
                 {isConfirming ? (

@@ -13,6 +13,7 @@ import { Repository } from 'typeorm';
 import { Content } from '../../database/entities/content.entity';
 import { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import { AiService } from '../ai/ai.service';
+import { RemotionRenderService } from './remotion-render.service';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
@@ -87,6 +88,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(Content)
     private readonly contentRepo: Repository<Content>,
     private readonly aiService: AiService,
+    private readonly remotionRender: RemotionRenderService,
   ) {}
 
   onModuleInit() {
@@ -212,6 +214,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       task.errorMessage = null;
       task.completedAt = now;
       task.expiresAt = expiresAt;
+      task.approvalStatus = 'pending_approval';
       await this.taskRepo.save(task);
       this.logger.log(`Video task completed: taskId=${task.id}`);
     } catch (error: any) {
@@ -230,8 +233,16 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     task: VideoGenerationTask,
     payload: Record<string, any>,
   ): Promise<{ buffer: Buffer; providerTaskId?: string | null; sourceVideoUrl?: string | null }> {
-    const thirdPartyEnabled = this.isThirdPartyEnabled();
+    // Try Remotion rendering first (local, high quality)
+    try {
+      const remotionBuffer = await this.generateByRemotion(task, payload);
+      if (remotionBuffer) return { buffer: remotionBuffer };
+    } catch (error: any) {
+      this.logger.warn(`Remotion rendering failed, falling back: ${error?.message || 'unknown'}`);
+    }
 
+    // Try third-party API
+    const thirdPartyEnabled = this.isThirdPartyEnabled();
     if (thirdPartyEnabled) {
       try {
         const thirdParty = await this.generateByThirdParty(task, payload);
@@ -241,9 +252,39 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Final fallback: FFmpeg-based rendering
     const localBuffer = await this.aiService.renderTeachingVideoFromPack(payload);
     if (!localBuffer) throw new Error('TEACHING_VIDEO_UNAVAILABLE');
     return { buffer: localBuffer, providerTaskId: task.providerTaskId, sourceVideoUrl: null };
+  }
+
+  private async generateByRemotion(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<Buffer | null> {
+    const topic = payload?.topic || '';
+    if (!topic) return null;
+
+    const { compositionId, inputProps } = await this.remotionRender.resolveComposition(topic);
+
+    const outputPath = path.join(this.storageDir, `${task.cacheKey}-remotion.mp4`);
+    await fs.mkdir(this.storageDir, { recursive: true });
+
+    await this.remotionRender.renderComposition(
+      compositionId,
+      inputProps,
+      outputPath,
+      async (percent: number) => {
+        try {
+          await this.taskRepo.update(task.id, { progress: Math.max(10, Math.min(95, percent)) });
+        } catch {}
+      },
+    );
+
+    const buffer = await fs.readFile(outputPath);
+    // Cleanup intermediate file
+    try { await fs.unlink(outputPath); } catch {}
+    return buffer;
   }
 
   private async generateByThirdParty(

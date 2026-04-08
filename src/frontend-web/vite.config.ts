@@ -33,6 +33,8 @@ export default defineConfig({
             if (id.includes('@radix-ui')) return 'radix';
             if (id.includes('@heroicons')) return 'icons';
             if (id.includes('react-markdown') || id.includes('remark-gfm')) return 'markdown';
+            if (id.includes('/p5/') || id.includes('p5/dist')) return 'animation-p5';
+            if (id.includes('/three/') || id.includes('three-')) return 'animation-three';
             return 'vendor';
           }
           return undefined;

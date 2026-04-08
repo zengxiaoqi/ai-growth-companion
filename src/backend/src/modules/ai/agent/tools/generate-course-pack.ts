@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClient } from '../../llm/llm-client';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
+import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS, suggestTemplateByDomain } from '../../../animations/animation-templates';
 
 type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
@@ -206,7 +207,7 @@ export class GenerateCoursePackTool {
   },
   "visualStory": {
     "style": "string",
-    "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12}]
+    "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12,"animationTemplate":"template-id (optional, from the template list above)","animationParams":{}}]
   },
   "videoLesson": {
     "title": "string",
@@ -241,6 +242,9 @@ export class GenerateCoursePackTool {
       '- Keep narration concise, concrete, and easy to perform by parents.',
       '- Use Chinese output text for learner-facing content.',
       '- Return strict JSON only. No markdown. No explanation.',
+      'Animation templates:',
+      buildTemplatePromptContext(),
+      'For each visualStory scene, if an animation template matches, set animationTemplate to the template id and provide appropriate animationParams. If no template fits well, omit animationTemplate.',
       'JSON schema:',
       schema,
     ]
@@ -399,11 +403,64 @@ export class GenerateCoursePackTool {
         narration: this.toText(s?.narration, `请看画面，和老师一起认识${args.topic}。`),
         onScreenText: this.toText(s?.onScreenText, ''),
         durationSec: this.toSafeInt(s?.durationSec, 10),
+        ...this.validateAnimationTemplate(s, args),
       }))
       .filter((s: any) => s.imagePrompt);
 
     if (!this.shouldUseFallbackScenes(normalized, args)) return normalized.slice(0, 8);
     return this.buildTopicSceneFallback(args);
+  }
+
+  private validateAnimationTemplate(scene: any, args: NormalizedArgs): Record<string, any> {
+    const templateId = scene?.animationTemplate;
+    if (templateId && KNOWN_TEMPLATE_IDS.has(templateId)) {
+      return {
+        animationTemplate: templateId,
+        animationParams: (scene?.animationParams && typeof scene.animationParams === 'object')
+          ? scene.animationParams : {},
+      };
+    }
+    // Rule-based fallback: suggest a template based on domain + topic
+    const suggested = suggestTemplateByDomain(args.domain, args.topic);
+    if (suggested) {
+      return { animationTemplate: suggested, animationParams: this.buildDefaultParams(suggested, args) };
+    }
+    return {};
+  }
+
+  private buildDefaultParams(templateId: string, args: NormalizedArgs): Record<string, any> {
+    switch (templateId) {
+      case 'language.character-stroke':
+        return { character: args.topic.charAt(0), showGrid: true };
+      case 'language.word-reveal':
+        return { words: [args.topic] };
+      case 'language.story-scene':
+        return { bgType: 'day', characters: [args.topic], items: [] };
+      case 'math.counting-objects':
+        return { targetCount: 5, objectType: 'star' };
+      case 'math.shape-builder':
+        return { shapes: ['circle', 'square', 'triangle'] };
+      case 'math.number-line':
+        return { endNum: 10, highlightNum: 5, hopSequence: [1, 3, 5] };
+      case 'math.abacus':
+        return { rows: 3, values: [3, 5, 2] };
+      case 'science.water-cycle':
+        return { speed: 1, showLabels: true };
+      case 'science.day-night-cycle':
+        return { rotationSpeed: 1, showLabels: true };
+      case 'science.plant-growth':
+        return { plantType: 'flower', stages: 5 };
+      case 'art.color-mixing':
+        return { color1: '#EF4444', color2: '#3B82F6', resultLabel: '紫色' };
+      case 'art.drawing-steps':
+        return { steps: ['circle', 'line', 'circle'] };
+      case 'social.emotion-faces':
+        return { emotions: ['happy', 'sad', 'angry', 'surprised'] };
+      case 'social.daily-routine':
+        return { activities: ['起床', '上学', '午餐', '放学', '睡觉'], highlightIndex: 0 };
+      default:
+        return {};
+    }
   }
 
   private normalizeShotList(rawShots: any, args: NormalizedArgs): Array<Record<string, any>> {

@@ -410,7 +410,90 @@ function getStepTitle(step: StructuredLessonStep): string {
 
 // ─── Watch Step ────────────────────────────────────────────────────────
 
+/** Check if scenes contain animation template data */
+function scenesHaveAnimationTemplates(scenes: any[]): boolean {
+  return scenes.some((s) => s?.animationTemplate);
+}
+
 function WatchStep({
+  module: m,
+  contentId,
+  childId,
+  onComplete,
+  isCompleted,
+}: {
+  module: any;
+  contentId: number;
+  childId?: number;
+  onComplete: (score?: number) => void;
+  isCompleted: boolean;
+}) {
+  const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
+
+  // ── Animation template path (new) ──
+  if (scenesHaveAnimationTemplates(scenes)) {
+    return (
+      <AnimationWatchStep
+        scenes={scenes}
+        isCompleted={isCompleted}
+        onComplete={onComplete}
+      />
+    );
+  }
+
+  // ── Legacy video generation + fallback path ──
+  return (
+    <LegacyWatchStep
+      module={m}
+      contentId={contentId}
+      childId={childId}
+      onComplete={onComplete}
+      isCompleted={isCompleted}
+    />
+  );
+}
+
+// ─── Animation-based Watch Step ──────────────────────────────────────
+function AnimationWatchStep({
+  scenes,
+  isCompleted,
+  onComplete,
+}: {
+  scenes: any[];
+  isCompleted: boolean;
+  onComplete: (score?: number) => void;
+}) {
+  // Lazy load AnimationScenePlayer to avoid loading p5/three.js upfront
+  const [AnimationScenePlayer, setPlayer] = useState<React.ComponentType<{
+    scenes: any[];
+    isCompleted: boolean;
+    onComplete: (score?: number) => void;
+  }> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    import('@/animations/components/AnimationScenePlayer').then((mod) => {
+      if (!cancelled) setPlayer(() => mod.default);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!AnimationScenePlayer) {
+    return (
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm">正在加载动画引擎...</span>
+        </div>
+      </Card>
+    );
+  }
+
+  return <AnimationScenePlayer scenes={scenes} isCompleted={isCompleted} onComplete={onComplete} />;
+}
+
+// ─── Legacy Watch Step (video generation + fallback) ─────────────────
+function LegacyWatchStep({
   module: m,
   contentId,
   childId,

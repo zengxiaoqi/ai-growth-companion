@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClient } from '../../llm/llm-client';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
-import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS, suggestTemplateByDomain } from '../../../animations/animation-templates';
+import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS, suggestTemplateByDomain } from '../../../../animations/animation-templates';
 
 type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
@@ -121,6 +121,13 @@ export class GenerateCoursePackTool {
 
     if (this.shouldUseFallbackScenes(existingScenes, normalized)) {
       next.visualStory.scenes = this.buildTopicSceneFallback(normalized);
+    }
+    // Inject animation templates into scenes that don't have them yet
+    if (Array.isArray(next.visualStory.scenes)) {
+      next.visualStory.scenes = next.visualStory.scenes.map((scene: any) => {
+        if (scene.animationTemplate) return scene;
+        return { ...scene, ...this.validateAnimationTemplate(scene, normalized) };
+      });
     }
     if (this.shouldUseFallbackShots(existingShots, normalized)) {
       next.videoLesson.shots = this.buildTopicShotFallback(normalized);
@@ -408,7 +415,16 @@ export class GenerateCoursePackTool {
       .filter((s: any) => s.imagePrompt);
 
     if (!this.shouldUseFallbackScenes(normalized, args)) return normalized.slice(0, 8);
-    return this.buildTopicSceneFallback(args);
+    return this.injectAnimationTemplates(this.buildTopicSceneFallback(args), args);
+  }
+
+  /** Inject animation template data into scenes that lack it */
+  private injectAnimationTemplates(scenes: Array<Record<string, any>>, args: NormalizedArgs): Array<Record<string, any>> {
+    return scenes.map((scene) => {
+      if (scene.animationTemplate) return scene;
+      const templateData = this.validateAnimationTemplate(scene, args);
+      return { ...scene, ...templateData };
+    });
   }
 
   private validateAnimationTemplate(scene: any, args: NormalizedArgs): Record<string, any> {

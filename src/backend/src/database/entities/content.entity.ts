@@ -41,6 +41,12 @@ export class Content {
   @Column({ default: 'draft' })
   status: string;
 
+  @Column({ nullable: true })
+  parentId: number;
+
+  @Column({ nullable: true })
+  childId: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

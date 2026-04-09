@@ -119,9 +119,8 @@ export class LessonContentService {
   ) {}
 
   async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {
-    const drafts = await this.assignmentRepo
-      .createQueryBuilder('assignment')
-      .innerJoin(Content, 'content', 'content.id = assignment.contentId')
+    const drafts = await this.contentRepo
+      .createQueryBuilder('content')
       .select([
         'content.id AS id',
         'content.title AS title',
@@ -132,11 +131,10 @@ export class LessonContentService {
         'content.createdAt AS createdAt',
         'content.updatedAt AS updatedAt',
       ])
-      .where('assignment.childId = :childId', { childId })
-      .andWhere('content.status = :status', { status: 'draft' })
-      .andWhere('content.contentType = :contentType', { contentType: 'lesson' })
+      .where('content.childId = :childId', { childId })
+      .andWhere('content.status IN (:...statuses)', { statuses: ['draft', 'generating'] })
+      .andWhere('content.contentType = :contentType', { contentType: 'structured_lesson' })
       .orderBy('content.createdAt', 'DESC')
-      .distinct(true)
       .getRawMany<{
         id: number;
         title: string;
@@ -172,6 +170,8 @@ export class LessonContentService {
       domain = 'language',
       difficulty = ageGroup === '3-4' ? 1 : 2,
       durationMinutes = 20,
+      childId,
+      parentId,
     } = params;
 
     // Create placeholder content immediately
@@ -185,6 +185,8 @@ export class LessonContentService {
       difficulty,
       durationMinutes,
       contentType: 'structured_lesson',
+      parentId,
+      childId,
       content: {
         type: 'structured_lesson',
         version: 1,

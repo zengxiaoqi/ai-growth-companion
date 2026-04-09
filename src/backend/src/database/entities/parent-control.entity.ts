@@ -17,10 +17,10 @@ export class ParentControl {
   @Column({ default: 30 })
   dailyLimitMinutes: number;
 
-  @Column('text', { array: true, nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   allowedDomains: string[];
 
-  @Column('text', { array: true, nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   blockedTopics: string[];
 
   @Column({ type: 'simple-json', nullable: true })

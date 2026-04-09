@@ -34,6 +34,7 @@ import type {
   EnrichCoursePackBilingualRequest,
   GenerateWeeklyCoursePackRequest,
   GenerateCoursePackRequest,
+  DraftLessonSummary,
   ConversationSession,
   ConversationMessageHistory,
 } from '@/types';
@@ -526,6 +527,10 @@ class ApiService {
     return this.request<Assignment[]>(`/assignments/parent/${parentId}`);
   }
 
+  async getDraftLessons(childId: number): Promise<DraftLessonSummary[]> {
+    return this.request<DraftLessonSummary[]>(`/learning/lessons/drafts?childId=${childId}`);
+  }
+
   async getAssignment(id: number): Promise<Assignment> {
     return this.request<Assignment>(`/assignments/${id}`);
   }
@@ -666,10 +671,10 @@ class ApiService {
     }, 120000);
   }
 
-  async modifyLesson(id: number, modification: string): Promise<Content> {
+  async modifyLesson(id: number, modification: string, options?: { stepId?: string }): Promise<Content> {
     return this.request<Content>(`/learning/lessons/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ modification }),
+      body: JSON.stringify({ modification, stepId: options?.stepId }),
     }, 60000);
   }
 

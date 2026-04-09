@@ -4,6 +4,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ParentDashboard from '../components/parent/ParentDashboard';
 
+const mockNavigate = vi.fn();
+
 const { mockAuth, mockApi } = vi.hoisted(() => ({
   mockAuth: {
     user: {
@@ -20,6 +22,7 @@ const { mockAuth, mockApi } = vi.hoisted(() => ({
     getChildren: vi.fn(),
     getControls: vi.fn(),
     getParentAssignments: vi.fn(),
+    getDraftLessons: vi.fn(),
     getReport: vi.fn(),
     getAchievements: vi.fn(),
     getAbilities: vi.fn(),
@@ -38,6 +41,14 @@ vi.mock('../contexts/AuthContext', () => ({
 vi.mock('../services/api', () => ({
   default: mockApi,
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock('../components/AIChatPage', () => ({
   default: () => <div data-testid="ai-chat-page">chat-page</div>,
@@ -60,6 +71,7 @@ describe('ParentDashboard UI regression', () => {
       blockedTopics: [],
     });
     mockApi.getParentAssignments.mockResolvedValue([]);
+    mockApi.getDraftLessons.mockResolvedValue([]);
     mockApi.getReport.mockResolvedValue({
       dailyStats: [],
       totalLearningTime: 0,
@@ -83,7 +95,7 @@ describe('ParentDashboard UI regression', () => {
     expect(await screen.findByText('请先选择一个孩子')).toBeInTheDocument();
   });
 
-  it('shows error banner when part of dashboard data fails', async () => {
+  it('shows error banner when draft lessons request fails', async () => {
     mockApi.getChildren.mockResolvedValueOnce([
       {
         id: 22,
@@ -94,11 +106,85 @@ describe('ParentDashboard UI regression', () => {
         updatedAt: new Date().toISOString(),
       },
     ]);
-    mockApi.getControls.mockRejectedValueOnce(new Error('network error'));
+    mockApi.getDraftLessons.mockRejectedValueOnce(new Error('network error'));
 
     render(<ParentDashboard onBack={vi.fn()} />);
 
     expect(await screen.findByText('部分数据加载失败，请稍后重试。')).toBeInTheDocument();
+  });
+
+  it('shows draft lessons before assigned assignments in assignment tab', async () => {
+    mockApi.getChildren.mockResolvedValueOnce([
+      {
+        id: 22,
+        phone: '13800000022',
+        name: '小明',
+        type: 'child',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    mockApi.getParentAssignments.mockResolvedValueOnce([]);
+    mockApi.getDraftLessons.mockResolvedValueOnce([
+      {
+        id: 201,
+        title: '草稿课程 A',
+        subtitle: '未发布',
+        domain: 'language',
+        status: 'draft',
+        childId: 22,
+        contentType: 'lesson',
+        createdAt: '2026-04-09T09:00:00.000Z',
+        updatedAt: '2026-04-09T09:10:00.000Z',
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<ParentDashboard onBack={vi.fn()} />);
+
+    await user.click(await screen.findByRole('button', { name: '作业' }));
+
+    expect(await screen.findByText('草稿作业')).toBeInTheDocument();
+    expect(screen.queryByText('草稿课程 A')).toBeInTheDocument();
+
+    const headings = screen.getAllByRole('heading', { level: 3 });
+    const draftIndex = headings.findIndex((item) => item.textContent?.includes('草稿作业'));
+    expect(draftIndex).toBeGreaterThanOrEqual(0);
+  });
+
+  it('navigates to parent draft preview when viewing a draft lesson', async () => {
+    mockApi.getChildren.mockResolvedValueOnce([
+      {
+        id: 22,
+        phone: '13800000022',
+        name: '小明',
+        type: 'child',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    mockApi.getParentAssignments.mockResolvedValueOnce([]);
+    mockApi.getDraftLessons.mockResolvedValueOnce([
+      {
+        id: 301,
+        title: '草稿课程查看',
+        subtitle: '未发布',
+        domain: 'language',
+        status: 'draft',
+        childId: 22,
+        contentType: 'lesson',
+        createdAt: '2026-04-09T09:00:00.000Z',
+        updatedAt: '2026-04-09T09:10:00.000Z',
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<ParentDashboard onBack={vi.fn()} />);
+
+    await user.click(await screen.findByRole('button', { name: '作业' }));
+    await user.click(await screen.findByRole('button', { name: '查看' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/parent/content/301');
   });
 
   it('keeps bottom navigation buttons touch-friendly', async () => {

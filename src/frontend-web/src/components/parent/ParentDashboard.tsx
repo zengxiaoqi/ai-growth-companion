@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   BarChart3,
@@ -28,6 +29,7 @@ import type {
   Achievement,
   Assignment,
   GrowthReport,
+  DraftLessonSummary,
   ParentControl,
   User,
 } from '@/types';
@@ -82,6 +84,7 @@ function NoChildSelected({ onBackToChat }: { onBackToChat?: () => void }) {
 
 export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const controlsRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabKey>('chat');
@@ -101,6 +104,8 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   >([]);
   const [recentSkills, setRecentSkills] = useState<{ domain: string; level: number; label: string }[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [draftLessons, setDraftLessons] = useState<DraftLessonSummary[]>([]);
+  const [draftLessonToEdit, setDraftLessonToEdit] = useState<DraftLessonSummary | null>(null);
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -133,6 +138,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       const baseResults = await Promise.allSettled([
         api.getControls(user.id),
         api.getParentAssignments(user.id),
+        selectedChildId ? api.getDraftLessons(selectedChildId) : Promise.resolve([]),
       ]);
 
       if (baseResults[0].status === 'fulfilled') {
@@ -147,12 +153,20 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         hasFailure = true;
       }
 
+      if (baseResults[2].status === 'fulfilled') {
+        setDraftLessons(baseResults[2].value);
+      } else {
+        hasFailure = true;
+        setDraftLessons([]);
+      }
+
       if (!selectedChildId) {
         setReportData(null);
         setAchievements([]);
         setAbilityReport(null);
         setTrendData([]);
         setRecentSkills([]);
+        setDraftLessons([]);
         setIsLoading(false);
         setError(hasFailure ? '部分数据加载失败，请稍后重试。' : null);
         return;
@@ -379,6 +393,21 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     setAssignments((prev) => prev.filter((assignment) => assignment.id !== assignmentId));
   }, []);
 
+  const handleViewDraftLesson = useCallback((draftLesson: DraftLessonSummary) => {
+    navigate(`/parent/content/${draftLesson.id}`);
+  }, [navigate]);
+
+  const handleEditDraftLesson = useCallback((draftLesson: DraftLessonSummary) => {
+    setDraftLessonToEdit(draftLesson);
+    setActiveTab('assignments');
+  }, []);
+
+  const handleDraftLessonUpdated = useCallback(async () => {
+    if (!selectedChildId) return;
+    const nextDrafts = await api.getDraftLessons(selectedChildId);
+    setDraftLessons(nextDrafts);
+  }, [selectedChildId]);
+
   if (showReportDetail) {
     return <ReportDetail userId={user?.id ?? 0} onBack={() => setShowReportDetail(false)} />;
   }
@@ -583,12 +612,21 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : (
               <div className="space-y-6">
-                <LessonGenerator selectedChildId={selectedChildId} childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined} />
+                <LessonGenerator
+                  selectedChildId={selectedChildId}
+                  childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined}
+                  draftLessonId={draftLessonToEdit?.id ?? null}
+                  onDraftLessonLoaded={() => setDraftLessonToEdit(null)}
+                  onDraftLessonUpdated={handleDraftLessonUpdated}
+                />
                 <CoursePackManager selectedChildId={selectedChildId} />
                 <AssignmentManager
                   assignments={assignments}
+                  draftLessons={draftLessons}
                   parentId={user?.id ?? 0}
                   selectedChildId={selectedChildId}
+                  onViewDraftLesson={handleViewDraftLesson}
+                  onEditDraftLesson={handleEditDraftLesson}
                   onCreateAssignment={handleCreateAssignment}
                   onUpdateAssignment={handleUpdateAssignment}
                   onDeleteAssignment={handleDeleteAssignment}

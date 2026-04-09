@@ -446,6 +446,7 @@ export class AiController {
       topic: string;
       childId?: number;
       ageGroup?: '3-4' | '5-6';
+      domain?: 'language' | 'math' | 'science' | 'art' | 'social';
       durationMinutes?: number;
       focus?: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty?: number;

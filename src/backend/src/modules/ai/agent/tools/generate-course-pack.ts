@@ -2,15 +2,24 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LlmClient } from '../../llm/llm-client';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
 import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS, suggestTemplateByDomain } from '../../../../animations/animation-templates';
+import {
+  derivePracticeSceneDocument,
+  deriveWatchSceneDocument,
+  deriveWriteSceneDocument,
+  sanitizeSceneDocument,
+  type LessonSceneDocument,
+} from '../../../learning/lesson-scene';
 
 type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
+type CourseDomain = 'language' | 'math' | 'science' | 'art' | 'social';
 
 type GenerateCoursePackArgs = {
   topic: string;
   ageGroup?: AgeGroup;
   durationMinutes?: number;
   focus?: CourseFocus;
+  domain?: CourseDomain;
   difficulty?: number;
   includeGame?: boolean;
   includeAudio?: boolean;
@@ -28,7 +37,7 @@ type NormalizedArgs = {
   includeAudio: boolean;
   includeVideo: boolean;
   parentPrompt: string;
-  domain: 'language' | 'math' | 'science' | 'art' | 'social';
+  domain: CourseDomain;
   gameType: ActivityType;
 };
 
@@ -212,6 +221,33 @@ export class GenerateCoursePackTool {
       "checklist": ["string", "string"]
     }
   },
+  "watch": {
+    "scene": {
+      "version": 1,
+      "stepType": "watch",
+      "mode": "playback",
+      "scenes": [{"id":"watch-scene-1","title":"string","narration":"string","onScreenText":"string","durationSec":12,"visual":{"background":{"type":"day"},"characters":[{"id":"teacher","label":"老师"}],"items":[{"id":"item-1","label":"花"}],"effects":["focus"],"caption":"string","templateId":"optional-template-id","templateParams":{}},"timeline":[{"type":"caption","value":"string","atSec":0}]}],
+      "completionPolicy": {"type":"all_scenes","passingScore":85}
+    }
+  },
+  "write": {
+    "scene": {
+      "version": 1,
+      "stepType": "write",
+      "mode": "guided_trace",
+      "scenes": [{"id":"write-scene-1","title":"string","narration":"string","onScreenText":"string","durationSec":20,"visual":{"background":{"type":"indoor"},"caption":"string"},"interaction":{"type":"trace_path","prompt":"string","minCoverage":0.7,"targets":[{"id":"trace-1","label":"string","kind":"glyph","text":"string","fontSize":84}]}}],
+      "completionPolicy": {"type":"all_scenes","minCoverage":0.7,"passingScore":80}
+    }
+  },
+  "practice": {
+    "scene": {
+      "version": 1,
+      "stepType": "practice",
+      "mode": "activity_shell",
+      "scenes": [{"id":"practice-intro","title":"string","narration":"string","onScreenText":"string","durationSec":10,"visual":{"background":{"type":"indoor"},"caption":"string","items":[{"id":"rule-1","label":"看提示"}]}},{"id":"practice-activity","title":"string","narration":"string","onScreenText":"开始练习","durationSec":20,"visual":{"background":{"type":"abstract"},"caption":"string"},"interaction":{"type":"launch_activity","prompt":"string","activityType":"matching","activityData":{"type":"matching","title":"string"}}}],
+      "completionPolicy": {"type":"any_interaction","passingScore":80}
+    }
+  },
   "visualStory": {
     "style": "string",
     "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12,"animationTemplate":"template-id (optional, from the template list above)","animationParams":{}}]
@@ -235,6 +271,7 @@ export class GenerateCoursePackTool {
       'Generate a complete multimodal course pack.',
       `Topic: ${args.topic}`,
       `Age group: ${args.ageGroup}`,
+      `Domain: ${args.domain}`,
       `Focus: ${args.focus}`,
       `Duration: ${args.durationMinutes} minutes`,
       `Difficulty: ${args.difficulty} (1-3)`,
@@ -296,6 +333,9 @@ export class GenerateCoursePackTool {
 
     const scenes = this.normalizeSceneList(raw?.visualStory?.scenes, args);
     const shots = this.normalizeShotList(raw?.videoLesson?.shots, args);
+    const watchScene = this.normalizeWatchScene(raw?.watch?.scene, { visualStory: { scenes }, videoLesson: { shots } }, args);
+    const writeScene = this.normalizeWriteScene(raw?.write?.scene || raw?.modules?.writing?.scene, writing, args);
+    const practiceScene = this.normalizePracticeScene(raw?.practice?.scene);
 
     const pack: Record<string, any> = {
       type: 'course_pack',
@@ -339,6 +379,9 @@ export class GenerateCoursePackTool {
           checklist: this.toStringArray(writing?.checklist, 2, ['书写清楚', '表达完整']),
         },
       },
+      watch: { scene: watchScene },
+      write: { scene: writeScene },
+      practice: practiceScene ? { scene: practiceScene } : undefined,
       visualStory: {
         style: this.toText(raw?.visualStory?.style, 'storyboard illustration'),
         scenes,
@@ -385,6 +428,55 @@ export class GenerateCoursePackTool {
     if (gameBundle) {
       pack.game = gameBundle;
     }
+    if (!pack.practice?.scene && gameBundle?.activityData) {
+      pack.practice = {
+        scene: {
+          version: 1,
+          stepType: 'practice',
+          mode: 'activity_shell',
+          scenes: [
+            {
+              id: 'practice-intro',
+              title: `${args.topic} 互动练习`,
+              narration: '先看清楚规则，再开始互动练习。',
+              onScreenText: `${args.topic} 互动练习`,
+              durationSec: 10,
+              visual: {
+                background: { type: 'indoor' },
+                caption: `${args.topic} 互动练习`,
+                items: [{ id: 'rule-1', label: '看提示' }, { id: 'rule-2', label: '动动手' }],
+              },
+            },
+            {
+              id: 'practice-activity',
+              title: '开始练习',
+              narration: '现在轮到你来试一试。',
+              onScreenText: '开始练习',
+              durationSec: 20,
+              visual: { background: { type: 'abstract' }, caption: '开始练习' },
+              interaction: {
+                type: 'launch_activity',
+                prompt: '开始互动练习',
+                activityType: gameBundle.activityType,
+                activityData: gameBundle.activityData,
+              },
+            },
+          ],
+          completionPolicy: { type: 'any_interaction', passingScore: 80 },
+        },
+      };
+    }
+    if ((!raw?.practice?.scene || !practiceScene) && gameBundle?.activityData) {
+      pack.practice = {
+        scene: derivePracticeSceneDocument(
+          gameBundle.activityType,
+          gameBundle.activityData,
+          args.topic,
+        ),
+      };
+    }
+    if (!pack.practice) delete pack.practice;
+    if (!pack.write) delete pack.write;
 
     return pack;
   }
@@ -466,6 +558,8 @@ export class GenerateCoursePackTool {
         return { rotationSpeed: 1, showLabels: true };
       case 'science.plant-growth':
         return { plantType: 'flower', stages: 5 };
+      case 'science.seasons-cycle':
+        return { seasonNames: ['春', '夏', '秋', '冬'], focusSeason: -1, showLabels: true };
       case 'art.color-mixing':
         return { color1: '#EF4444', color2: '#3B82F6', resultLabel: '紫色' };
       case 'art.drawing-steps':
@@ -477,6 +571,46 @@ export class GenerateCoursePackTool {
       default:
         return {};
     }
+  }
+
+  private mergeWatchSceneDocuments(
+    primary: LessonSceneDocument | null,
+    fallback: LessonSceneDocument,
+  ): LessonSceneDocument {
+    if (!primary) return fallback;
+
+    return {
+      ...primary,
+      scenes: primary.scenes.map((scene, index) => {
+        const fallbackScene = fallback.scenes[index];
+        if (!fallbackScene) return scene;
+
+        return {
+          ...scene,
+          visual: {
+            ...(fallbackScene.visual || {}),
+            ...(scene.visual || {}),
+            templateId: scene.visual?.templateId || fallbackScene.visual?.templateId,
+            templateParams: scene.visual?.templateParams || fallbackScene.visual?.templateParams,
+          },
+        };
+      }),
+    };
+  }
+
+  private normalizeWatchScene(rawScene: any, packLike: Record<string, any>, args: NormalizedArgs): LessonSceneDocument {
+    const nativeScene = sanitizeSceneDocument(rawScene, 'watch', 'playback');
+    const derivedScene = deriveWatchSceneDocument(packLike, args.topic);
+    return this.mergeWatchSceneDocuments(nativeScene, derivedScene);
+  }
+
+  private normalizeWriteScene(rawScene: any, writing: Record<string, any>, args: NormalizedArgs): LessonSceneDocument {
+    return sanitizeSceneDocument(rawScene, 'write', 'guided_trace')
+      || deriveWriteSceneDocument(writing, args.topic);
+  }
+
+  private normalizePracticeScene(rawScene: any): LessonSceneDocument | null {
+    return sanitizeSceneDocument(rawScene, 'practice', 'activity_shell');
   }
 
   private normalizeShotList(rawShots: any, args: NormalizedArgs): Array<Record<string, any>> {
@@ -975,12 +1109,30 @@ export class GenerateCoursePackTool {
     const ageGroup = (ageGroupRaw === '3-4' || ageGroupRaw === '5-6' ? ageGroupRaw : '5-6') as AgeGroup;
     if (!topic) throw new Error('topic is required');
 
-    const focus = this.toText(args?.focus, 'mixed') as CourseFocus;
-    const safeFocus: CourseFocus = ['literacy', 'math', 'science', 'mixed'].includes(focus) ? focus : 'mixed';
+    const parentPrompt = this.toText(args?.parentPrompt, topic);
+    const requestedFocus = this.toText(args?.focus, 'mixed') as CourseFocus;
+    let safeFocus: CourseFocus =
+      ['literacy', 'math', 'science', 'mixed'].includes(requestedFocus) ? requestedFocus : 'mixed';
     const difficulty = Math.max(1, Math.min(3, this.toSafeInt(args?.difficulty, ageGroup === '3-4' ? 1 : 2)));
     const durationMinutes = Math.max(10, Math.min(45, this.toSafeInt(args?.durationMinutes, 20)));
 
-    const domainMap: Record<CourseFocus, 'language' | 'math' | 'science' | 'art' | 'social'> = {
+    const explicitDomain = this.normalizeDomain(args?.domain);
+    const inferredFocus = this.deriveFocusFromPack({
+      topic,
+      title: topic,
+      summary: parentPrompt,
+    });
+
+    if (safeFocus === 'mixed') {
+      const focusFromDomain = this.mapDomainToFocus(explicitDomain);
+      if (focusFromDomain) {
+        safeFocus = focusFromDomain;
+      } else if (inferredFocus !== 'mixed') {
+        safeFocus = inferredFocus;
+      }
+    }
+
+    const domainMap: Record<CourseFocus, CourseDomain> = {
       literacy: 'language',
       math: 'math',
       science: 'science',
@@ -992,6 +1144,10 @@ export class GenerateCoursePackTool {
       science: 'connection',
       mixed: 'matching',
     };
+    const domain = explicitDomain ?? (safeFocus === 'mixed'
+      ? this.inferDomainFromText(`${topic} ${parentPrompt}`)
+      : domainMap[safeFocus]);
+    const gameType = this.resolveGameType(safeFocus, domain);
 
     return {
       topic,
@@ -1002,12 +1158,49 @@ export class GenerateCoursePackTool {
       includeGame: this.toBoolean(args?.includeGame, true),
       includeAudio: this.toBoolean(args?.includeAudio, true),
       includeVideo: this.toBoolean(args?.includeVideo, true),
-      parentPrompt: this.toText(args?.parentPrompt, topic),
-      domain: domainMap[safeFocus],
+      parentPrompt,
+      domain,
       gameType: this.toText((args as any)?.gameType) && ACTIVITY_TYPES.includes((args as any).gameType)
         ? (args as any).gameType
-        : gameTypeMap[safeFocus],
+        : gameType || gameTypeMap[safeFocus],
     };
+  }
+
+  private normalizeDomain(value: unknown): CourseDomain | null {
+    const domain = this.toText(value).toLowerCase();
+    if (domain === 'language' || domain === 'math' || domain === 'science' || domain === 'art' || domain === 'social') {
+      return domain;
+    }
+    return null;
+  }
+
+  private mapDomainToFocus(domain: CourseDomain | null): CourseFocus | null {
+    if (domain === 'language') return 'literacy';
+    if (domain === 'math') return 'math';
+    if (domain === 'science') return 'science';
+    return null;
+  }
+
+  private inferDomainFromText(source: string): CourseDomain {
+    const text = this.toText(source);
+    if (!text) return 'language';
+
+    if (/数学|数感|数字|计数|加减|形状|图形|排序|规律/.test(text)) return 'math';
+    if (/科学|动物|植物|天气|季节|四季|自然|实验|观察|昼夜|太阳|月亮|地球|水循环/.test(text)) return 'science';
+    if (/画画|绘画|颜色|色彩|手工|涂鸦|美术|折纸/.test(text)) return 'art';
+    if (/情绪|表情|礼貌|分享|社交|合作|规则|安全|习惯|作息/.test(text)) return 'social';
+    if (/汉字|识字|拼音|阅读|朗读|写字|词语|语文/.test(text)) return 'language';
+    return 'language';
+  }
+
+  private resolveGameType(focus: CourseFocus, domain: CourseDomain): ActivityType {
+    if (focus === 'literacy') return 'fill_blank';
+    if (focus === 'math') return 'quiz';
+    if (focus === 'science') return 'connection';
+    if (domain === 'science') return 'connection';
+    if (domain === 'math') return 'quiz';
+    if (domain === 'language') return 'fill_blank';
+    return 'matching';
   }
 
   private extractJsonObject(text: string): Record<string, any> | null {

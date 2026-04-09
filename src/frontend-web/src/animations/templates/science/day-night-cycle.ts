@@ -3,7 +3,7 @@
  * 3D Earth rotation with sun, moon, and stars using Three.js.
  */
 import { registerTemplate } from '../../registry';
-import { registerThreeScene } from '../../renderers/AnimationRenderer';
+import { registerThreeScene } from '../../renderers/sketch-registry';
 import type { ThreeSceneSetup } from '../../renderers/ThreeCanvas';
 import type { PerspectiveCamera } from 'three';
 

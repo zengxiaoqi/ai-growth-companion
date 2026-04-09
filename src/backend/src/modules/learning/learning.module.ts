@@ -4,6 +4,7 @@ import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { ParentControl } from '../../database/entities/parent-control.entity';
 import { Achievement } from '../../database/entities/achievement.entity';
 import { Content } from '../../database/entities/content.entity';
+import { Assignment } from '../../database/entities/assignment.entity';
 import { LearningPoint } from '../../database/entities/learning-point.entity';
 import { WrongQuestion } from '../../database/entities/wrong-question.entity';
 import { StudyPlanRecord } from '../../database/entities/study-plan-record.entity';
@@ -30,6 +31,7 @@ import { AssignmentModule } from '../assignment/assignment.module';
       ParentControl,
       Achievement,
       Content,
+      Assignment,
       LearningPoint,
       WrongQuestion,
       StudyPlanRecord,

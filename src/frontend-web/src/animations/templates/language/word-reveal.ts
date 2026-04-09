@@ -5,7 +5,7 @@
  */
 import type p5 from 'p5';
 import { registerTemplate } from '../../registry';
-import { registerP5Sketch } from '../../renderers/AnimationRenderer';
+import { registerP5Sketch } from '../../renderers/sketch-registry';
 
 // ── Template definition ──
 

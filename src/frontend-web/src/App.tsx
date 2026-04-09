@@ -289,6 +289,26 @@ function ParentRoute() {
   );
 }
 
+function ParentContentRoute() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const contentId = Number(id);
+
+  if (!Number.isFinite(contentId) || contentId <= 0) {
+    return <Navigate to="/parent" replace />;
+  }
+
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <ContentDetailRouter
+        contentId={contentId}
+        onBack={() => navigate('/parent')}
+        onComplete={() => {}}
+      />
+    </Suspense>
+  );
+}
+
 function ProtectedShell() {
   const location = useLocation();
   const { user } = useAuth();
@@ -320,6 +340,7 @@ function ProtectedShell() {
         <Route path="/student/settings" element={<StudentSettingsRoute />} />
         <Route path="/student/companion" element={<StudentCompanionRoute />} />
         <Route path="/parent" element={<ParentRoute />} />
+        <Route path="/parent/content/:id" element={<ParentContentRoute />} />
         <Route path="*" element={<Navigate to="/mode" replace />} />
       </Routes>
 

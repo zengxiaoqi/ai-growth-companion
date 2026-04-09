@@ -133,6 +133,18 @@ export const ANIMATION_TEMPLATES: AnimationTemplateSummary[] = [
     ],
   },
   {
+    id: 'science.seasons-cycle',
+    domain: 'science',
+    description: '四季变化动画，同一场景展示春夏秋冬的不同景象',
+    engine: 'p5',
+    ageGroups: ['3-4', '5-6'],
+    params: [
+      { name: 'seasonNames', type: 'string[]', required: false, label: '季节名称列表' },
+      { name: 'focusSeason', type: 'number', required: false, label: '聚焦的季节序号' },
+      { name: 'showLabels', type: 'boolean', required: false, label: '显示季节标签' },
+    ],
+  },
+  {
     id: 'art.color-mixing',
     domain: 'art',
     description: '颜色混合动画，两种颜色混合展示结果',
@@ -196,41 +208,43 @@ export const KNOWN_TEMPLATE_IDS = new Set(ANIMATION_TEMPLATES.map((t) => t.id));
 
 /** Domain-based template mapping for rule-based fallback */
 export function suggestTemplateByDomain(domain: string, topic: string): string | null {
-  const topicLower = topic.toLowerCase();
+  const normalizedTopic = String(topic || '').trim();
+  if (!normalizedTopic) return null;
 
   // Language patterns
   if (domain === 'language' || domain === 'literacy') {
-    if (/^[\u4e00-\u9fff]$/.test(topic)) return 'language.character-stroke';
-    if (topic.length <= 4) return 'language.word-reveal';
-    return 'language.story-scene';
+    if (/^[\u4e00-\u9fff]$/.test(normalizedTopic)) return 'language.character-stroke';
+    if (/(汉字|识字|拼音|词语|词汇|朗读|阅读)/.test(normalizedTopic)) return 'language.word-reveal';
+    if (/(故事|绘本|对话|情景|角色扮演)/.test(normalizedTopic)) return 'language.story-scene';
+    return null;
   }
 
-  // Math patterns
   if (domain === 'math') {
-    if (/数|计数|加|减/.test(topic)) return 'math.counting-objects';
-    if (/形|三角|圆|方/.test(topic)) return 'math.shape-builder';
-    if (/算盘/.test(topic)) return 'math.abacus';
-    return 'math.number-line';
+    if (/(计数|数数|加法|减法|数量)/.test(normalizedTopic)) return 'math.counting-objects';
+    if (/(形状|三角|圆形|方形|图形)/.test(normalizedTopic)) return 'math.shape-builder';
+    if (/算盘/.test(normalizedTopic)) return 'math.abacus';
+    if (/(数字|数轴|排序|顺序|\d+)/.test(normalizedTopic)) return 'math.number-line';
+    return null;
   }
 
-  // Science patterns
   if (domain === 'science') {
-    if (/水|雨|蒸发/.test(topic)) return 'science.water-cycle';
-    if (/白天|黑夜|地球|太阳/.test(topic)) return 'science.day-night-cycle';
-    if (/植物|花|树|种子/.test(topic)) return 'science.plant-growth';
-    return 'science.plant-growth';
+    if (/(四季|季节|春夏秋冬)/.test(normalizedTopic)) return 'science.seasons-cycle';
+    if (/(水循环|下雨|蒸发|降水|云)/.test(normalizedTopic)) return 'science.water-cycle';
+    if (/(白天|黑夜|昼夜|地球|太阳|月亮)/.test(normalizedTopic)) return 'science.day-night-cycle';
+    if (/(植物|种子|发芽|开花|生长)/.test(normalizedTopic)) return 'science.plant-growth';
+    return null;
   }
 
-  // Art patterns
   if (domain === 'art') {
-    if (/颜色|色彩|混/.test(topic)) return 'art.color-mixing';
-    return 'art.drawing-steps';
+    if (/(颜色|色彩|调色|混色)/.test(normalizedTopic)) return 'art.color-mixing';
+    if (/(画画|绘画|简笔画|手工)/.test(normalizedTopic)) return 'art.drawing-steps';
+    return null;
   }
 
-  // Social patterns
   if (domain === 'social') {
-    if (/情绪|表情|开心|生气/.test(topic)) return 'social.emotion-faces';
-    return 'social.daily-routine';
+    if (/(情绪|表情|开心|生气|难过|害怕)/.test(normalizedTopic)) return 'social.emotion-faces';
+    if (/(作息|习惯|日常|时间安排|一天)/.test(normalizedTopic)) return 'social.daily-routine';
+    return null;
   }
 
   return null;

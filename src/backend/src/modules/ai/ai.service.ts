@@ -749,6 +749,7 @@ export class AiService {
     topic: string;
     childId?: number;
     ageGroup?: '3-4' | '5-6';
+    domain?: 'language' | 'math' | 'science' | 'art' | 'social';
     durationMinutes?: number;
     focus?: 'literacy' | 'math' | 'science' | 'mixed';
     difficulty?: number;
@@ -784,6 +785,7 @@ export class AiService {
     const rawResult = await this.generateCoursePackTool.execute({
       topic: params.topic,
       ageGroup: resolvedAgeGroup,
+      domain: params.domain,
       durationMinutes: params.durationMinutes,
       focus: params.focus,
       difficulty: params.difficulty,

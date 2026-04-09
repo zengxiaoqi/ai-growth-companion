@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Content } from '../../database/entities/content.entity';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
+import { Assignment } from '../../database/entities/assignment.entity';
 import { ContentsService } from '../contents/contents.service';
 import { GenerateCoursePackTool } from '../ai/agent/tools/generate-course-pack';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
@@ -72,6 +73,10 @@ interface StructuredLessonContent {
   generatedAt: string;
 }
 
+interface ModifyLessonDraftOptions {
+  stepId?: string;
+}
+
 const STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
   { id: 'watch', label: '看', icon: 'eye' },
   { id: 'listen', label: '听', icon: 'ear' },
@@ -80,6 +85,18 @@ const STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
   { id: 'practice', label: '练', icon: 'gamepad' },
   { id: 'assess', label: '评', icon: 'clipboard-check' },
 ];
+
+export interface DraftLessonSummary {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  domain: string;
+  status: string;
+  contentType: string;
+  childId: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 @Injectable()
 export class LessonContentService {
@@ -90,6 +107,8 @@ export class LessonContentService {
     private readonly contentRepo: Repository<Content>,
     @InjectRepository(LearningRecord)
     private readonly recordRepo: Repository<LearningRecord>,
+    @InjectRepository(Assignment)
+    private readonly assignmentRepo: Repository<Assignment>,
     private readonly contentsService: ContentsService,
     private readonly generateCoursePackTool: GenerateCoursePackTool,
     private readonly generateActivityTool: GenerateActivityTool,
@@ -98,6 +117,49 @@ export class LessonContentService {
     private readonly learningTracker: LearningTrackerService,
     private readonly llmClient: LlmClient,
   ) {}
+
+  async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {
+    const drafts = await this.assignmentRepo
+      .createQueryBuilder('assignment')
+      .innerJoin(Content, 'content', 'content.id = assignment.contentId')
+      .select([
+        'content.id AS id',
+        'content.title AS title',
+        'content.subtitle AS subtitle',
+        'content.domain AS domain',
+        'content.status AS status',
+        'content.contentType AS contentType',
+        'content.createdAt AS createdAt',
+        'content.updatedAt AS updatedAt',
+      ])
+      .where('assignment.childId = :childId', { childId })
+      .andWhere('content.status = :status', { status: 'draft' })
+      .andWhere('content.contentType = :contentType', { contentType: 'lesson' })
+      .orderBy('content.createdAt', 'DESC')
+      .distinct(true)
+      .getRawMany<{
+        id: number;
+        title: string;
+        subtitle: string | null;
+        domain: string;
+        status: string;
+        contentType: string;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+      }>();
+
+    return drafts.map((draft) => ({
+      id: Number(draft.id),
+      title: draft.title,
+      subtitle: draft.subtitle || null,
+      domain: draft.domain,
+      status: draft.status,
+      contentType: draft.contentType,
+      childId,
+      createdAt: draft.createdAt instanceof Date ? draft.createdAt.toISOString() : new Date(draft.createdAt).toISOString(),
+      updatedAt: draft.updatedAt instanceof Date ? draft.updatedAt.toISOString() : new Date(draft.updatedAt).toISOString(),
+    }));
+  }
 
   /**
    * Start async lesson generation. Creates a placeholder Content (status='generating')
@@ -249,6 +311,7 @@ export class LessonContentService {
     contentId: number,
     parentId: number,
     modification: string,
+    options: ModifyLessonDraftOptions = {},
   ): Promise<Content> {
     const content = await this.contentRepo.findOne({ where: { id: contentId } });
     if (!content) throw new NotFoundException('Content not found');
@@ -259,13 +322,23 @@ export class LessonContentService {
       throw new ForbiddenException('Not a structured lesson');
     }
 
+    const targetStep = options.stepId
+      ? lesson.steps.find((step) => step.id === options.stepId) || null
+      : null;
+
     // Send modification request to LLM
     const prompt = [
       'You are a curriculum designer. A parent has requested modifications to a lesson plan.',
       `Current lesson JSON:\n${JSON.stringify(lesson, null, 2)}`,
       `Parent's modification request: ${modification}`,
+      targetStep
+        ? `Target step for this edit:\n${JSON.stringify(this.describeStepForPrompt(targetStep), null, 2)}`
+        : 'Target step for this edit: all steps (whole-lesson edit).',
       'Rules:',
       '- Apply the modification to the relevant parts of the lesson.',
+      targetStep
+        ? `- Focus on step "${targetStep.id}" first and keep other steps unchanged unless a small sync update is necessary.`
+        : '- You may update multiple steps if the parent request is about the whole lesson.',
       '- Keep all content age-appropriate and in Chinese for learner-facing text.',
       '- Return the COMPLETE updated lesson JSON (same structure).',
       '- Do NOT change the "type", "version", or "steps[].id" fields.',
@@ -716,16 +789,17 @@ export class LessonContentService {
     };
 
     const topic = this.toText(merged.topic, originalLesson.topic);
-    const stepsById = new Map(
+    const stepsById = new Map<string, Record<string, any>>(
       (Array.isArray(updatedLesson?.steps) ? updatedLesson.steps : [])
-        .filter((step: any) => step && typeof step === 'object' && step.id),
+        .filter((step: any) => step && typeof step === 'object' && step.id)
+        .map((step: any) => [String(step.id), step] as const),
     );
 
     const steps = originalLesson.steps.map((originalStep) => {
       const updatedStep = stepsById.get(originalStep.id) || {};
       const mergedStep: LessonStep = {
         ...originalStep,
-        ...updatedStep,
+        ...(updatedStep as Record<string, any>),
         module: {
           ...(originalStep.module || {}),
           ...((updatedStep as any)?.module || {}),
@@ -755,36 +829,36 @@ export class LessonContentService {
     originalStep: LessonStep,
     topic: string,
   ): LessonStep {
-    const module = step.module || {};
-    const originalModule = originalStep?.module || {};
+    const module: Record<string, any> = step.module || {};
+    const originalModule: Record<string, any> = originalStep?.module || {};
 
     if (step.id === 'watch' || module.type === 'video') {
       return {
         ...step,
-        module: {
+        module: ({
           ...module,
           scene: this.resolveModifiedWatchScene(module, originalModule, topic),
-        },
+        } as unknown) as LessonStep['module'],
       };
     }
 
     if (step.id === 'write' || module.type === 'writing') {
       return {
         ...step,
-        module: {
+        module: ({
           ...module,
           scene: this.resolveModifiedWriteScene(module, originalModule, topic),
-        },
+        } as unknown) as LessonStep['module'],
       };
     }
 
     if (step.id === 'practice' || module.type === 'game') {
       return {
         ...step,
-        module: {
+        module: ({
           ...module,
           scene: this.resolveModifiedPracticeScene(module, originalModule, topic),
-        },
+        } as unknown) as LessonStep['module'],
       };
     }
 
@@ -882,5 +956,64 @@ export class LessonContentService {
     } catch {
       return String(value ?? 'null');
     }
+  }
+
+  private toText(value: unknown, fallback = ''): string {
+    if (value == null) return fallback;
+    const text = String(value).replace(/\s+/g, ' ').trim();
+    return text || fallback;
+  }
+
+  private describeStepForPrompt(step: LessonStep): Record<string, any> {
+    return {
+      id: step.id,
+      label: step.label,
+      moduleType: step.module?.type,
+      title: this.describeStepTitle(step),
+      summary: this.describeStepSummary(step),
+    };
+  }
+
+  private describeStepTitle(step: LessonStep): string {
+    const module: Record<string, any> = step.module || {};
+    if (module.type === 'video') return '观看动画讲解';
+    if (module.type === 'audio') return this.toText(module.listening?.goal, '听力理解');
+    if (module.type === 'reading') return this.toText(module.reading?.goal, '阅读理解');
+    if (module.type === 'writing') return this.toText(module.writing?.goal, '书写练习');
+    if (module.type === 'game') return '互动练习';
+    if (module.type === 'quiz') return '学习测评';
+    return step.label;
+  }
+
+  private describeStepSummary(step: LessonStep): string {
+    const module: Record<string, any> = step.module || {};
+    if (module.type === 'video') {
+      const scenes = Array.isArray(module.visualStory?.scenes) ? module.visualStory.scenes : Array.isArray(module.videoLesson?.shots) ? module.videoLesson.shots : [];
+      return scenes.slice(0, 3).map((scene: any) => this.toText(scene?.narration || scene?.onScreenText || scene?.caption || scene?.scene || scene?.shot)).filter(Boolean).join(' | ');
+    }
+    if (module.type === 'audio') {
+      const script = Array.isArray(module.listening?.audioScript) ? module.listening.audioScript : [];
+      return script.slice(0, 2).map((item: any) => this.toText(item?.narration)).filter(Boolean).join(' | ');
+    }
+    if (module.type === 'reading') {
+      return this.toText(module.reading?.text).slice(0, 120);
+    }
+    if (module.type === 'writing') {
+      return [
+        this.toText(module.writing?.goal),
+        Array.isArray(module.writing?.tracingItems) ? module.writing.tracingItems.join(', ') : '',
+      ].filter(Boolean).join(' | ');
+    }
+    if (module.type === 'game') {
+      return [
+        this.toText(module.game?.activityType),
+        this.toText(module.game?.activityData?.title),
+      ].filter(Boolean).join(' | ');
+    }
+    if (module.type === 'quiz') {
+      const questions = Array.isArray(module.quiz?.questions) ? module.quiz.questions : [];
+      return questions.slice(0, 2).map((item: any) => this.toText(item?.question)).filter(Boolean).join(' | ');
+    }
+    return this.toText(JSON.stringify(module)).slice(0, 120);
   }
 }

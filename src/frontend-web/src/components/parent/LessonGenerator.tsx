@@ -5,10 +5,14 @@ import type { Content, StructuredLessonContent, StructuredLessonStep } from '@/t
 import LessonScenePlayer from '@/scenes/LessonScenePlayer';
 import { resolveLessonSceneDocument } from '@/scenes/scene-helpers';
 import { Button, Card } from '../ui';
+import { cn } from '@/lib/utils';
 
 interface LessonGeneratorProps {
   selectedChildId: number | null;
   childAgeGroup?: '3-4' | '5-6';
+  draftLessonId?: number | null;
+  onDraftLessonLoaded?: () => void;
+  onDraftLessonUpdated?: () => void | Promise<void>;
 }
 
 const FOCUS_OPTIONS = [
@@ -35,7 +39,74 @@ const STEP_ICONS: Record<string, string> = {
   assess: '\u{1F4CB}',
 };
 
-export default function LessonGenerator({ selectedChildId, childAgeGroup }: LessonGeneratorProps) {
+const STEP_QUICK_EDITS: Record<string, Array<{ label: string; prompt: string }>> = {
+  watch: [
+    { label: '更贴主题', prompt: '把这一部分的动画讲解改得更贴合当前主题，避免只出现泛化的字词展示。' },
+    { label: '丰富讲解', prompt: '把这一部分的动画讲解内容再丰富一些，增加更具体的观察点和讲解细节。' },
+    { label: '放慢节奏', prompt: '把这一部分的动画讲解节奏放慢一些，每个场景多给一点停留和说明。' },
+  ],
+  listen: [
+    { label: '更口语化', prompt: '把这一部分的听力内容改得更口语化、更适合孩子听懂。' },
+    { label: '增加互动', prompt: '在这一部分的听力内容里加入更多提问和停顿提示。' },
+    { label: '缩短难度', prompt: '把这一部分的听力内容再短一点、简单一点。' },
+  ],
+  read: [
+    { label: '更短更清楚', prompt: '把这一部分的阅读内容缩短一点，并让句子更清楚。' },
+    { label: '突出关键词', prompt: '把这一部分的阅读重点改成更突出关键词和核心句。' },
+    { label: '加强理解题', prompt: '给这一部分增加更贴合内容的理解问题。' },
+  ],
+  write: [
+    { label: '降低描红难度', prompt: '把这一部分的描红和书写要求调简单一点，路径更清楚、更容易完成。' },
+    { label: '增加鼓励', prompt: '把这一部分的书写提示改得更鼓励式、更适合孩子跟着描。' },
+    { label: '更贴主题', prompt: '把这一部分的书写内容改得更贴合当前主题，不要太泛化。' },
+  ],
+  practice: [
+    { label: '规则更清楚', prompt: '把这一部分的练习规则说明改得更清楚，让孩子一开始就知道怎么做。' },
+    { label: '提示更多', prompt: '给这一部分的练习加入更多过程提示和鼓励反馈。' },
+    { label: '降低难度', prompt: '把这一部分的练习难度调低一点，步骤更少、更直接。' },
+  ],
+  assess: [
+    { label: '题目更简单', prompt: '把这一部分的测评题再简单一点，题干更短一些。' },
+    { label: '更贴主题', prompt: '把这一部分的测评题改得更贴合本节课主题。' },
+    { label: '减少题量', prompt: '把这一部分的测评题量减少一点，但保留核心考点。' },
+  ],
+};
+
+const GLOBAL_QUICK_EDITS: Array<{ label: string; prompt: string }> = [
+  { label: '整体更简单', prompt: '把整节课整体调简单一点，更适合孩子独立完成。' },
+  { label: '更贴主题', prompt: '把整节课所有内容都再检查一遍，确保每一步都更贴合当前主题。' },
+  { label: '增强趣味性', prompt: '把整节课改得更有趣一点，增加鼓励语和互动感。' },
+];
+
+function buildModificationDraft(
+  prompt: string,
+  scope: 'selected' | 'all',
+  selectedStep: StructuredLessonStep | null,
+): string {
+  if (scope === 'selected' && selectedStep) {
+    return [
+      `请只修改“${selectedStep.label} · ${getStepTitle(selectedStep)}”这一步，其他步骤尽量保持不变。`,
+      `重点修改方向：${prompt}`,
+      '请同时同步更新这一步的 scene 预览内容，让家长端预览和学生端展示保持一致。',
+      '修改后继续保持内容贴合主题、年龄合适、表达自然。',
+    ].join('\n');
+  }
+
+  return [
+    '请基于整节课做一次整体优化。',
+    `重点修改方向：${prompt}`,
+    '如果某一步内容发生变化，请同步更新对应的 scene 预览内容。',
+    '修改后继续保持内容贴合主题、年龄合适、表达自然。',
+  ].join('\n');
+}
+
+export default function LessonGenerator({
+  selectedChildId,
+  childAgeGroup,
+  draftLessonId = null,
+  onDraftLessonLoaded,
+  onDraftLessonUpdated,
+}: LessonGeneratorProps) {
   const [topic, setTopic] = useState('');
   const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
   const [domain, setDomain] = useState<(typeof DOMAIN_OPTIONS)[number]['value']>('language');
@@ -47,6 +118,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
   const [lessonData, setLessonData] = useState<StructuredLessonContent | null>(null);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [modificationText, setModificationText] = useState('');
+  const [editScope, setEditScope] = useState<'selected' | 'all'>('selected');
   const [isModifying, setIsModifying] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -61,6 +133,10 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const selectedStep = lessonData?.steps.find((step) => step.id === expandedStep) || lessonData?.steps[0] || null;
+  const quickEditOptions = editScope === 'selected' && selectedStep
+    ? (STEP_QUICK_EDITS[selectedStep.id] || GLOBAL_QUICK_EDITS)
+    : GLOBAL_QUICK_EDITS;
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -69,6 +145,52 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
       if (videoPollRef.current) clearInterval(videoPollRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!lessonData?.steps?.length) {
+      if (expandedStep !== null) setExpandedStep(null);
+      return;
+    }
+    const hasSelectedStep = lessonData.steps.some((step) => step.id === expandedStep);
+    if (!hasSelectedStep) {
+      setExpandedStep(lessonData.steps[0].id);
+    }
+  }, [lessonData, expandedStep]);
+
+  useEffect(() => {
+    if (!selectedStep && editScope === 'selected') {
+      setEditScope('all');
+    }
+  }, [selectedStep, editScope]);
+
+  useEffect(() => {
+    if (!draftLessonId) return;
+
+    let cancelled = false;
+
+    const loadDraftLesson = async () => {
+      try {
+        const content = await api.getContent(draftLessonId);
+        if (cancelled) return;
+        setGeneratedContent(content);
+        const lesson = typeof content.content === 'string' ? JSON.parse(content.content) : content.content;
+        setLessonData(lesson);
+        setTopic(content.topic || content.title || '');
+        setError(null);
+        resetVideoPreviewState();
+        onDraftLessonLoaded?.();
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(err?.message || '加载草稿课程失败');
+      }
+    };
+
+    loadDraftLesson();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draftLessonId, onDraftLessonLoaded]);
 
   const resetVideoPreviewState = () => {
     if (videoPollRef.current) {
@@ -179,7 +301,9 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
     setError(null);
 
     try {
-      const updated = await api.modifyLesson(generatedContent.id, modificationText.trim());
+      const updated = await api.modifyLesson(generatedContent.id, modificationText.trim(), {
+        stepId: editScope === 'selected' ? selectedStep?.id : undefined,
+      });
       setGeneratedContent(updated);
       const lesson = typeof updated.content === 'string'
         ? JSON.parse(updated.content)
@@ -187,6 +311,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
       setLessonData(lesson);
       setModificationText('');
       resetVideoPreviewState();
+      await onDraftLessonUpdated?.();
     } catch (err: any) {
       setError(err?.message || '修改课程失败');
     } finally {
@@ -428,14 +553,22 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
             </div>
           </Card>
 
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+            <div className="space-y-4">
           {/* Six Steps Preview */}
           <div className="space-y-2">
             <h5 className="text-sm font-semibold text-on-surface-variant">课程六步预览</h5>
             {lessonData.steps.map((step: StructuredLessonStep) => (
-              <Card key={step.id} className="p-3">
+              <Card
+                key={step.id}
+                className={cn(
+                  'p-3 transition',
+                  expandedStep === step.id && 'border-primary/35 bg-primary-container/10',
+                )}
+              >
                 <button
                   className="flex w-full items-center gap-3 text-left"
-                  onClick={() => setExpandedStep(expandedStep === step.id ? null : step.id)}
+                  onClick={() => setExpandedStep(step.id)}
                 >
                   <span className="text-xl">{STEP_ICONS[step.id] || '\u{1F4DD}'}</span>
                   <div className="flex-1">
@@ -447,7 +580,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
                 </button>
 
                 {expandedStep === step.id && (
-                  <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant">
+                  <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant xl:hidden">
                     <StepPreview step={step} />
                   </div>
                 )}
@@ -457,18 +590,69 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
 
           {/* Modification Input */}
           {generatedContent.status === 'draft' && (
-            <Card className="p-4">
+            <Card className="space-y-3 p-4">
               <label className="mb-2 block text-sm font-medium text-on-surface">修改意见</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditScope('selected')}
+                  disabled={!selectedStep}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold transition',
+                    editScope === 'selected'
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container text-on-surface-variant',
+                  )}
+                >
+                  只改当前步骤
+                  {selectedStep ? ` · ${selectedStep.label}` : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditScope('all')}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-semibold transition',
+                    editScope === 'all'
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container text-on-surface-variant',
+                  )}
+                >
+                  改整个课程
+                </button>
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                {editScope === 'selected' && selectedStep
+                  ? `这次修改会优先聚焦在“${selectedStep.label} · ${getStepTitle(selectedStep)}”这一步。`
+                  : '这次修改会作为整节课的全局编辑请求处理。'}
+              </p>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-on-surface-variant">快捷修改模板</p>
+                <div className="flex flex-wrap gap-2">
+                  {quickEditOptions.map((option) => (
+                    <button
+                      key={`${selectedStep?.id || 'all'}-${option.label}`}
+                      type="button"
+                      onClick={() => setModificationText(buildModificationDraft(option.prompt, editScope, selectedStep))}
+                      className="rounded-full bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface-variant transition hover:bg-surface-container-high hover:text-on-surface"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-on-surface-variant">
+                  点击模板后会自动填入一份可继续编辑的草稿，你可以直接补充细节再提交。
+                </p>
+              </div>
               <div className="flex gap-2">
-                <input
-                  type="text"
+                <textarea
+                  rows={5}
                   value={modificationText}
                   onChange={(e) => setModificationText(e.target.value)}
-                  placeholder="例如：阅读部分加长一些，练习题再简单一点"
-                  className="flex-1 rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder={'例如：\n请只修改“写 · 书写练习”这一步，其他步骤尽量保持不变。\n把描红路径再清楚一点，并同步更新 scene 预览。'}
+                  className="min-h-[132px] flex-1 resize-y rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   disabled={isModifying}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                       e.preventDefault();
                       handleModify();
                     }
@@ -486,6 +670,9 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
                   )}
                 </Button>
               </div>
+              <p className="text-[11px] text-on-surface-variant">
+                可直接编辑这份草稿，使用 Ctrl+Enter 或 Cmd+Enter 可快速提交。
+              </p>
             </Card>
           )}
 
@@ -590,7 +777,7 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
 
               {/* No video task yet (idle) */}
               {videoStatus === 'idle' && (
-                <p className="text-xs text-on-surface-variant">视频将在课程确认后自动生成</p>
+                <p className="text-xs text-on-surface-variant">课程修改后，场景预览会立即同步；如需新的教学视频预览，请点击“重新生成预览”。</p>
               )}
             </Card>
           )}
@@ -622,6 +809,38 @@ export default function LessonGenerator({ selectedChildId, childAgeGroup }: Less
               </div>
             )}
           </div>
+
+            </div>
+
+            <div className="hidden xl:block">
+              <Card className="space-y-3 p-4 xl:sticky xl:top-24">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Live Preview</p>
+                    <h5 className="mt-1 text-lg font-bold text-on-surface">
+                      {selectedStep ? `${selectedStep.label} · ${getStepTitle(selectedStep)}` : '请选择一个步骤'}
+                    </h5>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                      右侧固定显示当前步骤的实时预览，方便一边修改一边对照学生端效果。
+                    </p>
+                  </div>
+                  {selectedStep && (
+                    <span className="rounded-full bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant">
+                      {selectedStep.module.type}
+                    </span>
+                  )}
+                </div>
+
+                {selectedStep ? (
+                  <StepPreview step={selectedStep} />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-outline-variant/30 bg-surface-container-low px-4 py-10 text-center text-sm text-on-surface-variant">
+                    请选择左侧步骤开始预览。
+                  </div>
+                )}
+              </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -641,6 +860,33 @@ function getStepTitle(step: StructuredLessonStep): string {
 
 function StepPreview({ step }: { step: StructuredLessonStep }) {
   const m = step.module;
+  const sceneStepType = step.id === 'watch'
+    ? 'watch'
+    : step.id === 'write'
+      ? 'write'
+      : step.id === 'practice'
+        ? 'practice'
+        : null;
+  const sceneDocument = sceneStepType ? resolveLessonSceneDocument(sceneStepType, m) : null;
+
+  if (sceneDocument) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-primary/10 bg-surface px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Scene Preview</p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            这里显示学生端会实际看到的场景运行效果，修改课程后会随最新内容同步。
+          </p>
+        </div>
+        <LessonScenePlayer
+          document={sceneDocument}
+          isCompleted={false}
+          previewMode
+          onComplete={() => undefined}
+        />
+      </div>
+    );
+  }
 
   if (m.type === 'video') {
     const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];

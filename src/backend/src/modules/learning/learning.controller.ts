@@ -268,6 +268,25 @@ export class LearningController {
 
   // ─── Structured Lesson Endpoints ───────────────────────────────────
 
+  @Get('lessons/drafts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取当前孩子的课程草稿列表' })
+  async getDraftLessons(
+    @Request() req: any,
+    @Query('childId') childId: string,
+  ) {
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可查看课程草稿');
+    }
+    const numericChildId = Number(childId);
+    if (!Number.isInteger(numericChildId) || numericChildId <= 0) {
+      throw new BadRequestException('childId is required');
+    }
+    await this.assertAccessToChild(req, numericChildId);
+    return this.lessonContentService.listDraftLessonsForChild(numericChildId);
+  }
+
   @Post('lessons/generate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -306,13 +325,18 @@ export class LearningController {
   async modifyLesson(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { modification: string },
+    @Body() body: { modification: string; stepId?: string },
   ) {
     const parentId = req.user?.sub;
     if (req.user?.type !== 'parent') {
       throw new ForbiddenException('仅家长可修改课程');
     }
-    return this.lessonContentService.modifyDraft(+id, parentId, body.modification);
+    if (!body?.modification?.trim()) {
+      throw new BadRequestException('modification is required');
+    }
+    return this.lessonContentService.modifyDraft(+id, parentId, body.modification, {
+      stepId: body.stepId,
+    });
   }
 
   @Post('lessons/:id/confirm')
@@ -564,5 +588,4 @@ export class LearningController {
     });
   }
 }
-
 

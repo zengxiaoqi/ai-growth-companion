@@ -117,6 +117,38 @@ describe('ApiService', () => {
     });
   });
 
+  describe('getDraftLessons', () => {
+    it('calls /learning/lessons/drafts?childId=:id', async () => {
+      const mockDrafts = [
+        {
+          id: 9,
+          title: '认识数字 1-5',
+          status: 'draft',
+          childId: 22,
+          createdAt: '2026-04-09T09:00:00.000Z',
+          updatedAt: '2026-04-09T09:10:00.000Z',
+        },
+      ];
+      api.setToken('test-token');
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockDrafts),
+      });
+
+      const result = await api.getDraftLessons(22);
+
+      expect(result).toEqual(mockDrafts);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/learning/lessons/drafts?childId=22',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        })
+      );
+    });
+  });
+
   describe('getNotifications', () => {
     it('calls /notifications/:userId', async () => {
       const mockData = {

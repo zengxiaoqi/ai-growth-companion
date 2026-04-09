@@ -13,13 +13,16 @@ import {
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { ACTIVITY_TYPES, DOMAIN_CONFIG } from './constants';
-import type { Assignment } from '@/types';
+import type { Assignment, DraftLessonSummary } from '@/types';
 import { Button, Card, EmptyState } from '../ui';
 
 interface AssignmentManagerProps {
   assignments: Assignment[];
+  draftLessons: DraftLessonSummary[];
   parentId: number;
   selectedChildId: number | null;
+  onViewDraftLesson: (draftLesson: DraftLessonSummary) => void;
+  onEditDraftLesson: (draftLesson: DraftLessonSummary) => void;
   onCreateAssignment: (data: {
     activityType: string;
     domain: string;
@@ -40,8 +43,11 @@ interface AssignmentManagerProps {
 
 export default function AssignmentManager({
   assignments,
+  draftLessons,
   parentId,
   selectedChildId,
+  onViewDraftLesson,
+  onEditDraftLesson,
   onCreateAssignment,
   onUpdateAssignment,
   onDeleteAssignment,
@@ -60,6 +66,14 @@ export default function AssignmentManager({
   const [editType, setEditType] = useState<string>('quiz');
   const [isMutatingId, setIsMutatingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sortedDraftLessons = useMemo(
+    () =>
+      [...draftLessons]
+        .filter((lesson) => (selectedChildId ? lesson.childId === selectedChildId : true))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [draftLessons, selectedChildId],
+  );
 
   const sortedAssignments = useMemo(
     () =>
@@ -280,6 +294,62 @@ export default function AssignmentManager({
           </Button>
         </motion.div>
       ) : null}
+
+      {sortedDraftLessons.length > 0 ? (
+        <div className="space-y-3">
+          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">草稿作业</h3>
+
+          {sortedDraftLessons.map((draftLesson) => {
+            const domainConfig = DOMAIN_CONFIG[draftLesson.domain || ''];
+
+            return (
+              <Card key={draftLesson.id} className="space-y-4 p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-container/30">
+                    <ClipboardList className="h-5 w-5 text-on-secondary-container" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-black text-on-surface">{draftLesson.title}</span>
+                      {domainConfig ? (
+                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black', domainConfig.containerColor, domainConfig.textColor)}>
+                          {domainConfig.label}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant">
+                      {draftLesson.subtitle ? <span>{draftLesson.subtitle}</span> : null}
+                      <span>{new Date(draftLesson.createdAt).toLocaleDateString('zh-CN')}</span>
+                    </div>
+                  </div>
+
+                  <span className="shrink-0 rounded-full bg-secondary-container px-3 py-1 text-xs font-black text-on-secondary-container">
+                    草稿
+                  </span>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => onViewDraftLesson(draftLesson)}>
+                    查看
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => onEditDraftLesson(draftLesson)}>
+                    <Wrench className="h-4 w-4" />
+                    编辑
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState
+          title="暂无草稿作业"
+          description="未发布的一键生成课程会显示在这里，方便继续查看和编辑。"
+          icon={<ClipboardList className="h-6 w-6 text-primary" />}
+        />
+      )}
 
       {sortedAssignments.length > 0 ? (
         <div className="space-y-3">

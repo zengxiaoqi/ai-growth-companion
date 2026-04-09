@@ -273,6 +273,18 @@ export interface Assignment {
   createdAt: string;
 }
 
+export interface DraftLessonSummary {
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  domain?: string;
+  status: 'draft' | string;
+  contentType?: string;
+  childId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Learning Tracker types
 export interface TodayStatsWithSources {
   totalMinutes: number;
@@ -303,6 +315,121 @@ export interface ActivityFeedback {
   correct: number;
   domain: string;
   message: string;
+}
+
+// Lesson Scene Types
+export type LessonSceneStepType = 'watch' | 'write' | 'practice';
+export type LessonSceneMode = 'playback' | 'guided_trace' | 'activity_shell';
+export type SceneTimelineActionType =
+  | 'enter'
+  | 'move'
+  | 'highlight'
+  | 'state_change'
+  | 'particle'
+  | 'caption'
+  | 'pause';
+
+export interface SceneBackground {
+  type: 'day' | 'night' | 'indoor' | 'seasonal' | 'abstract';
+  themeColor?: string;
+  accentColor?: string;
+  season?: 'spring' | 'summer' | 'autumn' | 'winter';
+}
+
+export interface SceneCharacter {
+  id: string;
+  label: string;
+  pose?: string;
+  mood?: string;
+  color?: string;
+}
+
+export interface SceneItem {
+  id: string;
+  label: string;
+  kind?: string;
+  state?: string;
+  color?: string;
+}
+
+export interface SceneVisual {
+  background?: SceneBackground;
+  characters?: SceneCharacter[];
+  items?: SceneItem[];
+  effects?: string[];
+  caption?: string;
+  templateId?: string;
+  templateParams?: Record<string, any>;
+}
+
+export interface SceneTimelineAction {
+  type: SceneTimelineActionType;
+  target?: string;
+  value?: string;
+  durationSec?: number;
+  atSec?: number;
+}
+
+export interface TraceGlyphTarget {
+  id: string;
+  label: string;
+  kind: 'glyph';
+  text: string;
+  fontSize?: number;
+}
+
+export interface TracePolylineTarget {
+  id: string;
+  label: string;
+  kind: 'polyline';
+  points: Array<{ x: number; y: number }>;
+}
+
+export type TracePathSpec = TraceGlyphTarget | TracePolylineTarget;
+
+export interface TracePathInteraction {
+  type: 'trace_path';
+  prompt?: string;
+  targets: TracePathSpec[];
+  minCoverage?: number;
+}
+
+export interface LaunchActivityInteraction {
+  type: 'launch_activity';
+  prompt?: string;
+  activityType: ActivityType;
+  activityData: ActivityData;
+}
+
+export type SceneInteraction = TracePathInteraction | LaunchActivityInteraction;
+
+export interface LessonScene {
+  id: string;
+  title: string;
+  narration: string;
+  onScreenText?: string;
+  durationSec: number;
+  visual?: SceneVisual;
+  timeline?: SceneTimelineAction[];
+  interaction?: SceneInteraction;
+  fallbackActivity?: {
+    activityType: ActivityType;
+    activityData: ActivityData;
+  };
+}
+
+export interface LessonSceneCompletionPolicy {
+  type: 'all_scenes' | 'any_interaction';
+  passingScore?: number;
+  minCoverage?: number;
+}
+
+export interface LessonSceneDocument {
+  version: 1;
+  stepType: LessonSceneStepType;
+  mode: LessonSceneMode;
+  scenes: LessonScene[];
+  completionPolicy?: LessonSceneCompletionPolicy;
 }
 
 // Learning archive types
@@ -357,6 +484,7 @@ export interface GenerateCoursePackRequest {
   topic: string;
   childId?: number;
   ageGroup?: '3-4' | '5-6';
+  domain?: 'language' | 'math' | 'science' | 'art' | 'social';
   durationMinutes?: number;
   focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
@@ -441,6 +569,7 @@ export interface StructuredLessonStep {
   order: number;
   module: {
     type: 'video' | 'audio' | 'reading' | 'writing' | 'game' | 'quiz';
+    scene?: LessonSceneDocument;
     [key: string]: any;
   };
   assignmentId?: number;

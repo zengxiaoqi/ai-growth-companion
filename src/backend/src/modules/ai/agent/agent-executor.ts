@@ -41,24 +41,28 @@ const SUPPORTED_ACTIVITY_TYPE_SET = new Set<string>(SUPPORTED_ACTIVITY_TYPES);
 const THINK_CLOSE_TAG = '</think' + '>';
 
 /** Strip <think...</think-> reasoning blocks from model output.
- *  MiniMax-M2.5 format: <think...content...</think->\n\nanswer
+ *  Handles thinking blocks anywhere in the string, not just at the start.
  */
 function stripThinking(text: string): string {
-  if (!text.startsWith('<think')) return text.trim();
-  const tagEnd = text.indexOf(THINK_CLOSE_TAG);
-  if (tagEnd !== -1) {
-    return text.slice(tagEnd + THINK_CLOSE_TAG.length).trim();
-  }
-  return text.trim();
+  if (!text) return '';
+  // Remove all <think...>...</think-> blocks (with or without attributes)
+  let result = text.replace(/<think[^>]*>[\s\S]*?<\/think\s*>/g, '').trim();
+  // Also handle unclosed <think at end of string
+  result = result.replace(/<think[^>]*>[\s\S]*$/g, '').trim();
+  return result;
 }
 
 /** Extract the content inside <think...</think-> blocks */
 function extractThinking(text: string): string {
-  if (!text.startsWith('<think')) return '';
-  const start = text.indexOf('>') + 1;
-  const tagEnd = text.indexOf(THINK_CLOSE_TAG);
-  if (tagEnd !== -1 && tagEnd > start) {
-    return text.slice(start, tagEnd).trim();
+  if (!text) return '';
+  const match = text.match(/<think[^>]*>([\s\S]*?)<\/think\s*>/);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  // Handle unclosed <think
+  const unclosed = text.match(/<think[^>]*>([\s\S]*)$/);
+  if (unclosed && unclosed[1]) {
+    return unclosed[1].trim();
   }
   return '';
 }

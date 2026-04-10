@@ -10,7 +10,7 @@ export class VoiceService {
   async textToSpeech(text: string, voice: string = 'zh-CN-XiaoxiaoNeural'): Promise<Buffer> {
     const tts = new EdgeTTS();
     await tts.synthesize(text, voice, {
-      outputFormat: 'audio-24khz-48kbitrate-mono-mp3',
+      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
     });
     return tts.toBuffer();
   }

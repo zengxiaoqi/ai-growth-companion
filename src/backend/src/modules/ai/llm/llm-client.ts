@@ -71,12 +71,16 @@ export class LlmClient {
     }
   }
 
-  /** Strip <think...</think-> blocks from LLM output (reasoning tokens) */
+  /** Strip <think...</think-> blocks from LLM output (reasoning tokens).
+   *  Handles thinking blocks anywhere in the string, not just at the start.
+   */
   private stripThinking(text: string): string {
-    if (!text.startsWith('<think')) return text.trim();
-    const tagEnd = text.indexOf('</think' + '>');
-    if (tagEnd !== -1) return text.slice(tagEnd + 8).trim();
-    return text.trim();
+    if (!text) return '';
+    // Remove all <think...>...</think-> blocks (with or without attributes)
+    let result = text.replace(/<think[^>]*>[\s\S]*?<\/think\s*>/g, '').trim();
+    // Also handle unclosed <think at end of string
+    result = result.replace(/<think[^>]*>[\s\S]*$/g, '').trim();
+    return result;
   }
 
   /** Secondary LLM call for structured content generation (e.g., quizzes) */
@@ -89,7 +93,21 @@ export class LlmClient {
 
     const response = await this.chatCompletion(messages);
     const raw = response.choices[0]?.message?.content ?? '';
-    return this.stripThinking(raw);
+    let result = this.stripThinking(raw);
+
+    // If the response was only thinking (no visible content), retry without tool_choice
+    if (!result) {
+      this.logger.warn('generate() produced empty content after stripThinking, retrying...');
+      try {
+        const retry = await this.chatCompletion(messages);
+        const retryRaw = retry.choices[0]?.message?.content ?? '';
+        result = this.stripThinking(retryRaw);
+      } catch (err: any) {
+        this.logger.warn(`generate() retry failed: ${err.message}`);
+      }
+    }
+
+    return result;
   }
 
   /** Rough token estimate for Chinese text */

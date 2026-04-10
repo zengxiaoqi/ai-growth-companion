@@ -26,7 +26,15 @@ export default function LessonScenePlayer({
   const [traceResults, setTraceResults] = useState<Record<string, { coverage: number; attempts: number; score: number }>>({});
   const [activityResult, setActivityResult] = useState<ActivityResult | null>(null);
   const [shellReady, setShellReady] = useState(false);
-  const voice = useGameVoice();
+  const { speak: voiceSpeak, stop: voiceStop, isPlaying: voiceIsPlaying } = useGameVoice();
+  // Keep refs to voice functions so effects can use them without them being dependencies
+  const voiceSpeakRef = useRef(voiceSpeak);
+  voiceSpeakRef.current = voiceSpeak;
+  const voiceStopRef = useRef(voiceStop);
+  voiceStopRef.current = voiceStop;
+  // Keep a ref to voiceIsPlaying so interval callbacks see the latest value
+  const voiceIsPlayingRef = useRef(voiceIsPlaying);
+  voiceIsPlayingRef.current = voiceIsPlaying;
 
   const scenes = document.scenes || [];
   const currentScene = scenes[currentIndex] || null;
@@ -61,9 +69,9 @@ export default function LessonScenePlayer({
 
   const speakCurrentScene = useCallback(() => {
     if (currentScene?.narration) {
-      voice.speak(currentScene.narration);
+      voiceSpeakRef.current(currentScene.narration);
     }
-  }, [currentScene?.narration, voice]);
+  }, [currentScene?.narration]);
 
   // Playback auto-advance: wait for the longer of (durationSec) or (TTS audio)
   // Cleanup is tracked via a ref so inner polls are always cancelled on unmount or scene change.
@@ -83,7 +91,7 @@ export default function LessonScenePlayer({
     if (document.mode !== 'playback' || !isPlaying || !currentScene) return;
 
     // Stop previous TTS before starting new one to prevent overlap
-    voice.stop();
+    voiceStopRef.current();
     speakCurrentScene();
 
     advancedRef.current = false;
@@ -103,9 +111,9 @@ export default function LessonScenePlayer({
     // Timer for the visual duration
     advanceTimerRef.current = window.setTimeout(() => {
       // If TTS is still playing, wait for it to finish before advancing
-      if (voice.isPlaying) {
+      if (voiceIsPlayingRef.current) {
         voicePollRef.current = setInterval(() => {
-          if (!voice.isPlaying) {
+          if (!voiceIsPlayingRef.current) {
             doAdvance();
           }
         }, 150);
@@ -117,7 +125,6 @@ export default function LessonScenePlayer({
     }, durationMs);
 
     return clearAllTimers;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentScene, document.mode, isLastScene, isPlaying, speakCurrentScene, clearAllTimers]);
 
   useEffect(() => {

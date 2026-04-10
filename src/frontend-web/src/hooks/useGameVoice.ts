@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import api from '@/services/api';
 import { getAudioVolume } from '@/lib/app-settings';
 
@@ -64,5 +64,5 @@ export function useGameVoice() {
     setIsPlaying(false);
   }, []);
 
-  return { speak, stop, isPlaying };
+  return useMemo(() => ({ speak, stop, isPlaying }), [speak, stop, isPlaying]);
 }

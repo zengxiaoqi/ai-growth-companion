@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Star,
   AlertCircle,
-  LogOut,
   Sparkles,
   ChevronDown,
   MessageCircle,
@@ -21,7 +20,6 @@ import {
   ChevronRight,
   Wand2,
   Trophy,
-  UserCircle,
   ClipboardCheck,
   ChevronUp,
   type LucideIcon,
@@ -37,7 +35,6 @@ interface StudentDashboardProps {
   onBack: () => void;
   onOpenContent: (contentId: number) => void;
   onOpenAchievements: () => void;
-  onOpenProfile: () => void;
   onOpenSettings: () => void;
   onOpenCompanion: () => void;
   onOpenAssignment?: (assignment: Assignment) => void;
@@ -149,15 +146,14 @@ const toCurriculumItem = (content: Content): CurriculumItem => {
 };
 
 export default function StudentDashboard({
-  onBack,
+  onBack: _onBack,
   onOpenContent,
   onOpenAchievements,
-  onOpenProfile,
   onOpenSettings,
   onOpenCompanion,
   onOpenAssignment,
 }: StudentDashboardProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -351,11 +347,6 @@ export default function StudentDashboard({
     }
   }, [user?.id, onOpenContent]);
 
-  const handleLogout = useCallback(() => {
-    logout();
-    onBack();
-  }, [logout, onBack]);
-
   const scrollRecommendations = useCallback((left: number) => {
     scrollContainerRef.current?.scrollBy({ left, behavior: 'smooth' });
   }, []);
@@ -387,19 +378,12 @@ export default function StudentDashboard({
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight md:text-2xl">灵犀伴学</h1>
-              <p className="text-xs font-semibold text-on-surface-variant">学生模式</p>
             </div>
           </div>
 
           <div className="flex gap-1.5 md:gap-2">
-            <button onClick={onOpenProfile} aria-label="打开个人中心" className="touch-target rounded-xl p-2.5 transition-colors hover:bg-surface-container">
-              <UserCircle className="h-5 w-5 text-on-secondary-container md:h-6 md:w-6" />
-            </button>
             <button onClick={onOpenSettings} aria-label="打开设置" className="touch-target rounded-xl p-2.5 transition-colors hover:bg-surface-container">
               <Settings className="h-5 w-5 text-on-secondary-container md:h-6 md:w-6" />
-            </button>
-            <button onClick={handleLogout} aria-label="退出登录" className="touch-target rounded-xl p-2.5 text-error transition-colors hover:bg-error-container/10">
-              <LogOut className="h-5 w-5 md:h-6 md:w-6" />
             </button>
           </div>
         </div>
@@ -886,9 +870,9 @@ export default function StudentDashboard({
             <Sparkles className="h-7 w-7" />
             <span className="mt-0.5 text-[10px] font-black">AI伙伴</span>
           </button>
-          <button onClick={onOpenAchievements} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
-            <Trophy className="h-6 w-6" />
-            <span className="mt-1 text-xs font-bold">成就</span>
+          <button onClick={onOpenSettings} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
+            <Settings className="h-6 w-6" />
+            <span className="mt-1 text-xs font-bold">设置</span>
           </button>
         </div>
       </nav>

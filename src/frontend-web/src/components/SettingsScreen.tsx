@@ -6,12 +6,15 @@ import {
   CheckCircle2,
   Info,
   Loader2,
+  LogOut,
   Moon,
   RotateCcw,
   Save,
   Shield,
+  Trophy,
   Type,
   User,
+  UserCircle,
   Volume2,
 } from '@/icons';
 import { cn } from '../lib/utils';
@@ -29,6 +32,8 @@ import { Button, Card, IconButton, TopBar } from './ui';
 
 interface SettingsScreenProps {
   onBack: () => void;
+  onOpenProfile?: () => void;
+  onOpenAchievements?: () => void;
 }
 
 async function compressAvatarFile(file: File): Promise<string> {
@@ -150,8 +155,8 @@ function SettingsRow({
   );
 }
 
-export default function SettingsScreen({ onBack }: SettingsScreenProps) {
-  const { user } = useAuth();
+export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievements }: SettingsScreenProps) {
+  const { user, logout } = useAuth();
   const [settings, setSettings] = useState<AppUISettings>(() => resolveAppUISettings(undefined));
   const [chatAvatars, setChatAvatars] = useState<ChatAvatarSettings>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -235,11 +240,15 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    onBack();
+  };
+
   return (
     <div className="min-h-app pb-safe">
       <TopBar
         title="设置"
-        subtitle="外观、音量与对话头像"
         leftSlot={(
           <IconButton aria-label="返回" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
@@ -248,6 +257,58 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
       />
 
       <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-6">
+        <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/15 bg-surface p-4">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary-container">
+            {user?.avatar ? (
+              <img alt="用户头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+            ) : (
+              <span className="text-lg font-bold text-on-primary-container">{(user?.name || '?')[0]}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-black text-on-surface">{user?.name || '用户'}</h3>
+            <p className="text-sm text-on-surface-variant">{user?.type === 'parent' ? '家长端' : '学生端'} · {user?.phone || ''}</p>
+          </div>
+        </div>
+
+        <Card className="space-y-3 p-4 md:p-5">
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">快捷入口</h2>
+
+          <div className="grid grid-cols-2 gap-3">
+            {onOpenProfile ? (
+              <button
+                type="button"
+                onClick={onOpenProfile}
+                className="flex items-center gap-3 rounded-2xl border border-outline-variant/15 bg-surface p-3 text-left transition-colors hover:bg-surface-container"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-container">
+                  <UserCircle className="h-5 w-5 text-on-secondary-container" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-on-surface">个人资料</p>
+                  <p className="text-xs text-on-surface-variant">头像、昵称、年龄</p>
+                </div>
+              </button>
+            ) : null}
+
+            {onOpenAchievements ? (
+              <button
+                type="button"
+                onClick={onOpenAchievements}
+                className="flex items-center gap-3 rounded-2xl border border-outline-variant/15 bg-surface p-3 text-left transition-colors hover:bg-surface-container"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-tertiary-container">
+                  <Trophy className="h-5 w-5 text-on-tertiary-container" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-on-surface">我的成就</p>
+                  <p className="text-xs text-on-surface-variant">徽章、里程碑</p>
+                </div>
+              </button>
+            ) : null}
+          </div>
+        </Card>
+
         <Card className="space-y-4 p-4 md:p-5">
           <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">对话头像</h2>
 
@@ -444,6 +505,15 @@ export default function SettingsScreen({ onBack }: SettingsScreenProps) {
             </>
           )}
         </Button>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-error/20 bg-error-container/15 py-3.5 text-sm font-bold text-error transition-colors hover:bg-error-container/30"
+        >
+          <LogOut className="h-4 w-4" />
+          退出登录
+        </button>
       </main>
     </div>
   );

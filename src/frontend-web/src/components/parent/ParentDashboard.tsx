@@ -35,7 +35,7 @@ import type {
 } from '@/types';
 import AIChatPage from '../AIChatPage';
 import ReportDetail from '../ReportDetail';
-import { Card, EmptyState, IconButton } from '../ui';
+import { Card, EmptyState } from '../ui';
 import AbilityRadar from './AbilityRadar';
 import AbilityTrend from './AbilityTrend';
 import AIInsightsPanel from './AIInsightsPanel';
@@ -54,7 +54,7 @@ interface ParentDashboardProps {
 const tabs = [
   { key: 'chat' as const, label: '对话', Icon: MessageCircle },
   { key: 'report' as const, label: '报告', Icon: BarChart3 },
-  { key: 'controls' as const, label: '控制', Icon: Settings },
+  { key: 'settings' as const, label: '设置', Icon: Settings },
   { key: 'assignments' as const, label: '作业', Icon: ClipboardList },
 ];
 
@@ -435,13 +435,8 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
               <div className="min-w-0">
                 <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">灵犀伴学 · 家长端</h1>
-                <p className="text-xs font-semibold text-on-surface-variant">成长看板与学习控制中心</p>
               </div>
             </div>
-
-            <IconButton onClick={handleLogout} aria-label="退出登录" className="text-error hover:bg-error-container/20">
-              <LogOut className="h-5 w-5" />
-            </IconButton>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -516,7 +511,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 <AIInsightsPanel
                   childName={selectedChild?.name || '孩子'}
                   insights={reportInsights}
-                  onAdjustPlan={() => setActiveTab('controls')}
+                  onAdjustPlan={() => setActiveTab('settings')}
                 />
 
                 <GrowthReportSection
@@ -594,18 +589,41 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
           </div>
         ) : null}
 
-        {activeTab === 'controls' ? (
+        {activeTab === 'settings' ? (
           <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
             {!selectedChildId ? (
               <NoChildSelected onBackToChat={() => setActiveTab('chat')} />
             ) : (
-              <ParentalControls
-                controls={controls}
-                studySchedule={INITIAL_STUDY_SCHEDULE}
-                onSave={handleSaveControls}
-                userId={user?.id ?? 0}
-                controlsRef={controlsRef}
-              />
+              <div className="space-y-5">
+                <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/15 bg-surface p-4">
+                  <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
+                    {user?.avatar ? (
+                      <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-black text-on-surface">{user?.name || '家长'}</h3>
+                    <p className="text-sm text-on-surface-variant">家长端 · {user?.phone || ''}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="touch-target flex items-center gap-1.5 rounded-full bg-error-container/20 px-3 py-1.5 text-sm font-bold text-error transition-colors hover:bg-error-container/40"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    退出
+                  </button>
+                </div>
+                <ParentalControls
+                  controls={controls}
+                  studySchedule={INITIAL_STUDY_SCHEDULE}
+                  onSave={handleSaveControls}
+                  userId={user?.id ?? 0}
+                  controlsRef={controlsRef}
+                />
+              </div>
             )}
           </div>
         ) : null}

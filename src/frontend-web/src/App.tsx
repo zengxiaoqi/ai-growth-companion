@@ -166,7 +166,6 @@ function StudentHomeRoute() {
         onBack={() => navigate('/mode')}
         onOpenContent={(contentId) => navigate(`/student/content/${contentId}`)}
         onOpenAchievements={() => navigate('/student/achievements')}
-        onOpenProfile={() => navigate('/student/profile')}
         onOpenSettings={() => navigate('/student/settings')}
         onOpenCompanion={() => navigate('/student/companion')}
         onOpenAssignment={(assignment) => {
@@ -263,7 +262,11 @@ function StudentSettingsRoute() {
   const navigate = useNavigate();
   return (
     <Suspense fallback={<PageLoader />}>
-      <SettingsScreen onBack={() => navigate('/student')} />
+      <SettingsScreen
+        onBack={() => navigate('/student')}
+        onOpenProfile={() => navigate('/student/profile')}
+        onOpenAchievements={() => navigate('/student/achievements')}
+      />
     </Suspense>
   );
 }

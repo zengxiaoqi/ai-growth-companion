@@ -23,14 +23,18 @@ export default function AnimationScenePlayer({
   isCompleted,
   onComplete,
 }: AnimationScenePlayerProps) {
-  const playback = useAnimationPlayback({
-    scenes,
-    onAllScenesComplete: () => {},
-  });
-
   const tts = useTTSSync();
   const [showNarration, setShowNarration] = useState(true);
   const [allWatched, setAllWatched] = useState(false);
+
+  // Expose TTS playing state so the playback hook can wait for it before advancing
+  const isTTSAudioPlayingFn = useCallback(() => tts.isPlaying, [tts.isPlaying]);
+
+  const playback = useAnimationPlayback({
+    scenes,
+    onAllScenesComplete: () => {},
+    isTTSAudioPlaying: isTTSAudioPlayingFn,
+  });
 
   const currentScene = playback.currentScene;
 

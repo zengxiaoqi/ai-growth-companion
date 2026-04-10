@@ -27,7 +27,15 @@ export default function P5Canvas({
   const rafRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const durationRef = useRef<number>((params.durationSec as number) || 10);
+  const isPlayingRef = useRef(isPlaying);
+  const sceneCompleteFiredRef = useRef(false);
 
+  // Keep ref in sync so the init callback reads the latest value
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Create p5 instance and immediately apply play/pause state
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -44,12 +52,20 @@ export default function P5Canvas({
       }, containerRef.current);
 
       p5Ref.current = instance;
+
+      // p5 starts with loop() by default. If we're not playing, pause it.
+      if (!isPlayingRef.current) {
+        instance.noLoop();
+      } else {
+        startPlayback(instance);
+      }
     };
 
     initP5();
 
     return () => {
       cancelled = true;
+      stopPlayback();
       if (p5Ref.current) {
         p5Ref.current.remove();
         p5Ref.current = null;
@@ -59,36 +75,46 @@ export default function P5Canvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sketch, JSON.stringify(params)]);
 
-  // Handle play/pause via p5 loop control
+  // Handle play/pause changes after initial mount
   useEffect(() => {
     const p = p5Ref.current;
     if (!p) return;
 
     if (isPlaying) {
-      p.loop();
-      startTimeRef.current = Date.now();
-      const duration = durationRef.current * 1000;
-
-      const tick = () => {
-        if (!p5Ref.current) return;
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-        onDurationTick?.(elapsed);
-        if (elapsed * 1000 >= duration) {
-          onSceneComplete?.();
-          return;
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
+      startPlayback(p);
     } else {
+      stopPlayback();
       p.noLoop();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying]);
 
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  function startPlayback(p: p5) {
+    p.loop();
+    startTimeRef.current = Date.now();
+    sceneCompleteFiredRef.current = false;
+    const duration = durationRef.current * 1000;
+
+    const tick = () => {
+      if (!p5Ref.current || sceneCompleteFiredRef.current) return;
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      onDurationTick?.(elapsed);
+      if (elapsed * 1000 >= duration) {
+        sceneCompleteFiredRef.current = true;
+        onSceneComplete?.();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
     };
-  }, [isPlaying, onDurationTick, onSceneComplete]);
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  function stopPlayback() {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+  }
 
   return <div ref={containerRef} className={className} />;
 }

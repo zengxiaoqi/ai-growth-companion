@@ -1,6 +1,7 @@
 /**
  * Animation playback state machine.
  * Manages scene sequencing, timing, and auto-advance logic.
+ * Scene advance waits for the longer of (scene durationSec) or (TTS playback).
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { AnimationSceneConfig, PlaybackState } from '../types';
@@ -8,6 +9,8 @@ import type { AnimationSceneConfig, PlaybackState } from '../types';
 interface UseAnimationPlaybackOptions {
   scenes: AnimationSceneConfig[];
   onAllScenesComplete?: () => void;
+  /** Called to get whether TTS audio is still playing */
+  isTTSAudioPlaying?: () => boolean;
 }
 
 export interface AnimationPlayback {
@@ -27,6 +30,7 @@ export interface AnimationPlayback {
 export function useAnimationPlayback({
   scenes,
   onAllScenesComplete,
+  isTTSAudioPlaying,
 }: UseAnimationPlaybackOptions): AnimationPlayback {
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [playbackState, setPlaybackState] = useState<PlaybackState>('loading');
@@ -62,21 +66,39 @@ export function useAnimationPlayback({
       return;
     }
     setCurrentSceneIndex(index);
-    setPlaybackState('ready');
+    setPlaybackState('playing');
     setSceneProgress(0);
     sceneCompleteRef.current = false;
-    setNeedsUserTap(false); // Auto-advance after first user tap
   }, [scenes.length, onAllScenesComplete]);
 
   const onSceneComplete = useCallback(() => {
     if (sceneCompleteRef.current) return;
     sceneCompleteRef.current = true;
     setSceneProgress(1);
-    // Auto advance after a short delay
-    setTimeout(() => {
+
+    const attemptAdvance = () => {
       advanceToScene(currentSceneIndex + 1);
-    }, 500);
-  }, [currentSceneIndex, advanceToScene]);
+    };
+
+    // Wait for TTS audio to finish before advancing, if a checker is provided
+    if (isTTSAudioPlaying && isTTSAudioPlaying()) {
+      const pollInterval = setInterval(() => {
+        if (!isTTSAudioPlaying()) {
+          clearInterval(pollInterval);
+          clearTimeout(safetyTimer);
+          attemptAdvance();
+        }
+      }, 150);
+      // Safety: max 8s extra wait for TTS
+      const safetyTimer = setTimeout(() => {
+        clearInterval(pollInterval);
+        attemptAdvance();
+      }, 8000);
+    } else {
+      // No TTS or TTS already done — short delay then advance
+      setTimeout(attemptAdvance, 500);
+    }
+  }, [currentSceneIndex, advanceToScene, isTTSAudioPlaying]);
 
   const nextScene = useCallback(() => {
     advanceToScene(Math.min(currentSceneIndex + 1, scenes.length));

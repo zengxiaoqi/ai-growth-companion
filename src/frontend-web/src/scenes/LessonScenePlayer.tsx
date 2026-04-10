@@ -65,18 +65,54 @@ export default function LessonScenePlayer({
     }
   }, [currentScene?.narration, voice]);
 
+  // Playback auto-advance: wait for the longer of (durationSec) or (TTS audio)
   useEffect(() => {
     if (document.mode !== 'playback' || !isPlaying || !currentScene) return;
     speakCurrentScene();
+
+    const durationMs = currentScene.durationSec * 1000;
+
+    // Timer for the visual duration
     const timer = window.setTimeout(() => {
-      if (isLastScene) {
-        setIsPlaying(false);
+      // If TTS is still playing, wait for it to finish before advancing
+      if (voice.isPlaying) {
+        // Poll until voice finishes, then advance
+        const waitForVoice = setInterval(() => {
+          if (!voice.isPlaying) {
+            clearInterval(waitForVoice);
+            advanceScene();
+          }
+        }, 200);
+        // Safety: max 10s extra wait
+        const safetyTimer = window.setTimeout(() => {
+          clearInterval(waitForVoice);
+          advanceScene();
+        }, 10000);
+        // Store cleanup refs
+        return () => {
+          clearInterval(waitForVoice);
+          clearTimeout(safetyTimer);
+        };
       } else {
-        setCurrentIndex((prev) => prev + 1);
+        advanceScene();
       }
-    }, currentScene.durationSec * 1000);
+    }, durationMs);
+
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentScene, document.mode, isLastScene, isPlaying, speakCurrentScene]);
+
+  function advanceScene() {
+    setIsPlaying((prev) => {
+      if (!prev) return prev;
+      if (isLastScene) {
+        return false;
+      } else {
+        setCurrentIndex((ci) => ci + 1);
+        return true;
+      }
+    });
+  }
 
   useEffect(() => {
     if (document.mode === 'activity_shell') {

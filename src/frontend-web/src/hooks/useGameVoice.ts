@@ -1,13 +1,15 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import api from '@/services/api';
 import { getAudioVolume } from '@/lib/app-settings';
 
 /**
  * Hook for TTS voice playback in game components.
  * Handles stripping markdown, stopping previous audio, and error handling.
+ * Exposes isPlaying state so callers can wait for audio to finish.
  */
 export function useGameVoice() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const speak = useCallback((text: string) => {
     if (!text) return;
@@ -30,8 +32,19 @@ export function useGameVoice() {
     const audio = new Audio(api.getTTSUrl(plainText));
     audio.volume = getAudioVolume();
     audioRef.current = audio;
-    audio.onerror = () => { audioRef.current = null; };
-    audio.play().catch(() => { audioRef.current = null; });
+    setIsPlaying(true);
+    audio.onended = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    audio.play().catch(() => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    });
   }, []);
 
   const stop = useCallback(() => {
@@ -39,7 +52,8 @@ export function useGameVoice() {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    setIsPlaying(false);
   }, []);
 
-  return { speak, stop };
+  return { speak, stop, isPlaying };
 }

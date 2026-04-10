@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ActivityResult, LaunchActivityInteraction, LessonSceneDocument, TracePathInteraction } from '@/types';
 import { Button, Card } from '@/components/ui';
 import GameRenderer from '@/components/games/GameRenderer';
@@ -66,53 +66,59 @@ export default function LessonScenePlayer({
   }, [currentScene?.narration, voice]);
 
   // Playback auto-advance: wait for the longer of (durationSec) or (TTS audio)
+  // Cleanup is tracked via a ref so inner polls are always cancelled on unmount or scene change.
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voicePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advancedRef = useRef(false);
+
+  // Cleanup helpers
+  const clearAllTimers = useCallback(() => {
+    if (advanceTimerRef.current) { clearTimeout(advanceTimerRef.current); advanceTimerRef.current = null; }
+    if (voicePollRef.current) { clearInterval(voicePollRef.current); voicePollRef.current = null; }
+    if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+  }, []);
+
   useEffect(() => {
     if (document.mode !== 'playback' || !isPlaying || !currentScene) return;
+
+    // Stop previous TTS before starting new one to prevent overlap
+    voice.stop();
     speakCurrentScene();
 
+    advancedRef.current = false;
     const durationMs = currentScene.durationSec * 1000;
 
+    const doAdvance = () => {
+      if (advancedRef.current) return;
+      advancedRef.current = true;
+      clearAllTimers();
+      if (isLastScene) {
+        setIsPlaying(false);
+      } else {
+        setCurrentIndex((ci) => ci + 1);
+      }
+    };
+
     // Timer for the visual duration
-    const timer = window.setTimeout(() => {
+    advanceTimerRef.current = window.setTimeout(() => {
       // If TTS is still playing, wait for it to finish before advancing
       if (voice.isPlaying) {
-        // Poll until voice finishes, then advance
-        const waitForVoice = setInterval(() => {
+        voicePollRef.current = setInterval(() => {
           if (!voice.isPlaying) {
-            clearInterval(waitForVoice);
-            advanceScene();
+            doAdvance();
           }
-        }, 200);
-        // Safety: max 10s extra wait
-        const safetyTimer = window.setTimeout(() => {
-          clearInterval(waitForVoice);
-          advanceScene();
-        }, 10000);
-        // Store cleanup refs
-        return () => {
-          clearInterval(waitForVoice);
-          clearTimeout(safetyTimer);
-        };
+        }, 150);
+        // Safety: max 8s extra wait
+        safetyTimerRef.current = window.setTimeout(doAdvance, 8000);
       } else {
-        advanceScene();
+        doAdvance();
       }
     }, durationMs);
 
-    return () => window.clearTimeout(timer);
+    return clearAllTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentScene, document.mode, isLastScene, isPlaying, speakCurrentScene]);
-
-  function advanceScene() {
-    setIsPlaying((prev) => {
-      if (!prev) return prev;
-      if (isLastScene) {
-        return false;
-      } else {
-        setCurrentIndex((ci) => ci + 1);
-        return true;
-      }
-    });
-  }
+  }, [currentScene, document.mode, isLastScene, isPlaying, speakCurrentScene, clearAllTimers]);
 
   useEffect(() => {
     if (document.mode === 'activity_shell') {

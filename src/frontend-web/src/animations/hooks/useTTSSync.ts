@@ -28,10 +28,12 @@ export function useTTSSync(): TTSSyncState & TTSSyncControls {
   const [error, setError] = useState<string | null>(null);
 
   const preload = useCallback((text: string, voice = 'zh-CN-XiaoxiaoNeural') => {
-    // Cleanup previous audio
+    // Cleanup previous audio to prevent overlap/noise
     if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+      audioRef.current = null;
     }
 
     setIsLoaded(false);
@@ -57,8 +59,10 @@ export function useTTSSync(): TTSSyncState & TTSSyncControls {
       return;
     }
 
-    const audio = new Audio(api.getTTSUrl(plainText, voice));
+    const audio = new Audio();
     audio.preload = 'auto';
+    // Set src after listeners to avoid race with cached audio firing events immediately
+    const src = api.getTTSUrl(plainText, voice);
 
     audio.oncanplaythrough = () => setIsLoaded(true);
     audio.ondurationchange = () => setDuration(audio.duration || 0);
@@ -68,6 +72,7 @@ export function useTTSSync(): TTSSyncState & TTSSyncControls {
       setIsLoaded(true); // Allow playback to proceed without audio
     };
 
+    audio.src = src;
     audioRef.current = audio;
   }, []);
 

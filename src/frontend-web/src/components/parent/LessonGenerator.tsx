@@ -336,14 +336,18 @@ export default function LessonGenerator({
   };
 
   const handleReset = () => {
-    setTopic('');
-    setDomainTouched(false);
     setGeneratedContent(null);
     setLessonData(null);
     setModificationText('');
     setError(null);
     setExpandedStep(null);
+    setIsGenerating(false);
+    setGenerationProgress('');
     resetVideoPreviewState();
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   };
 
   // ── Video generation + approval ─────────────────────────────────

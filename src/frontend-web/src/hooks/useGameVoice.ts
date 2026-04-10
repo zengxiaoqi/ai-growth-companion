@@ -13,9 +13,11 @@ export function useGameVoice() {
 
   const speak = useCallback((text: string) => {
     if (!text) return;
-    // Stop current audio
+    // Fully stop and release current audio to prevent overlap/noise
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
       audioRef.current = null;
     }
 
@@ -29,18 +31,23 @@ export function useGameVoice() {
 
     if (!plainText) return;
 
-    const audio = new Audio(api.getTTSUrl(plainText));
+    const audio = new Audio();
     audio.volume = getAudioVolume();
+    // Attach listeners before setting src to avoid race with cached audio
+    const src = api.getTTSUrl(plainText);
+    const onEnded = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    const onError = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    audio.onended = onEnded;
+    audio.onerror = onError;
+    audio.src = src;
     audioRef.current = audio;
     setIsPlaying(true);
-    audio.onended = () => {
-      setIsPlaying(false);
-      audioRef.current = null;
-    };
-    audio.onerror = () => {
-      setIsPlaying(false);
-      audioRef.current = null;
-    };
     audio.play().catch(() => {
       setIsPlaying(false);
       audioRef.current = null;
@@ -50,6 +57,8 @@ export function useGameVoice() {
   const stop = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
       audioRef.current = null;
     }
     setIsPlaying(false);

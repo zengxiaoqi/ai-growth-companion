@@ -38,8 +38,9 @@ export default function AnimationScenePlayer({
 
   const currentScene = playback.currentScene;
 
-  // Preload TTS when scene changes
+  // Preload TTS when scene changes — stop previous audio first to prevent overlap/noise
   useEffect(() => {
+    tts.stop();
     if (currentScene?.narration) {
       tts.preload(currentScene.narration);
     }
@@ -53,6 +54,12 @@ export default function AnimationScenePlayer({
     if (playback.playbackState === 'paused') {
       tts.pause();
     }
+    // Stop TTS when playback is done or scene changes
+    return () => {
+      if (playback.playbackState !== 'playing') {
+        tts.stop();
+      }
+    };
   }, [playback.playbackState, tts.isLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track if all scenes have been watched

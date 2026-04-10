@@ -421,39 +421,27 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       <div className="pointer-events-none absolute -left-10 top-16 h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-20 top-52 h-80 w-80 rounded-full bg-primary-container/25 blur-3xl" />
 
-      <header className="sticky top-0 z-40 px-3 pt-safe md:px-6">
-        <div className="panel-card-strong mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 md:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
-                {user?.avatar ? (
-                  <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
-                )}
-              </div>
-
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">灵犀伴学 · 家长端</h1>
-              </div>
-            </div>
+      <header className="px-3 pt-safe md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
+            {user?.avatar ? (
+              <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+            ) : (
+              <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <ChildSelector
-              children={children}
-              selectedChildId={selectedChildId}
-              onSelectChild={setSelectedChildId}
-              onLinkChild={handleLinkChild}
-              selectedChild={selectedChild}
-            />
-
-            {selectedChild ? (
-              <div className="rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-bold text-on-surface-variant">
-                当前孩子: {selectedChild.name}
-              </div>
-            ) : null}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">灵犀伴学 · 家长端</h1>
           </div>
+
+          <ChildSelector
+            children={children}
+            selectedChildId={selectedChildId}
+            onSelectChild={setSelectedChildId}
+            onLinkChild={handleLinkChild}
+            selectedChild={selectedChild}
+          />
         </div>
       </header>
 
@@ -473,7 +461,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         </div>
       ) : null}
 
-      <main className="relative mx-auto mt-3 flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-[calc(6.5rem+var(--safe-area-bottom))] md:px-6">
+      <main className="relative mx-auto mt-2 flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-4 md:px-6">
         {selectedChildId && activeTab !== 'chat' ? (
           <section className="content-visibility-auto mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {quickOverview.map((item) => (
@@ -660,14 +648,14 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         ) : null}
       </main>
 
-      <nav className="fixed bottom-safe left-0 right-0 z-50 px-4 pb-safe md:px-6">
-        <div className="floating-nav mx-auto flex max-w-6xl items-center justify-around rounded-full px-2 py-1.5">
+      <nav className="px-3 pb-safe md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-2 py-1.5">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'touch-target flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-all tactile-press',
+                'touch-target flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-all',
                 activeTab === tab.key
                   ? 'bg-primary-container/35 text-primary'
                   : 'text-on-surface-variant hover:text-on-surface',

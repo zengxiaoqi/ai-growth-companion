@@ -362,30 +362,26 @@ export default function StudentDashboard({
   const userName = user?.name || '小朋友';
 
   return (
-    <div className="app-shell min-h-app pb-[calc(10rem+var(--safe-area-bottom))]">
+    <div className="app-shell min-h-app pb-safe">
       <div className="pointer-events-none absolute -left-16 top-20 h-64 w-64 rounded-full bg-primary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-10 top-[35%] h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
 
-      <header className="sticky top-0 z-40 px-3 pt-safe md:px-6">
-        <div className="panel-card-strong mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
+      <header className="px-3 pt-safe md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 overflow-hidden rounded-2xl border border-primary-container/60 bg-surface-container-lowest shadow-card">
+            <div className="h-10 w-10 overflow-hidden rounded-2xl border border-primary-container/60 bg-surface-container-lowest">
               <img
                 className="h-full w-full object-cover"
                 src={user?.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCH84Uq0GW6Qmul4GmAsWrEgJqdNE5jjMcIbBe7kwfQ2hYAHKPmiFWbl3aNTwuFyiGlShFEi5MFOD1p0-oX98nOamNY7ksdaX71sx7TFqaAdXNQ38NvDGjE3Fkb-0oVPa-H513VLwzALu0Q1nm7nvM7epfqKThrc0fEvaiADvzEG7MpR2CqK8fUkFBEWXLoU1gIe68QgYeIqK_W2C2HmCcVRvtl7lBc_oRFXgONUbLf0QhmZreiC5aQ8Ow2zjaOwudcC6RVVyls1Kg'}
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight md:text-2xl">灵犀伴学</h1>
-            </div>
+            <h1 className="text-lg font-black tracking-tight md:text-xl">灵犀伴学</h1>
           </div>
 
-          <div className="flex gap-1.5 md:gap-2">
-            <button onClick={onOpenSettings} aria-label="打开设置" className="touch-target rounded-xl p-2.5 transition-colors hover:bg-surface-container">
-              <Settings className="h-5 w-5 text-on-secondary-container md:h-6 md:w-6" />
-            </button>
-          </div>
+          <button onClick={onOpenSettings} aria-label="打开设置" className="touch-target rounded-xl p-2 transition-colors hover:bg-surface-container">
+            <Settings className="h-5 w-5 text-on-secondary-container" />
+          </button>
         </div>
       </header>
 
@@ -860,8 +856,8 @@ export default function StudentDashboard({
         </section>
       </main>
 
-      <nav className="fixed bottom-safe left-0 right-0 z-50 px-4 pb-safe">
-        <div className="floating-nav mx-auto flex max-w-3xl items-center justify-around rounded-full px-4 py-2.5">
+      <nav className="px-3 pb-safe md:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-2.5">
           <button onClick={() => scrollToSection('curriculum')} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
             <BookOpen className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">课程</span>
@@ -880,7 +876,7 @@ export default function StudentDashboard({
       <button
         aria-label="紧急呼叫"
         onClick={() => setShowEmergencyDialog(true)}
-        className="fixed bottom-32 right-5 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-error text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 md:right-7"
+        className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-error text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 md:right-7"
       >
         <AlertCircle className="h-8 w-8 fill-current" />
       </button>

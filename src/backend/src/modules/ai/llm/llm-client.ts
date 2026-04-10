@@ -72,14 +72,15 @@ export class LlmClient {
   }
 
   /** Strip <think...</think-> blocks from LLM output (reasoning tokens).
-   *  Handles thinking blocks anywhere in the string, not just at the start.
+   *  MiniMax format: <think\n...reasoning...\n</think->\n\nanswer
+   *  Handles thinking blocks anywhere in the string.
    */
   private stripThinking(text: string): string {
     if (!text) return '';
-    // Remove all <think...>...</think-> blocks (with or without attributes)
-    let result = text.replace(/<think[^>]*>[\s\S]*?<\/think\s*>/g, '').trim();
+    // Remove all <think...>...</think*> blocks (closed tags, with or without attributes)
+    let result = text.replace(/<think\b[\s\S]*?<\/think.*?>/g, '').trim();
     // Also handle unclosed <think at end of string
-    result = result.replace(/<think[^>]*>[\s\S]*$/g, '').trim();
+    result = result.replace(/<think\b[\s\S]*$/g, '').trim();
     return result;
   }
 
@@ -93,15 +94,26 @@ export class LlmClient {
 
     const response = await this.chatCompletion(messages);
     const raw = response.choices[0]?.message?.content ?? '';
+
+    // Debug: log raw response length and first 200 chars when it looks like thinking-only
+    if (raw && raw.startsWith('<think')) {
+      this.logger.debug(`generate() raw response starts with <think, length=${raw.length}, preview=${raw.slice(0, 200)}`);
+    } else if (!raw) {
+      this.logger.debug(`generate() raw response is empty, finish_reason=${response.choices[0]?.finish_reason}`);
+    }
+
     let result = this.stripThinking(raw);
 
-    // If the response was only thinking (no visible content), retry without tool_choice
+    // If the response was only thinking (no visible content), retry once
     if (!result) {
-      this.logger.warn('generate() produced empty content after stripThinking, retrying...');
+      this.logger.warn(`generate() produced empty content after stripThinking (raw length=${raw.length}), retrying...`);
       try {
         const retry = await this.chatCompletion(messages);
         const retryRaw = retry.choices[0]?.message?.content ?? '';
         result = this.stripThinking(retryRaw);
+        if (!result && retryRaw) {
+          this.logger.warn(`generate() retry still empty after strip (retryRaw length=${retryRaw.length}, starts=${retryRaw.slice(0, 100)})`);
+        }
       } catch (err: any) {
         this.logger.warn(`generate() retry failed: ${err.message}`);
       }

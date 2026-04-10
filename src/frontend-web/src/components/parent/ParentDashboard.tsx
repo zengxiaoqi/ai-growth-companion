@@ -397,6 +397,10 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     navigate(`/parent/content/${draftLesson.id}`);
   }, [navigate]);
 
+  const handleViewCoursePack = useCallback((_coursePackId: number) => {
+    setActiveTab('assignments');
+  }, []);
+
   const handleEditDraftLesson = useCallback((draftLesson: DraftLessonSummary) => {
     setDraftLessonToEdit(draftLesson);
     setActiveTab('assignments');
@@ -619,7 +623,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   onDraftLessonLoaded={() => setDraftLessonToEdit(null)}
                   onDraftLessonUpdated={handleDraftLessonUpdated}
                 />
-                <CoursePackManager selectedChildId={selectedChildId} />
+                <CoursePackManager selectedChildId={selectedChildId} onCoursePackGenerated={handleDraftLessonUpdated} />
                 <AssignmentManager
                   assignments={assignments}
                   draftLessons={draftLessons}
@@ -627,6 +631,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   selectedChildId={selectedChildId}
                   onViewDraftLesson={handleViewDraftLesson}
                   onEditDraftLesson={handleEditDraftLesson}
+                  onViewCoursePack={handleViewCoursePack}
                   onCreateAssignment={handleCreateAssignment}
                   onUpdateAssignment={handleUpdateAssignment}
                   onDeleteAssignment={handleDeleteAssignment}

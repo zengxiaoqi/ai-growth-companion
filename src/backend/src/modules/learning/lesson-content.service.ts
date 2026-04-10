@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { Content } from '../../database/entities/content.entity';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { Assignment } from '../../database/entities/assignment.entity';
+import { StudyPlanRecord } from '../../database/entities/study-plan-record.entity';
 import { ContentsService } from '../contents/contents.service';
 import { GenerateCoursePackTool } from '../ai/agent/tools/generate-course-pack';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
@@ -109,6 +110,8 @@ export class LessonContentService {
     private readonly recordRepo: Repository<LearningRecord>,
     @InjectRepository(Assignment)
     private readonly assignmentRepo: Repository<Assignment>,
+    @InjectRepository(StudyPlanRecord)
+    private readonly studyPlanRepo: Repository<StudyPlanRecord>,
     private readonly contentsService: ContentsService,
     private readonly generateCoursePackTool: GenerateCoursePackTool,
     private readonly generateActivityTool: GenerateActivityTool,
@@ -146,7 +149,7 @@ export class LessonContentService {
         updatedAt: Date | string;
       }>();
 
-    return drafts.map((draft) => ({
+    const structuredLessonDrafts = drafts.map((draft) => ({
       id: Number(draft.id),
       title: draft.title,
       subtitle: draft.subtitle || null,
@@ -157,6 +160,44 @@ export class LessonContentService {
       createdAt: draft.createdAt instanceof Date ? draft.createdAt.toISOString() : new Date(draft.createdAt).toISOString(),
       updatedAt: draft.updatedAt instanceof Date ? draft.updatedAt.toISOString() : new Date(draft.updatedAt).toISOString(),
     }));
+
+    const coursePackDrafts = await this.studyPlanRepo
+      .createQueryBuilder('plan')
+      .select([
+        'plan.id AS id',
+        'plan.title AS title',
+        'plan.sourceType AS sourceType',
+        'plan.status AS status',
+        'plan.createdAt AS createdAt',
+        'plan.updatedAt AS updatedAt',
+      ])
+      .where('plan.childId = :childId', { childId })
+      .andWhere('plan.sourceType = :sourceType', { sourceType: 'ai_course_pack' })
+      .orderBy('plan.createdAt', 'DESC')
+      .getRawMany<{
+        id: number;
+        title: string;
+        sourceType: string;
+        status: string;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+      }>();
+
+    const mappedCoursePackDrafts: DraftLessonSummary[] = coursePackDrafts.map((row) => ({
+      id: Number(row.id),
+      title: row.title,
+      subtitle: null,
+      domain: '',
+      status: row.status || 'draft',
+      contentType: 'course_pack',
+      childId,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date(row.createdAt).toISOString(),
+      updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : new Date(row.updatedAt).toISOString(),
+    }));
+
+    return [...structuredLessonDrafts, ...mappedCoursePackDrafts].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 
   /**

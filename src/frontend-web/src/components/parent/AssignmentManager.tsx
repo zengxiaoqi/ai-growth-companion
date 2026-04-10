@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  BookOpen,
   CheckCircle,
   ClipboardList,
   Clock,
@@ -23,6 +24,7 @@ interface AssignmentManagerProps {
   selectedChildId: number | null;
   onViewDraftLesson: (draftLesson: DraftLessonSummary) => void;
   onEditDraftLesson: (draftLesson: DraftLessonSummary) => void;
+  onViewCoursePack: (coursePackId: number) => void;
   onCreateAssignment: (data: {
     activityType: string;
     domain: string;
@@ -48,6 +50,7 @@ export default function AssignmentManager({
   selectedChildId,
   onViewDraftLesson,
   onEditDraftLesson,
+  onViewCoursePack,
   onCreateAssignment,
   onUpdateAssignment,
   onDeleteAssignment,
@@ -301,12 +304,13 @@ export default function AssignmentManager({
 
           {sortedDraftLessons.map((draftLesson) => {
             const domainConfig = DOMAIN_CONFIG[draftLesson.domain || ''];
+            const isCoursePack = draftLesson.contentType === 'course_pack';
 
             return (
-              <Card key={draftLesson.id} className="space-y-4 p-4">
+              <Card key={`${draftLesson.contentType}-${draftLesson.id}`} className="space-y-4 p-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-container/30">
-                    <ClipboardList className="h-5 w-5 text-on-secondary-container" />
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isCoursePack ? 'bg-primary-container/30' : 'bg-secondary-container/30'}`}>
+                    {isCoursePack ? <BookOpen className="h-5 w-5 text-on-primary-container" /> : <ClipboardList className="h-5 w-5 text-on-secondary-container" />}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -325,19 +329,27 @@ export default function AssignmentManager({
                     </div>
                   </div>
 
-                  <span className="shrink-0 rounded-full bg-secondary-container px-3 py-1 text-xs font-black text-on-secondary-container">
-                    草稿
+                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${isCoursePack ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'}`}>
+                    {isCoursePack ? '课程包' : '草稿'}
                   </span>
                 </div>
 
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => onViewDraftLesson(draftLesson)}>
-                    查看
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => onEditDraftLesson(draftLesson)}>
-                    <Wrench className="h-4 w-4" />
-                    编辑
-                  </Button>
+                  {isCoursePack ? (
+                    <Button variant="ghost" size="sm" onClick={() => onViewCoursePack(draftLesson.id)}>
+                      查看
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => onViewDraftLesson(draftLesson)}>
+                        查看
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => onEditDraftLesson(draftLesson)}>
+                        <Wrench className="h-4 w-4" />
+                        编辑
+                      </Button>
+                    </>
+                  )}
                 </div>
               </Card>
             );

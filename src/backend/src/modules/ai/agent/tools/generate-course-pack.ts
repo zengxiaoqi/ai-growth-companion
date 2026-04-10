@@ -570,7 +570,7 @@ export class GenerateCoursePackTool {
         return { activities: ['起床', '上学', '午餐', '放学', '睡觉'], highlightIndex: 0 };
       default:
         return {};
-    }
+     }
   }
 
   private mergeWatchSceneDocuments(

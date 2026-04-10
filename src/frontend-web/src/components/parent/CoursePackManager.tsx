@@ -6,6 +6,7 @@ import { Button, Card, EmptyState } from '../ui';
 
 interface CoursePackManagerProps {
   selectedChildId: number | null;
+  onCoursePackGenerated?: () => void | Promise<void>;
 }
 
 const FOCUS_OPTIONS = [
@@ -25,7 +26,7 @@ type ExportFormat =
   | 'subtitle_srt'
   | 'subtitle_srt_bilingual';
 
-export default function CoursePackManager({ selectedChildId }: CoursePackManagerProps) {
+export default function CoursePackManager({ selectedChildId, onCoursePackGenerated }: CoursePackManagerProps) {
   const [topic, setTopic] = useState('');
   const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
   const [durationMinutes, setDurationMinutes] = useState(20);
@@ -112,12 +113,13 @@ export default function CoursePackManager({ selectedChildId }: CoursePackManager
       }
       setTopic('');
       await loadPacks();
+      if (onCoursePackGenerated) await onCoursePackGenerated();
     } catch (genError: any) {
       setError(genError?.message || '生成课程包失败，请稍后重试');
     } finally {
       setIsGenerating(false);
     }
-  }, [durationMinutes, focus, loadPacks, loadVersionHistory, selectedChildId, topic]);
+  }, [durationMinutes, focus, loadPacks, loadVersionHistory, onCoursePackGenerated, selectedChildId, topic]);
 
   const handleViewPack = useCallback(async (record: CoursePackRecord) => {
     setPreviewRecordId(record.id);
@@ -259,12 +261,13 @@ export default function CoursePackManager({ selectedChildId }: CoursePackManager
       setPreviewRecordId(null);
       setVersionHistory([]);
       await loadPacks();
+      if (onCoursePackGenerated) await onCoursePackGenerated();
     } catch (weeklyError: any) {
       setError(weeklyError?.message || '生成周计划失败，请稍后重试');
     } finally {
       setIsGeneratingWeekly(false);
     }
-  }, [durationMinutes, focus, loadPacks, selectedChildId, topic, weeklyDays, weeklyStartDate]);
+  }, [durationMinutes, focus, loadPacks, onCoursePackGenerated, selectedChildId, topic, weeklyDays, weeklyStartDate]);
 
   const sortedPacks = useMemo(
     () => [...packs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),

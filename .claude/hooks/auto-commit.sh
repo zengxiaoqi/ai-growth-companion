@@ -45,8 +45,31 @@ resolve_project_dir() {
 }
 
 PROJECT_DIR=$(resolve_project_dir)
+PROJECT_DIR_WIN=""
 
 cd "$PROJECT_DIR" || exit 1
+
+resolve_windows_project_dir() {
+  local raw_dir windows_dir
+  raw_dir="${CLAUDE_PROJECT_DIR:?}"
+
+  if printf '%s' "$raw_dir" | grep -Eq '^[A-Za-z]:[\\/]'; then
+    printf '%s\n' "$(printf '%s' "$raw_dir" | sed 's#/#\\#g')"
+    return
+  fi
+
+  if command -v wslpath >/dev/null 2>&1; then
+    windows_dir=$(wslpath -w "$PROJECT_DIR" 2>/dev/null || true)
+    if [ -n "$windows_dir" ]; then
+      printf '%s\n' "$windows_dir"
+      return
+    fi
+  fi
+
+  printf '%s\n' "$raw_dir"
+}
+
+PROJECT_DIR_WIN=$(resolve_windows_project_dir)
 
 has_worktree_changes() {
   ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]
@@ -117,7 +140,7 @@ fallback_message_from_paths() {
 }
 
 generate_commit_message() {
-  local diff_content prompt response subject
+  local diff_content prompt response subject prompt_file prompt_file_win
 
   diff_content=$(
     {
@@ -132,25 +155,53 @@ generate_commit_message() {
   )
 
   prompt=$(cat <<'EOF'
-You are generating a git commit message.
-Based on the staged diff, write a professional Simplified Chinese commit message.
+You are generating a git commit subject line.
+Based on the staged git diff, write one professional, specific, concise commit title in Simplified Chinese.
 
-Requirements:
-- Output only the commit subject line.
-- Keep it under 32 Chinese characters and under 50 total characters.
-- Summarize the actual change content, not file count.
-- Prefer verbs like "新增" "修复" "优化" "调整" "重构" "更新".
-- If multiple files changed, describe the shared theme or the most important change.
-- Do not add quotes, bullets, prefixes, or explanations.
+Rules:
+- Output only the commit subject line, with no explanation.
+- Describe the actual change, not the number of files.
+- Prefer a concrete module, feature, or behavior change when possible.
+- If the diff is large, summarize the single most important change.
+- Start with a verb when natural, such as: 新增, 修复, 优化, 调整, 重构, 更新.
+- Keep it within 32 Chinese characters and under 50 total characters.
+- Do not use quotes, bullets, prefixes, suffixes, or markdown.
+- Good example: 修复课程视频渲染队列重试逻辑
 EOF
 )
 
-  if ! command -v claude >/dev/null 2>&1; then
+  prompt_file=$(mktemp 2>/dev/null || true)
+  if [ -z "$prompt_file" ]; then
     fallback_message_from_paths
     return
   fi
 
-  response=$(printf '%s\n' "$diff_content" | claude -p "$prompt" 2>/dev/null || true)
+  cat > "$prompt_file" <<EOF
+${prompt}
+
+Use the following staged git diff details to generate the commit title:
+
+${diff_content}
+EOF
+
+  if command -v node >/dev/null 2>&1 && command -v claude >/dev/null 2>&1; then
+    response=$(claude -p "$(cat "$prompt_file")" 2>/dev/null || true)
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    if command -v wslpath >/dev/null 2>&1; then
+      prompt_file_win=$(wslpath -w "$prompt_file" 2>/dev/null || true)
+    fi
+    if [ -z "${prompt_file_win:-}" ]; then
+      prompt_file_win="$prompt_file"
+    fi
+    response=$(powershell.exe -NoProfile -Command "& {
+      \$prompt = Get-Content -Raw -LiteralPath '$prompt_file_win'
+      claude -p \$prompt
+    }" 2>/dev/null | tr -d '\r' || true)
+  else
+    response=""
+  fi
+
+  rm -f "$prompt_file"
   subject=$(sanitize_commit_line "$response")
 
   if [ -n "$subject" ]; then

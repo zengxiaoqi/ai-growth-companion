@@ -443,6 +443,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const listen = stepModule('listen');
     const read = stepModule('read');
     const write = stepModule('write');
+    const practice = stepModule('practice');
+    const assess = stepModule('assess');
 
     return {
       title: content.title || (lesson as any).title || `${content.topic || '课程'} 全方位学习课`,
@@ -456,6 +458,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         listening: listen.listening || {},
         reading: read.reading || {},
         writing: write.writing || {},
+        game: practice.game || {},
+        quiz: assess.quiz || {},
       },
     };
   }

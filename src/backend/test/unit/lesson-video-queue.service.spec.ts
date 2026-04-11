@@ -79,6 +79,65 @@ describe('LessonVideoQueueService', () => {
     });
   });
 
+  it('preserves supplemental lesson modules in remotion payload', () => {
+    const listening = {
+      goal: '听听动物叫声',
+      audioScript: [{ segment: '猫叫', narration: '小猫喵喵叫。' }],
+      questions: ['谁在叫？'],
+    };
+    const reading = {
+      goal: '读读动物名称',
+      text: '小猫和小狗都是动物。',
+      keywords: ['小猫', '小狗'],
+      questions: ['你认识哪一种动物？'],
+    };
+    const writing = {
+      goal: '写一写小猫',
+      tracingItems: ['猫'],
+      practiceTasks: ['描一描“猫”字'],
+    };
+    const game = {
+      activityType: 'matching',
+      activityData: {
+        title: '动物配对',
+        pairs: [{ left: '猫', right: '小猫' }],
+      },
+    };
+    const quiz = {
+      title: '动物小测验',
+      questions: [{ question: '哪一种会喵喵叫？' }],
+    };
+
+    const payload = (service as any).buildPackPayloadFromContent({
+      id: 13,
+      title: '动物观察课程',
+      subtitle: '课程总结',
+      topic: '认识动物',
+      ageRange: '3-4',
+      content: {
+        type: 'structured_lesson',
+        topic: '认识动物',
+        ageGroup: '3-4',
+        summary: '先观察，再练习，再测一测',
+        steps: [
+          { id: 'listen', module: { type: 'audio', listening } },
+          { id: 'read', module: { type: 'reading', reading } },
+          { id: 'write', module: { type: 'writing', writing } },
+          { id: 'practice', module: { type: 'game', game } },
+          { id: 'assess', module: { type: 'quiz', quiz } },
+        ],
+      },
+    } as any);
+
+    expect(payload.modules).toMatchObject({
+      listening,
+      reading,
+      writing,
+      game,
+      quiz,
+    });
+  });
+
   it('passes lesson-derived payload into remotion composition resolution', async () => {
     const payload = {
       topic: '认识动物',

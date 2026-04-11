@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Content } from '../../src/database/entities/content.entity';
 import { Assignment } from '../../src/database/entities/assignment.entity';
 import { LearningRecord } from '../../src/database/entities/learning-record.entity';
+import { StudyPlanRecord } from '../../src/database/entities/study-plan-record.entity';
 import { LessonContentService } from '../../src/modules/learning/lesson-content.service';
 import { ContentsService } from '../../src/modules/contents/contents.service';
 import { GenerateCoursePackTool } from '../../src/modules/ai/agent/tools/generate-course-pack';
@@ -13,9 +14,6 @@ import { LearningTrackerService } from '../../src/modules/learning/learning-trac
 import { LlmClient } from '../../src/modules/ai/llm/llm-client';
 
 describe('LessonContentService modifyDraft scene sync', () => {
-  let originalSetInterval: typeof global.setInterval;
-  let originalClearInterval: typeof global.clearInterval;
-
   let service: LessonContentService;
   let contentRepo: any;
   let llmClient: { generate: jest.Mock };
@@ -35,6 +33,15 @@ describe('LessonContentService modifyDraft scene sync', () => {
     assignmentRepo = {
       createQueryBuilder: jest.fn(),
     };
+    const studyPlanRepo = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +49,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
         { provide: getRepositoryToken(Content), useValue: contentRepo },
         { provide: getRepositoryToken(LearningRecord), useValue: {} },
         { provide: getRepositoryToken(Assignment), useValue: assignmentRepo },
+        { provide: getRepositoryToken(StudyPlanRecord), useValue: studyPlanRepo },
         { provide: ContentsService, useValue: {} },
         { provide: GenerateCoursePackTool, useValue: {} },
         { provide: GenerateActivityTool, useValue: {} },
@@ -56,13 +64,11 @@ describe('LessonContentService modifyDraft scene sync', () => {
   });
 
   it('returns child draft lessons ordered by newest first', async () => {
-    const createQueryBuilder = jest.fn().mockReturnValue({
-      innerJoin: jest.fn().mockReturnThis(),
+    const builder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
-      distinct: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([
         {
           id: 12,
@@ -70,7 +76,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
           subtitle: '新内容',
           domain: 'science',
           status: 'draft',
-          contentType: 'lesson',
+          contentType: 'structured_lesson',
           createdAt: new Date('2026-04-09T09:00:00.000Z'),
           updatedAt: new Date('2026-04-09T09:15:00.000Z'),
         },
@@ -79,25 +85,22 @@ describe('LessonContentService modifyDraft scene sync', () => {
           title: '旧草稿',
           subtitle: '旧内容',
           domain: 'language',
-          status: 'draft',
-          contentType: 'lesson',
+          status: 'generating',
+          contentType: 'structured_lesson',
           createdAt: new Date('2026-04-08T10:00:00.000Z'),
           updatedAt: new Date('2026-04-08T10:30:00.000Z'),
         },
       ]),
-    });
-
-    assignmentRepo.createQueryBuilder = createQueryBuilder;
+    };
+    contentRepo.createQueryBuilder = jest.fn().mockReturnValue(builder);
 
     const result = await service.listDraftLessonsForChild(22);
 
-    expect(createQueryBuilder).toHaveBeenCalledWith('assignment');
-    const builder = createQueryBuilder.mock.results[0].value;
-    expect(builder.where).toHaveBeenCalledWith('assignment.childId = :childId', { childId: 22 });
-    expect(builder.andWhere).toHaveBeenCalledWith('content.status = :status', { status: 'draft' });
-    expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', { contentType: 'lesson' });
+    expect(contentRepo.createQueryBuilder).toHaveBeenCalledWith('content');
+    expect(builder.where).toHaveBeenCalledWith('content.childId = :childId', { childId: 22 });
+    expect(builder.andWhere).toHaveBeenCalledWith('content.status IN (:...statuses)', { statuses: ['draft', 'generating'] });
+    expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', { contentType: 'structured_lesson' });
     expect(builder.orderBy).toHaveBeenCalledWith('content.createdAt', 'DESC');
-    expect(builder.distinct).toHaveBeenCalledWith(true);
     expect(result).toEqual([
       {
         id: 12,
@@ -105,7 +108,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
         subtitle: '新内容',
         domain: 'science',
         status: 'draft',
-        contentType: 'lesson',
+        contentType: 'structured_lesson',
         childId: 22,
         createdAt: '2026-04-09T09:00:00.000Z',
         updatedAt: '2026-04-09T09:15:00.000Z',
@@ -115,8 +118,8 @@ describe('LessonContentService modifyDraft scene sync', () => {
         title: '旧草稿',
         subtitle: '旧内容',
         domain: 'language',
-        status: 'draft',
-        contentType: 'lesson',
+        status: 'generating',
+        contentType: 'structured_lesson',
         childId: 22,
         createdAt: '2026-04-08T10:00:00.000Z',
         updatedAt: '2026-04-08T10:30:00.000Z',
@@ -124,14 +127,12 @@ describe('LessonContentService modifyDraft scene sync', () => {
     ]);
   });
 
-  it('returns only drafts linked to the requested child via assignments', async () => {
-    const createQueryBuilder = jest.fn().mockReturnValue({
-      innerJoin: jest.fn().mockReturnThis(),
+  it('returns only drafts linked to the requested child record set', async () => {
+    const builder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
-      distinct: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([
         {
           id: 12,
@@ -139,26 +140,22 @@ describe('LessonContentService modifyDraft scene sync', () => {
           subtitle: '新内容',
           domain: 'science',
           status: 'draft',
-          contentType: 'lesson',
+          contentType: 'structured_lesson',
           createdAt: new Date('2026-04-09T09:00:00.000Z'),
           updatedAt: new Date('2026-04-09T09:15:00.000Z'),
         },
       ]),
-    });
-
-    assignmentRepo.createQueryBuilder = createQueryBuilder;
+    };
+    contentRepo.createQueryBuilder = jest.fn().mockReturnValue(builder);
 
     const result = await service.listDraftLessonsForChild(22);
 
-    expect(createQueryBuilder).toHaveBeenCalledWith('assignment');
-    const builder = createQueryBuilder.mock.results[0].value;
-    expect(builder.innerJoin).toHaveBeenCalled();
+    expect(contentRepo.createQueryBuilder).toHaveBeenCalledWith('content');
     expect(builder.select).toHaveBeenCalled();
-    expect(builder.where).toHaveBeenCalledWith('assignment.childId = :childId', { childId: 22 });
-    expect(builder.andWhere).toHaveBeenCalledWith('content.status = :status', { status: 'draft' });
-    expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', { contentType: 'lesson' });
+    expect(builder.where).toHaveBeenCalledWith('content.childId = :childId', { childId: 22 });
+    expect(builder.andWhere).toHaveBeenCalledWith('content.status IN (:...statuses)', { statuses: ['draft', 'generating'] });
+    expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', { contentType: 'structured_lesson' });
     expect(builder.orderBy).toHaveBeenCalledWith('content.createdAt', 'DESC');
-    expect(builder.distinct).toHaveBeenCalledWith(true);
     expect(result).toEqual([
       {
         id: 12,
@@ -166,7 +163,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
         subtitle: '新内容',
         domain: 'science',
         status: 'draft',
-        contentType: 'lesson',
+        contentType: 'structured_lesson',
         childId: 22,
         createdAt: '2026-04-09T09:00:00.000Z',
         updatedAt: '2026-04-09T09:15:00.000Z',

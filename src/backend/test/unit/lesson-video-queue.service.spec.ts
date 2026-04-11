@@ -116,4 +116,39 @@ describe('LessonVideoQueueService', () => {
     expect(taskRepo.update).toHaveBeenCalledWith(7, { progress: 42 });
     expect(buffer).toEqual(Buffer.from('video'));
   });
+
+  it('keeps watchScene in generic provider payload fallback', () => {
+    const payload = {
+      title: '动物观察课',
+      topic: '认识动物',
+      summary: '观察小动物',
+      watchScene: {
+        scenes: [{ id: 'watch-1', title: '小猫', narration: '这是小猫。' }],
+      },
+      visualStory: {},
+      videoLesson: {},
+      modules: {},
+    };
+
+    const originalMode = process.env.VIDEO_PROVIDER_CREATE_BODY_MODE;
+    delete process.env.VIDEO_PROVIDER_CREATE_BODY_MODE;
+
+    const body = (service as any).buildProviderCreateBody(
+      { contentId: 11, childId: 22, cacheKey: 'cache-key' },
+      payload,
+    );
+
+    if (originalMode === undefined) {
+      delete process.env.VIDEO_PROVIDER_CREATE_BODY_MODE;
+    } else {
+      process.env.VIDEO_PROVIDER_CREATE_BODY_MODE = originalMode;
+    }
+
+    expect(body).toMatchObject({
+      title: '动物观察课',
+      topic: '认识动物',
+      summary: '观察小动物',
+      watchScene: payload.watchScene,
+    });
+  });
 });

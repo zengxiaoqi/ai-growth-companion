@@ -519,6 +519,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       title: payload.title,
       topic: payload.topic,
       summary: payload.summary,
+      watchScene: payload.watchScene || null,
       visualStory: payload.visualStory || {},
       videoLesson: payload.videoLesson || {},
       modules: payload.modules || {},

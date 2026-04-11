@@ -55,7 +55,7 @@ describe('RemotionRenderService', () => {
 
     expect(result.compositionId).toBe('TopicVideo');
     expect(generateVideoDataTool.execute).not.toHaveBeenCalled();
-    expect(result.inputProps.title).toBe('四季动画课');
+    expect(result.inputProps.title).toBe('四季变化六步课');
     expect(result.inputProps.subtitle).toBe('通过观察季节变化认识四季特点');
     expect(result.inputProps.slides).toHaveLength(1);
     expect(result.inputProps.slides[0]).toMatchObject({

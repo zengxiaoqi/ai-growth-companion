@@ -117,7 +117,7 @@ export class RemotionRenderService {
       .map((scene: any, index: number) => this.buildSlideFromScene(scene, index));
 
     return {
-      title: this.toText(payload.videoLesson?.title, this.toText(payload.title, `认识${payload.topic}`)),
+      title: this.toText(payload.title, this.toText(payload.videoLesson?.title, `认识${payload.topic}`)),
       subtitle: this.toText(
         payload.summary,
         payload.ageGroup ? `${payload.ageGroup}岁启蒙课程` : `${slides.length || 1}个知识点动画课`,

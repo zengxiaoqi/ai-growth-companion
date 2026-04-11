@@ -265,7 +265,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const topic = payload?.topic || '';
     if (!topic) return null;
 
-    const { compositionId, inputProps } = await this.remotionRender.resolveComposition(topic);
+    const { compositionId, inputProps } = await this.remotionRender.resolveComposition(payload, payload?.ageGroup);
 
     const outputPath = path.join(this.storageDir, `${task.cacheKey}-remotion.mp4`);
     await fs.mkdir(this.storageDir, { recursive: true });
@@ -448,6 +448,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       title: content.title || (lesson as any).title || `${content.topic || '课程'} 全方位学习课`,
       topic: content.topic || (lesson as any).topic || '',
       summary: (lesson as any).summary || content.subtitle || '',
+      ageGroup: (lesson as any).ageGroup || content.ageRange || undefined,
+      watchScene: watch.scene || null,
       visualStory: watch.visualStory || {},
       videoLesson: watch.videoLesson || {},
       modules: {

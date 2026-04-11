@@ -13,6 +13,9 @@ import { LearningTrackerService } from '../../src/modules/learning/learning-trac
 import { LlmClient } from '../../src/modules/ai/llm/llm-client';
 
 describe('LessonContentService modifyDraft scene sync', () => {
+  let originalSetInterval: typeof global.setInterval;
+  let originalClearInterval: typeof global.clearInterval;
+
   let service: LessonContentService;
   let contentRepo: any;
   let llmClient: { generate: jest.Mock };

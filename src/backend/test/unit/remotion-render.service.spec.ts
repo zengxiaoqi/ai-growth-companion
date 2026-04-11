@@ -189,6 +189,78 @@ describe('RemotionRenderService', () => {
     );
   });
 
+  it('keeps assess slide when watch and all supplemental modules coexist', async () => {
+    const result = await service.resolveComposition({
+      topic: '认识动物',
+      ageGroup: '5-6',
+      title: '动物观察课',
+      summary: '观察、练习、测一测',
+      watchScene: {
+        version: 1,
+        stepType: 'watch',
+        mode: 'playback',
+        scenes: [
+          { id: 'watch-1', title: '小猫', narration: '认识小猫。' },
+          { id: 'watch-2', title: '小狗', narration: '认识小狗。' },
+          { id: 'watch-3', title: '小鸟', narration: '认识小鸟。' },
+          { id: 'watch-4', title: '小鱼', narration: '认识小鱼。' },
+          { id: 'watch-5', title: '小兔', narration: '认识小兔。' },
+        ],
+      },
+      visualStory: {},
+      videoLesson: {},
+      modules: {
+        listening: {
+          goal: '听听动物叫声',
+          audioScript: [{ segment: '猫叫', narration: '小猫喵喵叫。' }],
+        },
+        reading: {
+          goal: '读读动物名称',
+          text: '小猫和小狗都是动物。',
+          keywords: ['小猫', '小狗'],
+        },
+        writing: {
+          goal: '写一写小猫',
+          tracingItems: ['猫'],
+          practiceTasks: ['描一描“猫”字'],
+        },
+        game: {
+          activityType: 'matching',
+          activityData: {
+            title: '动物配对',
+            pairs: [{ left: '猫', right: '小猫' }],
+          },
+        },
+        quiz: {
+          title: '动物小测验',
+          questions: [
+            { question: '哪一种会喵喵叫？' },
+            { question: '哪一种会汪汪叫？' },
+          ],
+        },
+      },
+    }, '5-6');
+
+    expect(result.compositionId).toBe('TopicVideo');
+    expect(generateVideoDataTool.execute).not.toHaveBeenCalled();
+    expect(result.inputProps.slides).toHaveLength(8);
+    expect(result.inputProps.slides.map((slide: any) => slide.title)).toEqual([
+      '小猫',
+      '小狗',
+      '小鸟',
+      '听听动物叫声',
+      '读读动物名称',
+      '写一写小猫',
+      '动物配对',
+      '动物小测验',
+    ]);
+    expect(result.inputProps.slides[7]).toMatchObject({
+      title: '动物小测验',
+      emoji: '✅',
+      subtitle: '共2道题',
+    });
+  });
+
   it('falls back to generic topic video data when lesson watch content is unavailable', async () => {
     generateVideoDataTool.execute.mockResolvedValue({
       title: '认识动物',

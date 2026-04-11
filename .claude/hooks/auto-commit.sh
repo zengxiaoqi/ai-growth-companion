@@ -44,32 +44,43 @@ resolve_project_dir() {
   printf '%s\n' "$raw_dir"
 }
 
-PROJECT_DIR=$(resolve_project_dir)
-PROJECT_DIR_WIN=""
+to_shell_path() {
+  local raw_path converted_path drive_letter rest_path
+  raw_path="$1"
 
-cd "$PROJECT_DIR" || exit 1
-
-resolve_windows_project_dir() {
-  local raw_dir windows_dir
-  raw_dir="${CLAUDE_PROJECT_DIR:?}"
-
-  if printf '%s' "$raw_dir" | grep -Eq '^[A-Za-z]:[\\/]'; then
-    printf '%s\n' "$(printf '%s' "$raw_dir" | sed 's#/#\\#g')"
-    return
+  if [ -z "$raw_path" ]; then
+    return 1
   fi
 
   if command -v wslpath >/dev/null 2>&1; then
-    windows_dir=$(wslpath -w "$PROJECT_DIR" 2>/dev/null || true)
-    if [ -n "$windows_dir" ]; then
-      printf '%s\n' "$windows_dir"
-      return
+    converted_path=$(wslpath "$raw_path" 2>/dev/null || true)
+    if [ -n "$converted_path" ]; then
+      printf '%s\n' "$converted_path"
+      return 0
     fi
   fi
 
-  printf '%s\n' "$raw_dir"
+  if command -v cygpath >/dev/null 2>&1; then
+    converted_path=$(cygpath -u "$raw_path" 2>/dev/null || true)
+    if [ -n "$converted_path" ]; then
+      printf '%s\n' "$converted_path"
+      return 0
+    fi
+  fi
+
+  if printf '%s' "$raw_path" | grep -Eq '^[A-Za-z]:[\\/]'; then
+    drive_letter=$(printf '%s' "$raw_path" | cut -c1 | tr 'A-Z' 'a-z')
+    rest_path=$(printf '%s' "$raw_path" | cut -c3- | sed 's#\\#/#g')
+    printf '/mnt/%s%s\n' "$drive_letter" "$rest_path"
+    return 0
+  fi
+
+  return 1
 }
 
-PROJECT_DIR_WIN=$(resolve_windows_project_dir)
+PROJECT_DIR=$(resolve_project_dir)
+
+cd "$PROJECT_DIR" || exit 1
 
 has_worktree_changes() {
   ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]
@@ -140,7 +151,7 @@ fallback_message_from_paths() {
 }
 
 generate_commit_message() {
-  local diff_content prompt response subject prompt_file prompt_file_win
+  local diff_content prompt response subject prompt_file
 
   diff_content=$(
     {
@@ -186,17 +197,20 @@ EOF
 
   if command -v node >/dev/null 2>&1 && command -v claude >/dev/null 2>&1; then
     response=$(claude -p "$(cat "$prompt_file")" 2>/dev/null || true)
-  elif command -v powershell.exe >/dev/null 2>&1; then
-    if command -v wslpath >/dev/null 2>&1; then
-      prompt_file_win=$(wslpath -w "$prompt_file" 2>/dev/null || true)
+  elif command -v cmd.exe >/dev/null 2>&1; then
+    local claude_win_path claude_win_dir claude_node_win claude_cli_win claude_node_shell
+    claude_win_path=$(cmd.exe /d /c where claude 2>/dev/null | tr -d '\r' | head -n 1)
+    claude_win_dir=$(printf '%s\n' "$claude_win_path" | sed 's#[/\\][^/\\]*$##')
+    claude_node_win="${claude_win_dir}\\node.exe"
+    claude_cli_win="${claude_win_dir}\\node_modules\\@anthropic-ai\\claude-code\\cli.js"
+
+    claude_node_shell=$(to_shell_path "$claude_node_win" 2>/dev/null || true)
+
+    if [ -n "$claude_win_path" ] && [ -n "$claude_node_shell" ] && [ -f "$claude_node_shell" ]; then
+      response=$("$claude_node_shell" "$claude_cli_win" -p "$(cat "$prompt_file")" 2>/dev/null || true)
+    else
+      response=""
     fi
-    if [ -z "${prompt_file_win:-}" ]; then
-      prompt_file_win="$prompt_file"
-    fi
-    response=$(powershell.exe -NoProfile -Command "& {
-      \$prompt = Get-Content -Raw -LiteralPath '$prompt_file_win'
-      claude -p \$prompt
-    }" 2>/dev/null | tr -d '\r' || true)
   else
     response=""
   fi

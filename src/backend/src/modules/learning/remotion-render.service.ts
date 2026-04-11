@@ -143,7 +143,7 @@ export class RemotionRenderService {
   private buildVideoDataFromLesson(payload: LessonVideoPayload): TeachingVideoData {
     const watchSlides = this.buildWatchSlides(payload);
     const supportSlides = this.buildSupplementSlides(payload.modules || {}, watchSlides.length);
-    const reservedSupportCount = Math.min(4, supportSlides.length);
+    const reservedSupportCount = Math.min(5, supportSlides.length);
     const maxWatchSlides = Math.max(1, 8 - reservedSupportCount);
     const slides = [
       ...watchSlides.slice(0, maxWatchSlides),

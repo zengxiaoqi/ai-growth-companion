@@ -1,9 +1,15 @@
 import { GenerateCoursePackTool } from '../../src/modules/ai/agent/tools/generate-course-pack';
+import { getCoursePackCurriculumSeed } from '../../src/modules/learning/course-curriculum-fallback';
+
+jest.mock('../../src/modules/learning/course-curriculum-fallback', () => ({
+  getCoursePackCurriculumSeed: jest.fn(),
+}));
 
 describe('GenerateCoursePackTool', () => {
   let tool: GenerateCoursePackTool;
   let llmClient: { generate: jest.Mock };
   let generateActivityTool: { execute: jest.Mock };
+  let mockedGetCoursePackCurriculumSeed: jest.MockedFunction<typeof getCoursePackCurriculumSeed>;
 
   beforeEach(() => {
     llmClient = {
@@ -12,6 +18,9 @@ describe('GenerateCoursePackTool', () => {
     generateActivityTool = {
       execute: jest.fn(),
     };
+    mockedGetCoursePackCurriculumSeed = getCoursePackCurriculumSeed as jest.MockedFunction<typeof getCoursePackCurriculumSeed>;
+    mockedGetCoursePackCurriculumSeed.mockReset();
+    mockedGetCoursePackCurriculumSeed.mockReturnValue(null);
     tool = new GenerateCoursePackTool(llmClient as any, generateActivityTool as any);
   });
 
@@ -160,11 +169,134 @@ describe('GenerateCoursePackTool', () => {
     expect(shotNames).toEqual(
       expect.arrayContaining(['天字讲解', '地字讲解', '人字讲解']),
     );
-    expect(narrations.some((text: string) => text.includes('“天”字'))).toBe(true);
-    expect(narrations.some((text: string) => text.includes('“地”字'))).toBe(true);
-    expect(narrations.some((text: string) => text.includes('“人”字'))).toBe(true);
+    expect(narrations.some((text: string) => text.includes('“天”字') || text.includes('”天”字'))).toBe(true);
+    expect(narrations.some((text: string) => text.includes('“地”字') || text.includes('”地”字'))).toBe(true);
+    expect(narrations.some((text: string) => text.includes('“人”字') || text.includes('”人”字'))).toBe(true);
     expect(audioSegments).toEqual(
       expect.arrayContaining(['天字讲解', '地字讲解', '人字讲解']),
     );
+  });
+
+  it('uses curriculum seed for fallback summary and review narration', async () => {
+    generateActivityTool.execute.mockResolvedValueOnce(JSON.stringify({
+      type: 'matching',
+      topic: '四季变化',
+      ageGroup: '5-6',
+      pairs: [
+        { id: 'p1', left: '春', right: '春天' },
+        { id: 'p2', left: '夏', right: '夏天' },
+      ],
+    }));
+    llmClient.generate.mockResolvedValue('not-json');
+
+    mockedGetCoursePackCurriculumSeed.mockReturnValue({
+      summary: '了解春夏秋冬四个季节的特点和变化',
+      outcomes: ['认识四季名称', '了解每个季节的特征'],
+      teachingUnits: ['春', '夏', '秋', '冬'],
+      unitFacts: {
+        '春': '万物复苏、花朵开放的季节',
+        '夏': '天气炎热、可以吃冰淇淋的季节',
+        '秋': '树叶变黄、果实成熟的季节',
+        '冬': '天气寒冷、会下雪的季节',
+      },
+      readingText: '一年有春、夏、秋、冬四个季节。',
+      readingKeywords: ['春', '夏', '秋', '冬', '季节'],
+      listeningQuestions: ['一年有几个季节？', '冬天有什么特点？'],
+      tracingItems: ['春', '夏'],
+      practiceTasks: ['说说你最喜欢的季节'],
+      matchingPairs: [
+        { left: '春', right: '花朵开放' },
+        { left: '冬', right: '天气寒冷' },
+      ],
+      quizItems: [
+        { question: '一年有几个季节？', options: ['两个', '三个', '四个'], answer: '四个' },
+      ],
+    });
+
+    const result = JSON.parse(await tool.execute({
+      topic: '四季变化',
+      ageGroup: '5-6',
+      focus: 'science',
+      includeGame: false,
+    }));
+
+    expect(result.type).toBe('course_pack');
+
+    // Summary uses seed
+    expect(result.summary).toContain('季节');
+
+    // Scenes use curriculum-grounded units
+    const sceneNarrations = result.visualStory?.scenes?.map((s: any) => String(s.narration)) || [];
+    const hasSpringNarration = sceneNarrations.some((t: string) => t.includes('春'));
+    expect(hasSpringNarration).toBe(true);
+
+    // Shots include per-unit teaching
+    const shotNames = result.videoLesson?.shots?.map((s: any) => String(s.shot)) || [];
+    expect(shotNames.some((name: string) => name.includes('春'))).toBe(true);
+    expect(shotNames.some((name: string) => name.includes('冬'))).toBe(true);
+
+    // Audio script uses unit narration with facts
+    const audioNarrations = result.modules?.listening?.audioScript?.map((a: any) => String(a.narration)) || [];
+    expect(audioNarrations.some((t: string) => t.includes('春'))).toBe(true);
+
+    // Review narration mentions units and facts
+    const reviewScene = result.visualStory?.scenes?.find((s: any) => String(s.scene).includes('总结'));
+    if (reviewScene) {
+      expect(String(reviewScene.narration)).toContain('春');
+    }
+  });
+
+  it('uses curriculum seed for fallback reading text and writing items', async () => {
+    generateActivityTool.execute.mockResolvedValueOnce(JSON.stringify({
+      type: 'matching',
+      topic: '认识动物',
+      ageGroup: '5-6',
+      pairs: [
+        { id: 'p1', left: '猫', right: '小猫' },
+        { id: 'p2', left: '狗', right: '小狗' },
+      ],
+    }));
+    llmClient.generate.mockResolvedValue('not-json');
+
+    mockedGetCoursePackCurriculumSeed.mockReturnValue({
+      summary: '认识常见的动物朋友',
+      outcomes: ['认识猫、狗、兔的特征', '了解它们的生活习性'],
+      teachingUnits: ['猫', '狗', '兔'],
+      unitFacts: {
+        '猫': '会捉老鼠的家养动物',
+        '狗': '人类最忠诚的朋友',
+        '兔': '爱吃胡萝卜的小动物',
+      },
+      readingText: '猫、狗和兔都是我们的好朋友。',
+      readingKeywords: ['猫', '狗', '兔', '动物'],
+      listeningQuestions: ['小猫喜欢吃什么？', '小狗会做什么？'],
+      tracingItems: ['猫', '狗'],
+      practiceTasks: ['画一画你喜欢的动物'],
+      matchingPairs: [
+        { left: '猫', right: '捉老鼠' },
+        { left: '狗', right: '看家护院' },
+      ],
+      quizItems: [
+        { question: '谁爱吃胡萝卜？', options: ['猫', '狗', '兔'], answer: '兔' },
+      ],
+    });
+
+    const result = JSON.parse(await tool.execute({
+      topic: '认识动物',
+      ageGroup: '5-6',
+      focus: 'science',
+      includeGame: false,
+    }));
+
+    // Reading text from seed
+    expect(result.modules?.reading?.text).toContain('猫');
+
+    // Writing tracing items from seed
+    const tracingItems: string[] = result.modules?.writing?.tracingItems || [];
+    expect(tracingItems.some((item: string) => item.includes('猫'))).toBe(true);
+
+    // Reading keywords include seed keywords
+    const keywords: string[] = result.modules?.reading?.keywords || [];
+    expect(keywords.some((k: string) => k.includes('猫') || k.includes('狗'))).toBe(true);
   });
 });

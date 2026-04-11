@@ -20,6 +20,7 @@ import {
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from './lesson-scene';
+import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
 
 type AgeGroup = '3-4' | '5-6';
 type LessonDomain = 'language' | 'math' | 'science' | 'art' | 'social';
@@ -297,7 +298,7 @@ export class LessonContentService {
         practiceData = this.parseJson(practiceRaw);
       } catch (actErr: any) {
         this.logger.warn(`[contentId=${contentId}] Practice game failed, using fallback: ${actErr?.message}`);
-        practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup);
+        practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup, domain);
       }
 
       // 3. Generate assessment quiz
@@ -310,7 +311,7 @@ export class LessonContentService {
         assessData = this.parseJson(assessRaw);
       } catch (actErr: any) {
         this.logger.warn(`[contentId=${contentId}] Assessment quiz failed, using fallback: ${actErr?.message}`);
-        assessData = this.buildFallbackActivity('quiz', topic, ageGroup);
+        assessData = this.buildFallbackActivity('quiz', topic, ageGroup, domain);
       }
 
       // 4. Assemble 6-step lesson
@@ -724,36 +725,115 @@ export class LessonContentService {
     return map[focus] || 'matching';
   }
 
-  private buildFallbackActivity(type: string, topic: string, ageGroup: string): Record<string, any> {
+  private buildFallbackActivity(
+    type: string,
+    topic: string,
+    ageGroup: string,
+    domain?: LessonDomain,
+  ): Record<string, any> {
+    const curriculumSeed = (ageGroup === '3-4' || ageGroup === '5-6')
+      ? getCoursePackCurriculumSeed({ topic, ageGroup, domain })
+      : null;
+
     if (type === 'quiz') {
+      const quizItems = curriculumSeed?.quizItems?.length
+        ? curriculumSeed.quizItems.slice(0, 3)
+        : [];
+
       return {
         type: 'quiz',
         title: `${topic} 测评`,
         topic,
         ageGroup,
-        questions: [
-          { question: `关于${topic}，你学到了什么？`, options: ['新知识', '新技能', '新发现', '全部都是'], correctIndex: 3, explanation: `${topic}包含很多有趣的内容` },
-          { question: `你觉得${topic}最有趣的地方是？`, options: ['观察', '动手', '思考', '分享'], correctIndex: 0, explanation: '每个人都可以有自己的发现' },
-          { question: `今天学习${topic}后，你记住了什么？`, options: ['一个关键词', '一个故事', '一个游戏', '以上都有'], correctIndex: 3, explanation: '学习可以有很多收获' },
-        ],
+        questions: quizItems.length > 0
+          ? quizItems.map((item, index) => ({
+              question: item.question,
+              options: item.options,
+              correctIndex: Math.max(0, item.options.findIndex((option) => option === item.answer)),
+              explanation: curriculumSeed?.outcomes?.[index] || `${topic}包含很多有趣的内容`,
+            }))
+          : [
+              { question: `关于${topic}，你学到了什么？`, options: ['新知识', '新技能', '新发现', '全部都是'], correctIndex: 3, explanation: `${topic}包含很多有趣的内容` },
+              { question: `你觉得${topic}最有趣的地方是？`, options: ['观察', '动手', '思考', '分享'], correctIndex: 0, explanation: '每个人都可以有自己的发现' },
+              { question: `今天学习${topic}后，你记住了什么？`, options: ['一个关键词', '一个故事', '一个游戏', '以上都有'], correctIndex: 3, explanation: '学习可以有很多收获' },
+            ],
       };
     }
 
     if (type === 'matching') {
+      const pairs = curriculumSeed?.matchingPairs?.length
+        ? curriculumSeed.matchingPairs.slice(0, 4).map((pair, index) => ({
+            id: `p${index + 1}`,
+            left: pair.left,
+            right: pair.right,
+          }))
+        : [];
+
       return {
         type: 'matching',
         title: `${topic} 配对游戏`,
         topic,
         ageGroup,
-        pairs: [
-          { id: 'p1', left: `${topic} 概念1`, right: '对应内容1' },
-          { id: 'p2', left: `${topic} 概念2`, right: '对应内容2' },
-          { id: 'p3', left: `${topic} 概念3`, right: '对应内容3' },
-        ],
+        pairs: pairs.length > 0
+          ? pairs
+          : [
+              { id: 'p1', left: `${topic} 概念1`, right: '对应内容1' },
+              { id: 'p2', left: `${topic} 概念2`, right: '对应内容2' },
+              { id: 'p3', left: `${topic} 概念3`, right: '对应内容3' },
+            ],
       };
     }
 
-    // Generic fallback for other types
+    if (type === 'connection') {
+      const pairs = curriculumSeed?.matchingPairs?.length
+        ? curriculumSeed.matchingPairs.slice(0, 4)
+        : [];
+      const leftItems = pairs.map((pair, index) => ({ id: `l${index + 1}`, label: pair.left }));
+      const rightItems = pairs.map((pair, index) => ({ id: `r${index + 1}`, label: pair.right }));
+      const connections = pairs.map((pair, index) => ({ left: `l${index + 1}`, right: `r${index + 1}` }));
+
+      if (pairs.length > 0) {
+        return {
+          type: 'connection',
+          title: `${topic} 连线练习`,
+          topic,
+          ageGroup,
+          leftItems,
+          rightItems,
+          connections,
+        };
+      }
+    }
+
+    if (type === 'fill_blank') {
+      const quizItems = curriculumSeed?.quizItems?.length
+        ? curriculumSeed.quizItems.slice(0, 3)
+        : [];
+      const sentences = quizItems
+        .map((item, index) => {
+          const answer = item.answer;
+          if (!answer || !item.question.includes(answer)) return null;
+          return {
+            id: `s${index + 1}`,
+            text: item.question.replace(answer, '___'),
+            answer,
+            options: item.options,
+            hint: curriculumSeed?.outcomes?.[index] || `${topic}小提示`,
+          };
+        })
+        .filter(Boolean);
+
+      if (sentences.length > 0) {
+        return {
+          type: 'fill_blank',
+          title: `${topic} 填空练习`,
+          topic,
+          ageGroup,
+          sentences,
+        };
+      }
+    }
+
     return {
       type: type || 'quiz',
       title: `${topic} 练习`,

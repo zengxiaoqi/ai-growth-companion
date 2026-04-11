@@ -9,6 +9,7 @@ import {
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from '../../../learning/lesson-scene';
+import { getCoursePackCurriculumSeed } from '../../../learning/course-curriculum-fallback';
 
 type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
@@ -320,11 +321,14 @@ export class GenerateCoursePackTool {
       activityData: Record<string, any>;
     } | null,
   ): Record<string, any> {
-    const outcomes = this.toStringArray(raw?.outcomes, 3, [
-      `理解${args.topic}的重点内容`,
-      '完成一次互动练习',
-      '练习听、说、读、写',
-    ]);
+    const curriculumSeed = this.getCurriculumSeed(args);
+    const outcomes = this.toStringArray(raw?.outcomes, 3, curriculumSeed?.outcomes?.length
+      ? curriculumSeed.outcomes
+      : [
+          `理解${args.topic}的重点内容`,
+          '完成一次互动练习',
+          '练习听、说、读、写',
+        ]);
 
     const listening = raw?.modules?.listening || {};
     const speaking = raw?.modules?.speaking || {};
@@ -332,6 +336,30 @@ export class GenerateCoursePackTool {
     const writing = raw?.modules?.writing || {};
 
     const scenes = this.normalizeSceneList(raw?.visualStory?.scenes, args);
+    const fallbackListeningQuestions = curriculumSeed?.listeningQuestions?.length
+      ? curriculumSeed.listeningQuestions
+      : [
+          `你听到了哪些和${args.topic}有关的关键词？`,
+          '你最喜欢哪一部分？',
+        ];
+    const fallbackReadingKeywords = curriculumSeed?.readingKeywords?.length
+      ? curriculumSeed.readingKeywords
+      : [args.topic, '观察', '表达'];
+    const fallbackReadingQuestions = curriculumSeed?.quizItems?.length
+      ? curriculumSeed.quizItems.map((item) => item.question).slice(0, 3)
+      : [
+          '这段内容讲了什么？',
+          '你学到了什么？',
+        ];
+    const fallbackTracingItems = curriculumSeed?.tracingItems?.length
+      ? curriculumSeed.tracingItems
+      : [args.topic, '关键词'];
+    const fallbackWritingTasks = curriculumSeed?.practiceTasks?.length
+      ? curriculumSeed.practiceTasks
+      : [
+          '写下你最喜欢的知识点。',
+          '用一句话总结今天的学习内容。',
+        ];
     const shots = this.normalizeShotList(raw?.videoLesson?.shots, args);
     const watchScene = this.normalizeWatchScene(raw?.watch?.scene, { visualStory: { scenes }, videoLesson: { shots } }, args);
     const writeScene = this.normalizeWriteScene(raw?.write?.scene || raw?.modules?.writing?.scene, writing, args);
@@ -344,16 +372,16 @@ export class GenerateCoursePackTool {
       ageGroup: args.ageGroup,
       focus: args.focus,
       durationMinutes: args.durationMinutes,
-      summary: this.toText(raw?.summary, `围绕${args.topic}进行的听说读写综合学习课程。`),
+      summary: this.toText(
+        raw?.summary,
+        curriculumSeed?.summary || `围绕${args.topic}进行的听说读写综合学习课程。`,
+      ),
       outcomes,
       modules: {
         listening: {
           goal: this.toText(listening?.goal, `通过倾听理解${args.topic}的核心概念。`),
           audioScript: this.normalizeAudioScript(listening?.audioScript, args),
-          questions: this.toStringArray(listening?.questions, 2, [
-            `你听到了哪些和${args.topic}有关的关键词？`,
-            '你最喜欢哪一部分？',
-          ]),
+          questions: this.toStringArray(listening?.questions, 2, fallbackListeningQuestions),
         },
         speaking: {
           goal: this.toText(speaking?.goal, `用自己的话说出你对${args.topic}的理解。`),
@@ -362,21 +390,19 @@ export class GenerateCoursePackTool {
         },
         reading: {
           goal: this.toText(reading?.goal, `阅读并理解与${args.topic}相关的内容。`),
-          text: this.toText(reading?.text, `今天我们一起学习${args.topic}，请大声读一读。`),
-          keywords: this.toStringArray(reading?.keywords, 3, [args.topic, '观察', '表达']),
-          questions: this.toStringArray(reading?.questions, 2, [
-            '这段内容讲了什么？',
-            '你学到了什么？',
-          ]),
+          text: this.toText(reading?.text, curriculumSeed?.readingText || `今天我们一起学习${args.topic}，请大声读一读。`),
+          keywords: this.toStringArray(reading?.keywords, 3, fallbackReadingKeywords),
+          questions: this.toStringArray(reading?.questions, 2, fallbackReadingQuestions),
         },
         writing: {
           goal: this.toText(writing?.goal, '通过书写和练习巩固今天学到的知识。'),
-          tracingItems: this.toStringArray(writing?.tracingItems, 2, [args.topic, '关键词']),
-          practiceTasks: this.toStringArray(writing?.practiceTasks, 2, [
-            '写下你最喜欢的知识点。',
-            '用一句话总结今天的学习内容。',
-          ]),
-          checklist: this.toStringArray(writing?.checklist, 2, ['书写清楚', '表达完整']),
+          tracingItems: this.toStringArray(writing?.tracingItems, 2, fallbackTracingItems),
+          practiceTasks: this.toStringArray(writing?.practiceTasks, 2, fallbackWritingTasks),
+          checklist: this.toStringArray(
+            writing?.checklist,
+            2,
+            curriculumSeed?.outcomes?.slice(0, 2) || ['书写清楚', '表达完整'],
+          ),
         },
       },
       watch: { scene: watchScene },
@@ -713,7 +739,7 @@ export class GenerateCoursePackTool {
   }
 
   private hasEnoughUnitCoverage(items: Array<Record<string, any>>, args: NormalizedArgs): boolean {
-    const units = this.extractTopicTeachingUnits(args.topic, args.focus);
+    const units = this.resolveTeachingUnits(args);
     if (units.length < 2) return true;
 
     const coveredCount = units.filter((unit) =>
@@ -749,13 +775,17 @@ export class GenerateCoursePackTool {
 
   private buildTopicSceneFallback(args: NormalizedArgs): Array<Record<string, any>> {
     const guide = this.buildTopicGuide(args);
-    const units = this.extractTopicTeachingUnits(args.topic, args.focus);
+    const units = this.resolveTeachingUnits(args);
+    const curriculumSeed = this.getCurriculumSeed(args);
 
     if (units.length >= 2) {
       const introScene = {
         scene: '情境导入',
         imagePrompt: `温暖明亮的课堂开场，引出${args.topic}里的重点内容`,
-        narration: `小朋友，今天我们来学习${args.topic}。这节课会把重点一个一个讲清楚。`,
+        narration: this.toText(
+          curriculumSeed?.summary,
+          `小朋友，今天我们来学习${args.topic}。这节课会把重点一个一个讲清楚。`,
+        ),
         onScreenText: `认识${args.topic}`,
         durationSec: 10,
       };
@@ -769,18 +799,23 @@ export class GenerateCoursePackTool {
       const summaryScene = {
         scene: '总结回顾',
         imagePrompt: `课堂结尾回顾${units.join('、')}的区别和联系，孩子开心回答问题`,
-        narration: `现在我们把${units.join('、')}一起复习一遍，说说它们分别表示什么。`,
+        narration: `${this.buildReviewPrompt(args, units)}。`,
         onScreenText: `复习${units.join('、')}`,
         durationSec: 10,
       };
       return [introScene, ...unitScenes, summaryScene];
     }
 
+    const reviewPrompt = this.buildReviewPrompt(args, units);
+
     return [
       {
         scene: '情境导入',
         imagePrompt: `温暖明亮的课堂开场，用生活场景引出${args.topic}`,
-        narration: `小朋友，今天我们要学习${args.topic}。先看看它在生活里会在哪里出现。`,
+        narration: this.toText(
+          curriculumSeed?.summary,
+          `小朋友，今天我们要学习${args.topic}。先看看它在生活里会在哪里出现。`,
+        ),
         onScreenText: `认识${args.topic}`,
         durationSec: 10,
       },
@@ -801,7 +836,7 @@ export class GenerateCoursePackTool {
       {
         scene: '总结鼓励',
         imagePrompt: `孩子完成${args.topic}学习后获得贴纸奖励，课堂氛围轻松愉快`,
-        narration: `真棒，今天我们已经认识了${args.topic}。记住一个关键点，等会讲给爸爸妈妈听吧。`,
+        narration: `${reviewPrompt}。`,
         onScreenText: '学会啦',
         durationSec: 10,
       },
@@ -810,14 +845,19 @@ export class GenerateCoursePackTool {
 
   private buildTopicShotFallback(args: NormalizedArgs): Array<Record<string, any>> {
     const guide = this.buildTopicGuide(args);
-    const units = this.extractTopicTeachingUnits(args.topic, args.focus);
+    const units = this.resolveTeachingUnits(args);
+    const curriculumSeed = this.getCurriculumSeed(args);
+    const reviewPrompt = this.buildReviewPrompt(args, units);
 
     if (units.length >= 2) {
       return [
         {
           shot: '主题导入',
           visualPrompt: `卡通课堂开场，老师展示${args.topic}的学习卡片`,
-          narration: `欢迎来到今天的学习时间。我们要把${args.topic}里面的重点，一个一个学会。`,
+          narration: this.toText(
+            curriculumSeed?.summary,
+            `欢迎来到今天的学习时间。我们要把${args.topic}里面的重点，一个一个学会。`,
+          ),
           caption: `认识${args.topic}`,
           durationSec: 12,
         },
@@ -831,7 +871,7 @@ export class GenerateCoursePackTool {
         {
           shot: '对比复习',
           visualPrompt: `课堂结尾把${units.join('、')}并排展示，老师带着孩子一起回顾`,
-          narration: `最后我们一起复习${units.join('、')}。请你边看边说，说出它们分别代表什么。`,
+          narration: reviewPrompt,
           caption: `复习${units.join('、')}`,
           durationSec: 14,
         },
@@ -842,7 +882,7 @@ export class GenerateCoursePackTool {
       {
         shot: '主题导入',
         visualPrompt: `卡通课堂开场，展示${args.topic}与日常生活的联系`,
-        narration: `欢迎来到今天的学习时间，我们先来认识${args.topic}。`,
+        narration: this.toText(curriculumSeed?.summary, `欢迎来到今天的学习时间，我们先来认识${args.topic}。`),
         caption: `认识${args.topic}`,
         durationSec: 12,
       },
@@ -870,7 +910,7 @@ export class GenerateCoursePackTool {
       {
         shot: '总结回顾',
         visualPrompt: `课程结尾回顾${args.topic}要点，孩子开心举手回答`,
-        narration: `太好了，我们已经学会了${args.topic}的重要内容。请你再说一遍今天记住的重点。`,
+        narration: reviewPrompt,
         caption: '一起回顾重点',
         durationSec: 12,
       },
@@ -879,13 +919,18 @@ export class GenerateCoursePackTool {
 
   private buildTopicAudioFallback(args: NormalizedArgs): Array<Record<string, any>> {
     const guide = this.buildTopicGuide(args);
-    const units = this.extractTopicTeachingUnits(args.topic, args.focus);
+    const units = this.resolveTeachingUnits(args);
+    const curriculumSeed = this.getCurriculumSeed(args);
+    const reviewPrompt = this.buildReviewPrompt(args, units);
 
     if (units.length >= 2) {
       return [
         {
           segment: '开场聆听',
-          narration: `请竖起小耳朵，今天我们来学习${args.topic}。`,
+          narration: this.toText(
+            curriculumSeed?.summary,
+            `请竖起小耳朵，今天我们来学习${args.topic}。`,
+          ),
           soundCue: 'intro music',
           durationSec: 10,
         },
@@ -897,7 +942,7 @@ export class GenerateCoursePackTool {
         })),
         {
           segment: '复习提问',
-          narration: `现在请你想一想，${units.join('、')}分别表示什么，再把答案大声说出来。`,
+          narration: reviewPrompt,
           soundCue: 'gentle chime',
           durationSec: 12,
         },
@@ -907,7 +952,7 @@ export class GenerateCoursePackTool {
     return [
       {
         segment: '开场聆听',
-        narration: `请竖起小耳朵，先听老师讲一讲${args.topic}。`,
+        narration: this.toText(curriculumSeed?.summary, `请竖起小耳朵，先听老师讲一讲${args.topic}。`),
         soundCue: 'intro music',
         durationSec: 10,
       },
@@ -919,7 +964,7 @@ export class GenerateCoursePackTool {
       },
       {
         segment: '回顾提问',
-        narration: `听完以后，请你用自己的话说说${args.topic}最重要的一点是什么。`,
+        narration: reviewPrompt,
         soundCue: 'gentle chime',
         durationSec: 12,
       },
@@ -967,6 +1012,22 @@ export class GenerateCoursePackTool {
           practiceNarration: '现在轮到你试试看，回答一个小问题，或者完成一个小任务。',
         };
     }
+  }
+
+  private getCurriculumSeed(args: NormalizedArgs) {
+    return getCoursePackCurriculumSeed({
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+  }
+
+  private resolveTeachingUnits(args: NormalizedArgs): string[] {
+    const curriculumUnits = this.getCurriculumSeed(args)?.teachingUnits || [];
+    if (curriculumUnits.length >= 2) {
+      return curriculumUnits.slice(0, 4);
+    }
+    return this.extractTopicTeachingUnits(args.topic, args.focus);
   }
 
   private extractTopicTeachingUnits(topic: string, focus: CourseFocus): string[] {
@@ -1049,16 +1110,39 @@ export class GenerateCoursePackTool {
     if (this.isLiteracyLikeTopic(args.topic, args.focus) && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
       const glossary = this.getCharacterGlossary(unit);
       if (glossary) {
-        return `先来看“${unit}”字。${glossary.meaning}。${glossary.shape}。请你跟老师读一读：“${unit}”。`;
+        return `先来看”${unit}”字。${glossary.meaning}。${glossary.shape}。请你跟老师读一读：”${unit}”。`;
       }
-      return `先来看“${unit}”字。请你先看清它的样子，再跟着老师读一读，想一想这个字在生活里会出现在什么地方。`;
+      return `先来看”${unit}”字。请你先看清它的样子，再跟着老师读一读，想一想这个字在生活里会出现在什么地方。`;
     }
 
     if (args.focus === 'math' && /^\d+$/.test(unit)) {
       return `现在我们来认识数字${unit}。请你看看有多少个物体，再把数字${unit}大声读出来。`;
     }
 
+    const curriculumSeed = this.getCurriculumSeed(args);
+    const fact = curriculumSeed?.unitFacts?.[unit];
+    if (fact) {
+      return `现在我们来学习${unit}。${unit}是${fact}。请你仔细看，跟老师一起说一说。`;
+    }
+
     return `现在我们来学习${unit}。请你先观察，再跟着老师说一说这个知识点的特点。`;
+  }
+
+  private buildReviewPrompt(args: NormalizedArgs, units: string[]): string {
+    const curriculumSeed = this.getCurriculumSeed(args);
+    if (units.length >= 2) {
+      const unitSummary = units
+        .map((unit) => {
+          const fact = curriculumSeed?.unitFacts?.[unit];
+          return fact ? `${unit}是${fact}` : unit;
+        })
+        .join('；');
+      return `真棒，今天我们学习了${units.join('、')}。${unitSummary}。请你再说一遍今天记住的重点。`;
+    }
+    if (curriculumSeed?.summary) {
+      return `真棒，今天我们学习了${args.topic}。${curriculumSeed.summary}。请你回家讲给爸爸妈妈听吧。`;
+    }
+    return `真棒，今天我们已经认识了${args.topic}。记住一个关键点，等会讲给爸爸妈妈听吧。`;
   }
 
   private isLiteracyLikeTopic(topic: string, focus: CourseFocus): boolean {

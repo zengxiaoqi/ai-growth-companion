@@ -106,16 +106,16 @@ export class LlmClient {
 
     // If the response was only thinking (no visible content), retry once
     if (!result) {
-      this.logger.warn(`generate() produced empty content after stripThinking (raw length=${raw.length}), retrying...`);
+      this.logger.debug(`generate() produced empty content after stripThinking (raw length=${raw.length}), retrying...`);
       try {
         const retry = await this.chatCompletion(messages);
         const retryRaw = retry.choices[0]?.message?.content ?? '';
         result = this.stripThinking(retryRaw);
         if (!result && retryRaw) {
-          this.logger.warn(`generate() retry still empty after strip (retryRaw length=${retryRaw.length}, starts=${retryRaw.slice(0, 100)})`);
+          this.logger.debug(`generate() retry still empty after strip (retryRaw length=${retryRaw.length}, starts=${retryRaw.slice(0, 100)})`);
         }
       } catch (err: any) {
-        this.logger.warn(`generate() retry failed: ${err.message}`);
+        this.logger.debug(`generate() retry failed: ${err.message}`);
       }
     }
 

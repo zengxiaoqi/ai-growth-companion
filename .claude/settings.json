@@ -42,11 +42,37 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR/src/backend\" && npm run lint",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR/src/frontend-web\" && npm run lint",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
-        "type": "command",
-        "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-commit.sh",
-        "timeout": 30
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-commit.sh",
+            "timeout": 180
+          }
+        ]
       }
     ]
   }

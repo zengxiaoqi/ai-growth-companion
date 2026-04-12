@@ -151,7 +151,14 @@ fallback_message_from_paths() {
 }
 
 generate_commit_message() {
-  local diff_content response subject
+  local diff_content response subject gen_script
+
+  gen_script="$(dirname "$0")/generate-commit-msg.js"
+
+  if [ ! -f "$gen_script" ]; then
+    fallback_message_from_paths
+    return
+  fi
 
   diff_content=$(
     {
@@ -165,82 +172,8 @@ generate_commit_message() {
     }
   )
 
-  # Use Node.js to call the Anthropic-compatible API directly.
-  # Extracts the last non-empty line that looks like a commit subject from the response,
-  # which handles models that include reasoning/thinking in their text output.
-  response=$(node -e "
-    const diffContent = $(printf '%s' "$diff_content" | node -e '
-      let d="";
-      process.stdin.on("data",c=>d+=c);
-      process.stdin.on("end",()=>console.log(JSON.stringify(d)));
-    ');
-
-    const prompt = \`You are generating a git commit subject line.
-Based on the staged git diff, write one professional, specific, concise commit title in Simplified Chinese.
-
-Rules:
-- Output only the commit subject line, with no explanation.
-- Describe the actual change, not the number of files.
-- Prefer a concrete module, feature, or behavior change when possible.
-- If the diff is large, summarize the single most important change.
-- Start with a verb when natural, such as: \u65b0\u589e, \u4fee\u590d, \u4f18\u5316, \u8c03\u6574, \u91cd\u6784, \u66f4\u65b0.
-- Keep it within 32 Chinese characters and under 50 total characters.
-- Do not use quotes, bullets, prefixes, suffixes, or markdown.
-- Good example: \u4fee\u590d\u8bfe\u7a0b\u89c6\u9891\u6e32\u67d3\u961f\u5217\u91cd\u8bd5\u903b\u8f91
-
-Staged git diff details:
-
-\${diffContent}\`;
-
-    const baseUrl = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-    const apiKey = process.env.ANTHROPIC_AUTH_TOKEN || '';
-    const model = process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'claude-sonnet-4-20250514';
-
-    fetch(baseUrl + '/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }]
-      }),
-      signal: AbortSignal.timeout(30000)
-    })
-    .then(r => r.json())
-    .then(d => {
-      if (d.content && d.content[0] && d.content[0].text) {
-        const text = d.content[0].text;
-        // Extract the last non-empty line that looks like a commit subject:
-        // - Contains Chinese characters
-        // - Short enough (under 50 chars)
-        // - Not a list item or bullet
-        const lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
-        for (let i = lines.length - 1; i >= 0; i--) {
-          const line = lines[i];
-          if (line.match(/[\\u4e00-\\u9fff]/) && line.length <= 50 && !line.startsWith('-') && !line.startsWith('*')) {
-            process.stdout.write(line);
-            return;
-          }
-        }
-        // Fallback: take the last line with Chinese chars
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (lines[i].match(/[\\u4e00-\\u9fff]/)) {
-            process.stdout.write(lines[i]);
-            return;
-          }
-        }
-        // Last resort: first non-empty line
-        if (lines.length > 0) process.stdout.write(lines[0]);
-      } else {
-        process.exit(1);
-      }
-    })
-    .catch(e => { process.stderr.write(e.message); process.exit(1); });
-  " 2>/dev/null) || true
+  # Pipe diff content to the Node.js script which calls the AI API
+  response=$(printf '%s' "$diff_content" | node "$gen_script" 2>/dev/null) || true
 
   subject=$(sanitize_commit_line "$response")
 

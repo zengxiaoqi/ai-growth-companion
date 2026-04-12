@@ -377,6 +377,13 @@ export class RemotionRenderService {
         : this.toText(scene?.title, this.toText(scene?.visual?.caption))
     );
 
+    // Extract animation template from scene visual data
+    const templateId = this.toText(scene?.visual?.templateId);
+    const templateParams = this.asRecord(scene?.visual?.templateParams);
+    const animationTemplate = templateId
+      ? { id: templateId, params: templateParams }
+      : undefined;
+
     return {
       title: headline.slice(0, 12),
       emoji: theme.emoji || EMOJI_PALETTE[index % EMOJI_PALETTE.length],
@@ -386,6 +393,7 @@ export class RemotionRenderService {
       layout: theme.layout || (mergedItems.length >= 3 ? 'grid' : mergedItems.length >= 1 ? 'list' : 'hero'),
       items: mergedItems.length > 0 ? mergedItems : undefined,
       narration: this.toText(scene?.narration, '请和老师一起学习。').slice(0, 100),
+      ...(animationTemplate ? { animationTemplate } : {}),
     };
   }
 

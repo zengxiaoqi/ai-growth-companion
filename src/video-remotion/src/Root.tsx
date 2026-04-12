@@ -10,6 +10,11 @@ import {
   DEFAULT_TOPIC_VIDEO,
 } from "./data/topic-video";
 import type { TeachingVideoData } from "./data/topic-video";
+import {
+  MATH_TEST_VIDEO,
+  SCIENCE_TEST_VIDEO,
+  ART_SOCIAL_TEST_VIDEO,
+} from "./data/test-animation-data";
 
 // NumbersVideo: intro + 10*scene + outro - 11 transitions
 // = 90 + 10*210 + 90 - 11*12 = 2148
@@ -58,6 +63,44 @@ export const RemotionRoot = () => {
         width={1280}
         height={720}
         defaultProps={{}}
+      />
+
+      {/* Preview compositions for testing animated scenes in Remotion Studio */}
+      <Composition
+        id="TestMathVideo"
+        component={TopicVideo}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={MATH_TEST_VIDEO}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
+      />
+      <Composition
+        id="TestScienceVideo"
+        component={TopicVideo}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={SCIENCE_TEST_VIDEO}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
+      />
+      <Composition
+        id="TestArtSocialVideo"
+        component={TopicVideo}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={ART_SOCIAL_TEST_VIDEO}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
       />
     </>
   );

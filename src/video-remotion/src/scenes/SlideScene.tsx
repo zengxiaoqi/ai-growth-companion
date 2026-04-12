@@ -10,6 +10,7 @@ import { SPRING_CONFIGS } from "../theme/animations";
 import { PALETTE } from "../theme/colors";
 import { FONT_FAMILY, FONT_SIZES } from "../theme/fonts";
 import { BackgroundBubbles } from "../components/BackgroundBubbles";
+import { AnimatedSceneRouter } from "./animated/AnimatedSceneRouter";
 import type { TeachingSlide } from "../data/topic-video";
 
 type SlideSceneProps = {
@@ -17,7 +18,7 @@ type SlideSceneProps = {
   index: number;
 };
 
-const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
+export const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -283,6 +284,11 @@ const ListLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
 export const SlideScene: React.FC<SlideSceneProps> = ({ data }) => {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
+
+  // Delegate to animated scene router when animationTemplate is present
+  if (data.animationTemplate) {
+    return <AnimatedSceneRouter data={data} />;
+  }
 
   const bgOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
+import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS } from '../../../../animations/animation-templates';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -7,6 +8,11 @@ type GenerateVideoDataArgs = {
   topic: string;
   ageGroup?: AgeGroup;
   slideCount?: number;
+};
+
+export type AnimationTemplateData = {
+  id: string;
+  params: Record<string, any>;
 };
 
 export type SlideItem = {
@@ -23,6 +29,7 @@ export type TeachingSlide = {
   layout: 'hero' | 'grid' | 'list';
   items?: SlideItem[];
   narration: string;
+  animationTemplate?: AnimationTemplateData;
 };
 
 export type TeachingVideoData = {
@@ -111,7 +118,11 @@ export class GenerateVideoDataTool {
       "items": [
         {"emoji": "string (emoji)", "label": "string (1-4 Chinese characters)"}
       ],
-      "narration": "string (TTS narration in Chinese, 1-2 sentences, simple and clear for children)"
+      "narration": "string (TTS narration in Chinese, 1-2 sentences, simple and clear for children)",
+      "animationTemplate": {
+        "id": "string (template ID from the list below)",
+        "params": { "key": "value (template-specific parameters)" }
+      }
     }
   ]
 }`;
@@ -134,7 +145,13 @@ export class GenerateVideoDataTool {
       '- Use "grid" layout for showing multiple related items (3+ items).',
       '- Use "list" layout for step-by-step knowledge points.',
       '- Each slide should have 1-4 items with emoji + short label.',
+      '- For each slide, choose the most appropriate animationTemplate from the list below.',
+      '- If a slide matches an animation template, include animationTemplate with the template id and relevant params.',
+      '- If no template is a good fit, omit animationTemplate (the slide will use a static layout).',
       '- No markdown, no explanation. Return strict JSON only.',
+      '',
+      buildTemplatePromptContext(),
+      '',
       attempt > 1 ? retryNote : '',
       'JSON schema:',
       schema,
@@ -180,6 +197,8 @@ export class GenerateVideoDataTool {
     const rawLayout = this.toText(raw?.layout, 'hero');
     const layout = LAYOUTS.includes(rawLayout as any) ? rawLayout as TeachingSlide['layout'] : 'hero';
 
+    const animationTemplate = this.sanitizeAnimationTemplate(raw?.animationTemplate);
+
     return {
       title: this.toText(raw?.title, `知识点${index + 1}`).slice(0, 12),
       emoji: this.toText(raw?.emoji).slice(0, 2) || undefined,
@@ -189,7 +208,16 @@ export class GenerateVideoDataTool {
       layout,
       items: items && items.length > 0 ? items : undefined,
       narration: this.toText(raw?.narration, '请和老师一起学习。').slice(0, 100),
+      ...(animationTemplate ? { animationTemplate } : {}),
     };
+  }
+
+  private sanitizeAnimationTemplate(raw: any): AnimationTemplateData | undefined {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const id = this.toText(raw?.id);
+    if (!id || !KNOWN_TEMPLATE_IDS.has(id)) return undefined;
+    const params = raw.params && typeof raw.params === 'object' ? raw.params as Record<string, any> : {};
+    return { id, params };
   }
 
   private buildFallbackData(topic: string, ageGroup: AgeGroup, slideCount: number): TeachingVideoData {

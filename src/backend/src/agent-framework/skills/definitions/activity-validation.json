@@ -1,0 +1,15 @@
+{
+  "id": "activity-validation",
+  "name": "活动验证",
+  "description": "验证生成的活动内容是否符合主题要求",
+  "triggers": ["验证活动", "检查活动", "validate"],
+  "promptTemplate": "请验证以下关于{{topic}}的{{activityType}}活动是否主题一致、内容正确、适合{{ageGroup}}岁儿童。活动数据：{{activityData}}。返回验证结果和改进建议。",
+  "variables": [
+    { "name": "topic", "type": "string", "required": true, "description": "原始主题" },
+    { "name": "activityType", "type": "string", "required": true, "description": "活动类型" },
+    { "name": "activityData", "type": "string", "required": true, "description": "活动JSON数据" },
+    { "name": "ageGroup", "type": "string", "required": true, "description": "年龄组" }
+  ],
+  "requiredTools": [],
+  "ageGroups": ["3-4", "5-6"]
+}

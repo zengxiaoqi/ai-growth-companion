@@ -104,11 +104,16 @@ export class LlmClient {
 
     let result = this.stripThinking(raw);
 
-    // If the response was only thinking (no visible content), retry once
+    // If the response was only thinking (no visible content), retry with anti-thinking prompt
     if (!result) {
-      this.logger.debug(`generate() produced empty content after stripThinking (raw length=${raw.length}), retrying...`);
+      this.logger.debug(`generate() produced empty content after stripThinking (raw length=${raw.length}), retrying with anti-thinking prompt...`);
       try {
-        const retry = await this.chatCompletion(messages);
+        const retryMessages: ChatMessageParam[] = [
+          ...messages,
+          { role: 'assistant', content: raw.slice(0, 200) } as ChatMessageParam,
+          { role: 'user', content: 'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.' } as ChatMessageParam,
+        ];
+        const retry = await this.chatCompletion(retryMessages);
         const retryRaw = retry.choices[0]?.message?.content ?? '';
         result = this.stripThinking(retryRaw);
         if (!result && retryRaw) {

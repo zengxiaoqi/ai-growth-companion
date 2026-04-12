@@ -95,6 +95,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   async execute(args: GenerateActivityArgs, _context: ToolExecutionContext): Promise<ToolResult> {
     const normalizedArgs = this.normalizeArgs(args);
     const failures: string[] = [];
+    const reflections: string[] = [];
     const runId = this.createRunId();
 
     this.logger.log(`[generateActivity] start ${JSON.stringify({
@@ -104,16 +105,27 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
 
     for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
       try {
-        const prompt = this.buildPrompt(normalizedArgs, attempt, failures);
+        const prompt = this.buildPrompt(normalizedArgs, attempt, failures, reflections);
         this.logger.log(`[generateActivity] llm_request ${JSON.stringify({ runId, attempt, topic: normalizedArgs.topic, type: normalizedArgs.type })}`);
 
         const response = await this.llmClient.generate(prompt);
+
+        if (!response || !response.trim()) {
+          const reason = 'model returned empty response';
+          failures.push(`attempt ${attempt}: ${reason}`);
+          reflections.push('The model returned nothing. Output ONLY the JSON object with no surrounding text, no thinking blocks, and no explanation.');
+          this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({ runId, attempt, reason })}`);
+          continue;
+        }
+
         const parsed = extractJsonObject(response);
 
         if (!parsed) {
           const reason = 'model did not return parseable JSON';
+          const preview = response.slice(0, 200);
           failures.push(`attempt ${attempt}: ${reason}`);
-          this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({ runId, attempt, reason })}`);
+          reflections.push(`Your previous output was not valid JSON. Preview: "${preview}". You MUST output ONLY a raw JSON object. No markdown, no code fences, no explanation.`);
+          this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({ runId, attempt, reason, responsePreview: preview })}`);
           continue;
         }
 
@@ -122,6 +134,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         if (!alignment.ok) {
           const reason = alignment.reason || 'topic alignment check failed';
           failures.push(`attempt ${attempt}: ${reason}`);
+          reflections.push(`Your content did not match the topic "${normalizedArgs.topic}". Issue: ${reason}. Ensure every question/pair/item references the specific topic directly.`);
           this.logger.warn(`[generateActivity] attempt_failed ${JSON.stringify({ runId, attempt, reason })}`);
           continue;
         }
@@ -131,6 +144,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       } catch (error: any) {
         const reason = error?.message || 'unknown error';
         failures.push(`attempt ${attempt}: ${reason}`);
+        reflections.push(`An error occurred: ${reason}. Output valid JSON matching the schema.`);
         this.logger.warn(`[generateActivity] attempt_exception ${JSON.stringify({ runId, attempt, reason })}`);
       }
     }
@@ -165,12 +179,16 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     };
   }
 
-  private buildPrompt(args: GenerateActivityArgs, attempt: number, failures: string[]): string {
+  private buildPrompt(args: GenerateActivityArgs, attempt: number, failures: string[], reflections: string[]): string {
     const schema = this.schemaForType(args.type);
     const typeRules = this.typeRules(args.type);
     const topicRules = this.topicRules(args.topic);
     const failureNotes = failures.length > 0
       ? ['Previous attempt failed. Avoid repeating these issues:', ...failures.slice(-2).map((item) => `- ${item}`)].join('\n')
+      : '';
+
+    const reflectionNotes = reflections.length > 0
+      ? ['Self-correction guidance:', ...reflections.slice(-2).map((item) => `- ${item}`)].join('\n')
       : '';
 
     const noGenericRules = [
@@ -187,6 +205,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       args.domain ? `Domain: ${args.domain}.` : '',
       `Attempt: ${attempt}.`,
       failureNotes,
+      reflectionNotes,
       'Type constraints:',
       ...typeRules.map((rule) => `- ${rule}`),
       'Topic constraints:',
@@ -371,12 +390,25 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
 
     if (GENERIC_FALLBACK_RE.test(bodyContent)) return { ok: false, reason: 'generic fallback content detected' };
 
+    // Check topic keywords, but also accept concrete category members as satisfying a category keyword.
+    // For example, "狮子/老虎/大象" satisfies the "动物" keyword; "1/2/3" satisfies "数字".
+    const categoryMembers = this.getCategoryMembers(topic);
     const keywordHits = topicKeywords.filter((kw) => bodyContent.includes(kw));
-    if (topicKeywords.length > 0 && keywordHits.length === 0) {
+    const memberHits = categoryMembers.filter((member) => bodyContent.includes(member));
+
+    if (topicKeywords.length > 0 && keywordHits.length === 0 && memberHits.length < 2) {
       return { ok: false, reason: `content misses topic keywords: ${topicKeywords.join(', ')}` };
     }
 
     return this.validateContentQuality(args, activity);
+  }
+
+  /** Get concrete member terms for a category topic (e.g. "动物" → specific animal names). */
+  private getCategoryMembers(topic: string): string[] {
+    const t = topic.toLowerCase();
+    if (this.isAnimalTopic(t)) return ANIMAL_TERMS.map((term) => term.toLowerCase());
+    if (this.isNumberTopic(t)) return NUMBER_TERMS.map((term) => term.toLowerCase());
+    return [];
   }
 
   private validateContentQuality(args: GenerateActivityArgs, activity: any): ValidationResult {

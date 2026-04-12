@@ -68,21 +68,33 @@ export class GenerateCoursePackTool {
       ? await this.generateGameBundle(normalized)
       : null;
     const failures: string[] = [];
+    const reflections: string[] = [];
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
-        const prompt = this.buildPrompt(normalized, attempt, failures);
+        const prompt = this.buildPrompt(normalized, attempt, failures, reflections);
         const llmResponse = await this.llmClient.generate(prompt);
+
+        if (!llmResponse || !llmResponse.trim()) {
+          failures.push(`attempt ${attempt}: model returned empty response`);
+          reflections.push('The model returned nothing. Output ONLY the JSON object with no surrounding text, no thinking blocks, and no explanation.');
+          continue;
+        }
+
         const parsed = this.extractJsonObject(llmResponse);
         if (!parsed) {
+          const preview = llmResponse.slice(0, 200);
           failures.push(`attempt ${attempt}: invalid JSON`);
+          reflections.push(`Your previous output was not valid JSON. Preview: "${preview}". You MUST output ONLY a raw JSON object. No markdown, no code fences, no explanation.`);
           continue;
         }
 
         const coursePack = this.sanitizeCoursePack(normalized, parsed, gameBundle);
         return JSON.stringify(coursePack);
       } catch (error: any) {
-        failures.push(`attempt ${attempt}: ${error?.message || 'unknown'}`);
+        const reason = error?.message || 'unknown';
+        failures.push(`attempt ${attempt}: ${reason}`);
+        reflections.push(`An error occurred: ${reason}. Output valid JSON matching the schema.`);
       }
     }
 
@@ -189,9 +201,13 @@ export class GenerateCoursePackTool {
     }
   }
 
-  private buildPrompt(args: NormalizedArgs, attempt: number, failures: string[]): string {
+  private buildPrompt(args: NormalizedArgs, attempt: number, failures: string[], reflections: string[] = []): string {
     const retryNote = failures.length
       ? `Previous issues:\n${failures.slice(-2).map((f) => `- ${f}`).join('\n')}`
+      : '';
+
+    const reflectionNote = reflections.length
+      ? `Self-correction guidance:\n${reflections.slice(-2).map((r) => `- ${r}`).join('\n')}`
       : '';
 
     const schema = `{
@@ -281,6 +297,7 @@ export class GenerateCoursePackTool {
       `Include video module: ${args.includeVideo ? 'yes' : 'no'}`,
       `Attempt: ${attempt}`,
       retryNote,
+      reflectionNote,
       'Rules:',
       '- Keep all content age-appropriate and practical for home learning.',
       '- Every module must align with the topic.',

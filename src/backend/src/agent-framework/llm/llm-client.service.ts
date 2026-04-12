@@ -146,11 +146,16 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     const raw = response.content ?? '';
     const result = stripThinking(raw);
 
-    // If the response was only thinking (no visible content), retry once
+    // If the response was only thinking (no visible content), retry with explicit anti-thinking instruction
     if (!result && raw) {
-      this.logger.debug('generate() produced empty content after stripThinking, retrying...');
+      this.logger.debug('generate() produced empty content after stripThinking, retrying with anti-thinking prompt...');
       try {
-        const retry = await this.chatCompletion(messages);
+        const retryMessages: LlmMessage[] = [
+          ...messages,
+          { role: 'assistant', content: raw.slice(0, 200) },
+          { role: 'user', content: 'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.' },
+        ];
+        const retry = await this.chatCompletion(retryMessages);
         const retryResult = stripThinking(retry.content ?? '');
         return retryResult;
       } catch (err: any) {

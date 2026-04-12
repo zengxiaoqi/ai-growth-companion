@@ -13,12 +13,14 @@
 
 import { Module, OnModuleInit } from '@nestjs/common';
 import { LlmModule } from './llm/llm.module';
+import { LlmClientService } from './llm/llm-client.service';
 import { ToolRegistryModule } from './tools/tool-registry.module';
+import { ToolRegistryService } from './tools/tool-registry.service';
 import { AgentRegistryModule } from './agents/agent-registry.module';
+import { AgentRegistryService } from './agents/agent-registry.service';
 import { SkillRegistryModule } from './skills/skill-registry.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { SafetyModule } from './safety/safety.module';
-import { AgentRegistryService } from './agents/agent-registry.service';
 import { AgentExecutorService } from './agents/agent-executor.service';
 import { OrchestratorService } from './agents/orchestrator.service';
 import { SubAgentFactory } from './agents/sub-agent-factory';
@@ -41,15 +43,31 @@ import { activityGeneratorDefinition } from './agents/definitions/activity-gener
     SafetyModule,
   ],
   providers: [
-    AgentExecutorService,
-    OrchestratorService,
-    SubAgentFactory,
+    {
+      provide: AgentExecutorService,
+      useFactory: (toolRegistry: ToolRegistryService, llmClient: LlmClientService) =>
+        new AgentExecutorService(toolRegistry, llmClient),
+      inject: [ToolRegistryService, LlmClientService],
+    },
+    {
+      provide: OrchestratorService,
+      useFactory: (agentRegistry: AgentRegistryService, executor: AgentExecutorService) =>
+        // OrchestratorService constructor: (agentRegistry, executorService, conversationStore)
+        // conversationStore is optional — set to null for now, caller handles persistence
+        new OrchestratorService(agentRegistry, executor, null as any),
+      inject: [AgentRegistryService, AgentExecutorService],
+    },
+    {
+      provide: SubAgentFactory,
+      useFactory: (agentRegistry: AgentRegistryService) =>
+        new SubAgentFactory(agentRegistry),
+      inject: [AgentRegistryService],
+    },
     SkillExecutor,
     PromptProviderService,
   ],
   exports: [
     OrchestratorService,
-    AgentRegistryService,
     AgentExecutorService,
     SubAgentFactory,
     SkillRegistryModule,
@@ -65,7 +83,6 @@ export class AgentFrameworkModule implements OnModuleInit {
 
   /** Register built-in agent definitions on module init */
   onModuleInit() {
-    // Register all built-in agents
     const agentDefinitions = [
       childCompanionDefinition,
       parentAdvisorDefinition,
@@ -74,7 +91,6 @@ export class AgentFrameworkModule implements OnModuleInit {
     ];
 
     for (const definition of agentDefinitions) {
-      // Factory returns a placeholder — actual agent creation happens via AgentExecutorService
       this.agentRegistry.register(definition, () => ({
         definition,
         execute: async () => ({ response: '', toolCalls: [] }),

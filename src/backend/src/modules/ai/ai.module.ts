@@ -39,7 +39,24 @@ import { VoiceModule } from '../voice/voice.module';
 
 // Agent Framework — new multi-agent system
 import { AgentFrameworkModule } from '../../agent-framework';
-import { GenerateCoursePackTool as FrameworkCoursePackTool } from '../../agent-framework/tools/impl/generate-course-pack';
+// Framework tools that need service dependencies resolved here
+import { GetUserProfileTool as FwGetUserProfile } from '../../agent-framework/tools/impl/get-user-profile';
+import { GetAbilitiesTool as FwGetAbilities } from '../../agent-framework/tools/impl/get-abilities';
+import { GetLearningHistoryTool as FwGetLearningHistory } from '../../agent-framework/tools/impl/get-learning-history';
+import { SearchContentTool as FwSearchContent } from '../../agent-framework/tools/impl/search-content';
+import { GetRecommendationsTool as FwGetRecommendations } from '../../agent-framework/tools/impl/get-recommendations';
+import { GetParentControlTool as FwGetParentControl } from '../../agent-framework/tools/impl/get-parent-control';
+import { ListChildrenTool as FwListChildren } from '../../agent-framework/tools/impl/list-children';
+import { ViewReportTool as FwViewReport } from '../../agent-framework/tools/impl/view-report';
+import { ViewAbilitiesTool as FwViewAbilities } from '../../agent-framework/tools/impl/view-abilities';
+import { RecordLearningTool as FwRecordLearning } from '../../agent-framework/tools/impl/record-learning';
+import { UpdateParentControlTool as FwUpdateParentControl } from '../../agent-framework/tools/impl/update-parent-control';
+import { ListAssignmentsTool as FwListAssignments } from '../../agent-framework/tools/impl/list-assignments';
+import { GenerateQuizTool as FwGenerateQuiz } from '../../agent-framework/tools/impl/generate-quiz';
+import { GenerateVideoDataTool as FwGenerateVideoData } from '../../agent-framework/tools/impl/generate-video-data';
+import { GenerateActivityTool as FwGenerateActivity } from '../../agent-framework/tools/impl/generate-activity';
+import { AssignActivityTool as FwAssignActivity } from '../../agent-framework/tools/impl/assign-activity';
+import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-framework/tools/impl/generate-course-pack';
 
 @Module({
   imports: [
@@ -60,15 +77,15 @@ import { GenerateCoursePackTool as FrameworkCoursePackTool } from '../../agent-f
   providers: [
     AiService,
     ContentSafetyService,
-    // LLM layer
+    // LLM layer (legacy)
     LlmConfig,
     LlmClient,
-    // Conversation layer
+    // Conversation layer (legacy)
     ConversationManager,
-    // Agent layer
+    // Agent layer (legacy)
     AgentExecutor,
     ToolRegistry,
-    // Tool handlers
+    // Legacy tool handlers
     GetUserProfileTool,
     GetAbilitiesTool,
     GetLearningHistoryTool,
@@ -86,10 +103,27 @@ import { GenerateCoursePackTool as FrameworkCoursePackTool } from '../../agent-f
     ListAssignmentsTool,
     LegacyGenerateCoursePackTool,
     GenerateVideoDataTool,
+    // Framework tools — providers declared here so their service dependencies resolve
+    FwGetUserProfile,
+    FwGetAbilities,
+    FwGetLearningHistory,
+    FwSearchContent,
+    FwGetRecommendations,
+    FwGetParentControl,
+    FwListChildren,
+    FwViewReport,
+    FwViewAbilities,
+    FwRecordLearning,
+    FwUpdateParentControl,
+    FwListAssignments,
+    FwGenerateQuiz,
+    FwGenerateVideoData,
+    FwGenerateActivity,
+    FwAssignActivity,
     // Provide legacy course pack tool as the backing implementation
     {
-      provide: FrameworkCoursePackTool,
-      useFactory: (legacy: LegacyGenerateCoursePackTool) => new FrameworkCoursePackTool(legacy),
+      provide: FwGenerateCoursePack,
+      useFactory: (legacy: LegacyGenerateCoursePackTool) => new FwGenerateCoursePack(legacy),
       inject: [LegacyGenerateCoursePackTool],
     },
   ],

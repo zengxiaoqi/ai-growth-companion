@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { LlmClient } from '../../llm/llm-client';
+import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 
 @Injectable()
 export class GenerateQuizTool {
-  constructor(private readonly llmClient: LlmClient) {}
+  constructor(private readonly llmClient: LlmClientService) {}
 
   async execute(args: {
     topic: string;

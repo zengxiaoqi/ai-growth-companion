@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LlmClient } from '../../llm/llm-client';
+import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 
 export type ActivityType = 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle';
 
@@ -58,7 +58,7 @@ const TOPIC_CORE_TERMS = [
 export class GenerateActivityTool {
   private readonly logger = new Logger(GenerateActivityTool.name);
 
-  constructor(private readonly llmClient: LlmClient) {}
+  constructor(private readonly llmClient: LlmClientService) {}
 
   async execute(args: GenerateActivityArgs): Promise<string> {
     const normalizedArgs = this.normalizeArgs(args);

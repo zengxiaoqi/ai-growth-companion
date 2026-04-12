@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LlmClient } from '../../llm/llm-client';
+import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
 import { buildTemplatePromptContext, KNOWN_TEMPLATE_IDS, suggestTemplateByDomain } from '../../../../animations/animation-templates';
 import {
@@ -58,7 +58,7 @@ export class GenerateCoursePackTool {
   private readonly logger = new Logger(GenerateCoursePackTool.name);
 
   constructor(
-    private readonly llmClient: LlmClient,
+    private readonly llmClient: LlmClientService,
     private readonly generateActivityTool: GenerateActivityTool,
   ) {}
 

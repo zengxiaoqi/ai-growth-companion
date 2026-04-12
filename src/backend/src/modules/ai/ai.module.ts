@@ -12,8 +12,6 @@ import { ParentModule } from '../parent/parent.module';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
 import { Conversation, ConversationMessage } from './conversation/conversation.entity';
 import { ConversationManager } from './conversation/conversation-manager';
-import { LlmConfig } from './llm/llm.config';
-import { LlmClient } from './llm/llm-client';
 import { AgentExecutor } from './agent/agent-executor';
 import { ToolRegistry } from './agent/tool-registry';
 import { GetUserProfileTool } from './agent/tools/get-user-profile';
@@ -77,9 +75,6 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-fram
   providers: [
     AiService,
     ContentSafetyService,
-    // LLM layer (legacy)
-    LlmConfig,
-    LlmClient,
     // Conversation layer (legacy)
     ConversationManager,
     // Agent layer (legacy)
@@ -128,6 +123,6 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-fram
     },
   ],
   controllers: [AiController],
-  exports: [AiService, GenerateActivityTool, LegacyGenerateCoursePackTool, GenerateVideoDataTool, LlmClient],
+  exports: [AiService, GenerateActivityTool, LegacyGenerateCoursePackTool, GenerateVideoDataTool],
 })
 export class AiModule {}

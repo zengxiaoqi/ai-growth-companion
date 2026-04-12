@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LlmClient } from '../../llm/llm-client';
+import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -51,7 +51,7 @@ const LAYOUTS: Array<'hero' | 'grid' | 'list'> = ['hero', 'grid', 'list'];
 export class GenerateVideoDataTool {
   private readonly logger = new Logger(GenerateVideoDataTool.name);
 
-  constructor(private readonly llmClient: LlmClient) {}
+  constructor(private readonly llmClient: LlmClientService) {}
 
   async execute(args: GenerateVideoDataArgs): Promise<TeachingVideoData> {
     const topic = this.toText(args?.topic);

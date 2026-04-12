@@ -4,8 +4,7 @@ import { ConversationManager } from './conversation/conversation-manager';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
 import { UsersService } from '../users/users.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
-import { LlmConfig } from './llm/llm.config';
-import { LlmClient } from './llm/llm-client';
+import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import * as JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
@@ -44,8 +43,7 @@ export class AiService {
     private readonly contentSafetyService: ContentSafetyService,
     private readonly usersService: UsersService,
     private readonly learningArchiveService: LearningArchiveService,
-    private readonly llmConfig: LlmConfig,
-    private readonly llmClient: LlmClient,
+    private readonly llmClient: LlmClientService,
     private readonly generateCoursePackTool: GenerateCoursePackTool,
     @Optional() private readonly voiceService?: VoiceService,
   ) {}
@@ -64,7 +62,7 @@ export class AiService {
         };
       }
 
-      if (!this.llmConfig.isConfigured) {
+      if (!this.llmClient.isConfigured) {
         return this.fallbackChat(message, parentId);
       }
 
@@ -108,7 +106,7 @@ export class AiService {
     const childName = user.name || '小朋友';
 
     // Check if LLM is available
-    if (!this.llmConfig.isConfigured) {
+    if (!this.llmClient.isConfigured) {
       return this.fallbackChat(message, childId!);
     }
 
@@ -178,7 +176,7 @@ export class AiService {
         return;
       }
 
-      if (!this.llmConfig.isConfigured) {
+      if (!this.llmClient.isConfigured) {
         const fallback = this.getFallbackResponse(message);
         yield { type: 'token', content: fallback };
         yield { type: 'done', suggestions: [] };
@@ -222,7 +220,7 @@ export class AiService {
     const ageGroup = this.agentExecutor.classifyAge(age);
     const childName = user.name || '小朋友';
 
-    if (!this.llmConfig.isConfigured) {
+    if (!this.llmClient.isConfigured) {
       const fallback = this.getFallbackResponse(message);
       yield { type: 'token', content: fallback };
       yield { type: 'done', suggestions: [] };
@@ -1150,7 +1148,7 @@ export class AiService {
     const toTranslate = uniqueTexts.filter((text) => !this.isMostlyEnglish(text));
     if (toTranslate.length === 0) return results;
 
-    const canUseLlm = !!(this.llmConfig as any)?.isConfigured && typeof (this.llmClient as any)?.generate === 'function';
+    const canUseLlm = this.llmClient.isConfigured && typeof this.llmClient.generate === 'function';
     if (!canUseLlm) return results;
 
     const chunkSize = 25;
@@ -2585,7 +2583,7 @@ export class AiService {
     const storyTopic = theme ?? '友谊与分享';
 
     // Try LLM first
-    if (this.llmConfig.isConfigured) {
+    if (this.llmClient.isConfigured) {
       try {
         const prompt = `请为${ageGroup}岁的孩子编一个关于"${storyTopic}"的简短故事。
 

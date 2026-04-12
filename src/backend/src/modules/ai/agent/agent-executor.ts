@@ -1,15 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LlmClient } from '../llm/llm-client';
+import { LlmClientService } from '../../../agent-framework/llm/llm-client.service';
 import { ToolRegistry } from './tool-registry';
 import { ConversationManager } from '../conversation/conversation-manager';
 import { ContentSafetyService } from '../../../common/services/content-safety.service';
 import { systemPrompt34, systemPrompt56, systemPromptParent } from './prompts/system-prompts';
-import type { ChatCompletionMessageParam, ChatCompletionMessageFunctionToolCall } from 'openai/resources/chat/completions/completions';
+import { stripThinking, extractThinking } from '../../../agent-framework/core';
+import type { LlmMessage } from '../../../agent-framework/core';
 import type { ToolCallInfo, AgeGroup } from '../ai.types';
-
-function isFunctionToolCall(tc: any): tc is ChatCompletionMessageFunctionToolCall {
-  return tc && tc.type === 'function' && tc.function;
-}
 
 const MAX_TOOL_ITERATIONS = 8;
 const CHILD_ID_TOOLS = new Set([
@@ -38,39 +35,6 @@ const SUPPORTED_ACTIVITY_TYPES = ['quiz', 'true_false', 'fill_blank', 'matching'
 type SupportedActivityType = (typeof SUPPORTED_ACTIVITY_TYPES)[number];
 const SUPPORTED_ACTIVITY_TYPE_SET = new Set<string>(SUPPORTED_ACTIVITY_TYPES);
 
-const THINK_CLOSE_TAG = '</think' + '>';
-
-/** Strip <think...</think-> reasoning blocks from model output.
- *  MiniMax format: <think\n...reasoning...\n</think->\n\nanswer
- *  Handles thinking blocks anywhere in the string.
- */
-function stripThinking(text: string): string {
-  if (!text) return '';
-  let result = text.replace(/<think\b[\s\S]*?<\/think.*?>/g, '').trim();
-  result = result.replace(/<think\b[\s\S]*$/g, '').trim();
-  return result;
-}
-
-/** Extract the content inside <think...</think-> blocks */
-function extractThinking(text: string): string {
-  if (!text) return '';
-  const match = text.match(/<think\b[^>]*>([\s\S]*?)<\/think.*?>/);
-  if (match && match[1]) {
-    return match[1].trim();
-  }
-  // Handle <think with no closing > on opening tag: <think\ncontent\n</think->
-  const match2 = text.match(/<think\b([\s\S]*?)<\/think.*?>/);
-  if (match2 && match2[1]) {
-    return match2[1].trim();
-  }
-  // Handle unclosed <think
-  const unclosed = text.match(/<think\b([\s\S]*)$/);
-  if (unclosed && unclosed[1]) {
-    return unclosed[1].trim();
-  }
-  return '';
-}
-
 function isSupportedActivityType(value: unknown): value is SupportedActivityType {
   return typeof value === 'string' && SUPPORTED_ACTIVITY_TYPE_SET.has(value);
 }
@@ -96,12 +60,36 @@ function safeParseJsonObject(text: string): Record<string, any> | null {
   return null;
 }
 
+/** Convert ChatCompletionMessageParam[] from ConversationManager to LlmMessage[] */
+function toLlmMessages(raw: any[]): LlmMessage[] {
+  return raw.map((msg: any) => {
+    if (msg.role === 'tool') {
+      return {
+        role: 'tool' as const,
+        content: typeof msg.content === 'string' ? msg.content : '',
+        toolCallId: msg.tool_call_id,
+      };
+    }
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      return {
+        role: 'assistant' as const,
+        content: msg.content ?? null,
+        toolCalls: msg.tool_calls,
+      };
+    }
+    return {
+      role: msg.role,
+      content: typeof msg.content === 'string' ? msg.content : (msg.content ?? ''),
+    };
+  });
+}
+
 @Injectable()
 export class AgentExecutor {
   private readonly logger = new Logger(AgentExecutor.name);
 
   constructor(
-    private readonly llmClient: LlmClient,
+    private readonly llmClient: LlmClientService,
     private readonly toolRegistry: ToolRegistry,
     private readonly conversationManager: ConversationManager,
     private readonly contentSafetyService: ContentSafetyService,
@@ -153,15 +141,15 @@ export class AgentExecutor {
     const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
 
     // Load conversation history
-    const history = await this.conversationManager.buildMessageArray(sessionId);
+    const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
 
     // Build full message array
-    const messages: ChatCompletionMessageParam[] = [
+    const messages: LlmMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...history,
+      ...toLlmMessages(rawHistory),
     ];
 
-    const tools = this.toolRegistry.getToolDefinitions();
+    const tools = this.toolRegistry.getToolDefinitions() as any;
     const toolCallLog: ToolCallInfo[] = [];
 
     // Agent loop
@@ -169,30 +157,24 @@ export class AgentExecutor {
       this.logger.log(`Agent iteration ${iteration + 1}`);
 
       const response = await this.llmClient.chatCompletion(messages, tools);
-      const choice = response.choices[0];
-      if (!choice?.message) {
-        break;
-      }
-
-      const assistantMessage = choice.message;
 
       // Check for tool calls
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      if (response.toolCalls && response.toolCalls.length > 0) {
         // Add assistant message with tool calls to conversation
         messages.push({
           role: 'assistant',
-          content: assistantMessage.content || null,
-          tool_calls: assistantMessage.tool_calls,
-        } as ChatCompletionMessageParam);
+          content: response.content,
+          toolCalls: response.toolCalls,
+        });
 
         // Save to DB
-        await this.conversationManager.addMessage(sessionId, 'assistant', stripThinking(assistantMessage.content || ''), {
-          toolCalls: assistantMessage.tool_calls,
+        await this.conversationManager.addMessage(sessionId, 'assistant', stripThinking(response.content || ''), {
+          toolCalls: response.toolCalls,
         });
 
         // Execute each tool call
-        for (const toolCall of assistantMessage.tool_calls) {
-          if (!isFunctionToolCall(toolCall)) continue;
+        for (const toolCall of response.toolCalls) {
+          if (!toolCall.function?.name) continue;
           const toolName = toolCall.function.name;
           let toolArgs: Record<string, any>;
           try {
@@ -208,8 +190,8 @@ export class AgentExecutor {
           messages.push({
             role: 'tool',
             content: result,
-            tool_call_id: toolCall.id,
-          } as ChatCompletionMessageParam);
+            toolCallId: toolCall.id,
+          });
 
           // Save to DB
           await this.conversationManager.addMessage(sessionId, 'tool', result, {
@@ -229,7 +211,7 @@ export class AgentExecutor {
       }
 
       // No tool calls — this is the final answer
-      let finalReply = stripThinking(assistantMessage.content || '');
+      let finalReply = stripThinking(response.content || '');
 
       // Safety filter
       const safeResult = this.contentSafetyService.filterContent(finalReply);
@@ -272,24 +254,20 @@ export class AgentExecutor {
     await this.conversationManager.addMessage(sessionId, 'user', userMessage);
 
     const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
-    const history = await this.conversationManager.buildMessageArray(sessionId);
-    const messages: ChatCompletionMessageParam[] = [
+    const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
+    const messages: LlmMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...history,
+      ...toLlmMessages(rawHistory),
     ];
-    const tools = this.toolRegistry.getToolDefinitions();
+    const tools = this.toolRegistry.getToolDefinitions() as any;
     const toolCallLog: ToolCallInfo[] = [];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const response = await this.llmClient.chatCompletion(messages, tools);
-      const choice = response.choices[0];
-      if (!choice?.message) break;
 
-      const assistantMessage = choice.message;
-
-      if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+      if (response.toolCalls && response.toolCalls.length > 0) {
         // Emit thinking content if present (before tool calls)
-        const thinkingContent = extractThinking(assistantMessage.content || '');
+        const thinkingContent = extractThinking(response.content || '');
         if (thinkingContent) {
           yield { type: 'thinking', thinkingContent };
         }
@@ -297,16 +275,16 @@ export class AgentExecutor {
         // Handle tool calls (non-streaming)
         messages.push({
           role: 'assistant',
-          content: assistantMessage.content || null,
-          tool_calls: assistantMessage.tool_calls,
-        } as ChatCompletionMessageParam);
-
-        await this.conversationManager.addMessage(sessionId, 'assistant', stripThinking(assistantMessage.content || ''), {
-          toolCalls: assistantMessage.tool_calls,
+          content: response.content,
+          toolCalls: response.toolCalls,
         });
 
-        for (const toolCall of assistantMessage.tool_calls) {
-          if (!isFunctionToolCall(toolCall)) continue;
+        await this.conversationManager.addMessage(sessionId, 'assistant', stripThinking(response.content || ''), {
+          toolCalls: response.toolCalls,
+        });
+
+        for (const toolCall of response.toolCalls) {
+          if (!toolCall.function?.name) continue;
           const toolName = toolCall.function.name;
           let toolArgs: Record<string, any>;
           try {
@@ -339,8 +317,8 @@ export class AgentExecutor {
           messages.push({
             role: 'tool',
             content: result,
-            tool_call_id: toolCall.id,
-          } as ChatCompletionMessageParam);
+            toolCallId: toolCall.id,
+          });
 
           await this.conversationManager.addMessage(sessionId, 'tool', result, {
             toolCallId: toolCall.id,
@@ -353,21 +331,20 @@ export class AgentExecutor {
       }
 
       // Final response — the LLM already gave us the text in the non-streaming call
-      // (tool-call rounds use non-streaming chatCompletion, so the final answer is in assistantMessage)
       // Emit thinking content if present
-      const finalThinking = extractThinking(assistantMessage.content || '');
+      const finalThinking = extractThinking(response.content || '');
       if (finalThinking) {
         yield { type: 'thinking', thinkingContent: finalThinking };
       }
 
-      let cleanContent = stripThinking(assistantMessage.content || '');
+      let cleanContent = stripThinking(response.content || '');
 
       // If the non-streaming response was only thinking (no visible content), make one more call without tools
       if (!cleanContent) {
         this.logger.log(`[STREAM] Non-streaming response was empty, making follow-up call without tools`);
         try {
           const followUp = await this.llmClient.chatCompletion(messages, undefined);
-          cleanContent = stripThinking(followUp.choices[0]?.message?.content || '');
+          cleanContent = stripThinking(followUp.content || '');
         } catch (err: any) {
           this.logger.warn(`[STREAM] Follow-up call failed: ${err.message}`);
         }

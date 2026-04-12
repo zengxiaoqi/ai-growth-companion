@@ -12,7 +12,7 @@ import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 import { AiService } from '../ai/ai.service';
 import { AssignmentService } from '../assignment/assignment.service';
 import { LearningTrackerService } from './learning-tracker.service';
-import { LlmClient } from '../ai/llm/llm-client';
+import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import {
   derivePracticeSceneDocument,
   deriveWatchSceneDocument,
@@ -119,7 +119,7 @@ export class LessonContentService {
     private readonly aiService: AiService,
     private readonly assignmentService: AssignmentService,
     private readonly learningTracker: LearningTrackerService,
-    private readonly llmClient: LlmClient,
+    private readonly llmClient: LlmClientService,
   ) {}
 
   async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {

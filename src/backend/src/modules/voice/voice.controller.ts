@@ -21,7 +21,7 @@ export class VoiceController {
       return;
     }
 
-    const audioBuffer = await this.voiceService.textToSpeech(decodeURIComponent(text), voice);
+    const audioBuffer = await this.voiceService.textToSpeech(text, voice);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', audioBuffer.length);
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -67,6 +67,6 @@ export class VoiceController {
     @Query('userId') userId: string,
     @Query('question') question: string,
   ) {
-    return this.voiceService.voiceQuiz(+userId, decodeURIComponent(question));
+    return this.voiceService.voiceQuiz(+userId, question);
   }
 }

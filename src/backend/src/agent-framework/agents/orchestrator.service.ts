@@ -19,6 +19,8 @@ import type {
 } from '../core';
 import { filterContent } from '../core';
 import { AgentExecutorService } from './agent-executor.service';
+import { SkillRegistryService } from '../skills/skill-registry.service';
+import { SkillExecutor } from '../skills/skill-executor';
 
 /** Interface for conversation persistence — implemented externally */
 export interface IConversationStore {
@@ -42,6 +44,8 @@ export class OrchestratorService {
     private readonly agentRegistry: IAgentRegistry,
     private readonly executorService: AgentExecutorService,
     private readonly conversationStore: IConversationStore,
+    private readonly skillRegistry: SkillRegistryService,
+    private readonly skillExecutor: SkillExecutor,
   ) {}
 
   /**
@@ -64,7 +68,8 @@ export class OrchestratorService {
     await this.conversationStore.addMessage(context.conversationId, 'user', input);
 
     // 3. Build system prompt and load history
-    const systemPrompt = agent.definition.buildSystemPrompt(context);
+    let systemPrompt = agent.definition.buildSystemPrompt(context);
+    systemPrompt = this.injectSkills(systemPrompt, agent.definition.allowedSkills);
     const history = await this.conversationStore.buildMessageArray(context.conversationId);
 
     // 4. Get filtered tool definitions
@@ -118,7 +123,8 @@ export class OrchestratorService {
     await this.conversationStore.addMessage(context.conversationId, 'user', input);
 
     // 3. Build system prompt and load history
-    const systemPrompt = agent.definition.buildSystemPrompt(context);
+    let systemPrompt = agent.definition.buildSystemPrompt(context);
+    systemPrompt = this.injectSkills(systemPrompt, agent.definition.allowedSkills);
     const history = await this.conversationStore.buildMessageArray(context.conversationId);
 
     // 4. Get filtered tool definitions
@@ -166,5 +172,22 @@ export class OrchestratorService {
         );
       }
     }
+  }
+
+  /**
+   * Inject skill content into the system prompt for agents with allowedSkills.
+   */
+  private injectSkills(systemPrompt: string, allowedSkills?: string[]): string {
+    if (!allowedSkills || allowedSkills.length === 0) return systemPrompt;
+
+    const skills = this.skillRegistry.getSkillsForAgent(allowedSkills);
+    if (skills.length === 0) return systemPrompt;
+
+    const skillParts = skills.map(skill =>
+      this.skillExecutor.renderSkillForPrompt(skill.definition),
+    );
+
+    this.logger.debug(`Injecting ${skills.length} skills: ${skills.map(s => s.definition.id).join(', ')}`);
+    return `${systemPrompt}\n\n---\n\n# Active Skills\n\n${skillParts.join('\n\n')}`;
   }
 }

@@ -19,6 +19,7 @@ import { ToolRegistryService } from './tools/tool-registry.service';
 import { AgentRegistryModule } from './agents/agent-registry.module';
 import { AgentRegistryService } from './agents/agent-registry.service';
 import { SkillRegistryModule } from './skills/skill-registry.module';
+import { SkillRegistryService } from './skills/skill-registry.service';
 import { ConversationModule } from './conversation/conversation.module';
 import { SafetyModule } from './safety/safety.module';
 import { AgentExecutorService } from './agents/agent-executor.service';
@@ -51,11 +52,14 @@ import { activityGeneratorDefinition } from './agents/definitions/activity-gener
     },
     {
       provide: OrchestratorService,
-      useFactory: (agentRegistry: AgentRegistryService, executor: AgentExecutorService) =>
-        // OrchestratorService constructor: (agentRegistry, executorService, conversationStore)
-        // conversationStore is optional — set to null for now, caller handles persistence
-        new OrchestratorService(agentRegistry, executor, null as any),
-      inject: [AgentRegistryService, AgentExecutorService],
+      useFactory: (
+        agentRegistry: AgentRegistryService,
+        executor: AgentExecutorService,
+        skillRegistry: SkillRegistryService,
+        skillExecutor: SkillExecutor,
+      ) =>
+        new OrchestratorService(agentRegistry, executor, null as any, skillRegistry, skillExecutor),
+      inject: [AgentRegistryService, AgentExecutorService, SkillRegistryService, SkillExecutor],
     },
     {
       provide: SubAgentFactory,

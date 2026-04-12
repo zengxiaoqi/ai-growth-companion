@@ -22,9 +22,17 @@ export interface SkillVariable {
   description: string;
 }
 
-/** Static definition of a skill — can be serialized to JSON */
+/** A supporting rule file within a skill directory */
+export interface SkillRule {
+  /** Rule file name (e.g. "audio.md") */
+  name: string;
+  /** Rule file content (Markdown) */
+  content: string;
+}
+
+/** Static definition of a skill — can be loaded from Markdown or JSON */
 export interface SkillDefinition {
-  /** Unique skill identifier */
+  /** Unique skill identifier (derived from directory name for Markdown skills) */
   id: string;
   /** Human-readable name */
   name: string;
@@ -32,8 +40,10 @@ export interface SkillDefinition {
   description: string;
   /** Keywords/patterns that trigger this skill */
   triggers: string[];
-  /** Prompt template with {{variable}} placeholders */
-  promptTemplate: string;
+  /** @deprecated Use body for Markdown skills */
+  promptTemplate?: string;
+  /** Markdown body content (replaces promptTemplate) */
+  body?: string;
   /** Variables expected by the template */
   variables: SkillVariable[];
   /** Tools this skill requires */
@@ -42,6 +52,8 @@ export interface SkillDefinition {
   chainTo?: string;
   /** Age groups this skill applies to (empty = all) */
   ageGroups?: AgeGroup[];
+  /** Supporting rule files from rules/ directory */
+  rules?: SkillRule[];
 }
 
 /** Context available during skill execution */

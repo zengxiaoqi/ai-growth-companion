@@ -6,7 +6,7 @@ import { UsersService } from '../users/users.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

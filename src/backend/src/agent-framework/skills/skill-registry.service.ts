@@ -1,15 +1,30 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { ISkill, ISkillRegistry, SkillDefinition, SkillExecutionContext } from '../core';
-import { SkillNotFoundError } from '../core';
-import * as fs from 'fs';
+import { loadSkillsFromDirectory } from './markdown-skill-loader';
 import * as path from 'path';
 
 @Injectable()
-export class SkillRegistryService implements ISkillRegistry {
+export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
   private readonly logger = new Logger(SkillRegistryService.name);
   private readonly skills: Map<string, ISkill> = new Map();
 
+  async onModuleInit(): Promise<void> {
+    const builtInDir = path.join(__dirname, 'definitions');
+    const externalDir = process.env.SKILLS_DIR || path.join(process.cwd(), 'skills');
+
+    const dirs = [builtInDir];
+    if (externalDir !== builtInDir) {
+      dirs.push(externalDir);
+    }
+
+    await this.loadSkillDirectories(dirs);
+  }
+
   register(skill: ISkill): void {
+    const existing = this.skills.get(skill.definition.id);
+    if (existing) {
+      this.logger.warn(`Overwriting skill: ${skill.definition.id}`);
+    }
     this.skills.set(skill.definition.id, skill);
     this.logger.log(`Registered skill: ${skill.definition.id}`);
   }
@@ -30,30 +45,25 @@ export class SkillRegistryService implements ISkillRegistry {
     );
   }
 
-  async loadFromDirectory(dirPath: string): Promise<void> {
-    if (!fs.existsSync(dirPath)) {
-      this.logger.warn(`Skills directory not found: ${dirPath}`);
-      return;
-    }
-
-    const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.json'));
-    for (const file of files) {
-      try {
-        const filePath = path.join(dirPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const definition: SkillDefinition = JSON.parse(content);
-        this.register(new JsonSkill(definition));
-        this.logger.log(`Loaded skill from file: ${file}`);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to load skill from ${file}: ${message}`);
+  async loadSkillDirectories(dirPaths: string[]): Promise<void> {
+    for (const dirPath of dirPaths) {
+      const definitions = loadSkillsFromDirectory(dirPath, this.logger);
+      for (const definition of definitions) {
+        this.register(new MarkdownSkill(definition));
       }
     }
   }
+
+  getSkillsForAgent(allowedSkills?: string[]): ISkill[] {
+    if (!allowedSkills || allowedSkills.length === 0) return [];
+    return allowedSkills
+      .map(id => this.skills.get(id))
+      .filter((s): s is ISkill => s != null);
+  }
 }
 
-/** Simple ISkill implementation backed by a JSON definition */
-class JsonSkill implements ISkill {
+/** ISkill implementation backed by a Markdown definition */
+class MarkdownSkill implements ISkill {
   readonly definition: SkillDefinition;
   constructor(definition: SkillDefinition) {
     this.definition = definition;
@@ -63,8 +73,6 @@ class JsonSkill implements ISkill {
     variables: Record<string, unknown>,
     context: SkillExecutionContext,
   ): Promise<any> {
-    // JSON skills are prompt templates — the actual execution
-    // is handled by the SkillExecutor which has LLM access
     return { definition: this.definition, variables, context };
   }
 }

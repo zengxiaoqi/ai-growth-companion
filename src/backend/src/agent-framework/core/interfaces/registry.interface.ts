@@ -53,6 +53,8 @@ export interface ISkillRegistry {
   getAll(): ISkill[];
   /** Find skills matching a trigger keyword */
   findByTrigger(keyword: string): ISkill[];
-  /** Load skill definitions from a directory of JSON files */
-  loadFromDirectory(dirPath: string): Promise<void>;
+  /** Load skill definitions from multiple directories */
+  loadSkillDirectories(dirPaths: string[]): Promise<void>;
+  /** Get skills matching an agent's allowedSkills list */
+  getSkillsForAgent(allowedSkills?: string[]): ISkill[];
 }

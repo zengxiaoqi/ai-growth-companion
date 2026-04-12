@@ -1,12 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { ISkill, SkillDefinition, SkillExecutionContext, ILlmClient, ExecutionResult } from '../core';
+import { Injectable } from '@nestjs/common';
+import type { SkillDefinition } from '../core';
 
 @Injectable()
 export class SkillExecutor {
-  private readonly logger = new Logger(SkillExecutor.name);
-
-  constructor() {}
-
   /** Render a prompt template by replacing {{variable}} placeholders */
   renderTemplate(template: string, variables: Record<string, unknown>): string {
     return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -33,5 +29,31 @@ export class SkillExecutor {
       }
     }
     return result;
+  }
+
+  /**
+   * Render the full skill content for system prompt injection.
+   * Uses body (Markdown) with fallback to promptTemplate (legacy).
+   * Appends all rules content.
+   */
+  renderSkillForPrompt(definition: SkillDefinition, variables?: Record<string, unknown>): string {
+    const template = definition.body || definition.promptTemplate || '';
+    const withDefaults = variables ? this.applyDefaults(definition, variables) : {};
+    const renderedBody = template ? this.renderTemplate(template, withDefaults) : '';
+
+    const parts: string[] = [];
+
+    if (renderedBody) {
+      parts.push(`## Skill: ${definition.name}\n\n${renderedBody}`);
+    }
+
+    if (definition.rules && definition.rules.length > 0) {
+      for (const rule of definition.rules) {
+        const renderedRule = this.renderTemplate(rule.content, withDefaults);
+        parts.push(`### ${rule.name}\n\n${renderedRule}`);
+      }
+    }
+
+    return parts.join('\n\n');
   }
 }

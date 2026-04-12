@@ -90,6 +90,8 @@ export const parentAdvisorDefinition: AgentDefinition = {
     'recordLearning',
   ],
 
+  allowedSkills: ['course-pack-flow'],
+
   maxIterations: 8,
   canSpawnSubAgents: true,
   maxSubAgentDepth: 1,

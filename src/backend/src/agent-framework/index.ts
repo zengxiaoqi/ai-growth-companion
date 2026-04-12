@@ -30,6 +30,7 @@ export type {
   ISkill,
   SkillDefinition,
   SkillVariable,
+  SkillRule,
   SkillExecutionContext,
 } from './core/interfaces/skill.interface';
 
@@ -146,6 +147,7 @@ export { activityGeneratorDefinition } from './agents/definitions/activity-gener
 // Skill system
 export { SkillRegistryService } from './skills/skill-registry.service';
 export { SkillExecutor } from './skills/skill-executor';
+export { loadSkillsFromDirectory } from './skills/markdown-skill-loader';
 
 // Prompt system
 export { PromptProviderService } from './prompts/prompt-provider.service';

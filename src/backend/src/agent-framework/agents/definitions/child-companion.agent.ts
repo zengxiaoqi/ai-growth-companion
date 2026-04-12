@@ -139,6 +139,8 @@ export const childCompanionDefinition: AgentDefinition = {
     'generateCoursePack',
   ],
 
+  allowedSkills: ['quiz-generation', 'story-generation'],
+
   maxIterations: 8,
   defaultAgeGroup: '5-6',
   canSpawnSubAgents: true,

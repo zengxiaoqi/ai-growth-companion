@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'child_process';
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/generate-video-data';
+import { VoiceService } from '../voice/voice.service';
 import { deriveWatchSceneDocument } from './lesson-scene';
 
 export type ResolvedComposition = {
@@ -63,7 +65,10 @@ export class RemotionRenderService {
   private readonly logger = new Logger(RemotionRenderService.name);
   private readonly remotionDir = path.resolve(__dirname, '../../../../video-remotion');
 
-  constructor(private readonly generateVideoDataTool: GenerateVideoDataTool) {}
+  constructor(
+    private readonly generateVideoDataTool: GenerateVideoDataTool,
+    private readonly voiceService: VoiceService,
+  ) {}
 
   async resolveComposition(
     input: ResolveCompositionInput,
@@ -72,9 +77,11 @@ export class RemotionRenderService {
     const payload = this.normalizePayload(input, ageGroup);
 
     if (this.hasLessonVideoSource(payload)) {
+      const videoData = this.buildVideoDataFromLesson(payload);
+      const enrichedData = await this.generateNarrationAudioFiles(videoData);
       return {
         compositionId: 'TopicVideo',
-        inputProps: this.buildVideoDataFromLesson(payload),
+        inputProps: enrichedData,
       };
     }
 
@@ -142,11 +149,12 @@ export class RemotionRenderService {
 
   private buildVideoDataFromLesson(payload: LessonVideoPayload): TeachingVideoData {
     const watchSlides = this.buildWatchSlides(payload);
-    const supportSlides = this.buildSupplementSlides(payload.modules || {}, watchSlides.length);
-    const reservedSupportCount = Math.min(5, supportSlides.length);
+    const mergedSlides = this.mergeListeningIntoWatchSlides(watchSlides, payload.modules?.listening);
+    const supportSlides = this.buildSupplementSlides(payload.modules || {}, mergedSlides.length);
+    const reservedSupportCount = Math.min(4, supportSlides.length);
     const maxWatchSlides = Math.max(1, 8 - reservedSupportCount);
     const slides = [
-      ...watchSlides.slice(0, maxWatchSlides),
+      ...mergedSlides.slice(0, maxWatchSlides),
       ...supportSlides,
     ].slice(0, 8);
 
@@ -178,12 +186,36 @@ export class RemotionRenderService {
       .map((scene: Record<string, any>, index: number) => this.buildSlideFromScene(scene, index));
   }
 
+  private mergeListeningIntoWatchSlides(
+    watchSlides: TeachingSlide[],
+    listening: Record<string, any> | undefined,
+  ): TeachingSlide[] {
+    if (!listening || Object.keys(listening).length === 0) return watchSlides;
+    if (watchSlides.length === 0) return watchSlides;
+
+    const script = Array.isArray(listening.audioScript) ? listening.audioScript : [];
+    if (script.length === 0) return watchSlides;
+
+    return watchSlides.map((slide, index) => {
+      const segment = script[index % script.length];
+      const segmentNarration = this.toText(segment?.narration);
+      if (!segmentNarration) return slide;
+
+      const mergedNarration = slide.narration
+        ? `${slide.narration} ${segmentNarration}`
+        : segmentNarration;
+
+      return {
+        ...slide,
+        narration: mergedNarration.slice(0, 200),
+      };
+    });
+  }
+
   private buildSupplementSlides(modules: LessonModules, startIndex: number): TeachingSlide[] {
     const slides: TeachingSlide[] = [];
 
-    const listeningSlide = this.buildListeningSlide(modules.listening, startIndex + slides.length);
-    if (listeningSlide) slides.push(listeningSlide);
-
+    // Listening content is merged into watch slides, skip separate listening slide
     const readingSlide = this.buildReadingSlide(modules.reading, startIndex + slides.length);
     if (readingSlide) slides.push(readingSlide);
 
@@ -513,6 +545,64 @@ export class RemotionRenderService {
     if (value == null) return fallback;
     const text = String(value).replace(/\s+/g, ' ').trim();
     return text || fallback;
+  }
+
+  private async generateNarrationAudioFiles(
+    data: TeachingVideoData,
+  ): Promise<TeachingVideoData> {
+    const publicDir = path.join(this.remotionDir, 'public');
+    await fs.mkdir(publicDir, { recursive: true });
+
+    const slideResults = await Promise.all(
+      data.slides.map(async (slide) => {
+        if (!slide.narration || slide.narration.trim().length === 0) {
+          return slide;
+        }
+        try {
+          const buffer = await this.voiceService.textToSpeech(slide.narration);
+          const hash = createHash('sha1').update(slide.narration).digest('hex').slice(0, 12);
+          const filename = `narration-${hash}.mp3`;
+          await fs.writeFile(path.join(publicDir, filename), buffer);
+
+          const durationFrames = this.estimateAudioFrames(buffer);
+          return {
+            ...slide,
+            narrationSrc: filename,
+            durationFrames,
+          };
+        } catch (err: any) {
+          this.logger.warn(`TTS generation failed for slide "${slide.title}": ${err?.message || 'unknown'}`);
+          return slide;
+        }
+      }),
+    );
+
+    return { ...data, slides: slideResults };
+  }
+
+  private estimateAudioFrames(mp3Buffer: Buffer): number {
+    // Heuristic: 24kbps mono MP3 ≈ 3000 bytes/sec
+    // Fallback to text-length-based estimate if parsing fails
+    const bytesPerSecond = 3000;
+    const seconds = mp3Buffer.length / bytesPerSecond;
+    const frames = Math.ceil(seconds * 30) + 30; // +1s buffer
+    return Math.max(frames, 180); // minimum 6s
+  }
+
+  async cleanupNarrationFiles(inputProps: Record<string, any>): Promise<void> {
+    const slides = inputProps?.slides;
+    if (!Array.isArray(slides)) return;
+
+    const publicDir = path.join(this.remotionDir, 'public');
+    for (const slide of slides) {
+      if (slide.narrationSrc) {
+        try {
+          await fs.unlink(path.join(publicDir, slide.narrationSrc));
+        } catch {
+          // best effort cleanup
+        }
+      }
+    }
   }
 
   async renderComposition(

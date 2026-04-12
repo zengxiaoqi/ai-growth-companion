@@ -14,6 +14,8 @@ export type TeachingSlide = {
   layout: SlideLayout;
   items?: SlideItem[];
   narration: string;
+  narrationSrc?: string;
+  durationFrames?: number;
 };
 
 export type TeachingVideoData = {

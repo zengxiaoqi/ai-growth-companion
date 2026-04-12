@@ -23,6 +23,7 @@ import { UsersModule } from '../users/users.module';
 import { AiModule } from '../ai/ai.module';
 import { ContentsModule } from '../contents/contents.module';
 import { AssignmentModule } from '../assignment/assignment.module';
+import { VoiceModule } from '../voice/voice.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AssignmentModule } from '../assignment/assignment.module';
     forwardRef(() => AiModule),
     ContentsModule,
     forwardRef(() => AssignmentModule),
+    VoiceModule,
   ],
   providers: [LearningService, LearningTrackerService, LearningArchiveService, LessonContentService, LessonVideoQueueService, RemotionRenderService],
   controllers: [LearningController],

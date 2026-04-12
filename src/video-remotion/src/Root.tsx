@@ -21,11 +21,14 @@ const NUMBERS_TOTAL_FRAMES =
 
 function calcTopicVideoFrames(props: TeachingVideoData): number {
   const slideCount = props.slides.length;
-  // intro + N*slide + outro - (slideCount+1) transitions (intro→slide1, slideN→outro, plus inter-slide)
+  const slideFrames = props.slides.reduce(
+    (sum, slide) => sum + (slide.durationFrames || DEFAULT_SLIDE_DURATION),
+    0,
+  );
   const transitionCount = slideCount + 1;
   return (
     GENERIC_INTRO_DURATION +
-    slideCount * DEFAULT_SLIDE_DURATION +
+    slideFrames +
     GENERIC_OUTRO_DURATION -
     transitionCount * GENERIC_TRANSITION_DURATION
   );

@@ -101,12 +101,33 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
         interactionData,
       });
 
+      // Auto-complete listen step when watch step completes
+      const extraCompleted: string[] = [];
+      if (currentStep.id === 'watch') {
+        const listenStep = steps.find((s) => s.id === 'listen');
+        if (listenStep && !completedSteps.has('listen')) {
+          try {
+            await api.completeLessonStep(contentId, 'listen', childId, {
+              score: 90,
+              durationSeconds,
+              interactionData: { autoCompleted: true, reason: 'merged_with_watch' },
+            });
+            extraCompleted.push('listen');
+          } catch {
+            // Non-critical: listen auto-completion failure should not block watch
+          }
+        }
+      }
+
       setProgress((prev) => {
-        const newCompleted = [...(prev?.completedSteps || []), currentStep.id];
+        const newCompleted = [...(prev?.completedSteps || []), currentStep.id, ...extraCompleted];
         const newStepResults = {
           ...(prev?.stepResults || {}),
           [currentStep.id]: { status: 'completed', score },
         };
+        for (const extraId of extraCompleted) {
+          newStepResults[extraId] = { status: 'completed', score: 90 };
+        }
         return {
           contentId,
           childId,
@@ -117,12 +138,15 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       });
 
       // Check if all steps completed
-      const updatedCompleted = new Set([...completedSteps, currentStep.id]);
+      const updatedCompleted = new Set([...completedSteps, currentStep.id, ...extraCompleted]);
       if (steps.every((s) => updatedCompleted.has(s.id))) {
         setShowCompleteScreen(true);
       } else {
-        // Move to next step
-        const nextIndex = currentStepIndex + 1;
+        // Move to next step, skip listen if it was auto-completed
+        let nextIndex = currentStepIndex + 1;
+        if (extraCompleted.includes('listen') && nextIndex < steps.length && steps[nextIndex]?.id === 'listen') {
+          nextIndex++;
+        }
         if (nextIndex < steps.length) {
           setCurrentStepIndex(nextIndex);
         }
@@ -265,7 +289,8 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
             >
               <span>{meta.emoji}</span>
               <span>{meta.label}</span>
-              {isDone && <Check className="h-3 w-3" />}
+              {isDone && step.id === 'listen' && <span className="text-[10px] opacity-70">(已含在视频中)</span>}
+              {isDone && step.id !== 'listen' && <Check className="h-3 w-3" />}
             </button>
           );
         })}

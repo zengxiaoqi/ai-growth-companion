@@ -267,24 +267,29 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
     const { compositionId, inputProps } = await this.remotionRender.resolveComposition(payload, payload?.ageGroup);
 
-    const outputPath = path.join(this.storageDir, `${task.cacheKey}-remotion.mp4`);
-    await fs.mkdir(this.storageDir, { recursive: true });
+    try {
+      const outputPath = path.join(this.storageDir, `${task.cacheKey}-remotion.mp4`);
+      await fs.mkdir(this.storageDir, { recursive: true });
 
-    await this.remotionRender.renderComposition(
-      compositionId,
-      inputProps,
-      outputPath,
-      async (percent: number) => {
-        try {
-          await this.taskRepo.update(task.id, { progress: Math.max(10, Math.min(95, percent)) });
-        } catch {}
-      },
-    );
+      await this.remotionRender.renderComposition(
+        compositionId,
+        inputProps,
+        outputPath,
+        async (percent: number) => {
+          try {
+            await this.taskRepo.update(task.id, { progress: Math.max(10, Math.min(95, percent)) });
+          } catch {}
+        },
+      );
 
-    const buffer = await fs.readFile(outputPath);
-    // Cleanup intermediate file
-    try { await fs.unlink(outputPath); } catch {}
-    return buffer;
+      const buffer = await fs.readFile(outputPath);
+      // Cleanup intermediate file
+      try { await fs.unlink(outputPath); } catch {}
+      return buffer;
+    } finally {
+      // Cleanup temporary narration MP3 files
+      await this.remotionRender.cleanupNarrationFiles(inputProps);
+    }
   }
 
   private async generateByThirdParty(

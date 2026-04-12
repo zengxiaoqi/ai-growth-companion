@@ -15,7 +15,10 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
+const LOG_LEVEL = process.env.LOG_LEVEL || 'debug';
+
 export const loggerConfig = WinstonModule.createLogger({
+  level: LOG_LEVEL,
   transports: [
     // Console output with color
     new winston.transports.Console({
@@ -28,9 +31,10 @@ export const loggerConfig = WinstonModule.createLogger({
         }),
       ),
     }),
-    // All logs to file
+    // All logs (including debug) to file
     new winston.transports.File({
       filename: path.join(logDir, 'app.log'),
+      level: 'debug',
       options: { encoding: 'utf8' },
       format: winston.format.combine(
         winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),

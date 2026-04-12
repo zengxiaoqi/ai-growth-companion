@@ -1,3 +1,25 @@
+export type AnimationTemplateId =
+  | 'language.character-stroke'
+  | 'language.word-reveal'
+  | 'language.story-scene'
+  | 'math.counting-objects'
+  | 'math.shape-builder'
+  | 'math.number-line'
+  | 'math.abacus'
+  | 'science.water-cycle'
+  | 'science.day-night-cycle'
+  | 'science.plant-growth'
+  | 'science.seasons-cycle'
+  | 'art.color-mixing'
+  | 'art.drawing-steps'
+  | 'social.emotion-faces'
+  | 'social.daily-routine';
+
+export type AnimationTemplateData = {
+  id: AnimationTemplateId;
+  params: Record<string, any>;
+};
+
 export type SlideLayout = "hero" | "grid" | "list";
 
 export type SlideItem = {
@@ -16,6 +38,7 @@ export type TeachingSlide = {
   narration: string;
   narrationSrc?: string;
   durationFrames?: number;
+  animationTemplate?: AnimationTemplateData;
 };
 
 export type TeachingVideoData = {

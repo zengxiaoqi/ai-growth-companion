@@ -135,6 +135,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     }
   }
 
+  private readonly ESCALATING_TOKEN_LIMITS = [4096, 8192, 16384];
+
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
     const messages: LlmMessage[] = [];
     if (systemPrompt) {
@@ -142,28 +144,113 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     }
     messages.push({ role: 'user', content: prompt });
 
-    const response = await this.chatCompletion(messages);
-    const raw = response.content ?? '';
-    const result = stripThinking(raw);
+    // Try with escalating max_tokens when finish_reason === 'length' (Claude Code pattern)
+    for (const tokenLimit of this.ESCALATING_TOKEN_LIMITS) {
+      const response = await this.chatCompletionWithTokenLimit(messages, tokenLimit);
+      const raw = response.content ?? '';
+      const result = stripThinking(raw);
 
-    // If the response was only thinking (no visible content), retry with explicit anti-thinking instruction
-    if (!result && raw) {
-      this.logger.debug('generate() produced empty content after stripThinking, retrying with anti-thinking prompt...');
-      try {
-        const retryMessages: LlmMessage[] = [
-          ...messages,
-          { role: 'assistant', content: raw.slice(0, 200) },
-          { role: 'user', content: 'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.' },
-        ];
-        const retry = await this.chatCompletion(retryMessages);
-        const retryResult = stripThinking(retry.content ?? '');
-        return retryResult;
-      } catch (err: any) {
-        this.logger.debug(`generate() retry failed: ${err.message}`);
+      // finish_reason === 'length' means output was truncated — retry with higher limit
+      if (response.finishReason === 'length' && tokenLimit < this.ESCALATING_TOKEN_LIMITS[this.ESCALATING_TOKEN_LIMITS.length - 1]) {
+        this.logger.debug(`generate() hit token limit (${tokenLimit}), escalating to next tier...`);
+        continue;
       }
+
+      // Attempt partial JSON salvage for truncated responses
+      if (response.finishReason === 'length' && result) {
+        const salvaged = this.tryPartialJsonSalvage(result);
+        if (salvaged) {
+          this.logger.debug('generate() salvaged partial JSON from truncated response');
+          return salvaged;
+        }
+      }
+
+      // Normal success path
+      if (result) return result;
+
+      // Empty after stripThinking — model produced only thinking blocks
+      if (raw) {
+        this.logger.debug('generate() produced empty content after stripThinking, retrying with anti-thinking prompt...');
+        try {
+          const retryMessages: LlmMessage[] = [
+            ...messages,
+            { role: 'assistant', content: raw.slice(0, 200) },
+            { role: 'user', content: 'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.' },
+          ];
+          const retry = await this.chatCompletion(retryMessages);
+          const retryResult = stripThinking(retry.content ?? '');
+          return retryResult;
+        } catch (err: any) {
+          this.logger.debug(`generate() retry failed: ${err.message}`);
+        }
+      }
+
+      return result;
     }
 
-    return result;
+    // Fallback: return whatever we got at the highest token limit
+    const finalResponse = await this.chatCompletion(messages);
+    return stripThinking(finalResponse.content ?? '');
+  }
+
+  /** chatCompletion with a specific max_tokens override */
+  private async chatCompletionWithTokenLimit(messages: LlmMessage[], maxTokens: number): Promise<LlmResponse> {
+    return this.retryStrategy.execute(async () => {
+      const response = await this.client.chat.completions.create({
+        model: this.config.model,
+        messages: this.toOpenAIMessages(messages),
+        max_tokens: maxTokens,
+        temperature: this.config.temperature,
+      });
+
+      const choice = response.choices[0];
+      return {
+        content: choice?.message?.content ?? null,
+        finishReason: choice?.finish_reason ?? undefined,
+        usage: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+        } : undefined,
+      };
+    }, 'chatCompletion');
+  }
+
+  /**
+   * Attempt to salvage a valid JSON object from a truncated response.
+   * Tries progressive brace-matching from the end of the string.
+   */
+  private tryPartialJsonSalvage(text: string): string | null {
+    const firstBrace = text.indexOf('{');
+    if (firstBrace === -1) return null;
+
+    // Try parsing the full text first
+    try {
+      JSON.parse(text.slice(firstBrace));
+      return text; // wasn't actually broken
+    } catch { /* continue */ }
+
+    // Progressive salvage: close open structures and try parsing
+    const sliced = text.slice(firstBrace);
+    const attempts = [
+      () => sliced + '}',                                          // close outermost object
+      () => sliced.replace(/,\s*$/, '') + '}',                    // remove trailing comma + close
+      () => sliced.replace(/"[^"]*$/, '"') + '}',                 // close truncated string value
+      () => sliced.replace(/,\s*"[^"]*$/, '') + '}',              // remove truncated key-value pair
+      () => sliced.replace(/,\s*\{[^}]*$/, '') + '}',             // remove truncated inner object
+      () => sliced.replace(/,\s*\[[^\]]*$/, '') + '}',            // remove truncated inner array
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        const candidate = attempt();
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === 'object') {
+          return candidate;
+        }
+      } catch { /* continue */ }
+    }
+
+    return null;
   }
 
   estimateTokenCount(text: string): number {

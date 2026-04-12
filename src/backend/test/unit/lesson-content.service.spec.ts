@@ -11,7 +11,7 @@ import { GenerateActivityTool } from '../../src/modules/ai/agent/tools/generate-
 import { AiService } from '../../src/modules/ai/ai.service';
 import { AssignmentService } from '../../src/modules/assignment/assignment.service';
 import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
-import { LlmClient } from '../../src/modules/ai/llm/llm-client';
+import { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
 
 describe('LessonContentService modifyDraft scene sync', () => {
   let service: LessonContentService;
@@ -56,7 +56,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
         { provide: AiService, useValue: {} },
         { provide: AssignmentService, useValue: {} },
         { provide: LearningTrackerService, useValue: {} },
-        { provide: LlmClient, useValue: llmClient },
+        { provide: LlmClientService, useValue: llmClient },
       ],
     }).compile();
 

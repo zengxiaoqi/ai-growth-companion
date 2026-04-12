@@ -94,3 +94,38 @@ export class JsonExtractionError extends AgentFrameworkError {
     this.name = 'JsonExtractionError';
   }
 }
+
+// ─── LLM error categorization (inspired by Claude Code's error taxonomy) ───
+
+/** Structured categories for LLM failures — drives targeted recovery. */
+export type LlmErrorCategory =
+  | 'empty_response'       // Model returned nothing or only thinking blocks
+  | 'invalid_json'         // Output is not parseable JSON
+  | 'truncated'            // finish_reason === 'length' — output cut off
+  | 'overloaded'           // 429/529 — API rate-limited or overloaded
+  | 'context_overflow'     // Prompt exceeds model context window
+  | 'connection_error'     // Network / timeout failures
+  | 'unknown';             // Catch-all
+
+/** Categorize an LLM error for recovery decisions. */
+export function categorizeLlmError(error: unknown): LlmErrorCategory {
+  if (!(error instanceof Error)) return 'unknown';
+  const msg = error.message.toLowerCase();
+  const status = (error as any)?.status ?? (error as any)?.statusCode;
+  if (status === 429 || status === 529 || msg.includes('overloaded') || msg.includes('rate limit')) return 'overloaded';
+  if (status === 400 && (msg.includes('context') || msg.includes('token') || msg.includes('too many'))) return 'context_overflow';
+  if (msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('timeout') || msg.includes('fetch failed')) return 'connection_error';
+  return 'unknown';
+}
+
+/** Categorize a non-error LLM response failure mode. */
+export function categorizeLlmResponseFailure(
+  raw: string | null,
+  parsed: any,
+  finishReason?: string,
+): LlmErrorCategory | null {
+  if (!raw || !raw.trim()) return 'empty_response';
+  if (finishReason === 'length') return 'truncated';
+  if (!parsed) return 'invalid_json';
+  return null;
+}

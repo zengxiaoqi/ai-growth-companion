@@ -13,6 +13,7 @@
  */
 
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { LlmClientService } from '../../llm/llm-client.service';
 import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
@@ -70,6 +71,7 @@ export class GenerateCoursePackTool extends BaseTool<GenerateCoursePackInput> {
 
   constructor(
     @Optional() legacyTool: any,
+    @Optional() private readonly llmClient: LlmClientService,
   ) {
     super();
     this.legacyTool = legacyTool;
@@ -86,10 +88,70 @@ export class GenerateCoursePackTool extends BaseTool<GenerateCoursePackInput> {
       if (!parsed) {
         return this.fail('生成课程包失败：无法解析结果');
       }
-      return this.ok(parsed, parsed);
+
+      // Adversarial verification: ask LLM to sanity-check the course pack
+      const verified = await this.verifyCoursePack(args, parsed);
+      return this.ok(verified, verified);
     } catch (error: any) {
       this.logger.error(`generateCoursePack failed: ${error.message}`);
       return this.fail(`生成课程包失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * Independent adversarial verification (Claude Code verification-agent pattern).
+   * Asks the LLM to critique the generated course pack for topic alignment,
+   * age appropriateness, and structural completeness. Returns the original
+   * pack if verification passes or is unavailable; returns a patched version
+   * if the LLM suggests concrete fixes.
+   */
+  private async verifyCoursePack(args: GenerateCoursePackInput, pack: Record<string, any>): Promise<Record<string, any>> {
+    if (!this.llmClient) return pack;
+
+    try {
+      const topic = args.topic || pack.topic || '';
+      const ageGroup = args.ageGroup || pack.ageGroup || '5-6';
+      const packPreview = JSON.stringify(pack).slice(0, 2000);
+
+      const verificationPrompt = [
+        `You are a course quality reviewer. A course pack was generated for topic "${topic}", age group "${ageGroup}".`,
+        'Review the following course pack for:',
+        '1. Topic alignment — does the content actually teach about the topic?',
+        '2. Age appropriateness — is the content suitable for the age group?',
+        '3. Structural completeness — does it have the required sections?',
+        '',
+        'Course pack (truncated):',
+        packPreview,
+        '',
+        'Reply with a JSON object: {"passed": true/false, "issues": ["issue1", ...], "fixes": {"key": "value"}}',
+        'If passed, just return {"passed": true}.',
+        'If not passed, describe issues and provide specific fixes in "fixes" that can be merged into the original.',
+      ].join('\n');
+
+      const response = await this.llmClient.generate(verificationPrompt);
+      const review = extractJsonObject(response);
+      if (!review) {
+        this.logger.debug('verifyCoursePack: could not parse verification response, accepting original');
+        return pack;
+      }
+
+      if (review.passed === true) {
+        this.logger.debug('verifyCoursePack: passed');
+        return pack;
+      }
+
+      // Apply suggested fixes if provided
+      if (review.fixes && typeof review.fixes === 'object' && Object.keys(review.fixes).length > 0) {
+        const patched = { ...pack, ...review.fixes };
+        this.logger.log(`verifyCoursePack: applied ${Object.keys(review.fixes).length} fixes: ${JSON.stringify(review.issues)}`);
+        return patched;
+      }
+
+      this.logger.debug(`verifyCoursePack: issues found but no fixes provided: ${JSON.stringify(review.issues)}`);
+      return pack;
+    } catch (error: any) {
+      this.logger.debug(`verifyCoursePack: verification failed (${error.message}), accepting original`);
+      return pack;
     }
   }
 }

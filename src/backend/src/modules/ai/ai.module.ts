@@ -118,7 +118,7 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-fram
     // Provide legacy course pack tool as the backing implementation
     {
       provide: FwGenerateCoursePack,
-      useFactory: (legacy: LegacyGenerateCoursePackTool) => new FwGenerateCoursePack(legacy),
+      useFactory: (legacy: LegacyGenerateCoursePackTool) => new FwGenerateCoursePack(legacy, undefined),
       inject: [LegacyGenerateCoursePackTool],
     },
   ],

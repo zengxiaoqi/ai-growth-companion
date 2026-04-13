@@ -3,114 +3,76 @@
 ## 架构
 
 ```
-用户 → 前端 (Nginx, 80) → 后端 (NestJS, 3000) → SQLite
+用户 → 前端 (GitHub Pages, 免费) → 后端 (Docker/服务器)
 ```
 
-## 方式一：GitHub Actions 自动部署（推荐）
+## 方式一：前端 → GitHub Pages（免费，已配置 ✅）
 
-### 1. 配置 GitHub Secrets
+前端已配置为部署到 GitHub Pages，**零成本**托管。
 
-进入仓库 **Settings → Secrets and variables → Actions**，添加：
+### 部署方式
 
-| Secret | 说明 | 示例 |
-|---|---|---|
-| `DEPLOY_HOST` | 服务器 IP/域名 | `123.45.67.89` |
-| `DEPLOY_USER` | SSH 用户名 | `root` |
-| `DEPLOY_SSH_KEY` | SSH 私钥 | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
-| `DEPLOY_PORT` | SSH 端口（可选） | `22` |
-| `DEPLOY_PATH` | 部署目录 | `/opt/lingxi-companion` |
+推送到 `main` 分支时自动触发，或手动触发：
+```
+GitHub → Actions → Deploy to GitHub Pages → Run workflow
+```
 
-Variables（可选）：
+### 首次设置
+
+1. 进入仓库 **Settings → Pages**
+2. Source 选择 **GitHub Actions**
+3. 等待首次部署完成
+4. 访问地址：`https://zengxiaoqi.github.io/ai-growth-companion/`
+
+### SPA 路由支持
+
+已配置 `404.html` 重定向机制，React Router 的路由在 GitHub Pages 上也能正常工作。
+
+### 环境变量
+
+在 **Settings → Secrets and variables → Actions → Variables** 添加：
+
 | Variable | 说明 | 示例 |
 |---|---|---|
-| `VITE_API_BASE_URL` | 前端 API 地址 | `https://api.yourdomain.com/api` |
+| `VITE_API_BASE_URL` | 后端 API 地址 | `https://api.yourdomain.com/api` |
 
-### 2. 触发部署
+## 方式二：后端 Docker 镜像（可选）
 
-- **手动触发**：Actions → Deploy → Run workflow
-- **打 Tag 自动部署**：`git tag v1.0.0 && git push origin v1.0.0`
+后端构建为 Docker 镜像推送到 GHCR，用于自部署。
 
-## 方式二：Docker Compose 手动部署
+### 触发方式
 
-### 服务器准备
+- 打 Tag：`git tag v1.0.0 && git push origin v1.0.0`
+- 手动触发：Actions → Deploy (Docker) → Run workflow
 
-```bash
-# 安装 Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
+### 自部署到服务器
 
-# 创建部署目录
-sudo mkdir -p /opt/lingxi-companion
-cd /opt/lingxi-companion
-```
+配置 Secrets 后选择 `deploy_server: true` 手动触发。
 
-### 上传配置文件
+| Secret | 说明 |
+|---|---|
+| `DEPLOY_HOST` | 服务器 IP |
+| `DEPLOY_USER` | SSH 用户名 |
+| `DEPLOY_SSH_KEY` | SSH 私钥 |
+| `DEPLOY_PATH` | 部署目录 |
 
-将 `docker-compose.prod.yml` 和 `.env` 上传到服务器：
-
-```bash
-# 本地执行
-scp docker-compose.prod.yml user@host:/opt/lingxi-companion/docker-compose.yml
-scp deploy/.env user@host:/opt/lingxi-companion/.env
-```
-
-### 部署
+## 方式三：本地 Docker Compose 运行
 
 ```bash
-cd /opt/lingxi-companion
-
-# 登录 GHCR
-echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
-# 拉取并启动
-docker compose pull
 docker compose up -d
-
-# 查看状态
-docker compose ps
-docker compose logs -f
+# 前端: http://localhost:80
+# 后端: http://localhost:3000
 ```
 
-## 方式三：从源码构建部署
+## 常用命令
 
 ```bash
-# 克隆项目
-git clone https://github.com/zengxiaoqi/ai-growth-companion.git
-cd ai-growth-companion
+# 更新前端（推送即部署）
+git push origin main
 
-# 构建并启动
-docker compose -f docker-compose.yml up -d --build
-```
+# 手动触发部署
+gh workflow run deploy-pages.yml
 
-## 环境变量
-
-| 变量 | 必需 | 说明 |
-|---|---|---|
-| `JWT_SECRET` | 是 | JWT 签名密钥 |
-| `OPENAI_API_KEY` | 是 | OpenAI API 密钥 |
-| `DASHSCOPE_API_KEY` | 否 | 阿里灵犀 API 密钥 |
-| `VITE_API_BASE_URL` | 否 | 前端 API 地址（构建时） |
-
-## 常用运维命令
-
-```bash
-# 查看服务状态
-docker compose ps
-
-# 查看日志
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# 重启服务
-docker compose restart backend
-
-# 更新（拉取最新镜像）
-docker compose pull && docker compose up -d
-
-# 备份数据库
-docker exec lingxi-backend cp /app/data/lingxi.db /tmp/backup.db
-docker cp lingxi-backend:/tmp/backup.db ./lingxi-backup-$(date +%Y%m%d).db
-
-# 清理旧镜像
-docker image prune -f
+# 查看部署状态
+gh run list --workflow=deploy-pages.yml
 ```

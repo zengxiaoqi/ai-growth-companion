@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy (Docker)
 
 on:
   push:
@@ -6,14 +6,6 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      deploy_backend:
-        description: 'Deploy backend'
-        type: boolean
-        default: true
-      deploy_frontend:
-        description: 'Deploy frontend'
-        type: boolean
-        default: true
       deploy_server:
         description: 'Deploy to remote server via SSH'
         type: boolean
@@ -25,10 +17,8 @@ env:
   IMAGE_NAME_FRONTEND: ${{ github.repository }}/frontend
 
 jobs:
-  # ---- Build & Push Backend Docker Image ----
   build-backend:
     name: Build & Push Backend
-    if: ${{ github.event.inputs.deploy_backend != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,23 +48,17 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build and push backend
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: ./src/backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-    outputs:
-      backend-tags: ${{ steps.meta.outputs.tags }}
-
-  # ---- Build & Push Frontend Docker Image ----
   build-frontend:
     name: Build & Push Frontend
-    if: ${{ github.event.inputs.deploy_frontend != 'false' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -103,25 +87,17 @@ jobs:
             type=ref,event=tag
             type=sha,prefix=
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-          build-args: |
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'http://localhost:3000/api' }}
 
-      - name: Build and push frontend
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: ./src/frontend-web
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'http://localhost:3000/api' }}
+          build-args: VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'http://localhost:3000/api' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-    outputs:
-      frontend-tags: ${{ steps.meta.outputs.tags }}
-
-  # ---- Deploy to Remote Server via SSH ----
   deploy-server:
     name: Deploy to Server
     if: ${{ github.event.inputs.deploy_server == 'true' }}
@@ -143,22 +119,8 @@ jobs:
           script: |
             set -e
             cd $DEPLOY_PATH
-
-            # Login to GHCR
             echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-
-            # Pull latest images
             docker compose pull
-
-            # Restart services with zero-downtime
             docker compose up -d --remove-orphans
-
-            # Cleanup old images
             docker image prune -f
-
-            echo "✅ Deployment complete at $(date)"
-
-    env:
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GITHUB_ACTOR: ${{ github.actor }}
+            echo "✅ Deployed at $(date)"

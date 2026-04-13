@@ -581,7 +581,7 @@ export function deriveWriteSceneDocument(
         type: 'trace_path',
         prompt: practiceTasks[index] ? toText(practiceTasks[index]) : `描好“${text}”`,
         targets: [{ id: `trace-${index + 1}`, label: text, kind: 'glyph', text, fontSize: 84 }],
-        minCoverage: 0.7,
+        minCoverage: 0.9,
       },
     } satisfies LessonScene;
   });
@@ -591,7 +591,7 @@ export function deriveWriteSceneDocument(
     stepType: 'write',
     mode: 'guided_trace',
     scenes,
-    completionPolicy: { type: 'all_scenes', minCoverage: 0.7, passingScore: 80 },
+    completionPolicy: { type: 'all_scenes', minCoverage: 0.9, passingScore: 80 },
   };
 }
 

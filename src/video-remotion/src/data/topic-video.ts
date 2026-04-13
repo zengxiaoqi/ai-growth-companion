@@ -27,6 +27,19 @@ export type SlideItem = {
   label: string;
 };
 
+export type SceneVisual = {
+  /** Scene background type: day, night, indoor, spring, summer, autumn, winter */
+  bgType?: string;
+  /** Scene caption / on-screen text */
+  caption?: string;
+  /** Named characters in the scene (e.g. ["老师", "小朋友"]) */
+  characters?: string[];
+  /** Named items/objects in the scene (e.g. ["太阳", "花", "树叶"]) */
+  items?: string[];
+  /** Visual mood / atmosphere for rendering hints */
+  mood?: 'playful' | 'calm' | 'exciting' | 'mysterious' | 'warm';
+};
+
 export type TeachingSlide = {
   title: string;
   emoji?: string;
@@ -39,6 +52,8 @@ export type TeachingSlide = {
   narrationSrc?: string;
   durationFrames?: number;
   animationTemplate?: AnimationTemplateData;
+  /** Rich visual scene description for SVG-based rendering */
+  visual?: SceneVisual;
 };
 
 export type TeachingVideoData = {
@@ -69,6 +84,8 @@ export const DEFAULT_TOPIC_VIDEO: TeachingVideoData = {
       layout: "hero",
       items: [{ emoji: "🐾", label: "爪子" }, { emoji: "🐟", label: "爱吃鱼" }],
       narration: "这是小猫，小猫喜欢吃鱼",
+      visual: { bgType: "day", caption: "小猫", characters: ["小猫", "老师"], items: ["鱼", "毛线球"], mood: "playful" },
+      animationTemplate: { id: "language.story-scene", params: { bgType: "day", characters: ["小猫", "老师"], items: ["鱼"] } },
     },
     {
       title: "小狗",
@@ -79,6 +96,8 @@ export const DEFAULT_TOPIC_VIDEO: TeachingVideoData = {
       layout: "hero",
       items: [{ emoji: "🦴", label: "爱啃骨头" }, { emoji: "🎾", label: "爱玩球" }],
       narration: "这是小狗，小狗汪汪叫",
+      visual: { bgType: "day", caption: "小狗", characters: ["小狗", "老师"], items: ["骨头", "球"], mood: "playful" },
+      animationTemplate: { id: "language.story-scene", params: { bgType: "day", characters: ["小狗", "老师"], items: ["骨头"] } },
     },
     {
       title: "小鸟",
@@ -89,6 +108,8 @@ export const DEFAULT_TOPIC_VIDEO: TeachingVideoData = {
       layout: "hero",
       items: [{ emoji: "🌿", label: "住在树上" }, { emoji: "🐛", label: "爱吃虫子" }],
       narration: "这是小鸟，小鸟会唱歌",
+      visual: { bgType: "day", caption: "小鸟", characters: ["小鸟", "老师"], items: ["树", "虫子"], mood: "calm" },
+      animationTemplate: { id: "language.story-scene", params: { bgType: "day", characters: ["小鸟", "老师"], items: ["树"] } },
     },
     {
       title: "小鱼",
@@ -99,6 +120,8 @@ export const DEFAULT_TOPIC_VIDEO: TeachingVideoData = {
       layout: "hero",
       items: [{ emoji: "🌊", label: "住在水里" }, { emoji: "💨", label: "游得很快" }],
       narration: "这是小鱼，小鱼住在水里",
+      visual: { bgType: "day", caption: "小鱼", characters: ["小鱼", "老师"], items: ["水", "水草"], mood: "calm" },
+      animationTemplate: { id: "science.water-cycle", params: { speed: 1, showLabels: true } },
     },
     {
       title: "蝴蝶",
@@ -109,6 +132,8 @@ export const DEFAULT_TOPIC_VIDEO: TeachingVideoData = {
       layout: "hero",
       items: [{ emoji: "🌸", label: "喜欢花" }, { emoji: "🎨", label: "翅膀很美" }],
       narration: "这是蝴蝶，蝴蝶翅膀很美丽",
+      visual: { bgType: "spring", caption: "蝴蝶", characters: ["蝴蝶", "老师"], items: ["花", "翅膀"], mood: "exciting" },
+      animationTemplate: { id: "science.plant-growth", params: { plantType: "flower", stages: 4 } },
     },
   ],
 };

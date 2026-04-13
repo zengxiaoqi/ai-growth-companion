@@ -143,9 +143,19 @@ function inferSeasonIndex(source: string): number {
 function inferWatchTemplate(scene: any): { templateId: string; templateParams: Record<string, any> } | null {
   const headline = [scene?.onScreenText, scene?.title, scene?.scene, scene?.caption, scene?.shot]
     .map((value) => toText(value))
-    .filter(Boolean)
-    .join(' ');
+    .join(' ')
+    .trim();
   const source = buildSceneSource(scene);
+
+  // Also include visual field data for inference (new rich visual data from LLM)
+  const visual = scene?.visual && typeof scene.visual === 'object' ? scene.visual : {};
+  const visualSource = [
+    toText(visual?.bgType),
+    toText(visual?.caption),
+    ...(Array.isArray(visual?.characters) ? visual.characters.map((c: any) => toText(c)) : []),
+    ...(Array.isArray(visual?.items) ? visual.items.map((i: any) => toText(i)) : []),
+  ].filter(Boolean).join(' ');
+  const combinedSource = `${source} ${visualSource}`.trim();
 
   const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
   if (character) {
@@ -155,32 +165,32 @@ function inferWatchTemplate(scene: any): { templateId: string; templateParams: R
     };
   }
 
-  if (/(四季|季节|春夏秋冬)/.test(source)) {
+  if (/(四季|季节|春夏秋冬)/.test(combinedSource)) {
     return {
       templateId: 'science.seasons-cycle',
       templateParams: {
         seasonNames: ['春', '夏', '秋', '冬'],
-        focusSeason: inferSeasonIndex(source),
+        focusSeason: inferSeasonIndex(combinedSource),
         showLabels: true,
       },
     };
   }
 
-  if (/(白天|黑夜|昼夜|太阳|月亮)/.test(source)) {
+  if (/(白天|黑夜|昼夜|太阳|月亮)/.test(combinedSource)) {
     return {
       templateId: 'science.day-night-cycle',
       templateParams: { rotationSpeed: 1, showLabels: true },
     };
   }
 
-  if (/(水循环|蒸发|云|下雨)/.test(source)) {
+  if (/(水循环|蒸发|云|下雨|水)/.test(combinedSource)) {
     return {
       templateId: 'science.water-cycle',
       templateParams: { speed: 1, showLabels: true },
     };
   }
 
-  if (/(植物|种子|发芽|开花|生长)/.test(source)) {
+  if (/(植物|种子|发芽|开花|生长)/.test(combinedSource)) {
     return {
       templateId: 'science.plant-growth',
       templateParams: { plantType: 'flower', stages: 5 },

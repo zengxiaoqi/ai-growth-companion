@@ -384,6 +384,23 @@ export class RemotionRenderService {
       ? { id: templateId, params: templateParams }
       : undefined;
 
+    // Build visual scene descriptor from scene data
+    const bgType = this.toText(scene?.visual?.background?.type);
+    const validBgTypes = ['day', 'night', 'indoor', 'spring', 'summer', 'autumn', 'winter'];
+    const sceneCharacters = Array.isArray(scene?.visual?.characters)
+      ? scene.visual.characters.map((c: any) => this.toText(c?.label || c)).filter(Boolean).slice(0, 4)
+      : [];
+    const sceneVisualItems = Array.isArray(scene?.visual?.items)
+      ? scene.visual.items.map((i: any) => this.toText(i?.label || i)).filter(Boolean).slice(0, 6)
+      : [];
+    const visual = {
+      bgType: validBgTypes.includes(bgType) ? bgType : undefined,
+      caption: this.toText(scene?.onScreenText || scene?.visual?.caption) || undefined,
+      characters: sceneCharacters.length > 0 ? sceneCharacters : undefined,
+      items: sceneVisualItems.length > 0 ? sceneVisualItems : undefined,
+      mood: 'playful' as const,
+    };
+
     return {
       title: headline.slice(0, 12),
       emoji: theme.emoji || EMOJI_PALETTE[index % EMOJI_PALETTE.length],
@@ -394,6 +411,7 @@ export class RemotionRenderService {
       items: mergedItems.length > 0 ? mergedItems : undefined,
       narration: this.toText(scene?.narration, '请和老师一起学习。').slice(0, 100),
       ...(animationTemplate ? { animationTemplate } : {}),
+      visual,
     };
   }
 

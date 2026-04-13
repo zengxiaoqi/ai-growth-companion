@@ -234,9 +234,6 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-on-surface">{target.label}</p>
-          <p className="text-xs text-on-surface-variant">
-            覆盖率 {Math.round(coverage * 100)}% / 目标 {Math.round(minCoverage * 100)}%
-          </p>
         </div>
         <button
           type="button"
@@ -262,34 +259,33 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
         />
       </div>
 
-      {coverage >= minCoverage && !solvedRef.current ? (
-        <Button className="w-full" onClick={() => {
-          solvedRef.current = true;
-          const score = Math.max(70, Math.min(100, Math.round(coverage * 100 - (attemptsRef.current - 1) * 4)));
-          onSolved({ coverage, attempts: attemptsRef.current, score });
-        }}>
-          <CheckCircle className="mr-2 h-4 w-4" />
-          写好了，进入下一项
-        </Button>
-      ) : solvedRef.current ? (
+      {solvedRef.current ? (
         <div className="flex items-center justify-center gap-2 rounded-2xl bg-primary-container/20 px-4 py-3 text-sm font-semibold text-primary">
           <CheckCircle className="h-4 w-4" />
           描摹完成
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
             <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round(coverage * 100)}%` }} />
           </div>
           {warning && <p className="text-xs text-on-surface-variant">{warning}</p>}
-          <p className="text-xs text-on-surface-variant">当前尝试次数: {attempts}</p>
+          <div className="flex items-center justify-between text-xs text-on-surface-variant">
+            <span>覆盖率 {Math.round(coverage * 100)}%</span>
+            <span>尝试次数: {attempts}</span>
+          </div>
+          <Button className="w-full" onClick={() => {
+            solvedRef.current = true;
+            const score = Math.max(70, Math.min(100, Math.round(coverage * 100 - (attemptsRef.current - 1) * 4)));
+            onSolved({ coverage, attempts: attemptsRef.current, score });
+          }}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            写好了，进入下一项
+          </Button>
+          <Button variant="secondary" className="w-full" onClick={handleReset}>
+            再描一次
+          </Button>
         </div>
-      )}
-
-      {coverage < minCoverage && (
-        <Button variant="secondary" className="w-full" onClick={handleReset}>
-          再描一次
-        </Button>
       )}
     </Card>
   );

@@ -180,12 +180,7 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
 
     const nextCoverage = samplePoints.length > 0 ? coveredRef.current.size / samplePoints.length : 0;
     setCoverage(nextCoverage);
-    if (nextCoverage >= minCoverage && !solvedRef.current) {
-      solvedRef.current = true;
-      const score = Math.max(70, Math.min(100, Math.round(nextCoverage * 100 - (attemptsRef.current - 1) * 4)));
-      onSolved({ coverage: nextCoverage, attempts: attemptsRef.current, score });
-    }
-  }, [minCoverage, onSolved, samplePoints]);
+  }, [samplePoints]);
 
   useEffect(() => {
     redraw();
@@ -267,10 +262,19 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
         />
       </div>
 
-      {coverage >= minCoverage ? (
+      {coverage >= minCoverage && !solvedRef.current ? (
+        <Button className="w-full" onClick={() => {
+          solvedRef.current = true;
+          const score = Math.max(70, Math.min(100, Math.round(coverage * 100 - (attemptsRef.current - 1) * 4)));
+          onSolved({ coverage, attempts: attemptsRef.current, score });
+        }}>
+          <CheckCircle className="mr-2 h-4 w-4" />
+          写好了，进入下一项
+        </Button>
+      ) : solvedRef.current ? (
         <div className="flex items-center justify-center gap-2 rounded-2xl bg-primary-container/20 px-4 py-3 text-sm font-semibold text-primary">
           <CheckCircle className="h-4 w-4" />
-          描摹达标，准备进入下一项
+          描摹完成
         </div>
       ) : (
         <div className="space-y-2">

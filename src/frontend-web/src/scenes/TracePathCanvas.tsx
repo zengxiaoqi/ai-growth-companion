@@ -108,7 +108,7 @@ function usePolylineTarget(target: Extract<TracePathSpec, { kind: 'polyline' }>)
   }, [target]);
 }
 
-export default function TracePathCanvas({ target, minCoverage = 0.7, onSolved }: TracePathCanvasProps) {
+export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }: TracePathCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const segmentsRef = useRef<Segment[]>([]);

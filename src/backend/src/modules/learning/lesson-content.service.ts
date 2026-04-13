@@ -81,11 +81,9 @@ interface ModifyLessonDraftOptions {
 
 const STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
   { id: 'watch', label: '看', icon: 'eye' },
-  { id: 'listen', label: '听', icon: 'ear' },
   { id: 'read', label: '读', icon: 'book' },
   { id: 'write', label: '写', icon: 'pen' },
   { id: 'practice', label: '练', icon: 'gamepad' },
-  { id: 'assess', label: '评', icon: 'clipboard-check' },
 ];
 
 export interface DraftLessonSummary {
@@ -220,7 +218,7 @@ export class LessonContentService {
     const placeholder = await this.contentsService.create({
       uuid: randomUUID(),
       title: `${topic} 全方位学习课`,
-      subtitle: `正在生成围绕${topic}的六步课程...`,
+      subtitle: `正在生成围绕${topic}的四步课程...`,
       ageRange: ageGroup,
       domain,
       topic,
@@ -268,7 +266,7 @@ export class LessonContentService {
 
     try {
       // 1. Generate course pack
-      this.logger.log(`[contentId=${contentId}] Step 1/5: Generating course pack...`);
+      this.logger.log(`[contentId=${contentId}] Step 1/3: Generating course pack...`);
       const coursePackRaw = await this.generateCoursePackTool.execute({
         topic,
         ageGroup,
@@ -277,7 +275,7 @@ export class LessonContentService {
         difficulty,
         durationMinutes,
         includeGame: false,
-        includeAudio: true,
+        includeAudio: false,
         includeVideo: true,
         parentPrompt: parentPrompt || topic,
       });
@@ -289,7 +287,7 @@ export class LessonContentService {
 
       // 2. Generate practice game
       const practiceType = this.resolveGameType(focus);
-      this.logger.log(`[contentId=${contentId}] Step 2/5: Generating practice game (${practiceType})...`);
+      this.logger.log(`[contentId=${contentId}] Step 2/3: Generating practice game (${practiceType})...`);
       let practiceData: Record<string, any> | null = null;
       try {
         const practiceRaw = await this.generateActivityTool.execute({
@@ -301,30 +299,15 @@ export class LessonContentService {
         practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup, domain);
       }
 
-      // 3. Generate assessment quiz
-      this.logger.log(`[contentId=${contentId}] Step 3/5: Generating assessment quiz...`);
-      let assessData: Record<string, any> | null = null;
-      try {
-        const assessRaw = await this.generateActivityTool.execute({
-          type: 'quiz', topic, difficulty, ageGroup, domain,
-        });
-        assessData = this.parseJson(assessRaw);
-      } catch (actErr: any) {
-        this.logger.warn(`[contentId=${contentId}] Assessment quiz failed, using fallback: ${actErr?.message}`);
-        assessData = this.buildFallbackActivity('quiz', topic, ageGroup, domain);
-      }
-
-      // 4. Assemble 6-step lesson
-      this.logger.log(`[contentId=${contentId}] Step 4/5: Assembling lesson...`);
+      // 3. Assemble 4-step lesson
+      this.logger.log(`[contentId=${contentId}] Step 3/3: Assembling lesson...`);
       const lessonContent = this.assembleLesson(
-        coursePack, practiceData, assessData,
+        coursePack, practiceData,
         { topic, ageGroup, summary: coursePack.summary || '', outcomes: coursePack.outcomes || [] },
       );
 
-      // 5. Update content with generated data
-      this.logger.log(`[contentId=${contentId}] Step 5/5: Saving completed lesson...`);
       const title = coursePack.title || `${topic} 全方位学习课`;
-      const subtitle = coursePack.summary || `围绕${topic}的六步综合课程`;
+      const subtitle = coursePack.summary || `围绕${topic}的四步综合课程`;
 
       await this.contentRepo.update(contentId, {
         title,
@@ -419,7 +402,7 @@ export class LessonContentService {
 
     const lesson = content.content as unknown as StructuredLessonContent;
 
-    // Create assignments for practice and assess steps
+    // Create assignments for practice step
     const updatedSteps = [...lesson.steps];
 
     for (let i = 0; i < updatedSteps.length; i++) {
@@ -430,19 +413,6 @@ export class LessonContentService {
           childId,
           activityType: step.module.game.activityType || 'quiz',
           activityData: step.module.game.activityData || step.module.game,
-          contentId: content.id,
-          domain: content.domain,
-          difficulty: content.difficulty,
-        });
-        updatedSteps[i] = { ...step, assignmentId: assignment.id };
-      }
-
-      if (step.id === 'assess' && step.module?.quiz) {
-        const assignment = await this.assignmentService.create({
-          parentId,
-          childId,
-          activityType: 'quiz',
-          activityData: step.module.quiz,
           contentId: content.id,
           domain: content.domain,
           difficulty: content.difficulty,
@@ -581,7 +551,6 @@ export class LessonContentService {
     }
 
     const watchModule: Record<string, any> = lesson.steps.find((step) => step.id === 'watch')?.module || {};
-    const listenModule: Record<string, any> = lesson.steps.find((step) => step.id === 'listen')?.module || {};
     const readModule: Record<string, any> = lesson.steps.find((step) => step.id === 'read')?.module || {};
     const writeModule: Record<string, any> = lesson.steps.find((step) => step.id === 'write')?.module || {};
 
@@ -592,7 +561,6 @@ export class LessonContentService {
       visualStory: watchModule.visualStory || {},
       videoLesson: watchModule.videoLesson || {},
       modules: {
-        listening: listenModule.listening || {},
         reading: readModule.reading || {},
         writing: writeModule.writing || {},
       },
@@ -617,7 +585,6 @@ export class LessonContentService {
   private assembleLesson(
     coursePack: Record<string, any>,
     practiceData: Record<string, any> | null,
-    assessData: Record<string, any> | null,
     meta: { topic: string; ageGroup: AgeGroup; summary: string; outcomes: string[] },
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
@@ -641,20 +608,10 @@ export class LessonContentService {
         },
       },
       {
-        id: 'listen',
-        label: '听',
-        icon: 'ear',
-        order: 2,
-        module: {
-          type: 'audio',
-          listening: modules.listening || {},
-        },
-      },
-      {
         id: 'read',
         label: '读',
         icon: 'book',
-        order: 3,
+        order: 2,
         module: {
           type: 'reading',
           reading: modules.reading || {},
@@ -664,7 +621,7 @@ export class LessonContentService {
         id: 'write',
         label: '写',
         icon: 'pen',
-        order: 4,
+        order: 3,
         module: {
           type: 'writing',
           scene: writeScene,
@@ -675,7 +632,7 @@ export class LessonContentService {
         id: 'practice',
         label: '练',
         icon: 'gamepad',
-        order: 5,
+        order: 4,
         module: {
           type: 'game',
           scene: practiceScene,
@@ -685,16 +642,6 @@ export class LessonContentService {
           },
         },
       },
-      {
-        id: 'assess',
-        label: '评',
-        icon: 'clipboard-check',
-        order: 6,
-        module: {
-          type: 'quiz',
-          quiz: assessData || {},
-        },
-      },
     ];
 
     return {
@@ -702,7 +649,7 @@ export class LessonContentService {
       version: 1,
       topic: meta.topic,
       ageGroup: meta.ageGroup,
-      summary: meta.summary || `围绕${meta.topic}的六步综合课程`,
+      summary: meta.summary || `围绕${meta.topic}的四步综合课程`,
       outcomes: meta.outcomes || [],
       sourceCoursePackId: null,
       steps,
@@ -1100,11 +1047,9 @@ export class LessonContentService {
   private describeStepTitle(step: LessonStep): string {
     const module: Record<string, any> = step.module || {};
     if (module.type === 'video') return '观看动画讲解';
-    if (module.type === 'audio') return this.toText(module.listening?.goal, '听力理解');
     if (module.type === 'reading') return this.toText(module.reading?.goal, '阅读理解');
     if (module.type === 'writing') return this.toText(module.writing?.goal, '书写练习');
     if (module.type === 'game') return '互动练习';
-    if (module.type === 'quiz') return '学习测评';
     return step.label;
   }
 
@@ -1113,10 +1058,6 @@ export class LessonContentService {
     if (module.type === 'video') {
       const scenes = Array.isArray(module.visualStory?.scenes) ? module.visualStory.scenes : Array.isArray(module.videoLesson?.shots) ? module.videoLesson.shots : [];
       return scenes.slice(0, 3).map((scene: any) => this.toText(scene?.narration || scene?.onScreenText || scene?.caption || scene?.scene || scene?.shot)).filter(Boolean).join(' | ');
-    }
-    if (module.type === 'audio') {
-      const script = Array.isArray(module.listening?.audioScript) ? module.listening.audioScript : [];
-      return script.slice(0, 2).map((item: any) => this.toText(item?.narration)).filter(Boolean).join(' | ');
     }
     if (module.type === 'reading') {
       return this.toText(module.reading?.text).slice(0, 120);
@@ -1132,10 +1073,6 @@ export class LessonContentService {
         this.toText(module.game?.activityType),
         this.toText(module.game?.activityData?.title),
       ].filter(Boolean).join(' | ');
-    }
-    if (module.type === 'quiz') {
-      const questions = Array.isArray(module.quiz?.questions) ? module.quiz.questions : [];
-      return questions.slice(0, 2).map((item: any) => this.toText(item?.question)).filter(Boolean).join(' | ');
     }
     return this.toText(JSON.stringify(module)).slice(0, 120);
   }

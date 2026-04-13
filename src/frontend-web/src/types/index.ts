@@ -568,7 +568,7 @@ export interface StructuredLessonStep {
   icon: string;
   order: number;
   module: {
-    type: 'video' | 'audio' | 'reading' | 'writing' | 'game' | 'quiz';
+    type: 'video' | 'reading' | 'writing' | 'game';
     scene?: LessonSceneDocument;
     [key: string]: any;
   };

@@ -32,11 +32,9 @@ const DOMAIN_OPTIONS = [
 
 const STEP_ICONS: Record<string, string> = {
   watch: '\u{1F441}',
-  listen: '\u{1F442}',
   read: '\u{1F4D6}',
   write: '\u{270D}',
   practice: '\u{1F3AE}',
-  assess: '\u{1F4CB}',
 };
 
 const STEP_QUICK_EDITS: Record<string, Array<{ label: string; prompt: string }>> = {
@@ -44,11 +42,6 @@ const STEP_QUICK_EDITS: Record<string, Array<{ label: string; prompt: string }>>
     { label: '更贴主题', prompt: '把这一部分的动画讲解改得更贴合当前主题，避免只出现泛化的字词展示。' },
     { label: '丰富讲解', prompt: '把这一部分的动画讲解内容再丰富一些，增加更具体的观察点和讲解细节。' },
     { label: '放慢节奏', prompt: '把这一部分的动画讲解节奏放慢一些，每个场景多给一点停留和说明。' },
-  ],
-  listen: [
-    { label: '更口语化', prompt: '把这一部分的听力内容改得更口语化、更适合孩子听懂。' },
-    { label: '增加互动', prompt: '在这一部分的听力内容里加入更多提问和停顿提示。' },
-    { label: '缩短难度', prompt: '把这一部分的听力内容再短一点、简单一点。' },
   ],
   read: [
     { label: '更短更清楚', prompt: '把这一部分的阅读内容缩短一点，并让句子更清楚。' },
@@ -64,11 +57,6 @@ const STEP_QUICK_EDITS: Record<string, Array<{ label: string; prompt: string }>>
     { label: '规则更清楚', prompt: '把这一部分的练习规则说明改得更清楚，让孩子一开始就知道怎么做。' },
     { label: '提示更多', prompt: '给这一部分的练习加入更多过程提示和鼓励反馈。' },
     { label: '降低难度', prompt: '把这一部分的练习难度调低一点，步骤更少、更直接。' },
-  ],
-  assess: [
-    { label: '题目更简单', prompt: '把这一部分的测评题再简单一点，题干更短一些。' },
-    { label: '更贴主题', prompt: '把这一部分的测评题改得更贴合本节课主题。' },
-    { label: '减少题量', prompt: '把这一部分的测评题量减少一点，但保留核心考点。' },
   ],
 };
 
@@ -436,7 +424,7 @@ export default function LessonGenerator({
         <h3 className="text-lg font-bold text-on-surface">一键生成学习课程</h3>
       </div>
       <p className="text-sm text-on-surface-variant">
-        输入学习主题，AI 自动生成包含"看、听、读、写、练、评"六步的完整课程
+        输入学习主题，AI 自动生成包含"看、读、写、练"四步的完整课程
       </p>
 
       {/* Input Form */}
@@ -561,7 +549,7 @@ export default function LessonGenerator({
             <div className="space-y-4">
           {/* Six Steps Preview */}
           <div className="space-y-2">
-            <h5 className="text-sm font-semibold text-on-surface-variant">课程六步预览</h5>
+            <h5 className="text-sm font-semibold text-on-surface-variant">课程四步预览</h5>
             {lessonData.steps.map((step: StructuredLessonStep) => (
               <Card
                 key={step.id}
@@ -854,11 +842,9 @@ export default function LessonGenerator({
 function getStepTitle(step: StructuredLessonStep): string {
   const m = step.module;
   if (m.type === 'video') return '观看动画讲解';
-  if (m.type === 'audio') return m.listening?.goal || '听力理解';
   if (m.type === 'reading') return m.reading?.goal || '阅读理解';
   if (m.type === 'writing') return m.writing?.goal || '书写练习';
   if (m.type === 'game') return '互动练习';
-  if (m.type === 'quiz') return '学习测评';
   return step.module.type;
 }
 
@@ -907,21 +893,6 @@ function StepPreview({ step }: { step: StructuredLessonStep }) {
     );
   }
 
-  if (m.type === 'audio') {
-    const script = m.listening?.audioScript || [];
-    return (
-      <div className="space-y-1">
-        <p className="font-medium">听力内容 ({script.length} 段)</p>
-        {script.slice(0, 2).map((seg: any, i: number) => (
-          <p key={i} className="text-on-surface-variant">{seg.narration || `段落 ${i + 1}`}</p>
-        ))}
-        {m.listening?.questions?.length > 0 && (
-          <p className="text-on-surface-variant">听后问题: {m.listening.questions.join('; ')}</p>
-        )}
-      </div>
-    );
-  }
-
   if (m.type === 'reading') {
     return (
       <div className="space-y-1">
@@ -962,18 +933,6 @@ function StepPreview({ step }: { step: StructuredLessonStep }) {
         )}
         {gameData?.pairs?.length > 0 && (
           <p>共 {gameData.pairs.length} 组配对</p>
-        )}
-      </div>
-    );
-  }
-
-  if (m.type === 'quiz') {
-    const quiz = m.quiz;
-    return (
-      <div className="space-y-1">
-        <p className="font-medium">学习测评</p>
-        {quiz?.questions?.length > 0 && (
-          <p>共 {quiz.questions.length} 道题</p>
         )}
       </div>
     );

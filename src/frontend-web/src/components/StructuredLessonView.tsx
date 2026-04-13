@@ -29,11 +29,9 @@ interface StructuredLessonViewProps {
 
 const STEP_META: Record<string, { emoji: string; label: string; color: string }> = {
   watch: { emoji: '\u{1F441}', label: '看', color: 'bg-blue-100 text-blue-700' },
-  listen: { emoji: '\u{1F442}', label: '听', color: 'bg-green-100 text-green-700' },
   read: { emoji: '\u{1F4D6}', label: '读', color: 'bg-yellow-100 text-yellow-700' },
   write: { emoji: '\u{270D}', label: '写', color: 'bg-purple-100 text-purple-700' },
   practice: { emoji: '\u{1F3AE}', label: '练', color: 'bg-orange-100 text-orange-700' },
-  assess: { emoji: '\u{1F4CB}', label: '评', color: 'bg-red-100 text-red-700' },
 };
 
 export default function StructuredLessonView({ contentId, childId, onBack }: StructuredLessonViewProps) {
@@ -101,33 +99,12 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
         interactionData,
       });
 
-      // Auto-complete listen step when watch step completes
-      const extraCompleted: string[] = [];
-      if (currentStep.id === 'watch') {
-        const listenStep = steps.find((s) => s.id === 'listen');
-        if (listenStep && !completedSteps.has('listen')) {
-          try {
-            await api.completeLessonStep(contentId, 'listen', childId, {
-              score: 90,
-              durationSeconds,
-              interactionData: { autoCompleted: true, reason: 'merged_with_watch' },
-            });
-            extraCompleted.push('listen');
-          } catch {
-            // Non-critical: listen auto-completion failure should not block watch
-          }
-        }
-      }
-
       setProgress((prev) => {
-        const newCompleted = [...(prev?.completedSteps || []), currentStep.id, ...extraCompleted];
+        const newCompleted = [...(prev?.completedSteps || []), currentStep.id];
         const newStepResults = {
           ...(prev?.stepResults || {}),
           [currentStep.id]: { status: 'completed', score },
         };
-        for (const extraId of extraCompleted) {
-          newStepResults[extraId] = { status: 'completed', score: 90 };
-        }
         return {
           contentId,
           childId,
@@ -138,15 +115,12 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       });
 
       // Check if all steps completed
-      const updatedCompleted = new Set([...completedSteps, currentStep.id, ...extraCompleted]);
+      const updatedCompleted = new Set([...completedSteps, currentStep.id]);
       if (steps.every((s) => updatedCompleted.has(s.id))) {
         setShowCompleteScreen(true);
       } else {
-        // Move to next step, skip listen if it was auto-completed
-        let nextIndex = currentStepIndex + 1;
-        if (extraCompleted.includes('listen') && nextIndex < steps.length && steps[nextIndex]?.id === 'listen') {
-          nextIndex++;
-        }
+        // Move to next step
+        const nextIndex = currentStepIndex + 1;
         if (nextIndex < steps.length) {
           setCurrentStepIndex(nextIndex);
         }
@@ -289,8 +263,7 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
             >
               <span>{meta.emoji}</span>
               <span>{meta.label}</span>
-              {isDone && step.id === 'listen' && <span className="text-[10px] opacity-70">(已含在视频中)</span>}
-              {isDone && step.id !== 'listen' && <Check className="h-3 w-3" />}
+              {isDone && <Check className="h-3 w-3" />}
             </button>
           );
         })}
@@ -407,11 +380,9 @@ function StepContent({ step, contentId, childId, isCompleting, onComplete, isCom
             isCompleted={isCompleted}
           />
         )}
-        {m.type === 'audio' && <ListenStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
         {m.type === 'reading' && <ReadStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
         {m.type === 'writing' && <WriteStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
         {m.type === 'game' && <PracticeStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
-        {m.type === 'quiz' && <AssessStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
 
         {isCompleting && (
           <div className="flex items-center justify-center gap-2 py-4">
@@ -427,11 +398,9 @@ function StepContent({ step, contentId, childId, isCompleting, onComplete, isCom
 function getStepTitle(step: StructuredLessonStep): string {
   const m = step.module;
   if (m.type === 'video') return '观看动画讲解';
-  if (m.type === 'audio') return '听力理解';
   if (m.type === 'reading') return '阅读学习';
   if (m.type === 'writing') return '书写练习';
   if (m.type === 'game') return '互动练习';
-  if (m.type === 'quiz') return '学习测评';
   return '';
 }
 
@@ -870,88 +839,6 @@ function LegacyWatchStep({
   );
 }
 
-// ─── Listen Step ────────────────────────────────────────────────────────
-
-function ListenStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score?: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
-  const script = m.listening?.audioScript || [];
-  const [currentSeg, setCurrentSeg] = useState(0);
-
-  const speakSegment = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'zh-CN';
-      utterance.rate = 0.8;
-      window.speechSynthesis.speak(utterance);
-    }
-  }, []);
-
-  return (
-    <div className="space-y-3">
-      {m.listening?.goal && (
-        <p className="text-sm text-on-surface-variant">目标: {m.listening.goal}</p>
-      )}
-
-      {script.length > 0 ? (
-        <Card className="p-4 space-y-3">
-          {script.map((seg: any, i: number) => (
-            <div
-              key={i}
-              className={cn(
-                'rounded-lg p-3 transition-all',
-                i === currentSeg ? 'bg-primary-container/10 ring-1 ring-primary/20' : 'bg-surface-container-low',
-              )}
-            >
-              <div className="flex items-start gap-2">
-                <button
-                  onClick={() => {
-                    setCurrentSeg(i);
-                    speakSegment(seg.narration || '');
-                  }}
-                  className="mt-0.5 shrink-0 rounded-full bg-primary/10 p-1.5 text-primary"
-                >
-                  <Volume2 className="h-3.5 w-3.5" />
-                </button>
-                <div>
-                  <p className="text-xs font-medium text-on-surface-variant">{seg.segment || `段落 ${i + 1}`}</p>
-                  <p className="text-sm text-on-surface">{seg.narration || ''}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </Card>
-      ) : (
-        <Card className="p-4 text-center">
-          <p className="text-on-surface-variant">暂无听力内容</p>
-        </Card>
-      )}
-
-      {m.listening?.questions?.length > 0 && (
-        <Card className="p-4">
-          <p className="mb-2 text-sm font-medium text-on-surface">听后问题:</p>
-          <ul className="space-y-1">
-            {m.listening.questions.map((q: string, i: number) => (
-              <li key={i} className="text-sm text-on-surface-variant">{i + 1}. {q}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {!isCompleted && (
-        <Button className="w-full" onClick={() => onComplete(85, { segmentsListened: script.length })}>
-          <Check className="mr-2 h-4 w-4" />
-          听完了，进入下一步
-        </Button>
-      )}
-      {isCompleted && (
-        <div className="flex items-center justify-center gap-1 text-sm text-primary">
-          <CheckCircle className="h-4 w-4" /> 已完成
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Read Step ──────────────────────────────────────────────────────────
 
 function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score?: number) => void; isCompleted: boolean }) {
@@ -1135,121 +1022,5 @@ function PracticeStep({ module: m, onComplete, isCompleted }: { module: any; onC
         onComplete(result.score, { gameResult: result });
       }}
     />
-  );
-}
-
-// ─── Assess Step (Quiz) ────────────────────────────────────────────────
-
-function AssessStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
-  const quiz = m.quiz || {};
-  const questions = quiz.questions || [];
-
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [finished, setFinished] = useState(false);
-
-  if (isCompleted) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-8">
-        <CheckCircle className="h-10 w-10 text-primary" />
-        <p className="text-sm font-medium text-primary">测评已完成</p>
-      </div>
-    );
-  }
-
-  if (questions.length === 0) {
-    return (
-      <Card className="p-6 text-center">
-        <p className="text-on-surface-variant">暂无测评题目</p>
-        <Button className="mt-4" onClick={() => onComplete(80)}>完成此步骤</Button>
-      </Card>
-    );
-  }
-
-  const q = questions[currentQ];
-
-  const handleAnswer = (idx: number) => {
-    if (showResult) return;
-    setSelected(idx);
-    setShowResult(true);
-    const newAnswers = [...answers, idx === q?.correctIndex ? 1 : 0];
-    setAnswers(newAnswers);
-
-    setTimeout(() => {
-      if (currentQ < questions.length - 1) {
-        setCurrentQ(currentQ + 1);
-        setSelected(null);
-        setShowResult(false);
-      } else {
-        // Quiz finished
-        const score = Math.round((newAnswers.filter(Boolean).length / questions.length) * 100);
-        setFinished(true);
-        onComplete(score, { quizAnswers: newAnswers });
-      }
-    }, 1500);
-  };
-
-  if (finished) {
-    const score = Math.round((answers.filter(Boolean).length / questions.length) * 100);
-    return (
-      <div className="flex flex-col items-center gap-3 py-8">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-4xl">
-          {score >= 80 ? '\u{1F389}' : score >= 60 ? '\u{1F44D}' : '\u{1F4AA}'}
-        </motion.div>
-        <p className="text-lg font-bold text-on-surface">得分: {score} 分</p>
-        <p className="text-sm text-on-surface-variant">
-          答对 {answers.filter(Boolean).length} / {questions.length} 题
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-on-surface-variant">第 {currentQ + 1} / {questions.length} 题</span>
-        <div className="flex h-1.5 w-24 overflow-hidden rounded-full bg-surface-container-highest">
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${((currentQ + 1) / questions.length) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <Card className="p-4">
-        <p className="text-base font-medium text-on-surface">{q?.question || ''}</p>
-      </Card>
-
-      <div className="space-y-2">
-        {(q?.options || []).map((option: string, i: number) => (
-          <button
-            key={i}
-            onClick={() => handleAnswer(i)}
-            disabled={showResult}
-            className={cn(
-              'w-full rounded-xl border-2 p-3 text-left text-sm transition-all',
-              showResult && i === q?.correctIndex
-                ? 'border-green-400 bg-green-50 text-green-800'
-                : showResult && selected === i && i !== q?.correctIndex
-                  ? 'border-red-400 bg-red-50 text-red-800'
-                  : 'border-outline-variant/20 bg-surface text-on-surface hover:border-primary/40',
-            )}
-          >
-            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface-container text-xs font-medium">
-              {String.fromCharCode(65 + i)}
-            </span>
-            {option}
-          </button>
-        ))}
-      </div>
-
-      {showResult && q?.explanation && (
-        <Card className="p-3">
-          <p className="text-xs text-on-surface-variant">{q.explanation}</p>
-        </Card>
-      )}
-    </div>
   );
 }

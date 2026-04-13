@@ -290,7 +290,7 @@ export class LearningController {
   @Post('lessons/generate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: '一键生成结构化课程（六步学习）' })
+  @ApiOperation({ summary: '一键生成结构化课程（四步学习）' })
   async generateLesson(
     @Request() req: any,
     @Body()

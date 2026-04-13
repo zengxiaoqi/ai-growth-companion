@@ -5,7 +5,8 @@
   "scripts": {
     "studio": "remotion studio",
     "render": "remotion render NumbersVideo out/numbers-1-10.mp4",
-    "build": "remotion render NumbersVideo out/numbers-1-10.mp4 --codec=h264"
+    "build": "remotion render NumbersVideo out/numbers-1-10.mp4 --codec=h264",
+    "render:characters": "remotion render ChineseCharactersVideo out/chinese-characters.mp4 --codec=h264"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.261",

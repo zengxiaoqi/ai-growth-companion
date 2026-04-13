@@ -15,6 +15,7 @@ import {
   SCIENCE_TEST_VIDEO,
   ART_SOCIAL_TEST_VIDEO,
 } from "./data/test-animation-data";
+import { CHINESE_CHARACTERS_VIDEO } from "./data/chinese-characters";
 
 // NumbersVideo: intro + 10*scene + outro - 11 transitions
 // = 90 + 10*210 + 90 - 11*12 = 2148
@@ -90,6 +91,19 @@ export const RemotionRoot = () => {
           props,
         })}
       />
+      <Composition
+        id="ChineseCharactersVideo"
+        component={TopicVideo}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={CHINESE_CHARACTERS_VIDEO}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
+      />
+
       <Composition
         id="TestArtSocialVideo"
         component={TopicVideo}

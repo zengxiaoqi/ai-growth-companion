@@ -55,7 +55,7 @@ export const courseDesignerDefinition: AgentDefinition = {
 
   disallowedTools: [],
 
-  allowedSkills: ['course-pack-flow', 'activity-validation'],
+  allowedSkills: ['course-pack-flow', 'activity-validation', 'remotion-video-creation'],
 
   maxIterations: 5,
   defaultAgeGroup: '5-6',

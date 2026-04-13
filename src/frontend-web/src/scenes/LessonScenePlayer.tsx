@@ -213,7 +213,7 @@ export default function LessonScenePlayer({
           {traceInteraction?.targets?.[0] && (
             <TracePathCanvas
               target={traceInteraction.targets[0]}
-              minCoverage={traceInteraction.minCoverage || completionPolicy?.minCoverage || 0.7}
+              minCoverage={traceInteraction.minCoverage || completionPolicy?.minCoverage || 0.85}
               onSolved={handleTraceSolved}
             />
           )}

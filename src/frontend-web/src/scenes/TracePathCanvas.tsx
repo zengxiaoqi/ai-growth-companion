@@ -170,7 +170,7 @@ export default function TracePathCanvas({ target, minCoverage = 0.7, onSolved }:
   }, [glyphGuide, polylineGuide]);
 
   const updateCoverage = useCallback((segment: Segment) => {
-    const tolerance = CANVAS_SIZE * 0.08;
+    const tolerance = CANVAS_SIZE * 0.035;
     samplePoints.forEach((point, index) => {
       if (coveredRef.current.has(index)) return;
       if (distanceToSegment(point, segment) <= tolerance) {

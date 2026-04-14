@@ -149,3 +149,79 @@ export function resolveEmoji(name: string, fallback = "⭐"): string {
   if (/[^\x00-\x7F]/.test(name)) return name;
   return fallback;
 }
+
+// ---------------------------------------------------------------------------
+// SVG Item Descriptors — used by StorySceneScene for SVG-based rendering
+// ---------------------------------------------------------------------------
+
+export type SvgItemShape =
+  | "tree"
+  | "house"
+  | "flower"
+  | "book"
+  | "sun"
+  | "moon"
+  | "cloud"
+  | "star"
+  | "bird"
+  | "fish"
+  | "cat"
+  | "dog"
+  | "mountain"
+  | "river"
+  | "circle"
+  | "rect"
+  | "generic";
+
+export type SvgItemDescriptor = {
+  shape: SvgItemShape;
+  primaryColor: string;
+  secondaryColor: string;
+  label: string;
+};
+
+const SVG_ITEM_MAP: Record<string, SvgItemDescriptor> = {
+  tree: { shape: "tree", primaryColor: "#388E3C", secondaryColor: "#5D4037", label: "树" },
+  flower: { shape: "flower", primaryColor: "#E91E63", secondaryColor: "#4CAF50", label: "花" },
+  house: { shape: "house", primaryColor: "#FF8A65", secondaryColor: "#5D4037", label: "房子" },
+  book: { shape: "book", primaryColor: "#42A5F5", secondaryColor: "#1A237E", label: "书" },
+  sun: { shape: "sun", primaryColor: "#FFD54F", secondaryColor: "#FF8F00", label: "太阳" },
+  moon: { shape: "moon", primaryColor: "#FFF9C4", secondaryColor: "#F9A825", label: "月亮" },
+  cloud: { shape: "cloud", primaryColor: "#ECEFF1", secondaryColor: "#B0BEC5", label: "云" },
+  star: { shape: "star", primaryColor: "#FFD54F", secondaryColor: "#FFC107", label: "星星" },
+  bird: { shape: "bird", primaryColor: "#78909C", secondaryColor: "#546E7A", label: "鸟" },
+  fish: { shape: "fish", primaryColor: "#26C6DA", secondaryColor: "#00838F", label: "鱼" },
+  cat: { shape: "cat", primaryColor: "#FF8A65", secondaryColor: "#BF360C", label: "猫" },
+  dog: { shape: "dog", primaryColor: "#A1887F", secondaryColor: "#4E342E", label: "狗" },
+  mountain: { shape: "mountain", primaryColor: "#78909C", secondaryColor: "#546E7A", label: "山" },
+  river: { shape: "river", primaryColor: "#42A5F5", secondaryColor: "#1565C0", label: "河" },
+  apple: { shape: "circle", primaryColor: "#E53935", secondaryColor: "#C62828", label: "苹果" },
+  ball: { shape: "circle", primaryColor: "#FDD835", secondaryColor: "#F9A825", label: "球" },
+  heart: { shape: "circle", primaryColor: "#E91E63", secondaryColor: "#AD1457", label: "爱心" },
+  seed: { shape: "circle", primaryColor: "#8D6E63", secondaryColor: "#4E342E", label: "种子" },
+  sprout: { shape: "flower", primaryColor: "#66BB6A", secondaryColor: "#2E7D32", label: "嫩芽" },
+  leaf: { shape: "flower", primaryColor: "#4CAF50", secondaryColor: "#1B5E20", label: "树叶" },
+  snow: { shape: "circle", primaryColor: "#E3F2FD", secondaryColor: "#90CAF9", label: "雪花" },
+  rain: { shape: "circle", primaryColor: "#42A5F5", secondaryColor: "#1565C0", label: "雨" },
+  boy: { shape: "circle", primaryColor: "#42A5F5", secondaryColor: "#1565C0", label: "男孩" },
+  girl: { shape: "circle", primaryColor: "#EC407A", secondaryColor: "#AD1457", label: "女孩" },
+  teacher: { shape: "circle", primaryColor: "#AB47BC", secondaryColor: "#6A1B9A", label: "老师" },
+  happy: { shape: "circle", primaryColor: "#FFEE58", secondaryColor: "#F9A825", label: "开心" },
+  sad: { shape: "circle", primaryColor: "#42A5F5", secondaryColor: "#1565C0", label: "伤心" },
+  angry: { shape: "circle", primaryColor: "#E53935", secondaryColor: "#B71C1C", label: "生气" },
+  surprised: { shape: "circle", primaryColor: "#FFB74D", secondaryColor: "#E65100", label: "惊讶" },
+};
+
+/**
+ * Resolve an item name to an SVG descriptor (shape, colors, label).
+ * Falls back to a generic colored circle with the name as label.
+ */
+export function resolveSvgItem(name: string): SvgItemDescriptor {
+  const normalized = name.trim().toLowerCase();
+  if (SVG_ITEM_MAP[normalized]) return SVG_ITEM_MAP[normalized];
+  // If the name is an emoji, return generic
+  if (/[^\x00-\x7F]/.test(name)) {
+    return { shape: "generic", primaryColor: "#B0BEC5", secondaryColor: "#78909C", label: "" };
+  }
+  return { shape: "generic", primaryColor: "#B0BEC5", secondaryColor: "#78909C", label: name };
+}

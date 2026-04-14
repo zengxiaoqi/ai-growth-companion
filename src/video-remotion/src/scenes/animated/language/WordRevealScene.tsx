@@ -209,22 +209,42 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
               />
             )}
 
-            {/* Star emoji */}
+            {/* SVG Star */}
             {starOpacity > 0 && (
-              <div
+              <svg
                 style={{
                   position: "absolute",
-                  left: pos.x + CARD_WIDTH - 16,
-                  top: pos.y - 12,
-                  fontSize: 32,
+                  left: pos.x + CARD_WIDTH - 20,
+                  top: pos.y - 16,
                   opacity: starOpacity,
                   transform: `scale(${starScale})`,
                   zIndex: 4,
-                  userSelect: "none",
                 }}
+                width="36"
+                height="36"
+                viewBox="0 0 36 36"
               >
-                ⭐
-              </div>
+                <defs>
+                  <linearGradient id={`star-grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#FCD34D" />
+                    <stop offset="100%" stopColor="#F59E0B" />
+                  </linearGradient>
+                  <filter id={`star-glow-${i}`}>
+                    <feGaussianBlur stdDeviation="2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <polygon
+                  points="18,2 22,13 34,13 24,21 28,33 18,26 8,33 12,21 2,13 14,13"
+                  fill={`url(#star-grad-${i})`}
+                  stroke="#F59E0B"
+                  strokeWidth="1"
+                  filter={`url(#star-glow-${i})`}
+                />
+              </svg>
             )}
           </React.Fragment>
         );

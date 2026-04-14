@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -99,8 +99,33 @@ export interface DraftLessonSummary {
 }
 
 @Injectable()
-export class LessonContentService {
+export class LessonContentService implements OnModuleInit {
   private readonly logger = new Logger(LessonContentService.name);
+
+  async onModuleInit(): Promise<void> {
+    // Recover content records stuck in 'generating' status from previous server crash/restart
+    const staleThresholdMinutes = 5;
+    try {
+      const result = await this.contentRepo
+        .createQueryBuilder()
+        .update(Content)
+        .set({
+          status: 'generation_failed',
+          subtitle: '生成中断：服务器重启，请重新生成',
+        })
+        .where("status = :status AND contentType = :contentType AND updatedAt < datetime('now', '-5 minutes')", {
+          status: 'generating',
+          contentType: 'structured_lesson',
+        })
+        .execute();
+
+      if (result.affected && result.affected > 0) {
+        this.logger.warn(`Recovered ${result.affected} stuck lesson generation(s) on startup`);
+      }
+    } catch (error: any) {
+      this.logger.warn(`Stuck generation recovery failed: ${error?.message}`);
+    }
+  }
 
   constructor(
     @InjectRepository(Content)
@@ -265,42 +290,54 @@ export class LessonContentService {
     } = params;
 
     try {
-      // 1. Generate course pack
-      this.logger.log(`[contentId=${contentId}] Step 1/3: Generating course pack...`);
-      const coursePackRaw = await this.generateCoursePackTool.execute({
-        topic,
-        ageGroup,
-        domain,
-        focus,
-        difficulty,
-        durationMinutes,
-        includeGame: false,
-        includeAudio: false,
-        includeVideo: true,
-        parentPrompt: parentPrompt || topic,
-      });
+      // 1 & 2. Generate course pack AND practice game in parallel
+      const practiceType = this.resolveGameType(focus);
+      this.logger.log(`[contentId=${contentId}] Step 1/2: Generating course pack + practice game in parallel...`);
+      await this.contentRepo.update(contentId, { subtitle: '正在生成课程内容...' } as any);
 
-      const coursePack = this.parseJson(coursePackRaw);
+      const [coursePackRaw, practiceRaw] = await Promise.allSettled([
+        this.generateCoursePackTool.execute({
+          topic,
+          ageGroup,
+          domain,
+          focus,
+          difficulty,
+          durationMinutes,
+          includeGame: false,
+          includeAudio: false,
+          includeVideo: true,
+          parentPrompt: parentPrompt || topic,
+        }),
+        this.generateActivityTool.execute({
+          type: practiceType, topic, difficulty, ageGroup, domain,
+        }).catch((err: any) => {
+          this.logger.warn(`[contentId=${contentId}] Practice game failed: ${err?.message}`);
+          return null;
+        }),
+      ]);
+
+      const coursePack = coursePackRaw.status === 'fulfilled'
+        ? this.parseJson(coursePackRaw.value)
+        : null;
       if (!coursePack) {
-        throw new Error('LLM returned non-JSON for course pack');
+        throw new Error(
+          coursePackRaw.status === 'rejected'
+            ? `Course pack generation failed: ${coursePackRaw.reason?.message || 'unknown'}`
+            : 'LLM returned non-JSON for course pack',
+        );
       }
 
-      // 2. Generate practice game
-      const practiceType = this.resolveGameType(focus);
-      this.logger.log(`[contentId=${contentId}] Step 2/3: Generating practice game (${practiceType})...`);
       let practiceData: Record<string, any> | null = null;
-      try {
-        const practiceRaw = await this.generateActivityTool.execute({
-          type: practiceType, topic, difficulty, ageGroup, domain,
-        });
-        practiceData = this.parseJson(practiceRaw);
-      } catch (actErr: any) {
-        this.logger.warn(`[contentId=${contentId}] Practice game failed, using fallback: ${actErr?.message}`);
+      if (practiceRaw.status === 'fulfilled' && practiceRaw.value) {
+        practiceData = this.parseJson(practiceRaw.value);
+      }
+      if (!practiceData) {
+        this.logger.log(`[contentId=${contentId}] Using fallback practice activity`);
         practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup, domain);
       }
 
       // 3. Assemble 4-step lesson
-      this.logger.log(`[contentId=${contentId}] Step 3/3: Assembling lesson...`);
+      this.logger.log(`[contentId=${contentId}] Step 2/2: Assembling lesson...`);
       const lessonContent = this.assembleLesson(
         coursePack, practiceData,
         { topic, ageGroup, summary: coursePack.summary || '', outcomes: coursePack.outcomes || [] },

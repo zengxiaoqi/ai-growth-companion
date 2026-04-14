@@ -671,16 +671,19 @@ export class RemotionRenderService {
     onProgress?: (percent: number) => void,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      const cpuCount = Math.max(1, (require('os').cpus() || []).length);
+      const concurrency = Math.min(cpuCount - 1 || 1, 4); // Use N-1 cores, max 4
       const args = [
         'remotion',
         'render',
         compositionId,
         outputPath,
         '--codec=h264',
+        `--concurrency=${concurrency}`,
         `--props=${propsPath}`,
       ];
 
-      this.logger.log(`Spawning remotion render: npx ${args.join(' ')}`);
+      this.logger.log(`Spawning remotion render (concurrency=${concurrency}): npx ${args.join(' ')}`);
 
       const proc = spawn('npx', args, {
         cwd: this.remotionDir,

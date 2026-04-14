@@ -572,8 +572,128 @@ export default function LessonGenerator({
                 </button>
 
                 {expandedStep === step.id && (
-                  <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant xl:hidden">
-                    <StepPreview step={step} />
+                  <div className="mt-3 space-y-3">
+                    <div className="rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant xl:hidden">
+                      <StepPreview step={step} />
+                    </div>
+
+                    {/* Video generation for the watch step */}
+                    {step.id === 'watch' && generatedContent.status === 'draft' && (
+                      <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Play className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs font-semibold text-on-surface">教学动画视频</span>
+                          </div>
+                          {videoStatus !== 'polling' && videoStatus !== 'completed' && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                resetVideoPreviewState();
+                                startVideoGeneration();
+                              }}
+                            >
+                              生成视频
+                            </Button>
+                          )}
+                          {videoStatus === 'completed' && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                resetVideoPreviewState();
+                                startVideoGeneration();
+                              }}
+                            >
+                              重新生成
+                            </Button>
+                          )}
+                        </div>
+
+                        {videoStatus === 'polling' && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                              <span>正在生成教学动画...</span>
+                              <span>{Math.round(videoProgress)}%</span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all duration-500"
+                                style={{ width: `${Math.max(5, videoProgress)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {videoStatus === 'failed' && (
+                          <div className="flex items-center gap-2 text-xs text-error">
+                            <XCircle className="h-3.5 w-3.5 shrink-0" />
+                            <span>视频生成失败，课程仍可正常发布</span>
+                          </div>
+                        )}
+
+                        {videoStatus === 'completed' && (
+                          <div className="space-y-2">
+                            {videoUrl && (
+                              <video
+                                src={videoUrl}
+                                controls
+                                className="w-full rounded-lg bg-black"
+                                style={{ maxHeight: 200 }}
+                              />
+                            )}
+
+                            {approvalStatus === 'pending_approval' && (
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => handleApproveVideo(true)}
+                                  disabled={isApproving}
+                                  className="flex-1"
+                                  size="sm"
+                                >
+                                  {isApproving ? (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Check className="mr-1 h-3 w-3" />
+                                  )}
+                                  通过视频
+                                </Button>
+                                <Button
+                                  onClick={() => handleApproveVideo(false)}
+                                  disabled={isApproving}
+                                  variant="secondary"
+                                  size="sm"
+                                >
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                  重新生成
+                                </Button>
+                              </div>
+                            )}
+
+                            {approvalStatus === 'approved' && (
+                              <div className="flex items-center gap-2 rounded-lg bg-primary-container/10 px-3 py-2 text-xs font-medium text-primary">
+                                <Check className="h-3.5 w-3.5" />
+                                视频已通过审批
+                              </div>
+                            )}
+
+                            {approvalStatus === 'rejected' && (
+                              <div className="flex items-center gap-2 text-xs text-error">
+                                <XCircle className="h-3.5 w-3.5" />
+                                视频已驳回，将重新生成
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {videoStatus === 'idle' && (
+                          <p className="text-xs text-on-surface-variant">
+                            点击"生成视频"可预览学生端播放的教学动画视频。
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
@@ -665,112 +785,6 @@ export default function LessonGenerator({
               <p className="text-[11px] text-on-surface-variant">
                 可直接编辑这份草稿，使用 Ctrl+Enter 或 Cmd+Enter 可快速提交。
               </p>
-            </Card>
-          )}
-
-          {/* Video Generation & Approval Section */}
-          {generatedContent.status === 'draft' && (
-            <Card className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Play className="h-4 w-4 text-primary" />
-                {videoStatus !== 'polling' && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      resetVideoPreviewState();
-                      startVideoGeneration();
-                    }}
-                  >
-                    重新生成预览
-                  </Button>
-                )}
-                <h5 className="text-sm font-semibold text-on-surface">教学动画视频</h5>
-              </div>
-
-              {/* Polling / Generating */}
-              {videoStatus === 'polling' && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-on-surface-variant">
-                    <span>正在生成教学动画...</span>
-                    <span>{Math.round(videoProgress)}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${Math.max(5, videoProgress)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Generation Failed */}
-              {videoStatus === 'failed' && (
-                <div className="flex items-center gap-2 rounded-lg bg-error-container/10 px-3 py-2 text-xs text-error">
-                  <XCircle className="h-4 w-4 shrink-0" />
-                  <span>视频生成失败，课程仍可正常发布（无视频预览）</span>
-                </div>
-              )}
-
-              {/* Video completed — show preview + approval */}
-              {videoStatus === 'completed' && (
-                <div className="space-y-3">
-                  {videoUrl && (
-                    <video
-                      src={videoUrl}
-                      controls
-                      className="w-full rounded-lg bg-black"
-                      style={{ maxHeight: 280 }}
-                    />
-                  )}
-
-                  {approvalStatus === 'pending_approval' && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleApproveVideo(true)}
-                        disabled={isApproving}
-                        className="flex-1"
-                        size="sm"
-                      >
-                        {isApproving ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <Check className="mr-1 h-3 w-3" />
-                        )}
-                        通过视频
-                      </Button>
-                      <Button
-                        onClick={() => handleApproveVideo(false)}
-                        disabled={isApproving}
-                        variant="secondary"
-                        size="sm"
-                      >
-                        <XCircle className="mr-1 h-3 w-3" />
-                        重新生成
-                      </Button>
-                    </div>
-                  )}
-
-                  {approvalStatus === 'approved' && (
-                    <div className="flex items-center gap-2 rounded-lg bg-primary-container/10 px-3 py-2 text-xs font-medium text-primary">
-                      <Check className="h-4 w-4" />
-                      视频已通过审批
-                    </div>
-                  )}
-
-                  {approvalStatus === 'rejected' && (
-                    <div className="flex items-center gap-2 rounded-lg bg-error-container/10 px-3 py-2 text-xs text-error">
-                      <XCircle className="h-4 w-4" />
-                      视频已驳回，将重新生成
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* No video task yet (idle) */}
-              {videoStatus === 'idle' && (
-                <p className="text-xs text-on-surface-variant">课程修改后，场景预览会立即同步；如需新的教学视频预览，请点击“重新生成预览”。</p>
-              )}
             </Card>
           )}
 

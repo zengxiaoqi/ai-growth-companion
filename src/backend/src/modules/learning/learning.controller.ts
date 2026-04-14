@@ -463,9 +463,43 @@ export class LearningController {
       .trim();
     const body = await this.lessonVideoQueue.readVideoBuffer(task);
     const filename = `${safeTitle || `lesson-${id}`}-teaching-video.mp4`;
+    const totalSize = body.length;
 
+    // HTTP Range request support for video seeking/scrubbing
+    const range = req.headers.range;
+
+    if (range) {
+      // Parse Range header (e.g., "bytes=0-1023")
+      const matches = /bytes=(\d*)-(\d*)/.exec(range);
+      if (!matches) {
+        res.status(416).setHeader('Content-Range', `bytes */${totalSize}`);
+        return res.send();
+      }
+
+      const start = matches[1] ? parseInt(matches[1], 10) : 0;
+      const end = matches[2] ? parseInt(matches[2], 10) : totalSize - 1;
+
+      // Validate range
+      if (start >= totalSize || end >= totalSize || start > end) {
+        res.status(416).setHeader('Content-Range', `bytes */${totalSize}`);
+        return res.send();
+      }
+
+      const chunkSize = end - start + 1;
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${totalSize}`);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Length', chunkSize);
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
+      return res.send(body.subarray(start, end + 1));
+    }
+
+    // Full file response (no Range header)
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(filename));
+    res.setHeader('Content-Length', totalSize);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.send(body);
   }
 

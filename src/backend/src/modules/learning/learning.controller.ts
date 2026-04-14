@@ -377,12 +377,12 @@ export class LearningController {
   async enqueueLessonTeachingVideoTask(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { childId?: number },
+    @Body() body: { childId?: number; force?: boolean },
   ) {
     const resolvedChildId = this.resolveChildId(req, body?.childId != null ? String(body.childId) : undefined);
     await this.assertAccessToChild(req, resolvedChildId);
 
-    const task = await this.lessonVideoQueue.enqueue(+id, resolvedChildId);
+    const task = await this.lessonVideoQueue.enqueue(+id, resolvedChildId, !!body.force);
     return {
       taskId: task.id,
       status: task.status,

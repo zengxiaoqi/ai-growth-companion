@@ -709,6 +709,7 @@ class ApiService {
   async createLessonTeachingVideoTask(
     id: number,
     childId?: number,
+    force = false,
   ): Promise<{
     taskId: number;
     status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -721,7 +722,7 @@ class ApiService {
   }> {
     return this.request(`/learning/lessons/${id}/teaching-video/tasks`, {
       method: 'POST',
-      body: JSON.stringify(childId ? { childId } : {}),
+      body: JSON.stringify({ ...(childId ? { childId } : {}), ...(force ? { force: true } : {}) }),
     });
   }
 

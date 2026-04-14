@@ -105,14 +105,16 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async enqueue(contentId: number, childId: number): Promise<VideoGenerationTask> {
+  async enqueue(contentId: number, childId: number, force = false): Promise<VideoGenerationTask> {
     const content = await this.contentRepo.findOne({ where: { id: contentId } });
     if (!content) throw new NotFoundException('Content not found');
 
     const payload = this.buildPackPayloadFromContent(content);
     const cacheKey = this.computeCacheKey(content, payload);
-    const reusable = await this.findReusableTask(contentId, childId, cacheKey);
-    if (reusable) return reusable;
+    if (!force) {
+      const reusable = await this.findReusableTask(contentId, childId, cacheKey);
+      if (reusable) return reusable;
+    }
 
     const task = this.taskRepo.create({
       uuid: randomUUID(),

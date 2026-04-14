@@ -338,7 +338,7 @@ export class LessonContentService implements OnModuleInit {
 
       // 3. Assemble 4-step lesson
       this.logger.log(`[contentId=${contentId}] Step 2/2: Assembling lesson...`);
-      const lessonContent = this.assembleLesson(
+      await this.contentRepo.update(contentId, { subtitle: '正在组装课程...' } as any);      const lessonContent = this.assembleLesson(
         coursePack, practiceData,
         { topic, ageGroup, summary: coursePack.summary || '', outcomes: coursePack.outcomes || [] },
       );

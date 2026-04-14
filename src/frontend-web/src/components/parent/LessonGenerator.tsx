@@ -339,10 +339,10 @@ export default function LessonGenerator({
   };
 
   // ── Video generation + approval ─────────────────────────────────
-  const startVideoGeneration = async () => {
+  const startVideoGeneration = async (force = false) => {
     if (!generatedContent || !selectedChildId) return;
     try {
-      const task = await api.createLessonTeachingVideoTask(generatedContent.id, selectedChildId);
+      const task = await api.createLessonTeachingVideoTask(generatedContent.id, selectedChildId, force);
       setVideoTaskId(task.taskId);
       setVideoStatus('polling');
       setVideoProgress(task.progress || 0);
@@ -409,6 +409,9 @@ export default function LessonGenerator({
         videoTaskId || undefined,
       );
       setApprovalStatus(result.approvalStatus);
+      if (!approved) {
+        startVideoGeneration(true);
+      }
     } catch (err: any) {
       setError(err?.message || '视频审批失败');
     } finally {
@@ -603,7 +606,7 @@ export default function LessonGenerator({
                               variant="secondary"
                               onClick={() => {
                                 resetVideoPreviewState();
-                                startVideoGeneration();
+                                startVideoGeneration(true);
                               }}
                             >
                               重新生成

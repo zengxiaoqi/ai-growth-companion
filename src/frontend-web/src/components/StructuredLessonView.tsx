@@ -7,10 +7,7 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-  Play,
-  Pause,
   Star,
-  Volume2,
 } from '@/icons';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
@@ -494,26 +491,12 @@ function WatchStep({
     );
   }
 
-  const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
-  const repairedScenes = repairLowInformationAnimationScenes(scenes);
-
-  // ── Animation template path (new) ──
-  const canUseAnimationTemplates =
-    scenesHaveAnimationTemplates(repairedScenes);
-
-  if (canUseAnimationTemplates) {
-    return (
-      <AnimationWatchStep
-        scenes={repairedScenes}
-        isCompleted={isCompleted}
-        onComplete={onComplete}
-      />
-    );
-  }
-
-  // ── Legacy video generation + fallback path ──
+  // ── Video-first strategy: try pre-rendered video, fallback to animation ──
+  // This ensures visual consistency between parent preview (Remotion SVG)
+  // and student playback (same Remotion-rendered MP4 video).
+  // Only falls back to p5.js animation if video is unavailable.
   return (
-    <LegacyWatchStep
+    <VideoFirstWatchStep
       module={m}
       contentId={contentId}
       childId={childId}
@@ -523,7 +506,197 @@ function WatchStep({
   );
 }
 
-// ─── Animation-based Watch Step ──────────────────────────────────────
+// ─── Video-First Watch Step ──────────────────────────────────────────
+// Strategy: try pre-rendered Remotion video → fallback to p5.js animation → fallback to text cards
+function VideoFirstWatchStep({
+  module: m,
+  contentId,
+  childId,
+  onComplete,
+  isCompleted,
+}: {
+  module: any;
+  contentId: number;
+  childId?: number;
+  onComplete: (score?: number) => void;
+  isCompleted: boolean;
+}) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(true);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoTaskId, setVideoTaskId] = useState<number | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
+  const [fallbackMode, setFallbackMode] = useState<'animation' | 'text' | null>(null);
+  const [videoReloadKey, setVideoReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let localUrl: string | null = null;
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const loadVideo = async () => {
+      setVideoLoading(true);
+      setVideoProgress(0);
+      setVideoTaskId(null);
+      setVideoUrl(null);
+      setFallbackMode(null);
+
+      try {
+        const task = await api.createLessonTeachingVideoTask(contentId, childId);
+        if (cancelled) return;
+
+        setVideoTaskId(task.taskId);
+        setVideoProgress(Math.max(0, task.progress || 0));
+
+        // If task already completed, download immediately
+        if (task.status === 'completed' && task.ready) {
+          const blob = await api.downloadLessonTeachingVideo(contentId, childId, task.taskId);
+          if (cancelled) return;
+          localUrl = URL.createObjectURL(blob);
+          setVideoUrl(localUrl);
+          setVideoProgress(100);
+          setVideoLoading(false);
+          return;
+        }
+
+        let status = task.status;
+        let progress = task.progress || 0;
+        let errorMessage = task.errorMessage || '';
+        let pollCount = 0;
+
+        while (!cancelled && status !== 'completed' && status !== 'failed' && pollCount < 120) {
+          await sleep(2000);
+          const next = await api.getLessonTeachingVideoTask(contentId, task.taskId, childId);
+          status = next.status;
+          progress = next.progress || 0;
+          errorMessage = next.errorMessage || '';
+          if (cancelled) return;
+          setVideoProgress(Math.max(5, Math.min(99, progress)));
+          pollCount += 1;
+        }
+
+        if (cancelled) return;
+
+        if (status === 'completed') {
+          const blob = await api.downloadLessonTeachingVideo(contentId, childId, task.taskId);
+          if (cancelled) return;
+          localUrl = URL.createObjectURL(blob);
+          setVideoUrl(localUrl);
+          setVideoProgress(100);
+        } else {
+          // Video generation failed or timed out, fallback to animation
+          console.warn(`[VideoFirstWatchStep] Video failed: ${errorMessage || status}, falling back to animation`);
+          setFallbackMode('animation');
+        }
+      } catch (err: any) {
+        const msg = err?.message || '';
+        // If video is pending approval, still show it if available
+        if (msg.includes('尚未通过审批') || msg.includes('审批')) {
+          // Try downloading anyway - might work for child if approved
+          setFallbackMode('animation');
+        } else {
+          console.warn(`[VideoFirstWatchStep] Video load error: ${msg}, falling back to animation`);
+          setFallbackMode('animation');
+        }
+      } finally {
+        if (!cancelled) setVideoLoading(false);
+      }
+    };
+
+    loadVideo();
+
+    return () => {
+      cancelled = true;
+      if (localUrl) URL.revokeObjectURL(localUrl);
+    };
+  }, [contentId, childId, videoReloadKey]);
+
+  // ── Video ready: play it ──
+  if (videoUrl) {
+    return (
+      <div className="space-y-3">
+        <Card className="overflow-hidden">
+          <video
+            className="h-auto w-full bg-black"
+            src={videoUrl}
+            controls
+            playsInline
+            onEnded={() => setVideoReady(true)}
+          />
+        </Card>
+
+        {!isCompleted && (
+          <Button className="w-full" onClick={() => onComplete(videoReady ? 95 : 85)}>
+            <Check className="mr-2 h-4 w-4" />
+            看完了，进入下一步
+          </Button>
+        )}
+        {isCompleted && (
+          <div className="flex items-center justify-center gap-1 text-sm text-primary">
+            <CheckCircle className="h-4 w-4" /> 已完成
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Video loading: show progress ──
+  if (videoLoading && !fallbackMode) {
+    return (
+      <Card className="p-6">
+        <div className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="text-sm">正在生成教学视频...</span>
+          <span className="text-xs text-on-surface-variant">
+            {videoTaskId ? `任务 #${videoTaskId}` : '任务创建中'} · {Math.max(0, Math.min(99, videoProgress))}%
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+  // ── Fallback to animation ──
+  if (fallbackMode === 'animation') {
+    const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
+    const repairedScenes = repairLowInformationAnimationScenes(scenes);
+    const canUseAnimationTemplates = scenesHaveAnimationTemplates(repairedScenes);
+
+    if (canUseAnimationTemplates) {
+      return (
+        <div className="space-y-3">
+          <Card className="p-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-on-surface-variant">视频暂不可用，使用动画模式</p>
+              <button
+                onClick={() => setVideoReloadKey((v) => v + 1)}
+                className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              >
+                重试视频
+              </button>
+            </div>
+          </Card>
+          <AnimationWatchStep
+            scenes={repairedScenes}
+            isCompleted={isCompleted}
+            onComplete={onComplete}
+          />
+        </div>
+      );
+    }
+  }
+
+  // ── Final fallback: text cards ──
+  const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
+  return (
+    <LegacyFallbackCards
+      scenes={scenes}
+      isCompleted={isCompleted}
+      onComplete={onComplete}
+      onRetryVideo={() => setVideoReloadKey((v) => v + 1)}
+    />
+  );
+}
 function AnimationWatchStep({
   scenes,
   isCompleted,
@@ -593,115 +766,20 @@ function AnimationWatchStep({
   return <AnimationScenePlayer scenes={mappedScenes} isCompleted={isCompleted} onComplete={onComplete} />;
 }
 
-// ─── Legacy Watch Step (video generation + fallback) ─────────────────
-function LegacyWatchStep({
-  module: m,
-  contentId,
-  childId,
-  onComplete,
+// ─── Text-based Fallback Cards ───────────────────────────────────────
+function LegacyFallbackCards({
+  scenes,
   isCompleted,
+  onComplete,
+  onRetryVideo,
 }: {
-  module: any;
-  contentId: number;
-  childId?: number;
-  onComplete: (score?: number) => void;
+  scenes: any[];
   isCompleted: boolean;
+  onComplete: (score?: number) => void;
+  onRetryVideo: () => void;
 }) {
-  const scenes = m.visualStory?.scenes || m.videoLesson?.shots || [];
   const [currentScene, setCurrentScene] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoLoading, setVideoLoading] = useState(true);
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [videoTaskId, setVideoTaskId] = useState<number | null>(null);
-  const [videoReloadKey, setVideoReloadKey] = useState(0);
-  const [videoReady, setVideoReady] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    let localUrl: string | null = null;
-
-    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    const loadVideo = async () => {
-      setVideoLoading(true);
-      setVideoError(null);
-      setVideoProgress(0);
-      setVideoTaskId(null);
-      setVideoUrl(null);
-      try {
-        const task = await api.createLessonTeachingVideoTask(contentId, childId);
-        if (cancelled) return;
-
-        setVideoTaskId(task.taskId);
-        setVideoProgress(Math.max(0, task.progress || 0));
-
-        let status = task.status;
-        let progress = task.progress || 0;
-        let errorMessage = task.errorMessage || '';
-        let pollCount = 0;
-
-        while (!cancelled && status !== 'completed' && status !== 'failed' && pollCount < 240) {
-          await sleep(2000);
-          const next = await api.getLessonTeachingVideoTask(contentId, task.taskId, childId);
-          status = next.status;
-          progress = next.progress || 0;
-          errorMessage = next.errorMessage || '';
-          if (cancelled) return;
-          setVideoProgress(Math.max(5, Math.min(99, progress)));
-          pollCount += 1;
-        }
-
-        if (cancelled) return;
-        if (status !== 'completed') {
-          throw new Error(errorMessage || (status === 'failed' ? '视频生成失败' : '视频生成超时'));
-        }
-
-        const blob = await api.downloadLessonTeachingVideo(contentId, childId, task.taskId);
-        if (cancelled) return;
-        localUrl = URL.createObjectURL(blob);
-        setVideoUrl(localUrl);
-        setVideoProgress(100);
-      } catch (err: any) {
-        const msg = err?.message || '';
-        if (msg.includes('尚未通过审批') || msg.includes('审批')) {
-          if (!cancelled) setVideoError('视频正在等待家长审批，暂时使用文字讲解模式');
-        } else {
-          if (!cancelled) setVideoError('教学视频生成失败，已切换到文本讲解模式');
-        }
-      } finally {
-        if (!cancelled) setVideoLoading(false);
-      }
-    };
-
-    loadVideo();
-
-    return () => {
-      cancelled = true;
-      if (localUrl) URL.revokeObjectURL(localUrl);
-    };
-  }, [contentId, childId, videoReloadKey]);
-
-  useEffect(() => {
-    if (isPlaying && scenes.length > 0) {
-      intervalRef.current = setInterval(() => {
-        setCurrentScene((prev) => {
-          if (prev >= scenes.length - 1) {
-            setIsPlaying(false);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, (scenes[currentScene]?.durationSec || 10) * 1000);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isPlaying, currentScene, scenes.length]);
-
-  // TTS for current scene
   const speakScene = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -714,126 +792,69 @@ function LegacyWatchStep({
 
   const scene = scenes[currentScene];
 
-  if (videoLoading) {
-    return (
-      <Card className="p-6">
-        <div className="flex flex-col items-center justify-center gap-2 py-8 text-on-surface-variant">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-sm">正在生成教学视频...</span>
-          <span className="text-xs text-on-surface-variant">
-            {videoTaskId ? `任务 #${videoTaskId}` : '任务创建中'} · {Math.max(0, Math.min(99, videoProgress))}%
-          </span>
-        </div>
-      </Card>
-    );
-  }
-
-  if (videoUrl) {
-    return (
-      <div className="space-y-3">
-        <Card className="overflow-hidden">
-          <video
-            className="h-auto w-full bg-black"
-            src={videoUrl}
-            controls
-            playsInline
-            onEnded={() => setVideoReady(true)}
-          />
-        </Card>
-
-        {!isCompleted && (
-          <Button className="w-full" onClick={() => onComplete(videoReady ? 95 : 85)}>
-            <Check className="mr-2 h-4 w-4" />
-            看完了，进入下一步
-          </Button>
-        )}
-        {isCompleted && (
-          <div className="flex items-center justify-center gap-1 text-sm text-primary">
-            <CheckCircle className="h-4 w-4" /> 已完成
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (scenes.length === 0) {
-    return (
-      <Card className="p-6 text-center">
-        <p className="text-on-surface-variant">暂无动画内容</p>
-        {!isCompleted && (
-          <Button className="mt-4" onClick={() => onComplete(80)}>完成此步骤</Button>
-        )}
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-3">
-      {videoError && (
-        <Card className="p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-on-surface-variant">{videoError}</p>
+      <Card className="p-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-on-surface-variant">使用文字讲解模式</p>
+          <button
+            onClick={onRetryVideo}
+            className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+          >
+            重试视频
+          </button>
+        </div>
+      </Card>
+
+      {scenes.length > 0 ? (
+        <Card className="relative overflow-hidden">
+          <div className="flex min-h-[200px] items-center justify-center bg-gradient-to-br from-primary-container/20 to-tertiary-container/20 p-6">
+            <div className="text-center">
+              <p className="text-lg font-medium text-on-surface">{scene?.caption || scene?.scene || `场景 ${currentScene + 1}`}</p>
+              <p className="mt-2 text-sm text-on-surface-variant">{scene?.narration || ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between bg-surface-container-low px-4 py-2">
             <button
-              onClick={() => setVideoReloadKey((v) => v + 1)}
+              onClick={() => speakScene(scene?.narration || '')}
               className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
             >
-              重试视频
+              🔊 朗读
             </button>
+            <span className="text-xs text-on-surface-variant">{currentScene + 1} / {scenes.length}</span>
           </div>
+          {scenes.length > 1 && (
+            <div className="flex gap-2 p-3">
+              <Button
+                size="sm"
+                className="flex-1 border border-primary/30"
+                disabled={currentScene === 0}
+                onClick={() => setCurrentScene((v) => v - 1)}
+              >
+                上一个
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1"
+                disabled={currentScene >= scenes.length - 1}
+                onClick={() => setCurrentScene((v) => v + 1)}
+              >
+                下一个
+              </Button>
+            </div>
+          )}
+        </Card>
+      ) : (
+        <Card className="p-6 text-center">
+          <p className="text-on-surface-variant">暂无动画内容</p>
         </Card>
       )}
 
-      <Card className="relative overflow-hidden">
-        <div className="flex min-h-[200px] items-center justify-center bg-gradient-to-br from-primary-container/20 to-tertiary-container/20 p-6">
-          <div className="text-center">
-            <p className="text-lg font-medium text-on-surface">{scene?.caption || scene?.scene || `场景 ${currentScene + 1}`}</p>
-            <p className="mt-2 text-sm text-on-surface-variant">{scene?.narration || ''}</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-between bg-surface-container-low px-4 py-2">
-          <button
-            onClick={() => speakScene(scene?.narration || '')}
-            className="flex items-center gap-1 text-xs text-primary"
-          >
-            <Volume2 className="h-4 w-4" /> 朗读
-          </button>
-          <span className="text-xs text-on-surface-variant">{currentScene + 1} / {scenes.length}</span>
-        </div>
-      </Card>
-
-      <div className="flex justify-center gap-2">
-        <button
-          onClick={() => setCurrentScene(Math.max(0, currentScene - 1))}
-          disabled={currentScene === 0}
-          className="rounded-full bg-surface-container px-3 py-1 text-xs text-on-surface-variant disabled:opacity-30"
-        >
-          上一幕
-        </button>
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="rounded-full bg-primary px-4 py-1 text-xs text-on-primary"
-        >
-          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={() => setCurrentScene(Math.min(scenes.length - 1, currentScene + 1))}
-          disabled={currentScene === scenes.length - 1}
-          className="rounded-full bg-surface-container px-3 py-1 text-xs text-on-surface-variant disabled:opacity-30"
-        >
-          下一幕
-        </button>
-      </div>
-
-      {!isCompleted && currentScene >= scenes.length - 1 && (
-        <Button className="w-full" onClick={() => onComplete(90)}>
+      {!isCompleted && (
+        <Button className="w-full" onClick={() => onComplete(80)}>
           <Check className="mr-2 h-4 w-4" />
           看完了，进入下一步
         </Button>
-      )}
-      {isCompleted && (
-        <div className="flex items-center justify-center gap-1 text-sm text-primary">
-          <CheckCircle className="h-4 w-4" /> 已完成
-        </div>
       )}
     </div>
   );

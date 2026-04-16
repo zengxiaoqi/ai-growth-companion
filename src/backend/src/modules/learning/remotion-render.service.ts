@@ -579,40 +579,132 @@ export class RemotionRenderService {
     const publicDir = path.join(this.remotionDir, 'public');
     await fs.mkdir(publicDir, { recursive: true });
 
-    const slideResults = await Promise.all(
-      data.slides.map(async (slide) => {
-        if (!slide.narration || slide.narration.trim().length === 0) {
-          return slide;
-        }
-        try {
-          const buffer = await this.voiceService.textToSpeech(slide.narration);
-          const hash = createHash('sha1').update(slide.narration).digest('hex').slice(0, 12);
-          const filename = `narration-${hash}.mp3`;
-          await fs.writeFile(path.join(publicDir, filename), buffer);
+    // Sequential TTS calls with one retry — parallel calls exhaust the TLS
+    // connection pool on slower networks, causing all slides to fail at once.
+    const slideResults: typeof data.slides = [];
+    for (const slide of data.slides) {
+      if (!slide.narration || slide.narration.trim().length === 0) {
+        slideResults.push(slide);
+        continue;
+      }
 
-          const durationFrames = this.estimateAudioFrames(buffer);
-          return {
-            ...slide,
-            narrationSrc: filename,
-            durationFrames,
-          };
+      let buffer: Buffer | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          buffer = await this.voiceService.textToSpeech(slide.narration);
+          break; // success
         } catch (err: any) {
-          this.logger.warn(`TTS generation failed for slide "${slide.title}": ${err?.message || 'unknown'}`);
-          return slide;
+          if (attempt === 0) {
+            this.logger.warn(
+              `TTS attempt 1 failed for slide "${slide.title}", retrying in 1 s: ${err?.message || 'unknown'}`,
+            );
+            await this.sleep(1000);
+          } else {
+            this.logger.warn(
+              `TTS generation failed for slide "${slide.title}" after 2 attempts: ${err?.message || 'unknown'}`,
+            );
+          }
         }
-      }),
-    );
+      }
+
+      if (!buffer) {
+        // Fallback: estimate duration from text length (≈4 chars/s for Chinese TTS)
+        const chars = slide.narration.replace(/\s+/g, '').length;
+        const estimatedSeconds = Math.max(3, chars / 4);
+        slideResults.push({
+          ...slide,
+          durationFrames: Math.ceil(estimatedSeconds * 30) + 30,
+        });
+        continue;
+      }
+
+      const hash = createHash('sha1').update(slide.narration).digest('hex').slice(0, 12);
+      const filename = `narration-${hash}.mp3`;
+      await fs.writeFile(path.join(publicDir, filename), buffer);
+
+      const durationFrames = this.parseMp3DurationFrames(buffer);
+      slideResults.push({
+        ...slide,
+        narrationSrc: filename,
+        durationFrames,
+      });
+    }
 
     return { ...data, slides: slideResults };
   }
 
-  private estimateAudioFrames(mp3Buffer: Buffer): number {
-    // Heuristic: 24kbps mono MP3 ≈ 3000 bytes/sec
-    // Fallback to text-length-based estimate if parsing fails
-    const bytesPerSecond = 3000;
-    const seconds = mp3Buffer.length / bytesPerSecond;
-    const frames = Math.ceil(seconds * 30) + 30; // +1s buffer
-    return Math.max(frames, 180); // minimum 6s
+  /**
+   * Parse MP3 frame headers to compute an accurate duration in Remotion frames.
+   * Scans the first sync word in the first 64 KB to detect bitrate/samplerate,
+   * then calculates total frames from file size. Falls back to a byte-rate
+   * heuristic if the file is malformed. Adds 0.3 s lead-in + 0.5 s tail buffer.
+   */
+  private parseMp3DurationFrames(mp3Buffer: Buffer): number {
+    const FPS = 30;
+    const LEAD_IN_FRAMES = Math.ceil(0.3 * FPS);  // 9 frames — slide entrance anim
+    const TAIL_FRAMES    = Math.ceil(0.5 * FPS);  // 15 frames — pause after speech
+    const MIN_FRAMES     = 6 * FPS;               // 6 s minimum slide duration
+
+    try {
+      // Scan up to 64 KB for the first valid MPEG sync word (0xFF 0xE0 mask)
+      const scanLimit = Math.min(mp3Buffer.length - 4, 65536);
+      for (let i = 0; i < scanLimit; i++) {
+        if (mp3Buffer[i] !== 0xff || (mp3Buffer[i + 1] & 0xe0) !== 0xe0) continue;
+
+        const h = (mp3Buffer[i] << 24) | (mp3Buffer[i + 1] << 16) | (mp3Buffer[i + 2] << 8) | mp3Buffer[i + 3];
+
+        const mpegVersion = (h >> 19) & 0x3; // 3=MPEG1, 2=MPEG2, 0=MPEG2.5
+        const layerBits   = (h >> 17) & 0x3; // 3=Layer1, 2=Layer2, 1=Layer3
+        const bitrateIdx  = (h >> 12) & 0xf;
+        const srateIdx    = (h >> 10) & 0x3;
+        const padding     = (h >>  9) & 0x1;
+
+        if (mpegVersion === 1 || layerBits === 0 || bitrateIdx === 0 || bitrateIdx === 15 || srateIdx === 3) {
+          continue; // reserved/free/bad values — keep scanning
+        }
+
+        // MPEG1 Layer3 bitrate table (kbps)
+        const BITRATES_V1_L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+        // MPEG2/2.5 Layer3 bitrate table (kbps)
+        const BITRATES_V2_L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0];
+
+        // MPEG1 sample rates (Hz)
+        const SRATES_V1 = [44100, 48000, 32000, 0];
+        // MPEG2 sample rates (Hz)
+        const SRATES_V2 = [22050, 24000, 16000, 0];
+        // MPEG2.5 sample rates (Hz)
+        const SRATES_V25 = [11025, 12000, 8000, 0];
+
+        const isV1   = mpegVersion === 3;
+        const isL3   = layerBits   === 1;
+
+        const bitrate = (isV1 ? BITRATES_V1_L3 : BITRATES_V2_L3)[bitrateIdx] * 1000;
+        const srate   = (isV1 ? SRATES_V1 : mpegVersion === 2 ? SRATES_V2 : SRATES_V25)[srateIdx];
+
+        if (!bitrate || !srate || !isL3) continue;
+
+        // Samples per frame: MPEG1 L3 = 1152, MPEG2/2.5 L3 = 576
+        const samplesPerFrame = isV1 ? 1152 : 576;
+        // Frame size in bytes (without padding byte)
+        const frameBytes = Math.floor(samplesPerFrame * bitrate / 8 / srate) + padding;
+
+        if (frameBytes < 24 || frameBytes > 1442) continue; // sanity check
+
+        // Estimate total MP3 frame count from file size and first-frame size
+        const dataBytes  = mp3Buffer.length - i;
+        const frameCount = Math.max(1, Math.floor(dataBytes / frameBytes));
+        const seconds    = (frameCount * samplesPerFrame) / srate;
+
+        const rawFrames = Math.ceil(seconds * FPS);
+        return Math.max(MIN_FRAMES, rawFrames + LEAD_IN_FRAMES + TAIL_FRAMES);
+      }
+    } catch {
+      // fall through to heuristic
+    }
+
+    // Fallback: assume 40 kbps mono MP3 (typical TTS output)
+    const seconds = mp3Buffer.length / 5000;
+    return Math.max(MIN_FRAMES, Math.ceil(seconds * FPS) + LEAD_IN_FRAMES + TAIL_FRAMES);
   }
 
   async cleanupNarrationFiles(inputProps: Record<string, any>): Promise<void> {

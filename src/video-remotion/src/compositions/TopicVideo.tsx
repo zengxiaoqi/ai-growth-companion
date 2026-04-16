@@ -21,7 +21,6 @@ import { SlideScene } from "../scenes/SlideScene";
 import { GenericOutroScene } from "../scenes/GenericOutroScene";
 import { SlideNarrationAudio } from "../components/SlideNarrationAudio";
 
-const handleAudioError = () => "fallback" as const;
 
 type TopicVideoProps = TeachingVideoData;
 
@@ -32,7 +31,6 @@ export const TopicVideo: React.FC<TopicVideoProps> = ({
   outroBg,
   slides,
 }) => {
-  const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
   const hasNarration = slides.some((s) => s.narrationSrc);
@@ -48,12 +46,15 @@ export const TopicVideo: React.FC<TopicVideoProps> = ({
 
   return (
     <AbsoluteFill>
-      <Audio
-        src={staticFile("bg-music.mp3")}
-        loop
-        volume={bgMusicVolume}
-        onError={handleAudioError}
-      />
+      {/* Background music: opt-in via REMOTION_BG_MUSIC=on env var.
+         Disabled by default so headless renders never crash on a missing file. */}
+      {process.env["REMOTION_BG_MUSIC"] === "on" && (
+        <Audio
+          src={staticFile("bg-music.mp3")}
+          loop
+          volume={bgMusicVolume}
+        />
+      )}
 
       <TransitionSeries>
         {/* Intro */}

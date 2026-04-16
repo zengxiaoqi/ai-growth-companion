@@ -18,6 +18,85 @@ type SlideSceneProps = {
   index: number;
 };
 
+// ─────────────────────────────────────────────────────────────────
+// Subtitle bar shown at the bottom of every slide.
+// Renders the narration text so visual content and audio are tightly
+// linked — children can read along while listening.
+// ─────────────────────────────────────────────────────────────────
+const SUBTITLE_BAR_HEIGHT = 88;
+
+const SubtitleBar: React.FC<{ narration: string; accentColor: string }> = ({
+  narration,
+  accentColor,
+}) => {
+  const frame = useCurrentFrame();
+
+  // Fade in over first 12 frames, stay visible for the rest of the slide
+  const opacity = interpolate(frame, [0, 12], [0, 1], {
+    extrapolateRight: "clamp",
+  });
+
+  if (!narration) return null;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SUBTITLE_BAR_HEIGHT,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0 48px",
+        opacity,
+        // Semi-transparent dark gradient so text is readable on any bg color
+        background:
+          "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.54) 60%, transparent 100%)",
+        zIndex: 10,
+      }}
+    >
+      {/* Left accent strip */}
+      <div
+        style={{
+          width: 4,
+          height: 36,
+          borderRadius: 2,
+          backgroundColor: accentColor,
+          marginRight: 14,
+          flexShrink: 0,
+        }}
+      />
+      <p
+        style={{
+          fontFamily: FONT_FAMILY,
+          fontSize: 28,
+          fontWeight: 700,
+          color: "#FFFFFF",
+          margin: 0,
+          lineHeight: 1.45,
+          letterSpacing: "0.04em",
+          textShadow: "0 1px 6px rgba(0,0,0,0.6)",
+          // Clamp to 2 lines max
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {narration}
+      </p>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Content offset: push content upward so it doesn't sit behind the
+// subtitle bar. We use half the bar height for a comfortable gap.
+// ─────────────────────────────────────────────────────────────────
+const CONTENT_OFFSET_Y = -(SUBTITLE_BAR_HEIGHT / 2);
+
 export const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -43,6 +122,7 @@ export const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        transform: `translateY(${CONTENT_OFFSET_Y}px)`,
       }}
     >
       {data.emoji && (
@@ -150,6 +230,7 @@ const GridLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        transform: `translateY(${CONTENT_OFFSET_Y}px)`,
       }}
     >
       <div
@@ -223,6 +304,7 @@ const ListLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        transform: `translateY(${CONTENT_OFFSET_Y}px)`,
       }}
     >
       {data.emoji && (
@@ -287,7 +369,12 @@ export const SlideScene: React.FC<SlideSceneProps> = ({ data }) => {
 
   // Delegate to animated scene router when animationTemplate is present
   if (data.animationTemplate) {
-    return <AnimatedSceneRouter data={data} />;
+    return (
+      <>
+        <AnimatedSceneRouter data={data} />
+        <SubtitleBar narration={data.narration} accentColor={data.accentColor} />
+      </>
+    );
   }
 
   const bgOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
@@ -306,6 +393,9 @@ export const SlideScene: React.FC<SlideSceneProps> = ({ data }) => {
         {data.layout === "hero" && <HeroLayout data={data} />}
         {data.layout === "grid" && <GridLayout data={data} />}
         {data.layout === "list" && <ListLayout data={data} />}
+
+        {/* Subtitle bar: narration text synced with audio */}
+        <SubtitleBar narration={data.narration} accentColor={data.accentColor} />
       </div>
     </AbsoluteFill>
   );

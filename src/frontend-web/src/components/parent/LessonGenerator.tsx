@@ -576,19 +576,24 @@ export default function LessonGenerator({
 
                 {expandedStep === step.id && (
                   <div className="mt-3 space-y-3">
-                    <div className="rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant xl:hidden">
-                      <StepPreview step={step} />
-                    </div>
+                    {/* Non-watch steps: show scene preview on mobile */}
+                    {step.id !== 'watch' && (
+                      <div className="rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant xl:hidden">
+                        <StepPreview step={step} />
+                      </div>
+                    )}
 
-                    {/* Video generation for the watch step */}
-                    {step.id === 'watch' && generatedContent.status === 'draft' && (
+                    {/* Watch step: unified teaching video panel (always visible) */}
+                    {step.id === 'watch' && (
                       <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3 space-y-2">
+                        {/* Header row: status badge + action button */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Play className="h-3.5 w-3.5 text-primary" />
-                            <span className="text-xs font-semibold text-on-surface">教学动画视频</span>
+                            <span className="text-xs font-semibold text-on-surface">教学视频生成</span>
                           </div>
-                          {videoStatus !== 'polling' && videoStatus !== 'completed' && (
+                          {/* Only allow regeneration in draft state */}
+                          {generatedContent.status === 'draft' && videoStatus !== 'polling' && videoStatus !== 'completed' && (
                             <Button
                               size="sm"
                               variant="secondary"
@@ -600,7 +605,7 @@ export default function LessonGenerator({
                               生成视频
                             </Button>
                           )}
-                          {videoStatus === 'completed' && (
+                          {generatedContent.status === 'draft' && videoStatus === 'completed' && (
                             <Button
                               size="sm"
                               variant="secondary"
@@ -614,10 +619,11 @@ export default function LessonGenerator({
                           )}
                         </div>
 
+                        {/* Generating: progress bar */}
                         {videoStatus === 'polling' && (
                           <div className="space-y-1">
                             <div className="flex items-center justify-between text-xs text-on-surface-variant">
-                              <span>正在生成教学动画...</span>
+                              <span>正在生成教学视频...</span>
                               <span>{Math.round(videoProgress)}%</span>
                             </div>
                             <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
@@ -629,6 +635,7 @@ export default function LessonGenerator({
                           </div>
                         )}
 
+                        {/* Failed */}
                         {videoStatus === 'failed' && (
                           <div className="flex items-center gap-2 text-xs text-error">
                             <XCircle className="h-3.5 w-3.5 shrink-0" />
@@ -636,6 +643,7 @@ export default function LessonGenerator({
                           </div>
                         )}
 
+                        {/* Completed: preview + approval */}
                         {videoStatus === 'completed' && (
                           <div className="space-y-2">
                             {videoUrl && (
@@ -647,7 +655,7 @@ export default function LessonGenerator({
                               />
                             )}
 
-                            {approvalStatus === 'pending_approval' && (
+                            {generatedContent.status === 'draft' && approvalStatus === 'pending_approval' && (
                               <div className="flex gap-2">
                                 <Button
                                   onClick={() => handleApproveVideo(true)}
@@ -690,9 +698,12 @@ export default function LessonGenerator({
                           </div>
                         )}
 
+                        {/* Idle: prompt */}
                         {videoStatus === 'idle' && (
                           <p className="text-xs text-on-surface-variant">
-                            点击"生成视频"可预览学生端播放的教学动画视频。
+                            {generatedContent.status === 'draft'
+                              ? '课程生成完成后将自动生成教学视频，也可手动点击生成。'
+                              : '教学视频将在学生端播放，视频状态请在草稿阶段审批。'}
                           </p>
                         )}
                       </div>
@@ -858,7 +869,7 @@ export default function LessonGenerator({
 
 function getStepTitle(step: StructuredLessonStep): string {
   const m = step.module;
-  if (m.type === 'video') return '观看动画讲解';
+  if (m.type === 'video') return '教学视频';
   if (m.type === 'reading') return m.reading?.goal || '阅读理解';
   if (m.type === 'writing') return m.writing?.goal || '书写练习';
   if (m.type === 'game') return '互动练习';

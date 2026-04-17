@@ -14,8 +14,12 @@ export type ResolvedComposition = {
 };
 
 type ResolveCompositionInput = string | Record<string, any>;
-type TeachingSlide = TeachingVideoData['slides'][number];
-type TeachingSlideItem = NonNullable<TeachingSlide['items']>[number];
+type OriginalTeachingSlide = TeachingVideoData['slides'][number];
+type TeachingSlide = OriginalTeachingSlide & {
+  durationFrames?: number;
+  narrationSrc?: string;
+};
+type TeachingSlideItem = NonNullable<OriginalTeachingSlide['items']>[number];
 
 type LessonModules = {
   listening?: Record<string, any>;
@@ -581,7 +585,7 @@ export class RemotionRenderService {
 
     // Sequential TTS calls with one retry — parallel calls exhaust the TLS
     // connection pool on slower networks, causing all slides to fail at once.
-    const slideResults: typeof data.slides = [];
+    const slideResults: TeachingSlide[] = [];
     for (const slide of data.slides) {
       if (!slide.narration || slide.narration.trim().length === 0) {
         slideResults.push(slide);
@@ -598,7 +602,7 @@ export class RemotionRenderService {
             this.logger.warn(
               `TTS attempt 1 failed for slide "${slide.title}", retrying in 1 s: ${err?.message || 'unknown'}`,
             );
-            await this.sleep(1000);
+            await new Promise((r) => setTimeout(r, 1000));
           } else {
             this.logger.warn(
               `TTS generation failed for slide "${slide.title}" after 2 attempts: ${err?.message || 'unknown'}`,

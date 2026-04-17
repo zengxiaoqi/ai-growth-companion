@@ -12,6 +12,7 @@ import * as path from 'path';
 import { Repository } from 'typeorm';
 import { Content } from '../../database/entities/content.entity';
 import { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
+import { suggestTemplateByDomain } from '../../animations/animation-templates';
 import { AiService } from '../ai/ai.service';
 import { RemotionRenderService } from './remotion-render.service';
 
@@ -441,6 +442,20 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const lesson = raw && typeof raw === 'object' ? raw : {};
     const steps = Array.isArray((lesson as any).steps) ? (lesson as any).steps : [];
 
+    // New format: has structured steps with modules
+    if (steps.length > 0) {
+      return this.buildPayloadFromSteps(lesson, content, steps);
+    }
+
+    // Legacy format: flat content[] array — derive video data from it
+    return this.buildPayloadFromLegacyContent(lesson, content);
+  }
+
+  private buildPayloadFromSteps(
+    lesson: Record<string, any>,
+    content: Content,
+    steps: any[],
+  ): Record<string, any> {
     const stepModule = (id: string) => {
       const item = steps.find((s: any) => s?.id === id);
       return item?.module && typeof item.module === 'object' ? item.module : {};
@@ -454,10 +469,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const assess = stepModule('assess');
 
     return {
-      title: content.title || (lesson as any).title || `${content.topic || '课程'} 全方位学习课`,
-      topic: content.topic || (lesson as any).topic || '',
-      summary: (lesson as any).summary || content.subtitle || '',
-      ageGroup: (lesson as any).ageGroup || content.ageRange || undefined,
+      title: content.title || lesson.title || `${content.topic || '课程'} 全方位学习课`,
+      topic: content.topic || lesson.topic || '',
+      summary: lesson.summary || content.subtitle || '',
+      ageGroup: lesson.ageGroup || content.ageRange || undefined,
       watchScene: watch.scene || null,
       visualStory: watch.visualStory || {},
       videoLesson: watch.videoLesson || {},
@@ -467,6 +482,59 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         writing: write.writing || {},
         game: practice.game || {},
         quiz: assess.quiz || {},
+      },
+    };
+  }
+
+  private buildPayloadFromLegacyContent(
+    lesson: Record<string, any>,
+    content: Content,
+  ): Record<string, any> {
+    const contentItems = Array.isArray(lesson.content) ? lesson.content : [];
+    const domain = lesson.domain || content.domain || 'language';
+    const topic = content.topic || lesson.name || '';
+
+    // Convert legacy story/lesson text into visualStory scenes
+    const scenes = contentItems
+      .filter((item: any) => item.type === 'story' || item.type === 'lesson')
+      .flatMap((item: any) => {
+        const text = item.text || item.title || '';
+        const sentences = text.split(/[。！？]/).filter((s: string) => s.trim().length > 2);
+        return sentences.map((sentence: string, idx: number) => ({
+          scene: sentence.trim(),
+          imagePrompt: sentence.trim(),
+          narration: sentence.trim(),
+          onScreenText: sentence.trim().slice(0, 20),
+          durationSec: Math.max(8, Math.min(20, sentence.length / 3)),
+          animationTemplate: suggestTemplateByDomain(domain, sentence) || undefined,
+        }));
+      });
+
+    // Extract keywords from lesson content for reading module
+    const keywords = contentItems
+      .flatMap((item: any) => (Array.isArray(item.keywords) ? item.keywords : []))
+      .slice(0, 4)
+      .map((k: any) => String(k));
+
+    // Extract questions for quiz module
+    const questions = contentItems
+      .flatMap((item: any) => (Array.isArray(item.questions) ? item.questions : []))
+      .slice(0, 4);
+
+    return {
+      title: content.title || lesson.name || `${topic} 全方位学习课`,
+      topic,
+      summary: Array.isArray(lesson.objectives) ? lesson.objectives.join('；') : content.subtitle || '',
+      ageGroup: lesson.ageRange || content.ageRange || undefined,
+      watchScene: null,
+      visualStory: scenes.length > 0 ? { scenes, style: 'colorful-educational' } : {},
+      videoLesson: {},
+      modules: {
+        listening: {},
+        reading: keywords.length > 0 ? { keywords, goal: `学习${topic}的关键词语` } : {},
+        writing: {},
+        game: {},
+        quiz: questions.length > 0 ? { questions, title: `${topic}小测验` } : {},
       },
     };
   }

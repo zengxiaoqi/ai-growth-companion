@@ -23,7 +23,7 @@ type SlideSceneProps = {
 // Renders the narration text so visual content and audio are tightly
 // linked — children can read along while listening.
 // ─────────────────────────────────────────────────────────────────
-const SUBTITLE_BAR_HEIGHT = 88;
+const SUBTITLE_BAR_HEIGHT = 100;
 
 const SubtitleBar: React.FC<{ narration: string; accentColor: string }> = ({
   narration,
@@ -37,6 +37,9 @@ const SubtitleBar: React.FC<{ narration: string; accentColor: string }> = ({
   });
 
   if (!narration) return null;
+
+  // Dynamically adjust font size for longer narration
+  const fontSize = narration.length > 80 ? 22 : narration.length > 50 ? 25 : 28;
 
   return (
     <div
@@ -71,16 +74,16 @@ const SubtitleBar: React.FC<{ narration: string; accentColor: string }> = ({
       <p
         style={{
           fontFamily: FONT_FAMILY,
-          fontSize: 28,
+          fontSize,
           fontWeight: 700,
           color: "#FFFFFF",
           margin: 0,
           lineHeight: 1.45,
           letterSpacing: "0.04em",
           textShadow: "0 1px 6px rgba(0,0,0,0.6)",
-          // Clamp to 2 lines max
+          // Clamp to 3 lines to accommodate longer narration
           display: "-webkit-box",
-          WebkitLineClamp: 2,
+          WebkitLineClamp: 3,
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
         }}
@@ -141,13 +144,16 @@ export const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
       <div
         style={{
           fontFamily: FONT_FAMILY,
-          fontSize: FONT_SIZES.chineseChar,
+          // Scale down for longer titles (16 chars max from backend)
+          fontSize: Math.max(48, 72 - Math.max(0, data.title.length - 6) * 4),
           fontWeight: 900,
           color: data.accentColor,
           marginTop: 16,
           transform: `translateY(${titleY}px)`,
           opacity: titleOpacity,
           textShadow: `0 3px 12px ${data.accentColor}33`,
+          textAlign: "center",
+          maxWidth: "80%",
         }}
       >
         {data.title}
@@ -157,11 +163,13 @@ export const HeroLayout: React.FC<{ data: TeachingSlide }> = ({ data }) => {
         <div
           style={{
             fontFamily: FONT_FAMILY,
-            fontSize: FONT_SIZES.label,
+            fontSize: Math.max(24, 36 - Math.max(0, data.subtitle.length - 10) * 1),
             fontWeight: 700,
             color: PALETTE.dark,
             opacity: subtitleOpacity * 0.7,
             marginTop: 8,
+            textAlign: "center",
+            maxWidth: "85%",
           }}
         >
           {data.subtitle}

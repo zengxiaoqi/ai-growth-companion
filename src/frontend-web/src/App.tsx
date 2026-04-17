@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState, lazy, Suspense, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense, type ReactNode } from 'react';
+import useSWR from 'swr';
 import { motion } from 'motion/react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Shield, Loader2, ArrowLeft } from '@/icons';
@@ -143,7 +144,7 @@ function StudentHomeRoute() {
           }}
         />
 
-        {isAssignmentCompleted && (
+        {isAssignmentCompleted ? (
           <div className="mx-auto max-w-lg px-4 pb-safe pb-6">
             <button
               onClick={() => {
@@ -155,7 +156,7 @@ function StudentHomeRoute() {
               返回主页
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -206,16 +207,22 @@ function ContentDetailRouter({ contentId, childId, onBack, onComplete }: {
   onBack: () => void;
   onComplete: (record: any) => void;
 }) {
-  const [isStructured, setIsStructured] = useState<boolean | null>(null);
+  const { data: content, error } = useSWR(
+    ['content', contentId],
+    ([, id]) => api.getContent(id),
+    { revalidateOnFocus: false }
+  );
 
-  useEffect(() => {
-    api.getContent(contentId).then((content) => {
+  const isStructured = useMemo(() => {
+    if (error) return false;
+    if (!content) return null;
+    try {
       const data = typeof content.content === 'string' ? JSON.parse(content.content) : content.content;
-      setIsStructured(data?.type === 'structured_lesson');
-    }).catch(() => {
-      setIsStructured(false);
-    });
-  }, [contentId]);
+      return data?.type === 'structured_lesson';
+    } catch {
+      return false;
+    }
+  }, [content, error]);
 
   if (isStructured === null) return <PageLoader />;
 
@@ -318,7 +325,7 @@ function ProtectedShell() {
 
   useEffect(() => {
     applyAppUISettings(resolveAppUISettings(user?.settings as Record<string, unknown> | undefined));
-  }, [user?.settings]);
+  }, [JSON.stringify(user?.settings)]);
 
   const hideSecurityBadge = useMemo(() => {
     const path = location.pathname;
@@ -347,7 +354,7 @@ function ProtectedShell() {
         <Route path="*" element={<Navigate to="/mode" replace />} />
       </Routes>
 
-      {!hideSecurityBadge && (
+      {!hideSecurityBadge ? (
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -358,13 +365,13 @@ function ProtectedShell() {
             <span className="text-xs font-medium text-on-surface-variant">由灵犀安全卫士实时守护您的孩子</span>
           </div>
         </motion.div>
-      )}
+      ) : null}
 
-      {showFloatingChat && (
+      {showFloatingChat ? (
         <Suspense fallback={null}>
           <AIChat childId={childId} />
         </Suspense>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import useSWR from 'swr';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Settings,
@@ -155,10 +156,22 @@ export default function StudentDashboard({
 }: StudentDashboardProps) {
   const { user } = useAuth();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
-  const [contents, setContents] = useState<Content[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [isLoadingRecs, setIsLoadingRecs] = useState(true);
+  const ageRange: '3-4' | '5-6' = user?.age && user.age >= 5 ? '5-6' : '3-4';
+
+  const { data: contentsData, isLoading } = useSWR(
+    ['contents', ageRange],
+    ([, ar]) => api.getContents({ ageRange: ar }),
+    { fallbackData: [] as Content[] }
+  );
+  const contents = contentsData || [];
+
+  const { data: recommendationsData, isLoading: isLoadingRecs } = useSWR(
+    user?.id ? ['recommendations', user.id, ageRange] : null,
+    ([, userId, ar]) => api.getRecommendations({ userId, ageRange: ar }),
+    { fallbackData: [] as Recommendation[] }
+  );
+  const recommendations = recommendationsData || [];
+
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -171,42 +184,6 @@ export default function StudentDashboard({
   const [radarData, setRadarData] = useState<Record<string, number>>({});
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [learningError, setLearningError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      const ageRange: '3-4' | '5-6' = user?.age && user.age >= 5 ? '5-6' : '3-4';
-      setIsLoadingRecs(Boolean(user?.id));
-
-      const [contentsResult, recommendationsResult] = await Promise.allSettled([
-        api.getContents({ ageRange }),
-        user?.id
-          ? api.getRecommendations({ userId: user.id, ageRange })
-          : Promise.resolve([] as Recommendation[]),
-      ]);
-
-      if (contentsResult.status === 'fulfilled') {
-        setContents(contentsResult.value);
-      } else {
-        console.log('Contents API unavailable, using fallback');
-      }
-
-      if (recommendationsResult.status === 'fulfilled') {
-        setRecommendations(recommendationsResult.value);
-      } else {
-        console.log('Recommendations API unavailable');
-      }
-
-      setIsLoadingRecs(false);
-      setIsLoading(false);
-    };
-
-    fetchData().catch((err) => {
-      console.error('Failed to fetch dashboard data:', err);
-      setIsLoading(false);
-      setIsLoadingRecs(false);
-    });
-  }, [user?.id, user?.age]);
 
   useEffect(() => {
     if (!user?.id || user.type !== 'child') return;
@@ -421,7 +398,7 @@ export default function StudentDashboard({
           ))}
         </section>
 
-        {pendingAssignments.length > 0 && (
+        {pendingAssignments.length > 0 ? (
           <section className="content-visibility-auto mb-8">
             <h3 className="section-title mb-4 flex items-center gap-2 px-1">
               <ClipboardCheck className="h-5 w-5 text-primary" />
@@ -491,7 +468,7 @@ export default function StudentDashboard({
               })}
             </div>
           </section>
-        )}
+        ) : null}
 
         <section className="content-visibility-auto mb-10">
           <h3 className="section-title mb-5 flex items-center gap-2 px-1">
@@ -586,7 +563,7 @@ export default function StudentDashboard({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              {achievements.length > 3 && (
+              {achievements.length > 3 ? (
                 <button
                   onClick={() => setShowAllAchievements((prev) => !prev)}
                   className="flex w-full items-center justify-center gap-1 rounded-xl py-3 text-sm font-bold text-primary transition-colors hover:bg-primary-container/20"
@@ -597,7 +574,7 @@ export default function StudentDashboard({
                     <>查看全部 ({achievements.length}) <ChevronDown className="h-4 w-4" /></>
                   )}
                 </button>
-              )}
+              ) : null}
             </div>
           )}
         </section>
@@ -701,12 +678,12 @@ export default function StudentDashboard({
             为你推荐
           </h3>
 
-          {learningError && (
+          {learningError ? (
             <div className="mb-4 flex items-center gap-2 rounded-xl bg-error-container/30 p-3 text-sm font-medium text-error">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {learningError}
             </div>
-          )}
+          ) : null}
 
           {isLoadingRecs ? (
             <div className="panel-card flex items-center justify-center py-8">

@@ -214,38 +214,61 @@ export function suggestTemplateByDomain(domain: string, topic: string): string |
   // Language patterns
   if (domain === 'language' || domain === 'literacy') {
     if (/^[\u4e00-\u9fff]$/.test(normalizedTopic)) return 'language.character-stroke';
-    if (/(汉字|识字|拼音|词语|词汇|朗读|阅读)/.test(normalizedTopic)) return 'language.word-reveal';
-    if (/(故事|绘本|对话|情景|角色扮演)/.test(normalizedTopic)) return 'language.story-scene';
-    return null;
+    if (/(汉字|识字|拼音|词语|词汇|朗读|阅读|认字|生字|写字|笔画|偏旁|部首)/.test(normalizedTopic)) return 'language.word-reveal';
+    if (/(故事|绘本|对话|情景|角色扮演|童话|寓言|儿歌|古诗|诗歌)/.test(normalizedTopic)) return 'language.story-scene';
+    return 'language.word-reveal';
   }
 
   if (domain === 'math') {
-    if (/(计数|数数|加法|减法|数量)/.test(normalizedTopic)) return 'math.counting-objects';
-    if (/(形状|三角|圆形|方形|图形)/.test(normalizedTopic)) return 'math.shape-builder';
+    if (/(计数|数数|加法|减法|数量|一共|还剩|分成)/.test(normalizedTopic)) return 'math.counting-objects';
+    if (/(形状|三角|圆形|方形|图形|长方|正方|梯形|菱形|五角星)/.test(normalizedTopic)) return 'math.shape-builder';
     if (/算盘/.test(normalizedTopic)) return 'math.abacus';
-    if (/(数字|数轴|排序|顺序|\d+)/.test(normalizedTopic)) return 'math.number-line';
-    return null;
+    if (/(数字|数轴|排序|顺序|\d+|比大小|相邻|倒数|单数|双数)/.test(normalizedTopic)) return 'math.number-line';
+    if (/(规律|排列|模式|重复)/.test(normalizedTopic)) return 'math.counting-objects';
+    return 'math.counting-objects';
   }
 
   if (domain === 'science') {
     if (/(四季|季节|春夏秋冬)/.test(normalizedTopic)) return 'science.seasons-cycle';
-    if (/(水循环|下雨|蒸发|降水|云)/.test(normalizedTopic)) return 'science.water-cycle';
-    if (/(白天|黑夜|昼夜|地球|太阳|月亮)/.test(normalizedTopic)) return 'science.day-night-cycle';
-    if (/(植物|种子|发芽|开花|生长)/.test(normalizedTopic)) return 'science.plant-growth';
-    return null;
+    if (/(水循环|下雨|蒸发|降水|云|雨|雪|冰|彩虹)/.test(normalizedTopic)) return 'science.water-cycle';
+    if (/(白天|黑夜|昼夜|地球|太阳|月亮|星空|影子)/.test(normalizedTopic)) return 'science.day-night-cycle';
+    if (/(植物|种子|发芽|开花|生长|树|花|草|叶子|果树|蔬菜)/.test(normalizedTopic)) return 'science.plant-growth';
+    if (/(动物|昆虫|鸟|鱼|宠物|蝴蝶|蜜蜂|蚂蚁|青蛙|恐龙|兔子|小猫|小狗|熊猫)/.test(normalizedTopic)) return 'science.plant-growth';
+    if (/(天气|风|温度|冷热|晴|阴|雾|台风)/.test(normalizedTopic)) return 'science.seasons-cycle';
+    if (/(身体|五官|手|脚|眼睛|耳朵|鼻子|嘴巴|骨头|肌肉|心脏)/.test(normalizedTopic)) return 'social.daily-routine';
+    if (/(食物|水果|蔬菜|营养|吃饭|喝水|牛奶|面包|苹果|香蕉|西瓜)/.test(normalizedTopic)) return 'science.plant-growth';
+    if (/(声音|光|磁铁|电|力|运动|浮|沉|热|冷|溶解)/.test(normalizedTopic)) return 'science.water-cycle';
+    return 'science.plant-growth';
   }
 
   if (domain === 'art') {
-    if (/(颜色|色彩|调色|混色)/.test(normalizedTopic)) return 'art.color-mixing';
-    if (/(画画|绘画|简笔画|手工)/.test(normalizedTopic)) return 'art.drawing-steps';
-    return null;
+    if (/(颜色|色彩|调色|混色|红|蓝|黄|绿|紫|橙|粉|黑|白|灰)/.test(normalizedTopic)) return 'art.color-mixing';
+    if (/(画画|绘画|简笔画|手工|折纸|剪纸|粘贴|涂色|描线|印章)/.test(normalizedTopic)) return 'art.drawing-steps';
+    if (/(音乐|唱歌|乐器|节奏|拍手|鼓|钢琴|小星星)/.test(normalizedTopic)) return 'art.drawing-steps';
+    return 'art.drawing-steps';
   }
 
   if (domain === 'social') {
-    if (/(情绪|表情|开心|生气|难过|害怕)/.test(normalizedTopic)) return 'social.emotion-faces';
-    if (/(作息|习惯|日常|时间安排|一天)/.test(normalizedTopic)) return 'social.daily-routine';
-    return null;
+    if (/(情绪|表情|开心|生气|难过|害怕|勇敢|害羞|感动|委屈|骄傲)/.test(normalizedTopic)) return 'social.emotion-faces';
+    if (/(作息|习惯|日常|时间安排|一天|早上|晚上|起床|睡觉|刷牙|洗脸|吃饭)/.test(normalizedTopic)) return 'social.daily-routine';
+    if (/(朋友|分享|合作|帮助|礼貌|谢谢|对不起|请|排队|轮流|规则|安全)/.test(normalizedTopic)) return 'social.emotion-faces';
+    if (/(家庭|爸爸|妈妈|爷爷|奶奶|哥哥|姐姐|弟弟|妹妹|家人|亲人)/.test(normalizedTopic)) return 'social.daily-routine';
+    if (/(节日|春节|中秋|元宵|国庆|生日|圣诞|元旦|端午)/.test(normalizedTopic)) return 'social.daily-routine';
+    return 'social.emotion-faces';
   }
 
   return null;
+}
+
+/** Fallback to a domain-appropriate default template when no specific match */
+export function getDefaultTemplateForDomain(domain: string): string {
+  const defaults: Record<string, string> = {
+    language: 'language.word-reveal',
+    literacy: 'language.word-reveal',
+    math: 'math.counting-objects',
+    science: 'science.plant-growth',
+    art: 'art.drawing-steps',
+    social: 'social.emotion-faces',
+  };
+  return defaults[domain] || 'language.story-scene';
 }

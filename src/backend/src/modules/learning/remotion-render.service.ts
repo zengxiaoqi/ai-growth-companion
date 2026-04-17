@@ -64,6 +64,37 @@ const SEASON_EMOJI = ['🌸', '☀️', '🍂', '❄️'] as const;
 const SEASON_BG = ['#F0FFF4', '#FFF8E1', '#FFF3E0', '#E8F4FF'] as const;
 const SEASON_ACCENT = ['#6BCB77', '#F59E0B', '#E67E22', '#4D96FF'] as const;
 
+const DOMAIN_THEMES: Record<string, {
+  introBg: string; outroBg: string;
+  bgPalette: string[]; accentPalette: string[];
+}> = {
+  language: {
+    introBg: '#667EEA', outroBg: '#764BA2',
+    bgPalette: ['#FFF5F5', '#FFFBEB', '#F8F0FF', '#FFF0F6', '#FFF8F0'],
+    accentPalette: ['#FF6B6B', '#E67E22', '#9B59B6', '#FF6B9D', '#FF9A76'],
+  },
+  math: {
+    introBg: '#4D96FF', outroBg: '#6BCB77',
+    bgPalette: ['#EBF5FF', '#E8F8FF', '#F0FFF4', '#F8F0FF', '#F0F0FF'],
+    accentPalette: ['#4D96FF', '#00B4D8', '#6BCB77', '#9B59B6', '#667EEA'],
+  },
+  science: {
+    introBg: '#00B4D8', outroBg: '#6BCB77',
+    bgPalette: ['#E8F8FF', '#F0FFF4', '#FFF8E1', '#FFF3E0', '#E8F4FF'],
+    accentPalette: ['#00B4D8', '#6BCB77', '#F59E0B', '#E67E22', '#4D96FF'],
+  },
+  art: {
+    introBg: '#FF6B6B', outroBg: '#FFD93D',
+    bgPalette: ['#FFF0F6', '#FFF5F5', '#FFFBEB', '#F8F0FF', '#FFF0E8'],
+    accentPalette: ['#FF6B9D', '#FF6B6B', '#FFD93D', '#9B59B6', '#FF9A76'],
+  },
+  social: {
+    introBg: '#FFD93D', outroBg: '#6BCB77',
+    bgPalette: ['#FFFBEB', '#F0FFF4', '#FFF8F0', '#FFF5F5', '#F8F0FF'],
+    accentPalette: ['#FFD93D', '#6BCB77', '#E67E22', '#FF6B6B', '#9B59B6'],
+  },
+};
+
 @Injectable()
 export class RemotionRenderService {
   private readonly logger = new Logger(RemotionRenderService.name);
@@ -152,15 +183,24 @@ export class RemotionRenderService {
   }
 
   private buildVideoDataFromLesson(payload: LessonVideoPayload): TeachingVideoData {
-    const watchSlides = this.buildWatchSlides(payload);
+    const domain = this.inferDomain(payload.topic, payload);
+    const theme = DOMAIN_THEMES[domain] || DOMAIN_THEMES.language;
+
+    const watchSlides = this.buildWatchSlides(payload, domain);
     const mergedSlides = this.mergeListeningIntoWatchSlides(watchSlides, payload.modules?.listening);
     const supportSlides = this.buildSupplementSlides(payload.modules || {}, mergedSlides.length);
-    const reservedSupportCount = Math.min(4, supportSlides.length);
-    const maxWatchSlides = Math.max(1, 8 - reservedSupportCount);
-    const slides = [
-      ...mergedSlides.slice(0, maxWatchSlides),
-      ...supportSlides,
-    ].slice(0, 8);
+
+    // Dynamic allocation: watch content 60%, supplement 40%
+    const MAX_SLIDES = 12;
+    const watchBudget = Math.max(3, Math.floor(MAX_SLIDES * 0.6));
+    const supportBudget = MAX_SLIDES - watchBudget;
+
+    const selectedSupport = supportSlides.slice(0, supportBudget);
+    // Return unused support quota to watch slides
+    const unused = supportBudget - selectedSupport.length;
+    const selectedWatch = mergedSlides.slice(0, watchBudget + unused);
+
+    const slides = [...selectedWatch, ...selectedSupport];
 
     return {
       title: this.toText(payload.videoLesson?.title, this.toText(payload.title, `认识${payload.topic}`)),
@@ -168,13 +208,13 @@ export class RemotionRenderService {
         payload.summary,
         payload.ageGroup ? `${payload.ageGroup}岁启蒙课程` : `${slides.length || 1}个知识点动画课`,
       ),
-      introBg: '#667EEA',
-      outroBg: '#F093FB',
+      introBg: theme.introBg,
+      outroBg: theme.outroBg,
       slides: slides.length > 0 ? slides : [this.buildFallbackSlide(payload.topic)],
     };
   }
 
-  private buildWatchSlides(payload: LessonVideoPayload): TeachingSlide[] {
+  private buildWatchSlides(payload: LessonVideoPayload, domain: string): TeachingSlide[] {
     const sceneDoc = Array.isArray(payload.watchScene?.scenes) && payload.watchScene.scenes.length > 0
       ? payload.watchScene
       : deriveWatchSceneDocument(
@@ -186,8 +226,8 @@ export class RemotionRenderService {
         );
 
     return (Array.isArray(sceneDoc?.scenes) ? sceneDoc.scenes : [])
-      .slice(0, 8)
-      .map((scene: Record<string, any>, index: number) => this.buildSlideFromScene(scene, index));
+      .slice(0, 12)
+      .map((scene: Record<string, any>, index: number) => this.buildSlideFromScene(scene, index, domain));
   }
 
   private mergeListeningIntoWatchSlides(
@@ -205,13 +245,14 @@ export class RemotionRenderService {
       const segmentNarration = this.toText(segment?.narration);
       if (!segmentNarration) return slide;
 
+      // Join at sentence boundary instead of raw space concatenation
       const mergedNarration = slide.narration
-        ? `${slide.narration} ${segmentNarration}`
+        ? `${slide.narration.replace(/[。！？，]$/, '')}。${segmentNarration}`
         : segmentNarration;
 
       return {
         ...slide,
-        narration: mergedNarration.slice(0, 200),
+        narration: this.truncateAtSentenceEnd(mergedNarration, 150),
       };
     });
   }
@@ -248,14 +289,14 @@ export class RemotionRenderService {
     );
 
     return {
-      title: this.toText(listening.goal, '听一听').slice(0, 12),
+      title: this.toText(listening.goal, '听一听').slice(0, 16),
       emoji: '🎧',
-      subtitle: this.toText(script[0]?.narration, '听老师讲一讲').slice(0, 20) || undefined,
+      subtitle: this.toText(script[0]?.narration, '听老师讲一讲').slice(0, 30) || undefined,
       bgColor: '#FFF8F0',
       accentColor: '#E67E22',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.toText(script[0]?.narration, '先竖起小耳朵，跟着老师认真听一听。').slice(0, 100),
+      narration: this.truncateAtSentenceEnd(this.toText(script[0]?.narration, '先竖起小耳朵，跟着老师认真听一听。'), 150),
     };
   }
 
@@ -271,15 +312,24 @@ export class RemotionRenderService {
       ['📚', '🔤', '📝', '💡'],
     );
 
+    // Build narration from actual content, not a generic template
+    const keywordsIntro = keywords.length > 0
+      ? `重点词语有：${keywords.slice(0, 4).map((k: any) => this.toText(k)).join('、')}。`
+      : '';
+    const narration = this.toText(
+      reading.text,
+      keywordsIntro || '我们一起读一读，把重点内容记下来。',
+    );
+
     return {
-      title: this.toText(reading.goal, '读一读').slice(0, 12),
+      title: this.toText(reading.goal, '读一读').slice(0, 16),
       emoji: '📚',
-      subtitle: this.toText(reading.text, '一起读一读重点内容').slice(0, 20) || undefined,
+      subtitle: this.toText(reading.text, '一起读一读重点内容').slice(0, 30) || undefined,
       bgColor: '#F8F0FF',
       accentColor: '#9B59B6',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.toText(reading.text, '我们一起读一读，把重点内容记下来。').slice(0, 100),
+      narration: this.truncateAtSentenceEnd(narration, 150),
     };
   }
 
@@ -297,14 +347,14 @@ export class RemotionRenderService {
     );
 
     return {
-      title: this.toText(writing.goal, firstTarget ? `写一写 ${firstTarget}` : '写一写').slice(0, 12),
+      title: this.toText(writing.goal, firstTarget ? `写一写 ${firstTarget}` : '写一写').slice(0, 16),
       emoji: '✍️',
-      subtitle: firstTarget ? `描红练习：${firstTarget}`.slice(0, 20) : '跟着提示动笔练习',
+      subtitle: firstTarget ? `描红练习：${firstTarget}`.slice(0, 30) : '跟着提示动笔练习',
       bgColor: '#EBF5FF',
       accentColor: '#4D96FF',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.toText(practiceTasks[0], firstTarget ? `我们来描一描${firstTarget}。` : '拿起笔，跟着老师一起写一写。').slice(0, 100),
+      narration: this.truncateAtSentenceEnd(this.toText(practiceTasks[0], firstTarget ? `我们来描一描${firstTarget}。` : '拿起笔，跟着老师一起写一写。'), 150),
     };
   }
 
@@ -324,14 +374,14 @@ export class RemotionRenderService {
     );
 
     return {
-      title: this.toText(activityData.title, '练一练').slice(0, 12),
+      title: this.toText(activityData.title, '练一练').slice(0, 16),
       emoji: '🎮',
-      subtitle: this.toText(game.activityType, '互动练习').slice(0, 20) || undefined,
+      subtitle: this.toText(game.activityType, '互动练习').slice(0, 30) || undefined,
       bgColor: '#FFF0F6',
       accentColor: '#FF6B9D',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: `现在开始互动练习，一起挑战${this.toText(activityData.title, '小游戏')}。`.slice(0, 100),
+      narration: this.truncateAtSentenceEnd(`现在开始互动练习，一起挑战${this.toText(activityData.title, '小游戏')}。`, 150),
     };
   }
 
@@ -347,18 +397,19 @@ export class RemotionRenderService {
     );
 
     return {
-      title: this.toText(quiz.title, '评一评').slice(0, 12),
+      title: this.toText(quiz.title, '评一评').slice(0, 16),
       emoji: '✅',
       subtitle: questions.length > 0 ? `共${questions.length}道题` : '小测验时间',
       bgColor: '#F0FFF4',
       accentColor: '#6BCB77',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: questions.length > 0 ? `最后我们来做${questions.length}道题，看看今天学会了什么。` : '最后来做一个小测验。',
+      narration: this.truncateAtSentenceEnd(questions.length > 0 ? `最后我们来做${questions.length}道题，看看今天学会了什么。` : '最后来做一个小测验。', 150),
     };
   }
 
-  private buildSlideFromScene(scene: Record<string, any>, index: number): TeachingSlide {
+  private buildSlideFromScene(scene: Record<string, any>, index: number, domain: string): TeachingSlide {
+    const domainTheme = DOMAIN_THEMES[domain] || DOMAIN_THEMES.language;
     const theme = this.resolveSceneTheme(scene, index);
     const visualLabels = [
       ...(Array.isArray(scene?.visual?.items)
@@ -406,14 +457,14 @@ export class RemotionRenderService {
     };
 
     return {
-      title: headline.slice(0, 12),
+      title: headline.slice(0, 16),
       emoji: theme.emoji || EMOJI_PALETTE[index % EMOJI_PALETTE.length],
-      subtitle: subtitle.slice(0, 20) || undefined,
-      bgColor: theme.bgColor || this.toText(scene?.visual?.background?.themeColor, BG_PALETTE[index % BG_PALETTE.length]),
-      accentColor: theme.accentColor || this.toText(scene?.visual?.background?.accentColor, ACCENT_PALETTE[index % ACCENT_PALETTE.length]),
+      subtitle: subtitle.slice(0, 30) || undefined,
+      bgColor: theme.bgColor || this.toText(scene?.visual?.background?.themeColor, domainTheme.bgPalette[index % domainTheme.bgPalette.length]),
+      accentColor: theme.accentColor || this.toText(scene?.visual?.background?.accentColor, domainTheme.accentPalette[index % domainTheme.accentPalette.length]),
       layout: theme.layout || (mergedItems.length >= 3 ? 'grid' : mergedItems.length >= 1 ? 'list' : 'hero'),
       items: mergedItems.length > 0 ? mergedItems : undefined,
-      narration: this.toText(scene?.narration, '请和老师一起学习。').slice(0, 100),
+      narration: this.truncateAtSentenceEnd(this.toText(scene?.narration, '请和老师一起学习。'), 150),
       ...(animationTemplate ? { animationTemplate } : {}),
       visual,
     };
@@ -529,14 +580,14 @@ export class RemotionRenderService {
 
   private buildFallbackSlide(topic: string): TeachingSlide {
     return {
-      title: `认识${topic}`.slice(0, 12),
+      title: `认识${topic}`.slice(0, 16),
       emoji: '✨',
       subtitle: '启蒙动画课',
       bgColor: '#FFF5F5',
       accentColor: '#FF6B6B',
       layout: 'hero',
       items: this.createItems(['一起观察', '一起学习'], ['👀', '📘']),
-      narration: `请跟着老师一起认识${topic}。`.slice(0, 100),
+      narration: this.truncateAtSentenceEnd(`请跟着老师一起认识${topic}。`, 150),
     };
   }
 
@@ -554,7 +605,7 @@ export class RemotionRenderService {
     return labels
       .map((label, index) => ({
         emoji: emojiSource[index % emojiSource.length],
-        label: this.toText(label).slice(0, 8),
+        label: this.toText(label).slice(0, 12),
       }))
       .filter((item) => item.label);
   }
@@ -575,6 +626,19 @@ export class RemotionRenderService {
     if (value == null) return fallback;
     const text = String(value).replace(/\s+/g, ' ').trim();
     return text || fallback;
+  }
+
+  /** Truncate at the last complete sentence within the limit */
+  private truncateAtSentenceEnd(text: string, maxLen: number): string {
+    if (text.length <= maxLen) return text;
+    const sub = text.slice(0, maxLen);
+    const lastPunc = Math.max(
+      sub.lastIndexOf('。'),
+      sub.lastIndexOf('！'),
+      sub.lastIndexOf('？'),
+      sub.lastIndexOf('，'),
+    );
+    return lastPunc > maxLen * 0.5 ? sub.slice(0, lastPunc + 1) : sub;
   }
 
   private async generateNarrationAudioFiles(
@@ -740,6 +804,33 @@ export class RemotionRenderService {
     } finally {
       await this.cleanupFile(propsPath);
     }
+  }
+
+  /** Infer content domain from topic text and payload hints */
+  private inferDomain(topic: string, payload: LessonVideoPayload): string {
+    // Check if payload has an explicit domain field
+    const explicitDomain = this.toText((payload as any)?.domain);
+    if (explicitDomain && DOMAIN_THEMES[explicitDomain]) return explicitDomain;
+
+    // Check visualStory scenes for animation template hints
+    const scenes = Array.isArray(payload.visualStory?.scenes) ? payload.visualStory.scenes : [];
+    for (const scene of scenes) {
+      const templateId = this.toText(scene?.visual?.templateId);
+      if (templateId) {
+        const domain = templateId.split('.')[0];
+        if (DOMAIN_THEMES[domain]) return domain;
+      }
+    }
+
+    // Keyword-based inference from topic
+    const t = topic.trim();
+    if (/(汉字|识字|拼音|词语|词汇|朗读|阅读|认字|生字|写字|笔画|偏旁|部首|古诗|诗歌|儿歌|故事|绘本|童话)/.test(t)) return 'language';
+    if (/(数字|数数|加法|减法|形状|图形|算盘|排序|规律|数学|计数|比大小)/.test(t)) return 'math';
+    if (/(四季|季节|水循环|白天|黑夜|植物|种子|动物|昆虫|天气|身体|食物|声音|光|磁铁|科学)/.test(t)) return 'science';
+    if (/(颜色|色彩|画画|绘画|简笔画|手工|折纸|音乐|唱歌|乐器|美术)/.test(t)) return 'art';
+    if (/(情绪|表情|作息|习惯|朋友|分享|合作|礼貌|家庭|节日|安全|社交)/.test(t)) return 'social';
+
+    return 'language';
   }
 
   private isNumbersTopic(topic: string): boolean {

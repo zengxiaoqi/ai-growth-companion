@@ -4,7 +4,7 @@ import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video
 describe('LessonVideoQueueService', () => {
   let service: LessonVideoQueueService;
   let taskRepo: { update: jest.Mock };
-  let remotionRender: { resolveComposition: jest.Mock; renderComposition: jest.Mock };
+  let remotionRender: { resolveComposition: jest.Mock; renderComposition: jest.Mock; cleanupNarrationFiles: jest.Mock };
 
   beforeEach(() => {
     taskRepo = {
@@ -14,6 +14,7 @@ describe('LessonVideoQueueService', () => {
     remotionRender = {
       resolveComposition: jest.fn(),
       renderComposition: jest.fn(),
+      cleanupNarrationFiles: jest.fn().mockResolvedValue(undefined),
     };
 
     service = new LessonVideoQueueService(

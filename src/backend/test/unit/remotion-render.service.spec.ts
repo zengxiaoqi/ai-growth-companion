@@ -1,16 +1,25 @@
 import { RemotionRenderService } from '../../src/modules/learning/remotion-render.service';
 import { GenerateVideoDataTool } from '../../src/modules/ai/agent/tools/generate-video-data';
+import { VoiceService } from '../../src/modules/voice/voice.service';
 
 describe('RemotionRenderService', () => {
   let service: RemotionRenderService;
   let generateVideoDataTool: { execute: jest.Mock };
+  let voiceService: { textToSpeech: jest.Mock };
 
   beforeEach(() => {
     generateVideoDataTool = {
       execute: jest.fn(),
     };
 
-    service = new RemotionRenderService(generateVideoDataTool as unknown as GenerateVideoDataTool);
+    voiceService = {
+      textToSpeech: jest.fn().mockResolvedValue(Buffer.alloc(0)),
+    };
+
+    service = new RemotionRenderService(
+      generateVideoDataTool as unknown as GenerateVideoDataTool,
+      voiceService as unknown as VoiceService,
+    );
   });
 
   it('uses lesson watch content as TopicVideo props before generic topic fallback', async () => {
@@ -139,7 +148,7 @@ describe('RemotionRenderService', () => {
         writing: {
           goal: '写一写小猫',
           tracingItems: ['猫'],
-          practiceTasks: ['描一描“猫”字'],
+          practiceTasks: ['描一描”猫”字'],
         },
         game: {
           activityType: 'matching',
@@ -161,12 +170,9 @@ describe('RemotionRenderService', () => {
     expect(result.compositionId).toBe('TopicVideo');
     expect(generateVideoDataTool.execute).not.toHaveBeenCalled();
     expect(result.inputProps.title).toBe('动物观察课');
+    // Listening is merged into watch slides (which are empty here), so only supplement slides appear
     expect(result.inputProps.slides).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          title: '听听动物叫声',
-          emoji: '🎧',
-        }),
         expect.objectContaining({
           title: '读读动物名称',
           emoji: '📚',
@@ -243,18 +249,19 @@ describe('RemotionRenderService', () => {
 
     expect(result.compositionId).toBe('TopicVideo');
     expect(generateVideoDataTool.execute).not.toHaveBeenCalled();
-    expect(result.inputProps.slides).toHaveLength(8);
+    expect(result.inputProps.slides).toHaveLength(9);
     expect(result.inputProps.slides.map((slide: any) => slide.title)).toEqual([
       '小猫',
       '小狗',
       '小鸟',
-      '听听动物叫声',
+      '小鱼',
+      '小兔',
       '读读动物名称',
       '写一写小猫',
       '动物配对',
       '动物小测验',
     ]);
-    expect(result.inputProps.slides[7]).toMatchObject({
+    expect(result.inputProps.slides[8]).toMatchObject({
       title: '动物小测验',
       emoji: '✅',
       subtitle: '共2道题',

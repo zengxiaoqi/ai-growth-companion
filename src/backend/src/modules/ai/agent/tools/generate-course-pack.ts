@@ -306,7 +306,7 @@ export class GenerateCoursePackTool {
       '- Return strict JSON only. No markdown. No explanation.',
       'Animation templates:',
       buildTemplatePromptContext(),
-      'For each visualStory scene, if an animation template matches, set animationTemplate to the template id and provide appropriate animationParams. If no template fits well, omit animationTemplate.',
+      'MANDATORY: Every visualStory scene MUST have an "animationTemplate" field set to one of the template IDs listed above. Choose the MOST appropriate template based on the scene content and domain. If no template is a perfect match, choose the closest one by domain: language→language.word-reveal, math→math.counting-objects, science→science.plant-growth, art→art.drawing-steps, social→social.emotion-faces. Never leave animationTemplate empty. Always provide appropriate animationParams for the chosen template.',
       'JSON schema:',
       schema,
     ]

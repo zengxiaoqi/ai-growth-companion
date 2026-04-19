@@ -180,6 +180,51 @@ export default function LessonGenerator({
     };
   }, [draftLessonId, onDraftLessonLoaded]);
 
+  // After generatedContent is set with a draft status, check for existing video task
+  useEffect(() => {
+    if (!generatedContent || generatedContent.status !== 'draft' || !selectedChildId) return;
+    if (videoStatus !== 'idle') return; // already tracking a task
+
+    let cancelled = false;
+
+    const checkExistingVideoTask = async () => {
+      try {
+        const result = await api.getLessonVideoStatus(generatedContent!.id, selectedChildId!);
+        if (cancelled || !result.exists) return;
+
+        setVideoTaskId(result.taskId ?? null);
+
+        if (result.status === 'completed') {
+          setVideoStatus('completed');
+          setVideoProgress(100);
+          setApprovalStatus(result.approvalStatus || 'pending_approval');
+
+          try {
+            const blob = await api.downloadLessonTeachingVideo(generatedContent!.id, selectedChildId!, result.taskId!);
+            const url = URL.createObjectURL(blob);
+            setVideoUrl(url);
+          } catch {
+            // Preview unavailable
+          }
+        } else if (result.status === 'processing' || result.status === 'pending') {
+          setVideoStatus('polling');
+          setVideoProgress(result.progress || 0);
+          pollVideoStatus(result.taskId!);
+        } else if (result.status === 'failed') {
+          setVideoStatus('failed');
+        }
+      } catch {
+        // Silently ignore — no existing task found
+      }
+    };
+
+    checkExistingVideoTask();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedContent?.id, generatedContent?.status, selectedChildId]);
+
   const resetVideoPreviewState = () => {
     if (videoPollRef.current) {
       clearInterval(videoPollRef.current);
@@ -341,12 +386,31 @@ export default function LessonGenerator({
   // ── Video generation + approval ─────────────────────────────────
   const startVideoGeneration = async (force = false) => {
     if (!generatedContent || !selectedChildId) return;
+    // Skip if already tracking a video task (e.g. from checkExistingVideoTask useEffect)
+    if (!force && videoStatus !== 'idle') return;
     try {
       const task = await api.createLessonTeachingVideoTask(generatedContent.id, selectedChildId, force);
       setVideoTaskId(task.taskId);
-      setVideoStatus('polling');
-      setVideoProgress(task.progress || 0);
-      pollVideoStatus(task.taskId);
+
+      if (task.status === 'completed') {
+        // Reused completed task — skip polling, go directly to completed
+        setVideoStatus('completed');
+        setVideoProgress(100);
+        setApprovalStatus('pending_approval');
+
+        // Fetch video blob for preview
+        try {
+          const blob = await api.downloadLessonTeachingVideo(generatedContent.id, selectedChildId, task.taskId);
+          const url = URL.createObjectURL(blob);
+          setVideoUrl(url);
+        } catch {
+          // Preview unavailable — parent can still approve by status
+        }
+      } else {
+        setVideoStatus('polling');
+        setVideoProgress(task.progress || 0);
+        pollVideoStatus(task.taskId);
+      }
     } catch (err: any) {
       // Video generation failed silently — lesson can still be published without video
       console.warn('Video task enqueue failed:', err?.message);

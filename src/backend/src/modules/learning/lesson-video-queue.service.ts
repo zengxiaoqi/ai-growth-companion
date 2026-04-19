@@ -97,6 +97,25 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       void this.processQueue();
     }, this.pollIntervalMs);
     this.logger.log(`Lesson video queue started (tick=${this.pollIntervalMs}ms)`);
+
+    // Reset orphaned 'processing' tasks left from a previous server crash/restart
+    void this.resetOrphanedProcessingTasks();
+  }
+
+  private async resetOrphanedProcessingTasks(): Promise<void> {
+    try {
+      const result = await this.taskRepo
+        .createQueryBuilder()
+        .update(VideoGenerationTask)
+        .set({ status: 'failed', errorMessage: 'Server restarted during processing' })
+        .where("status = 'processing'")
+        .execute();
+      if (result.affected && result.affected > 0) {
+        this.logger.warn(`Reset ${result.affected} orphaned 'processing' task(s) to 'failed'`);
+      }
+    } catch (error: any) {
+      this.logger.warn(`Failed to reset orphaned tasks: ${error?.message}`);
+    }
   }
 
   onModuleDestroy() {

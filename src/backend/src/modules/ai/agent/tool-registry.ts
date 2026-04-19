@@ -1,22 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { toolDefinitions } from './prompts/tool-definitions';
-import { GetUserProfileTool } from './tools/get-user-profile';
-import { GetAbilitiesTool } from './tools/get-abilities';
-import { GetLearningHistoryTool } from './tools/get-learning-history';
-import { SearchContentTool } from './tools/search-content';
-import { GetRecommendationsTool } from './tools/get-recommendations';
-import { GenerateQuizTool } from './tools/generate-quiz';
-import { GenerateActivityTool } from './tools/generate-activity';
-import { AssignActivityTool } from './tools/assign-activity';
-import { RecordLearningTool } from './tools/record-learning';
-import { GetParentControlTool } from './tools/get-parent-control';
-import { ListChildrenTool } from './tools/list-children';
-import { ViewReportTool } from './tools/view-report';
-import { ViewAbilitiesTool } from './tools/view-abilities';
-import { UpdateParentControlTool } from './tools/update-parent-control';
-import { ListAssignmentsTool } from './tools/list-assignments';
-import { GenerateCoursePackTool } from './tools/generate-course-pack';
-import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
+import { Injectable, Logger } from "@nestjs/common";
+import { toolDefinitions } from "./prompts/tool-definitions";
+import { GetUserProfileTool } from "./tools/get-user-profile";
+import { GetAbilitiesTool } from "./tools/get-abilities";
+import { GetLearningHistoryTool } from "./tools/get-learning-history";
+import { SearchContentTool } from "./tools/search-content";
+import { GetRecommendationsTool } from "./tools/get-recommendations";
+import { GenerateQuizTool } from "./tools/generate-quiz";
+import { GenerateActivityTool } from "./tools/generate-activity";
+import { AssignActivityTool } from "./tools/assign-activity";
+import { RecordLearningTool } from "./tools/record-learning";
+import { GetParentControlTool } from "./tools/get-parent-control";
+import { ListChildrenTool } from "./tools/list-children";
+import { ViewReportTool } from "./tools/view-report";
+import { ViewAbilitiesTool } from "./tools/view-abilities";
+import { UpdateParentControlTool } from "./tools/update-parent-control";
+import { ListAssignmentsTool } from "./tools/list-assignments";
+import { GenerateCoursePackTool } from "./tools/generate-course-pack";
+import type { ChatCompletionTool } from "openai/resources/chat/completions/completions";
 
 @Injectable()
 export class ToolRegistry {
@@ -42,22 +42,34 @@ export class ToolRegistry {
     private readonly generateCoursePackTool: GenerateCoursePackTool,
   ) {
     this.handlers = new Map([
-      ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
-      ['getAbilities', (args) => this.getAbilitiesTool.execute(args)],
-      ['getLearningHistory', (args) => this.getLearningHistoryTool.execute(args)],
-      ['searchContent', (args) => this.searchContentTool.execute(args)],
-      ['getRecommendations', (args) => this.getRecommendationsTool.execute(args)],
-      ['generateQuiz', (args) => this.generateQuizTool.execute(args)],
-      ['generateActivity', (args) => this.generateActivityTool.execute(args)],
-      ['assignActivity', (args) => this.assignActivityTool.execute(args)],
-      ['recordLearning', (args) => this.recordLearningTool.execute(args)],
-      ['getParentControl', (args) => this.getParentControlTool.execute(args)],
-      ['listChildren', (args) => this.listChildrenTool.execute(args)],
-      ['viewReport', (args) => this.viewReportTool.execute(args)],
-      ['viewAbilities', (args) => this.viewAbilitiesTool.execute(args)],
-      ['updateParentControl', (args) => this.updateParentControlTool.execute(args)],
-      ['listAssignments', (args) => this.listAssignmentsTool.execute(args)],
-      ['generateCoursePack', (args) => this.generateCoursePackTool.execute(args)],
+      ["getUserProfile", (args) => this.getUserProfileTool.execute(args)],
+      ["getAbilities", (args) => this.getAbilitiesTool.execute(args)],
+      [
+        "getLearningHistory",
+        (args) => this.getLearningHistoryTool.execute(args),
+      ],
+      ["searchContent", (args) => this.searchContentTool.execute(args)],
+      [
+        "getRecommendations",
+        (args) => this.getRecommendationsTool.execute(args),
+      ],
+      ["generateQuiz", (args) => this.generateQuizTool.execute(args)],
+      ["generateActivity", (args) => this.generateActivityTool.execute(args)],
+      ["assignActivity", (args) => this.assignActivityTool.execute(args)],
+      ["recordLearning", (args) => this.recordLearningTool.execute(args)],
+      ["getParentControl", (args) => this.getParentControlTool.execute(args)],
+      ["listChildren", (args) => this.listChildrenTool.execute(args)],
+      ["viewReport", (args) => this.viewReportTool.execute(args)],
+      ["viewAbilities", (args) => this.viewAbilitiesTool.execute(args)],
+      [
+        "updateParentControl",
+        (args) => this.updateParentControlTool.execute(args),
+      ],
+      ["listAssignments", (args) => this.listAssignmentsTool.execute(args)],
+      [
+        "generateCoursePack",
+        (args) => this.generateCoursePackTool.execute(args),
+      ],
     ]);
   }
 
@@ -75,7 +87,9 @@ export class ToolRegistry {
     }
 
     try {
-      this.logger.log(`Tool called: ${toolName}(${JSON.stringify(args).slice(0, 100)})`);
+      this.logger.log(
+        `Tool called: ${toolName}(${JSON.stringify(args).slice(0, 100)})`,
+      );
       const result = await handler(args);
       this.logger.log(`Tool ${toolName} returned: ${result.slice(0, 100)}...`);
       return result;

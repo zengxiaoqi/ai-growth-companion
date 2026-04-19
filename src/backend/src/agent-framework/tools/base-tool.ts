@@ -5,8 +5,13 @@
  * only need to implement execute() and provide metadata.
  */
 
-import { Injectable } from '@nestjs/common';
-import type { ITool, ToolMetadata, ToolResult, ToolExecutionContext } from '../core';
+import { Injectable } from "@nestjs/common";
+import type {
+  ITool,
+  ToolMetadata,
+  ToolResult,
+  ToolExecutionContext,
+} from "../core";
 
 /**
  * Abstract base tool with default implementations.
@@ -22,10 +27,16 @@ import type { ITool, ToolMetadata, ToolResult, ToolExecutionContext } from '../c
  * ```
  */
 @Injectable()
-export abstract class BaseTool<TInput = any, TOutput = unknown> implements ITool<TInput, TOutput> {
+export abstract class BaseTool<
+  TInput = any,
+  TOutput = unknown,
+> implements ITool<TInput, TOutput> {
   abstract readonly metadata: ToolMetadata;
 
-  abstract execute(args: TInput, context: ToolExecutionContext): Promise<ToolResult<TOutput>>;
+  abstract execute(
+    args: TInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult<TOutput>>;
 
   /** Helper: create a success result */
   protected ok(data: TOutput, gameData?: unknown): ToolResult<TOutput> {
@@ -41,7 +52,7 @@ export abstract class BaseTool<TInput = any, TOutput = unknown> implements ITool
   protected parseJsonResult(jsonString: string): ToolResult<TOutput> {
     try {
       const data = JSON.parse(jsonString);
-      if (data && typeof data === 'object' && data.error) {
+      if (data && typeof data === "object" && data.error) {
         return this.fail(data.error);
       }
       return this.ok(data);

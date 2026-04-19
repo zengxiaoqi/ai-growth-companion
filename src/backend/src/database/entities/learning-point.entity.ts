@@ -5,10 +5,10 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('learning_points')
-@Index(['childId', 'pointKey'], { unique: true })
+@Entity("learning_points")
+@Index(["childId", "pointKey"], { unique: true })
 export class LearningPoint {
   @PrimaryGeneratedColumn()
   id: number;
@@ -28,16 +28,16 @@ export class LearningPoint {
   @Column({ length: 255 })
   pointLabel: string;
 
-  @Column({ default: 'chat_summary', length: 40 })
+  @Column({ default: "chat_summary", length: 40 })
   source: string; // chat_summary | activity
 
-  @Column({ type: 'datetime' })
+  @Column({ type: "datetime" })
   lastLearnedAt: Date;
 
-  @Column({ type: 'datetime' })
+  @Column({ type: "datetime" })
   cooldownUntil: Date;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   evidence: Record<string, any> | null;
 
   @CreateDateColumn()
@@ -46,4 +46,3 @@ export class LearningPoint {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

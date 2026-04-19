@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 /**
  * Content safety service that filters AI responses to ensure
@@ -9,14 +9,43 @@ export class ContentSafetyService {
   // Prohibited words/topics - violence, fear, inappropriate content
   private readonly prohibitedWords: string[] = [
     // Violence & harm
-    '杀', '打', '砍', '刺', '血', '死', '暴', '枪', '刀', '毒',
-    '伤害', '攻击', '战斗', '武器', '炸弹', '谋杀', '复仇',
+    "杀",
+    "打",
+    "砍",
+    "刺",
+    "血",
+    "死",
+    "暴",
+    "枪",
+    "刀",
+    "毒",
+    "伤害",
+    "攻击",
+    "战斗",
+    "武器",
+    "炸弹",
+    "谋杀",
+    "复仇",
     // Fear & horror
-    '鬼', '魔', '噩梦', '恐怖', '惊悚', '幽灵', '诅咒',
+    "鬼",
+    "魔",
+    "噩梦",
+    "恐怖",
+    "惊悚",
+    "幽灵",
+    "诅咒",
     // Inappropriate
-    '赌博', '酗酒', '吸毒', '偷窃', '犯罪', '监狱',
+    "赌博",
+    "酗酒",
+    "吸毒",
+    "偷窃",
+    "犯罪",
+    "监狱",
     // Personal info patterns
-    '密码', '身份证', '银行卡', '地址是',
+    "密码",
+    "身份证",
+    "银行卡",
+    "地址是",
   ];
 
   // Personal information patterns to redact
@@ -31,8 +60,8 @@ export class ContentSafetyService {
    * Returns sanitized content and a flag indicating if content was modified.
    */
   filterContent(content: string): { content: string; wasFiltered: boolean } {
-    if (!content || typeof content !== 'string') {
-      return { content: content || '', wasFiltered: false };
+    if (!content || typeof content !== "string") {
+      return { content: content || "", wasFiltered: false };
     }
 
     let filtered = content;
@@ -41,14 +70,14 @@ export class ContentSafetyService {
     // Check for prohibited words
     for (const word of this.prohibitedWords) {
       if (filtered.includes(word)) {
-        filtered = filtered.replace(new RegExp(word, 'g'), '***');
+        filtered = filtered.replace(new RegExp(word, "g"), "***");
         wasFiltered = true;
       }
     }
 
     // Redact PII patterns
     for (const pattern of this.piiPatterns) {
-      const newFiltered = filtered.replace(pattern, '[已隐藏]');
+      const newFiltered = filtered.replace(pattern, "[已隐藏]");
       if (newFiltered !== filtered) {
         filtered = newFiltered;
         wasFiltered = true;
@@ -57,7 +86,7 @@ export class ContentSafetyService {
 
     // Ensure positive tone - if content was flagged, append encouragement
     if (wasFiltered) {
-      filtered = filtered + '\n\n🌈 让我们一起学习美好的事物吧！';
+      filtered = filtered + "\n\n🌈 让我们一起学习美好的事物吧！";
     }
 
     return { content: filtered, wasFiltered };
@@ -67,7 +96,7 @@ export class ContentSafetyService {
    * Check if content is safe (no prohibited content detected).
    */
   isContentSafe(content: string): boolean {
-    if (!content || typeof content !== 'string') {
+    if (!content || typeof content !== "string") {
       return true;
     }
 
@@ -96,7 +125,9 @@ export class ContentSafetyService {
   }): typeof story {
     const titleResult = this.filterContent(story.title);
     const contentResult = this.filterContent(story.content);
-    const filteredQuestions = story.questions.map((q) => this.filterContent(q).content);
+    const filteredQuestions = story.questions.map(
+      (q) => this.filterContent(q).content,
+    );
 
     return {
       title: titleResult.content,

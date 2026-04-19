@@ -2,8 +2,8 @@
  * Executor interface — the core agent execution loop.
  */
 
-import type { AgentContext, ExecutionResult } from './agent.interface';
-import type { StreamEvent } from '../types';
+import type { AgentContext, ExecutionResult } from "./agent.interface";
+import type { StreamEvent } from "../types";
 
 /** The agent executor interface */
 export interface IAgentExecutor {

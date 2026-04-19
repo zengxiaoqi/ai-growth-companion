@@ -1,7 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne } from 'typeorm';
-import { User } from './user.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+} from "typeorm";
+import { User } from "./user.entity";
 
-@Entity('assignments')
+@Entity("assignments")
 export class Assignment {
   @PrimaryGeneratedColumn()
   id: number;
@@ -27,7 +33,7 @@ export class Assignment {
   @Column({ length: 50 })
   activityType: string; // 'quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   activityData: any;
 
   @Column({ nullable: true })
@@ -39,7 +45,7 @@ export class Assignment {
   @Column({ nullable: true })
   dueDate: Date;
 
-  @Column({ default: 'pending' })
+  @Column({ default: "pending" })
   status: string; // 'pending', 'in_progress', 'completed'
 
   @Column({ nullable: true })
@@ -48,7 +54,7 @@ export class Assignment {
   @Column({ nullable: true })
   score: number;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   resultData: any;
 
   @CreateDateColumn()

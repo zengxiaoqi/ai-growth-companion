@@ -5,12 +5,18 @@
  * No manual wiring needed — add a new tool class and it appears automatically.
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { DiscoveryService } from '@nestjs/core';
-import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import type { ITool, IToolRegistry, ToolMetadata, ToolResult, ToolExecutionContext } from '../core';
-import { ToolNotFoundError, ToolExecutionError } from '../core';
-import { TOOL_REGISTRY_METADATA } from './decorators/register-tool';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { DiscoveryService } from "@nestjs/core";
+import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
+import type {
+  ITool,
+  IToolRegistry,
+  ToolMetadata,
+  ToolResult,
+  ToolExecutionContext,
+} from "../core";
+import { ToolNotFoundError, ToolExecutionError } from "../core";
+import { TOOL_REGISTRY_METADATA } from "./decorators/register-tool";
 
 @Injectable()
 export class ToolRegistryService implements IToolRegistry, OnModuleInit {
@@ -25,7 +31,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
 
     for (const wrapper of providers) {
       const { instance } = wrapper;
-      if (!instance || typeof instance !== 'object') continue;
+      if (!instance || typeof instance !== "object") continue;
 
       const metatype = wrapper.metatype;
       if (!metatype) continue;
@@ -33,8 +39,10 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
       const hasToolMeta = Reflect.getMetadata(TOOL_REGISTRY_METADATA, metatype);
       if (!hasToolMeta) continue;
 
-      if (!('metadata' in instance) || !('execute' in instance)) {
-        this.logger.warn(`@RegisterTool() on ${metatype.name} but missing metadata/execute — skipping`);
+      if (!("metadata" in instance) || !("execute" in instance)) {
+        this.logger.warn(
+          `@RegisterTool() on ${metatype.name} but missing metadata/execute — skipping`,
+        );
         continue;
       }
 
@@ -48,7 +56,9 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
 
   register(tool: ITool): void {
     if (this.tools.has(tool.metadata.name)) {
-      this.logger.warn(`Tool "${tool.metadata.name}" already registered — overwriting`);
+      this.logger.warn(
+        `Tool "${tool.metadata.name}" already registered — overwriting`,
+      );
     }
     this.tools.set(tool.metadata.name, tool);
   }
@@ -70,10 +80,10 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   /** Build OpenAI function-calling tool definitions, optionally filtered */
   getToolDefinitions(
     filter?: (tool: ITool) => boolean,
-  ): Array<{ type: 'function'; function: any }> {
+  ): Array<{ type: "function"; function: any }> {
     const tools = filter ? this.getAll().filter(filter) : this.getAll();
-    return tools.map(tool => ({
-      type: 'function' as const,
+    return tools.map((tool) => ({
+      type: "function" as const,
       function: {
         name: tool.metadata.name,
         description: tool.metadata.description,
@@ -83,7 +93,11 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   }
 
   /** Execute a tool by name with structured error handling */
-  async execute(name: string, args: any, context: ToolExecutionContext): Promise<ToolResult> {
+  async execute(
+    name: string,
+    args: any,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       this.logger.warn(`Unknown tool called: ${name}`);
@@ -91,7 +105,9 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
     }
 
     try {
-      this.logger.log(`Tool called: ${name}(${JSON.stringify(args).slice(0, 100)})`);
+      this.logger.log(
+        `Tool called: ${name}(${JSON.stringify(args).slice(0, 100)})`,
+      );
       const result = await tool.execute(args, context);
       this.logger.log(`Tool ${name} returned: success=${result.success}`);
       return result;
@@ -102,7 +118,11 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   }
 
   /** Execute a tool and return the result as a JSON string (backward-compatible) */
-  async executeToString(name: string, args: any, context: ToolExecutionContext): Promise<string> {
+  async executeToString(
+    name: string,
+    args: any,
+    context: ToolExecutionContext,
+  ): Promise<string> {
     const result = await this.execute(name, args, context);
     return JSON.stringify(result.data ?? { error: result.error });
   }

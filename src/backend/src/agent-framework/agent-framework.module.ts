@@ -11,28 +11,28 @@
  * - Content safety
  */
 
-import { Module, OnModuleInit } from '@nestjs/common';
-import { LlmModule } from './llm/llm.module';
-import { LlmClientService } from './llm/llm-client.service';
-import { ToolRegistryModule } from './tools/tool-registry.module';
-import { ToolRegistryService } from './tools/tool-registry.service';
-import { AgentRegistryModule } from './agents/agent-registry.module';
-import { AgentRegistryService } from './agents/agent-registry.service';
-import { SkillRegistryModule } from './skills/skill-registry.module';
-import { SkillRegistryService } from './skills/skill-registry.service';
-import { ConversationModule } from './conversation/conversation.module';
-import { SafetyModule } from './safety/safety.module';
-import { AgentExecutorService } from './agents/agent-executor.service';
-import { OrchestratorService } from './agents/orchestrator.service';
-import { SubAgentFactory } from './agents/sub-agent-factory';
-import { SkillExecutor } from './skills/skill-executor';
-import { PromptProviderService } from './prompts/prompt-provider.service';
+import { Module, OnModuleInit } from "@nestjs/common";
+import { LlmModule } from "./llm/llm.module";
+import { LlmClientService } from "./llm/llm-client.service";
+import { ToolRegistryModule } from "./tools/tool-registry.module";
+import { ToolRegistryService } from "./tools/tool-registry.service";
+import { AgentRegistryModule } from "./agents/agent-registry.module";
+import { AgentRegistryService } from "./agents/agent-registry.service";
+import { SkillRegistryModule } from "./skills/skill-registry.module";
+import { SkillRegistryService } from "./skills/skill-registry.service";
+import { ConversationModule } from "./conversation/conversation.module";
+import { SafetyModule } from "./safety/safety.module";
+import { AgentExecutorService } from "./agents/agent-executor.service";
+import { OrchestratorService } from "./agents/orchestrator.service";
+import { SubAgentFactory } from "./agents/sub-agent-factory";
+import { SkillExecutor } from "./skills/skill-executor";
+import { PromptProviderService } from "./prompts/prompt-provider.service";
 
 // Agent definitions
-import { childCompanionDefinition } from './agents/definitions/child-companion.agent';
-import { parentAdvisorDefinition } from './agents/definitions/parent-advisor.agent';
-import { courseDesignerDefinition } from './agents/definitions/course-designer.agent';
-import { activityGeneratorDefinition } from './agents/definitions/activity-generator.agent';
+import { childCompanionDefinition } from "./agents/definitions/child-companion.agent";
+import { parentAdvisorDefinition } from "./agents/definitions/parent-advisor.agent";
+import { courseDesignerDefinition } from "./agents/definitions/course-designer.agent";
+import { activityGeneratorDefinition } from "./agents/definitions/activity-generator.agent";
 
 @Module({
   imports: [
@@ -46,8 +46,10 @@ import { activityGeneratorDefinition } from './agents/definitions/activity-gener
   providers: [
     {
       provide: AgentExecutorService,
-      useFactory: (toolRegistry: ToolRegistryService, llmClient: LlmClientService) =>
-        new AgentExecutorService(toolRegistry, llmClient),
+      useFactory: (
+        toolRegistry: ToolRegistryService,
+        llmClient: LlmClientService,
+      ) => new AgentExecutorService(toolRegistry, llmClient),
       inject: [ToolRegistryService, LlmClientService],
     },
     {
@@ -58,8 +60,19 @@ import { activityGeneratorDefinition } from './agents/definitions/activity-gener
         skillRegistry: SkillRegistryService,
         skillExecutor: SkillExecutor,
       ) =>
-        new OrchestratorService(agentRegistry, executor, null as any, skillRegistry, skillExecutor),
-      inject: [AgentRegistryService, AgentExecutorService, SkillRegistryService, SkillExecutor],
+        new OrchestratorService(
+          agentRegistry,
+          executor,
+          null as any,
+          skillRegistry,
+          skillExecutor,
+        ),
+      inject: [
+        AgentRegistryService,
+        AgentExecutorService,
+        SkillRegistryService,
+        SkillExecutor,
+      ],
     },
     {
       provide: SubAgentFactory,
@@ -95,11 +108,15 @@ export class AgentFrameworkModule implements OnModuleInit {
     ];
 
     for (const definition of agentDefinitions) {
-      this.agentRegistry.register(definition, () => ({
+      this.agentRegistry.register(
         definition,
-        execute: async () => ({ response: '', toolCalls: [] }),
-        executeStream: async function* () {},
-      }) as any);
+        () =>
+          ({
+            definition,
+            execute: async () => ({ response: "", toolCalls: [] }),
+            executeStream: async function* () {},
+          }) as any,
+      );
     }
   }
 }

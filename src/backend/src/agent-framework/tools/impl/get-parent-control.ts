@@ -3,11 +3,15 @@
  * Migrated from modules/ai/agent/tools/get-parent-control.ts
  */
 
-import { Injectable } from '@nestjs/common';
-import { ParentService } from '../../../modules/parent/parent.service';
-import { BaseTool } from '../base-tool';
-import { RegisterTool } from '../decorators/register-tool';
-import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { Injectable } from "@nestjs/common";
+import { ParentService } from "../../../modules/parent/parent.service";
+import { BaseTool } from "../base-tool";
+import { RegisterTool } from "../decorators/register-tool";
+import type {
+  ToolMetadata,
+  ToolResult,
+  ToolExecutionContext,
+} from "../../core";
 
 type GetParentControlInput = { childId: number };
 
@@ -15,14 +19,14 @@ type GetParentControlInput = { childId: number };
 @RegisterTool()
 export class GetParentControlTool extends BaseTool<GetParentControlInput> {
   readonly metadata: ToolMetadata = {
-    name: 'getParentControl',
-    description: '获取孩子的家长控制设置，包括时间限制、允许领域等',
+    name: "getParentControl",
+    description: "获取孩子的家长控制设置，包括时间限制、允许领域等",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        childId: { type: 'number', description: '孩子ID' },
+        childId: { type: "number", description: "孩子ID" },
       },
-      required: ['childId'],
+      required: ["childId"],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -35,7 +39,10 @@ export class GetParentControlTool extends BaseTool<GetParentControlInput> {
     super();
   }
 
-  async execute(args: GetParentControlInput, _context: ToolExecutionContext): Promise<ToolResult> {
+  async execute(
+    args: GetParentControlInput,
+    _context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
       const control = await this.parentService.getByChild(args.childId);
       return this.ok({

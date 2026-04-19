@@ -1,16 +1,16 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ReportService } from './report.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { ReportService } from "./report.service";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 
-@Controller('report')
+@Controller("report")
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get()
   async generateReport(
-    @Query('userId') userId: string,
-    @Query('period') period: 'daily' | 'weekly' | 'monthly' = 'weekly',
+    @Query("userId") userId: string,
+    @Query("period") period: "daily" | "weekly" | "monthly" = "weekly",
   ) {
     return this.reportService.generateReport({
       userId: +userId,
@@ -19,19 +19,19 @@ export class ReportController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('trend')
+  @Get("trend")
   async getAbilityTrend(
-    @Query('userId') userId: string,
-    @Query('weeks') weeks: string = '6',
+    @Query("userId") userId: string,
+    @Query("weeks") weeks: string = "6",
   ) {
     return this.reportService.getAbilityTrend(+userId, +weeks);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('recent-skills')
+  @Get("recent-skills")
   async getRecentSkills(
-    @Query('userId') userId: string,
-    @Query('limit') limit: string = '3',
+    @Query("userId") userId: string,
+    @Query("limit") limit: string = "3",
   ) {
     return this.reportService.getRecentMasteredSkills(+userId, +limit);
   }

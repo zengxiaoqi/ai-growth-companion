@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ParentService } from '../../../parent/parent.service';
+import { Injectable } from "@nestjs/common";
+import { ParentService } from "../../../parent/parent.service";
 
 @Injectable()
 export class GetParentControlTool {
@@ -9,7 +9,7 @@ export class GetParentControlTool {
     try {
       const control = await this.parentService.getByChild(args.childId);
       if (!control) {
-        return JSON.stringify({ message: '未设置家长控制', controls: null });
+        return JSON.stringify({ message: "未设置家长控制", controls: null });
       }
 
       return JSON.stringify({

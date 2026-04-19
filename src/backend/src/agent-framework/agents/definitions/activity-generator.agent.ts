@@ -6,7 +6,7 @@
  * Single-purpose agent with no sub-agent spawning.
  */
 
-import type { AgentDefinition, AgentContext } from '../../core';
+import type { AgentDefinition, AgentContext } from "../../core";
 
 const ACTIVITY_GENERATOR_PROMPT = `你是一位专业的儿童活动设计师，专注于为3-6岁儿童创建互动学习活动。
 
@@ -31,33 +31,32 @@ const ACTIVITY_GENERATOR_PROMPT = `你是一位专业的儿童活动设计师，
 /** Build the system prompt for activity generation */
 function buildActivityGeneratorPrompt(context: AgentContext): string {
   const contextHints = [
-    '## Runtime Context',
-    context.ageGroup !== 'parent' ? `- ageGroup: ${context.ageGroup}` : '',
-    '- Always specify type, topic, difficulty, and ageGroup when calling generateActivity.',
-    '- Content must be directly related to the specified topic.',
-  ].filter(Boolean).join('\n');
+    "## Runtime Context",
+    context.ageGroup !== "parent" ? `- ageGroup: ${context.ageGroup}` : "",
+    "- Always specify type, topic, difficulty, and ageGroup when calling generateActivity.",
+    "- Content must be directly related to the specified topic.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return `${ACTIVITY_GENERATOR_PROMPT}\n\n${contextHints}`;
 }
 
 /** The activity generator agent definition */
 export const activityGeneratorDefinition: AgentDefinition = {
-  type: 'activity-generator',
-  name: '活动生成器',
-  description: '创建各种类型的互动学习活动，包括测验、判断、填空、配对、排序和拼图',
+  type: "activity-generator",
+  name: "活动生成器",
+  description:
+    "创建各种类型的互动学习活动，包括测验、判断、填空、配对、排序和拼图",
 
   buildSystemPrompt: buildActivityGeneratorPrompt,
 
-  allowedTools: [
-    'generateActivity',
-    'generateQuiz',
-    'generateVideoData',
-  ],
+  allowedTools: ["generateActivity", "generateQuiz", "generateVideoData"],
 
   disallowedTools: [],
 
   maxIterations: 5,
-  defaultAgeGroup: '5-6',
+  defaultAgeGroup: "5-6",
   canSpawnSubAgents: false,
   maxSubAgentDepth: 0,
 };

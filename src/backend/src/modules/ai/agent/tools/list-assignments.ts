@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { AssignmentService } from '../../../assignment/assignment.service';
+import { Injectable } from "@nestjs/common";
+import { AssignmentService } from "../../../assignment/assignment.service";
 
 @Injectable()
 export class ListAssignmentsTool {
@@ -7,9 +7,11 @@ export class ListAssignmentsTool {
 
   async execute(args: { childId: number }): Promise<string> {
     try {
-      const assignments = await this.assignmentService.findByChild(args.childId);
+      const assignments = await this.assignmentService.findByChild(
+        args.childId,
+      );
       return JSON.stringify({
-        assignments: assignments.map(a => ({
+        assignments: assignments.map((a) => ({
           id: a.id,
           activityType: a.activityType,
           domain: a.domain,

@@ -12,7 +12,7 @@
  * ```
  */
 
-export const TOOL_REGISTRY_METADATA = '__agent_framework_tool__';
+export const TOOL_REGISTRY_METADATA = "__agent_framework_tool__";
 
 /**
  * Decorator that marks a class as an auto-registering tool.

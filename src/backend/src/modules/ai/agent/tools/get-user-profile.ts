@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { UsersService } from '../../../users/users.service';
+import { Injectable } from "@nestjs/common";
+import { UsersService } from "../../../users/users.service";
 
 @Injectable()
 export class GetUserProfileTool {
@@ -8,7 +8,7 @@ export class GetUserProfileTool {
   async execute(args: { childId: number }): Promise<string> {
     try {
       const user = await this.usersService.findById(args.childId);
-      if (!user) return JSON.stringify({ error: '用户不存在' });
+      if (!user) return JSON.stringify({ error: "用户不存在" });
 
       return JSON.stringify({
         name: user.name,

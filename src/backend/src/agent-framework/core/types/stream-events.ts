@@ -3,17 +3,17 @@
  * Uses discriminated union pattern — always check `type` before accessing fields.
  */
 
-import type { ToolCallInfo } from './tool-metadata';
+import type { ToolCallInfo } from "./tool-metadata";
 
 // --- Event types ---
 
 export interface TokenEvent {
-  type: 'token';
+  type: "token";
   content: string;
 }
 
 export interface DoneEvent {
-  type: 'done';
+  type: "done";
   sessionId: string;
   wasFiltered: boolean;
   suggestions?: string[];
@@ -21,30 +21,30 @@ export interface DoneEvent {
 }
 
 export interface ErrorEvent {
-  type: 'error';
+  type: "error";
   message: string;
 }
 
 export interface ThinkingEvent {
-  type: 'thinking';
+  type: "thinking";
   thinkingContent: string;
 }
 
 export interface ToolStartEvent {
-  type: 'tool_start';
+  type: "tool_start";
   toolName: string;
   toolArgs: Record<string, any>;
 }
 
 export interface ToolResultEvent {
-  type: 'tool_result';
+  type: "tool_result";
   toolName: string;
   toolArgs: Record<string, any>;
   toolResult: string;
 }
 
 export interface GameDataEvent {
-  type: 'game_data';
+  type: "game_data";
   activityType: string;
   gameData: string;
   domain?: string;

@@ -4,13 +4,17 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-export type VideoGenerationStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type VideoGenerationStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
 
-export type VideoApprovalStatus = 'pending_approval' | 'approved' | 'rejected';
+export type VideoApprovalStatus = "pending_approval" | "approved" | "rejected";
 
-@Entity('video_generation_tasks')
+@Entity("video_generation_tasks")
 export class VideoGenerationTask {
   @PrimaryGeneratedColumn()
   id: number;
@@ -24,16 +28,16 @@ export class VideoGenerationTask {
   @Column()
   childId: number;
 
-  @Column({ length: 80, default: 'third_party' })
+  @Column({ length: 80, default: "third_party" })
   provider: string;
 
   @Column({ length: 120 })
   cacheKey: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   requestPayload: Record<string, any> | null;
 
-  @Column({ length: 16, default: 'pending' })
+  @Column({ length: 16, default: "pending" })
   status: VideoGenerationStatus;
 
   @Column({ default: 0 })
@@ -54,7 +58,7 @@ export class VideoGenerationTask {
   @Column({ nullable: true, length: 500 })
   errorMessage: string | null;
 
-  @Column({ length: 20, default: 'pending_approval' })
+  @Column({ length: 20, default: "pending_approval" })
   approvalStatus: VideoApprovalStatus;
 
   @Column({ nullable: true, length: 500 })
@@ -75,4 +79,3 @@ export class VideoGenerationTask {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

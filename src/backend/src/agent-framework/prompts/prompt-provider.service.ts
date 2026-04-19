@@ -11,12 +11,12 @@
  * the built-in prompts without modifying template files directly.
  */
 
-import { Injectable } from '@nestjs/common';
-import type { AgeGroup, PromptContext, IPromptProvider } from '../core';
-import { selectPrompt } from './age-adaptive';
+import { Injectable } from "@nestjs/common";
+import type { AgeGroup, PromptContext, IPromptProvider } from "../core";
+import { selectPrompt } from "./age-adaptive";
 
 /** Key used to store registered templates in the internal map. */
-type TemplateKey = `${AgeGroup | 'parent'}:${string}`;
+type TemplateKey = `${AgeGroup | "parent"}:${string}`;
 
 @Injectable()
 export class PromptProviderService implements IPromptProvider {
@@ -51,7 +51,7 @@ export class PromptProviderService implements IPromptProvider {
       sections.push(toolSection);
     }
 
-    return sections.join('\n\n');
+    return sections.join("\n\n");
   }
 
   /**
@@ -76,10 +76,10 @@ export class PromptProviderService implements IPromptProvider {
    */
   buildToolInstructions(tools: string[]): string {
     if (tools.length === 0) {
-      return '';
+      return "";
     }
 
-    const toolList = tools.map((t) => `- ${t}`).join('\n');
+    const toolList = tools.map((t) => `- ${t}`).join("\n");
     return `## 当前可用工具\n${toolList}`;
   }
 
@@ -97,9 +97,9 @@ export class PromptProviderService implements IPromptProvider {
     }
 
     const name =
-      context.role === 'parent'
-        ? (context.parentName ?? '家长')
-        : (context.childName ?? '小朋友');
+      context.role === "parent"
+        ? (context.parentName ?? "家长")
+        : (context.childName ?? "小朋友");
 
     return selectPrompt(context.ageGroup, context.role, name);
   }
@@ -112,7 +112,7 @@ export class PromptProviderService implements IPromptProvider {
     runtimeContext?: Record<string, unknown>,
   ): string {
     if (!runtimeContext || Object.keys(runtimeContext).length === 0) {
-      return '';
+      return "";
     }
 
     const lines = Object.entries(runtimeContext)
@@ -120,9 +120,9 @@ export class PromptProviderService implements IPromptProvider {
       .map(([key, value]) => `- ${key}: ${String(value)}`);
 
     if (lines.length === 0) {
-      return '';
+      return "";
     }
 
-    return `## 运行时上下文\n${lines.join('\n')}`;
+    return `## 运行时上下文\n${lines.join("\n")}`;
   }
 }

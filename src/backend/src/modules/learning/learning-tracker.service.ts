@@ -1,14 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { LearningService } from './learning.service';
-import { AbilitiesService } from '../abilities/abilities.service';
-import { AchievementsService } from '../achievements/achievements.service';
-import { LearningArchiveService, WrongQuestionReviewItem } from './learning-archive.service';
-import { LearningRecord } from '../../database/entities/learning-record.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Achievement } from '../../database/entities/achievement.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { LearningService } from "./learning.service";
+import { AbilitiesService } from "../abilities/abilities.service";
+import { AchievementsService } from "../achievements/achievements.service";
+import {
+  LearningArchiveService,
+  WrongQuestionReviewItem,
+} from "./learning-archive.service";
+import { LearningRecord } from "../../database/entities/learning-record.entity";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Achievement } from "../../database/entities/achievement.entity";
 
-export type ActivityType = 'content_completion' | 'assignment_completion' | 'interactive_activity';
+export type ActivityType =
+  | "content_completion"
+  | "assignment_completion"
+  | "interactive_activity";
 
 export interface RecordActivityParams {
   type: ActivityType;
@@ -47,8 +53,12 @@ export class LearningTrackerService {
     private readonly achievementRepo: Repository<Achievement>,
   ) {}
 
-  async recordActivity(params: RecordActivityParams): Promise<RecordActivityResult> {
-    this.logger.log(`Recording activity: type=${params.type}, child=${params.childId}, domain=${params.domain}, score=${params.score}`);
+  async recordActivity(
+    params: RecordActivityParams,
+  ): Promise<RecordActivityResult> {
+    this.logger.log(
+      `Recording activity: type=${params.type}, child=${params.childId}, domain=${params.domain}, score=${params.score}`,
+    );
 
     // 1. Create learning record — use NULL contentId when no specific content
     const contentId = params.contentId || null;
@@ -59,19 +69,19 @@ export class LearningTrackerService {
       record = await this.learningService.create(params.childId, contentId);
     } else {
       // No specific content (e.g. AI interactive activity) — create directly
-      const { v4: uuidv4 } = await import('uuid');
+      const { v4: uuidv4 } = await import("uuid");
       record = this.recordRepo.create({
         uuid: uuidv4(),
         userId: params.childId,
         contentId: null,
-        status: 'in_progress',
+        status: "in_progress",
       });
       record = await this.recordRepo.save(record);
     }
 
     await this.learningService.update(record.id, {
       score: params.score,
-      status: 'completed',
+      status: "completed",
       completedAt: new Date(),
       durationSeconds: params.durationSeconds || 0,
       interactionData: {
@@ -88,25 +98,31 @@ export class LearningTrackerService {
     });
 
     // 2. Update ability assessment
-    const abilityUpdated = await this.updateAbility(params.childId, params.domain, params.score, params.type);
+    const abilityUpdated = await this.updateAbility(
+      params.childId,
+      params.domain,
+      params.score,
+      params.type,
+    );
 
     // 3. Check and award achievements — include current activity in stats manually
     // to avoid race condition where the just-saved record isn't visible yet
     const stats = await this.gatherStats(params.childId);
     // Increment counts for the activity we just recorded
-    if (params.type === 'interactive_activity') stats.completedActivities++;
-    if (params.type === 'assignment_completion') stats.completedAssignments++;
+    if (params.type === "interactive_activity") stats.completedActivities++;
+    if (params.type === "assignment_completion") stats.completedAssignments++;
     stats.totalLearningRecords++;
     if (params.domain && !stats.distinctDomains.includes(params.domain)) {
       stats.distinctDomains.push(params.domain);
     }
-    const achievementsAwarded = await this.achievementsService.checkAchievements(
-      params.childId,
-      { type: params.type, score: params.score, domain: params.domain },
-      stats,
-    );
+    const achievementsAwarded =
+      await this.achievementsService.checkAchievements(
+        params.childId,
+        { type: params.type, score: params.score, domain: params.domain },
+        stats,
+      );
 
-    if (params.type === 'interactive_activity') {
+    if (params.type === "interactive_activity") {
       try {
         if (params.topic) {
           await this.archiveService.recordActivityLearning({
@@ -129,11 +145,15 @@ export class LearningTrackerService {
           });
         }
       } catch (error) {
-        this.logger.warn(`Failed to archive activity details: ${error.message}`);
+        this.logger.warn(
+          `Failed to archive activity details: ${error.message}`,
+        );
       }
     }
 
-    this.logger.log(`Activity recorded: record=${record.id}, abilityUpdated=${abilityUpdated}, achievements=${achievementsAwarded.length}`);
+    this.logger.log(
+      `Activity recorded: record=${record.id}, abilityUpdated=${abilityUpdated}, achievements=${achievementsAwarded.length}`,
+    );
 
     return {
       learningRecord: record,
@@ -142,9 +162,17 @@ export class LearningTrackerService {
     };
   }
 
-  private async updateAbility(childId: number, domain: string, score: number, source: string): Promise<boolean> {
+  private async updateAbility(
+    childId: number,
+    domain: string,
+    score: number,
+    source: string,
+  ): Promise<boolean> {
     try {
-      const latest = await this.abilitiesService.getLatestByDomain(childId, domain);
+      const latest = await this.abilitiesService.getLatestByDomain(
+        childId,
+        domain,
+      );
       let newScore: number;
 
       if (latest) {
@@ -161,7 +189,9 @@ export class LearningTrackerService {
       });
       return true;
     } catch (error) {
-      this.logger.warn(`Failed to update ability for child=${childId}, domain=${domain}: ${error.message}`);
+      this.logger.warn(
+        `Failed to update ability for child=${childId}, domain=${domain}: ${error.message}`,
+      );
       return false;
     }
   }
@@ -171,14 +201,14 @@ export class LearningTrackerService {
     today.setHours(0, 0, 0, 0);
 
     const todayRecords = await this.recordRepo
-      .createQueryBuilder('r')
-      .where('r.userId = :childId', { childId })
-      .andWhere('r.startedAt >= :today', { today })
+      .createQueryBuilder("r")
+      .where("r.userId = :childId", { childId })
+      .andWhere("r.startedAt >= :today", { today })
       .getMany();
 
     const allRecords = await this.recordRepo
-      .createQueryBuilder('r')
-      .where('r.userId = :childId', { childId })
+      .createQueryBuilder("r")
+      .where("r.userId = :childId", { childId })
       .getMany();
 
     const domains = new Set<string>();
@@ -189,10 +219,10 @@ export class LearningTrackerService {
       if (r.interactionData?.domain) {
         domains.add(r.interactionData.domain);
       }
-      if (r.interactionData?.source === 'assignment_completion') {
+      if (r.interactionData?.source === "assignment_completion") {
         completedAssignments++;
       }
-      if (r.interactionData?.source === 'interactive_activity') {
+      if (r.interactionData?.source === "interactive_activity") {
         completedActivities++;
       }
     }

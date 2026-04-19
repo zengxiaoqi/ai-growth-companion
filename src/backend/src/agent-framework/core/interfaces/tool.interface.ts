@@ -4,7 +4,7 @@
  * describing its capabilities and requirements.
  */
 
-import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../types';
+import type { ToolMetadata, ToolResult, ToolExecutionContext } from "../types";
 
 /**
  * The universal tool interface.
@@ -22,5 +22,8 @@ export interface ITool<TInput = any, TOutput = unknown> {
    * Execute the tool with validated arguments and execution context.
    * Returns a structured result envelope — never throws for business errors.
    */
-  execute(args: TInput, context: ToolExecutionContext): Promise<ToolResult<TOutput>>;
+  execute(
+    args: TInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult<TOutput>>;
 }

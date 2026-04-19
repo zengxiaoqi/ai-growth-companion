@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { RecommendService } from '../../../recommend/recommend.service';
-import { UsersService } from '../../../users/users.service';
+import { Injectable } from "@nestjs/common";
+import { RecommendService } from "../../../recommend/recommend.service";
+import { UsersService } from "../../../users/users.service";
 
 @Injectable()
 export class GetRecommendationsTool {
@@ -12,10 +12,11 @@ export class GetRecommendationsTool {
   async execute(args: { childId: number }): Promise<string> {
     try {
       const user = await this.usersService.findById(args.childId);
-      if (!user) return JSON.stringify({ error: '用户不存在' });
+      if (!user) return JSON.stringify({ error: "用户不存在" });
 
       const age = user.age;
-      const ageRange = age >= 3 && age <= 4 ? '3-4' : age >= 5 && age <= 6 ? '5-6' : '5-6';
+      const ageRange =
+        age >= 3 && age <= 4 ? "3-4" : age >= 5 && age <= 6 ? "5-6" : "5-6";
 
       const result = await this.recommendService.recommend({
         userId: args.childId,
@@ -24,8 +25,8 @@ export class GetRecommendationsTool {
 
       const recommendations = result.recommended?.map((r: any) => ({
         contentId: r.contentId,
-        title: r.content?.title || '未知',
-        domain: r.content?.domain || '未知',
+        title: r.content?.title || "未知",
+        domain: r.content?.domain || "未知",
         reason: r.reason,
         priority: r.priority,
       }));

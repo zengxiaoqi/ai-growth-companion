@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ContentsService } from '../../../contents/contents.service';
+import { Injectable } from "@nestjs/common";
+import { ContentsService } from "../../../contents/contents.service";
 
 @Injectable()
 export class SearchContentTool {

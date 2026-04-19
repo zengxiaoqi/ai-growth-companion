@@ -1,7 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import type { ISkill, ISkillRegistry, SkillDefinition, SkillExecutionContext } from '../core';
-import { loadSkillsFromDirectory } from './markdown-skill-loader';
-import * as path from 'path';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import type {
+  ISkill,
+  ISkillRegistry,
+  SkillDefinition,
+  SkillExecutionContext,
+} from "../core";
+import { loadSkillsFromDirectory } from "./markdown-skill-loader";
+import * as path from "path";
 
 @Injectable()
 export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
@@ -9,8 +14,9 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
   private readonly skills: Map<string, ISkill> = new Map();
 
   async onModuleInit(): Promise<void> {
-    const builtInDir = path.join(__dirname, 'definitions');
-    const externalDir = process.env.SKILLS_DIR || path.join(process.cwd(), 'skills');
+    const builtInDir = path.join(__dirname, "definitions");
+    const externalDir =
+      process.env.SKILLS_DIR || path.join(process.cwd(), "skills");
 
     const dirs = [builtInDir];
     if (externalDir !== builtInDir) {
@@ -38,10 +44,10 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
   }
 
   findByTrigger(keyword: string): ISkill[] {
-    return this.getAll().filter(skill =>
-      skill.definition.triggers.some(trigger =>
-        keyword.includes(trigger) || trigger.includes(keyword)
-      )
+    return this.getAll().filter((skill) =>
+      skill.definition.triggers.some(
+        (trigger) => keyword.includes(trigger) || trigger.includes(keyword),
+      ),
     );
   }
 
@@ -57,7 +63,7 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
   getSkillsForAgent(allowedSkills?: string[]): ISkill[] {
     if (!allowedSkills || allowedSkills.length === 0) return [];
     return allowedSkills
-      .map(id => this.skills.get(id))
+      .map((id) => this.skills.get(id))
       .filter((s): s is ISkill => s != null);
   }
 }

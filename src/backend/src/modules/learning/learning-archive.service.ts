@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Between, In, MoreThan, Repository } from 'typeorm';
-import { createHash } from 'crypto';
-import { LearningPoint } from '../../database/entities/learning-point.entity';
-import { WrongQuestion } from '../../database/entities/wrong-question.entity';
-import { StudyPlanRecord } from '../../database/entities/study-plan-record.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Between, In, MoreThan, Repository } from "typeorm";
+import { createHash } from "crypto";
+import { LearningPoint } from "../../database/entities/learning-point.entity";
+import { WrongQuestion } from "../../database/entities/wrong-question.entity";
+import { StudyPlanRecord } from "../../database/entities/study-plan-record.entity";
 
 export interface WrongQuestionReviewItem {
   question: string;
@@ -29,12 +29,12 @@ export class LearningArchiveService {
   ) {}
 
   normalizePointKey(raw: string): string {
-    const normalized = (raw || '')
+    const normalized = (raw || "")
       .toLowerCase()
       .trim()
-      .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    return normalized || 'unknown-topic';
+      .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return normalized || "unknown-topic";
   }
 
   async upsertLearningPoint(params: {
@@ -42,14 +42,16 @@ export class LearningArchiveService {
     sessionId?: string;
     domain?: string;
     pointLabel: string;
-    source: 'chat_summary' | 'activity';
+    source: "chat_summary" | "activity";
     evidence?: Record<string, any>;
   }): Promise<void> {
-    const pointLabel = (params.pointLabel || '').trim().slice(0, 255);
+    const pointLabel = (params.pointLabel || "").trim().slice(0, 255);
     if (!pointLabel) return;
 
     const now = new Date();
-    const cooldownUntil = new Date(now.getTime() + this.cooldownDays * 24 * 60 * 60 * 1000);
+    const cooldownUntil = new Date(
+      now.getTime() + this.cooldownDays * 24 * 60 * 60 * 1000,
+    );
     const pointKey = this.normalizePointKey(pointLabel);
 
     const existing = await this.pointRepo.findOne({
@@ -84,18 +86,18 @@ export class LearningArchiveService {
 
   private inferDomain(text: string): string | undefined {
     const t = text.toLowerCase();
-    if (/(数学|加减|乘除|数字|几何|math)/.test(t)) return 'math';
-    if (/(科学|实验|植物|动物|自然|science)/.test(t)) return 'science';
-    if (/(艺术|绘画|颜色|音乐|art)/.test(t)) return 'art';
-    if (/(社交|礼貌|沟通|朋友|social)/.test(t)) return 'social';
-    if (/(拼音|汉字|阅读|故事|语言|language)/.test(t)) return 'language';
+    if (/(数学|加减|乘除|数字|几何|math)/.test(t)) return "math";
+    if (/(科学|实验|植物|动物|自然|science)/.test(t)) return "science";
+    if (/(艺术|绘画|颜色|音乐|art)/.test(t)) return "art";
+    if (/(社交|礼貌|沟通|朋友|social)/.test(t)) return "social";
+    if (/(拼音|汉字|阅读|故事|语言|language)/.test(t)) return "language";
     return undefined;
   }
 
   private extractLearningPoints(text: string): string[] {
-    const clean = (text || '')
-      .replace(/[#>*`]/g, ' ')
-      .replace(/\s+/g, ' ')
+    const clean = (text || "")
+      .replace(/[#>*`]/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
     if (!clean) return [];
 
@@ -109,16 +111,21 @@ export class LearningArchiveService {
     return unique.slice(0, 4);
   }
 
-  private isAiPlanLikeReply(userMessage: string, assistantReply: string): boolean {
+  private isAiPlanLikeReply(
+    userMessage: string,
+    assistantReply: string,
+  ): boolean {
     const joined = `${userMessage} ${assistantReply}`.toLowerCase();
     const hasIntent = /(计划|安排|任务|日程|复习|学习清单|步骤)/.test(joined);
-    const hasStructure = /(1\.|2\.|第一|第二|第三|今日|明日|本周)/.test(assistantReply);
+    const hasStructure = /(1\.|2\.|第一|第二|第三|今日|明日|本周)/.test(
+      assistantReply,
+    );
     return hasIntent && hasStructure;
   }
 
   private buildPlanTitle(userMessage: string): string {
-    const msg = (userMessage || '').trim();
-    if (!msg) return 'AI 学习计划';
+    const msg = (userMessage || "").trim();
+    if (!msg) return "AI 学习计划";
     return msg.length > 36 ? `${msg.slice(0, 36)}...` : msg;
   }
 
@@ -131,7 +138,9 @@ export class LearningArchiveService {
   }): Promise<void> {
     try {
       const points = this.extractLearningPoints(params.assistantReply);
-      const domain = this.inferDomain(`${params.userMessage} ${params.assistantReply}`);
+      const domain = this.inferDomain(
+        `${params.userMessage} ${params.assistantReply}`,
+      );
 
       for (const point of points) {
         await this.upsertLearningPoint({
@@ -139,7 +148,7 @@ export class LearningArchiveService {
           sessionId: params.sessionId,
           domain,
           pointLabel: point,
-          source: 'chat_summary',
+          source: "chat_summary",
           evidence: {
             userMessage: params.userMessage.slice(0, 240),
             assistantReply: params.assistantReply.slice(0, 240),
@@ -151,14 +160,14 @@ export class LearningArchiveService {
         await this.createStudyPlanRecord({
           childId: params.childId,
           parentId: params.parentId,
-          sourceType: 'ai_generated',
+          sourceType: "ai_generated",
           title: this.buildPlanTitle(params.userMessage),
           sessionId: params.sessionId,
           planContent: {
             userMessage: params.userMessage,
             assistantReply: params.assistantReply,
           },
-          status: 'active',
+          status: "active",
         });
       }
     } catch (error) {
@@ -181,7 +190,7 @@ export class LearningArchiveService {
       sessionId: params.sessionId,
       domain: params.domain,
       pointLabel: params.topic,
-      source: 'activity',
+      source: "activity",
       evidence: {
         activityType: params.activityType,
         interactionData: params.interactionData,
@@ -196,14 +205,16 @@ export class LearningArchiveService {
     activityType?: string;
     reviewItems: WrongQuestionReviewItem[];
   }): Promise<void> {
-    const items = (params.reviewItems || []).filter((item) => !item.isCorrect && item.question);
+    const items = (params.reviewItems || []).filter(
+      (item) => !item.isCorrect && item.question,
+    );
     if (items.length === 0) return;
 
     for (const item of items) {
       const questionText = item.question.trim().slice(0, 2000);
-      const hash = createHash('sha256')
+      const hash = createHash("sha256")
         .update(`${params.childId}|${questionText}`)
-        .digest('hex');
+        .digest("hex");
 
       const existing = await this.wrongRepo.findOne({
         where: { childId: params.childId, questionHash: hash },
@@ -216,7 +227,7 @@ export class LearningArchiveService {
         existing.userAnswer = item.userAnswer || existing.userAnswer;
         existing.correctAnswer = item.correctAnswer || existing.correctAnswer;
         existing.explanation = item.explanation || existing.explanation;
-        existing.status = 'new';
+        existing.status = "new";
         existing.occurredAt = new Date();
         await this.wrongRepo.save(existing);
         continue;
@@ -232,7 +243,7 @@ export class LearningArchiveService {
         userAnswer: item.userAnswer || null,
         correctAnswer: item.correctAnswer || null,
         explanation: item.explanation || null,
-        status: 'new',
+        status: "new",
         occurredAt: new Date(),
         metadata: null,
       });
@@ -243,14 +254,14 @@ export class LearningArchiveService {
   async createStudyPlanRecord(params: {
     childId: number;
     parentId?: number;
-    sourceType: 'ai_generated' | 'parent_assignment' | 'ai_course_pack';
+    sourceType: "ai_generated" | "parent_assignment" | "ai_course_pack";
     sourceId?: number;
     title: string;
     planContent?: Record<string, any>;
     status?: string;
     sessionId?: string;
   }): Promise<StudyPlanRecord> {
-    const title = (params.title || '学习计划').trim().slice(0, 180);
+    const title = (params.title || "学习计划").trim().slice(0, 180);
     const row = this.planRepo.create({
       childId: params.childId,
       parentId: params.parentId ?? null,
@@ -258,7 +269,7 @@ export class LearningArchiveService {
       sourceId: params.sourceId ?? null,
       title,
       planContent: params.planContent ?? null,
-      status: params.status || 'active',
+      status: params.status || "active",
       sessionId: params.sessionId || null,
     });
     return this.planRepo.save(row);
@@ -269,11 +280,17 @@ export class LearningArchiveService {
   }
 
   async getStudyPlansByIds(ids: number[]): Promise<StudyPlanRecord[]> {
-    const normalized = [...new Set((ids || []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+    const normalized = [
+      ...new Set(
+        (ids || [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0),
+      ),
+    ];
     if (normalized.length === 0) return [];
     return this.planRepo.find({
       where: { id: In(normalized) },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -291,7 +308,8 @@ export class LearningArchiveService {
     const row = await this.getStudyPlanById(id);
     if (!row) return null;
 
-    if (patch.title != null) row.title = String(patch.title).trim().slice(0, 180) || row.title;
+    if (patch.title != null)
+      row.title = String(patch.title).trim().slice(0, 180) || row.title;
     if (patch.planContent !== undefined) row.planContent = patch.planContent;
     if (patch.status != null) row.status = patch.status;
     if (patch.sourceId !== undefined) row.sourceId = patch.sourceId;
@@ -311,11 +329,15 @@ export class LearningArchiveService {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(100, Math.max(1, params.limit || 20));
     const qb = this.planRepo
-      .createQueryBuilder('plan')
-      .where('plan.childId = :childId', { childId: params.childId })
-      .andWhere('plan.sourceType = :sourceType', { sourceType: params.sourceType })
-      .andWhere('(plan.sourceId = :rootId OR plan.id = :rootId)', { rootId: params.rootSourceId })
-      .orderBy('plan.createdAt', 'DESC')
+      .createQueryBuilder("plan")
+      .where("plan.childId = :childId", { childId: params.childId })
+      .andWhere("plan.sourceType = :sourceType", {
+        sourceType: params.sourceType,
+      })
+      .andWhere("(plan.sourceId = :rootId OR plan.id = :rootId)", {
+        rootId: params.rootSourceId,
+      })
+      .orderBy("plan.createdAt", "DESC")
       .take(limit)
       .skip((page - 1) * limit);
 
@@ -326,7 +348,7 @@ export class LearningArchiveService {
   async getLearningPoints(params: {
     childId: number;
     domain?: string;
-    status?: 'cooldown' | 'available';
+    status?: "cooldown" | "available";
     from?: string;
     to?: string;
     page?: number;
@@ -338,8 +360,9 @@ export class LearningArchiveService {
     if (params.domain) where.domain = params.domain;
 
     const now = new Date();
-    if (params.status === 'cooldown') where.cooldownUntil = MoreThan(now);
-    if (params.status === 'available') where.cooldownUntil = Between(new Date(0), now);
+    if (params.status === "cooldown") where.cooldownUntil = MoreThan(now);
+    if (params.status === "available")
+      where.cooldownUntil = Between(new Date(0), now);
 
     if (params.from || params.to) {
       where.lastLearnedAt = Between(
@@ -350,7 +373,7 @@ export class LearningArchiveService {
 
     const [list, total] = await this.pointRepo.findAndCount({
       where,
-      order: { lastLearnedAt: 'DESC' },
+      order: { lastLearnedAt: "DESC" },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -373,7 +396,7 @@ export class LearningArchiveService {
 
     const [list, total] = await this.wrongRepo.findAndCount({
       where,
-      order: { occurredAt: 'DESC' },
+      order: { occurredAt: "DESC" },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -394,7 +417,7 @@ export class LearningArchiveService {
 
     const [list, total] = await this.planRepo.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -408,7 +431,7 @@ export class LearningArchiveService {
         childId,
         cooldownUntil: MoreThan(new Date()),
       },
-      select: ['pointKey'],
+      select: ["pointKey"],
     });
     return new Set(rows.map((row) => row.pointKey));
   }

@@ -1,11 +1,11 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Assignment } from '../../database/entities/assignment.entity';
-import { AssignmentService } from './assignment.service';
-import { AssignmentController } from './assignment.controller';
-import { AiModule } from '../ai/ai.module';
-import { LearningModule } from '../learning/learning.module';
-import { UsersModule } from '../users/users.module';
+import { Module, forwardRef } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { Assignment } from "../../database/entities/assignment.entity";
+import { AssignmentService } from "./assignment.service";
+import { AssignmentController } from "./assignment.controller";
+import { AiModule } from "../ai/ai.module";
+import { LearningModule } from "../learning/learning.module";
+import { UsersModule } from "../users/users.module";
 
 @Module({
   imports: [

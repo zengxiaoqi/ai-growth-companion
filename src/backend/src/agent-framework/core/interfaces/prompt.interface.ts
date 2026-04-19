@@ -7,14 +7,14 @@
  * - Available tools
  */
 
-import type { AgeGroup } from '../types';
+import type { AgeGroup } from "../types";
 
 /** Context used to build a system prompt */
 export interface PromptContext {
   childName?: string;
   parentName?: string;
   ageGroup: AgeGroup;
-  role: 'child' | 'parent';
+  role: "child" | "parent";
   availableTools: string[];
   /** Additional runtime context (childId, parentId, etc.) */
   runtimeContext?: Record<string, unknown>;

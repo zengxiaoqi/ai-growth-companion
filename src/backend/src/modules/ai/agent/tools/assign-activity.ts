@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AssignmentService } from '../../../assignment/assignment.service';
-import { ConversationManager } from '../../conversation/conversation-manager';
-import { GenerateActivityTool } from './generate-activity';
+import { Injectable, Logger } from "@nestjs/common";
+import { AssignmentService } from "../../../assignment/assignment.service";
+import { ConversationManager } from "../../conversation/conversation-manager";
+import { GenerateActivityTool } from "./generate-activity";
 
 type PendingAssignmentDraft = {
   childId: number;
@@ -45,21 +45,23 @@ export class AssignActivityTool {
     try {
       const conversationId = args.conversationId;
       if (!conversationId) {
-        return JSON.stringify({ error: '缺少会话信息，无法执行作业发布流程' });
+        return JSON.stringify({ error: "缺少会话信息，无法执行作业发布流程" });
       }
 
       if (args.cancelDraft) {
         await this.saveDraft(conversationId, null);
         return JSON.stringify({
-          status: 'draft_cleared',
-          message: '已取消当前作业草稿',
+          status: "draft_cleared",
+          message: "已取消当前作业草稿",
         });
       }
 
       if (args.confirmPublish) {
         const draft = await this.loadValidDraft(conversationId);
         if (!draft) {
-          return JSON.stringify({ error: '未找到可发布的作业草稿，请先生成草稿' });
+          return JSON.stringify({
+            error: "未找到可发布的作业草稿，请先生成草稿",
+          });
         }
 
         const assignment = await this.assignmentService.create({
@@ -74,27 +76,36 @@ export class AssignActivityTool {
 
         await this.saveDraft(conversationId, null);
         return JSON.stringify({
-          status: 'published',
+          status: "published",
           assignmentId: assignment.id,
           topic: draft.topic,
           activityType: draft.activityType,
-          message: '作业已发布',
+          message: "作业已发布",
         });
       }
 
       if (!Number.isFinite(Number(args.childId))) {
         return JSON.stringify({
-          status: 'needs_child_selection',
-          message: '请先选择要布置作业的孩子',
+          status: "needs_child_selection",
+          message: "请先选择要布置作业的孩子",
         });
       }
       if (!Number.isFinite(Number(args.parentId))) {
-        return JSON.stringify({ error: '缺少家长信息，无法生成作业草稿' });
+        return JSON.stringify({ error: "缺少家长信息，无法生成作业草稿" });
       }
-      if (!args.activityType || !args.topic || !Number.isFinite(Number(args.difficulty))) {
-        return JSON.stringify({ error: '生成作业草稿需要 activityType/topic/difficulty' });
+      if (
+        !args.activityType ||
+        !args.topic ||
+        !Number.isFinite(Number(args.difficulty))
+      ) {
+        return JSON.stringify({
+          error: "生成作业草稿需要 activityType/topic/difficulty",
+        });
       }
-      const ageGroup = this.resolveAgeGroup(args.ageGroup, Number(args.difficulty));
+      const ageGroup = this.resolveAgeGroup(
+        args.ageGroup,
+        Number(args.difficulty),
+      );
 
       const activityJson = await this.generateActivityTool.execute({
         type: args.activityType as any,
@@ -121,8 +132,8 @@ export class AssignActivityTool {
       await this.saveDraft(conversationId, draft);
 
       return JSON.stringify({
-        status: 'draft_ready',
-        message: '作业草稿已生成，请确认后发布',
+        status: "draft_ready",
+        message: "作业草稿已生成，请确认后发布",
         draft: {
           childId: draft.childId,
           topic: draft.topic,
@@ -140,9 +151,13 @@ export class AssignActivityTool {
     }
   }
 
-  private async loadValidDraft(conversationId: string): Promise<PendingAssignmentDraft | null> {
-    const conversation = await this.conversationManager.getConversationByUuid(conversationId);
-    const draft = (conversation?.metadata?.pendingAssignmentDraft || null) as PendingAssignmentDraft | null;
+  private async loadValidDraft(
+    conversationId: string,
+  ): Promise<PendingAssignmentDraft | null> {
+    const conversation =
+      await this.conversationManager.getConversationByUuid(conversationId);
+    const draft = (conversation?.metadata?.pendingAssignmentDraft ||
+      null) as PendingAssignmentDraft | null;
     if (!draft) return null;
 
     const expiresAt = new Date(draft.expiresAt).getTime();
@@ -154,14 +169,20 @@ export class AssignActivityTool {
     return draft;
   }
 
-  private async saveDraft(conversationId: string, draft: PendingAssignmentDraft | null): Promise<void> {
+  private async saveDraft(
+    conversationId: string,
+    draft: PendingAssignmentDraft | null,
+  ): Promise<void> {
     await this.conversationManager.updateMetadata(conversationId, {
       pendingAssignmentDraft: draft,
     });
   }
 
-  private resolveAgeGroup(ageGroup: string | undefined, difficulty: number): string {
-    if (ageGroup === '3-4' || ageGroup === '5-6') return ageGroup;
-    return difficulty <= 1 ? '3-4' : '5-6';
+  private resolveAgeGroup(
+    ageGroup: string | undefined,
+    difficulty: number,
+  ): string {
+    if (ageGroup === "3-4" || ageGroup === "5-6") return ageGroup;
+    return difficulty <= 1 ? "3-4" : "5-6";
   }
 }

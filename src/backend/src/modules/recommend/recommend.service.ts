@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
-import { LearningRecord } from '../../database/entities/learning-record.entity';
-import { Content } from '../../database/entities/content.entity';
-import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
-import { ParentControl } from '../../database/entities/parent-control.entity';
-import { LearningPoint } from '../../database/entities/learning-point.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { MoreThan, Repository } from "typeorm";
+import { LearningRecord } from "../../database/entities/learning-record.entity";
+import { Content } from "../../database/entities/content.entity";
+import { AbilityAssessment } from "../../database/entities/ability-assessment.entity";
+import { ParentControl } from "../../database/entities/parent-control.entity";
+import { LearningPoint } from "../../database/entities/learning-point.entity";
 
 interface RecommendParams {
   userId: number;
@@ -28,12 +28,12 @@ export class RecommendService {
   ) {}
 
   private normalizePointKey(raw: string): string {
-    const normalized = (raw || '')
+    const normalized = (raw || "")
       .toLowerCase()
       .trim()
-      .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    return normalized || 'unknown-topic';
+      .replace(/[^\u4e00-\u9fa5a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return normalized || "unknown-topic";
   }
 
   /**
@@ -48,7 +48,7 @@ export class RecommendService {
     // 1. 获取用户最近学习记录
     const recentRecords = await this.learningRecordRepository.find({
       where: { userId },
-      order: { startedAt: 'DESC' },
+      order: { startedAt: "DESC" },
       take: 10,
     });
 
@@ -65,7 +65,7 @@ export class RecommendService {
       ageRange,
       domainScores,
       abilities,
-      recentRecords.map(r => r.contentId),
+      recentRecords.map((r) => r.contentId),
       userId,
     );
 
@@ -87,14 +87,14 @@ export class RecommendService {
 
   private analyzePreferences(records: LearningRecord[]) {
     const domainScores: Record<string, number> = {};
-    
+
     // 简单统计：用户学习最多的领域 (从关联的 content 获取)
     for (const record of records) {
       // 如果有 content 关联，从 content 获取 domain
-      const domain = record.content?.domain || 'language';
+      const domain = record.content?.domain || "language";
       domainScores[domain] = (domainScores[domain] || 0) + 1;
     }
-    
+
     return domainScores;
   }
 
@@ -108,7 +108,7 @@ export class RecommendService {
     const cooldownPoints = userId
       ? await this.learningPointRepository.find({
           where: { childId: userId, cooldownUntil: MoreThan(new Date()) },
-          select: ['pointKey'],
+          select: ["pointKey"],
         })
       : [];
     const cooldownPointSet = new Set(cooldownPoints.map((p) => p.pointKey));
@@ -128,22 +128,25 @@ export class RecommendService {
     }
 
     // Build query
-    const query = this.contentRepository.createQueryBuilder('content')
-      .where('content.ageRange = :ageRange', { ageRange })
-      .andWhere('content.status = :status', { status: 'published' });
+    const query = this.contentRepository
+      .createQueryBuilder("content")
+      .where("content.ageRange = :ageRange", { ageRange })
+      .andWhere("content.status = :status", { status: "published" });
 
     if (excludeIds.length > 0) {
-      query.andWhere('content.id NOT IN (:...excludeIds)', { excludeIds });
+      query.andWhere("content.id NOT IN (:...excludeIds)", { excludeIds });
     }
 
     // Apply parent domain filter (overrides weak domain logic)
     const domainsToUse = allowedDomains || weakDomains;
     if (domainsToUse.length > 0) {
-      query.andWhere('content.domain IN (:...domains)', { domains: domainsToUse });
+      query.andWhere("content.domain IN (:...domains)", {
+        domains: domainsToUse,
+      });
     }
 
     const candidates = await query
-      .orderBy('content.difficulty', 'ASC')
+      .orderBy("content.difficulty", "ASC")
       .take(30)
       .getMany();
 
@@ -156,48 +159,62 @@ export class RecommendService {
     return filtered.slice(0, 5);
   }
 
-  private getWeakDomains(abilities: AbilityAssessment[], domainScores: Record<string, number>) {
-    if (!abilities || abilities.length === 0) return ['language', 'math', 'science'];
-    
+  private getWeakDomains(
+    abilities: AbilityAssessment[],
+    domainScores: Record<string, number>,
+  ) {
+    if (!abilities || abilities.length === 0)
+      return ["language", "math", "science"];
+
     // Create a map of domain -> score
     const scoreMap: Record<string, number> = {};
     for (const ability of abilities) {
       scoreMap[ability.domain] = ability.score || 0;
     }
-    
+
     // Convert to array and sort
-    const scores = Object.entries(scoreMap).map(([domain, score]) => ({ domain, score }));
-    
+    const scores = Object.entries(scoreMap).map(([domain, score]) => ({
+      domain,
+      score,
+    }));
+
     // Return weakest 2 domains
-    return scores.sort((a, b) => a.score - b.score).slice(0, 2).map(s => s.domain);
+    return scores
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 2)
+      .map((s) => s.domain);
   }
 
-  private generateReason(domainScores: Record<string, number>, abilities: AbilityAssessment[]) {
-    if (!abilities || abilities.length === 0) return '根据您的年龄推荐适合的内容';
-    
+  private generateReason(
+    domainScores: Record<string, number>,
+    abilities: AbilityAssessment[],
+  ) {
+    if (!abilities || abilities.length === 0)
+      return "根据您的年龄推荐适合的内容";
+
     const weakDomains = this.getWeakDomains(abilities, domainScores);
     if (weakDomains.length > 0) {
       const domainNames: Record<string, string> = {
-        language: '语言',
-        math: '数学',
-        science: '科学',
-        art: '艺术',
-        social: '社会',
+        language: "语言",
+        math: "数学",
+        science: "科学",
+        art: "艺术",
+        social: "社会",
       };
-      return `您最近在 ${weakDomains.map(d => domainNames[d] || d).join('、')} 方面有进步，我们推荐了一些相关内容`;
+      return `您最近在 ${weakDomains.map((d) => domainNames[d] || d).join("、")} 方面有进步，我们推荐了一些相关内容`;
     }
-    
-    return '根据您的学习进度推荐';
+
+    return "根据您的学习进度推荐";
   }
 
   private suggestNextLevel(abilities: AbilityAssessment[] | null) {
     if (!abilities || abilities.length === 0) return null;
-    
-    const scores = abilities.map(a => a.score || 0);
+
+    const scores = abilities.map((a) => a.score || 0);
     const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
-    if (avgScore < 30) return { level: 1, message: '从基础开始' };
-    if (avgScore < 60) return { level: 2, message: '可以尝试进阶内容' };
-    return { level: 3, message: '挑战高级内容！' };
+    if (avgScore < 30) return { level: 1, message: "从基础开始" };
+    if (avgScore < 60) return { level: 2, message: "可以尝试进阶内容" };
+    return { level: 3, message: "挑战高级内容！" };
   }
 }

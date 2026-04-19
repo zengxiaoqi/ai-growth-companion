@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import type { SkillDefinition } from '../core';
+import { Injectable } from "@nestjs/common";
+import type { SkillDefinition } from "../core";
 
 @Injectable()
 export class SkillExecutor {
@@ -11,9 +11,16 @@ export class SkillExecutor {
   }
 
   /** Validate that all required variables are provided */
-  validateInputs(definition: SkillDefinition, variables: Record<string, unknown>): string | null {
+  validateInputs(
+    definition: SkillDefinition,
+    variables: Record<string, unknown>,
+  ): string | null {
     for (const variable of definition.variables) {
-      if (variable.required && variables[variable.name] === undefined && variable.defaultValue === undefined) {
+      if (
+        variable.required &&
+        variables[variable.name] === undefined &&
+        variable.defaultValue === undefined
+      ) {
         return `Missing required variable: ${variable.name}`;
       }
     }
@@ -21,10 +28,16 @@ export class SkillExecutor {
   }
 
   /** Apply default values for missing optional variables */
-  applyDefaults(definition: SkillDefinition, variables: Record<string, unknown>): Record<string, unknown> {
+  applyDefaults(
+    definition: SkillDefinition,
+    variables: Record<string, unknown>,
+  ): Record<string, unknown> {
     const result = { ...variables };
     for (const variable of definition.variables) {
-      if (result[variable.name] === undefined && variable.defaultValue !== undefined) {
+      if (
+        result[variable.name] === undefined &&
+        variable.defaultValue !== undefined
+      ) {
         result[variable.name] = variable.defaultValue;
       }
     }
@@ -36,10 +49,17 @@ export class SkillExecutor {
    * Uses body (Markdown) with fallback to promptTemplate (legacy).
    * Appends all rules content.
    */
-  renderSkillForPrompt(definition: SkillDefinition, variables?: Record<string, unknown>): string {
-    const template = definition.body || definition.promptTemplate || '';
-    const withDefaults = variables ? this.applyDefaults(definition, variables) : {};
-    const renderedBody = template ? this.renderTemplate(template, withDefaults) : '';
+  renderSkillForPrompt(
+    definition: SkillDefinition,
+    variables?: Record<string, unknown>,
+  ): string {
+    const template = definition.body || definition.promptTemplate || "";
+    const withDefaults = variables
+      ? this.applyDefaults(definition, variables)
+      : {};
+    const renderedBody = template
+      ? this.renderTemplate(template, withDefaults)
+      : "";
 
     const parts: string[] = [];
 
@@ -54,6 +74,6 @@ export class SkillExecutor {
       }
     }
 
-    return parts.join('\n\n');
+    return parts.join("\n\n");
   }
 }

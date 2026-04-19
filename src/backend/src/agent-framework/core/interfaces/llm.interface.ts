@@ -7,7 +7,7 @@
 
 /** A single message in the LLM conversation */
 export interface LlmMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string | null;
   toolCalls?: any[];
   toolCallId?: string;
@@ -15,7 +15,7 @@ export interface LlmMessage {
 
 /** A single tool definition in OpenAI function-calling format */
 export interface LlmToolDefinition {
-  type: 'function';
+  type: "function";
   function: {
     name: string;
     description: string;
@@ -28,7 +28,7 @@ export interface LlmResponse {
   content: string | null;
   toolCalls?: Array<{
     id: string;
-    type: 'function';
+    type: "function";
     function: { name: string; arguments: string };
   }>;
   usage?: {

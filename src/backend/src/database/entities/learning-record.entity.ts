@@ -1,8 +1,15 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
-import { User } from './user.entity';
-import { Content } from './content.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+} from "typeorm";
+import { User } from "./user.entity";
+import { Content } from "./content.entity";
 
-@Entity('learning_records')
+@Entity("learning_records")
 export class LearningRecord {
   @PrimaryGeneratedColumn()
   id: number;
@@ -34,12 +41,12 @@ export class LearningRecord {
   @Column({ nullable: true })
   score: number;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   answers: any[];
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   interactionData: any;
 
-  @Column({ default: 'in_progress' })
+  @Column({ default: "in_progress" })
   status: string;
 }

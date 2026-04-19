@@ -1,12 +1,12 @@
 /** Shared types for the AI Agent module */
 
-export type AgeGroup = '3-4' | '5-6' | 'unknown';
+export type AgeGroup = "3-4" | "5-6" | "unknown";
 
 export interface ChatRequest {
   message: string;
   sessionId?: string;
   viewerId: number;
-  viewerType: 'parent' | 'child' | string;
+  viewerType: "parent" | "child" | string;
   targetChildId?: number;
   context?: {
     age?: number;
@@ -48,7 +48,14 @@ export interface QuizResponse {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'done' | 'error' | 'thinking' | 'tool_start' | 'tool_result' | 'game_data';
+  type:
+    | "token"
+    | "done"
+    | "error"
+    | "thinking"
+    | "tool_start"
+    | "tool_result"
+    | "game_data";
   content?: string;
   sessionId?: string;
   wasFiltered?: boolean;

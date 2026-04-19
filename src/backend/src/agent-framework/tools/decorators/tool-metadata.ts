@@ -12,9 +12,9 @@
  * ```
  */
 
-import type { ToolMetadata } from '../../core';
+import type { ToolMetadata } from "../../core";
 
-export const TOOL_META_KEY = '__agent_framework_tool_meta__';
+export const TOOL_META_KEY = "__agent_framework_tool_meta__";
 
 export function ToolMeta(overrides: Partial<ToolMetadata>): ClassDecorator {
   return (target: any) => {

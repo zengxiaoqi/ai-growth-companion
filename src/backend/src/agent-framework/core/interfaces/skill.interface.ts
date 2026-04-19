@@ -10,13 +10,13 @@
  * enabling zero-code capability extensions.
  */
 
-import type { AgeGroup } from '../types';
-import type { ExecutionResult } from './agent.interface';
+import type { AgeGroup } from "../types";
+import type { ExecutionResult } from "./agent.interface";
 
 /** A variable expected by a skill's prompt template */
 export interface SkillVariable {
   name: string;
-  type: 'string' | 'number' | 'boolean';
+  type: "string" | "number" | "boolean";
   required: boolean;
   defaultValue?: unknown;
   description: string;
@@ -60,7 +60,7 @@ export interface SkillDefinition {
 export interface SkillExecutionContext {
   childId?: number;
   parentId?: number;
-  ageGroup: AgeGroup | 'parent';
+  ageGroup: AgeGroup | "parent";
   conversationId: string;
 }
 

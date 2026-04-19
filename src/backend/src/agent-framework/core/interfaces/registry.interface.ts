@@ -5,10 +5,10 @@
  * They are the single source of truth for what's available at runtime.
  */
 
-import type { ITool } from './tool.interface';
-import type { IAgent } from './agent.interface';
-import type { ISkill } from './skill.interface';
-import type { ToolResult, ToolExecutionContext } from '../types';
+import type { ITool } from "./tool.interface";
+import type { IAgent } from "./agent.interface";
+import type { ISkill } from "./skill.interface";
+import type { ToolResult, ToolExecutionContext } from "../types";
 
 // --- Tool Registry ---
 
@@ -22,9 +22,15 @@ export interface IToolRegistry {
   /** Get all registered tools */
   getAll(): ITool[];
   /** Get OpenAI function-calling tool definitions, optionally filtered */
-  getToolDefinitions(filter?: (tool: ITool) => boolean): Array<{ type: 'function'; function: any }>;
+  getToolDefinitions(
+    filter?: (tool: ITool) => boolean,
+  ): Array<{ type: "function"; function: any }>;
   /** Execute a tool by name with the given arguments and context */
-  execute(name: string, args: any, context: ToolExecutionContext): Promise<ToolResult>;
+  execute(
+    name: string,
+    args: any,
+    context: ToolExecutionContext,
+  ): Promise<ToolResult>;
   /** Check whether a tool is registered */
   has(name: string): boolean;
 }

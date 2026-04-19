@@ -8,22 +8,24 @@
  * - Generates quizzes and activities at age-appropriate difficulty
  */
 
-import type { AgentDefinition, AgentContext } from '../../core';
+import type { AgentDefinition, AgentContext } from "../../core";
 
 /** Runtime context hints injected into every system prompt */
 function buildContextHints(context: AgentContext): string {
   return [
-    '## Runtime Context',
-    context.childId != null ? `- Current childId: ${context.childId}` : '',
-    context.parentId != null ? `- Current parentId: ${context.parentId}` : '',
-    '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
-    '- If childId is already known, do not call listChildren only to discover childId.',
-  ].filter(Boolean).join('\n');
+    "## Runtime Context",
+    context.childId != null ? `- Current childId: ${context.childId}` : "",
+    context.parentId != null ? `- Current parentId: ${context.parentId}` : "",
+    "- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.",
+    "- If childId is already known, do not call listChildren only to discover childId.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** System prompt for 3-4 year old children */
 function systemPrompt34(context: AgentContext): string {
-  const childName = context.childName || '小朋友';
+  const childName = context.childName || "小朋友";
   return `你是灵犀伴学的AI学习伙伴，正在和一个3-4岁的孩子${childName}聊天。
 
 ## 你的身份
@@ -64,7 +66,7 @@ ${buildContextHints(context)}`;
 
 /** System prompt for 5-6 year old children */
 function systemPrompt56(context: AgentContext): string {
-  const childName = context.childName || '小朋友';
+  const childName = context.childName || "小朋友";
   return `你是灵犀伴学的AI学习伙伴，正在和一个5-6岁的孩子${childName}聊天。
 
 ## 你的身份
@@ -107,42 +109,43 @@ ${buildContextHints(context)}`;
 
 /** Build the system prompt based on age group */
 function buildChildSystemPrompt(context: AgentContext): string {
-  if (context.ageGroup === '3-4') return systemPrompt34(context);
+  if (context.ageGroup === "3-4") return systemPrompt34(context);
   return systemPrompt56(context); // default to 5-6 style
 }
 
 /** The child companion agent definition */
 export const childCompanionDefinition: AgentDefinition = {
-  type: 'child-companion',
-  name: '儿童学习伙伴',
-  description: 'AI学习伙伴，陪伴3-6岁儿童进行个性化学习、互动对话、知识探索和活动游戏',
+  type: "child-companion",
+  name: "儿童学习伙伴",
+  description:
+    "AI学习伙伴，陪伴3-6岁儿童进行个性化学习、互动对话、知识探索和活动游戏",
 
   buildSystemPrompt: buildChildSystemPrompt,
 
   allowedTools: [
-    'getUserProfile',
-    'getAbilities',
-    'getLearningHistory',
-    'searchContent',
-    'getRecommendations',
-    'generateActivity',
-    'generateQuiz',
-    'recordLearning',
+    "getUserProfile",
+    "getAbilities",
+    "getLearningHistory",
+    "searchContent",
+    "getRecommendations",
+    "generateActivity",
+    "generateQuiz",
+    "recordLearning",
   ],
 
   disallowedTools: [
-    'listChildren',
-    'viewReport',
-    'viewAbilities',
-    'assignActivity',
-    'updateParentControl',
-    'generateCoursePack',
+    "listChildren",
+    "viewReport",
+    "viewAbilities",
+    "assignActivity",
+    "updateParentControl",
+    "generateCoursePack",
   ],
 
-  allowedSkills: ['quiz-generation', 'story-generation'],
+  allowedSkills: ["quiz-generation", "story-generation"],
 
   maxIterations: 8,
-  defaultAgeGroup: '5-6',
+  defaultAgeGroup: "5-6",
   canSpawnSubAgents: true,
   maxSubAgentDepth: 2,
 };

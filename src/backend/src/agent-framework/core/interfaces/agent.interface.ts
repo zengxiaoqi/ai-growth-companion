@@ -7,9 +7,9 @@
  * 3. Returns a final response (or streams events progressively)
  */
 
-import type { AgeGroup } from '../types';
-import type { StreamEvent } from '../types';
-import type { ToolCallInfo } from '../types';
+import type { AgeGroup } from "../types";
+import type { StreamEvent } from "../types";
+import type { ToolCallInfo } from "../types";
 
 /** Describes an agent's static configuration */
 export interface AgentDefinition {
@@ -41,7 +41,7 @@ export interface AgentDefinition {
 
 /** Message in the agent's conversation history */
 export interface AgentMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
   toolCalls?: any[];
   toolCallId?: string;
@@ -54,7 +54,7 @@ export interface AgentContext {
   parentId?: number;
   childName?: string;
   parentName?: string;
-  ageGroup: AgeGroup | 'parent';
+  ageGroup: AgeGroup | "parent";
   conversationId: string;
   /** Message history for this conversation */
   messages: AgentMessage[];
@@ -82,5 +82,8 @@ export interface IAgent {
   /** Execute synchronously, returning the full result */
   execute(input: string, context: AgentContext): Promise<ExecutionResult>;
   /** Execute with streaming, yielding events progressively */
-  executeStream(input: string, context: AgentContext): AsyncGenerator<StreamEvent>;
+  executeStream(
+    input: string,
+    context: AgentContext,
+  ): AsyncGenerator<StreamEvent>;
 }

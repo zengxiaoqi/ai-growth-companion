@@ -8,7 +8,7 @@
  * - Accepts a plain messages array and returns ExecutionResult / yields StreamEvents
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 import type {
   IToolRegistry,
   ILlmClient,
@@ -18,13 +18,14 @@ import type {
   ExecutionResult,
   StreamEvent,
   ToolCallInfo,
-} from '../core';
-import { stripThinking, extractThinking, filterContent } from '../core';
-import { isActivityType, type ActivityType } from '../core';
-import { extractJsonObject } from '../core';
+} from "../core";
+import { stripThinking, extractThinking, filterContent } from "../core";
+import { isActivityType, type ActivityType } from "../core";
+import { extractJsonObject } from "../core";
 
 /** Fallback reply when max iterations are reached */
-const MAX_ITERATIONS_FALLBACK = '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟';
+const MAX_ITERATIONS_FALLBACK =
+  "我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟";
 
 @Injectable()
 export class AgentExecutorService {
@@ -52,10 +53,14 @@ export class AgentExecutorService {
     toolDefinitions: LlmToolDefinition[] | undefined,
     maxIterations: number,
     context: AgentContext,
-    onToolCall?: (event: { toolName: string; args: Record<string, any>; result: string }) => Promise<void> | void,
+    onToolCall?: (event: {
+      toolName: string;
+      args: Record<string, any>;
+      result: string;
+    }) => Promise<void> | void,
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [
-      { role: 'system', content: systemPrompt },
+      { role: "system", content: systemPrompt },
       ...messages,
     ];
 
@@ -66,16 +71,19 @@ export class AgentExecutorService {
 
       // Check for cancellation
       if (context.abortSignal?.aborted) {
-        this.logger.warn('Agent execution aborted');
+        this.logger.warn("Agent execution aborted");
         break;
       }
 
-      const response = await this.llmClient.chatCompletion(fullMessages, toolDefinitions);
+      const response = await this.llmClient.chatCompletion(
+        fullMessages,
+        toolDefinitions,
+      );
 
       // Check for tool calls from LlmResponse
       if (response.toolCalls && response.toolCalls.length > 0) {
         fullMessages.push({
-          role: 'assistant',
+          role: "assistant",
           content: response.content || null,
           toolCalls: response.toolCalls,
         });
@@ -97,13 +105,23 @@ export class AgentExecutorService {
             conversationId: context.conversationId,
             extra: context.metadata,
           };
-          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, context);
-          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, toolExecContext);
-          const resultString = JSON.stringify(result.data ?? { error: result.error });
+          const normalizedToolArgs = this.normalizeToolArgs(
+            toolName,
+            toolArgs,
+            context,
+          );
+          const result = await this.toolRegistry.execute(
+            toolName,
+            normalizedToolArgs,
+            toolExecContext,
+          );
+          const resultString = JSON.stringify(
+            result.data ?? { error: result.error },
+          );
 
           // Add tool result to messages
           fullMessages.push({
-            role: 'tool',
+            role: "tool",
             content: resultString,
             toolCallId: toolCall.id,
           });
@@ -116,7 +134,11 @@ export class AgentExecutorService {
 
           // Notify caller (for conversation persistence, etc.)
           if (onToolCall) {
-            await onToolCall({ toolName, args: normalizedToolArgs, result: resultString });
+            await onToolCall({
+              toolName,
+              args: normalizedToolArgs,
+              result: resultString,
+            });
           }
         }
 
@@ -136,7 +158,10 @@ export class AgentExecutorService {
         toolCalls: toolCallLog,
         wasFiltered: safeResult.wasFiltered,
         tokenUsage: response.usage
-          ? { prompt: response.usage.promptTokens, completion: response.usage.completionTokens }
+          ? {
+              prompt: response.usage.promptTokens,
+              completion: response.usage.completionTokens,
+            }
           : undefined,
       };
     }
@@ -168,38 +193,51 @@ export class AgentExecutorService {
     toolDefinitions: LlmToolDefinition[] | undefined,
     maxIterations: number,
     context: AgentContext,
-    onToolCall?: (event: { toolName: string; args: Record<string, any>; result: string }) => Promise<void> | void,
+    onToolCall?: (event: {
+      toolName: string;
+      args: Record<string, any>;
+      result: string;
+    }) => Promise<void> | void,
   ): AsyncGenerator<StreamEvent> {
     const fullMessages: LlmMessage[] = [
-      { role: 'system', content: systemPrompt },
+      { role: "system", content: systemPrompt },
       ...messages,
     ];
 
     const toolCallLog: ToolCallInfo[] = [];
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
-      this.logger.log(`[STREAM] Agent iteration ${iteration + 1}/${maxIterations}`);
+      this.logger.log(
+        `[STREAM] Agent iteration ${iteration + 1}/${maxIterations}`,
+      );
 
       if (context.abortSignal?.aborted) {
-        yield { type: 'error', message: 'Agent execution aborted' };
+        yield { type: "error", message: "Agent execution aborted" };
         return;
       }
 
-      const response = await this.llmClient.chatCompletion(fullMessages, toolDefinitions);
+      const response = await this.llmClient.chatCompletion(
+        fullMessages,
+        toolDefinitions,
+      );
       const assistantContent = response.content;
       const assistantToolCalls = response.toolCalls;
-      if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
+      if (
+        !assistantContent &&
+        (!assistantToolCalls || assistantToolCalls.length === 0)
+      )
+        break;
 
       // --- Tool calls ---
       if (assistantToolCalls && assistantToolCalls.length > 0) {
         // Emit thinking content if present (before tool calls)
-        const thinkingContent = extractThinking(assistantContent || '');
+        const thinkingContent = extractThinking(assistantContent || "");
         if (thinkingContent) {
-          yield { type: 'thinking', thinkingContent };
+          yield { type: "thinking", thinkingContent };
         }
 
         fullMessages.push({
-          role: 'assistant',
+          role: "assistant",
           content: assistantContent || null,
           toolCalls: assistantToolCalls,
         });
@@ -222,30 +260,50 @@ export class AgentExecutorService {
             extra: context.metadata,
           };
 
-          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, context);
-          yield { type: 'tool_start', toolName, toolArgs: normalizedToolArgs };
-          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, toolExecContext);
-          const resultString = JSON.stringify(result.data ?? { error: result.error });
-          yield { type: 'tool_result', toolName, toolArgs: normalizedToolArgs, toolResult: resultString };
+          const normalizedToolArgs = this.normalizeToolArgs(
+            toolName,
+            toolArgs,
+            context,
+          );
+          yield { type: "tool_start", toolName, toolArgs: normalizedToolArgs };
+          const result = await this.toolRegistry.execute(
+            toolName,
+            normalizedToolArgs,
+            toolExecContext,
+          );
+          const resultString = JSON.stringify(
+            result.data ?? { error: result.error },
+          );
+          yield {
+            type: "tool_result",
+            toolName,
+            toolArgs: normalizedToolArgs,
+            toolResult: resultString,
+          };
 
           // Emit game_data for generateActivity tool
-          if (toolName === 'generateActivity') {
+          if (toolName === "generateActivity") {
             const resultPayload = extractJsonObject(resultString);
-            const activityType = this.resolveGenerateActivityType(normalizedToolArgs, resultPayload);
+            const activityType = this.resolveGenerateActivityType(
+              normalizedToolArgs,
+              resultPayload,
+            );
             if (activityType && !this.isToolErrorPayload(resultPayload)) {
               yield {
-                type: 'game_data',
+                type: "game_data",
                 activityType,
                 gameData: resultString,
-                domain: normalizedToolArgs.domain || 'language',
+                domain: normalizedToolArgs.domain || "language",
               };
             } else {
-              this.logger.warn('[STREAM] Skip invalid game_data payload for generateActivity');
+              this.logger.warn(
+                "[STREAM] Skip invalid game_data payload for generateActivity",
+              );
             }
           }
 
           fullMessages.push({
-            role: 'tool',
+            role: "tool",
             content: resultString,
             toolCallId: toolCall.id,
           });
@@ -257,7 +315,11 @@ export class AgentExecutorService {
           });
 
           if (onToolCall) {
-            await onToolCall({ toolName, args: normalizedToolArgs, result: resultString });
+            await onToolCall({
+              toolName,
+              args: normalizedToolArgs,
+              result: resultString,
+            });
           }
         }
 
@@ -265,19 +327,24 @@ export class AgentExecutorService {
       }
 
       // --- Final response ---
-      const finalThinking = extractThinking(assistantContent || '');
+      const finalThinking = extractThinking(assistantContent || "");
       if (finalThinking) {
-        yield { type: 'thinking', thinkingContent: finalThinking };
+        yield { type: "thinking", thinkingContent: finalThinking };
       }
 
-      let cleanContent = stripThinking(assistantContent || '');
+      let cleanContent = stripThinking(assistantContent || "");
 
       // If the non-streaming response was only thinking, make a follow-up call without tools
       if (!cleanContent) {
-        this.logger.log('[STREAM] Non-streaming response was empty, making follow-up call without tools');
+        this.logger.log(
+          "[STREAM] Non-streaming response was empty, making follow-up call without tools",
+        );
         try {
-          const followUp = await this.llmClient.chatCompletion(fullMessages, undefined);
-          cleanContent = stripThinking(followUp.content || '');
+          const followUp = await this.llmClient.chatCompletion(
+            fullMessages,
+            undefined,
+          );
+          cleanContent = stripThinking(followUp.content || "");
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           this.logger.warn(`[STREAM] Follow-up call failed: ${msg}`);
@@ -287,14 +354,14 @@ export class AgentExecutorService {
       this.logger.log(`[STREAM] cleanContent length=${cleanContent.length}`);
 
       if (cleanContent) {
-        yield { type: 'token', content: cleanContent };
+        yield { type: "token", content: cleanContent };
       }
 
       // Safety filter
       const safeResult = filterContent(cleanContent);
 
       yield {
-        type: 'done',
+        type: "done",
         sessionId: context.conversationId,
         wasFiltered: safeResult.wasFiltered,
         toolCalls: toolCallLog,
@@ -303,9 +370,9 @@ export class AgentExecutorService {
     }
 
     // Max iterations reached — fallback
-    yield { type: 'token', content: MAX_ITERATIONS_FALLBACK };
+    yield { type: "token", content: MAX_ITERATIONS_FALLBACK };
     yield {
-      type: 'done',
+      type: "done",
       sessionId: context.conversationId,
       wasFiltered: false,
       toolCalls: toolCallLog,
@@ -330,11 +397,13 @@ export class AgentExecutorService {
   }
 
   private isToolErrorPayload(payload: Record<string, any> | null): boolean {
-    return Boolean(payload && typeof payload.error === 'string' && payload.error.trim());
+    return Boolean(
+      payload && typeof payload.error === "string" && payload.error.trim(),
+    );
   }
 
   private inferActivityType(payload: unknown): ActivityType | undefined {
-    if (!payload || typeof payload !== 'object') return undefined;
+    if (!payload || typeof payload !== "object") return undefined;
     const value = payload as Record<string, any>;
 
     if (isActivityType(value.type)) return value.type;
@@ -342,17 +411,17 @@ export class AgentExecutorService {
 
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
-      quiz: ['questions'],
-      true_false: ['statements'],
-      fill_blank: ['sentences'],
-      matching: ['pairs'],
-      connection: ['connections', 'leftItems'],
-      sequencing: ['items'],
-      puzzle: ['pieces'],
+      quiz: ["questions"],
+      true_false: ["statements"],
+      fill_blank: ["sentences"],
+      matching: ["pairs"],
+      connection: ["connections", "leftItems"],
+      sequencing: ["items"],
+      puzzle: ["pieces"],
     };
 
     for (const [type, keys] of Object.entries(ACTIVITY_STRUCTURAL_KEYS)) {
-      if (keys.some(key => Array.isArray(value[key]))) {
+      if (keys.some((key) => Array.isArray(value[key]))) {
         if (isActivityType(type)) return type;
       }
     }
@@ -378,7 +447,7 @@ export class AgentExecutorService {
     if (meta.requiresParentId && context.parentId != null) {
       normalized.parentId = context.parentId;
     }
-    if (meta.requiresAgeGroup && context.ageGroup !== 'parent') {
+    if (meta.requiresAgeGroup && context.ageGroup !== "parent") {
       normalized.ageGroup = context.ageGroup;
     }
 

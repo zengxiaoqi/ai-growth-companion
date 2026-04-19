@@ -3,11 +3,15 @@
  * Migrated from modules/ai/agent/tools/list-children.ts
  */
 
-import { Injectable } from '@nestjs/common';
-import { UsersService } from '../../../modules/users/users.service';
-import { BaseTool } from '../base-tool';
-import { RegisterTool } from '../decorators/register-tool';
-import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { Injectable } from "@nestjs/common";
+import { UsersService } from "../../../modules/users/users.service";
+import { BaseTool } from "../base-tool";
+import { RegisterTool } from "../decorators/register-tool";
+import type {
+  ToolMetadata,
+  ToolResult,
+  ToolExecutionContext,
+} from "../../core";
 
 type ListChildrenInput = { parentId: number };
 
@@ -15,14 +19,14 @@ type ListChildrenInput = { parentId: number };
 @RegisterTool()
 export class ListChildrenTool extends BaseTool<ListChildrenInput> {
   readonly metadata: ToolMetadata = {
-    name: 'listChildren',
-    description: '获取家长下所有孩子的列表信息',
+    name: "listChildren",
+    description: "获取家长下所有孩子的列表信息",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        parentId: { type: 'number', description: '家长ID' },
+        parentId: { type: "number", description: "家长ID" },
       },
-      required: ['parentId'],
+      required: ["parentId"],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -35,11 +39,14 @@ export class ListChildrenTool extends BaseTool<ListChildrenInput> {
     super();
   }
 
-  async execute(args: ListChildrenInput, _context: ToolExecutionContext): Promise<ToolResult> {
+  async execute(
+    args: ListChildrenInput,
+    _context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
       const children = await this.usersService.findByParentId(args.parentId);
       return this.ok(
-        children.map(c => ({
+        children.map((c) => ({
           id: c.id,
           name: c.name,
           age: c.age,

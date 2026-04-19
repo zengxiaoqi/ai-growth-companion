@@ -4,9 +4,9 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('study_plan_records')
+@Entity("study_plan_records")
 export class StudyPlanRecord {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,7 +17,7 @@ export class StudyPlanRecord {
   @Column({ nullable: true })
   parentId: number | null;
 
-  @Column({ default: 'ai_generated', length: 40 })
+  @Column({ default: "ai_generated", length: 40 })
   sourceType: string; // ai_generated | parent_assignment
 
   @Column({ nullable: true })
@@ -26,10 +26,10 @@ export class StudyPlanRecord {
   @Column({ length: 180 })
   title: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   planContent: Record<string, any> | null;
 
-  @Column({ default: 'active', length: 20 })
+  @Column({ default: "active", length: 20 })
   status: string;
 
   @Column({ nullable: true, length: 36 })
@@ -41,4 +41,3 @@ export class StudyPlanRecord {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

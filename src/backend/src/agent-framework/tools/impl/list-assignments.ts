@@ -3,11 +3,15 @@
  * Migrated from modules/ai/agent/tools/list-assignments.ts
  */
 
-import { Injectable } from '@nestjs/common';
-import { AssignmentService } from '../../../modules/assignment/assignment.service';
-import { BaseTool } from '../base-tool';
-import { RegisterTool } from '../decorators/register-tool';
-import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { Injectable } from "@nestjs/common";
+import { AssignmentService } from "../../../modules/assignment/assignment.service";
+import { BaseTool } from "../base-tool";
+import { RegisterTool } from "../decorators/register-tool";
+import type {
+  ToolMetadata,
+  ToolResult,
+  ToolExecutionContext,
+} from "../../core";
 
 type ListAssignmentsInput = { childId: number };
 
@@ -15,14 +19,14 @@ type ListAssignmentsInput = { childId: number };
 @RegisterTool()
 export class ListAssignmentsTool extends BaseTool<ListAssignmentsInput> {
   readonly metadata: ToolMetadata = {
-    name: 'listAssignments',
-    description: '获取孩子的作业/任务列表，包含作业类型、领域、状态和得分',
+    name: "listAssignments",
+    description: "获取孩子的作业/任务列表，包含作业类型、领域、状态和得分",
     inputSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        childId: { type: 'number', description: '孩子ID' },
+        childId: { type: "number", description: "孩子ID" },
       },
-      required: ['childId'],
+      required: ["childId"],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -35,9 +39,14 @@ export class ListAssignmentsTool extends BaseTool<ListAssignmentsInput> {
     super();
   }
 
-  async execute(args: ListAssignmentsInput, _context: ToolExecutionContext): Promise<ToolResult> {
+  async execute(
+    args: ListAssignmentsInput,
+    _context: ToolExecutionContext,
+  ): Promise<ToolResult> {
     try {
-      const assignments = await this.assignmentService.findByChild(args.childId);
+      const assignments = await this.assignmentService.findByChild(
+        args.childId,
+      );
 
       return this.ok(
         assignments.map((a: any) => ({

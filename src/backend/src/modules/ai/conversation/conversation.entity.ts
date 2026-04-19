@@ -5,9 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('conversations')
+@Entity("conversations")
 export class Conversation {
   @PrimaryGeneratedColumn()
   id: number;
@@ -18,10 +18,10 @@ export class Conversation {
   @Column()
   childId: number;
 
-  @Column({ default: 'active' })
+  @Column({ default: "active" })
   status: string; // 'active' | 'ended'
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   metadata: any; // { ageGroup, childName }
 
   @CreateDateColumn()
@@ -30,11 +30,11 @@ export class Conversation {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany('ConversationMessage', 'conversation')
+  @OneToMany("ConversationMessage", "conversation")
   messages: ConversationMessage[];
 }
 
-@Entity('conversation_messages')
+@Entity("conversation_messages")
 export class ConversationMessage {
   @PrimaryGeneratedColumn()
   id: number;
@@ -45,13 +45,13 @@ export class ConversationMessage {
   @Column({ length: 20 })
   role: string; // 'system' | 'user' | 'assistant' | 'tool'
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   content: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   toolCalls: any[];
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   toolResult: any;
 
   @Column({ nullable: true })

@@ -1,2 +1,2 @@
-export { Conversation, ConversationMessage } from './conversation.entity';
-export type { ConversationStatus, MessageRole } from './conversation.entity';
+export { Conversation, ConversationMessage } from "./conversation.entity";
+export type { ConversationStatus, MessageRole } from "./conversation.entity";

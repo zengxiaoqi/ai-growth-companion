@@ -5,8 +5,8 @@
  * agent definitions can be registered from any module.
  */
 
-import { Global, Module } from '@nestjs/common';
-import { AgentRegistryService } from './agent-registry.service';
+import { Global, Module } from "@nestjs/common";
+import { AgentRegistryService } from "./agent-registry.service";
 
 @Global()
 @Module({

@@ -11,9 +11,9 @@
  * across the entire application.
  */
 
-import { Global, Module } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
-import { ToolRegistryService } from './tool-registry.service';
+import { Global, Module } from "@nestjs/common";
+import { DiscoveryModule } from "@nestjs/core";
+import { ToolRegistryService } from "./tool-registry.service";
 
 @Global()
 @Module({

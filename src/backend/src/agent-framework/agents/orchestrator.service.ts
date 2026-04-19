@@ -8,7 +8,7 @@
  * - Keep tool access constrained per agent definition
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 import type {
   IAgentRegistry,
   AgentContext,
@@ -17,17 +17,17 @@ import type {
   StreamEvent,
   LlmMessage,
   LlmToolDefinition,
-} from '../core';
-import { filterContent } from '../core';
-import { AgentExecutorService } from './agent-executor.service';
-import { SkillRegistryService } from '../skills/skill-registry.service';
-import { SkillExecutor } from '../skills/skill-executor';
+} from "../core";
+import { filterContent } from "../core";
+import { AgentExecutorService } from "./agent-executor.service";
+import { SkillRegistryService } from "../skills/skill-registry.service";
+import { SkillExecutor } from "../skills/skill-executor";
 
 /** Interface for conversation persistence - implemented externally */
 export interface IConversationStore {
   addMessage(
     sessionId: string,
-    role: 'user' | 'assistant' | 'tool',
+    role: "user" | "assistant" | "tool",
     content: string,
     meta?: Record<string, any>,
   ): Promise<void>;
@@ -36,12 +36,12 @@ export interface IConversationStore {
 }
 
 type AgentType =
-  | 'child-companion'
-  | 'parent-advisor'
-  | 'course-designer'
-  | 'activity-generator';
+  | "child-companion"
+  | "parent-advisor"
+  | "course-designer"
+  | "activity-generator";
 
-type RouteMode = 'single' | 'coordinated';
+type RouteMode = "single" | "coordinated";
 
 interface IntentSignals {
   course: number;
@@ -75,12 +75,18 @@ export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
 
   private static readonly COURSE_PATTERNS: Array<[RegExp, number]> = [
-    [/\u8BFE\u7A0B\u5305|\u8BFE\u7A0B\u8BA1\u5212|\u5B66\u4E60\u8BA1\u5212|\u5468\u8BA1\u5212|\u6559\u6848|\u8BFE\u8868/i, 3],
+    [
+      /\u8BFE\u7A0B\u5305|\u8BFE\u7A0B\u8BA1\u5212|\u5B66\u4E60\u8BA1\u5212|\u5468\u8BA1\u5212|\u6559\u6848|\u8BFE\u8868/i,
+      3,
+    ],
     [/\bcourse\b|\bpack\b|\blesson\s*plan\b|\bcurriculum\b/i, 2],
   ];
 
   private static readonly ACTIVITY_PATTERNS: Array<[RegExp, number]> = [
-    [/\u6D3B\u52A8|\u7EC3\u4E60|\u6D4B\u9A8C|\u9898\u76EE|\u6E38\u620F|\u4F5C\u4E1A/i, 3],
+    [
+      /\u6D3B\u52A8|\u7EC3\u4E60|\u6D4B\u9A8C|\u9898\u76EE|\u6E38\u620F|\u4F5C\u4E1A/i,
+      3,
+    ],
     [/\bactivity\b|\bquiz\b|\bexercise\b|\bgame\b|\bworksheet\b/i, 2],
   ];
 
@@ -90,7 +96,10 @@ export class OrchestratorService {
   ];
 
   private static readonly CONTROL_PATTERNS: Array<[RegExp, number]> = [
-    [/\u65F6\u957F|\u9650\u5236|\u5BB6\u957F\u63A7\u5236|\u8BBE\u7F6E|\u7BA1\u63A7/i, 2],
+    [
+      /\u65F6\u957F|\u9650\u5236|\u5BB6\u957F\u63A7\u5236|\u8BBE\u7F6E|\u7BA1\u63A7/i,
+      2,
+    ],
     [/\bparent\s*control\b|\blimit\b|\brestriction\b|\bsetting\b/i, 2],
   ];
 
@@ -115,16 +124,25 @@ export class OrchestratorService {
   async route(input: string, context: AgentContext): Promise<ExecutionResult> {
     const startedAt = Date.now();
     const selected = this.agentRegistry.select(input, context);
-    const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
+    const plan = this.buildRoutePlan(
+      input,
+      context,
+      selected.definition.type as AgentType,
+    );
     this.logPlan(plan, false);
 
-    await this.persistMessage(context, 'user', input);
+    await this.persistMessage(context, "user", input);
     const history = await this.loadHistory(context);
 
     let result: ExecutionResult;
     let executionChain: AgentType[];
-    if (plan.mode === 'coordinated') {
-      const coordinated = await this.runCoordinatedFlow(plan, input, context, history);
+    if (plan.mode === "coordinated") {
+      const coordinated = await this.runCoordinatedFlow(
+        plan,
+        input,
+        context,
+        history,
+      );
       result = coordinated.result;
       executionChain = coordinated.executionChain;
     } else {
@@ -132,31 +150,54 @@ export class OrchestratorService {
       executionChain = [plan.primaryAgent];
     }
 
-    await this.persistMessage(context, 'assistant', result.response);
+    await this.persistMessage(context, "assistant", result.response);
     this.logRouteResult(false, plan, executionChain, startedAt, result);
     return result;
   }
 
-  async *routeStream(input: string, context: AgentContext): AsyncGenerator<StreamEvent> {
+  async *routeStream(
+    input: string,
+    context: AgentContext,
+  ): AsyncGenerator<StreamEvent> {
     const startedAt = Date.now();
     const selected = this.agentRegistry.select(input, context);
-    const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
+    const plan = this.buildRoutePlan(
+      input,
+      context,
+      selected.definition.type as AgentType,
+    );
     this.logPlan(plan, true);
 
-    await this.persistMessage(context, 'user', input);
+    await this.persistMessage(context, "user", input);
     const history = await this.loadHistory(context);
 
-    if (plan.mode === 'coordinated') {
+    if (plan.mode === "coordinated") {
       yield {
-        type: 'thinking',
-        thinkingContent: 'Detected composite request, coordinating multiple agents.',
+        type: "thinking",
+        thinkingContent:
+          "Detected composite request, coordinating multiple agents.",
       };
-      const coordinated = await this.runCoordinatedFlow(plan, input, context, history);
-      await this.persistMessage(context, 'assistant', coordinated.result.response);
-      this.logRouteResult(true, plan, coordinated.executionChain, startedAt, coordinated.result);
-      yield { type: 'token', content: coordinated.result.response };
+      const coordinated = await this.runCoordinatedFlow(
+        plan,
+        input,
+        context,
+        history,
+      );
+      await this.persistMessage(
+        context,
+        "assistant",
+        coordinated.result.response,
+      );
+      this.logRouteResult(
+        true,
+        plan,
+        coordinated.executionChain,
+        startedAt,
+        coordinated.result,
+      );
+      yield { type: "token", content: coordinated.result.response };
       yield {
-        type: 'done',
+        type: "done",
         sessionId: context.conversationId,
         wasFiltered: coordinated.result.wasFiltered ?? false,
         toolCalls: coordinated.result.toolCalls,
@@ -165,11 +206,16 @@ export class OrchestratorService {
     }
 
     let systemPrompt = selected.definition.buildSystemPrompt(context);
-    systemPrompt = this.injectSkills(systemPrompt, selected.definition.allowedSkills);
-    const toolDefinitions = this.getFilteredToolDefinitions(selected.definition);
+    systemPrompt = this.injectSkills(
+      systemPrompt,
+      selected.definition.allowedSkills,
+    );
+    const toolDefinitions = this.getFilteredToolDefinitions(
+      selected.definition,
+    );
 
-    let finalContent = '';
-    let finalDone: Extract<StreamEvent, { type: 'done' }> | null = null;
+    let finalContent = "";
+    let finalDone: Extract<StreamEvent, { type: "done" }> | null = null;
     const stream = this.executorService.runLoopStream(
       systemPrompt,
       history,
@@ -177,33 +223,29 @@ export class OrchestratorService {
       selected.definition.maxIterations,
       context,
       async (event) => {
-        await this.persistMessage(context, 'tool', event.result, { toolName: event.toolName });
+        await this.persistMessage(context, "tool", event.result, {
+          toolName: event.toolName,
+        });
       },
     );
 
     for await (const event of stream) {
-      if (event.type === 'token') {
+      if (event.type === "token") {
         finalContent = event.content;
       }
       yield event;
 
-      if (event.type === 'done') {
+      if (event.type === "done") {
         const safeResult = filterContent(finalContent);
-        await this.persistMessage(context, 'assistant', safeResult.content);
+        await this.persistMessage(context, "assistant", safeResult.content);
         finalDone = event;
       }
     }
 
-    this.logRouteResult(
-      true,
-      plan,
-      [plan.primaryAgent],
-      startedAt,
-      {
-        toolCalls: finalDone?.toolCalls || [],
-        wasFiltered: finalDone?.wasFiltered || false,
-      },
-    );
+    this.logRouteResult(true, plan, [plan.primaryAgent], startedAt, {
+      toolCalls: finalDone?.toolCalls || [],
+      wasFiltered: finalDone?.wasFiltered || false,
+    });
   }
 
   private buildRoutePlan(
@@ -217,97 +259,97 @@ export class OrchestratorService {
       OrchestratorService.ASSIGNMENT_PUBLISH_PATTERNS,
     );
 
-    if (context.ageGroup === 'parent') {
+    if (context.ageGroup === "parent") {
       if (signals.course >= 3 && signals.activity >= 3) {
         return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['course-designer', 'activity-generator'],
-          reason: 'parent composite plan: course + activity',
+          mode: "coordinated",
+          primaryAgent: "parent-advisor",
+          collaborators: ["course-designer", "activity-generator"],
+          reason: "parent composite plan: course + activity",
           signals,
         };
       }
       if (signals.course >= 3) {
         return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['course-designer'],
-          reason: 'parent asks for structured course planning',
+          mode: "coordinated",
+          primaryAgent: "parent-advisor",
+          collaborators: ["course-designer"],
+          reason: "parent asks for structured course planning",
           signals,
         };
       }
       if (signals.assignment >= 2) {
         if (wantsAssignmentPublish) {
           return {
-            mode: 'single',
-            primaryAgent: 'parent-advisor',
+            mode: "single",
+            primaryAgent: "parent-advisor",
             collaborators: [],
-            reason: 'parent confirms assignment publish',
+            reason: "parent confirms assignment publish",
             signals,
           };
         }
 
         return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['activity-generator'],
-          reason: 'parent requests assignment drafting',
+          mode: "coordinated",
+          primaryAgent: "parent-advisor",
+          collaborators: ["activity-generator"],
+          reason: "parent requests assignment drafting",
           signals,
         };
       }
       if (signals.activity >= 4) {
         return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['activity-generator'],
-          reason: 'parent asks for rich activity generation',
+          mode: "coordinated",
+          primaryAgent: "parent-advisor",
+          collaborators: ["activity-generator"],
+          reason: "parent asks for rich activity generation",
           signals,
         };
       }
       return {
-        mode: 'single',
-        primaryAgent: 'parent-advisor',
+        mode: "single",
+        primaryAgent: "parent-advisor",
         collaborators: [],
-        reason: 'default parent advisory path',
+        reason: "default parent advisory path",
         signals,
       };
     }
 
     if (signals.course >= 3 && signals.activity >= 3) {
       return {
-        mode: 'coordinated',
-        primaryAgent: 'child-companion',
-        collaborators: ['course-designer', 'activity-generator'],
-        reason: 'child composite request: teach + practice',
+        mode: "coordinated",
+        primaryAgent: "child-companion",
+        collaborators: ["course-designer", "activity-generator"],
+        reason: "child composite request: teach + practice",
         signals,
       };
     }
 
-    if (selectedType === 'course-designer' && signals.activity >= 3) {
+    if (selectedType === "course-designer" && signals.activity >= 3) {
       return {
-        mode: 'coordinated',
-        primaryAgent: 'course-designer',
-        collaborators: ['activity-generator'],
-        reason: 'course-first request with activity follow-up',
+        mode: "coordinated",
+        primaryAgent: "course-designer",
+        collaborators: ["activity-generator"],
+        reason: "course-first request with activity follow-up",
         signals,
       };
     }
 
-    if (selectedType === 'activity-generator' && signals.course >= 3) {
+    if (selectedType === "activity-generator" && signals.course >= 3) {
       return {
-        mode: 'coordinated',
-        primaryAgent: 'activity-generator',
-        collaborators: ['course-designer'],
-        reason: 'activity-first request with course follow-up',
+        mode: "coordinated",
+        primaryAgent: "activity-generator",
+        collaborators: ["course-designer"],
+        reason: "activity-first request with course follow-up",
         signals,
       };
     }
 
     return {
-      mode: 'single',
+      mode: "single",
       primaryAgent: selectedType,
       collaborators: [],
-      reason: 'single-agent route from registry selection',
+      reason: "single-agent route from registry selection",
       signals,
     };
   }
@@ -319,7 +361,10 @@ export class OrchestratorService {
       activity: this.scoreIntent(text, OrchestratorService.ACTIVITY_PATTERNS),
       report: this.scoreIntent(text, OrchestratorService.REPORT_PATTERNS),
       control: this.scoreIntent(text, OrchestratorService.CONTROL_PATTERNS),
-      assignment: this.scoreIntent(text, OrchestratorService.ASSIGNMENT_PATTERNS),
+      assignment: this.scoreIntent(
+        text,
+        OrchestratorService.ASSIGNMENT_PATTERNS,
+      ),
     };
   }
 
@@ -336,11 +381,11 @@ export class OrchestratorService {
   }
 
   private logPlan(plan: RoutePlan, streaming: boolean): void {
-    const mode = streaming ? '[STREAM]' : '[SYNC]';
+    const mode = streaming ? "[STREAM]" : "[SYNC]";
     this.logger.log(
       `${mode} Route plan: mode=${plan.mode}, primary=${plan.primaryAgent}, ` +
-      `collaborators=${plan.collaborators.join(',') || 'none'}, reason=${plan.reason}, ` +
-      `signals=${JSON.stringify(plan.signals)}`,
+        `collaborators=${plan.collaborators.join(",") || "none"}, reason=${plan.reason}, ` +
+        `signals=${JSON.stringify(plan.signals)}`,
     );
   }
 
@@ -349,9 +394,9 @@ export class OrchestratorService {
     plan: RoutePlan,
     executionChain: AgentType[],
     startedAt: number,
-    result: Pick<ExecutionResult, 'toolCalls' | 'wasFiltered'>,
+    result: Pick<ExecutionResult, "toolCalls" | "wasFiltered">,
   ): void {
-    const mode = streaming ? '[STREAM]' : '[SYNC]';
+    const mode = streaming ? "[STREAM]" : "[SYNC]";
     const payload = {
       mode: plan.mode,
       primaryAgent: plan.primaryAgent,
@@ -377,10 +422,21 @@ export class OrchestratorService {
       const collaboratorDef = this.getAgentDefinition(collaborator);
       if (!collaboratorDef) continue;
 
-      const taskPrompt = this.buildSpecialistTaskPrompt(collaborator, input, sections);
-      const runHistory: LlmMessage[] = [...history, { role: 'user', content: taskPrompt }];
+      const taskPrompt = this.buildSpecialistTaskPrompt(
+        collaborator,
+        input,
+        sections,
+      );
+      const runHistory: LlmMessage[] = [
+        ...history,
+        { role: "user", content: taskPrompt },
+      ];
 
-      const result = await this.runSingleAgent(collaboratorDef, context, runHistory);
+      const result = await this.runSingleAgent(
+        collaboratorDef,
+        context,
+        runHistory,
+      );
       executionChain.push(collaborator);
       sections.push({
         agentType: collaborator,
@@ -392,9 +448,20 @@ export class OrchestratorService {
     const primaryDef = this.getAgentDefinition(plan.primaryAgent);
     let primaryResult: ExecutionResult | undefined;
     if (primaryDef) {
-      const integrationPrompt = this.buildPrimaryIntegrationPrompt(plan, input, sections);
-      const runHistory: LlmMessage[] = [...history, { role: 'user', content: integrationPrompt }];
-      primaryResult = await this.runSingleAgent(primaryDef, context, runHistory);
+      const integrationPrompt = this.buildPrimaryIntegrationPrompt(
+        plan,
+        input,
+        sections,
+      );
+      const runHistory: LlmMessage[] = [
+        ...history,
+        { role: "user", content: integrationPrompt },
+      ];
+      primaryResult = await this.runSingleAgent(
+        primaryDef,
+        context,
+        runHistory,
+      );
       executionChain.push(plan.primaryAgent);
     }
 
@@ -417,7 +484,7 @@ export class OrchestratorService {
     sections: AgentRunSection[],
     primaryResult?: ExecutionResult,
   ): ExecutionResult {
-    const allToolCalls: ExecutionResult['toolCalls'] = [];
+    const allToolCalls: ExecutionResult["toolCalls"] = [];
     let promptTokens = 0;
     let completionTokens = 0;
     let wasFiltered = false;
@@ -445,13 +512,11 @@ export class OrchestratorService {
 
     const text = [
       `Multi-agent coordination completed (primary: ${this.agentTitle(plan.primaryAgent)}).`,
-      '',
-      ...sections.map(section => [
-        `## ${section.title}`,
-        section.result.response,
-        '',
-      ].join('\n')),
-    ].join('\n');
+      "",
+      ...sections.map((section) =>
+        [`## ${section.title}`, section.result.response, ""].join("\n"),
+      ),
+    ].join("\n");
 
     return {
       response: text,
@@ -466,33 +531,34 @@ export class OrchestratorService {
     userInput: string,
     existingSections: AgentRunSection[],
   ): string {
-    const knownOutputs = existingSections.length > 0
-      ? `Existing specialist outputs:\n${existingSections.map(section => `- ${section.title}: ${this.truncateText(section.result.response, 260)}`).join('\n')}`
-      : 'No prior specialist outputs.';
+    const knownOutputs =
+      existingSections.length > 0
+        ? `Existing specialist outputs:\n${existingSections.map((section) => `- ${section.title}: ${this.truncateText(section.result.response, 260)}`).join("\n")}`
+        : "No prior specialist outputs.";
 
-    if (collaborator === 'course-designer') {
+    if (collaborator === "course-designer") {
       return [
-        'You are the course-design specialist in a coordinated run. Output only the course plan part.',
+        "You are the course-design specialist in a coordinated run. Output only the course plan part.",
         `User request: ${userInput}`,
         knownOutputs,
-        'Must include: learning goals, modules, duration per module, parent execution tips.',
-      ].join('\n');
+        "Must include: learning goals, modules, duration per module, parent execution tips.",
+      ].join("\n");
     }
 
-    if (collaborator === 'activity-generator') {
+    if (collaborator === "activity-generator") {
       return [
-        'You are the activity-design specialist in a coordinated run. Output only activities/exercises.',
+        "You are the activity-design specialist in a coordinated run. Output only activities/exercises.",
         `User request: ${userInput}`,
         knownOutputs,
-        'Must include: activity type, target ability, steps, difficulty, duration.',
-      ].join('\n');
+        "Must include: activity type, target ability, steps, difficulty, duration.",
+      ].join("\n");
     }
 
     return [
-      'You are a specialist in a coordinated run.',
+      "You are a specialist in a coordinated run.",
       `User request: ${userInput}`,
       knownOutputs,
-    ].join('\n');
+    ].join("\n");
   }
 
   private buildPrimaryIntegrationPrompt(
@@ -500,37 +566,39 @@ export class OrchestratorService {
     userInput: string,
     sections: AgentRunSection[],
   ): string {
-    const sectionText = sections.length > 0
-      ? sections.map(section => [
-          `### ${section.title}`,
-          section.result.response,
-        ].join('\n')).join('\n\n')
-      : 'No specialist results available. Complete the request directly.';
+    const sectionText =
+      sections.length > 0
+        ? sections
+            .map((section) =>
+              [`### ${section.title}`, section.result.response].join("\n"),
+            )
+            .join("\n\n")
+        : "No specialist results available. Complete the request directly.";
 
     return [
-      'You are the primary coordinating agent. Integrate specialist outputs into one final answer.',
+      "You are the primary coordinating agent. Integrate specialist outputs into one final answer.",
       `Original user request: ${userInput}`,
       `Primary agent: ${this.agentTitle(plan.primaryAgent)}`,
-      '',
+      "",
       sectionText,
-      '',
-      'Requirements:',
-      '- Give an actionable final answer first.',
-      '- Keep course/activity content clearly structured if both exist.',
-      '- Do not expose internal coordination details.',
-    ].join('\n');
+      "",
+      "Requirements:",
+      "- Give an actionable final answer first.",
+      "- Keep course/activity content clearly structured if both exist.",
+      "- Do not expose internal coordination details.",
+    ].join("\n");
   }
 
   private agentTitle(agentType: AgentType): string {
     switch (agentType) {
-      case 'child-companion':
-        return 'Child Companion';
-      case 'parent-advisor':
-        return 'Parent Advisor';
-      case 'course-designer':
-        return 'Course Designer';
-      case 'activity-generator':
-        return 'Activity Generator';
+      case "child-companion":
+        return "Child Companion";
+      case "parent-advisor":
+        return "Parent Advisor";
+      case "course-designer":
+        return "Course Designer";
+      case "activity-generator":
+        return "Activity Generator";
       default:
         return agentType;
     }
@@ -572,7 +640,9 @@ export class OrchestratorService {
       definition.maxIterations,
       context,
       async (event) => {
-        await this.persistMessage(context, 'tool', event.result, { toolName: event.toolName });
+        await this.persistMessage(context, "tool", event.result, {
+          toolName: event.toolName,
+        });
       },
     );
   }
@@ -581,10 +651,15 @@ export class OrchestratorService {
     definition: AgentDefinition,
   ): LlmToolDefinition[] | undefined {
     const { allowedTools, disallowedTools } = definition;
-    return this.executorService['toolRegistry'].getToolDefinitions(tool => {
-      if (allowedTools && allowedTools.length > 0 && !allowedTools.includes(tool.metadata.name))
+    return this.executorService["toolRegistry"].getToolDefinitions((tool) => {
+      if (
+        allowedTools &&
+        allowedTools.length > 0 &&
+        !allowedTools.includes(tool.metadata.name)
+      )
         return false;
-      if (disallowedTools && disallowedTools.includes(tool.metadata.name)) return false;
+      if (disallowedTools && disallowedTools.includes(tool.metadata.name))
+        return false;
       return true;
     }) as LlmToolDefinition[] | undefined;
   }
@@ -595,16 +670,20 @@ export class OrchestratorService {
     const skills = this.skillRegistry.getSkillsForAgent(allowedSkills);
     if (skills.length === 0) return systemPrompt;
 
-    const rendered = skills.map(skill =>
+    const rendered = skills.map((skill) =>
       this.skillExecutor.renderSkillForPrompt(skill.definition),
     );
-    this.logger.debug(`Injecting ${skills.length} skills: ${skills.map(s => s.definition.id).join(', ')}`);
-    return `${systemPrompt}\n\n---\n\n# Active Skills\n\n${rendered.join('\n\n')}`;
+    this.logger.debug(
+      `Injecting ${skills.length} skills: ${skills.map((s) => s.definition.id).join(", ")}`,
+    );
+    return `${systemPrompt}\n\n---\n\n# Active Skills\n\n${rendered.join("\n\n")}`;
   }
 
   private async loadHistory(context: AgentContext): Promise<LlmMessage[]> {
     if (this.conversationStore) {
-      const raw = await this.conversationStore.buildMessageArray(context.conversationId);
+      const raw = await this.conversationStore.buildMessageArray(
+        context.conversationId,
+      );
       return this.normalizeHistory(raw as any[]);
     }
     return this.normalizeHistory((context.messages || []) as any[]);
@@ -612,33 +691,39 @@ export class OrchestratorService {
 
   private async persistMessage(
     context: AgentContext,
-    role: 'user' | 'assistant' | 'tool',
+    role: "user" | "assistant" | "tool",
     content: string,
     meta?: Record<string, any>,
   ): Promise<void> {
     if (!this.conversationStore) return;
-    await this.conversationStore.addMessage(context.conversationId, role, content, meta);
+    await this.conversationStore.addMessage(
+      context.conversationId,
+      role,
+      content,
+      meta,
+    );
   }
 
   private normalizeHistory(messages: any[]): LlmMessage[] {
     return (messages || []).map((msg: any) => {
-      if (msg.role === 'tool') {
+      if (msg.role === "tool") {
         return {
-          role: 'tool' as const,
-          content: typeof msg.content === 'string' ? msg.content : '',
+          role: "tool" as const,
+          content: typeof msg.content === "string" ? msg.content : "",
           toolCallId: msg.toolCallId || msg.tool_call_id,
         };
       }
-      if (msg.role === 'assistant') {
+      if (msg.role === "assistant") {
         return {
-          role: 'assistant' as const,
+          role: "assistant" as const,
           content: msg.content ?? null,
           toolCalls: msg.toolCalls || msg.tool_calls,
         };
       }
       return {
         role: msg.role,
-        content: typeof msg.content === 'string' ? msg.content : (msg.content ?? ''),
+        content:
+          typeof msg.content === "string" ? msg.content : (msg.content ?? ""),
       };
     });
   }

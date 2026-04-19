@@ -50,19 +50,21 @@ export interface ToolMetadata {
 
 /** Activity types supported by the activity generator */
 export const ACTIVITY_TYPES = [
-  'quiz',
-  'true_false',
-  'fill_blank',
-  'matching',
-  'connection',
-  'sequencing',
-  'puzzle',
+  "quiz",
+  "true_false",
+  "fill_blank",
+  "matching",
+  "connection",
+  "sequencing",
+  "puzzle",
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
-export const ACTIVITY_TYPE_SET: ReadonlySet<string> = new Set<string>(ACTIVITY_TYPES);
+export const ACTIVITY_TYPE_SET: ReadonlySet<string> = new Set<string>(
+  ACTIVITY_TYPES,
+);
 
 export function isActivityType(value: unknown): value is ActivityType {
-  return typeof value === 'string' && ACTIVITY_TYPE_SET.has(value);
+  return typeof value === "string" && ACTIVITY_TYPE_SET.has(value);
 }

@@ -5,8 +5,8 @@
  * ensuring tool-call blocks are never split.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
+import { Injectable, Logger } from "@nestjs/common";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
 
 /** A flat message record from the database */
 export interface FlatMessageRecord {
@@ -40,48 +40,50 @@ export class MessageBuilderService {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
 
-      if (msg.role === 'system') {
-        blocks.push([{ role: 'system', content: msg.content }]);
+      if (msg.role === "system") {
+        blocks.push([{ role: "system", content: msg.content }]);
         continue;
       }
 
-      if (msg.role === 'user') {
-        blocks.push([{ role: 'user', content: msg.content }]);
+      if (msg.role === "user") {
+        blocks.push([{ role: "user", content: msg.content }]);
         continue;
       }
 
-      if (msg.role === 'assistant') {
+      if (msg.role === "assistant") {
         const toolCalls = Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
         if (toolCalls.length === 0) {
-          blocks.push([{ role: 'assistant', content: msg.content }]);
+          blocks.push([{ role: "assistant", content: msg.content }]);
           continue;
         }
 
         const pendingToolIds = new Set(
           toolCalls
-            .map((call: any) => (typeof call?.id === 'string' ? call.id : null))
+            .map((call: any) => (typeof call?.id === "string" ? call.id : null))
             .filter((id: string | null): id is string => Boolean(id)),
         );
 
         if (pendingToolIds.size === 0) {
-          blocks.push([{ role: 'assistant', content: msg.content }]);
+          blocks.push([{ role: "assistant", content: msg.content }]);
           continue;
         }
 
-        const block: ChatCompletionMessageParam[] = [{
-          role: 'assistant',
-          content: msg.content || null,
-          tool_calls: toolCalls,
-        } as ChatCompletionMessageParam];
+        const block: ChatCompletionMessageParam[] = [
+          {
+            role: "assistant",
+            content: msg.content || null,
+            tool_calls: toolCalls,
+          } as ChatCompletionMessageParam,
+        ];
 
         let j = i + 1;
         while (j < messages.length && pendingToolIds.size > 0) {
           const toolMsg = messages[j];
-          if (toolMsg.role !== 'tool') break;
+          if (toolMsg.role !== "tool") break;
 
           if (toolMsg.toolCallId && pendingToolIds.has(toolMsg.toolCallId)) {
             block.push({
-              role: 'tool',
+              role: "tool",
               content: toolMsg.content,
               tool_call_id: toolMsg.toolCallId,
             } as ChatCompletionMessageParam);
@@ -103,7 +105,7 @@ export class MessageBuilderService {
       }
 
       // Drop dangling tool messages without a preceding assistant(tool_calls)
-      if (msg.role === 'tool') {
+      if (msg.role === "tool") {
         continue;
       }
     }

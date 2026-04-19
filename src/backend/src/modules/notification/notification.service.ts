@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification } from '../../database/entities/notification.entity';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Notification } from "../../database/entities/notification.entity";
 
 @Injectable()
 export class NotificationService {
@@ -18,7 +18,7 @@ export class NotificationService {
   async findByUser(userId: number, limit = 20): Promise<Notification[]> {
     return this.notificationRepository.find({
       where: { userId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
       take: limit,
     });
   }
@@ -31,8 +31,10 @@ export class NotificationService {
 
   async markAsRead(id: number): Promise<Notification> {
     await this.notificationRepository.update(id, { read: true });
-    const notification = await this.notificationRepository.findOne({ where: { id } });
-    if (!notification) throw new NotFoundException('通知不存在');
+    const notification = await this.notificationRepository.findOne({
+      where: { id },
+    });
+    if (!notification) throw new NotFoundException("通知不存在");
     return notification;
   }
 
@@ -47,21 +49,25 @@ export class NotificationService {
     await this.notificationRepository.delete(id);
   }
 
-  async notifyAchievement(userId: number, achievementName: string, _icon?: string) {
+  async notifyAchievement(
+    userId: number,
+    achievementName: string,
+    _icon?: string,
+  ) {
     return this.create({
       userId,
-      title: '获得新成就！',
+      title: "获得新成就！",
       message: `恭喜你获得了「${achievementName}」成就！`,
-      type: 'achievement',
+      type: "achievement",
     });
   }
 
   async notifyLearningReminder(userId: number) {
     return this.create({
       userId,
-      title: '学习提醒',
-      message: '今天还没有开始学习哦，快来探索新知识吧！',
-      type: 'reminder',
+      title: "学习提醒",
+      message: "今天还没有开始学习哦，快来探索新知识吧！",
+      type: "reminder",
     });
   }
 }

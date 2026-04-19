@@ -1,5 +1,5 @@
-import { Global, Module } from '@nestjs/common';
-import { SkillRegistryService } from './skill-registry.service';
+import { Global, Module } from "@nestjs/common";
+import { SkillRegistryService } from "./skill-registry.service";
 
 @Global()
 @Module({

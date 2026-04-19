@@ -9,26 +9,28 @@
  * - Generate course packs for structured learning
  */
 
-import type { AgentDefinition, AgentContext } from '../../core';
+import type { AgentDefinition, AgentContext } from "../../core";
 
 /** Runtime context hints for parent advisor */
 function buildContextHints(context: AgentContext): string {
   return [
-    '## Runtime Context',
-    context.childId != null ? `- Current childId: ${context.childId}` : '',
-    context.parentId != null ? `- Current parentId: ${context.parentId}` : '',
-    '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
-    '- If childId is NOT known and you need child-specific data, call listChildren first and ask the parent to select one.',
-    '- Assignment flow is two-step: first call assignActivity with confirmPublish=false to create draft, then call assignActivity with confirmPublish=true only after parent confirmation.',
-    '- If parent says cancel/redo assignment draft, call assignActivity with cancelDraft=true.',
-    '- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.',
-    '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
-  ].filter(Boolean).join('\n');
+    "## Runtime Context",
+    context.childId != null ? `- Current childId: ${context.childId}` : "",
+    context.parentId != null ? `- Current parentId: ${context.parentId}` : "",
+    "- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.",
+    "- If childId is NOT known and you need child-specific data, call listChildren first and ask the parent to select one.",
+    "- Assignment flow is two-step: first call assignActivity with confirmPublish=false to create draft, then call assignActivity with confirmPublish=true only after parent confirmation.",
+    "- If parent says cancel/redo assignment draft, call assignActivity with cancelDraft=true.",
+    "- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.",
+    "- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** Build the system prompt for the parent advisor */
 function buildParentSystemPrompt(context: AgentContext): string {
-  const parentName = context.parentName || '家长';
+  const parentName = context.parentName || "家长";
   return `你是灵犀伴学的AI助手，正在和家长${parentName}交流。
 
 ## 你的身份
@@ -68,32 +70,33 @@ ${buildContextHints(context)}`;
 
 /** The parent advisor agent definition */
 export const parentAdvisorDefinition: AgentDefinition = {
-  type: 'parent-advisor',
-  name: '家长顾问',
-  description: '专业教育顾问，帮助家长查看学习报告、管理学习设置、布置作业、生成课程包',
+  type: "parent-advisor",
+  name: "家长顾问",
+  description:
+    "专业教育顾问，帮助家长查看学习报告、管理学习设置、布置作业、生成课程包",
 
   buildSystemPrompt: buildParentSystemPrompt,
 
   allowedTools: [
-    'listChildren',
-    'getAbilities',
-    'viewReport',
-    'viewAbilities',
-    'assignActivity',
-    'updateParentControl',
-    'getParentControl',
-    'generateCoursePack',
-    'listAssignments',
+    "listChildren",
+    "getAbilities",
+    "viewReport",
+    "viewAbilities",
+    "assignActivity",
+    "updateParentControl",
+    "getParentControl",
+    "generateCoursePack",
+    "listAssignments",
   ],
 
   disallowedTools: [
-    'generateActivity',
-    'generateQuiz',
-    'generateVideoData',
-    'recordLearning',
+    "generateActivity",
+    "generateQuiz",
+    "generateVideoData",
+    "recordLearning",
   ],
 
-  allowedSkills: ['course-pack-flow'],
+  allowedSkills: ["course-pack-flow"],
 
   maxIterations: 8,
   canSpawnSubAgents: true,

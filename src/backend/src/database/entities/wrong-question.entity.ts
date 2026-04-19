@@ -5,10 +5,10 @@ import {
   Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
+} from "typeorm";
 
-@Entity('wrong_questions')
-@Index(['childId', 'questionHash'], { unique: true })
+@Entity("wrong_questions")
+@Index(["childId", "questionHash"], { unique: true })
 export class WrongQuestion {
   @PrimaryGeneratedColumn()
   id: number;
@@ -28,28 +28,28 @@ export class WrongQuestion {
   @Column({ length: 64 })
   questionHash: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   questionText: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   userAnswer: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   correctAnswer: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   explanation: string | null;
 
-  @Column({ default: 'new', length: 20 })
+  @Column({ default: "new", length: 20 })
   status: string; // new | reviewed | mastered
 
-  @Column({ type: 'datetime' })
+  @Column({ type: "datetime" })
   occurredAt: Date;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: "datetime", nullable: true })
   lastReviewedAt: Date | null;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   metadata: Record<string, any> | null;
 
   @CreateDateColumn()
@@ -58,4 +58,3 @@ export class WrongQuestion {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

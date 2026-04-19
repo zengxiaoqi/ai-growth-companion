@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { ContentsService } from './contents.service';
+import { Controller, Get, Post, Body, Param, Query } from "@nestjs/common";
+import { ContentsService } from "./contents.service";
 
-@Controller('contents')
+@Controller("contents")
 export class ContentsController {
   constructor(private readonly contentsService: ContentsService) {}
 
@@ -10,8 +10,8 @@ export class ContentsController {
     return this.contentsService.findAll(query);
   }
 
-  @Get(':id')
-  async findById(@Param('id') id: string) {
+  @Get(":id")
+  async findById(@Param("id") id: string) {
     return this.contentsService.findById(+id);
   }
 

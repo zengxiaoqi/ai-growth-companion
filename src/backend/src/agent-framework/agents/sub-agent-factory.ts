@@ -6,10 +6,15 @@
  * the parent's identity context (childId, parentId, ageGroup).
  */
 
-import { Injectable, Logger } from '@nestjs/common';
-import type { IAgent, AgentDefinition, AgentContext, AgentMessage } from '../core';
-import { SubAgentDepthError } from '../core';
-import type { IAgentRegistry } from '../core';
+import { Injectable, Logger } from "@nestjs/common";
+import type {
+  IAgent,
+  AgentDefinition,
+  AgentContext,
+  AgentMessage,
+} from "../core";
+import { SubAgentDepthError } from "../core";
+import type { IAgentRegistry } from "../core";
 
 /** Maximum allowed sub-agent nesting depth across the entire system */
 const SYSTEM_MAX_DEPTH = 4;
@@ -43,7 +48,10 @@ export class SubAgentFactory {
     }
 
     // Enforce agent-specific max depth
-    if (definition.maxSubAgentDepth > 0 && childDepth > definition.maxSubAgentDepth) {
+    if (
+      definition.maxSubAgentDepth > 0 &&
+      childDepth > definition.maxSubAgentDepth
+    ) {
       throw new SubAgentDepthError(childDepth, definition.maxSubAgentDepth);
     }
 
@@ -55,12 +63,14 @@ export class SubAgentFactory {
     // Look up the agent from registry
     const agent = this.agentRegistry.get(definition.type);
     if (!agent) {
-      throw new Error(`Cannot spawn sub-agent: agent type "${definition.type}" not found in registry`);
+      throw new Error(
+        `Cannot spawn sub-agent: agent type "${definition.type}" not found in registry`,
+      );
     }
 
     this.logger.log(
       `Spawning sub-agent: ${definition.type} at depth ${childDepth} ` +
-      `(parent: ${parentContext.conversationId})`,
+        `(parent: ${parentContext.conversationId})`,
     );
 
     return agent;
@@ -83,7 +93,7 @@ export class SubAgentFactory {
     const childAbortController = new AbortController();
 
     if (parentContext.abortSignal) {
-      parentContext.abortSignal.addEventListener('abort', () => {
+      parentContext.abortSignal.addEventListener("abort", () => {
         childAbortController.abort();
       });
     }
@@ -98,7 +108,10 @@ export class SubAgentFactory {
       messages: [] as AgentMessage[],
       depth: childDepth,
       abortSignal: childAbortController.signal,
-      metadata: { ...parentContext.metadata, parentConversationId: parentContext.conversationId },
+      metadata: {
+        ...parentContext.metadata,
+        parentConversationId: parentContext.conversationId,
+      },
     };
   }
 
@@ -110,7 +123,7 @@ export class SubAgentFactory {
   buildInitialMessages(instruction: string): AgentMessage[] {
     return [
       {
-        role: 'user',
+        role: "user",
         content: instruction,
       },
     ];

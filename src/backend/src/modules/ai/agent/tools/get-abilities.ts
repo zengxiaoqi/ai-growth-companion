@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { AbilitiesService } from '../../../abilities/abilities.service';
+import { Injectable } from "@nestjs/common";
+import { AbilitiesService } from "../../../abilities/abilities.service";
 
 @Injectable()
 export class GetAbilitiesTool {
@@ -9,7 +9,7 @@ export class GetAbilitiesTool {
     try {
       const assessments = await this.abilitiesService.getByUser(args.childId);
       if (!assessments || assessments.length === 0) {
-        return JSON.stringify({ message: '暂无能力评估数据', abilities: [] });
+        return JSON.stringify({ message: "暂无能力评估数据", abilities: [] });
       }
 
       const abilities = assessments.map((a) => ({

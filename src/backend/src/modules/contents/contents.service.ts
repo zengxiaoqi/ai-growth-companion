@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Content } from '../../database/entities/content.entity';
-import { ParentControl } from '../../database/entities/parent-control.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Content } from "../../database/entities/content.entity";
+import { ParentControl } from "../../database/entities/parent-control.entity";
 
 @Injectable()
 export class ContentsService {
@@ -15,7 +15,7 @@ export class ContentsService {
 
   async findAll(query: any = {}) {
     const { ageRange, domain, page = 1, limit = 20, childId } = query;
-    const where: any = { status: 'published' };
+    const where: any = { status: "published" };
     if (ageRange) where.ageRange = ageRange;
     if (domain) where.domain = domain;
 
@@ -37,26 +37,29 @@ export class ContentsService {
     }
 
     // Build query with filters
-    const qb = this.contentsRepository.createQueryBuilder('content')
-      .where('content.status = :status', { status: 'published' });
+    const qb = this.contentsRepository
+      .createQueryBuilder("content")
+      .where("content.status = :status", { status: "published" });
 
     if (ageRange) {
-      qb.andWhere('content.ageRange = :ageRange', { ageRange });
+      qb.andWhere("content.ageRange = :ageRange", { ageRange });
     }
     if (domain) {
-      qb.andWhere('content.domain = :domain', { domain });
+      qb.andWhere("content.domain = :domain", { domain });
     }
     if (allowedDomains) {
-      qb.andWhere('content.domain IN (:...allowedDomains)', { allowedDomains });
+      qb.andWhere("content.domain IN (:...allowedDomains)", { allowedDomains });
     }
     if (blockedTopics.length > 0) {
-      qb.andWhere('content.topic NOT IN (:...blockedTopics)', { blockedTopics });
+      qb.andWhere("content.topic NOT IN (:...blockedTopics)", {
+        blockedTopics,
+      });
     }
 
     const [list, total] = await qb
       .skip((page - 1) * limit)
       .take(limit)
-      .orderBy('content.id', 'DESC')
+      .orderBy("content.id", "DESC")
       .getManyAndCount();
 
     return { list, total, page, limit };

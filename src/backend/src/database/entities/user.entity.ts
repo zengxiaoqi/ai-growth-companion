@@ -1,6 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from "typeorm";
 
-@Entity('users')
+@Entity("users")
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -14,7 +21,7 @@ export class User {
   @Column({ length: 100 })
   name: string;
 
-  @Column({ default: 'child' })
+  @Column({ default: "child" })
   type: string; // child / parent
 
   @Column({ nullable: true })
@@ -32,7 +39,7 @@ export class User {
   @Column({ nullable: true })
   pin: string;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: "simple-json", nullable: true })
   settings: any;
 
   @CreateDateColumn()

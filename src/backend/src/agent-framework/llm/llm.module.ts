@@ -2,8 +2,8 @@
  * LLM Module — provides the ILlmClient implementation.
  */
 
-import { Global, Module } from '@nestjs/common';
-import { LlmClientService } from './llm-client.service';
+import { Global, Module } from "@nestjs/common";
+import { LlmClientService } from "./llm-client.service";
 
 @Global()
 @Module({

@@ -1,27 +1,30 @@
-import type { ActivityType } from '../ai/agent/tools/generate-activity';
-import { suggestTemplateByDomain, getDefaultTemplateForDomain } from '../../animations/animation-templates';
+import type { ActivityType } from "../ai/agent/tools/generate-activity";
+import {
+  suggestTemplateByDomain,
+  getDefaultTemplateForDomain,
+} from "../../animations/animation-templates";
 
 export type ActivityData = Record<string, any> & {
   type?: ActivityType;
   title?: string;
 };
 
-export type LessonSceneStepType = 'watch' | 'write' | 'practice';
-export type LessonSceneMode = 'playback' | 'guided_trace' | 'activity_shell';
+export type LessonSceneStepType = "watch" | "write" | "practice";
+export type LessonSceneMode = "playback" | "guided_trace" | "activity_shell";
 export type SceneTimelineActionType =
-  | 'enter'
-  | 'move'
-  | 'highlight'
-  | 'state_change'
-  | 'particle'
-  | 'caption'
-  | 'pause';
+  | "enter"
+  | "move"
+  | "highlight"
+  | "state_change"
+  | "particle"
+  | "caption"
+  | "pause";
 
 export interface SceneBackground {
-  type: 'day' | 'night' | 'indoor' | 'seasonal' | 'abstract';
+  type: "day" | "night" | "indoor" | "seasonal" | "abstract";
   themeColor?: string;
   accentColor?: string;
-  season?: 'spring' | 'summer' | 'autumn' | 'winter';
+  season?: "spring" | "summer" | "autumn" | "winter";
 }
 
 export interface SceneCharacter {
@@ -61,7 +64,7 @@ export interface SceneTimelineAction {
 export interface TraceGlyphTarget {
   id: string;
   label: string;
-  kind: 'glyph';
+  kind: "glyph";
   text: string;
   fontSize?: number;
 }
@@ -69,21 +72,21 @@ export interface TraceGlyphTarget {
 export interface TracePolylineTarget {
   id: string;
   label: string;
-  kind: 'polyline';
+  kind: "polyline";
   points: Array<{ x: number; y: number }>;
 }
 
 export type TracePathSpec = TraceGlyphTarget | TracePolylineTarget;
 
 export interface TracePathInteraction {
-  type: 'trace_path';
+  type: "trace_path";
   prompt?: string;
   targets: TracePathSpec[];
   minCoverage?: number;
 }
 
 export interface LaunchActivityInteraction {
-  type: 'launch_activity';
+  type: "launch_activity";
   prompt?: string;
   activityType: ActivityType;
   activityData: ActivityData;
@@ -107,7 +110,7 @@ export interface LessonScene {
 }
 
 export interface LessonSceneCompletionPolicy {
-  type: 'all_scenes' | 'any_interaction';
+  type: "all_scenes" | "any_interaction";
   passingScore?: number;
   minCoverage?: number;
 }
@@ -122,21 +125,29 @@ export interface LessonSceneDocument {
 
 type AnyRecord = Record<string, any>;
 
-const ALLOWED_STEP_TYPES = new Set<LessonSceneStepType>(['watch', 'write', 'practice']);
-const ALLOWED_MODES = new Set<LessonSceneMode>(['playback', 'guided_trace', 'activity_shell']);
+const ALLOWED_STEP_TYPES = new Set<LessonSceneStepType>([
+  "watch",
+  "write",
+  "practice",
+]);
+const ALLOWED_MODES = new Set<LessonSceneMode>([
+  "playback",
+  "guided_trace",
+  "activity_shell",
+]);
 const ALLOWED_TIMELINE_TYPES = new Set<SceneTimelineActionType>([
-  'enter',
-  'move',
-  'highlight',
-  'state_change',
-  'particle',
-  'caption',
-  'pause',
+  "enter",
+  "move",
+  "highlight",
+  "state_change",
+  "particle",
+  "caption",
+  "pause",
 ]);
 
-function toText(value: any, fallback = ''): string {
+function toText(value: any, fallback = ""): string {
   if (value == null) return fallback;
-  const text = String(value).replace(/\s+/g, ' ').trim();
+  const text = String(value).replace(/\s+/g, " ").trim();
   return text || fallback;
 }
 
@@ -148,19 +159,25 @@ function toSafeInt(value: any, fallback: number, min = 0, max = 3600): number {
 
 function toStringArray(value: any, max = 6): string[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item) => toText(item)).filter(Boolean).slice(0, max);
+  return value
+    .map((item) => toText(item))
+    .filter(Boolean)
+    .slice(0, max);
 }
 
 function sanitizeBackground(raw: any): SceneBackground | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const type = toText(raw.type, 'abstract') as SceneBackground['type'];
-  if (!['day', 'night', 'indoor', 'seasonal', 'abstract'].includes(type)) return undefined;
-  const season = toText(raw.season) as SceneBackground['season'];
+  if (!raw || typeof raw !== "object") return undefined;
+  const type = toText(raw.type, "abstract") as SceneBackground["type"];
+  if (!["day", "night", "indoor", "seasonal", "abstract"].includes(type))
+    return undefined;
+  const season = toText(raw.season) as SceneBackground["season"];
   return {
     type,
     themeColor: toText(raw.themeColor) || undefined,
     accentColor: toText(raw.accentColor) || undefined,
-    season: ['spring', 'summer', 'autumn', 'winter'].includes(season) ? season : undefined,
+    season: ["spring", "summer", "autumn", "winter"].includes(season)
+      ? season
+      : undefined,
   };
 }
 
@@ -193,7 +210,7 @@ function sanitizeItems(value: any): SceneItem[] | undefined {
 }
 
 function sanitizeVisual(raw: any): SceneVisual | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+  if (!raw || typeof raw !== "object") return undefined;
   const visual: SceneVisual = {
     background: sanitizeBackground(raw.background),
     characters: sanitizeCharacters(raw.characters),
@@ -201,9 +218,17 @@ function sanitizeVisual(raw: any): SceneVisual | undefined {
     effects: toStringArray(raw.effects),
     caption: toText(raw.caption) || undefined,
     templateId: toText(raw.templateId) || undefined,
-    templateParams: raw.templateParams && typeof raw.templateParams === 'object' ? raw.templateParams : undefined,
+    templateParams:
+      raw.templateParams && typeof raw.templateParams === "object"
+        ? raw.templateParams
+        : undefined,
   };
-  return visual.background || visual.characters || visual.items || visual.effects?.length || visual.caption || visual.templateId
+  return visual.background ||
+    visual.characters ||
+    visual.items ||
+    visual.effects?.length ||
+    visual.caption ||
+    visual.templateId
     ? visual
     : undefined;
 }
@@ -218,8 +243,12 @@ function sanitizeTimeline(value: any): SceneTimelineAction[] | undefined {
         type,
         target: toText(entry?.target) || undefined,
         value: toText(entry?.value) || undefined,
-        durationSec: entry?.durationSec != null ? toSafeInt(entry.durationSec, 1, 0, 60) : undefined,
-        atSec: entry?.atSec != null ? toSafeInt(entry.atSec, 0, 0, 3600) : undefined,
+        durationSec:
+          entry?.durationSec != null
+            ? toSafeInt(entry.durationSec, 1, 0, 60)
+            : undefined,
+        atSec:
+          entry?.atSec != null ? toSafeInt(entry.atSec, 0, 0, 3600) : undefined,
       };
     })
     .filter(Boolean) as SceneTimelineAction[];
@@ -230,14 +259,17 @@ function sanitizeTraceTargets(value: any): TracePathSpec[] {
   if (!Array.isArray(value)) return [];
   return value
     .map((entry: any, index: number) => {
-      const kind = toText(entry?.kind, 'glyph');
-      if (kind === 'polyline' && Array.isArray(entry?.points)) {
+      const kind = toText(entry?.kind, "glyph");
+      if (kind === "polyline" && Array.isArray(entry?.points)) {
         const points = entry.points
           .map((point: any) => ({
             x: Number(point?.x),
             y: Number(point?.y),
           }))
-          .filter((point: any) => Number.isFinite(point.x) && Number.isFinite(point.y))
+          .filter(
+            (point: any) =>
+              Number.isFinite(point.x) && Number.isFinite(point.y),
+          )
           .map((point: any) => ({
             x: Math.max(0, Math.min(1, point.x)),
             y: Math.max(0, Math.min(1, point.y)),
@@ -246,7 +278,7 @@ function sanitizeTraceTargets(value: any): TracePathSpec[] {
           return {
             id: toText(entry?.id, `trace-${index + 1}`),
             label: toText(entry?.label, `描一描 ${index + 1}`),
-            kind: 'polyline' as const,
+            kind: "polyline" as const,
             points,
           };
         }
@@ -257,36 +289,46 @@ function sanitizeTraceTargets(value: any): TracePathSpec[] {
       return {
         id: toText(entry?.id, `trace-${index + 1}`),
         label: toText(entry?.label, text),
-        kind: 'glyph' as const,
+        kind: "glyph" as const,
         text,
-        fontSize: entry?.fontSize != null ? toSafeInt(entry.fontSize, 72, 24, 140) : undefined,
+        fontSize:
+          entry?.fontSize != null
+            ? toSafeInt(entry.fontSize, 72, 24, 140)
+            : undefined,
       };
     })
     .filter(Boolean) as TracePathSpec[];
 }
 
 function sanitizeInteraction(raw: any): SceneInteraction | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+  if (!raw || typeof raw !== "object") return undefined;
   const type = toText(raw.type);
-  if (type === 'trace_path') {
+  if (type === "trace_path") {
     const targets = sanitizeTraceTargets(raw.targets);
     if (targets.length === 0) return undefined;
     return {
-      type: 'trace_path',
+      type: "trace_path",
       prompt: toText(raw.prompt) || undefined,
       targets,
-      minCoverage: raw.minCoverage != null ? Math.max(0.1, Math.min(1, Number(raw.minCoverage))) : undefined,
+      minCoverage:
+        raw.minCoverage != null
+          ? Math.max(0.1, Math.min(1, Number(raw.minCoverage)))
+          : undefined,
     };
   }
 
-  if (type === 'launch_activity') {
+  if (type === "launch_activity") {
     const activityType = toText(raw.activityType) as ActivityType;
     if (!activityType) return undefined;
-    const activityData = raw.activityData && typeof raw.activityData === 'object'
-      ? raw.activityData as ActivityData
-      : ({ type: activityType, title: toText(raw.prompt, '互动练习') } as ActivityData);
+    const activityData =
+      raw.activityData && typeof raw.activityData === "object"
+        ? (raw.activityData as ActivityData)
+        : ({
+            type: activityType,
+            title: toText(raw.prompt, "互动练习"),
+          } as ActivityData);
     return {
-      type: 'launch_activity',
+      type: "launch_activity",
       prompt: toText(raw.prompt) || undefined,
       activityType,
       activityData,
@@ -296,20 +338,37 @@ function sanitizeInteraction(raw: any): SceneInteraction | undefined {
   return undefined;
 }
 
-function sanitizeFallbackActivity(raw: any): LessonScene['fallbackActivity'] | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
+function sanitizeFallbackActivity(
+  raw: any,
+): LessonScene["fallbackActivity"] | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
   const activityType = toText(raw.activityType) as ActivityType;
-  const activityData = raw.activityData && typeof raw.activityData === 'object' ? raw.activityData as ActivityData : null;
+  const activityData =
+    raw.activityData && typeof raw.activityData === "object"
+      ? (raw.activityData as ActivityData)
+      : null;
   if (!activityType || !activityData) return undefined;
   return { activityType, activityData };
 }
 
-function sanitizeCompletionPolicy(raw: any, fallbackMode: LessonSceneMode): LessonSceneCompletionPolicy {
-  const type = toText(raw?.type, fallbackMode === 'activity_shell' ? 'any_interaction' : 'all_scenes');
+function sanitizeCompletionPolicy(
+  raw: any,
+  fallbackMode: LessonSceneMode,
+): LessonSceneCompletionPolicy {
+  const type = toText(
+    raw?.type,
+    fallbackMode === "activity_shell" ? "any_interaction" : "all_scenes",
+  );
   return {
-    type: type === 'any_interaction' ? 'any_interaction' : 'all_scenes',
-    passingScore: raw?.passingScore != null ? toSafeInt(raw.passingScore, 80, 0, 100) : undefined,
-    minCoverage: raw?.minCoverage != null ? Math.max(0.1, Math.min(1, Number(raw.minCoverage))) : undefined,
+    type: type === "any_interaction" ? "any_interaction" : "all_scenes",
+    passingScore:
+      raw?.passingScore != null
+        ? toSafeInt(raw.passingScore, 80, 0, 100)
+        : undefined,
+    minCoverage:
+      raw?.minCoverage != null
+        ? Math.max(0.1, Math.min(1, Number(raw.minCoverage)))
+        : undefined,
   };
 }
 
@@ -318,8 +377,11 @@ export function sanitizeSceneDocument(
   stepType: LessonSceneStepType,
   fallbackMode: LessonSceneMode,
 ): LessonSceneDocument | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const resolvedStepType = toText(raw.stepType, stepType) as LessonSceneStepType;
+  if (!raw || typeof raw !== "object") return null;
+  const resolvedStepType = toText(
+    raw.stepType,
+    stepType,
+  ) as LessonSceneStepType;
   const resolvedMode = toText(raw.mode, fallbackMode) as LessonSceneMode;
   const scenesRaw = Array.isArray(raw.scenes) ? raw.scenes : [];
 
@@ -327,10 +389,19 @@ export function sanitizeSceneDocument(
     .map((entry: any, index: number) => {
       const scene: LessonScene = {
         id: toText(entry?.id, `${stepType}-scene-${index + 1}`),
-        title: toText(entry?.title || entry?.scene || entry?.caption, `场景 ${index + 1}`),
+        title: toText(
+          entry?.title || entry?.scene || entry?.caption,
+          `场景 ${index + 1}`,
+        ),
         narration: toText(entry?.narration),
-        onScreenText: toText(entry?.onScreenText || entry?.caption) || undefined,
-        durationSec: toSafeInt(entry?.durationSec, fallbackMode === 'guided_trace' ? 20 : 12, 3, 180),
+        onScreenText:
+          toText(entry?.onScreenText || entry?.caption) || undefined,
+        durationSec: toSafeInt(
+          entry?.durationSec,
+          fallbackMode === "guided_trace" ? 20 : 12,
+          3,
+          180,
+        ),
         visual: sanitizeVisual(entry?.visual),
         timeline: sanitizeTimeline(entry?.timeline),
         interaction: sanitizeInteraction(entry?.interaction),
@@ -344,18 +415,23 @@ export function sanitizeSceneDocument(
 
   return {
     version: 1,
-    stepType: ALLOWED_STEP_TYPES.has(resolvedStepType) ? resolvedStepType : stepType,
+    stepType: ALLOWED_STEP_TYPES.has(resolvedStepType)
+      ? resolvedStepType
+      : stepType,
     mode: ALLOWED_MODES.has(resolvedMode) ? resolvedMode : fallbackMode,
     scenes: scenes.slice(0, 12),
-    completionPolicy: sanitizeCompletionPolicy(raw.completionPolicy, fallbackMode),
+    completionPolicy: sanitizeCompletionPolicy(
+      raw.completionPolicy,
+      fallbackMode,
+    ),
   };
 }
 
 function inferWatchBackground(source: string): SceneBackground {
-  if (/(夜|晚上|星星|月亮|黑夜)/.test(source)) return { type: 'night' };
-  if (/(教室|课堂|室内|老师)/.test(source)) return { type: 'indoor' };
-  if (/(四季|季节|春夏秋冬)/.test(source)) return { type: 'seasonal' };
-  return { type: 'day' };
+  if (/(夜|晚上|星星|月亮|黑夜)/.test(source)) return { type: "night" };
+  if (/(教室|课堂|室内|老师)/.test(source)) return { type: "indoor" };
+  if (/(四季|季节|春夏秋冬)/.test(source)) return { type: "seasonal" };
+  return { type: "day" };
 }
 
 function extractTeachingCharacter(source: string): string | null {
@@ -376,23 +452,25 @@ function extractTeachingCharacter(source: string): string | null {
 
 function extractRevealWords(source: string): string[] {
   const quoted = source.match(/[“"'‘]([\u4e00-\u9fff]{2,8})[”"'’]/)?.[1];
-  if (quoted) return quoted.length <= 4 ? quoted.split('') : [quoted];
+  if (quoted) return quoted.length <= 4 ? quoted.split("") : [quoted];
 
   const separated = source
     .split(/[、，,]/)
-    .map((part) => (part.match(/[\u4e00-\u9fff]{1,4}/g) || []).join(''))
+    .map((part) => (part.match(/[\u4e00-\u9fff]{1,4}/g) || []).join(""))
     .filter(Boolean);
   if (separated.length >= 2) return Array.from(new Set(separated)).slice(0, 4);
 
   if (/(认识|复习|词语|生字|汉字|朗读)/.test(source)) {
     const chars = (source.match(/[\u4e00-\u9fff]/g) || []).filter(
-      (char) => !'认识复习字词语讲解朗读老师小朋友'.includes(char),
+      (char) => !"认识复习字词语讲解朗读老师小朋友".includes(char),
     );
     const uniqueChars = Array.from(new Set(chars));
     if (uniqueChars.length >= 2) return uniqueChars.slice(0, 4);
   }
 
-  const phrase = source.match(/[\u4e00-\u9fff]{2,4}/g)?.find((item) => item.length >= 2);
+  const phrase = source
+    .match(/[\u4e00-\u9fff]{2,4}/g)
+    ?.find((item) => item.length >= 2);
   return phrase ? [phrase] : [];
 }
 
@@ -404,36 +482,41 @@ function inferSeasonIndex(source: string): number {
   return -1;
 }
 
-function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVisual, 'templateId' | 'templateParams'> {
+function inferWatchTemplateHint(
+  scene: AnyRecord,
+  domain?: string,
+): Pick<SceneVisual, "templateId" | "templateParams"> {
   const headline = [
     toText(scene?.onScreenText || scene?.caption),
     toText(scene?.title || scene?.scene || scene?.shot),
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
   const source = [
     headline,
     toText(scene?.narration),
     toText(scene?.imagePrompt || scene?.visualPrompt),
   ]
     .filter(Boolean)
-    .join(' ');
+    .join(" ");
 
   // 1. Explicit template from LLM output
   if (scene?.animationTemplate) {
     return {
       templateId: toText(scene.animationTemplate) || undefined,
-      templateParams: scene?.animationParams && typeof scene.animationParams === 'object'
-        ? scene.animationParams
-        : undefined,
+      templateParams:
+        scene?.animationParams && typeof scene.animationParams === "object"
+          ? scene.animationParams
+          : undefined,
     };
   }
 
   // 2. Character stroke detection (single Chinese character)
-  const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
+  const character =
+    extractTeachingCharacter(headline) || extractTeachingCharacter(source);
   if (character) {
     return {
-      templateId: 'language.character-stroke',
+      templateId: "language.character-stroke",
       templateParams: { character, showGrid: true },
     };
   }
@@ -449,9 +532,9 @@ function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVi
   // 4. Science domain patterns
   if (/(四季|季节|春夏秋冬|天气|春|夏|秋|冬)/.test(source)) {
     return {
-      templateId: 'science.seasons-cycle',
+      templateId: "science.seasons-cycle",
       templateParams: {
-        seasonNames: ['春', '夏', '秋', '冬'],
+        seasonNames: ["春", "夏", "秋", "冬"],
         focusSeason: inferSeasonIndex(source),
         showLabels: true,
       },
@@ -460,50 +543,54 @@ function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVi
 
   if (/(白天|黑夜|昼夜|太阳|月亮|早晨|晚上|黄昏|地球|星空|影子)/.test(source)) {
     return {
-      templateId: 'science.day-night-cycle',
+      templateId: "science.day-night-cycle",
       templateParams: { rotationSpeed: 1, showLabels: true },
     };
   }
 
   if (/(水循环|蒸发|云|下雨|冰|雪|彩虹|降水|声音|光|磁铁|溶解)/.test(source)) {
     return {
-      templateId: 'science.water-cycle',
+      templateId: "science.water-cycle",
       templateParams: { speed: 1, showLabels: true },
     };
   }
 
-  if (/(植物|种子|发芽|开花|生长|树|草|果实|花|蔬菜|动物|昆虫|蝴蝶|蚂蚁|鸟|鱼|食物|水果|营养)/.test(source)) {
+  if (
+    /(植物|种子|发芽|开花|生长|树|草|果实|花|蔬菜|动物|昆虫|蝴蝶|蚂蚁|鸟|鱼|食物|水果|营养)/.test(
+      source,
+    )
+  ) {
     return {
-      templateId: 'science.plant-growth',
-      templateParams: { plantType: 'flower', stages: 5 },
+      templateId: "science.plant-growth",
+      templateParams: { plantType: "flower", stages: 5 },
     };
   }
 
   // 4. Math domain patterns
   if (/(数字|数数|计数|数量|加法|减法|一共|还剩|分成|比大小)/.test(source)) {
     return {
-      templateId: 'math.counting-objects',
-      templateParams: { objectType: 'star', targetCount: 5 },
+      templateId: "math.counting-objects",
+      templateParams: { objectType: "star", targetCount: 5 },
     };
   }
 
   if (/(形状|三角|圆形|方形|图形|长方|正方|梯形|菱形|五角星)/.test(source)) {
     return {
-      templateId: 'math.shape-builder',
-      templateParams: { shapes: ['circle', 'square', 'triangle'] },
+      templateId: "math.shape-builder",
+      templateParams: { shapes: ["circle", "square", "triangle"] },
     };
   }
 
   if (/(数轴|排序|顺序|相邻|倒数|单数|双数|规律)/.test(source)) {
     return {
-      templateId: 'math.number-line',
+      templateId: "math.number-line",
       templateParams: { startNum: 1, endNum: 10 },
     };
   }
 
   if (/算盘/.test(source)) {
     return {
-      templateId: 'math.abacus',
+      templateId: "math.abacus",
       templateParams: { rows: 5, showNumbers: true },
     };
   }
@@ -511,14 +598,18 @@ function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVi
   // 5. Art domain patterns
   if (/(颜色|色彩|调色|混色|红|蓝|黄|绿|紫|橙|粉)/.test(source)) {
     return {
-      templateId: 'art.color-mixing',
+      templateId: "art.color-mixing",
       templateParams: {},
     };
   }
 
-  if (/(画画|绘画|简笔画|手工|折纸|剪纸|涂色|描线|音乐|唱歌|乐器|节奏)/.test(source)) {
+  if (
+    /(画画|绘画|简笔画|手工|折纸|剪纸|涂色|描线|音乐|唱歌|乐器|节奏)/.test(
+      source,
+    )
+  ) {
     return {
-      templateId: 'art.drawing-steps',
+      templateId: "art.drawing-steps",
       templateParams: {},
     };
   }
@@ -526,14 +617,16 @@ function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVi
   // 6. Social domain patterns
   if (/(情绪|表情|开心|生气|难过|害怕|勇敢|害羞|感动|委屈)/.test(source)) {
     return {
-      templateId: 'social.emotion-faces',
-      templateParams: { emotions: ['happy', 'sad', 'angry', 'surprised'] },
+      templateId: "social.emotion-faces",
+      templateParams: { emotions: ["happy", "sad", "angry", "surprised"] },
     };
   }
 
-  if (/(作息|习惯|日常|时间安排|一天|起床|睡觉|刷牙|吃饭|家庭|节日)/.test(source)) {
+  if (
+    /(作息|习惯|日常|时间安排|一天|起床|睡觉|刷牙|吃饭|家庭|节日)/.test(source)
+  ) {
     return {
-      templateId: 'social.daily-routine',
+      templateId: "social.daily-routine",
       templateParams: {},
     };
   }
@@ -542,28 +635,42 @@ function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVi
   const words = extractRevealWords(headline);
   if (words.length > 0) {
     return {
-      templateId: 'language.word-reveal',
+      templateId: "language.word-reveal",
       templateParams: { words },
     };
   }
 
   return {
-    templateId: 'language.story-scene',
+    templateId: "language.story-scene",
     templateParams: {
-      bgType: inferWatchBackground(source).type === 'seasonal' ? 'day' : inferWatchBackground(source).type,
-      characters: ['老师', '小朋友'],
-      items: toStringArray(source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || []),
+      bgType:
+        inferWatchBackground(source).type === "seasonal"
+          ? "day"
+          : inferWatchBackground(source).type,
+      characters: ["老师", "小朋友"],
+      items: toStringArray(
+        source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || [],
+      ),
     },
   };
 }
 
-function buildWatchTemplateHint(source: string, scene: AnyRecord, domain?: string): SceneVisual {
+function buildWatchTemplateHint(
+  source: string,
+  scene: AnyRecord,
+  domain?: string,
+): SceneVisual {
   const templateHint = inferWatchTemplateHint(scene, domain);
   const visual: SceneVisual = {
     background: inferWatchBackground(source),
     caption: toText(scene?.onScreenText || scene?.caption),
-    characters: [{ id: 'teacher', label: '老师' }, { id: 'child', label: '小朋友' }],
-    items: toStringArray(source.match(/春|夏|秋|冬|花|太阳|树叶|雪花/g) || []).map((label, index) => ({
+    characters: [
+      { id: "teacher", label: "老师" },
+      { id: "child", label: "小朋友" },
+    ],
+    items: toStringArray(
+      source.match(/春|夏|秋|冬|花|太阳|树叶|雪花/g) || [],
+    ).map((label, index) => ({
       id: `item-${index + 1}`,
       label,
     })),
@@ -579,48 +686,67 @@ export function deriveWatchSceneDocument(
   topic: string,
   domain?: string,
 ): LessonSceneDocument {
-  const sourceScenes = Array.isArray(module?.visualStory?.scenes) && module.visualStory.scenes.length > 0
-    ? module.visualStory.scenes
-    : Array.isArray(module?.videoLesson?.shots)
-      ? module.videoLesson.shots
-      : [];
+  const sourceScenes =
+    Array.isArray(module?.visualStory?.scenes) &&
+    module.visualStory.scenes.length > 0
+      ? module.visualStory.scenes
+      : Array.isArray(module?.videoLesson?.shots)
+        ? module.videoLesson.shots
+        : [];
 
-  const scenes = sourceScenes.slice(0, 12).map((entry: AnyRecord, index: number) => {
-    const source = [
-      toText(entry?.scene || entry?.shot),
-      toText(entry?.imagePrompt || entry?.visualPrompt),
-      toText(entry?.narration),
-      toText(entry?.onScreenText || entry?.caption),
-    ].join(' ');
+  const scenes = sourceScenes
+    .slice(0, 12)
+    .map((entry: AnyRecord, index: number) => {
+      const source = [
+        toText(entry?.scene || entry?.shot),
+        toText(entry?.imagePrompt || entry?.visualPrompt),
+        toText(entry?.narration),
+        toText(entry?.onScreenText || entry?.caption),
+      ].join(" ");
 
-    return {
-      id: `watch-scene-${index + 1}`,
-      title: toText(entry?.scene || entry?.shot, `场景 ${index + 1}`),
-      narration: toText(entry?.narration, `请跟着老师一起观察${topic}。`),
-      onScreenText: toText(entry?.onScreenText || entry?.caption) || undefined,
-      durationSec: toSafeInt(entry?.durationSec, 12, 3, 120),
-      visual: buildWatchTemplateHint(source, entry, domain),
-      timeline: [{ type: 'caption', value: toText(entry?.onScreenText || entry?.caption), atSec: 0 }],
-    } satisfies LessonScene;
-  });
+      return {
+        id: `watch-scene-${index + 1}`,
+        title: toText(entry?.scene || entry?.shot, `场景 ${index + 1}`),
+        narration: toText(entry?.narration, `请跟着老师一起观察${topic}。`),
+        onScreenText:
+          toText(entry?.onScreenText || entry?.caption) || undefined,
+        durationSec: toSafeInt(entry?.durationSec, 12, 3, 120),
+        visual: buildWatchTemplateHint(source, entry, domain),
+        timeline: [
+          {
+            type: "caption",
+            value: toText(entry?.onScreenText || entry?.caption),
+            atSec: 0,
+          },
+        ],
+      } satisfies LessonScene;
+    });
 
   return {
     version: 1,
-    stepType: 'watch',
-    mode: 'playback',
-    scenes: scenes.length > 0 ? scenes : [{
-      id: 'watch-scene-1',
-      title: `认识${topic}`,
-      narration: `请跟着老师一起认识${topic}。`,
-      onScreenText: `认识${topic}`,
-      durationSec: 12,
-      visual: {
-        background: { type: 'day' },
-        caption: `认识${topic}`,
-        characters: [{ id: 'teacher', label: '老师' }, { id: 'child', label: '小朋友' }],
-      },
-    }],
-    completionPolicy: { type: 'all_scenes', passingScore: 85 },
+    stepType: "watch",
+    mode: "playback",
+    scenes:
+      scenes.length > 0
+        ? scenes
+        : [
+            {
+              id: "watch-scene-1",
+              title: `认识${topic}`,
+              narration: `请跟着老师一起认识${topic}。`,
+              onScreenText: `认识${topic}`,
+              durationSec: 12,
+              visual: {
+                background: { type: "day" },
+                caption: `认识${topic}`,
+                characters: [
+                  { id: "teacher", label: "老师" },
+                  { id: "child", label: "小朋友" },
+                ],
+              },
+            },
+          ],
+    completionPolicy: { type: "all_scenes", passingScore: 85 },
   };
 }
 
@@ -628,8 +754,12 @@ export function deriveWriteSceneDocument(
   writing: AnyRecord,
   topic: string,
 ): LessonSceneDocument {
-  const tracingItems = Array.isArray(writing?.tracingItems) ? writing.tracingItems : [];
-  const practiceTasks = Array.isArray(writing?.practiceTasks) ? writing.practiceTasks : [];
+  const tracingItems = Array.isArray(writing?.tracingItems)
+    ? writing.tracingItems
+    : [];
+  const practiceTasks = Array.isArray(writing?.practiceTasks)
+    ? writing.practiceTasks
+    : [];
   const checklist = Array.isArray(writing?.checklist) ? writing.checklist : [];
   const targets = tracingItems.length > 0 ? tracingItems : [topic];
 
@@ -642,18 +772,28 @@ export function deriveWriteSceneDocument(
       onScreenText: `描一描 ${text}`,
       durationSec: 20,
       visual: {
-        background: { type: 'indoor' },
+        background: { type: "indoor" },
         caption: writing?.goal ? toText(writing.goal) : `描一描 ${text}`,
-        characters: [{ id: 'teacher', label: '老师' }],
+        characters: [{ id: "teacher", label: "老师" }],
         items: checklist.slice(0, 3).map((label: any, itemIndex: number) => ({
           id: `write-check-${itemIndex + 1}`,
           label: toText(label),
         })),
       },
       interaction: {
-        type: 'trace_path',
-        prompt: practiceTasks[index] ? toText(practiceTasks[index]) : `描好“${text}”`,
-        targets: [{ id: `trace-${index + 1}`, label: text, kind: 'glyph', text, fontSize: 84 }],
+        type: "trace_path",
+        prompt: practiceTasks[index]
+          ? toText(practiceTasks[index])
+          : `描好“${text}”`,
+        targets: [
+          {
+            id: `trace-${index + 1}`,
+            label: text,
+            kind: "glyph",
+            text,
+            fontSize: 84,
+          },
+        ],
         minCoverage: 0.9,
       },
     } satisfies LessonScene;
@@ -661,10 +801,14 @@ export function deriveWriteSceneDocument(
 
   return {
     version: 1,
-    stepType: 'write',
-    mode: 'guided_trace',
+    stepType: "write",
+    mode: "guided_trace",
     scenes,
-    completionPolicy: { type: 'all_scenes', minCoverage: 0.9, passingScore: 80 },
+    completionPolicy: {
+      type: "all_scenes",
+      minCoverage: 0.9,
+      passingScore: 80,
+    },
   };
 }
 
@@ -675,36 +819,43 @@ export function derivePracticeSceneDocument(
 ): LessonSceneDocument {
   return {
     version: 1,
-    stepType: 'practice',
-    mode: 'activity_shell',
+    stepType: "practice",
+    mode: "activity_shell",
     scenes: [
       {
-        id: 'practice-intro',
+        id: "practice-intro",
         title: `${topic} 互动练习`,
         narration: `我们先看清楚练习规则，再开始动手挑战。`,
         onScreenText: `${topic} 互动练习`,
         durationSec: 10,
         visual: {
-          background: { type: 'indoor' },
+          background: { type: "indoor" },
           caption: toText(activityData?.title, `${topic} 互动练习`),
-          characters: [{ id: 'teacher', label: '老师' }, { id: 'child', label: '小朋友' }],
-          items: [{ id: 'rule-1', label: '看提示' }, { id: 'rule-2', label: '动动手' }, { id: 'rule-3', label: '试一试' }],
+          characters: [
+            { id: "teacher", label: "老师" },
+            { id: "child", label: "小朋友" },
+          ],
+          items: [
+            { id: "rule-1", label: "看提示" },
+            { id: "rule-2", label: "动动手" },
+            { id: "rule-3", label: "试一试" },
+          ],
         },
       },
       {
-        id: 'practice-activity',
-        title: `开始${toText(activityData?.title, '互动练习')}`,
+        id: "practice-activity",
+        title: `开始${toText(activityData?.title, "互动练习")}`,
         narration: `现在轮到你来试一试，完成互动练习吧。`,
-        onScreenText: '开始练习',
+        onScreenText: "开始练习",
         durationSec: 20,
         visual: {
-          background: { type: 'abstract' },
-          caption: toText(activityData?.title, '互动练习'),
-          effects: ['focus'],
+          background: { type: "abstract" },
+          caption: toText(activityData?.title, "互动练习"),
+          effects: ["focus"],
         },
         interaction: {
-          type: 'launch_activity',
-          prompt: '开始互动练习',
+          type: "launch_activity",
+          prompt: "开始互动练习",
           activityType,
           activityData,
         },
@@ -714,18 +865,18 @@ export function derivePracticeSceneDocument(
         },
       },
       {
-        id: 'practice-feedback',
-        title: '练习反馈',
+        id: "practice-feedback",
+        title: "练习反馈",
         narration: `做得很好，回顾一下刚才完成的练习重点吧。`,
-        onScreenText: '练习完成',
+        onScreenText: "练习完成",
         durationSec: 8,
         visual: {
-          background: { type: 'day' },
-          caption: '练习完成',
-          effects: ['celebrate'],
+          background: { type: "day" },
+          caption: "练习完成",
+          effects: ["celebrate"],
         },
       },
     ],
-    completionPolicy: { type: 'any_interaction', passingScore: 80 },
+    completionPolicy: { type: "any_interaction", passingScore: 80 },
   };
 }

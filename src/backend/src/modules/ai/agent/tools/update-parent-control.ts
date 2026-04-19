@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ParentService } from '../../../parent/parent.service';
+import { Injectable } from "@nestjs/common";
+import { ParentService } from "../../../parent/parent.service";
 
 @Injectable()
 export class UpdateParentControlTool {
@@ -18,11 +18,16 @@ export class UpdateParentControlTool {
       let control = await this.parentService.getByParent(args.parentId);
 
       const updateData: Record<string, any> = {};
-      if (args.dailyLimitMinutes !== undefined) updateData.dailyLimitMinutes = args.dailyLimitMinutes;
-      if (args.allowedDomains !== undefined) updateData.allowedDomains = args.allowedDomains;
-      if (args.blockedTopics !== undefined) updateData.blockedTopics = args.blockedTopics;
-      if (args.eyeProtectionEnabled !== undefined) updateData.eyeProtectionEnabled = args.eyeProtectionEnabled;
-      if (args.restReminderMinutes !== undefined) updateData.restReminderMinutes = args.restReminderMinutes;
+      if (args.dailyLimitMinutes !== undefined)
+        updateData.dailyLimitMinutes = args.dailyLimitMinutes;
+      if (args.allowedDomains !== undefined)
+        updateData.allowedDomains = args.allowedDomains;
+      if (args.blockedTopics !== undefined)
+        updateData.blockedTopics = args.blockedTopics;
+      if (args.eyeProtectionEnabled !== undefined)
+        updateData.eyeProtectionEnabled = args.eyeProtectionEnabled;
+      if (args.restReminderMinutes !== undefined)
+        updateData.restReminderMinutes = args.restReminderMinutes;
       if (args.childId !== undefined) updateData.childId = args.childId;
 
       if (control.id === 0) {
@@ -32,7 +37,7 @@ export class UpdateParentControlTool {
       const updated = await this.parentService.update(control.id, updateData);
       return JSON.stringify({
         success: true,
-        message: '设置已更新',
+        message: "设置已更新",
         controls: {
           dailyLimitMinutes: updated.dailyLimitMinutes,
           allowedDomains: updated.allowedDomains,

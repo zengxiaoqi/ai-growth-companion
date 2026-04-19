@@ -9,17 +9,17 @@
 
 /** Strip all <think...</think*> blocks from model output, returning visible content only */
 export function stripThinking(text: string): string {
-  if (!text) return '';
+  if (!text) return "";
   // Remove all closed <think...>...</think*> blocks
-  let result = text.replace(/<think\b[\s\S]*?<\/think.*?>/g, '').trim();
+  let result = text.replace(/<think\b[\s\S]*?<\/think.*?>/g, "").trim();
   // Handle unclosed <think at end of string
-  result = result.replace(/<think\b[\s\S]*$/g, '').trim();
+  result = result.replace(/<think\b[\s\S]*$/g, "").trim();
   return result;
 }
 
 /** Extract the reasoning content inside <think...</think*> blocks */
 export function extractThinking(text: string): string {
-  if (!text) return '';
+  if (!text) return "";
 
   // Standard: <think ...>content</think...>
   const standardMatch = text.match(/<think\b[^>]*>([\s\S]*?)<\/think.*?>/);
@@ -33,7 +33,7 @@ export function extractThinking(text: string): string {
   const unclosedMatch = text.match(/<think\b([\s\S]*)$/);
   if (unclosedMatch?.[1]) return unclosedMatch[1].trim();
 
-  return '';
+  return "";
 }
 
 /** Check if text contains thinking blocks */

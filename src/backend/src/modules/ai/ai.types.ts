@@ -4,9 +4,10 @@ export type AgeGroup = '3-4' | '5-6' | 'unknown';
 
 export interface ChatRequest {
   message: string;
-  childId?: number;
-  parentId?: number;
   sessionId?: string;
+  viewerId: number;
+  viewerType: 'parent' | 'child' | string;
+  targetChildId?: number;
   context?: {
     age?: number;
     currentPage?: string;

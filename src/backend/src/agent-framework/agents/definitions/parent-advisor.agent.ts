@@ -19,6 +19,9 @@ function buildContextHints(context: AgentContext): string {
     context.parentId != null ? `- Current parentId: ${context.parentId}` : '',
     '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
     '- If childId is NOT known and you need child-specific data, call listChildren first and ask the parent to select one.',
+    '- Assignment flow is two-step: first call assignActivity with confirmPublish=false to create draft, then call assignActivity with confirmPublish=true only after parent confirmation.',
+    '- If parent says cancel/redo assignment draft, call assignActivity with cancelDraft=true.',
+    '- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.',
     '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
   ].filter(Boolean).join('\n');
 }

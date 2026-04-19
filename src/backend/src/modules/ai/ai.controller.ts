@@ -27,13 +27,30 @@ export class AiController {
   @Post('chat')
   @ApiOperation({ summary: 'AI 对话（Agent 模式）' })
   async chat(
+    @Request() req: any,
     @Body() body: { message: string; childId?: number; parentId?: number; sessionId?: string; context?: any },
   ) {
+    const viewerId = req.user.sub;
+    const viewerType = req.user.type;
+    const targetChildId = body.childId;
+
+    if (viewerType === 'parent' && targetChildId != null) {
+      const canAccess = await this.aiService.canViewerAccessChild({
+        viewerId,
+        viewerType,
+        childId: targetChildId,
+      });
+      if (!canAccess) {
+        throw new ForbiddenException('无权访问该学生');
+      }
+    }
+
     return this.aiService.chat({
       message: body.message,
-      childId: body.childId,
-      parentId: body.parentId,
       sessionId: body.sessionId,
+      viewerId,
+      viewerType,
+      targetChildId,
       context: body.context,
     });
   }
@@ -41,9 +58,9 @@ export class AiController {
   @Get('chat/stream')
   @ApiOperation({ summary: 'AI 对话流式输出（SSE）' })
   async chatStream(
+    @Request() req: any,
     @Query('message') message: string,
     @Query('childId') childId: string,
-    @Query('parentId') parentId: string,
     @Query('sessionId') sessionId: string,
     @Res() res: Response,
   ) {
@@ -54,11 +71,27 @@ export class AiController {
     res.flushHeaders();
 
     try {
+      const viewerId = req.user.sub;
+      const viewerType = req.user.type;
+      const targetChildId = childId ? +childId : undefined;
+
+      if (viewerType === 'parent' && targetChildId != null) {
+        const canAccess = await this.aiService.canViewerAccessChild({
+          viewerId,
+          viewerType,
+          childId: targetChildId,
+        });
+        if (!canAccess) {
+          throw new ForbiddenException('无权访问该学生');
+        }
+      }
+
       const stream = this.aiService.chatStream({
         message,
-        childId: childId ? +childId : undefined,
-        parentId: parentId ? +parentId : undefined,
         sessionId: sessionId || undefined,
+        viewerId,
+        viewerType,
+        targetChildId,
       });
 
       for await (const event of stream) {
@@ -108,8 +141,12 @@ export class AiController {
           );
         }
       }
-    } catch {
-      res.write(`event: error\ndata: ${JSON.stringify({ message: 'AI服务暂时不可用' })}\n\n`);
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: '无权访问该学生' })}\n\n`);
+      } else {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: 'AI服务暂时不可用' })}\n\n`);
+      }
     } finally {
       res.end();
     }

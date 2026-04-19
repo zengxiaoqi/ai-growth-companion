@@ -97,7 +97,8 @@ export class AgentExecutorService {
             conversationId: context.conversationId,
             extra: context.metadata,
           };
-          const result = await this.toolRegistry.execute(toolName, toolArgs, toolExecContext);
+          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, context);
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, toolExecContext);
           const resultString = JSON.stringify(result.data ?? { error: result.error });
 
           // Add tool result to messages
@@ -109,13 +110,13 @@ export class AgentExecutorService {
 
           toolCallLog.push({
             tool: toolName,
-            args: toolArgs,
+            args: normalizedToolArgs,
             resultSummary: resultString.slice(0, 100),
           });
 
           // Notify caller (for conversation persistence, etc.)
           if (onToolCall) {
-            await onToolCall({ toolName, args: toolArgs, result: resultString });
+            await onToolCall({ toolName, args: normalizedToolArgs, result: resultString });
           }
         }
 
@@ -221,21 +222,22 @@ export class AgentExecutorService {
             extra: context.metadata,
           };
 
-          yield { type: 'tool_start', toolName, toolArgs };
-          const result = await this.toolRegistry.execute(toolName, toolArgs, toolExecContext);
+          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, context);
+          yield { type: 'tool_start', toolName, toolArgs: normalizedToolArgs };
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, toolExecContext);
           const resultString = JSON.stringify(result.data ?? { error: result.error });
-          yield { type: 'tool_result', toolName, toolArgs, toolResult: resultString };
+          yield { type: 'tool_result', toolName, toolArgs: normalizedToolArgs, toolResult: resultString };
 
           // Emit game_data for generateActivity tool
           if (toolName === 'generateActivity') {
             const resultPayload = extractJsonObject(resultString);
-            const activityType = this.resolveGenerateActivityType(toolArgs, resultPayload);
+            const activityType = this.resolveGenerateActivityType(normalizedToolArgs, resultPayload);
             if (activityType && !this.isToolErrorPayload(resultPayload)) {
               yield {
                 type: 'game_data',
                 activityType,
                 gameData: resultString,
-                domain: toolArgs.domain || 'language',
+                domain: normalizedToolArgs.domain || 'language',
               };
             } else {
               this.logger.warn('[STREAM] Skip invalid game_data payload for generateActivity');
@@ -250,12 +252,12 @@ export class AgentExecutorService {
 
           toolCallLog.push({
             tool: toolName,
-            args: toolArgs,
+            args: normalizedToolArgs,
             resultSummary: resultString.slice(0, 100),
           });
 
           if (onToolCall) {
-            await onToolCall({ toolName, args: toolArgs, result: resultString });
+            await onToolCall({ toolName, args: normalizedToolArgs, result: resultString });
           }
         }
 
@@ -356,5 +358,30 @@ export class AgentExecutorService {
     }
 
     return undefined;
+  }
+
+  private normalizeToolArgs(
+    toolName: string,
+    args: Record<string, any>,
+    context: AgentContext,
+  ): Record<string, any> {
+    const tool = this.toolRegistry.get(toolName);
+    if (!tool) return { ...args };
+
+    const normalized = { ...args };
+    const meta = tool.metadata;
+
+    // Enforce runtime identity context to reduce wrong-id tool calls from model output.
+    if (meta.requiresChildId && context.childId != null) {
+      normalized.childId = context.childId;
+    }
+    if (meta.requiresParentId && context.parentId != null) {
+      normalized.parentId = context.parentId;
+    }
+    if (meta.requiresAgeGroup && context.ageGroup !== 'parent') {
+      normalized.ageGroup = context.ageGroup;
+    }
+
+    return normalized;
   }
 }

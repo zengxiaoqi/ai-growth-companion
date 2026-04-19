@@ -183,7 +183,13 @@ export class AgentExecutor {
             toolArgs = {};
           }
 
-          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, ageGroup, executionContext);
+          const normalizedToolArgs = this.normalizeToolArgs(
+            toolName,
+            toolArgs,
+            ageGroup,
+            executionContext,
+            sessionId,
+          );
           const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
 
           // Add tool result to messages
@@ -293,7 +299,13 @@ export class AgentExecutor {
             toolArgs = {};
           }
 
-          const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, ageGroup, executionContext);
+          const normalizedToolArgs = this.normalizeToolArgs(
+            toolName,
+            toolArgs,
+            ageGroup,
+            executionContext,
+            sessionId,
+          );
           yield { type: 'tool_start', content: toolName, toolName, toolArgs: normalizedToolArgs };
           const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
           yield { type: 'tool_result', content: toolName, toolName, toolArgs: normalizedToolArgs, toolResult: result };
@@ -422,6 +434,7 @@ export class AgentExecutor {
     toolArgs: Record<string, any>,
     ageGroup: AgeGroup | 'parent',
     executionContext?: { childId?: number; parentId?: number },
+    conversationId?: string,
   ): Record<string, any> {
     const normalized = { ...toolArgs };
 
@@ -432,18 +445,22 @@ export class AgentExecutor {
       }
     }
 
-    if (executionContext?.childId != null && CHILD_ID_TOOLS.has(toolName) && normalized.childId == null) {
+    if (executionContext?.childId != null && CHILD_ID_TOOLS.has(toolName)) {
       normalized.childId = executionContext.childId;
     }
 
-    if (executionContext?.parentId != null && PARENT_ID_TOOLS.has(toolName) && normalized.parentId == null) {
+    if (executionContext?.parentId != null && PARENT_ID_TOOLS.has(toolName)) {
       normalized.parentId = executionContext.parentId;
     }
 
-    if (NEEDS_AGE_GROUP_TOOLS.has(toolName) && normalized.ageGroup == null) {
+    if (NEEDS_AGE_GROUP_TOOLS.has(toolName)) {
       if (ageGroup === '3-4' || ageGroup === '5-6') {
         normalized.ageGroup = ageGroup;
       }
+    }
+
+    if (toolName === 'assignActivity' && conversationId && normalized.conversationId == null) {
+      normalized.conversationId = conversationId;
     }
 
     return normalized;

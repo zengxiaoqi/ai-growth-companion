@@ -99,6 +99,11 @@ export class OrchestratorService {
     [/\bassignment\b|\bassign\b|\bhomework\b/i, 2],
   ];
 
+  private static readonly ASSIGNMENT_PUBLISH_PATTERNS: RegExp[] = [
+    /\u786e\u8ba4\u53d1\u5e03|\u53d1\u5e03\u4f5c\u4e1a|\u5c31\u6309\u8fd9\u4e2a\u53d1\u5e03/i,
+    /\bconfirm\s*publish\b|\bpublish\s*assignment\b/i,
+  ];
+
   constructor(
     private readonly agentRegistry: IAgentRegistry,
     private readonly executorService: AgentExecutorService,
@@ -207,6 +212,10 @@ export class OrchestratorService {
     selectedType: AgentType,
   ): RoutePlan {
     const signals = this.computeIntentSignals(input);
+    const wantsAssignmentPublish = this.matchesAnyPattern(
+      input,
+      OrchestratorService.ASSIGNMENT_PUBLISH_PATTERNS,
+    );
 
     if (context.ageGroup === 'parent') {
       if (signals.course >= 3 && signals.activity >= 3) {
@@ -224,6 +233,25 @@ export class OrchestratorService {
           primaryAgent: 'parent-advisor',
           collaborators: ['course-designer'],
           reason: 'parent asks for structured course planning',
+          signals,
+        };
+      }
+      if (signals.assignment >= 2) {
+        if (wantsAssignmentPublish) {
+          return {
+            mode: 'single',
+            primaryAgent: 'parent-advisor',
+            collaborators: [],
+            reason: 'parent confirms assignment publish',
+            signals,
+          };
+        }
+
+        return {
+          mode: 'coordinated',
+          primaryAgent: 'parent-advisor',
+          collaborators: ['activity-generator'],
+          reason: 'parent requests assignment drafting',
           signals,
         };
       }
@@ -301,6 +329,10 @@ export class OrchestratorService {
       if (pattern.test(text)) score += weight;
     }
     return score;
+  }
+
+  private matchesAnyPattern(input: string, patterns: RegExp[]): boolean {
+    return patterns.some((pattern) => pattern.test(input));
   }
 
   private logPlan(plan: RoutePlan, streaming: boolean): void {

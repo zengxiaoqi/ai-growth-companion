@@ -72,11 +72,11 @@ export class AiService {
 
   /** Main chat endpoint — uses Agent with function calling */
   async chat(params: ChatRequest): Promise<ChatResponse> {
-    const { message, childId, parentId, sessionId, context } = params;
+    const { message, sessionId, context, viewerId, viewerType, targetChildId } = params;
 
-    // Parent mode: parentId present, no childId
-    if (parentId && !childId) {
-      const parent = await this.usersService.findById(parentId);
+    // Parent mode: always routed by authenticated viewer type
+    if (viewerType === 'parent') {
+      const parent = await this.usersService.findById(viewerId);
       if (!parent) {
         return {
           reply: '找不到您的信息，请重新登录试试~',
@@ -85,21 +85,29 @@ export class AiService {
       }
 
       if (!this.llmClient.isConfigured) {
-        return this.fallbackChat(message, parentId);
+        return this.fallbackChat(message, viewerId);
       }
 
-      const session = await this.conversationManager.getOrCreateSession(parentId, sessionId);
+      // Parent conversations are keyed by parent account to avoid mixing with child-side sessions.
+      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
       const parentName = parent.name || '家长';
 
       // Update session metadata
-      await this.conversationManager.updateMetadata(session.uuid, { ageGroup: 'parent', childName: parentName });
+      await this.conversationManager.updateMetadata(session.uuid, {
+        ageGroup: 'parent',
+        childName: parentName,
+        actorType: 'parent',
+        targetChildId: targetChildId ?? null,
+      });
 
       const result = await this.executeRoutedChat({
         sessionId: session.uuid,
         message,
         ageGroup: 'parent',
         displayName: parentName,
-        executionContext: { parentId },
+        executionContext: { parentId: viewerId, childId: targetChildId },
+        actorType: 'parent',
+        targetChildId,
       });
 
       // Generate parent suggestions
@@ -115,7 +123,7 @@ export class AiService {
     }
 
     // Child mode
-    const user = await this.usersService.findById(childId!);
+    const user = await this.usersService.findById(viewerId);
     if (!user) {
       return {
         reply: '找不到你的信息，请重新登录试试~',
@@ -129,27 +137,34 @@ export class AiService {
 
     // Check if LLM is available
     if (!this.llmClient.isConfigured) {
-      return this.fallbackChat(message, childId!);
+      return this.fallbackChat(message, viewerId);
     }
 
     try {
       // Get or create conversation session
-      const session = await this.conversationManager.getOrCreateSession(childId!, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
 
       // Update session metadata
-      await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
+      await this.conversationManager.updateMetadata(session.uuid, {
+        ageGroup,
+        childName,
+        actorType: 'child',
+        targetChildId: viewerId,
+      });
 
       const result = await this.executeRoutedChat({
         sessionId: session.uuid,
         message,
         ageGroup,
         displayName: childName,
-        executionContext: { childId: childId!, parentId },
+        executionContext: { childId: viewerId, parentId: user.parentId },
+        actorType: 'child',
+        targetChildId: viewerId,
       });
 
       void this.learningArchiveService.recordChatTurnSummary({
-        childId: childId!,
-        parentId,
+        childId: viewerId,
+        parentId: user.parentId,
         sessionId: session.uuid,
         userMessage: message,
         assistantReply: result.reply,
@@ -167,7 +182,7 @@ export class AiService {
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
-      return this.fallbackChat(message, childId!);
+      return this.fallbackChat(message, viewerId);
     }
   }
 
@@ -188,11 +203,11 @@ export class AiService {
     gameData?: string;
     domain?: string;
   }> {
-    const { message, childId, parentId, sessionId, context } = params;
+    const { message, sessionId, context, viewerId, viewerType, targetChildId } = params;
 
-    // Parent mode: parentId present, no childId
-    if (parentId && !childId) {
-      const parent = await this.usersService.findById(parentId);
+    // Parent mode: always routed by authenticated viewer type
+    if (viewerType === 'parent') {
+      const parent = await this.usersService.findById(viewerId);
       if (!parent) {
         yield { type: 'error', message: '找不到您的信息' };
         return;
@@ -205,9 +220,14 @@ export class AiService {
         return;
       }
 
-      const session = await this.conversationManager.getOrCreateSession(parentId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
       const parentName = parent.name || '家长';
-      await this.conversationManager.updateMetadata(session.uuid, { ageGroup: 'parent', childName: parentName });
+      await this.conversationManager.updateMetadata(session.uuid, {
+        ageGroup: 'parent',
+        childName: parentName,
+        actorType: 'parent',
+        targetChildId: targetChildId ?? null,
+      });
 
       const suggestions = this.generateParentSuggestions();
 
@@ -216,7 +236,9 @@ export class AiService {
         message,
         ageGroup: 'parent',
         displayName: parentName,
-        executionContext: { parentId },
+        executionContext: { parentId: viewerId, childId: targetChildId },
+        actorType: 'parent',
+        targetChildId,
       })) {
         if (event.type === 'done') {
           yield {
@@ -232,7 +254,7 @@ export class AiService {
     }
 
     // Child mode
-    const user = await this.usersService.findById(childId!);
+    const user = await this.usersService.findById(viewerId);
     if (!user) {
       yield { type: 'error', message: '找不到你的信息' };
       return;
@@ -250,8 +272,13 @@ export class AiService {
     }
 
     try {
-      const session = await this.conversationManager.getOrCreateSession(childId!, sessionId);
-      await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
+      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
+      await this.conversationManager.updateMetadata(session.uuid, {
+        ageGroup,
+        childName,
+        actorType: 'child',
+        targetChildId: viewerId,
+      });
 
       const suggestions = this.generateSuggestions('', ageGroup);
       let finalReply = '';
@@ -261,7 +288,9 @@ export class AiService {
         message,
         ageGroup,
         displayName: childName,
-        executionContext: { childId: childId!, parentId },
+        executionContext: { childId: viewerId, parentId: user.parentId },
+        actorType: 'child',
+        targetChildId: viewerId,
       })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
@@ -270,8 +299,8 @@ export class AiService {
         if (event.type === 'done') {
           if (finalReply.trim()) {
             void this.learningArchiveService.recordChatTurnSummary({
-              childId: childId!,
-              parentId,
+              childId: viewerId,
+              parentId: user.parentId,
               sessionId: session.uuid,
               userMessage: message,
               assistantReply: finalReply,
@@ -302,6 +331,8 @@ export class AiService {
     ageGroup: '3-4' | '5-6' | 'parent';
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
+    actorType: 'parent' | 'child';
+    targetChildId?: number;
   }): AgentContext {
     return {
       childId: params.executionContext.childId,
@@ -314,6 +345,8 @@ export class AiService {
       depth: 0,
       metadata: {
         source: 'ai-module',
+        actorType: params.actorType,
+        targetChildId: params.targetChildId,
       },
     };
   }
@@ -324,9 +357,14 @@ export class AiService {
     ageGroup: '3-4' | '5-6' | 'parent';
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
+    actorType?: 'parent' | 'child';
+    targetChildId?: number;
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean }> {
     if (this.frameworkOrchestrator) {
-      const context = this.buildAgentContext(params);
+      const context = this.buildAgentContext({
+        ...params,
+        actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
+      });
       const result = await this.frameworkOrchestrator.route(params.message, context);
       return {
         reply: result.response,
@@ -354,6 +392,8 @@ export class AiService {
     ageGroup: '3-4' | '5-6' | 'parent';
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
+    actorType?: 'parent' | 'child';
+    targetChildId?: number;
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
     content?: string;
@@ -370,7 +410,10 @@ export class AiService {
     domain?: string;
   }> {
     if (this.frameworkOrchestrator) {
-      const context = this.buildAgentContext(params);
+      const context = this.buildAgentContext({
+        ...params,
+        actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
+      });
       for await (const event of this.frameworkOrchestrator.routeStream(params.message, context)) {
         yield event as any;
       }
@@ -386,6 +429,14 @@ export class AiService {
     )) {
       yield event as any;
     }
+  }
+
+  async canViewerAccessChild(params: {
+    viewerId: number;
+    viewerType: string;
+    childId: number;
+  }): Promise<boolean> {
+    return this.usersService.canAccessChild(params.viewerId, params.viewerType, params.childId);
   }
 
   async getConversationSessions(params: {

@@ -133,7 +133,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'assignActivity',
-      description: 'Assign an AI-generated activity to a child (parent mode).',
+      description: 'Parent assignment flow: draft first, then confirm publish, and support canceling draft.',
       parameters: {
         type: 'object',
         properties: {
@@ -149,8 +149,10 @@ export const toolDefinitions: ChatCompletionTool[] = [
           ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: 'Target age group' },
           domain: { type: 'string', enum: ['language', 'math', 'science', 'art', 'social'], description: 'Learning domain (optional)' },
           dueDate: { type: 'string', description: 'Optional due date (YYYY-MM-DD)' },
+          confirmPublish: { type: 'boolean', description: 'false/omit=create draft, true=publish confirmed draft' },
+          cancelDraft: { type: 'boolean', description: 'Whether to cancel current pending draft' },
         },
-        required: ['parentId', 'childId', 'activityType', 'topic', 'difficulty', 'ageGroup'],
+        required: [],
       },
     },
   },

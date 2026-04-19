@@ -217,5 +217,27 @@ describe('OrchestratorService', () => {
     expect(result.response).toBe('parent-integration-output');
     expect(executorService.runLoop).toHaveBeenCalledTimes(2);
   });
-});
 
+  it('uses assignment signal to coordinate drafting flow for parent requests', async () => {
+    runLoopQueue.push(
+      {
+        response: 'activity-draft-output',
+        toolCalls: [{ tool: 'generateActivity', args: {}, resultSummary: 'draft' }],
+      },
+      {
+        response: 'parent-confirmation-output',
+        toolCalls: [{ tool: 'getAbilities', args: {}, resultSummary: 'parent' }],
+      },
+    );
+
+    const result = await service.route('请给孩子布置一份作业练习', baseContext);
+
+    expect(result.response).toBe('parent-confirmation-output');
+    expect(executorService.runLoop).toHaveBeenCalledTimes(2);
+
+    const firstTools = executorService.runLoop.mock.calls[0][2].map((t: any) => t.function.name);
+    const secondTools = executorService.runLoop.mock.calls[1][2].map((t: any) => t.function.name);
+    expect(firstTools).toEqual(['generateActivity']);
+    expect(secondTools).toEqual(['getAbilities']);
+  });
+});

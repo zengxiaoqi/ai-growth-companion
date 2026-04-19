@@ -6,6 +6,7 @@ import { Assignment } from '../../database/entities/assignment.entity';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 import { LearningTrackerService } from '../learning/learning-tracker.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
+import { UsersService } from '../users/users.service';
 
 const ACTIVITY_GENERATION_TIMEOUT_MS = 45000;
 
@@ -19,6 +20,7 @@ export class AssignmentService {
     private readonly generateActivityTool: GenerateActivityTool,
     private readonly learningTracker: LearningTrackerService,
     private readonly learningArchive: LearningArchiveService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(data: {
@@ -31,6 +33,14 @@ export class AssignmentService {
     difficulty?: number;
     dueDate?: string;
   }): Promise<Assignment> {
+    const child = await this.usersService.findById(data.childId);
+    if (!child || child.type !== 'child') {
+      throw new BadRequestException('Child not found');
+    }
+    if (child.parentId !== data.parentId) {
+      throw new ForbiddenException('You can only assign homework to your own child');
+    }
+
     let activityData = data.activityData;
 
     if (this.shouldGenerateActivityData(activityData)) {

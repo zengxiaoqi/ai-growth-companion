@@ -5,12 +5,14 @@ import { AssignmentService } from './assignment.service';
 import { AssignmentController } from './assignment.controller';
 import { AiModule } from '../ai/ai.module';
 import { LearningModule } from '../learning/learning.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Assignment]),
     forwardRef(() => AiModule),
     forwardRef(() => LearningModule),
+    UsersModule,
   ],
   providers: [AssignmentService],
   controllers: [AssignmentController],

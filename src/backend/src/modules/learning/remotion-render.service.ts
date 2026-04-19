@@ -18,6 +18,7 @@ type OriginalTeachingSlide = TeachingVideoData['slides'][number];
 type TeachingSlide = OriginalTeachingSlide & {
   durationFrames?: number;
   narrationSrc?: string;
+  transitionIn?: 'fade' | 'slide-left' | 'slide-right' | 'zoom';
 };
 type TeachingSlideItem = NonNullable<OriginalTeachingSlide['items']>[number];
 
@@ -191,7 +192,7 @@ export class RemotionRenderService {
     const supportSlides = this.buildSupplementSlides(payload.modules || {}, mergedSlides.length);
 
     // Dynamic allocation: watch content 60%, supplement 40%
-    const MAX_SLIDES = 12;
+    const MAX_SLIDES = 16;
     const watchBudget = Math.max(3, Math.floor(MAX_SLIDES * 0.6));
     const supportBudget = MAX_SLIDES - watchBudget;
 
@@ -210,7 +211,7 @@ export class RemotionRenderService {
       ),
       introBg: theme.introBg,
       outroBg: theme.outroBg,
-      slides: slides.length > 0 ? slides : [this.buildFallbackSlide(payload.topic)],
+      slides: slides.length > 0 ? slides : [this.buildFallbackSlide(payload.topic, domain)],
     };
   }
 
@@ -226,7 +227,7 @@ export class RemotionRenderService {
         );
 
     return (Array.isArray(sceneDoc?.scenes) ? sceneDoc.scenes : [])
-      .slice(0, 12)
+      .slice(0, 16)
       .map((scene: Record<string, any>, index: number) => this.buildSlideFromScene(scene, index, domain));
   }
 
@@ -252,7 +253,7 @@ export class RemotionRenderService {
 
       return {
         ...slide,
-        narration: this.truncateAtSentenceEnd(mergedNarration, 150),
+        narration: this.truncateAtSentenceEnd(mergedNarration, 300),
       };
     });
   }
@@ -284,19 +285,19 @@ export class RemotionRenderService {
       [
         ...script.map((entry: any) => this.toText(entry?.segment || entry?.narration)),
         ...questions.map((entry: any) => this.toText(entry)),
-      ].filter(Boolean).slice(0, 4),
+      ].filter(Boolean).slice(0, 8),
       ['🎧', '🎵', '🗣️', '👂'],
     );
 
     return {
-      title: this.toText(listening.goal, '听一听').slice(0, 16),
+      title: this.toText(listening.goal, '听一听').slice(0, 24),
       emoji: '🎧',
-      subtitle: this.toText(script[0]?.narration, '听老师讲一讲').slice(0, 30) || undefined,
+      subtitle: this.toText(script[0]?.narration, '听老师讲一讲').slice(0, 60) || undefined,
       bgColor: '#FFF8F0',
       accentColor: '#E67E22',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.truncateAtSentenceEnd(this.toText(script[0]?.narration, '先竖起小耳朵，跟着老师认真听一听。'), 150),
+      narration: this.truncateAtSentenceEnd(this.toText(script[0]?.narration, '先竖起小耳朵，跟着老师认真听一听。'), 300),
     };
   }
 
@@ -308,13 +309,13 @@ export class RemotionRenderService {
       [
         ...keywords.map((entry: any) => this.toText(entry)),
         ...questions.map((entry: any) => this.toText(entry)),
-      ].filter(Boolean).slice(0, 4),
+      ].filter(Boolean).slice(0, 8),
       ['📚', '🔤', '📝', '💡'],
     );
 
     // Build narration from actual content, not a generic template
     const keywordsIntro = keywords.length > 0
-      ? `重点词语有：${keywords.slice(0, 4).map((k: any) => this.toText(k)).join('、')}。`
+      ? `重点词语有：${keywords.slice(0, 8).map((k: any) => this.toText(k)).join('、')}。`
       : '';
     const narration = this.toText(
       reading.text,
@@ -322,14 +323,14 @@ export class RemotionRenderService {
     );
 
     return {
-      title: this.toText(reading.goal, '读一读').slice(0, 16),
+      title: this.toText(reading.goal, '读一读').slice(0, 24),
       emoji: '📚',
-      subtitle: this.toText(reading.text, '一起读一读重点内容').slice(0, 30) || undefined,
+      subtitle: this.toText(reading.text, '一起读一读重点内容').slice(0, 60) || undefined,
       bgColor: '#F8F0FF',
       accentColor: '#9B59B6',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.truncateAtSentenceEnd(narration, 150),
+      narration: this.truncateAtSentenceEnd(narration, 300),
     };
   }
 
@@ -342,19 +343,19 @@ export class RemotionRenderService {
       [
         ...tracingItems.map((entry: any) => this.toText(entry)),
         ...practiceTasks.map((entry: any) => this.toText(entry)),
-      ].filter(Boolean).slice(0, 4),
+      ].filter(Boolean).slice(0, 8),
       ['✍️', '📝', '📏', '⭐'],
     );
 
     return {
-      title: this.toText(writing.goal, firstTarget ? `写一写 ${firstTarget}` : '写一写').slice(0, 16),
+      title: this.toText(writing.goal, firstTarget ? `写一写 ${firstTarget}` : '写一写').slice(0, 24),
       emoji: '✍️',
-      subtitle: firstTarget ? `描红练习：${firstTarget}`.slice(0, 30) : '跟着提示动笔练习',
+      subtitle: firstTarget ? `描红练习：${firstTarget}`.slice(0, 60) : '跟着提示动笔练习',
       bgColor: '#EBF5FF',
       accentColor: '#4D96FF',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.truncateAtSentenceEnd(this.toText(practiceTasks[0], firstTarget ? `我们来描一描${firstTarget}。` : '拿起笔，跟着老师一起写一写。'), 150),
+      narration: this.truncateAtSentenceEnd(this.toText(practiceTasks[0], firstTarget ? `我们来描一描${firstTarget}。` : '拿起笔，跟着老师一起写一写。'), 300),
     };
   }
 
@@ -369,19 +370,19 @@ export class RemotionRenderService {
         questionCount > 0 ? `${questionCount}道题` : '',
         pairCount > 0 ? `${pairCount}组配对` : '',
         this.toText(activityData.title),
-      ].filter(Boolean).slice(0, 4),
+      ].filter(Boolean).slice(0, 8),
       ['🎮', '🧩', '🎯', '🏅'],
     );
 
     return {
-      title: this.toText(activityData.title, '练一练').slice(0, 16),
+      title: this.toText(activityData.title, '练一练').slice(0, 24),
       emoji: '🎮',
-      subtitle: this.toText(game.activityType, '互动练习').slice(0, 30) || undefined,
+      subtitle: this.toText(game.activityType, '互动练习').slice(0, 60) || undefined,
       bgColor: '#FFF0F6',
       accentColor: '#FF6B9D',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.truncateAtSentenceEnd(`现在开始互动练习，一起挑战${this.toText(activityData.title, '小游戏')}。`, 150),
+      narration: this.truncateAtSentenceEnd(`现在开始互动练习，一起挑战${this.toText(activityData.title, '小游戏')}。`, 300),
     };
   }
 
@@ -392,19 +393,19 @@ export class RemotionRenderService {
       questions
         .map((entry: any) => this.toText(entry?.question))
         .filter(Boolean)
-        .slice(0, 4),
+        .slice(0, 8),
       ['✅', '🧠', '📌', '🏁'],
     );
 
     return {
-      title: this.toText(quiz.title, '评一评').slice(0, 16),
+      title: this.toText(quiz.title, '评一评').slice(0, 24),
       emoji: '✅',
       subtitle: questions.length > 0 ? `共${questions.length}道题` : '小测验时间',
       bgColor: '#F0FFF4',
       accentColor: '#6BCB77',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
       items: items.length > 0 ? items : undefined,
-      narration: this.truncateAtSentenceEnd(questions.length > 0 ? `最后我们来做${questions.length}道题，看看今天学会了什么。` : '最后来做一个小测验。', 150),
+      narration: this.truncateAtSentenceEnd(questions.length > 0 ? `最后我们来做${questions.length}道题，看看今天学会了什么。` : '最后来做一个小测验。', 300),
     };
   }
 
@@ -422,7 +423,7 @@ export class RemotionRenderService {
 
     const mergedItems = this.mergeItems(
       theme.items || [],
-      this.createItems(visualLabels.slice(0, 4), EMOJI_PALETTE),
+      this.createItems(visualLabels.slice(0, 8), EMOJI_PALETTE),
     );
 
     const headline = this.toText(scene?.onScreenText, this.toText(scene?.title, `知识点${index + 1}`));
@@ -443,30 +444,34 @@ export class RemotionRenderService {
     const bgType = this.toText(scene?.visual?.background?.type);
     const validBgTypes = ['day', 'night', 'indoor', 'spring', 'summer', 'autumn', 'winter'];
     const sceneCharacters = Array.isArray(scene?.visual?.characters)
-      ? scene.visual.characters.map((c: any) => this.toText(c?.label || c)).filter(Boolean).slice(0, 4)
+      ? scene.visual.characters.map((c: any) => this.toText(c?.label || c)).filter(Boolean).slice(0, 8)
       : [];
     const sceneVisualItems = Array.isArray(scene?.visual?.items)
-      ? scene.visual.items.map((i: any) => this.toText(i?.label || i)).filter(Boolean).slice(0, 6)
+      ? scene.visual.items.map((i: any) => this.toText(i?.label || i)).filter(Boolean).slice(0, 12)
       : [];
     const visual = {
       bgType: validBgTypes.includes(bgType) ? bgType : undefined,
       caption: this.toText(scene?.onScreenText || scene?.visual?.caption) || undefined,
       characters: sceneCharacters.length > 0 ? sceneCharacters : undefined,
       items: sceneVisualItems.length > 0 ? sceneVisualItems : undefined,
-      mood: 'playful' as const,
+      mood: this.inferMood(this.toText(scene?.narration)),
     };
 
+    // Determine slide transition style based on position
+    const transitionIn = index === 0 ? 'fade' : (index % 3 === 0 ? 'slide-left' : 'fade');
+
     return {
-      title: headline.slice(0, 16),
+      title: headline.slice(0, 24),
       emoji: theme.emoji || EMOJI_PALETTE[index % EMOJI_PALETTE.length],
-      subtitle: subtitle.slice(0, 30) || undefined,
+      subtitle: subtitle.slice(0, 60) || undefined,
       bgColor: theme.bgColor || this.toText(scene?.visual?.background?.themeColor, domainTheme.bgPalette[index % domainTheme.bgPalette.length]),
       accentColor: theme.accentColor || this.toText(scene?.visual?.background?.accentColor, domainTheme.accentPalette[index % domainTheme.accentPalette.length]),
       layout: theme.layout || (mergedItems.length >= 3 ? 'grid' : mergedItems.length >= 1 ? 'list' : 'hero'),
       items: mergedItems.length > 0 ? mergedItems : undefined,
-      narration: this.truncateAtSentenceEnd(this.toText(scene?.narration, '请和老师一起学习。'), 150),
+      narration: this.truncateAtSentenceEnd(this.toText(scene?.narration, '请和老师一起学习。'), 300),
       ...(animationTemplate ? { animationTemplate } : {}),
       visual,
+      transitionIn,
     };
   }
 
@@ -545,7 +550,7 @@ export class RemotionRenderService {
         bgColor: '#F8F0FF',
         accentColor: '#9B59B6',
         subtitle: '词语逐个出现',
-        items: this.createItems(words.map((entry: any) => this.toText(entry)).filter(Boolean).slice(0, 4), ['🔤', '🪄', '📖', '✨']),
+        items: this.createItems(words.map((entry: any) => this.toText(entry)).filter(Boolean).slice(0, 8), ['🔤', '🪄', '📖', '✨']),
       };
     }
 
@@ -556,6 +561,122 @@ export class RemotionRenderService {
         bgColor: '#FFF5F5',
         accentColor: '#FF6B6B',
         subtitle: this.toText(scene?.visual?.caption, '故事时间'),
+      };
+    }
+
+    // Math templates
+    if (templateId === 'math.counting-objects') {
+      const count = Number(templateParams.targetCount) || 5;
+      return {
+        emoji: '🔢',
+        layout: 'grid',
+        bgColor: '#EBF5FF',
+        accentColor: '#4D96FF',
+        subtitle: `数一数，一共${count}个`,
+        items: this.createItems(
+          Array.from({ length: Math.min(count, 5) }, (_, i) => String(i + 1)),
+          ['⭐', '🍎', '🎈', '🌟', '💎'],
+        ),
+      };
+    }
+
+    if (templateId === 'math.shape-builder') {
+      const shapes = Array.isArray(templateParams.shapes) ? templateParams.shapes : ['circle', 'square', 'triangle'];
+      const shapeEmoji: Record<string, string> = { circle: '⭕', square: '⬛', triangle: '🔺', rectangle: '▬', star: '⭐' };
+      return {
+        emoji: '📐',
+        layout: 'grid',
+        bgColor: '#F0F0FF',
+        accentColor: '#667EEA',
+        subtitle: '认识图形',
+        items: shapes.slice(0, 4).map((s: string) => ({
+          emoji: shapeEmoji[s] || '🔷',
+          label: this.toText(s).slice(0, 8),
+        })),
+      };
+    }
+
+    if (templateId === 'math.number-line') {
+      const start = Number(templateParams.startNum) || 1;
+      const end = Number(templateParams.endNum) || 10;
+      return {
+        emoji: '📏',
+        layout: 'list',
+        bgColor: '#E8F8FF',
+        accentColor: '#00B4D8',
+        subtitle: `${start} 到 ${end} 的数轴`,
+        items: this.createItems([`${start}`, '...', `${end}`], ['1️⃣', '➡️', '🔟']),
+      };
+    }
+
+    if (templateId === 'math.abacus') {
+      return {
+        emoji: '🧮',
+        layout: 'hero',
+        bgColor: '#FFFBEB',
+        accentColor: '#F59E0B',
+        subtitle: '算盘计数',
+        items: this.createItems(['拨珠子', '数一数'], ['🟤', '🔢']),
+      };
+    }
+
+    // Art templates
+    if (templateId === 'art.color-mixing') {
+      return {
+        emoji: '🎨',
+        layout: 'grid',
+        bgColor: '#FFF0F6',
+        accentColor: '#FF6B9D',
+        subtitle: '颜色混合实验',
+        items: this.createItems(['红色', '蓝色', '黄色', '混合'], ['🔴', '🔵', '🟡', '🎨']),
+      };
+    }
+
+    if (templateId === 'art.drawing-steps') {
+      return {
+        emoji: '🖌️',
+        layout: 'list',
+        bgColor: '#FFF8F0',
+        accentColor: '#E67E22',
+        subtitle: '跟着画一画',
+        items: this.createItems(['第一步', '第二步', '完成'], ['✏️', '🖊️', '🌟']),
+      };
+    }
+
+    // Social templates
+    if (templateId === 'social.emotion-faces') {
+      const emotions = Array.isArray(templateParams.emotions) ? templateParams.emotions : ['happy', 'sad', 'angry', 'surprised'];
+      const emotionEmoji: Record<string, string> = {
+        happy: '😊', sad: '😢', angry: '😠', surprised: '😲',
+        scared: '😨', shy: '😳', proud: '😎', calm: '😌',
+      };
+      return {
+        emoji: '😊',
+        layout: 'grid',
+        bgColor: '#FFFBEB',
+        accentColor: '#FFD93D',
+        subtitle: '认识表情',
+        items: emotions.slice(0, 4).map((e: string) => ({
+          emoji: emotionEmoji[e] || '😀',
+          label: this.toText(e).slice(0, 8),
+        })),
+      };
+    }
+
+    if (templateId === 'social.daily-routine') {
+      const activities = Array.isArray(templateParams.activities) ? templateParams.activities : [];
+      return {
+        emoji: '⏰',
+        layout: activities.length >= 3 ? 'grid' : 'list',
+        bgColor: '#F0FFF4',
+        accentColor: '#6BCB77',
+        subtitle: '日常好习惯',
+        items: activities.length > 0
+          ? activities.slice(0, 4).map((a: string, i: number) => ({
+              emoji: ['🌅', '🍽️', '📚', '🌙'][i % 4],
+              label: this.toText(a).slice(0, 8),
+            }))
+          : this.createItems(['起床', '学习', '玩耍', '睡觉'], ['🌅', '📚', '🎮', '🌙']),
       };
     }
 
@@ -578,17 +699,36 @@ export class RemotionRenderService {
     };
   }
 
-  private buildFallbackSlide(topic: string): TeachingSlide {
+  private buildFallbackSlide(topic: string, domain?: string): TeachingSlide {
+    const theme = DOMAIN_THEMES[domain || 'language'] || DOMAIN_THEMES.language;
+    const domainEmoji: Record<string, string> = {
+      language: '📖', math: '🔢', science: '🔬', art: '🎨', social: '🤝',
+    };
+    const domainLabel: Record<string, string> = {
+      language: '语言启蒙', math: '数学启蒙', science: '科学探索',
+      art: '艺术创造', social: '社交成长',
+    };
     return {
-      title: `认识${topic}`.slice(0, 16),
-      emoji: '✨',
-      subtitle: '启蒙动画课',
-      bgColor: '#FFF5F5',
-      accentColor: '#FF6B6B',
+      title: `认识${topic}`.slice(0, 24),
+      emoji: domainEmoji[domain || 'language'] || '✨',
+      subtitle: domainLabel[domain || 'language'] || '启蒙动画课',
+      bgColor: theme.bgPalette[0],
+      accentColor: theme.accentPalette[0],
       layout: 'hero',
       items: this.createItems(['一起观察', '一起学习'], ['👀', '📘']),
-      narration: this.truncateAtSentenceEnd(`请跟着老师一起认识${topic}。`, 150),
+      narration: this.truncateAtSentenceEnd(`请跟着老师一起认识${topic}。`, 300),
+      transitionIn: 'fade',
     };
+  }
+
+  /** Infer mood from narration text for visual scene descriptor */
+  private inferMood(text: string): 'playful' | 'calm' | 'exciting' | 'mysterious' | 'warm' {
+    if (/(开心|快乐|好玩|游戏|玩|笑|哈哈|太棒|加油|欢迎)/.test(text)) return 'playful';
+    if (/(安静|轻轻|慢慢|温柔|仔细|认真|观察)/.test(text)) return 'calm';
+    if (/(发现|探索|惊喜|哇|厉害|挑战|比赛|冒险)/.test(text)) return 'exciting';
+    if (/(神奇|奇妙|秘密|魔法|变化|不可思议)/.test(text)) return 'mysterious';
+    if (/(温暖|拥抱|爱|妈妈|爸爸|朋友|分享|帮助|谢谢|再见)/.test(text)) return 'warm';
+    return 'playful';
   }
 
   private mergeItems(primary: TeachingSlideItem[], secondary: TeachingSlideItem[]): TeachingSlideItem[] {
@@ -598,14 +738,14 @@ export class RemotionRenderService {
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
-    }).slice(0, 4);
+    }).slice(0, 8);
   }
 
   private createItems(labels: string[], emojiSource: readonly string[]): TeachingSlideItem[] {
     return labels
       .map((label, index) => ({
         emoji: emojiSource[index % emojiSource.length],
-        label: this.toText(label).slice(0, 12),
+        label: this.toText(label).slice(0, 20),
       }))
       .filter((item) => item.label);
   }

@@ -1,6 +1,164 @@
 {
-  "id": "sci_001", "name": "我的身体", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
-  "objectives": ["认识身体部位", "了解五官功能"],
-  "content": [{"type": "story", "title": "我的身体", "text": "眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸。我们身体真有用！",
-     "questions": [{"q": "眼睛用来做什么？", "options": ["听", "看", "闻"], "answer": 1}, {"q": "耳朵用来做什么？", "options": ["看", "听", "吃"], "answer": 1}]}]
+  "id": "sci_001",
+  "name": "我的身体",
+  "ageRange": "3-4",
+  "domain": "science",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "认识身体部位",
+    "了解五官功能"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "我的身体",
+      "text": "眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸。我们身体真有用！",
+      "questions": [
+        {
+          "q": "眼睛用来做什么？",
+          "options": [
+            "听",
+            "看",
+            "闻"
+          ],
+          "answer": 1
+        },
+        {
+          "q": "耳朵用来做什么？",
+          "options": [
+            "看",
+            "听",
+            "吃"
+          ],
+          "answer": 1
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到我的身体",
+        "imagePrompt": "明亮的卡通场景，我的身体主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习我的身体。准备好了吗？让我们开始吧！",
+        "onScreenText": "我的身体",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的身体·1",
+        "imagePrompt": "我的身体场景：眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸，卡通教育风格，明亮温暖",
+        "narration": "眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸。",
+        "onScreenText": "眼睛用来看",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的身体·2",
+        "imagePrompt": "我的身体场景：我们身体真有用，卡通教育风格，明亮温暖",
+        "narration": "我们身体真有用。",
+        "onScreenText": "我们身体真有用",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：眼睛用来做什么？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：眼睛用来做什么？",
+        "onScreenText": "🤔 眼睛用来做什么？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：耳朵用来做什么？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：耳朵用来做什么？",
+        "onScreenText": "🤔 耳朵用来做什么？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "我的身体总结",
+        "imagePrompt": "我的身体总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了我的身体，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "我的身体动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习我的身体！",
+        "caption": "我的身体",
+        "durationSec": 8
+      },
+      {
+        "shot": "我的身体",
+        "narration": "眼睛用来看，耳朵用来听，鼻子用来闻，嘴巴用来吃，小手用来摸",
+        "caption": "我的身体",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了我的身体，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

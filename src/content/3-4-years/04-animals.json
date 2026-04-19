@@ -1,9 +1,199 @@
 {
-  "id": "lang_004", "name": "动物朋友", "ageRange": "3-4", "domain": "language", "duration": 8, "difficulty": 1,
-  "objectives": ["认识常见动物", "知道动物叫声", "了解动物习性"],
+  "id": "lang_004",
+  "name": "动物朋友",
+  "ageRange": "3-4",
+  "domain": "language",
+  "duration": 8,
+  "difficulty": 1,
+  "objectives": [
+    "认识常见动物",
+    "知道动物叫声",
+    "了解动物习性"
+  ],
   "content": [
-    {"type": "story", "title": "农场里的小动物", "text": "农场里真热闹！小狗汪汪叫，小猫喵喵喵，小牛哞哞叫，小羊咩咩咩。小朋友们快来数一数！",
-     "questions": [{"q": "小狗怎么叫？", "options": ["汪汪", "喵喵", "哞哞"], "answer": 0}, {"q": "小猫怎么叫？", "options": ["汪汪", "喵喵", "咩咩"], "answer": 1}]},
-    {"type": "game", "title": "动物配对", "items": [{"animal": "🐶", "sound": "汪汪"}, {"animal": "🐱", "sound": "喵喵"}, {"animal": "🐮", "sound": "哞哞"}]}
-  ]
+    {
+      "type": "story",
+      "title": "农场里的小动物",
+      "text": "农场里真热闹！小狗汪汪叫，小猫喵喵喵，小牛哞哞叫，小羊咩咩咩。小朋友们快来数一数！",
+      "questions": [
+        {
+          "q": "小狗怎么叫？",
+          "options": [
+            "汪汪",
+            "喵喵",
+            "哞哞"
+          ],
+          "answer": 0
+        },
+        {
+          "q": "小猫怎么叫？",
+          "options": [
+            "汪汪",
+            "喵喵",
+            "咩咩"
+          ],
+          "answer": 1
+        }
+      ]
+    },
+    {
+      "type": "game",
+      "title": "动物配对",
+      "items": [
+        {
+          "animal": "🐶",
+          "sound": "汪汪"
+        },
+        {
+          "animal": "🐱",
+          "sound": "喵喵"
+        },
+        {
+          "animal": "🐮",
+          "sound": "哞哞"
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到动物朋友",
+        "imagePrompt": "明亮的卡通场景，动物朋友主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习动物朋友。准备好了吗？让我们开始吧！",
+        "onScreenText": "动物朋友",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "农场里的小动物·1",
+        "imagePrompt": "动物朋友场景：农场里真热闹，卡通教育风格，明亮温暖",
+        "narration": "农场里真热闹。",
+        "onScreenText": "农场里真热闹",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "summer",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "农场里的小动物·2",
+        "imagePrompt": "动物朋友场景：小狗汪汪叫，小猫喵喵喵，小牛哞哞叫，小羊咩咩咩，卡通教育风格，明亮温暖",
+        "narration": "小狗汪汪叫，小猫喵喵喵，小牛哞哞叫，小羊咩咩咩。",
+        "onScreenText": "小狗汪汪叫",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小猫",
+            "小狗",
+            "小牛",
+            "小羊"
+          ]
+        }
+      },
+      {
+        "scene": "农场里的小动物·3",
+        "imagePrompt": "动物朋友场景：小朋友们快来数一数，卡通教育风格，明亮温暖",
+        "narration": "小朋友们快来数一数。",
+        "onScreenText": "小朋友们快来数一数",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小狗怎么叫？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小狗怎么叫？",
+        "onScreenText": "🤔 小狗怎么叫？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小猫怎么叫？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小猫怎么叫？",
+        "onScreenText": "🤔 小猫怎么叫？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友总结",
+        "imagePrompt": "动物朋友总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了动物朋友，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "动物朋友动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习动物朋友！",
+        "caption": "动物朋友",
+        "durationSec": 8
+      },
+      {
+        "shot": "农场里的小动物",
+        "narration": "农场里真热闹",
+        "caption": "农场里的小动物",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了动物朋友，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

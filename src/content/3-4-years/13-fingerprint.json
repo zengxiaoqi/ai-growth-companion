@@ -1,6 +1,86 @@
 {
-  "id": "art_001", "name": "手指画", "ageRange": "3-4", "domain": "art", "duration": 8, "difficulty": 1,
-  "objectives": ["会用手指印画", "感受色彩"],
-  "content": [{"type": "practice", "title": "小手印画", "text": "用手指蘸上颜料，印出漂亮的小手印。红手印、蓝手印、紫手印，变成美丽的彩虹！",
-     "tasks": [{"color": "red", "shape": "圆形"}, {"color": "blue", "shape": "椭圆形"}, {"color": "yellow", "shape": "圆形"}]}]
+  "id": "art_001",
+  "name": "手指画",
+  "ageRange": "3-4",
+  "domain": "art",
+  "duration": 8,
+  "difficulty": 1,
+  "objectives": [
+    "会用手指印画",
+    "感受色彩"
+  ],
+  "content": [
+    {
+      "type": "practice",
+      "title": "小手印画",
+      "text": "用手指蘸上颜料，印出漂亮的小手印。红手印、蓝手印、紫手印，变成美丽的彩虹！",
+      "tasks": [
+        {
+          "color": "red",
+          "shape": "圆形"
+        },
+        {
+          "color": "blue",
+          "shape": "椭圆形"
+        },
+        {
+          "color": "yellow",
+          "shape": "圆形"
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到手指画",
+        "imagePrompt": "明亮的卡通场景，手指画主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习手指画。准备好了吗？让我们开始吧！",
+        "onScreenText": "手指画",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手指画总结",
+        "imagePrompt": "手指画总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了手指画，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "手指画动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习手指画！",
+        "caption": "手指画",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了手指画，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

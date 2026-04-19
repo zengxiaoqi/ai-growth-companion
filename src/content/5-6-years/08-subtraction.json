@@ -1,6 +1,167 @@
 {
-  "id": "math_103", "name": "10以内减法", "ageRange": "5-6", "domain": "math", "duration": 10, "difficulty": 2,
-  "objectives": ["掌握10以内减法", "理解减法意义"],
-  "content": [{"type": "lesson", "title": "减法真简单", "text": "减法就是拿走一部分，数剩下的。比如：5-2=3，5个苹果吃掉2个，还剩3个。",
-     "questions": [{"q": "5-1=?", "options": ["3", "4", "5"], "answer": 1}, {"q": "6-2=?", "options": ["3", "4", "5"], "answer": 1}]}]
+  "id": "math_103",
+  "name": "10以内减法",
+  "ageRange": "5-6",
+  "domain": "math",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "掌握10以内减法",
+    "理解减法意义"
+  ],
+  "content": [
+    {
+      "type": "lesson",
+      "title": "减法真简单",
+      "text": "减法就是拿走一部分，数剩下的。比如：5-2=3，5个苹果吃掉2个，还剩3个。",
+      "questions": [
+        {
+          "q": "5-1=?",
+          "options": [
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1
+        },
+        {
+          "q": "6-2=?",
+          "options": [
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到10以内减法",
+        "imagePrompt": "明亮的卡通场景，10以内减法主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习10以内减法。准备好了吗？让我们开始吧！",
+        "onScreenText": "10以内减法",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "减法真简单·1",
+        "imagePrompt": "10以内减法场景：减法就是拿走一部分，数剩下的，卡通教育风格，明亮温暖",
+        "narration": "减法就是拿走一部分，数剩下的。",
+        "onScreenText": "减法就是拿走一部分",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "减法真简单·2",
+        "imagePrompt": "10以内减法场景：比如：5-2=3，5个苹果吃掉2个，还剩3个，卡通教育风格，明亮温暖",
+        "narration": "比如：5-2=3，5个苹果吃掉2个，还剩3个。",
+        "onScreenText": "比如",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ],
+          "items": [
+            "苹果"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：5-1=?，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：5-1=?",
+        "onScreenText": "🤔 5-1=?",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：6-2=?，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：6-2=?",
+        "onScreenText": "🤔 6-2=?",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "10以内减法总结",
+        "imagePrompt": "10以内减法总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了10以内减法，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "10以内减法动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习10以内减法！",
+        "caption": "10以内减法",
+        "durationSec": 8
+      },
+      {
+        "shot": "减法真简单",
+        "narration": "减法就是拿走一部分，数剩下的",
+        "caption": "减法真简单",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了10以内减法，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

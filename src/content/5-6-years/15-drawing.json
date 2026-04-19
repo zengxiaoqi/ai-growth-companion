@@ -1,5 +1,81 @@
 {
-  "id": "art_101", "name": "绘画创作", "ageRange": "5-6", "domain": "art", "duration": 10, "difficulty": 2,
-  "objectives": ["主题绘画创作", "发挥想象力"],
-  "content": [{"type": "practice", "title": "我的家", "hints": ["画一画你的家", "要有房子、窗户、门", "还可以画家人"], "tools": ["画笔", "彩色蜡笔", "水彩"]}]
+  "id": "art_101",
+  "name": "绘画创作",
+  "ageRange": "5-6",
+  "domain": "art",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "主题绘画创作",
+    "发挥想象力"
+  ],
+  "content": [
+    {
+      "type": "practice",
+      "title": "我的家",
+      "hints": [
+        "画一画你的家",
+        "要有房子、窗户、门",
+        "还可以画家人"
+      ],
+      "tools": [
+        "画笔",
+        "彩色蜡笔",
+        "水彩"
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到绘画创作",
+        "imagePrompt": "明亮的卡通场景，绘画创作主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习绘画创作。准备好了吗？让我们开始吧！",
+        "onScreenText": "绘画创作",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "绘画创作总结",
+        "imagePrompt": "绘画创作总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了绘画创作，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "绘画创作动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习绘画创作！",
+        "caption": "绘画创作",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了绘画创作，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

@@ -1,5 +1,83 @@
 {
-  "id": "art_003", "name": "儿歌学唱", "ageRange": "3-4", "domain": "art", "duration": 8, "difficulty": 1,
-  "objectives": ["学唱简单儿歌", "培养音乐兴趣"],
-  "content": [{"type": "lesson", "title": "小星星", "lyrics": "一闪一闪亮晶晶，满天都是小星星。挂在天上放光明，好像许多小眼睛。", "melody": "简单", "actions": ["举手模拟星星", "眨眼"]}]
+  "id": "art_003",
+  "name": "儿歌学唱",
+  "ageRange": "3-4",
+  "domain": "art",
+  "duration": 8,
+  "difficulty": 1,
+  "objectives": [
+    "学唱简单儿歌",
+    "培养音乐兴趣"
+  ],
+  "content": [
+    {
+      "type": "lesson",
+      "title": "小星星",
+      "lyrics": "一闪一闪亮晶晶，满天都是小星星。挂在天上放光明，好像许多小眼睛。",
+      "melody": "简单",
+      "actions": [
+        "举手模拟星星",
+        "眨眼"
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到儿歌学唱",
+        "imagePrompt": "明亮的卡通场景，儿歌学唱主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习儿歌学唱。准备好了吗？让我们开始吧！",
+        "onScreenText": "儿歌学唱",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "儿歌学唱总结",
+        "imagePrompt": "儿歌学唱总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了儿歌学唱，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "儿歌学唱动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习儿歌学唱！",
+        "caption": "儿歌学唱",
+        "durationSec": 8
+      },
+      {
+        "shot": "小星星",
+        "narration": "",
+        "caption": "小星星",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了儿歌学唱，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

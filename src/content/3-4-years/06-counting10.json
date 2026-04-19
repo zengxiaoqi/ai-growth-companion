@@ -1,6 +1,151 @@
 {
-  "id": "math_002", "name": "数数1-10", "ageRange": "3-4", "domain": "math", "duration": 5, "difficulty": 1,
-  "objectives": ["会数1-10个物品", "认识数字1-10"],
-  "content": [{"type": "story", "title": "小猪佩奇的生日", "text": "佩奇过生日来了10个小朋友！1、2、3、4、5...10。大家一起吃蛋糕真开心！",
-     "questions": [{"q": "来了几个小朋友？", "options": ["8", "9", "10"], "answer": 2}]}]
+  "id": "math_002",
+  "name": "数数1-10",
+  "ageRange": "3-4",
+  "domain": "math",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "会数1-10个物品",
+    "认识数字1-10"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "小猪佩奇的生日",
+      "text": "佩奇过生日来了10个小朋友！1、2、3、4、5...10。大家一起吃蛋糕真开心！",
+      "questions": [
+        {
+          "q": "来了几个小朋友？",
+          "options": [
+            "8",
+            "9",
+            "10"
+          ],
+          "answer": 2
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到数数1-10",
+        "imagePrompt": "明亮的卡通场景，数数1-10主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习数数1-10。准备好了吗？让我们开始吧！",
+        "onScreenText": "数数1-10",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小猪佩奇的生日·1",
+        "imagePrompt": "数数1-10场景：佩奇过生日来了10个小朋友，卡通教育风格，明亮温暖",
+        "narration": "佩奇过生日来了10个小朋友。",
+        "onScreenText": "佩奇过生日来了",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小猪佩奇的生日·2",
+        "imagePrompt": "数数1-10场景：1、2、3、4、5...10，卡通教育风格，明亮温暖",
+        "narration": "1、2、3、4、5...10。",
+        "onScreenText": "数数1-10",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小猪佩奇的生日·3",
+        "imagePrompt": "数数1-10场景：大家一起吃蛋糕真开心，卡通教育风格，明亮温暖",
+        "narration": "大家一起吃蛋糕真开心。",
+        "onScreenText": "大家一起吃蛋糕真开心",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：来了几个小朋友？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：来了几个小朋友？",
+        "onScreenText": "🤔 来了几个小朋友？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "数数1-10总结",
+        "imagePrompt": "数数1-10总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了数数1-10，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "数数1-10动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习数数1-10！",
+        "caption": "数数1-10",
+        "durationSec": 8
+      },
+      {
+        "shot": "小猪佩奇的生日",
+        "narration": "佩奇过生日来了10个小朋友",
+        "caption": "小猪佩奇的生日",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了数数1-10，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

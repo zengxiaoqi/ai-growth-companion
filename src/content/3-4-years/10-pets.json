@@ -1,6 +1,165 @@
 {
-  "id": "sci_002", "name": "可爱的小动物", "ageRange": "3-4", "domain": "science", "duration": 5, "difficulty": 1,
-  "objectives": ["认识常见宠物", "了解动物习性"],
-  "content": [{"type": "story", "title": "我的宠物", "text": "小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞。小朋友们喜欢什么小动物？",
-     "questions": [{"q": "小狗会做什么？", "options": ["游泳", "看家", "飞"], "answer": 1}, {"q": "小鱼生活在哪里？", "options": ["天空", "水里", "地上"], "answer": 1}]}]
+  "id": "sci_002",
+  "name": "可爱的小动物",
+  "ageRange": "3-4",
+  "domain": "science",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "认识常见宠物",
+    "了解动物习性"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "我的宠物",
+      "text": "小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞。小朋友们喜欢什么小动物？",
+      "questions": [
+        {
+          "q": "小狗会做什么？",
+          "options": [
+            "游泳",
+            "看家",
+            "飞"
+          ],
+          "answer": 1
+        },
+        {
+          "q": "小鱼生活在哪里？",
+          "options": [
+            "天空",
+            "水里",
+            "地上"
+          ],
+          "answer": 1
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到可爱的小动物",
+        "imagePrompt": "明亮的卡通场景，可爱的小动物主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习可爱的小动物。准备好了吗？让我们开始吧！",
+        "onScreenText": "可爱的小动物",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的宠物·1",
+        "imagePrompt": "可爱的小动物场景：小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞，卡通教育风格，明亮温暖",
+        "narration": "小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞。",
+        "onScreenText": "小狗会看家",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小猫",
+            "小狗",
+            "小鸟",
+            "小鱼"
+          ]
+        }
+      },
+      {
+        "scene": "我的宠物·2",
+        "imagePrompt": "可爱的小动物场景：小朋友们喜欢什么小动物，卡通教育风格，明亮温暖",
+        "narration": "小朋友们喜欢什么小动物。",
+        "onScreenText": "小朋友们喜欢什么小动",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小狗会做什么？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小狗会做什么？",
+        "onScreenText": "🤔 小狗会做什么？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小鱼生活在哪里？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小鱼生活在哪里？",
+        "onScreenText": "🤔 小鱼生活在哪里？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "可爱的小动物总结",
+        "imagePrompt": "可爱的小动物总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了可爱的小动物，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "可爱的小动物动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习可爱的小动物！",
+        "caption": "可爱的小动物",
+        "durationSec": 8
+      },
+      {
+        "shot": "我的宠物",
+        "narration": "小狗会看家，小猫爱干净，小鱼水里游，小鸟天上飞",
+        "caption": "我的宠物",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了可爱的小动物，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

@@ -1,5 +1,85 @@
 {
-  "id": "math_105", "name": "找规律", "ageRange": "5-6", "domain": "math", "duration": 10, "difficulty": 2,
-  "objectives": ["发现简单规律", "培养逻辑思维"],
-  "content": [{"type": "game", "title": "规律密码", "patterns": [{"pattern": "🔴🔵🔴🔵?", "answer": "🔴"}, {"pattern": "⭐⭐🌙⭐⭐🌙?", "answer": "⭐"}, {"pattern": "123123?", "answer": "1"}]}]
+  "id": "math_105",
+  "name": "找规律",
+  "ageRange": "5-6",
+  "domain": "math",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "发现简单规律",
+    "培养逻辑思维"
+  ],
+  "content": [
+    {
+      "type": "game",
+      "title": "规律密码",
+      "patterns": [
+        {
+          "pattern": "🔴🔵🔴🔵?",
+          "answer": "🔴"
+        },
+        {
+          "pattern": "⭐⭐🌙⭐⭐🌙?",
+          "answer": "⭐"
+        },
+        {
+          "pattern": "123123?",
+          "answer": "1"
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到找规律",
+        "imagePrompt": "明亮的卡通场景，找规律主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习找规律。准备好了吗？让我们开始吧！",
+        "onScreenText": "找规律",
+        "durationSec": 10,
+        "animationTemplate": "math.number-line",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "找规律总结",
+        "imagePrompt": "找规律总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了找规律，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "math.number-line",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "找规律动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习找规律！",
+        "caption": "找规律",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了找规律，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

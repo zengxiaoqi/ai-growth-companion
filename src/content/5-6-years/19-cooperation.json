@@ -1,5 +1,77 @@
 {
-  "id": "soc_102", "name": "合作游戏", "ageRange": "5-6", "domain": "social", "duration": 10, "difficulty": 2,
-  "objectives": ["学习合作与交流", "培养团队意识"],
-  "content": [{"type": "game", "title": "搭积木", "description": "和小伙伴一起搭一座城堡，分工合作，你搭墙我搭屋顶。", "skills": ["分工", "交流", "配合"]}]
+  "id": "soc_102",
+  "name": "合作游戏",
+  "ageRange": "5-6",
+  "domain": "social",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "学习合作与交流",
+    "培养团队意识"
+  ],
+  "content": [
+    {
+      "type": "game",
+      "title": "搭积木",
+      "description": "和小伙伴一起搭一座城堡，分工合作，你搭墙我搭屋顶。",
+      "skills": [
+        "分工",
+        "交流",
+        "配合"
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到合作游戏",
+        "imagePrompt": "明亮的卡通场景，合作游戏主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习合作游戏。准备好了吗？让我们开始吧！",
+        "onScreenText": "合作游戏",
+        "durationSec": 10,
+        "animationTemplate": "social.daily-routine",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "合作游戏总结",
+        "imagePrompt": "合作游戏总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了合作游戏，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "social.daily-routine",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "合作游戏动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习合作游戏！",
+        "caption": "合作游戏",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了合作游戏，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

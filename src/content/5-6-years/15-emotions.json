@@ -16,10 +16,18 @@
       "title": "我的情绪小怪兽",
       "text": "每个人都会有不同的情绪：\n\n😊 开心：嘴角向上翘，眼睛眯起来，心裡美美的。\n\n😢 难过：想哭，眼淚掉下來，心裡不舒服。\n\n😠 生气：眉头皱起来，嘴巴嘟起来，想大声说话。\n\n😨 害怕：心跳加快，想躲起来，不敢看。\n\n情绪就像小怪兽，我们要学会认识它们！",
       "examples": [
-        {"开心": "得到礼物、玩游戏、吃好吃的"},
-        {"难过": "摔倒了、玩具坏了、和朋友分开"},
-        {"生气": "东西被抢、被人欺负、完不成任务"},
-        {"害怕": "一个人在家、看到可怕的东西"}
+        {
+          "开心": "得到礼物、玩游戏、吃好吃的"
+        },
+        {
+          "难过": "摔倒了、玩具坏了、和朋友分开"
+        },
+        {
+          "生气": "东西被抢、被人欺负、完不成任务"
+        },
+        {
+          "害怕": "一个人在家、看到可怕的东西"
+        }
       ]
     },
     {
@@ -27,10 +35,42 @@
       "title": "情绪猜猜看",
       "description": "看看表情，猜是什么情绪",
       "questions": [
-        {"q": "小明的嘴角向上翘，他在？", "options": ["开心", "难过", "生气"], "answer": "开心"},
-        {"q": "小华哭了，他在？", "options": ["开心", "难过", "害怕"], "answer": "难过"},
-        {"q": "小强眉头皱起来，他在？", "options": ["开心", "生气", "害怕"], "answer": "生气"},
-        {"q": "小美躲起来了，她在？", "options": ["开心", "难过", "害怕"], "answer": "害怕"}
+        {
+          "q": "小明的嘴角向上翘，他在？",
+          "options": [
+            "开心",
+            "难过",
+            "生气"
+          ],
+          "answer": "开心"
+        },
+        {
+          "q": "小华哭了，他在？",
+          "options": [
+            "开心",
+            "难过",
+            "害怕"
+          ],
+          "answer": "难过"
+        },
+        {
+          "q": "小强眉头皱起来，他在？",
+          "options": [
+            "开心",
+            "生气",
+            "害怕"
+          ],
+          "answer": "生气"
+        },
+        {
+          "q": "小美躲起来了，她在？",
+          "options": [
+            "开心",
+            "难过",
+            "害怕"
+          ],
+          "answer": "害怕"
+        }
       ]
     },
     {
@@ -45,10 +85,197 @@
     }
   ],
   "media": {
-    "images": ["/assets/images/social/emotions.png"]
+    "images": [
+      "/assets/images/social/emotions.png"
+    ]
   },
   "abilities": {
     "empathy": 20,
     "selfAwareness": 15
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到认识情绪",
+        "imagePrompt": "明亮的卡通场景，认识情绪主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习认识情绪。准备好了吗？让我们开始吧！",
+        "onScreenText": "认识情绪",
+        "durationSec": 10,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·1",
+        "imagePrompt": "认识情绪场景：每个人都会有不同的情绪：，卡通教育风格，明亮温暖",
+        "narration": "每个人都会有不同的情绪：。",
+        "onScreenText": "每个人都会有不同的情",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·2",
+        "imagePrompt": "认识情绪场景：😊 开心：嘴角向上翘，眼睛眯起来，心裡美美的。，卡通教育风格，明亮温暖",
+        "narration": "😊 开心：嘴角向上翘，眼睛眯起来，心裡美美的。",
+        "onScreenText": "开心",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·3",
+        "imagePrompt": "认识情绪场景：😢 难过：想哭，眼淚掉下來，心裡不舒服。，卡通教育风格，明亮温暖",
+        "narration": "😢 难过：想哭，眼淚掉下來，心裡不舒服。",
+        "onScreenText": "难过",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·4",
+        "imagePrompt": "认识情绪场景：😠 生气：眉头皱起来，嘴巴嘟起来，想大声说话。，卡通教育风格，明亮温暖",
+        "narration": "😠 生气：眉头皱起来，嘴巴嘟起来，想大声说话。",
+        "onScreenText": "生气",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·5",
+        "imagePrompt": "认识情绪场景：😨 害怕：心跳加快，想躲起来，不敢看。，卡通教育风格，明亮温暖",
+        "narration": "😨 害怕：心跳加快，想躲起来，不敢看。",
+        "onScreenText": "害怕",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "我的情绪小怪兽·6",
+        "imagePrompt": "认识情绪场景：情绪就像小怪兽，我们要学会认识它们！，卡通教育风格，明亮温暖",
+        "narration": "情绪就像小怪兽，我们要学会认识它们！",
+        "onScreenText": "情绪就像小怪兽",
+        "durationSec": 8,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小明的嘴角向上翘，他在？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小明的嘴角向上翘，他在？",
+        "onScreenText": "🤔 小明的嘴角向上翘，他",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小华哭了，他在？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小华哭了，他在？",
+        "onScreenText": "🤔 小华哭了，他在？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "认识情绪总结",
+        "imagePrompt": "认识情绪总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了认识情绪，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "social.emotion-faces",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "认识情绪动画课",
+    "durationSec": 25,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习认识情绪！",
+        "caption": "认识情绪",
+        "durationSec": 8
+      },
+      {
+        "shot": "我的情绪小怪兽",
+        "narration": "每个人都会有不同的情绪：\n\n😊 开心：嘴角向上翘，眼睛眯起来，心裡美美的",
+        "caption": "我的情绪小怪兽",
+        "durationSec": 9
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了认识情绪，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

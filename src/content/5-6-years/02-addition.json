@@ -16,11 +16,26 @@
       "title": "加法的秘密",
       "text": "什么是加法？\n\n加法就是，把东西合并在一起，数一数一共有多少。\n\n比如：\n🍎 + 🍎 = 2个苹果\n1 + 1 = 2\n\n🔢 + 🔢 = 4个圆\n2 + 2 = 4\n\n我们来学习10以内的加法吧！",
       "examples": [
-        {"1+1": 2, "visual": "🍎+🍎=🍎🍎"},
-        {"1+2": 3, "visual": "🍎+🍎🍎=🍎🍎🍎"},
-        {"2+2": 4, "visual": "🍎🍎+🍎🍎=🍎🍎🍎🍎"},
-        {"2+3": 5, "visual": "🍎🍎+🍎🍎🍎=🍎🍎🍎🍎🍎"},
-        {"3+3": 6, "visual": "🍎🍎🍎+🍎🍎🍎=🍎🍎🍎🍎🍎🍎"}
+        {
+          "1+1": 2,
+          "visual": "🍎+🍎=🍎🍎"
+        },
+        {
+          "1+2": 3,
+          "visual": "🍎+🍎🍎=🍎🍎🍎"
+        },
+        {
+          "2+2": 4,
+          "visual": "🍎🍎+🍎🍎=🍎🍎🍎🍎"
+        },
+        {
+          "2+3": 5,
+          "visual": "🍎🍎+🍎🍎🍎=🍎🍎🍎🍎🍎"
+        },
+        {
+          "3+3": 6,
+          "visual": "🍎🍎🍎+🍎🍎🍎=🍎🍎🍎🍎🍎🍎"
+        }
       ]
     },
     {
@@ -28,11 +43,51 @@
       "title": "加法运算",
       "description": "选择正确的答案",
       "questions": [
-        {"q": "1 + 2 = ?", "options": [1, 2, 3], "answer": 2},
-        {"q": "2 + 3 = ?", "options": [4, 5, 6], "answer": 1},
-        {"q": "3 + 2 = ?", "options": [4, 5, 6], "answer": 1},
-        {"q": "4 + 3 = ?", "options": [6, 7, 8], "answer": 1},
-        {"q": "5 + 4 = ?", "options": [8, 9, 10], "answer": 1}
+        {
+          "q": "1 + 2 = ?",
+          "options": [
+            1,
+            2,
+            3
+          ],
+          "answer": 2
+        },
+        {
+          "q": "2 + 3 = ?",
+          "options": [
+            4,
+            5,
+            6
+          ],
+          "answer": 1
+        },
+        {
+          "q": "3 + 2 = ?",
+          "options": [
+            4,
+            5,
+            6
+          ],
+          "answer": 1
+        },
+        {
+          "q": "4 + 3 = ?",
+          "options": [
+            6,
+            7,
+            8
+          ],
+          "answer": 1
+        },
+        {
+          "q": "5 + 4 = ?",
+          "options": [
+            8,
+            9,
+            10
+          ],
+          "answer": 1
+        }
       ]
     },
     {
@@ -41,19 +96,214 @@
       "timed": true,
       "duration": 60,
       "questions": [
-        "1+1=", "1+2=", "1+3=", "1+4=", "1+5=",
-        "2+1=", "2+2=", "2+3=", "2+4=", "2+5=",
-        "3+1=", "3+2=", "3+3=", "3+4=", "3+5=",
-        "4+1=", "4+2=", "4+3=", "4+4=", "4+5=",
-        "5+1=", "5+2=", "5+3=", "5+4=", "5+5="
+        "1+1=",
+        "1+2=",
+        "1+3=",
+        "1+4=",
+        "1+5=",
+        "2+1=",
+        "2+2=",
+        "2+3=",
+        "2+4=",
+        "2+5=",
+        "3+1=",
+        "3+2=",
+        "3+3=",
+        "3+4=",
+        "3+5=",
+        "4+1=",
+        "4+2=",
+        "4+3=",
+        "4+4=",
+        "4+5=",
+        "5+1=",
+        "5+2=",
+        "5+3=",
+        "5+4=",
+        "5+5="
       ]
     }
   ],
   "media": {
-    "images": ["/assets/images/math/addition.png"]
+    "images": [
+      "/assets/images/math/addition.png"
+    ]
   },
   "abilities": {
     "logic": 15,
     "memory": 5
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到10以内加法",
+        "imagePrompt": "明亮的卡通场景，10以内加法主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习10以内加法。准备好了吗？让我们开始吧！",
+        "onScreenText": "10以内加法",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "加法的秘密·1",
+        "imagePrompt": "10以内加法场景：什么是加法？，卡通教育风格，明亮温暖",
+        "narration": "什么是加法？",
+        "onScreenText": "什么是加法",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "加法的秘密·2",
+        "imagePrompt": "10以内加法场景：加法就是，把东西合并在一起，数一数一共有多少。，卡通教育风格，明亮温暖",
+        "narration": "加法就是，把东西合并在一起，数一数一共有多少。",
+        "onScreenText": "加法就是",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "加法的秘密·3",
+        "imagePrompt": "10以内加法场景：比如：\n🍎 + 🍎 = 2个苹果\n1 + 1 = 2，卡通教育风格，明亮温暖",
+        "narration": "比如：\n🍎 + 🍎 = 2个苹果\n1 + 1 = 2。",
+        "onScreenText": "比如",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ],
+          "items": [
+            "苹果"
+          ]
+        }
+      },
+      {
+        "scene": "加法的秘密·4",
+        "imagePrompt": "10以内加法场景：🔢 + 🔢 = 4个圆\n2 + 2 = 4，卡通教育风格，明亮温暖",
+        "narration": "🔢 + 🔢 = 4个圆\n2 + 2 = 4。",
+        "onScreenText": "个圆",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "加法的秘密·5",
+        "imagePrompt": "10以内加法场景：我们来学习10以内的加法吧！，卡通教育风格，明亮温暖",
+        "narration": "我们来学习10以内的加法吧！",
+        "onScreenText": "我们来学习",
+        "durationSec": 8,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：1 + 2 = ?，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：1 + 2 = ?",
+        "onScreenText": "🤔 1 + 2 = ?",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：2 + 3 = ?，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：2 + 3 = ?",
+        "onScreenText": "🤔 2 + 3 = ?",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "10以内加法总结",
+        "imagePrompt": "10以内加法总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了10以内加法，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "10以内加法动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习10以内加法！",
+        "caption": "10以内加法",
+        "durationSec": 8
+      },
+      {
+        "shot": "加法的秘密",
+        "narration": "什么是加法",
+        "caption": "加法的秘密",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了10以内加法，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

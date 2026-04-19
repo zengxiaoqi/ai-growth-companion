@@ -16,9 +16,15 @@
       "title": "小小画家",
       "text": "绘画是一件很有趣的事情！\n\n🖌️ 握笔姿势：拇指和食指捏住笔，像夹东西一样，中指放在下面支撑。\n\n🎨 基本图形：\n- 圆形：画圆圈，像太阳\n- 方形：画四个边，像桌子\n- 三角形：画三条线，像屋顶\n\n🌈 颜色认识：红、橙、黄、绿、蓝、紫\n\n让我们开始画画吧！",
       "examples": [
-        {"画太阳": "先画一个大圆圈，再画几条线"},
-        {"画小花": "中间画一个圆，周围画几片花瓣"},
-        {"画小树": "先画一个三角形，再画一个长方形"}
+        {
+          "画太阳": "先画一个大圆圈，再画几条线"
+        },
+        {
+          "画小花": "中间画一个圆，周围画几片花瓣"
+        },
+        {
+          "画小树": "先画一个三角形，再画一个长方形"
+        }
       ]
     },
     {
@@ -26,9 +32,28 @@
       "title": "画一画",
       "description": "跟着步骤画",
       "tasks": [
-        {"主题": "苹果", "步骤": ["画一个圆形", "画一个果柄"]},
-        {"主题": "小船", "步骤": ["画一个半圆形", "画一个帆"]},
-        {"主题": "房子", "步骤": ["画一个正方形", "画一个三角形屋顶", "画一个门"]}
+        {
+          "主题": "苹果",
+          "步骤": [
+            "画一个圆形",
+            "画一个果柄"
+          ]
+        },
+        {
+          "主题": "小船",
+          "步骤": [
+            "画一个半圆形",
+            "画一个帆"
+          ]
+        },
+        {
+          "主题": "房子",
+          "步骤": [
+            "画一个正方形",
+            "画一个三角形屋顶",
+            "画一个门"
+          ]
+        }
       ]
     },
     {
@@ -43,10 +68,149 @@
     }
   ],
   "media": {
-    "images": ["/assets/images/art/drawing.png"]
+    "images": [
+      "/assets/images/art/drawing.png"
+    ]
   },
   "abilities": {
     "creativity": 25,
     "fineMotor": 15
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到创意绘画",
+        "imagePrompt": "明亮的卡通场景，创意绘画主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习创意绘画。准备好了吗？让我们开始吧！",
+        "onScreenText": "创意绘画",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小小画家·1",
+        "imagePrompt": "创意绘画场景：绘画是一件很有趣的事情！，卡通教育风格，明亮温暖",
+        "narration": "绘画是一件很有趣的事情！",
+        "onScreenText": "绘画是一件很有趣的事",
+        "durationSec": 8,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小小画家·2",
+        "imagePrompt": "创意绘画场景：🖌️ 握笔姿势：拇指和食指捏住笔，像夹东西一样，中指放在下面支撑。，卡通教育风格，明亮温暖",
+        "narration": "🖌️ 握笔姿势：拇指和食指捏住笔，像夹东西一样，中指放在下面支撑。",
+        "onScreenText": "握笔姿势",
+        "durationSec": 9,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小小画家·3",
+        "imagePrompt": "创意绘画场景：🎨 基本图形：\n- 圆形：画圆圈，像太阳\n- 方形：画四个边，像桌子\n- 三角，卡通教育风格，明亮温暖",
+        "narration": "🎨 基本图形：\n- 圆形：画圆圈，像太阳\n- 方形：画四个边，像桌子\n- 三角形：画三条线，像屋顶。",
+        "onScreenText": "基本图形",
+        "durationSec": 13,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ],
+          "items": [
+            "太阳"
+          ]
+        }
+      },
+      {
+        "scene": "小小画家·4",
+        "imagePrompt": "创意绘画场景：🌈 颜色认识：红、橙、黄、绿、蓝、紫，卡通教育风格，明亮温暖",
+        "narration": "🌈 颜色认识：红、橙、黄、绿、蓝、紫。",
+        "onScreenText": "颜色认识",
+        "durationSec": 8,
+        "animationTemplate": "art.color-mixing",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小小画家·5",
+        "imagePrompt": "创意绘画场景：让我们开始画画吧！，卡通教育风格，明亮温暖",
+        "narration": "让我们开始画画吧！",
+        "onScreenText": "让我们开始画画吧",
+        "durationSec": 8,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "创意绘画总结",
+        "imagePrompt": "创意绘画总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了创意绘画，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "创意绘画动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习创意绘画！",
+        "caption": "创意绘画",
+        "durationSec": 8
+      },
+      {
+        "shot": "小小画家",
+        "narration": "绘画是一件很有趣的事情",
+        "caption": "小小画家",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了创意绘画，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

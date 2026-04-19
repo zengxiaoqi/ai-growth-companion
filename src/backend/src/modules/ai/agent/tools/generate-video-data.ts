@@ -118,27 +118,27 @@ export class GenerateVideoDataTool {
       : '';
 
     const schema = `{
-  "title": "string (video title in Chinese, e.g. \"认识动物\")",
-  "subtitle": "string (short description in Chinese, e.g. \"3-6岁启蒙课程\")",
-  "introBg": "string (hex color for intro background, e.g. \"#667EEA\")",
-  "outroBg": "string (hex color for outro background, e.g. \"#F093FB\")",
+  "title": "string (video title in Chinese, e.g. \\"认识动物\\")",
+  "subtitle": "string (short description in Chinese, e.g. \\"3-6岁启蒙课程\\")",
+  "introBg": "string (hex color for intro background, e.g. \\"#667EEA\\")",
+  "outroBg": "string (hex color for outro background, e.g. \\"#F093FB\\")",
   "slides": [
     {
-      "title": "string (concept name, 2-4 Chinese characters)",
+      "title": "string (concept name, 2-8 Chinese characters)",
       "emoji": "string (single emoji representing the concept)",
-      "subtitle": "string (short description in Chinese)",
-      "bgColor": "string (light pastel hex color, e.g. \"#FFF5F5\")",
-      "accentColor": "string (vibrant hex color, e.g. \"#FF6B6B\")",
+      "subtitle": "string (short description in Chinese, up to 20 chars)",
+      "bgColor": "string (light pastel hex color, e.g. \\"#FFF5F5\\")",
+      "accentColor": "string (vibrant hex color, e.g. \\"#FF6B6B\\")",
       "layout": "hero | grid | list",
       "items": [
-        {"emoji": "string (emoji)", "label": "string (1-4 Chinese characters)"}
+        {"emoji": "string (emoji)", "label": "string (2-8 Chinese characters)"}
       ],
-      "narration": "string (TTS narration in Chinese, 1-2 sentences, simple and clear for children)",
+      "narration": "string (TTS narration in Chinese, 2-3 sentences, 30-80 characters, engaging and specific)",
       "visual": {
         "bgType": "string (day | night | indoor | spring | summer | autumn | winter)",
-        "caption": "string (text shown on screen during animation)",
-        "characters": ["string (character names, e.g. \"老师\", \"小猫\")"],
-        "items": ["string (visual objects, e.g. \"太阳\", \"花\", \"树叶\")"],
+        "caption": "string (key phrase shown on screen, 4-12 Chinese characters)",
+        "characters": ["string (character names, e.g. \\"老师\\", \\"小猫\\")"],
+        "items": ["string (visual objects, e.g. \\"太阳\\", \\"花\\", \\"树叶\\")"],
         "mood": "string (playful | calm | exciting | mysterious | warm)"
       },
       "animationTemplate": {
@@ -161,30 +161,41 @@ export class GenerateVideoDataTool {
       '- Colors should be bright, child-friendly pastels.',
       '- bgColor should be very light (almost white with a tint).',
       '- accentColor should be vibrant and saturated.',
-      '- narration should be 1-2 short, simple sentences suitable for TTS. Use engaging, age-appropriate language.',
       '- No markdown, no explanation. Return strict JSON only.',
+      '',
+      '## Narration Quality Requirements (CRITICAL):',
+      '- Each narration MUST be 30-80 Chinese characters (2-3 complete sentences).',
+      '- Use warm, engaging, teacher-child conversational tone.',
+      '- Every narration must contain SPECIFIC knowledge about that slide\'s concept.',
+      '- Example GOOD narration: "小朋友，这是小狗！小狗会汪汪叫，它有毛茸茸的尾巴，最喜欢和小朋友一起玩耍。"',
+      '- Example BAD narration: "请和老师一起学习。" (too generic, no specific content)',
+      '',
+      '## FORBIDDEN narration patterns:',
+      '- "请和老师一起学习" / "我们一起来" / "我们来看看" — these are too generic',
+      '- "请跟着老师" — no teaching substance',
+      '- Any narration shorter than 20 Chinese characters',
       '',
       '## Visual Scene Design (REQUIRED for every slide):',
       'Every slide MUST include a "visual" object describing the animated scene:',
-      '- bgType: Choose the most fitting background — "day" (outdoor daytime), "night" (starry/dark), "indoor" (classroom), "spring"/"summer"/"autumn"/"winter" (seasonal).',
-      '- caption: A short phrase shown on screen during the animation (e.g. "小猫喵喵叫").',
-      '- characters: Named characters appearing in the scene (e.g. ["老师", "小猫", "小朋友"]). Include at least 1 character.',
-      '- items: Visual objects/elements in the scene (e.g. ["鱼", "毛线球", "猫爪印"]). Include 1-4 items that illustrate the concept.',
-      '- mood: The emotional tone — "playful" (fun games), "calm" (gentle learning), "exciting" (discovery), "mysterious" (wonder), "warm" (cozy feelings).',
+      '- bgType: Choose the most fitting background — "day", "night", "indoor", "spring"/"summer"/"autumn"/"winter".',
+      '- caption: Key phrase shown on screen (4-12 Chinese characters, NEVER empty).',
+      '- characters: Named characters in the scene (e.g. ["老师", "小猫", "小朋友"]). Include at least 1.',
+      '- items: Visual objects (e.g. ["鱼", "毛线球", "猫爪印"]). Include 1-6 items.',
+      '- mood: "playful" (fun), "calm" (gentle), "exciting" (discovery), "mysterious" (wonder), "warm" (cozy).',
       '',
       '## Animation Template (MANDATORY):',
       '- Every slide MUST have an animationTemplate.',
-      '- Choose the MOST appropriate template from the list below for each slide\'s content.',
+      '- Choose the MOST appropriate template from the list below.',
       '- Fill in ALL required parameters for the chosen template.',
-      '- If the content strongly does not fit any template, use "language.story-scene" as default.',
+      '- Default by domain: language→language.word-reveal, math→math.counting-objects, science→science.plant-growth, art→art.drawing-steps, social→social.emotion-faces.',
       '',
       '## Layout Rules:',
-      '- Use "hero" layout for single concept showcase (1-2 items, large visual).',
-      '- Use "grid" layout for showing multiple related items (3+ items).',
-      '- Use "list" layout for step-by-step knowledge points or sequences.',
+      '- "hero": single concept showcase (1-2 items, large visual)',
+      '- "grid": multiple related items (3+ items)',
+      '- "list": step-by-step knowledge points or sequences',
       '',
       '## Items:',
-      '- Each slide should have 1-4 items with emoji + short Chinese label.',
+      '- Each slide should have 2-6 items with emoji + Chinese label (2-8 chars).',
       '- Pick the most recognizable emoji for each concept.',
       '',
       buildTemplatePromptContext(),
@@ -224,10 +235,10 @@ export class GenerateVideoDataTool {
   private sanitizeSlide(raw: Record<string, any>, index: number): TeachingSlide {
     const items = Array.isArray(raw?.items)
       ? raw.items
-          .slice(0, 4)
+          .slice(0, 8)
           .map((item: any) => ({
             emoji: this.toText(item?.emoji, '📌').slice(0, 2),
-            label: this.toText(item?.label, '知识点').slice(0, 8),
+            label: this.toText(item?.label, '知识点').slice(0, 20),
           }))
       : undefined;
 
@@ -238,14 +249,14 @@ export class GenerateVideoDataTool {
     const visual = this.sanitizeVisual(raw?.visual, raw);
 
     return {
-      title: this.toText(raw?.title, `知识点${index + 1}`).slice(0, 12),
+      title: this.toText(raw?.title, `知识点${index + 1}`).slice(0, 24),
       emoji: this.toText(raw?.emoji).slice(0, 2) || undefined,
-      subtitle: this.toText(raw?.subtitle).slice(0, 20) || undefined,
+      subtitle: this.toText(raw?.subtitle).slice(0, 60) || undefined,
       bgColor: this.toHexColor(raw?.bgColor, BG_PALETTE[index % BG_PALETTE.length]),
       accentColor: this.toHexColor(raw?.accentColor, ACCENT_PALETTE[index % ACCENT_PALETTE.length]),
       layout,
       items: items && items.length > 0 ? items : undefined,
-      narration: this.toText(raw?.narration, '请和老师一起学习。').slice(0, 100),
+      narration: this.truncateAtSentenceEnd(this.toText(raw?.narration, '请和老师一起学习。'), 300),
       ...(animationTemplate ? { animationTemplate } : {}),
       ...(visual ? { visual } : {}),
     };
@@ -275,7 +286,7 @@ export class GenerateVideoDataTool {
     const bgType = this.toText(raw?.bgType);
     const validBgTypes = ['day', 'night', 'indoor', 'spring', 'summer', 'autumn', 'winter'];
     const characters = Array.isArray(raw?.characters)
-      ? raw.characters.map((c: any) => this.toText(c)).filter(Boolean).slice(0, 4)
+      ? raw.characters.map((c: any) => this.toText(c)).filter(Boolean).slice(0, 8)
       : [];
     const visualItems = Array.isArray(raw?.items)
       ? raw.items.map((i: any) => this.toText(i)).filter(Boolean).slice(0, 6)
@@ -285,7 +296,7 @@ export class GenerateVideoDataTool {
 
     return {
       bgType: validBgTypes.includes(bgType) ? bgType : undefined,
-      caption: this.toText(raw?.caption).slice(0, 30) || undefined,
+      caption: this.toText(raw?.caption).slice(0, 60) || undefined,
       characters: characters.length > 0 ? characters : undefined,
       items: visualItems.length > 0 ? visualItems : undefined,
       mood: validMoods.includes(mood) ? (mood as SceneVisual['mood']) : undefined,
@@ -428,6 +439,19 @@ export class GenerateVideoDataTool {
     if (value == null) return fallback;
     const text = String(value).replace(/\s+/g, ' ').trim();
     return text || fallback;
+  }
+
+  /** Truncate at the last complete sentence within the limit */
+  private truncateAtSentenceEnd(text: string, maxLen: number): string {
+    if (text.length <= maxLen) return text;
+    const sub = text.slice(0, maxLen);
+    const lastPunc = Math.max(
+      sub.lastIndexOf('。'),
+      sub.lastIndexOf('！'),
+      sub.lastIndexOf('？'),
+      sub.lastIndexOf('，'),
+    );
+    return lastPunc > maxLen * 0.5 ? sub.slice(0, lastPunc + 1) : sub;
   }
 
   private toSafeInt(value: unknown, fallback: number): number {

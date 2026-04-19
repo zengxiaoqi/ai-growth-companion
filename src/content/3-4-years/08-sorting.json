@@ -1,6 +1,98 @@
 {
-  "id": "math_004", "name": "分类游戏", "ageRange": "3-4", "domain": "math", "duration": 5, "difficulty": 1,
-  "objectives": ["按颜色分类", "按形状分类"],
-  "content": [{"type": "game", "title": "整理玩具", "text": "红色玩具放红盒子，蓝色玩具放蓝盒子，黄色玩具放黄盒子。小朋友快来帮忙！",
-     "tasks": [{"category": "red", "items": ["🔴", "🍎", "🚗"]}, {"category": "blue", "items": ["🔵", "🧢", "🚙"]}, {"category": "yellow", "items": ["🟡", "⭐", "🍌"]}]}]
+  "id": "math_004",
+  "name": "分类游戏",
+  "ageRange": "3-4",
+  "domain": "math",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "按颜色分类",
+    "按形状分类"
+  ],
+  "content": [
+    {
+      "type": "game",
+      "title": "整理玩具",
+      "text": "红色玩具放红盒子，蓝色玩具放蓝盒子，黄色玩具放黄盒子。小朋友快来帮忙！",
+      "tasks": [
+        {
+          "category": "red",
+          "items": [
+            "🔴",
+            "🍎",
+            "🚗"
+          ]
+        },
+        {
+          "category": "blue",
+          "items": [
+            "🔵",
+            "🧢",
+            "🚙"
+          ]
+        },
+        {
+          "category": "yellow",
+          "items": [
+            "🟡",
+            "⭐",
+            "🍌"
+          ]
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到分类游戏",
+        "imagePrompt": "明亮的卡通场景，分类游戏主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习分类游戏。准备好了吗？让我们开始吧！",
+        "onScreenText": "分类游戏",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "分类游戏总结",
+        "imagePrompt": "分类游戏总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了分类游戏，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "math.counting-objects",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "分类游戏动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习分类游戏！",
+        "caption": "分类游戏",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了分类游戏，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

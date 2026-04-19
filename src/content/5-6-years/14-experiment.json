@@ -1,5 +1,82 @@
 {
-  "id": "sci_104", "name": "小实验", "ageRange": "5-6", "domain": "science", "duration": 15, "difficulty": 3,
-  "objectives": ["动手做简单实验", "培养科学思维"],
-  "content": [{"type": "experiment", "title": "沉与浮", "materials": ["水盆", "木块", "铁钉", "塑料玩具"], "steps": ["把物品放入水中", "观察是沉还是浮"], "result": "木块和塑料会浮，铁钉会沉"}]
+  "id": "sci_104",
+  "name": "小实验",
+  "ageRange": "5-6",
+  "domain": "science",
+  "duration": 15,
+  "difficulty": 3,
+  "objectives": [
+    "动手做简单实验",
+    "培养科学思维"
+  ],
+  "content": [
+    {
+      "type": "experiment",
+      "title": "沉与浮",
+      "materials": [
+        "水盆",
+        "木块",
+        "铁钉",
+        "塑料玩具"
+      ],
+      "steps": [
+        "把物品放入水中",
+        "观察是沉还是浮"
+      ],
+      "result": "木块和塑料会浮，铁钉会沉"
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到小实验",
+        "imagePrompt": "明亮的卡通场景，小实验主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习小实验。准备好了吗？让我们开始吧！",
+        "onScreenText": "小实验",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小实验总结",
+        "imagePrompt": "小实验总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了小实验，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "小实验动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习小实验！",
+        "caption": "小实验",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了小实验，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

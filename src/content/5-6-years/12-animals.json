@@ -16,10 +16,18 @@
       "title": "动物朋友",
       "text": "动物是我们的好朋友，让我们来认识它们：\n\n🐱 小猫：会抓老鼠，喵喵叫，喜欢吃鱼。\n\n🐶 小狗：是人类最好的朋友，会看家，汪汪叫。\n\n🐰 小兔子：跳跳跳，爱吃胡萝卜，耳朵长长的。\n\n🐦 小鸟：会飞，会唱歌，住在大树上。\n\n🐟 小鱼：生活在水里，会游泳，用鳃呼吸。",
       "examples": [
-        {"🐱 小猫": "哺乳动物，吃鱼，会抓老鼠"},
-        {"🐶 小狗": "哺乳动物，看家，吃骨头"},
-        {"🐰 兔子": "哺乳动物，跳着走，吃胡萝卜"},
-        {"🐦 鸟类": "会飞，吃虫子，住树上"}
+        {
+          "🐱 小猫": "哺乳动物，吃鱼，会抓老鼠"
+        },
+        {
+          "🐶 小狗": "哺乳动物，看家，吃骨头"
+        },
+        {
+          "🐰 兔子": "哺乳动物，跳着走，吃胡萝卜"
+        },
+        {
+          "🐦 鸟类": "会飞，吃虫子，住树上"
+        }
       ]
     },
     {
@@ -27,11 +35,51 @@
       "title": "动物找家",
       "description": "动物住在哪里？",
       "questions": [
-        {"q": "小鱼住在哪里？", "options": ["水里", "树上", "地上"], "answer": "水里"},
-        {"q": "小鸟住在哪里？", "options": ["水里", "树上", "地下"], "answer": "树上"},
-        {"q": "兔子吃什么？", "options": ["鱼", "胡萝卜", "肉"], "answer": "胡萝卜"},
-        {"q": "谁会飞？", "options": ["小猫", "小狗", "小鸟"], "answer": "小鸟"},
-        {"q": "谁会抓老鼠？", "options": ["小狗", "小猫", "兔子"], "answer": "小猫"}
+        {
+          "q": "小鱼住在哪里？",
+          "options": [
+            "水里",
+            "树上",
+            "地上"
+          ],
+          "answer": "水里"
+        },
+        {
+          "q": "小鸟住在哪里？",
+          "options": [
+            "水里",
+            "树上",
+            "地下"
+          ],
+          "answer": "树上"
+        },
+        {
+          "q": "兔子吃什么？",
+          "options": [
+            "鱼",
+            "胡萝卜",
+            "肉"
+          ],
+          "answer": "胡萝卜"
+        },
+        {
+          "q": "谁会飞？",
+          "options": [
+            "小猫",
+            "小狗",
+            "小鸟"
+          ],
+          "answer": "小鸟"
+        },
+        {
+          "q": "谁会抓老鼠？",
+          "options": [
+            "小狗",
+            "小猫",
+            "兔子"
+          ],
+          "answer": "小猫"
+        }
       ]
     },
     {
@@ -46,10 +94,196 @@
     }
   ],
   "media": {
-    "images": ["/assets/images/science/animals.png"]
+    "images": [
+      "/assets/images/science/animals.png"
+    ]
   },
   "abilities": {
     "memory": 15,
     "observation": 15
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到动物世界",
+        "imagePrompt": "明亮的卡通场景，动物世界主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习动物世界。准备好了吗？让我们开始吧！",
+        "onScreenText": "动物世界",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·1",
+        "imagePrompt": "动物世界场景：动物是我们的好朋友，让我们来认识它们：，卡通教育风格，明亮温暖",
+        "narration": "动物是我们的好朋友，让我们来认识它们：。",
+        "onScreenText": "动物是我们的好朋友",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·2",
+        "imagePrompt": "动物世界场景：🐱 小猫：会抓老鼠，喵喵叫，喜欢吃鱼。，卡通教育风格，明亮温暖",
+        "narration": "🐱 小猫：会抓老鼠，喵喵叫，喜欢吃鱼。",
+        "onScreenText": "小猫",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小猫",
+            "小鱼"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·3",
+        "imagePrompt": "动物世界场景：🐶 小狗：是人类最好的朋友，会看家，汪汪叫。，卡通教育风格，明亮温暖",
+        "narration": "🐶 小狗：是人类最好的朋友，会看家，汪汪叫。",
+        "onScreenText": "小狗",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小狗"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·4",
+        "imagePrompt": "动物世界场景：🐰 小兔子：跳跳跳，爱吃胡萝卜，耳朵长长的。，卡通教育风格，明亮温暖",
+        "narration": "🐰 小兔子：跳跳跳，爱吃胡萝卜，耳朵长长的。",
+        "onScreenText": "小兔子",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小兔子"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·5",
+        "imagePrompt": "动物世界场景：🐦 小鸟：会飞，会唱歌，住在大树上。，卡通教育风格，明亮温暖",
+        "narration": "🐦 小鸟：会飞，会唱歌，住在大树上。",
+        "onScreenText": "小鸟",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小鸟"
+          ],
+          "items": [
+            "树"
+          ]
+        }
+      },
+      {
+        "scene": "动物朋友·6",
+        "imagePrompt": "动物世界场景：🐟 小鱼：生活在水里，会游泳，用鳃呼吸。，卡通教育风格，明亮温暖",
+        "narration": "🐟 小鱼：生活在水里，会游泳，用鳃呼吸。",
+        "onScreenText": "小鱼",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "summer",
+          "characters": [
+            "小鱼"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小鱼住在哪里？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小鱼住在哪里？",
+        "onScreenText": "🤔 小鱼住在哪里？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小鸟住在哪里？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小鸟住在哪里？",
+        "onScreenText": "🤔 小鸟住在哪里？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "动物世界总结",
+        "imagePrompt": "动物世界总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了动物世界，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "动物世界动画课",
+    "durationSec": 26,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习动物世界！",
+        "caption": "动物世界",
+        "durationSec": 8
+      },
+      {
+        "shot": "动物朋友",
+        "narration": "动物是我们的好朋友，让我们来认识它们：\n\n🐱 小猫：会抓老鼠，喵喵叫，喜欢吃鱼",
+        "caption": "动物朋友",
+        "durationSec": 10
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了动物世界，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

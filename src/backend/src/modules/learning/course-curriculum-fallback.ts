@@ -35,6 +35,23 @@ type CurriculumRecord = {
 const RECORD_CACHE = new Map<string, CurriculumRecord[]>();
 const GENERIC_TERMS = ['认识', '学习', '课程', '主题', '内容', '朋友', '世界', '变化', '基础', '启蒙'];
 
+/** Alias mapping: user-input topic terms → curriculum record terms */
+const TOPIC_ALIASES: Record<string, string[]> = {
+  '动物': ['小动物', '农场动物', '动物朋友', '宠物', '野生动物'],
+  '颜色': ['色彩', '颜色宝宝', '彩色', '赤橙黄绿青蓝紫', '三原色'],
+  '数字': ['数数', '计数', '认识数字', '数学启蒙'],
+  '形状': ['图形', '几何', '圆形', '三角形', '方形'],
+  '四季': ['季节', '春夏秋冬', '天气变化'],
+  '植物': ['花草', '树木', '种子', '发芽', '开花'],
+  '水果': ['苹果', '香蕉', '西瓜', '葡萄'],
+  '家庭': ['家人', '爸爸妈妈', '亲人'],
+  '情绪': ['表情', '开心', '生气', '难过', '害怕'],
+  '习惯': ['作息', '日常', '时间安排', '好习惯'],
+  '身体': ['五官', '手脚', '眼睛耳朵', '身体部位'],
+  '礼貌': ['礼仪', '谢谢', '对不起', '打招呼'],
+  '安全': ['交通安全', '家庭安全', '自我保护'],
+};
+
 export function getCoursePackCurriculumSeed(input: {
   topic: string;
   ageGroup: AgeGroup;
@@ -53,7 +70,7 @@ export function getCoursePackCurriculumSeed(input: {
     }))
     .sort((a, b) => b.score - a.score)[0];
 
-  if (!best || best.score < 4) return null;
+  if (!best || best.score < 2) return null;
   return buildSeed(best.record, topic);
 }
 
@@ -103,9 +120,22 @@ function scoreRecord(record: CurriculumRecord, topic: string, domain?: CourseDom
   const compactTopic = topic.replace(/\s+/g, '');
   const terms = extractTopicTerms(topic);
 
+  // Expand terms with aliases
+  const expandedTerms = new Set(terms);
+  for (const term of terms) {
+    const aliases = TOPIC_ALIASES[term];
+    if (aliases) {
+      for (const alias of aliases) expandedTerms.add(alias);
+    }
+    // Reverse lookup: if user typed an alias, add the canonical term
+    for (const [canonical, aliasList] of Object.entries(TOPIC_ALIASES)) {
+      if (aliasList.includes(term)) expandedTerms.add(canonical);
+    }
+  }
+
   let score = 0;
   if (compactTopic && haystack.includes(compactTopic)) score += 8;
-  for (const term of terms) {
+  for (const term of expandedTerms) {
     if (haystack.includes(term)) score += 4;
   }
   if (domain && toText(record.domain) === domain) score += 2;

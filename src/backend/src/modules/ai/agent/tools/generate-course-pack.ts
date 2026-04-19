@@ -284,8 +284,8 @@ export class GenerateCoursePackTool {
 }`;
 
     return [
-      'You are a curriculum designer for preschool and early primary learners.',
-      'Generate a complete multimodal course pack.',
+      'You are a senior curriculum designer specializing in animated teaching videos for preschool and early primary learners.',
+      'Generate a complete multimodal course pack with rich, specific content.',
       `Topic: ${args.topic}`,
       `Age group: ${args.ageGroup}`,
       `Domain: ${args.domain}`,
@@ -298,20 +298,72 @@ export class GenerateCoursePackTool {
       `Attempt: ${attempt}`,
       retryNote,
       reflectionNote,
-      'Rules:',
+      '',
+      '## Core Rules:',
       '- Keep all content age-appropriate and practical for home learning.',
       '- Every module must align with the topic.',
-      '- Keep narration concise, concrete, and easy to perform by parents.',
-      '- Use Chinese output text for learner-facing content.',
+      '- Use Chinese (Simplified) for ALL learner-facing text (narration, onScreenText, titles, etc.).',
       '- Return strict JSON only. No markdown. No explanation.',
+      '',
+      '## visualStory Scene Quality Requirements (CRITICAL):',
+      `- Generate at least 4, ideally 6-8 scenes for the visualStory.`,
+      '- Each scene MUST have ALL of these fields populated with SPECIFIC content:',
+      '  - scene: descriptive scene title in Chinese (4-10 chars)',
+      '  - imagePrompt: detailed visual description in Chinese (20-60 chars) describing composition, characters, objects, and mood',
+      '  - narration: 30-80 Chinese characters, 2-3 complete sentences, warm teacher-child conversational tone',
+      '  - onScreenText: 4-12 Chinese characters, the key phrase shown on screen (NEVER empty)',
+      '  - durationSec: 8-18 seconds',
+      '  - animationTemplate: chosen from template list below',
+      '  - animationParams: appropriate parameters for the chosen template',
+      '',
+      '## Few-shot Example of a HIGH-QUALITY scene:',
+      '```json',
+      '{',
+      '  "scene": "四季观察——春天",',
+      '  "imagePrompt": "春天的花园，粉色樱花盛开，蝴蝶在花丛中飞舞，小朋友蹲下来观察",',
+      '  "narration": "春天来了！看，花园里的樱花都开了。粉粉的花瓣像一朵朵小云彩，蝴蝶也飞出来跳舞啦。小朋友，你能数一数有几只蝴蝶吗？",',
+      '  "onScreenText": "春天的花园",',
+      '  "durationSec": 12,',
+      '  "animationTemplate": "science.seasons-cycle",',
+      '  "animationParams": { "seasonNames": ["春", "夏", "秋", "冬"], "focusSeason": 0, "showLabels": true }',
+      '}',
+      '```',
+      '',
+      '## FORBIDDEN narration patterns (will be rejected):',
+      '- "请和老师一起学习" — too generic',
+      '- "我们来看看" / "我们一起来" — lacks specific content',
+      '- "请跟着老师" — no teaching substance',
+      '- Any narration shorter than 20 Chinese characters',
+      '- Each narration MUST teach or describe something UNIQUE to that specific scene.',
+      '',
+      '## videoLesson Shot Requirements:',
+      '- Generate at least 4-6 shots',
+      '- Each shot narration: 20-60 Chinese characters with specific teaching content',
+      '- Each shot must have a non-empty caption in Chinese',
+      '',
+      '## audioScript Requirements:',
+      '- Each narration segment: 20-60 Chinese characters',
+      '- Include specific knowledge points, not generic greetings',
+      '',
       'Animation templates:',
       buildTemplatePromptContext(),
-      'MANDATORY: Every visualStory scene MUST have an "animationTemplate" field set to one of the template IDs listed above. Choose the MOST appropriate template based on the scene content and domain. If no template is a perfect match, choose the closest one by domain: language→language.word-reveal, math→math.counting-objects, science→science.plant-growth, art→art.drawing-steps, social→social.emotion-faces. Never leave animationTemplate empty. Always provide appropriate animationParams for the chosen template.',
+      `MANDATORY: Every visualStory scene MUST have an "animationTemplate" field. Domain-specific defaults: ${args.domain}→${this.getDefaultTemplate(args.domain)}. Choose the MOST specific template matching the scene content. Always provide appropriate animationParams.`,
       'JSON schema:',
       schema,
     ]
       .filter(Boolean)
       .join('\n');
+  }
+
+  private getDefaultTemplate(domain: string): string {
+    const defaults: Record<string, string> = {
+      language: 'language.word-reveal',
+      math: 'math.counting-objects',
+      science: 'science.plant-growth',
+      art: 'art.drawing-steps',
+      social: 'social.emotion-faces',
+    };
+    return defaults[domain] || 'language.story-scene';
   }
 
   private deriveFocusFromPack(pack: Record<string, any>): CourseFocus {

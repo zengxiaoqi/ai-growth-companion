@@ -1,6 +1,84 @@
 {
-  "id": "art_102", "name": "音乐欣赏", "ageRange": "5-6", "domain": "art", "duration": 10, "difficulty": 2,
-  "objectives": ["古典名曲欣赏", "培养音乐鉴赏力"],
-  "content": [{"type": "lesson", "title": "致爱丽丝", "composer": "贝多芬", "description": "这是一首非常著名的钢琴曲，旋律优美动听。",
-     "activities": ["听音乐", "跟着节奏轻轻拍手", "想象音乐里的画面"]}]
+  "id": "art_102",
+  "name": "音乐欣赏",
+  "ageRange": "5-6",
+  "domain": "art",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "古典名曲欣赏",
+    "培养音乐鉴赏力"
+  ],
+  "content": [
+    {
+      "type": "lesson",
+      "title": "致爱丽丝",
+      "composer": "贝多芬",
+      "description": "这是一首非常著名的钢琴曲，旋律优美动听。",
+      "activities": [
+        "听音乐",
+        "跟着节奏轻轻拍手",
+        "想象音乐里的画面"
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到音乐欣赏",
+        "imagePrompt": "明亮的卡通场景，音乐欣赏主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习音乐欣赏。准备好了吗？让我们开始吧！",
+        "onScreenText": "音乐欣赏",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "音乐欣赏总结",
+        "imagePrompt": "音乐欣赏总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了音乐欣赏，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "音乐欣赏动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习音乐欣赏！",
+        "caption": "音乐欣赏",
+        "durationSec": 8
+      },
+      {
+        "shot": "致爱丽丝",
+        "narration": "",
+        "caption": "致爱丽丝",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了音乐欣赏，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

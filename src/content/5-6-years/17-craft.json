@@ -1,5 +1,78 @@
 {
-  "id": "art_103", "name": "手工制作", "ageRange": "5-6", "domain": "art", "duration": 15, "difficulty": 2,
-  "objectives": ["简单手工创作", "锻炼动手能力"],
-  "content": [{"type": "practice", "title": "折纸飞机", "steps": ["准备正方形纸", "对折成三角形", "两边向中线折", "翻过来折翅膀"], "result": "飞得很远的纸飞机"}]
+  "id": "art_103",
+  "name": "手工制作",
+  "ageRange": "5-6",
+  "domain": "art",
+  "duration": 15,
+  "difficulty": 2,
+  "objectives": [
+    "简单手工创作",
+    "锻炼动手能力"
+  ],
+  "content": [
+    {
+      "type": "practice",
+      "title": "折纸飞机",
+      "steps": [
+        "准备正方形纸",
+        "对折成三角形",
+        "两边向中线折",
+        "翻过来折翅膀"
+      ],
+      "result": "飞得很远的纸飞机"
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到手工制作",
+        "imagePrompt": "明亮的卡通场景，手工制作主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习手工制作。准备好了吗？让我们开始吧！",
+        "onScreenText": "手工制作",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手工制作总结",
+        "imagePrompt": "手工制作总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了手工制作，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "手工制作动画课",
+    "durationSec": 16,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习手工制作！",
+        "caption": "手工制作",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了手工制作，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

@@ -1,6 +1,138 @@
 {
-  "id": "sci_101", "name": "动物分类", "ageRange": "5-6", "domain": "science", "duration": 10, "difficulty": 2,
-  "objectives": ["认识脊椎动物", "了解动物分类"],
-  "content": [{"type": "lesson", "title": "动物大家族", "text": "动物分为脊椎动物和无脊椎动物。狗、猫、鱼、鸟都有骨头，叫做脊椎动物。",
-     "questions": [{"q": "狗属于什么动物？", "options": ["脊椎动物", "无脊椎动物"], "answer": 0}]}]
+  "id": "sci_101",
+  "name": "动物分类",
+  "ageRange": "5-6",
+  "domain": "science",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "认识脊椎动物",
+    "了解动物分类"
+  ],
+  "content": [
+    {
+      "type": "lesson",
+      "title": "动物大家族",
+      "text": "动物分为脊椎动物和无脊椎动物。狗、猫、鱼、鸟都有骨头，叫做脊椎动物。",
+      "questions": [
+        {
+          "q": "狗属于什么动物？",
+          "options": [
+            "脊椎动物",
+            "无脊椎动物"
+          ],
+          "answer": 0
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到动物分类",
+        "imagePrompt": "明亮的卡通场景，动物分类主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习动物分类。准备好了吗？让我们开始吧！",
+        "onScreenText": "动物分类",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "动物大家族·1",
+        "imagePrompt": "动物分类场景：动物分为脊椎动物和无脊椎动物，卡通教育风格，明亮温暖",
+        "narration": "动物分为脊椎动物和无脊椎动物。",
+        "onScreenText": "动物分为脊椎动物和无",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "动物大家族·2",
+        "imagePrompt": "动物分类场景：狗、猫、鱼、鸟都有骨头，叫做脊椎动物，卡通教育风格，明亮温暖",
+        "narration": "狗、猫、鱼、鸟都有骨头，叫做脊椎动物。",
+        "onScreenText": "鸟都有骨头",
+        "durationSec": 8,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小猫",
+            "小狗",
+            "小鸟",
+            "小鱼"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：狗属于什么动物？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：狗属于什么动物？",
+        "onScreenText": "🤔 狗属于什么动物？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "动物分类总结",
+        "imagePrompt": "动物分类总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了动物分类，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "science.plant-growth",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "动物分类动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习动物分类！",
+        "caption": "动物分类",
+        "durationSec": 8
+      },
+      {
+        "shot": "动物大家族",
+        "narration": "动物分为脊椎动物和无脊椎动物",
+        "caption": "动物大家族",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了动物分类，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

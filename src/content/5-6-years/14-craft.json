@@ -16,9 +16,15 @@
       "title": "手工小能手",
       "text": "手工制作真好玩！\n\n✂️ 剪刀用法：\n- 手指放进圆孔里\n- 剪刀要对着纸剪\n- 剪纸时要注意安全\n\n📄 折纸基础：\n- 对折：两边对齐折\n- 角折：角对齐折\n- 反折：方向反过来折\n\n🖍️ 胶水用法：\n- 少涂一点就够了\n- 涂在纸的背面\n- 抹均匀",
       "examples": [
-        {"折纸飞机": "对折 -> 折角 -> 调整"},
-        {"剪星星": "画形状 -> 剪外边 -> 剪里面"},
-        {"做灯笼": "画圆 -> 剪开 -> 粘起来"}
+        {
+          "折纸飞机": "对折 -> 折角 -> 调整"
+        },
+        {
+          "剪星星": "画形状 -> 剪外边 -> 剪里面"
+        },
+        {
+          "做灯笼": "画圆 -> 剪开 -> 粘起来"
+        }
       ]
     },
     {
@@ -26,10 +32,26 @@
       "title": "手工挑战",
       "description": "完成手工任务",
       "tasks": [
-        {"名称": "折小船", "难度": 2, "步骤": 4},
-        {"名称": "剪雪花", "难度": 2, "步骤": 5},
-        {"名称": "做纸飞机", "难度": 1, "步骤": 3},
-        {"名称": "折千纸鹤", "难度": 3, "步骤": 8}
+        {
+          "名称": "折小船",
+          "难度": 2,
+          "步骤": 4
+        },
+        {
+          "名称": "剪雪花",
+          "难度": 2,
+          "步骤": 5
+        },
+        {
+          "名称": "做纸飞机",
+          "难度": 1,
+          "步骤": 3
+        },
+        {
+          "名称": "折千纸鹤",
+          "难度": 3,
+          "步骤": 8
+        }
       ]
     },
     {
@@ -44,10 +66,131 @@
     }
   ],
   "media": {
-    "images": ["/assets/images/art/craft.png"]
+    "images": [
+      "/assets/images/art/craft.png"
+    ]
   },
   "abilities": {
     "fineMotor": 25,
     "creativity": 15
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到趣味手工",
+        "imagePrompt": "明亮的卡通场景，趣味手工主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习趣味手工。准备好了吗？让我们开始吧！",
+        "onScreenText": "趣味手工",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手工小能手·1",
+        "imagePrompt": "趣味手工场景：手工制作真好玩！，卡通教育风格，明亮温暖",
+        "narration": "手工制作真好玩！",
+        "onScreenText": "手工制作真好玩",
+        "durationSec": 8,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手工小能手·2",
+        "imagePrompt": "趣味手工场景：✂️ 剪刀用法：\n- 手指放进圆孔里\n- 剪刀要对着纸剪\n- 剪纸时要注意安全，卡通教育风格，明亮温暖",
+        "narration": "✂️ 剪刀用法：\n- 手指放进圆孔里\n- 剪刀要对着纸剪\n- 剪纸时要注意安全。",
+        "onScreenText": "剪刀用法",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手工小能手·3",
+        "imagePrompt": "趣味手工场景：📄 折纸基础：\n- 对折：两边对齐折\n- 角折：角对齐折\n- 反折：方向反过来，卡通教育风格，明亮温暖",
+        "narration": "📄 折纸基础：\n- 对折：两边对齐折\n- 角折：角对齐折\n- 反折：方向反过来折。",
+        "onScreenText": "折纸基础",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "手工小能手·4",
+        "imagePrompt": "趣味手工场景：🖍️ 胶水用法：\n- 少涂一点就够了\n- 涂在纸的背面\n- 抹均匀，卡通教育风格，明亮温暖",
+        "narration": "🖍️ 胶水用法：\n- 少涂一点就够了\n- 涂在纸的背面\n- 抹均匀。",
+        "onScreenText": "胶水用法",
+        "durationSec": 9,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "趣味手工总结",
+        "imagePrompt": "趣味手工总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了趣味手工，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "art.drawing-steps",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "趣味手工动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习趣味手工！",
+        "caption": "趣味手工",
+        "durationSec": 8
+      },
+      {
+        "shot": "手工小能手",
+        "narration": "手工制作真好玩",
+        "caption": "手工小能手",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了趣味手工，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

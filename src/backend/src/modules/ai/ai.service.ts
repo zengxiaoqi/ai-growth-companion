@@ -5,6 +5,12 @@ import { ContentSafetyService } from '../../common/services/content-safety.servi
 import { UsersService } from '../users/users.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
+import { OrchestratorService } from '../../agent-framework/agents/orchestrator.service';
+import { AgentRegistryService } from '../../agent-framework/agents/agent-registry.service';
+import { AgentExecutorService as FrameworkAgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
+import { SkillRegistryService } from '../../agent-framework/skills/skill-registry.service';
+import { SkillExecutor } from '../../agent-framework/skills/skill-executor';
+import type { AgentContext } from '../../agent-framework/core';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
@@ -27,6 +33,7 @@ type CoursePackExportFormat =
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
+  private readonly frameworkOrchestrator: OrchestratorService | null;
 
   // Fallback template responses when LLM is unavailable
   private readonly fallbackResponses = [
@@ -46,7 +53,22 @@ export class AiService {
     private readonly llmClient: LlmClientService,
     private readonly generateCoursePackTool: GenerateCoursePackTool,
     @Optional() private readonly voiceService?: VoiceService,
-  ) {}
+    @Optional() agentRegistry?: AgentRegistryService,
+    @Optional() frameworkExecutor?: FrameworkAgentExecutorService,
+    @Optional() skillRegistry?: SkillRegistryService,
+    @Optional() skillExecutor?: SkillExecutor,
+  ) {
+    this.frameworkOrchestrator =
+      agentRegistry && frameworkExecutor && skillRegistry
+        ? new OrchestratorService(
+            agentRegistry,
+            frameworkExecutor,
+            this.conversationManager as any,
+            skillRegistry,
+            skillExecutor || new SkillExecutor(),
+          )
+        : null;
+  }
 
   /** Main chat endpoint — uses Agent with function calling */
   async chat(params: ChatRequest): Promise<ChatResponse> {
@@ -72,14 +94,13 @@ export class AiService {
       // Update session metadata
       await this.conversationManager.updateMetadata(session.uuid, { ageGroup: 'parent', childName: parentName });
 
-      // Execute agent in parent mode
-      const result = await this.agentExecutor.execute(
-        session.uuid,
+      const result = await this.executeRoutedChat({
+        sessionId: session.uuid,
         message,
-        'parent',
-        parentName,
-        { parentId },
-      );
+        ageGroup: 'parent',
+        displayName: parentName,
+        executionContext: { parentId },
+      });
 
       // Generate parent suggestions
       const suggestions = this.generateParentSuggestions();
@@ -89,6 +110,7 @@ export class AiService {
         sessionId: session.uuid,
         suggestions,
         toolCalls: result.toolCalls,
+        wasFiltered: result.wasFiltered,
       };
     }
 
@@ -102,7 +124,7 @@ export class AiService {
     }
 
     const age = context?.age ?? user.age;
-    const ageGroup = this.agentExecutor.classifyAge(age);
+    const ageGroup = this.normalizeAgentAgeGroup(this.agentExecutor.classifyAge(age));
     const childName = user.name || '小朋友';
 
     // Check if LLM is available
@@ -117,14 +139,13 @@ export class AiService {
       // Update session metadata
       await this.conversationManager.updateMetadata(session.uuid, { ageGroup, childName });
 
-      // Execute agent
-      const result = await this.agentExecutor.execute(
-        session.uuid,
+      const result = await this.executeRoutedChat({
+        sessionId: session.uuid,
         message,
         ageGroup,
-        childName,
-        { childId: childId!, parentId },
-      );
+        displayName: childName,
+        executionContext: { childId: childId!, parentId },
+      });
 
       void this.learningArchiveService.recordChatTurnSummary({
         childId: childId!,
@@ -142,6 +163,7 @@ export class AiService {
         sessionId: session.uuid,
         suggestions,
         toolCalls: result.toolCalls,
+        wasFiltered: result.wasFiltered,
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
@@ -189,13 +211,13 @@ export class AiService {
 
       const suggestions = this.generateParentSuggestions();
 
-      for await (const event of this.agentExecutor.executeStream(
-        session.uuid,
+      for await (const event of this.executeRoutedChatStream({
+        sessionId: session.uuid,
         message,
-        'parent',
-        parentName,
-        { parentId },
-      )) {
+        ageGroup: 'parent',
+        displayName: parentName,
+        executionContext: { parentId },
+      })) {
         if (event.type === 'done') {
           yield {
             ...event,
@@ -217,7 +239,7 @@ export class AiService {
     }
 
     const age = context?.age ?? user.age;
-    const ageGroup = this.agentExecutor.classifyAge(age);
+    const ageGroup = this.normalizeAgentAgeGroup(this.agentExecutor.classifyAge(age));
     const childName = user.name || '小朋友';
 
     if (!this.llmClient.isConfigured) {
@@ -234,13 +256,13 @@ export class AiService {
       const suggestions = this.generateSuggestions('', ageGroup);
       let finalReply = '';
 
-      for await (const event of this.agentExecutor.executeStream(
-        session.uuid,
+      for await (const event of this.executeRoutedChatStream({
+        sessionId: session.uuid,
         message,
         ageGroup,
-        childName,
-        { childId: childId!, parentId },
-      )) {
+        displayName: childName,
+        executionContext: { childId: childId!, parentId },
+      })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
         }
@@ -268,6 +290,101 @@ export class AiService {
     } catch (error) {
       this.logger.error(`Agent stream failed: ${error.message}`);
       yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~' };
+    }
+  }
+
+  private normalizeAgentAgeGroup(ageGroup: AgeGroup): '3-4' | '5-6' {
+    return ageGroup === '3-4' ? '3-4' : '5-6';
+  }
+
+  private buildAgentContext(params: {
+    sessionId: string;
+    ageGroup: '3-4' | '5-6' | 'parent';
+    displayName: string;
+    executionContext: { childId?: number; parentId?: number };
+  }): AgentContext {
+    return {
+      childId: params.executionContext.childId,
+      parentId: params.executionContext.parentId,
+      childName: params.ageGroup === 'parent' ? undefined : params.displayName,
+      parentName: params.ageGroup === 'parent' ? params.displayName : undefined,
+      ageGroup: params.ageGroup,
+      conversationId: params.sessionId,
+      messages: [],
+      depth: 0,
+      metadata: {
+        source: 'ai-module',
+      },
+    };
+  }
+
+  private async executeRoutedChat(params: {
+    sessionId: string;
+    message: string;
+    ageGroup: '3-4' | '5-6' | 'parent';
+    displayName: string;
+    executionContext: { childId?: number; parentId?: number };
+  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean }> {
+    if (this.frameworkOrchestrator) {
+      const context = this.buildAgentContext(params);
+      const result = await this.frameworkOrchestrator.route(params.message, context);
+      return {
+        reply: result.response,
+        toolCalls: result.toolCalls,
+        wasFiltered: result.wasFiltered,
+      };
+    }
+
+    const legacy = await this.agentExecutor.execute(
+      params.sessionId,
+      params.message,
+      params.ageGroup,
+      params.displayName,
+      params.executionContext,
+    );
+    return {
+      reply: legacy.reply,
+      toolCalls: legacy.toolCalls,
+    };
+  }
+
+  private async *executeRoutedChatStream(params: {
+    sessionId: string;
+    message: string;
+    ageGroup: '3-4' | '5-6' | 'parent';
+    displayName: string;
+    executionContext: { childId?: number; parentId?: number };
+  }): AsyncGenerator<{
+    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
+    content?: string;
+    thinkingContent?: string;
+    toolName?: string;
+    toolArgs?: Record<string, any>;
+    toolResult?: string;
+    sessionId?: string;
+    wasFiltered?: boolean;
+    toolCalls?: any[];
+    message?: string;
+    activityType?: string;
+    gameData?: string;
+    domain?: string;
+  }> {
+    if (this.frameworkOrchestrator) {
+      const context = this.buildAgentContext(params);
+      for await (const event of this.frameworkOrchestrator.routeStream(params.message, context)) {
+        yield event as any;
+      }
+      return;
+    }
+
+    for await (const event of this.agentExecutor.executeStream(
+      params.sessionId,
+      params.message,
+      params.ageGroup,
+      params.displayName,
+      params.executionContext,
+    )) {
+      yield event as any;
     }
   }
 

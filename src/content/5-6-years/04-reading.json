@@ -1,6 +1,138 @@
 {
-  "id": "lang_103", "name": "绘本阅读", "ageRange": "5-6", "domain": "language", "duration": 10, "difficulty": 2,
-  "objectives": ["简单绘本阅读理解", "培养阅读兴趣"],
-  "content": [{"type": "story", "title": "小红帽", "text": "从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽。有一天，妈妈让小红帽去看望生病的奶奶...", 
-     "questions": [{"q": "小姑娘为什么叫小红帽？", "options": ["喜欢红色", "戴着红帽子", "名字叫红"], "answer": 1}], "pages": 5}]
+  "id": "lang_103",
+  "name": "绘本阅读",
+  "ageRange": "5-6",
+  "domain": "language",
+  "duration": 10,
+  "difficulty": 2,
+  "objectives": [
+    "简单绘本阅读理解",
+    "培养阅读兴趣"
+  ],
+  "content": [
+    {
+      "type": "story",
+      "title": "小红帽",
+      "text": "从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽。有一天，妈妈让小红帽去看望生病的奶奶...",
+      "questions": [
+        {
+          "q": "小姑娘为什么叫小红帽？",
+          "options": [
+            "喜欢红色",
+            "戴着红帽子",
+            "名字叫红"
+          ],
+          "answer": 1
+        }
+      ],
+      "pages": 5
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到绘本阅读",
+        "imagePrompt": "明亮的卡通场景，绘本阅读主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习绘本阅读。准备好了吗？让我们开始吧！",
+        "onScreenText": "绘本阅读",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小红帽·1",
+        "imagePrompt": "绘本阅读场景：从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽，卡通教育风格，明亮温暖",
+        "narration": "从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽。",
+        "onScreenText": "从前有个可爱的小姑娘",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "小红帽·2",
+        "imagePrompt": "绘本阅读场景：有一天，妈妈让小红帽去看望生病的奶奶...，卡通教育风格，明亮温暖",
+        "narration": "有一天，妈妈让小红帽去看望生病的奶奶...。",
+        "onScreenText": "有一天",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：小姑娘为什么叫小红帽？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：小姑娘为什么叫小红帽？",
+        "onScreenText": "🤔 小姑娘为什么叫小红帽",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "绘本阅读总结",
+        "imagePrompt": "绘本阅读总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了绘本阅读，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "绘本阅读动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习绘本阅读！",
+        "caption": "绘本阅读",
+        "durationSec": 8
+      },
+      {
+        "shot": "小红帽",
+        "narration": "从前有个可爱的小姑娘，戴着红色的帽子，大家都叫她小红帽",
+        "caption": "小红帽",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了绘本阅读，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

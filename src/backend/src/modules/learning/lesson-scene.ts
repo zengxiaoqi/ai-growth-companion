@@ -1,4 +1,5 @@
 import type { ActivityType } from '../ai/agent/tools/generate-activity';
+import { suggestTemplateByDomain, getDefaultTemplateForDomain } from '../../animations/animation-templates';
 
 export type ActivityData = Record<string, any> & {
   type?: ActivityType;
@@ -174,7 +175,7 @@ function sanitizeCharacters(value: any): SceneCharacter[] | undefined {
       color: toText(entry?.color) || undefined,
     }))
     .filter((entry) => entry.label);
-  return characters.length > 0 ? characters.slice(0, 6) : undefined;
+  return characters.length > 0 ? characters.slice(0, 8) : undefined;
 }
 
 function sanitizeItems(value: any): SceneItem[] | undefined {
@@ -188,7 +189,7 @@ function sanitizeItems(value: any): SceneItem[] | undefined {
       color: toText(entry?.color) || undefined,
     }))
     .filter((entry) => entry.label);
-  return items.length > 0 ? items.slice(0, 8) : undefined;
+  return items.length > 0 ? items.slice(0, 12) : undefined;
 }
 
 function sanitizeVisual(raw: any): SceneVisual | undefined {
@@ -345,7 +346,7 @@ export function sanitizeSceneDocument(
     version: 1,
     stepType: ALLOWED_STEP_TYPES.has(resolvedStepType) ? resolvedStepType : stepType,
     mode: ALLOWED_MODES.has(resolvedMode) ? resolvedMode : fallbackMode,
-    scenes: scenes.slice(0, 8),
+    scenes: scenes.slice(0, 12),
     completionPolicy: sanitizeCompletionPolicy(raw.completionPolicy, fallbackMode),
   };
 }
@@ -418,6 +419,7 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     .filter(Boolean)
     .join(' ');
 
+  // 1. Explicit template from LLM output
   if (scene?.animationTemplate) {
     return {
       templateId: toText(scene.animationTemplate) || undefined,
@@ -427,6 +429,7 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     };
   }
 
+  // 2. Character stroke detection (single Chinese character)
   const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
   if (character) {
     return {
@@ -435,7 +438,8 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     };
   }
 
-  if (/(四季|季节|春夏秋冬)/.test(source)) {
+  // 3. Science domain patterns
+  if (/(四季|季节|春夏秋冬|天气|春|夏|秋|冬)/.test(source)) {
     return {
       templateId: 'science.seasons-cycle',
       templateParams: {
@@ -446,33 +450,102 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     };
   }
 
-  if (/(白天|黑夜|昼夜|太阳|月亮)/.test(source)) {
+  if (/(白天|黑夜|昼夜|太阳|月亮|早晨|晚上|黄昏|地球|星空|影子)/.test(source)) {
     return {
       templateId: 'science.day-night-cycle',
       templateParams: { rotationSpeed: 1, showLabels: true },
     };
   }
 
-  if (/(水循环|蒸发|云|下雨)/.test(source)) {
+  if (/(水循环|蒸发|云|下雨|冰|雪|彩虹|降水|声音|光|磁铁|溶解)/.test(source)) {
     return {
       templateId: 'science.water-cycle',
       templateParams: { speed: 1, showLabels: true },
     };
   }
 
-  if (/(植物|种子|发芽|开花|生长)/.test(source)) {
+  if (/(植物|种子|发芽|开花|生长|树|草|果实|花|蔬菜|动物|昆虫|蝴蝶|蚂蚁|鸟|鱼|食物|水果|营养)/.test(source)) {
     return {
       templateId: 'science.plant-growth',
       templateParams: { plantType: 'flower', stages: 5 },
     };
   }
 
+  // 4. Math domain patterns
+  if (/(数字|数数|计数|数量|加法|减法|一共|还剩|分成|比大小)/.test(source)) {
+    return {
+      templateId: 'math.counting-objects',
+      templateParams: { objectType: 'star', targetCount: 5 },
+    };
+  }
+
+  if (/(形状|三角|圆形|方形|图形|长方|正方|梯形|菱形|五角星)/.test(source)) {
+    return {
+      templateId: 'math.shape-builder',
+      templateParams: { shapes: ['circle', 'square', 'triangle'] },
+    };
+  }
+
+  if (/(数轴|排序|顺序|相邻|倒数|单数|双数|规律)/.test(source)) {
+    return {
+      templateId: 'math.number-line',
+      templateParams: { startNum: 1, endNum: 10 },
+    };
+  }
+
+  if (/算盘/.test(source)) {
+    return {
+      templateId: 'math.abacus',
+      templateParams: { rows: 5, showNumbers: true },
+    };
+  }
+
+  // 5. Art domain patterns
+  if (/(颜色|色彩|调色|混色|红|蓝|黄|绿|紫|橙|粉)/.test(source)) {
+    return {
+      templateId: 'art.color-mixing',
+      templateParams: {},
+    };
+  }
+
+  if (/(画画|绘画|简笔画|手工|折纸|剪纸|涂色|描线|音乐|唱歌|乐器|节奏)/.test(source)) {
+    return {
+      templateId: 'art.drawing-steps',
+      templateParams: {},
+    };
+  }
+
+  // 6. Social domain patterns
+  if (/(情绪|表情|开心|生气|难过|害怕|勇敢|害羞|感动|委屈)/.test(source)) {
+    return {
+      templateId: 'social.emotion-faces',
+      templateParams: { emotions: ['happy', 'sad', 'angry', 'surprised'] },
+    };
+  }
+
+  if (/(作息|习惯|日常|时间安排|一天|起床|睡觉|刷牙|吃饭|家庭|节日)/.test(source)) {
+    return {
+      templateId: 'social.daily-routine',
+      templateParams: {},
+    };
+  }
+
+  // 7. Word reveal for language content
   const words = extractRevealWords(headline);
   if (words.length > 0) {
     return {
       templateId: 'language.word-reveal',
       templateParams: { words },
     };
+  }
+
+  // 8. Use suggestTemplateByDomain as final intelligent fallback
+  const domainHint = toText(scene?.domain);
+  if (domainHint) {
+    const suggested = suggestTemplateByDomain(domainHint, source);
+    if (suggested) {
+      return { templateId: suggested, templateParams: {} };
+    }
   }
 
   return {
@@ -512,7 +585,7 @@ export function deriveWatchSceneDocument(
       ? module.videoLesson.shots
       : [];
 
-  const scenes = sourceScenes.slice(0, 8).map((entry: AnyRecord, index: number) => {
+  const scenes = sourceScenes.slice(0, 12).map((entry: AnyRecord, index: number) => {
     const source = [
       toText(entry?.scene || entry?.shot),
       toText(entry?.imagePrompt || entry?.visualPrompt),

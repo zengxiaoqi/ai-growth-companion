@@ -19,28 +19,44 @@
           "char": "日",
           "meaning": "太阳",
           "strokes": 4,
-          "words": ["日出", "今日", "生日"],
+          "words": [
+            "日出",
+            "今日",
+            "生日"
+          ],
           "story": "太阳圆圆的，像一个圆圈，中间有一横，就像太阳发出的光芒。"
         },
         {
           "char": "月",
           "meaning": "月亮",
           "strokes": 4,
-          "words": ["月亮", "一月", "月光"],
+          "words": [
+            "月亮",
+            "一月",
+            "月光"
+          ],
           "story": "月亮弯弯的，像小船，两边有短短的竖，就像月亮的边。"
         },
         {
           "char": "水",
           "meaning": "水",
           "strokes": 4,
-          "words": ["水果", "喝水", "清水"],
+          "words": [
+            "水果",
+            "喝水",
+            "清水"
+          ],
           "story": "水可以流动，中间有一撇一捺，就像水流的样子。"
         },
         {
           "char": "火",
           "meaning": "火",
           "strokes": 4,
-          "words": ["火车", "大火", "点火"],
+          "words": [
+            "火车",
+            "大火",
+            "点火"
+          ],
           "story": "火苗往上冒，上面是两点，下面是人字形。"
         }
       ]
@@ -49,37 +65,161 @@
       "type": "practice",
       "title": "描红练习",
       "template": "日、月、水、火",
-      "tracing": ["日", "日", "日", "月", "月", "月", "水", "水", "水", "火", "火", "火"]
+      "tracing": [
+        "日",
+        "日",
+        "日",
+        "月",
+        "月",
+        "月",
+        "水",
+        "水",
+        "水",
+        "火",
+        "火",
+        "火"
+      ]
     },
     {
       "type": "quiz",
       "questions": [
         {
-          "q": "哪个是"日"字？",
-          "options": ["☀️", "🌙", "💧"],
+          "q": "哪个是'日'字？",
+          "options": [
+            "☀️",
+            "🌙",
+            "💧"
+          ],
           "answer": 0,
           "image": true
         },
         {
-          "q": ""水"字有几笔？",
-          "options": ["3笔", "4笔", "5笔"],
+          "q": "'水'字有几笔？",
+          "options": [
+            "3笔",
+            "4笔",
+            "5笔"
+          ],
           "answer": 1
         },
         {
-          "q": ""火"可以用来做什么？",
-          "options": ["取暖", "游泳", "飞行"],
+          "q": "'火'可以用来做什么？",
+          "options": [
+            "取暖",
+            "游泳",
+            "飞行"
+          ],
           "answer": 0
         }
       ]
     }
   ],
   "media": {
-    "images": ["/assets/images/lang/characters-1.png"],
-    "videos": ["/assets/videos/writing.mp4"]
+    "images": [
+      "/assets/images/lang/characters-1.png"
+    ],
+    "videos": [
+      "/assets/videos/writing.mp4"
+    ]
   },
   "abilities": {
     "language": 10,
     "memory": 5,
     "logic": 3
+  },
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到认识汉字(一)",
+        "imagePrompt": "明亮的卡通场景，认识汉字(一)主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习认识汉字(一)。准备好了吗？让我们开始吧！",
+        "onScreenText": "认识汉字(一)",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：哪个是'日'字？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：哪个是'日'字？",
+        "onScreenText": "🤔 哪个是'日'字？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：'水'字有几笔？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：'水'字有几笔？",
+        "onScreenText": "🤔 '水'字有几笔？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "认识汉字(一)总结",
+        "imagePrompt": "认识汉字(一)总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了认识汉字(一)，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "认识汉字(一)动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习认识汉字(一)！",
+        "caption": "认识汉字(一)",
+        "durationSec": 8
+      },
+      {
+        "shot": "日月水火",
+        "narration": "",
+        "caption": "日月水火",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了认识汉字(一)，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
   }
 }

@@ -494,49 +494,232 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const domain = lesson.domain || content.domain || 'language';
     const topic = content.topic || lesson.name || '';
 
-    // Convert legacy story/lesson text into visualStory scenes
-    const scenes = contentItems
-      .filter((item: any) => item.type === 'story' || item.type === 'lesson')
-      .flatMap((item: any) => {
-        const text = item.text || item.title || '';
-        const sentences = text.split(/[。！？]/).filter((s: string) => s.trim().length > 2);
-        return sentences.map((sentence: string, idx: number) => ({
-          scene: sentence.trim(),
-          imagePrompt: sentence.trim(),
-          narration: sentence.trim(),
-          onScreenText: sentence.trim().slice(0, 20),
-          durationSec: Math.max(8, Math.min(20, sentence.length / 3)),
-          animationTemplate: suggestTemplateByDomain(domain, sentence) || undefined,
-        }));
-      });
+    // 1. Convert legacy story/lesson text into visualStory scenes (paragraph-aware)
+    const scenes = this.buildLegacyScenes(contentItems, domain, topic);
 
-    // Extract keywords from lesson content for reading module
+    // 2. Build interactive scenes from questions
+    const quizScenes = this.buildQuizScenesFromLegacy(contentItems, topic);
+    const allScenes = [...scenes, ...quizScenes].slice(0, 12);
+
+    // 3. Extract keywords from lesson content for reading module
     const keywords = contentItems
       .flatMap((item: any) => (Array.isArray(item.keywords) ? item.keywords : []))
-      .slice(0, 4)
+      .slice(0, 12)
       .map((k: any) => String(k));
 
-    // Extract questions for quiz module
+    // 4. Extract questions for quiz module
     const questions = contentItems
       .flatMap((item: any) => (Array.isArray(item.questions) ? item.questions : []))
-      .slice(0, 4);
+      .slice(0, 8);
+
+    // 5. Extract game items for matching pairs
+    const gamePairs = this.extractGamePairsFromLegacy(contentItems);
 
     return {
       title: content.title || lesson.name || `${topic} 全方位学习课`,
       topic,
+      domain,
       summary: Array.isArray(lesson.objectives) ? lesson.objectives.join('；') : content.subtitle || '',
       ageGroup: lesson.ageRange || content.ageRange || undefined,
       watchScene: null,
-      visualStory: scenes.length > 0 ? { scenes, style: 'colorful-educational' } : {},
-      videoLesson: {},
+      visualStory: allScenes.length > 0 ? { scenes: allScenes, style: 'colorful-educational' } : {},
+      videoLesson: this.buildLegacyVideoLesson(contentItems, topic),
       modules: {
         listening: {},
         reading: keywords.length > 0 ? { keywords, goal: `学习${topic}的关键词语` } : {},
         writing: {},
-        game: {},
+        game: gamePairs.length > 0 ? { matchingPairs: gamePairs } : {},
         quiz: questions.length > 0 ? { questions, title: `${topic}小测验` } : {},
       },
     };
+  }
+
+  /** Split legacy story text into paragraph-aware scenes with enriched metadata */
+  private buildLegacyScenes(
+    contentItems: any[],
+    domain: string,
+    topic: string,
+  ): Record<string, any>[] {
+    return contentItems
+      .filter((item: any) => item.type === 'story' || item.type === 'lesson')
+      .flatMap((item: any) => {
+        const text = item.text || item.title || '';
+        // Split by paragraphs first, then fall back to sentence boundaries
+        let segments = text.split(/\n\n|\n/).filter((s: string) => s.trim().length > 5);
+        if (segments.length < 2) {
+          segments = text.split(/[。！？]/).filter((s: string) => s.trim().length > 3);
+        }
+
+        return segments.slice(0, 8).map((segment: string, idx: number) => {
+          const trimmed = segment.trim();
+          const characters = this.extractCharactersFromText(trimmed);
+          const items = this.extractItemsFromText(trimmed);
+          const keyPhrase = this.extractKeyPhrase(trimmed, topic);
+          const templateId = suggestTemplateByDomain(domain, trimmed) || suggestTemplateByDomain(domain, topic) || undefined;
+
+          return {
+            scene: item.title || `${topic}·场景${idx + 1}`,
+            imagePrompt: `${topic}场景：${trimmed.slice(0, 50)}，卡通教育风格，明亮色彩`,
+            narration: trimmed.endsWith('。') || trimmed.endsWith('！') || trimmed.endsWith('？') ? trimmed : `${trimmed}。`,
+            onScreenText: keyPhrase,
+            durationSec: Math.max(8, Math.min(18, trimmed.length / 4)),
+            animationTemplate: templateId,
+            animationParams: {
+              bgType: this.inferLegacyBgType(trimmed),
+              characters: characters.length > 0 ? characters : ['老师', '小朋友'],
+              items: items.length > 0 ? items : undefined,
+            },
+          };
+        });
+      });
+  }
+
+  /** Convert quiz questions into interactive "thinking" scenes */
+  private buildQuizScenesFromLegacy(
+    contentItems: any[],
+    topic: string,
+  ): Record<string, any>[] {
+    const questions = contentItems
+      .flatMap((item: any) => (Array.isArray(item.questions) ? item.questions : []))
+      .slice(0, 3);
+
+    return questions.map((q: any, idx: number) => {
+      const questionText = String(q?.q || q?.question || '').trim();
+      if (!questionText) return null;
+
+      return {
+        scene: `小问题${idx + 1}`,
+        imagePrompt: `思考时间：${questionText.slice(0, 30)}，小朋友在思考，问号气泡`,
+        narration: `小朋友，动动小脑筋想一想：${questionText}`,
+        onScreenText: `🤔 ${questionText.slice(0, 12)}`,
+        durationSec: 10,
+        animationTemplate: 'language.story-scene',
+        animationParams: {
+          bgType: 'indoor',
+          characters: ['小朋友'],
+          items: ['问号', '书本'],
+        },
+      };
+    }).filter(Boolean);
+  }
+
+  /** Extract character names from text using Chinese keyword detection */
+  private extractCharactersFromText(text: string): string[] {
+    const characterPatterns: [RegExp, string][] = [
+      [/(猫|小猫|猫咪)/, '小猫'], [/(狗|小狗|狗狗)/, '小狗'],
+      [/(鸟|小鸟)/, '小鸟'], [/(鱼|小鱼)/, '小鱼'],
+      [/(兔|小兔|兔子)/, '小兔子'], [/(鸡|小鸡|母鸡|公鸡)/, '小鸡'],
+      [/(鸭|小鸭)/, '小鸭'], [/(猪|小猪)/, '小猪'],
+      [/(牛|奶牛)/, '奶牛'], [/(羊|小羊)/, '小羊'],
+      [/(马|小马)/, '小马'], [/(熊|小熊|熊猫)/, '小熊'],
+      [/(老师|教师)/, '老师'], [/(小朋友|孩子|宝宝)/, '小朋友'],
+      [/(爸爸|妈妈|家人)/, '爸爸妈妈'],
+    ];
+
+    const found: string[] = [];
+    for (const [regex, label] of characterPatterns) {
+      if (regex.test(text) && !found.includes(label)) found.push(label);
+    }
+    return found.slice(0, 6);
+  }
+
+  /** Extract visual items/objects from text */
+  private extractItemsFromText(text: string): string[] {
+    const itemPatterns: [RegExp, string][] = [
+      [/(太阳)/, '太阳'], [/(月亮)/, '月亮'], [/(星星)/, '星星'],
+      [/(花|花朵|樱花)/, '花'], [/(树|树木|大树)/, '树'], [/(草|小草)/, '草'],
+      [/(水|河|海|湖)/, '水'], [/(云|白云)/, '云'], [/(雨|下雨)/, '雨'],
+      [/(雪|下雪)/, '雪'], [/(风|大风)/, '风'],
+      [/(苹果)/, '苹果'], [/(香蕉)/, '香蕉'], [/(西瓜)/, '西瓜'],
+      [/(蝴蝶)/, '蝴蝶'], [/(蜜蜂)/, '蜜蜂'], [/(蚂蚁)/, '蚂蚁'],
+      [/(球|皮球)/, '球'], [/(书|书本)/, '书'], [/(笔|铅笔|画笔)/, '笔'],
+      [/(积木)/, '积木'], [/(气球)/, '气球'],
+    ];
+
+    const found: string[] = [];
+    for (const [regex, label] of itemPatterns) {
+      if (regex.test(text) && !found.includes(label)) found.push(label);
+    }
+    return found.slice(0, 6);
+  }
+
+  /** Extract the most representative short phrase from text for on-screen display */
+  private extractKeyPhrase(text: string, topic: string): string {
+    // Try to find a quoted phrase
+    const quoted = text.match(/[""']([^""']{2,12})[""']/);
+    if (quoted?.[1]) return quoted[1];
+
+    // Try to find a colon-labeled key fact
+    const colon = text.match(/([^\u4e00-\u9fff]?)([\u4e00-\u9fff]{2,8})[:：]/);
+    if (colon?.[2]) return colon[2];
+
+    // Fall back to first meaningful Chinese phrase
+    const phrases = text.match(/[\u4e00-\u9fff]{2,12}/g) || [];
+    const meaningful = phrases.find(p => !['小朋友', '我们', '一起', '看看', '今天'].includes(p));
+    return meaningful?.slice(0, 12) || topic.slice(0, 12) || '学习中';
+  }
+
+  /** Build videoLesson shots from legacy content */
+  private buildLegacyVideoLesson(
+    contentItems: any[],
+    topic: string,
+  ): Record<string, any> {
+    const storyItems = contentItems.filter((item: any) => item.type === 'story' || item.type === 'lesson');
+    if (storyItems.length === 0) return {};
+
+    const shots = storyItems.slice(0, 6).map((item: any, idx: number) => {
+      const text = String(item.text || item.title || '').trim();
+      const firstSentence = text.split(/[。！？]/)[0]?.trim() || text.slice(0, 60);
+      return {
+        shot: item.title || `片段${idx + 1}`,
+        narration: firstSentence.length > 60 ? `${firstSentence.slice(0, 57)}...` : firstSentence,
+        caption: (item.title || firstSentence).slice(0, 12),
+        durationSec: Math.max(8, Math.min(18, firstSentence.length / 4)),
+      };
+    });
+
+    return shots.length > 0 ? { title: `${topic}动画课`, durationSec: shots.reduce((s: number, sh: any) => s + (sh.durationSec || 10), 0), shots } : {};
+  }
+
+  /** Extract matching pairs from legacy game content blocks */
+  private extractGamePairsFromLegacy(contentItems: any[]): Array<{ left: string; right: string }> {
+    const gameBlocks = contentItems.filter((item: any) => item.type === 'game' || item.type === 'activity');
+    const pairs: Array<{ left: string; right: string }> = [];
+
+    for (const block of gameBlocks) {
+      const examples = Array.isArray(block.examples) ? block.examples : [];
+      for (const ex of examples) {
+        if (ex && typeof ex === 'object') {
+          const entries = Object.entries(ex).slice(0, 4);
+          for (const [key, value] of entries) {
+            if (key && value) {
+              pairs.push({ left: String(key).slice(0, 12), right: String(value).slice(0, 12) });
+            }
+          }
+        }
+      }
+
+      const categories = Array.isArray(block.categories) ? block.categories : [];
+      for (const cat of categories.slice(0, 4)) {
+        if (typeof cat === 'string' && cat.includes(':')) {
+          const [left, right] = cat.split(':').map(s => s.trim());
+          if (left && right) pairs.push({ left: left.slice(0, 12), right: right.slice(0, 12) });
+        }
+      }
+    }
+
+    return pairs.slice(0, 8);
+  }
+
+  /** Infer background type from text content */
+  private inferLegacyBgType(text: string): string {
+    if (/(夜|晚上|星星|月亮|黑夜|睡觉)/.test(text)) return 'night';
+    if (/(春|花开|发芽|播种)/.test(text)) return 'spring';
+    if (/(夏|热|太阳大|游泳|西瓜)/.test(text)) return 'summer';
+    if (/(秋|落叶|丰收|果实)/.test(text)) return 'autumn';
+    if (/(冬|雪|冷|棉袄)/.test(text)) return 'winter';
+    if (/(教室|课堂|室内|家|房间|厨房)/.test(text)) return 'indoor';
+    return 'day';
   }
 
   private computeCacheKey(content: Content, payload: Record<string, any>): string {

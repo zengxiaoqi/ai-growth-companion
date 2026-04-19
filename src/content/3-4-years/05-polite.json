@@ -1,8 +1,205 @@
 {
-  "id": "lang_005", "name": "礼貌用语", "ageRange": "3-4", "domain": "language", "duration": 5, "difficulty": 1,
-  "objectives": ["学会说你好谢谢对不起", "懂礼貌知礼仪"],
+  "id": "lang_005",
+  "name": "礼貌用语",
+  "ageRange": "3-4",
+  "domain": "language",
+  "duration": 5,
+  "difficulty": 1,
+  "objectives": [
+    "学会说你好谢谢对不起",
+    "懂礼貌知礼仪"
+  ],
   "content": [
-    {"type": "story", "title": "懂礼貌的小兔子", "text": "小兔子出门遇见妈妈：\"妈妈好！\"遇见老师：\"老师好！\"小兔子得到帮助：\"谢谢！\"不小心撞到人：\"对不起！\"大家都夸小兔子懂礼貌！",
-     "questions": [{"q": "得到帮助要说什么？", "options": ["你好", "谢谢", "对不起"], "answer": 1}, {"q": "不小心碰到人要说什么？", "options": ["你好", "谢谢", "对不起"], "answer": 2}]}
-  ]
+    {
+      "type": "story",
+      "title": "懂礼貌的小兔子",
+      "text": "小兔子出门遇见妈妈：\"妈妈好！\"遇见老师：\"老师好！\"小兔子得到帮助：\"谢谢！\"不小心撞到人：\"对不起！\"大家都夸小兔子懂礼貌！",
+      "questions": [
+        {
+          "q": "得到帮助要说什么？",
+          "options": [
+            "你好",
+            "谢谢",
+            "对不起"
+          ],
+          "answer": 1
+        },
+        {
+          "q": "不小心碰到人要说什么？",
+          "options": [
+            "你好",
+            "谢谢",
+            "对不起"
+          ],
+          "answer": 2
+        }
+      ]
+    }
+  ],
+  "visualStory": {
+    "style": "colorful-educational",
+    "scenes": [
+      {
+        "scene": "欢迎来到礼貌用语",
+        "imagePrompt": "明亮的卡通场景，礼貌用语主题，小朋友和老师在一起，温暖的色调",
+        "narration": "小朋友好！今天我们一起来学习礼貌用语。准备好了吗？让我们开始吧！",
+        "onScreenText": "礼貌用语",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "懂礼貌的小兔子·1",
+        "imagePrompt": "礼貌用语场景：小兔子出门遇见妈妈：\"妈妈好，卡通教育风格，明亮温暖",
+        "narration": "小兔子出门遇见妈妈：\"妈妈好。",
+        "onScreenText": "小兔子出门遇见妈妈",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小兔子"
+          ]
+        }
+      },
+      {
+        "scene": "懂礼貌的小兔子·2",
+        "imagePrompt": "礼貌用语场景：\"遇见老师：\"老师好，卡通教育风格，明亮温暖",
+        "narration": "\"遇见老师：\"老师好。",
+        "onScreenText": "遇见老师：",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师"
+          ]
+        }
+      },
+      {
+        "scene": "懂礼貌的小兔子·3",
+        "imagePrompt": "礼貌用语场景：\"小兔子得到帮助：\"谢谢，卡通教育风格，明亮温暖",
+        "narration": "\"小兔子得到帮助：\"谢谢。",
+        "onScreenText": "小兔子得到帮助：",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "小兔子"
+          ]
+        }
+      },
+      {
+        "scene": "懂礼貌的小兔子·4",
+        "imagePrompt": "礼貌用语场景：\"不小心撞到人：\"对不起，卡通教育风格，明亮温暖",
+        "narration": "\"不小心撞到人：\"对不起。",
+        "onScreenText": "不小心撞到人：",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      },
+      {
+        "scene": "懂礼貌的小兔子·5",
+        "imagePrompt": "礼貌用语场景：\"大家都夸小兔子懂礼貌，卡通教育风格，明亮温暖",
+        "narration": "\"大家都夸小兔子懂礼貌。",
+        "onScreenText": "大家都夸小兔子懂礼貌",
+        "durationSec": 8,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小兔子"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：得到帮助要说什么？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：得到帮助要说什么？",
+        "onScreenText": "🤔 得到帮助要说什么？",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "思考时间",
+        "imagePrompt": "思考时间：不小心碰到人要说什么？，小朋友在思考，问号气泡，卡通风格",
+        "narration": "小朋友，动动小脑筋想一想：不小心碰到人要说什么？",
+        "onScreenText": "🤔 不小心碰到人要说什么",
+        "durationSec": 10,
+        "animationTemplate": "language.story-scene",
+        "animationParams": {
+          "bgType": "indoor",
+          "characters": [
+            "小朋友"
+          ],
+          "items": [
+            "问号",
+            "书本"
+          ]
+        }
+      },
+      {
+        "scene": "礼貌用语总结",
+        "imagePrompt": "礼貌用语总结场景，小朋友和老师开心地挥手，彩色背景",
+        "narration": "今天我们学了礼貌用语，你记住了吗？下次我们再一起学习更多有趣的知识吧！",
+        "onScreenText": "再见！",
+        "durationSec": 10,
+        "animationTemplate": "language.word-reveal",
+        "animationParams": {
+          "bgType": "day",
+          "characters": [
+            "老师",
+            "小朋友"
+          ]
+        }
+      }
+    ]
+  },
+  "videoLesson": {
+    "title": "礼貌用语动画课",
+    "durationSec": 24,
+    "shots": [
+      {
+        "shot": "导入",
+        "narration": "小朋友好，今天我们一起学习礼貌用语！",
+        "caption": "礼貌用语",
+        "durationSec": 8
+      },
+      {
+        "shot": "懂礼貌的小兔子",
+        "narration": "小兔子出门遇见妈妈：\"妈妈好",
+        "caption": "懂礼貌的小兔子",
+        "durationSec": 8
+      },
+      {
+        "shot": "总结",
+        "narration": "今天我们学了礼貌用语，下次再见！",
+        "caption": "再见",
+        "durationSec": 8
+      }
+    ]
+  }
 }

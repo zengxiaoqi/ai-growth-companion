@@ -26,6 +26,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Register 401 handler so API layer can trigger logout
+  useEffect(() => {
+    api.setOnUnauthorized(() => {
+      setUser(null);
+      setToken(null);
+      setError(null);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    });
+  }, []);
+
   // Check for existing token on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');

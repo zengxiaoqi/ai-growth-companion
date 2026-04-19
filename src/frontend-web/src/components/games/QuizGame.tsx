@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ interface QuizGameProps {
 }
 
 export default function QuizGame({ data, onComplete }: QuizGameProps) {
-  const questions = data.questions || [];
+  const questions = useMemo(() => data.questions || [], [data.questions]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -125,7 +125,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
       {/* Question */}
       <AnimatePresence mode="wait">
         <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-          className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/15 space-y-4">
+          className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4">
           <div className="flex items-start gap-2">
             <h4 className="text-lg font-black text-on-surface flex-1">{current.question}</h4>
             <button onClick={() => current.question && speak(`${current.question}。${(current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。')}`)}
@@ -140,10 +140,10 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
               const isSelected = idx === selectedOption;
               return (
                 <motion.button key={idx} type="button" onClick={() => handleSelect(idx)} disabled={isRevealed}
-                  whileHover={!isRevealed ? { scale: 1.02 } : undefined} whileTap={!isRevealed ? { scale: 0.98 } : undefined}
+                  whileHover={!isRevealed ? { scale: 1.02, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.98 } : undefined}
                   aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
                   className={cn(
-                    'w-full text-left px-4 py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px]',
+                    'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px]',
                     isRevealed && isCorrect && 'bg-success-container border-success text-on-success-container',
                     isRevealed && isSelected && !isCorrect && 'bg-danger-container border-danger text-on-danger-container',
                     !isRevealed && isSelected && 'bg-primary-container/30 border-primary text-on-surface',
@@ -166,36 +166,36 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
               );
             })}
           </div>
-          {isRevealed && (
+          {isRevealed ? (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               className={cn('rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
                 selectedOption === currentCorrectIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
               {selectedOption === currentCorrectIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
             </motion.div>
-          )}
+          ) : null}
         </motion.div>
       </AnimatePresence>
 
       {/* Submit or Next */}
       <AnimatePresence>
-        {!isRevealed && selectedOption !== null && (
+        {!isRevealed && selectedOption !== null ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <button onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               确认答案
             </button>
           </motion.div>
-        )}
-        {isRevealed && (
+        ) : null}
+        {isRevealed ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}
             </button>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

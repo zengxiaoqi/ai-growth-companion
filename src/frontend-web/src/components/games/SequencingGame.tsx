@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { ArrowUpDown } from '@/icons';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,7 @@ interface SequencingGameProps {
 }
 
 export default function SequencingGame({ data, onComplete }: SequencingGameProps) {
-  const items = data.items || [];
+  const items = useMemo(() => data.items || [], [data.items]);
 
   // Shuffle items on mount
   const [shuffled, setShuffled] = useState(() =>
@@ -191,7 +191,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
             whileTap={{ scale: 0.97 }}
             aria-label={`第 ${index + 1} 位：${item.label}${selectedIndex === index ? '（已选中）' : ''}`}
             className={cn(
-              'w-full flex items-center gap-3 bg-surface-container-lowest p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[52px] transition-all',
+              'w-full flex items-center gap-2 sm:gap-3 bg-surface-container-lowest p-3 sm:p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[48px] sm:min-h-[52px] transition-all',
               selectedIndex === index && 'border-primary bg-primary-container/20 ring-2 ring-primary ring-offset-2',
               selectedIndex !== null && selectedIndex !== index && 'border-primary/30 hover:border-primary/50',
               dragIndex === index && 'opacity-70',
@@ -206,18 +206,18 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
               setDropTargetIndex(null);
             }}
           >
-            <ArrowUpDown className="w-5 h-5 text-on-surface-variant flex-shrink-0" />
-            <span className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-base font-black flex-shrink-0">
+            <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-on-surface-variant flex-shrink-0" />
+            <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-sm sm:text-base font-black flex-shrink-0">
               {index + 1}
             </span>
-            <span className="flex-1 text-base text-left">{item.label}</span>
+            <span className="flex-1 text-sm sm:text-base text-left">{item.label}</span>
           </motion.button>
         ))}
       </div>
 
       <button
         onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
       >
         检查顺序
       </button>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
@@ -10,7 +10,7 @@ interface PuzzleGameProps {
 }
 
 export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
-  const pieces = data.pieces || [];
+  const pieces = useMemo(() => data.pieces || [], [data.pieces]);
   const grid = data.gridSize || { rows: 2, cols: 2 };
   const totalSlots = grid.rows * grid.cols;
 
@@ -84,7 +84,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
       </div>
 
       <div
-        className="grid gap-3 mx-auto"
+        className="grid gap-2 sm:gap-3 mx-auto w-full px-2"
         style={{
           gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
           maxWidth: `${Math.min(grid.cols * 100, 400)}px`,
@@ -98,6 +98,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
             <motion.button
               key={idx}
               onClick={() => handleSlotClick(idx)}
+              whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.95 }}
               aria-label={piece ? `${piece.label}${isSelected ? '（已选中）' : ''}` : '空位置'}
               className={cn(
@@ -107,19 +108,19 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
                 !piece && 'border-outline-variant/15 bg-surface-container/30',
               )}
             >
-              {piece && (
+              {piece ? (
                 <>
-                  <span className="text-2xl">{piece.emoji}</span>
-                  <span className="text-xs text-on-surface-variant mt-1">{piece.label}</span>
+                  <span className="text-2xl sm:text-3xl">{piece.emoji}</span>
+                  <span className="text-[10px] sm:text-xs text-on-surface-variant mt-1">{piece.label}</span>
                 </>
-              )}
+              ) : null}
             </motion.button>
           );
         })}
       </div>
 
       <button onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
+        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
         检查拼图
       </button>
     </div>

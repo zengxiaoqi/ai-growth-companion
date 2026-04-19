@@ -55,6 +55,11 @@ const API_BASE_URL = (() => {
 
 class ApiService {
   private token: string | null = null;
+  private onUnauthorized: (() => void) | null = null;
+
+  setOnUnauthorized(callback: () => void) {
+    this.onUnauthorized = callback;
+  }
 
   setToken(token: string | null) {
     this.token = token;
@@ -115,6 +120,11 @@ class ApiService {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.setToken(null);
+        this.onUnauthorized?.();
+        throw new Error('登录已过期，请重新登录');
+      }
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
       throw new Error(error.message || `HTTP error! status: ${response.status}`);
     }

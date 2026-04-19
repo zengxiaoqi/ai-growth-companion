@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Check, X, ArrowRight, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ interface TrueFalseGameProps {
 }
 
 export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) {
-  const statements = data.statements || [];
+  const statements = useMemo(() => data.statements || [], [data.statements]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<boolean | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -103,7 +103,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
 
       <AnimatePresence mode="wait">
         <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-          className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15 space-y-6 text-center">
+          className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4 sm:space-y-6 text-center">
           <div className="flex items-start gap-2 justify-center">
             <h4 className="text-xl font-black text-on-surface">{current.statement}</h4>
             <button onClick={() => current.statement && speak(`${current.statement}。请判断是对还是错。`)}
@@ -113,64 +113,64 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
             </button>
           </div>
 
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-3 sm:gap-4 justify-center px-2">
             <motion.button onClick={() => handleSelect(true)} disabled={isRevealed}
-              whileHover={!isRevealed ? { scale: 1.05 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
+              whileHover={!isRevealed ? { scale: 1.05, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
               aria-label="正确"
               className={cn(
-                'w-28 h-28 rounded-2xl border-4 flex flex-col items-center justify-center gap-2 font-black text-lg transition-all',
+                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
                 !isRevealed && selected === true && 'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
                 isRevealed && selected && isCorrect && 'bg-success-container border-success text-on-success-container',
                 isRevealed && selected && !isCorrect && 'bg-danger-container border-danger text-on-danger-container',
                 isRevealed && !selected && current.isCorrect && 'bg-success-container border-success text-on-success-container',
                 !isRevealed && selected !== true && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
               )}>
-              <Check className="w-10 h-10" />
+              <Check className="w-8 h-8 sm:w-10 sm:h-10" />
               对
             </motion.button>
             <motion.button onClick={() => handleSelect(false)} disabled={isRevealed}
-              whileHover={!isRevealed ? { scale: 1.05 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
+              whileHover={!isRevealed ? { scale: 1.05, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
               aria-label="错误"
               className={cn(
-                'w-28 h-28 rounded-2xl border-4 flex flex-col items-center justify-center gap-2 font-black text-lg transition-all',
+                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
                 !isRevealed && selected === false && 'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
                 isRevealed && !selected && !isCorrect && 'bg-success-container border-success text-on-success-container',
                 isRevealed && !selected && isCorrect && 'bg-danger-container border-danger text-on-danger-container',
                 isRevealed && !current.isCorrect && selected === false && 'bg-success-container border-success text-on-success-container',
                 !isRevealed && selected !== false && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
               )}>
-              <X className="w-10 h-10" />
+              <X className="w-8 h-8 sm:w-10 sm:h-10" />
               错
             </motion.button>
           </div>
 
-          {isRevealed && current.explanation && (
+          {isRevealed && current.explanation ? (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="text-sm text-on-surface-variant bg-surface-container/50 rounded-lg p-3">
               {current.explanation}
             </motion.p>
-          )}
+          ) : null}
         </motion.div>
       </AnimatePresence>
 
       <AnimatePresence>
-        {!isRevealed && selected !== null && (
+        {!isRevealed && selected !== null ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <button onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
               确认答案
             </button>
           </motion.div>
-        )}
-        {isRevealed && (
+        ) : null}
+        {isRevealed ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleNext}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}
             </button>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

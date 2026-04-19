@@ -10,7 +10,7 @@ interface MatchingGameProps {
 }
 
 export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
-  const pairs = data.pairs || [];
+  const pairs = useMemo(() => data.pairs || [], [data.pairs]);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
@@ -80,7 +80,7 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
         <p className="text-sm text-on-surface-variant">翻开卡片找到配对！{matched.size / 2} / {pairs.length}</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-2 sm:gap-3 px-1">
         {cards.map((card) => {
           const isRevealed = revealed.has(card.id);
           const isMatched = matched.has(card.id);
@@ -89,12 +89,13 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
           return (
             <motion.button key={card.id}
               onClick={() => handleCardClick(card.id)}
+              whileHover={!isRevealed && !isMatched ? { scale: 1.05, y: -2 } : undefined}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                'aspect-square rounded-2xl border-2 flex items-center justify-center text-lg font-bold transition-all min-h-[48px]',
+                'aspect-square rounded-2xl border-2 flex items-center justify-center text-sm min-[360px]:text-base sm:text-lg font-bold transition-all min-h-[48px]',
                 isMatched && 'bg-primary-container border-primary text-on-primary-container opacity-60',
-                isRevealed && !isMatched && 'bg-surface-container-lowest border-primary text-on-surface',
-                !isRevealed && !isMatched && 'bg-surface-container border-outline-variant/30 text-on-surface-variant hover:border-primary/50',
+                isRevealed && !isMatched && 'bg-surface-container-lowest border-primary text-on-surface ring-2 ring-primary ring-offset-2',
+                !isRevealed && !isMatched && 'bg-surface-container border-outline-variant/30 text-on-surface-variant hover:border-primary/50 cursor-pointer shadow-sm',
                 isSelected && 'ring-2 ring-primary ring-offset-2',
               )}
               style={{ perspective: '1000px' }}

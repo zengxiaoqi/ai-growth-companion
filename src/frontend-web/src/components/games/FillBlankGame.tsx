@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
@@ -13,7 +13,7 @@ interface FillBlankGameProps {
 }
 
 export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) {
-  const sentences = data.sentences || [];
+  const sentences = useMemo(() => data.sentences || [], [data.sentences]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -99,16 +99,16 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
     return parts.map((part, i) => (
       <span key={i}>
         {part}
-        {i < parts.length - 1 && (
+        {i < parts.length - 1 ? (
           <span className={cn(
-            'inline-block min-w-[3em] border-b-2 px-1 text-center font-bold',
-            isRevealed && isCorrect ? 'border-success text-on-success-container' :
-            isRevealed ? 'border-danger text-on-danger-container' :
-            'border-primary text-primary',
+            'inline-block min-w-[3em] border-b-[3px] px-2 py-0.5 mx-1 rounded-t-md text-center font-bold relative top-[-2px] transition-colors',
+            isRevealed && isCorrect ? 'border-success bg-success-container/30 text-success' :
+            isRevealed ? 'border-danger bg-danger-container/30 text-danger' :
+            'border-primary bg-primary-container/20 text-primary',
           )}>
             {selected || '???'}
           </span>
-        )}
+        ) : null}
       </span>
     ));
   };
@@ -125,9 +125,9 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
 
       <AnimatePresence mode="wait">
         <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-          className="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15 space-y-5">
+          className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4 sm:space-y-5">
           <div className="flex items-start gap-2">
-            <div className="text-xl font-black text-on-surface leading-relaxed flex-1">{renderText(current.text)}</div>
+            <div className="text-lg sm:text-xl font-black text-on-surface leading-relaxed flex-1">{renderText(current.text)}</div>
             <button onClick={() => {
               const blankText = current.text.replace('___', '什么');
               const opts = (current.options || []).join('、');
@@ -139,19 +139,19 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
             </button>
           </div>
 
-          {current.hint && !isRevealed && (
+          {current.hint && !isRevealed ? (
             <p className="text-sm text-on-surface-variant bg-tertiary-container/30 rounded-lg px-3 py-2">
               {current.hint}
             </p>
-          )}
+          ) : null}
 
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
             {(current.options || []).map((opt: string, idx: number) => (
               <motion.button key={idx} onClick={() => handleSelect(opt)} disabled={isRevealed}
-                whileHover={!isRevealed ? { scale: 1.05 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
+                whileHover={!isRevealed ? { scale: 1.05, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
                 aria-label={`选项: ${opt}`}
                 className={cn(
-                  'px-5 py-4 rounded-xl border-2 font-bold text-lg transition-all min-h-[48px]',
+                  'px-4 py-3 sm:px-5 sm:py-4 rounded-xl border-2 font-bold text-base sm:text-lg transition-all min-h-[48px]',
                   !isRevealed && opt === selected && 'bg-primary-container/30 border-primary text-on-surface',
                   isRevealed && opt === current.answer ? 'bg-success-container border-success text-on-success-container' :
                   isRevealed && opt === selected ? 'bg-danger-container border-danger text-on-danger-container' :
@@ -167,24 +167,24 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
       </AnimatePresence>
 
       <AnimatePresence>
-        {!isRevealed && selected !== null && (
+        {!isRevealed && selected !== null ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <button onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
               确认答案
             </button>
           </motion.div>
-        )}
-        {isRevealed && (
+        ) : null}
+        {isRevealed ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}
             </button>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

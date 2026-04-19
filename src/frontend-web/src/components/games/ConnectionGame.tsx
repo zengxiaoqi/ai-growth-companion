@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Link2, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
@@ -12,9 +12,9 @@ interface ConnectionGameProps {
 }
 
 export default function ConnectionGame({ data, onComplete }: ConnectionGameProps) {
-  const leftItems = data.leftItems || [];
-  const rightItems = data.rightItems || [];
-  const connections: { left: string; right: string }[] = data.connections || [];
+  const leftItems = useMemo(() => data.leftItems || [], [data.leftItems]);
+  const rightItems = useMemo(() => data.rightItems || [], [data.rightItems]);
+  const connections: { left: string; right: string }[] = useMemo(() => data.connections || [], [data.connections]);
 
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [userConnections, setUserConnections] = useState<Map<string, string>>(new Map());
@@ -118,14 +118,14 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 whileTap={{ scale: 0.95 }}
                 aria-label={`左侧: ${item.label}${connected ? '（已配对）' : isSelected ? '（已选中）' : ''}`}
                 className={cn(
-                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all flex items-center gap-2 justify-center min-h-[52px]',
+                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all flex items-center gap-2 justify-center min-h-[48px] sm:min-h-[52px]',
                   isSelected && 'border-primary bg-primary-container text-on-primary-container ring-2 ring-primary ring-offset-2',
                   connected && !isSelected && 'border-success bg-success-container/50 text-on-surface',
                   !isSelected && !connected && 'border-outline-variant/30 bg-surface-container-lowest text-on-surface hover:border-primary/50',
                 )}>
-                {item.emoji && <span className="text-xl">{item.emoji}</span>}
+                {item.emoji ? <span className="text-lg sm:text-xl">{item.emoji}</span> : null}
                 <span>{item.label}</span>
-                {connected && <Link2 className="w-4 h-4 text-success ml-auto" />}
+                {connected ? <Link2 className="w-4 h-4 text-success ml-auto" /> : null}
               </motion.button>
             );
           })}
@@ -147,7 +147,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 disabled={!selectedLeft && !connected}
                 aria-label={`右侧: ${item.label}${connected ? '（已配对）' : ''}`}
                 className={cn(
-                  'w-full p-4 rounded-2xl border-2 text-center font-bold transition-all min-h-[52px]',
+                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all min-h-[48px] sm:min-h-[52px]',
                   connected && 'border-success bg-success-container/50 text-on-surface',
                   !connected && selectedLeft && 'border-primary/30 bg-surface-container-lowest text-on-surface hover:border-primary/50 hover:bg-primary-container/10',
                   !connected && !selectedLeft && 'border-outline-variant/30 bg-surface-container text-on-surface-variant',
@@ -161,14 +161,14 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
 
       {/* Submit */}
       <AnimatePresence>
-        {userConnections.size >= connections.length && (
+        {userConnections.size >= connections.length ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button onClick={handleCheck}
-              className="w-full bg-primary text-on-primary py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               提交答案 <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

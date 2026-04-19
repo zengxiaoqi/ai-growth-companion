@@ -626,7 +626,7 @@ export class LessonContentService implements OnModuleInit {
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
     const parentGuide = coursePack.parentGuide || {};
-    const watchScene = this.resolveWatchScene(coursePack, meta.topic);
+    const watchScene = this.resolveWatchScene(coursePack, meta.topic, coursePack.domain as string);
     const writeScene = this.resolveWriteScene(coursePack, meta.topic);
     const practiceType = this.resolveGameType(coursePack.focus || 'mixed');
     const practiceScene = this.resolvePracticeScene(coursePack, practiceData, practiceType, meta.topic);
@@ -857,12 +857,12 @@ export class LessonContentService implements OnModuleInit {
     return null;
   }
 
-  private resolveWatchScene(coursePack: Record<string, any>, topic: string): LessonSceneDocument {
+  private resolveWatchScene(coursePack: Record<string, any>, topic: string, domain?: string): LessonSceneDocument {
     return sanitizeSceneDocument(coursePack?.watch?.scene, 'watch', 'playback')
       || deriveWatchSceneDocument({
         visualStory: coursePack.visualStory || {},
         videoLesson: coursePack.videoLesson || {},
-      }, topic);
+      }, topic, domain || coursePack.domain);
   }
 
   private resolveWriteScene(coursePack: Record<string, any>, topic: string): LessonSceneDocument {
@@ -977,6 +977,7 @@ export class LessonContentService implements OnModuleInit {
     originalModule: Record<string, any>,
     topic: string,
   ): LessonSceneDocument {
+    const domain = module?.domain || originalModule?.domain;
     const nextScene = sanitizeSceneDocument(module?.scene, 'watch', 'playback');
     const sourceChanged = this.didSceneSourceChange(
       { visualStory: originalModule?.visualStory, videoLesson: originalModule?.videoLesson },
@@ -991,6 +992,7 @@ export class LessonContentService implements OnModuleInit {
       return deriveWatchSceneDocument(
         { visualStory: module?.visualStory || {}, videoLesson: module?.videoLesson || {} },
         topic,
+        domain,
       );
     }
 
@@ -999,6 +1001,7 @@ export class LessonContentService implements OnModuleInit {
       || deriveWatchSceneDocument(
         { visualStory: module?.visualStory || {}, videoLesson: module?.videoLesson || {} },
         topic,
+        domain,
       );
   }
 

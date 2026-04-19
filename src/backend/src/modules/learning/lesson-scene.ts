@@ -404,7 +404,7 @@ function inferSeasonIndex(source: string): number {
   return -1;
 }
 
-function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId' | 'templateParams'> {
+function inferWatchTemplateHint(scene: AnyRecord, domain?: string): Pick<SceneVisual, 'templateId' | 'templateParams'> {
   const headline = [
     toText(scene?.onScreenText || scene?.caption),
     toText(scene?.title || scene?.scene || scene?.shot),
@@ -438,7 +438,15 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     };
   }
 
-  // 3. Science domain patterns
+  // 3. Domain-based template suggestion (uses full rule library covering all 15 templates)
+  if (domain) {
+    const suggested = suggestTemplateByDomain(domain, source);
+    if (suggested) {
+      return { templateId: suggested, templateParams: {} };
+    }
+  }
+
+  // 4. Science domain patterns
   if (/(四季|季节|春夏秋冬|天气|春|夏|秋|冬)/.test(source)) {
     return {
       templateId: 'science.seasons-cycle',
@@ -539,15 +547,6 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
     };
   }
 
-  // 8. Use suggestTemplateByDomain as final intelligent fallback
-  const domainHint = toText(scene?.domain);
-  if (domainHint) {
-    const suggested = suggestTemplateByDomain(domainHint, source);
-    if (suggested) {
-      return { templateId: suggested, templateParams: {} };
-    }
-  }
-
   return {
     templateId: 'language.story-scene',
     templateParams: {
@@ -558,8 +557,8 @@ function inferWatchTemplateHint(scene: AnyRecord): Pick<SceneVisual, 'templateId
   };
 }
 
-function buildWatchTemplateHint(source: string, scene: AnyRecord): SceneVisual {
-  const templateHint = inferWatchTemplateHint(scene);
+function buildWatchTemplateHint(source: string, scene: AnyRecord, domain?: string): SceneVisual {
+  const templateHint = inferWatchTemplateHint(scene, domain);
   const visual: SceneVisual = {
     background: inferWatchBackground(source),
     caption: toText(scene?.onScreenText || scene?.caption),
@@ -578,6 +577,7 @@ function buildWatchTemplateHint(source: string, scene: AnyRecord): SceneVisual {
 export function deriveWatchSceneDocument(
   module: AnyRecord,
   topic: string,
+  domain?: string,
 ): LessonSceneDocument {
   const sourceScenes = Array.isArray(module?.visualStory?.scenes) && module.visualStory.scenes.length > 0
     ? module.visualStory.scenes
@@ -599,7 +599,7 @@ export function deriveWatchSceneDocument(
       narration: toText(entry?.narration, `请跟着老师一起观察${topic}。`),
       onScreenText: toText(entry?.onScreenText || entry?.caption) || undefined,
       durationSec: toSafeInt(entry?.durationSec, 12, 3, 120),
-      visual: buildWatchTemplateHint(source, entry),
+      visual: buildWatchTemplateHint(source, entry, domain),
       timeline: [{ type: 'caption', value: toText(entry?.onScreenText || entry?.caption), atSec: 0 }],
     } satisfies LessonScene;
   });

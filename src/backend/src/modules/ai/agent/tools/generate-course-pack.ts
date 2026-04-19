@@ -695,7 +695,7 @@ export class GenerateCoursePackTool {
 
   private normalizeWatchScene(rawScene: any, packLike: Record<string, any>, args: NormalizedArgs): LessonSceneDocument {
     const nativeScene = sanitizeSceneDocument(rawScene, 'watch', 'playback');
-    const derivedScene = deriveWatchSceneDocument(packLike, args.topic);
+    const derivedScene = deriveWatchSceneDocument(packLike, args.topic, args.domain);
     return this.mergeWatchSceneDocuments(nativeScene, derivedScene);
   }
 

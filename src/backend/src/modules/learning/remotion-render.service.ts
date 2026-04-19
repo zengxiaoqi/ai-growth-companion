@@ -224,6 +224,7 @@ export class RemotionRenderService {
             videoLesson: payload.videoLesson || {},
           },
           payload.topic,
+          domain,
         );
 
     return (Array.isArray(sceneDoc?.scenes) ? sceneDoc.scenes : [])

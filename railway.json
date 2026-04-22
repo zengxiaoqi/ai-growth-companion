@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "cd src/backend && npm ci && npm run build"
+  },
+  "deploy": {
+    "startCommand": "cd src/backend && npm run start:prod",
+    "healthcheckPath": "/api/contents",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

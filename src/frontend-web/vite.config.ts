@@ -4,6 +4,8 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // GitHub Pages uses repo path as base URL
+  base: process.env.BASE_URL || '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

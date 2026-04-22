@@ -27,16 +27,36 @@ import { DatabaseSeederModule } from "./database/seeds/seeder.module";
       envFilePath: ".env",
     }),
 
-    // 数据库模块 (SQLite for testing)
+    // 数据库模块 (SQLite 开发 / PostgreSQL 生产)
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService): any => ({
-        type: "better-sqlite3",
-        database: configService.get("DB_PATH", "lingxi.db"),
-        entities: [__dirname + "/**/*.entity{.ts,.js}"],
-        synchronize: true, // 开发环境自动建表
-        logging: configService.get("NODE_ENV") === "development",
-      }),
+      useFactory: (configService: ConfigService): any => {
+        const databaseUrl = configService.get("DATABASE_URL");
+
+        // PostgreSQL (Railway 生产环境)
+        if (databaseUrl) {
+          return {
+            type: "postgres",
+            url: databaseUrl,
+            entities: [__dirname + "/**/*.entity{.ts,.js}"],
+            synchronize: true,
+            ssl:
+              configService.get("NODE_ENV") === "production"
+                ? { rejectUnauthorized: false }
+                : false,
+            logging: configService.get("NODE_ENV") === "development",
+          };
+        }
+
+        // SQLite (本地开发)
+        return {
+          type: "better-sqlite3",
+          database: configService.get("DB_PATH", "lingxi.db"),
+          entities: [__dirname + "/**/*.entity{.ts,.js}"],
+          synchronize: true,
+          logging: configService.get("NODE_ENV") === "development",
+        };
+      },
       inject: [ConfigService],
     }),
 

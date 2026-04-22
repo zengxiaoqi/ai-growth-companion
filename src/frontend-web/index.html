@@ -8,6 +8,16 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Restore original URL after 404.html redirect (GitHub Pages SPA support)
+      (function() {
+        var stored = sessionStorage.getItem('gh-pages-redirect');
+        if (stored) {
+          sessionStorage.removeItem('gh-pages-redirect');
+          history.replaceState(null, '', stored);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

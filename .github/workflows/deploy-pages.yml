@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/frontend-web/**'
+  workflow_dispatch:
+
+# 允许 GITHUB_TOKEN 写入 Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 只允许一个部署任务并发
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: src/frontend-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: src/frontend-web
+
+      - name: Type check
+        run: npm run typecheck
+        working-directory: src/frontend-web
+
+      - name: Build
+        env:
+          BASE_URL: /${{ github.event.repository.name }}/
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'http://localhost:3000/api' }}
+        run: npm run build
+        working-directory: src/frontend-web
+
+      - name: Copy 404 → index.html (SPA fallback)
+        run: |
+          cp dist/index.html dist/404.html
+        working-directory: src/frontend-web
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/frontend-web/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>灵犀伴学 - AI 成长伙伴</title>
+  <script>
+    // GitHub Pages SPA routing: redirect deep links to index.html via 404 handler
+    var path = location.pathname;
+    var qs = location.search;
+    var hash = location.hash;
+    // Extract repo base path: /repo-name/foo → /repo-name/
+    var segments = path.split('/').filter(Boolean);
+    var base = segments.length > 0 ? '/' + segments[0] + '/' : '/';
+    sessionStorage.setItem('gh-pages-redirect', path + qs + hash);
+    location.replace(base);
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>

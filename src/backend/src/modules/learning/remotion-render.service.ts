@@ -53,7 +53,7 @@ type SlideTheme = {
   items?: TeachingSlideItem[];
 };
 
-const BG_PALETTE = [
+const _BG_PALETTE = [
   "#FFF5F5",
   "#FFFBEB",
   "#EBF5FF",
@@ -66,7 +66,7 @@ const BG_PALETTE = [
   "#FFF0E8",
 ] as const;
 
-const ACCENT_PALETTE = [
+const _ACCENT_PALETTE = [
   "#FF6B6B",
   "#FFD93D",
   "#4D96FF",
@@ -1326,6 +1326,7 @@ export class RemotionRenderService {
     onProgress?: (percent: number) => void,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cpuCount = Math.max(1, (require("os").cpus() || []).length);
       const concurrency = Math.min(cpuCount - 1 || 1, 4); // Use N-1 cores, max 4
       const args = [

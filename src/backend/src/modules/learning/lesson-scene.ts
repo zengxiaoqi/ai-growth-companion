@@ -1,8 +1,5 @@
 import type { ActivityType } from "../ai/agent/tools/generate-activity";
-import {
-  suggestTemplateByDomain,
-  getDefaultTemplateForDomain,
-} from "../../animations/animation-templates";
+import { suggestTemplateByDomain } from "../../animations/animation-templates";
 
 export type ActivityData = Record<string, any> & {
   type?: ActivityType;

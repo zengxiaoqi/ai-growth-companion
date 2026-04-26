@@ -12,8 +12,6 @@ import * as fs from "fs";
 import * as path from "path";
 import type { SkillDefinition, SkillRule, SkillVariable } from "../core";
 
-type RawFrontmatter = Record<string, any>;
-
 /**
  * Load all skills from a directory containing skill subdirectories.
  * Each subdirectory with a SKILL.md file is loaded as a skill.

@@ -1413,7 +1413,7 @@ export class GenerateCoursePackTool {
   private buildUnitVisualPrompt(
     unit: string,
     args: NormalizedArgs,
-    index: number,
+    _index: number,
   ): string {
     const literacyLike = this.isLiteracyLikeTopic(args.topic, args.focus);
     if (literacyLike && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
@@ -1428,7 +1428,7 @@ export class GenerateCoursePackTool {
   private buildUnitNarration(
     unit: string,
     args: NormalizedArgs,
-    index: number,
+    _index: number,
   ): string {
     if (
       this.isLiteracyLikeTopic(args.topic, args.focus) &&

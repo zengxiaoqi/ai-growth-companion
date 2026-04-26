@@ -1,11 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { LearningArchiveService } from '../../src/modules/learning/learning-archive.service';
-import { LearningPoint } from '../../src/database/entities/learning-point.entity';
-import { WrongQuestion } from '../../src/database/entities/wrong-question.entity';
-import { StudyPlanRecord } from '../../src/database/entities/study-plan-record.entity';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { LearningArchiveService } from "../../src/modules/learning/learning-archive.service";
+import { LearningPoint } from "../../src/database/entities/learning-point.entity";
+import { WrongQuestion } from "../../src/database/entities/wrong-question.entity";
+import { StudyPlanRecord } from "../../src/database/entities/study-plan-record.entity";
 
-describe('LearningArchiveService', () => {
+describe("LearningArchiveService", () => {
   let service: LearningArchiveService;
   let pointRepo: any;
   let wrongRepo: any;
@@ -47,43 +47,53 @@ describe('LearningArchiveService', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('upserts learning point by childId + pointKey', async () => {
+  it("upserts learning point by childId + pointKey", async () => {
     pointRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce({
       id: 11,
       childId: 9,
-      pointKey: 'math-addition',
-      pointLabel: '加法',
-      source: 'chat_summary',
+      pointKey: "math-addition",
+      pointLabel: "加法",
+      source: "chat_summary",
       lastLearnedAt: new Date(),
       cooldownUntil: new Date(),
       sessionId: null,
-      domain: 'math',
+      domain: "math",
     });
 
     await service.upsertLearningPoint({
       childId: 9,
-      pointLabel: 'Math Addition',
-      source: 'chat_summary',
+      pointLabel: "Math Addition",
+      source: "chat_summary",
     });
     await service.upsertLearningPoint({
       childId: 9,
-      pointLabel: 'Math Addition',
-      source: 'activity',
+      pointLabel: "Math Addition",
+      source: "activity",
     });
 
     expect(pointRepo.save).toHaveBeenCalledTimes(2);
     expect(pointRepo.create).toHaveBeenCalledTimes(1);
   });
 
-  it('stores only wrong items into wrong question book', async () => {
+  it("stores only wrong items into wrong question book", async () => {
     wrongRepo.findOne.mockResolvedValue(null);
 
     await service.recordWrongQuestions({
       childId: 2,
-      domain: 'math',
+      domain: "math",
       reviewItems: [
-        { question: '1+1=?', userAnswer: '3', correctAnswer: '2', isCorrect: false },
-        { question: '2+2=?', userAnswer: '4', correctAnswer: '4', isCorrect: true },
+        {
+          question: "1+1=?",
+          userAnswer: "3",
+          correctAnswer: "2",
+          isCorrect: false,
+        },
+        {
+          question: "2+2=?",
+          userAnswer: "4",
+          correctAnswer: "4",
+          isCorrect: true,
+        },
       ],
     });
 
@@ -91,4 +101,3 @@ describe('LearningArchiveService', () => {
     expect(wrongRepo.save).toHaveBeenCalledTimes(1);
   });
 });
-

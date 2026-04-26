@@ -11,11 +11,9 @@ import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
 import type {
   ITool,
   IToolRegistry,
-  ToolMetadata,
   ToolResult,
   ToolExecutionContext,
 } from "../core";
-import { ToolNotFoundError, ToolExecutionError } from "../core";
 import { TOOL_REGISTRY_METADATA } from "./decorators/register-tool";
 
 @Injectable()

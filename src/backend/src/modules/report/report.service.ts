@@ -340,7 +340,7 @@ export class ReportService {
 
   private async getAbilityChange(
     userId: number,
-    dateRange: { start: Date; end: Date },
+    _dateRange: { start: Date; end: Date },
   ) {
     const abilities = await this.abilityRepository.find({
       where: { userId },

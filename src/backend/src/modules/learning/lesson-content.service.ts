@@ -85,7 +85,7 @@ interface ModifyLessonDraftOptions {
   stepId?: string;
 }
 
-const STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
+const _STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
   { id: "watch", label: "看", icon: "eye" },
   { id: "read", label: "读", icon: "book" },
   { id: "write", label: "写", icon: "pen" },
@@ -110,7 +110,7 @@ export class LessonContentService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     // Recover content records stuck in 'generating' status from previous server crash/restart
-    const staleThresholdMinutes = 5;
+    const _staleThresholdMinutes = 5;
     try {
       const result = await this.contentRepo
         .createQueryBuilder()

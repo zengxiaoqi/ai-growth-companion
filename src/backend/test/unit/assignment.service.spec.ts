@@ -1,7 +1,7 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { AssignmentService } from '../../src/modules/assignment/assignment.service';
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { AssignmentService } from "../../src/modules/assignment/assignment.service";
 
-describe('AssignmentService parent-child ownership', () => {
+describe("AssignmentService parent-child ownership", () => {
   const assignmentRepo = {
     create: jest.fn(),
     save: jest.fn(),
@@ -36,10 +36,10 @@ describe('AssignmentService parent-child ownership', () => {
     );
   });
 
-  it('rejects creating assignment for non-owned child', async () => {
+  it("rejects creating assignment for non-owned child", async () => {
     usersService.findById.mockResolvedValue({
       id: 22,
-      type: 'child',
+      type: "child",
       parentId: 99,
     });
 
@@ -47,16 +47,16 @@ describe('AssignmentService parent-child ownership', () => {
       service.create({
         parentId: 10,
         childId: 22,
-        activityType: 'quiz',
-        activityData: { type: 'quiz', questions: [] },
+        activityType: "quiz",
+        activityData: { type: "quiz", questions: [] },
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('rejects creating assignment for non-child target', async () => {
+  it("rejects creating assignment for non-child target", async () => {
     usersService.findById.mockResolvedValue({
       id: 22,
-      type: 'parent',
+      type: "parent",
       parentId: null,
     });
 
@@ -64,8 +64,8 @@ describe('AssignmentService parent-child ownership', () => {
       service.create({
         parentId: 10,
         childId: 22,
-        activityType: 'quiz',
-        activityData: { type: 'quiz', questions: [] },
+        activityType: "quiz",
+        activityData: { type: "quiz", questions: [] },
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

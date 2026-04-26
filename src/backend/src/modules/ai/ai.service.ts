@@ -1219,7 +1219,7 @@ export class AiService {
 
     const age = user.age;
     const ageGroup: AgeGroup = age >= 3 && age <= 4 ? "3-4" : "5-6";
-    const difficulty = ageGroup === "3-4" ? 1 : 2;
+    const _difficulty = ageGroup === "3-4" ? 1 : 2;
 
     const prompt = `请为${ageGroup}岁的孩子生成${count}道关于"${topic}"的选择题。
 
@@ -2289,7 +2289,7 @@ export class AiService {
       ribbonColorB: string;
       cardColor: string;
     },
-    index: number,
+    _index: number,
   ): string[] {
     if (themeStyle.themeKind === "nature") {
       return [
@@ -3273,7 +3273,7 @@ export class AiService {
     return this.contentSafetyService.filterStoryResponse(story);
   }
 
-  async evaluateLearning(contentId: number, answers: any[], age: number) {
+  async evaluateLearning(contentId: number, answers: any[], _age: number) {
     const correctCount = answers.filter((a, i) => i % 2 === 0).length;
     const score = Math.round((correctCount / answers.length) * 100);
 
@@ -3294,7 +3294,7 @@ export class AiService {
     };
   }
 
-  async generateSuggestion(abilities: any, age: number) {
+  async generateSuggestion(_abilities: any, _age: number) {
     const suggestions = [
       "今天表现很棒！明天我们继续加油~",
       "语言方面有进步！可以多听听故事哦~",

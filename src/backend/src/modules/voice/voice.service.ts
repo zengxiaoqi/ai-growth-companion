@@ -20,7 +20,7 @@ export class VoiceService {
 
   // ============ 以下保留原有功能，TTS 部分改用 Edge-TTS ============
 
-  async speechToText(audioUrl: string) {
+  async speechToText(_audioUrl: string) {
     return "模拟识别结果：你好";
   }
 
@@ -145,7 +145,7 @@ export class VoiceService {
     return "chat";
   }
 
-  private generateReply(intent: string, text: string) {
+  private generateReply(intent: string, _text: string) {
     const replies: Record<string, { text: string; suggestions: string[] }> = {
       question: {
         text: "你问的问题真棒！让我来告诉你...",
@@ -171,7 +171,7 @@ export class VoiceService {
     return replies[intent] || replies.chat;
   }
 
-  private generateStoryContent(theme: string, length: string) {
+  private generateStoryContent(theme: string, _length: string) {
     const stories: Record<
       string,
       { title: string; content: string; keywords: string[] }

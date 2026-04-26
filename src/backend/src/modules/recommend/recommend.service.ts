@@ -161,7 +161,7 @@ export class RecommendService {
 
   private getWeakDomains(
     abilities: AbilityAssessment[],
-    domainScores: Record<string, number>,
+    _domainScores: Record<string, number>,
   ) {
     if (!abilities || abilities.length === 0)
       return ["language", "math", "science"];

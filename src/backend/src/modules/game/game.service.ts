@@ -105,7 +105,7 @@ export class GameService {
    * 生成游戏题目
    */
   generateGame(gameId: string, difficulty: number = 1) {
-    const gameGenerators: Record<string, Function> = {
+    const gameGenerators: Record<string, (...args: any[]) => any> = {
       color_match: () => this.generateColorMatch(difficulty),
       shape_match: () => this.generateShapeMatch(difficulty),
       animal_sound: () => this.generateAnimalQuiz(difficulty),
@@ -166,7 +166,7 @@ export class GameService {
   /**
    * 闯关模式 - 获取关卡
    */
-  getLevelInfo(userId: number) {
+  getLevelInfo(_userId: number) {
     // 简化实现：返回固定关卡
     return {
       currentLevel: 1,

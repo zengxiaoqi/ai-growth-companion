@@ -777,7 +777,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   /** Convert quiz questions into interactive "thinking" scenes */
   private buildQuizScenesFromLegacy(
     contentItems: any[],
-    topic: string,
+    _topic: string,
   ): Record<string, any>[] {
     const questions = contentItems
       .flatMap((item: any) =>

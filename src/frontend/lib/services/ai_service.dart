@@ -32,9 +32,6 @@ class AiService {
   // 发送消息到 AI
   Future<String> sendMessage(String message) async {
     try {
-      // 构建上下文提示
-      final systemPrompt = _buildSystemPrompt();
-      
       // 调用后端 API（后端会调用 AI 服务）
       final response = await _apiService.dio.post('/ai/chat', data: {
         'message': message,
@@ -59,45 +56,7 @@ class AiService {
       return '抱歉，我现在有点累了，让我们休息一下再来聊天吧~';
     }
   }
-  
-  // 构建系统提示词
-  String _buildSystemPrompt() {
-    final age = _userContext?['age'] ?? 5;
-    final interests = _userContext?['interests'] ?? '学习新知识';
-    
-    String agePrompt;
-    if (age < 4) {
-      agePrompt = '用户是3-4岁的孩子，语言要非常简单，使用简短的句子，多用比喻和拟人';
-    } else if (age < 6) {
-      agePrompt = '用户是5-6岁的孩子，语言要简单但可以有一点点复杂的内容';
-    } else {
-      agePrompt = '用户是6岁以上的孩子，可以接受更丰富的内容';
-    }
-    
-    return '''
-你是一个friendly的AI小伙伴，名字叫"小犀"，专门陪伴3-6岁的孩子成长。
 
-$agePrompt
-
-特点：
-- 亲切、温柔、有耐心
-- 喜欢鼓励孩子
-- 回答要简短有趣
-- 可以适当使用emoji
-- 引导孩子学习，但不要强迫
-
-兴趣：$interests
-
-规则：
-- 不给负面评价
-- 不提到年龄差距
-- 保持积极乐观
-- 可以讲故事、做游戏
-
-开始吧！
-''';
-  }
-  
   // 生成学习建议
   Future<String> generateLearningSuggestion(Map<String, dynamic> abilities) async {
     try {

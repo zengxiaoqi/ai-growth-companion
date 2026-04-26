@@ -10,6 +10,7 @@ class StorageService {
   static const String keyUserType = 'user_type';
   static const String keyUserName = 'user_name';
   static const String keyUserAge = 'user_age';
+  static const String keyUserPhone = 'user_phone';
   static const String keyParentId = 'parent_id';
   
   // 设置
@@ -23,6 +24,9 @@ class StorageService {
   
   // Token
   static const String keyAuthToken = 'auth_token';
+
+  // 模式选择
+  static const String keySelectedMode = 'selected_mode';
   
   // 保存用户信息
   Future<void> saveUser({
@@ -30,25 +34,28 @@ class StorageService {
     required String userType,
     required String name,
     int? age,
+    String? phone,
     int? parentId,
   }) async {
     await _prefs.setInt(keyUserId, userId);
     await _prefs.setString(keyUserType, userType);
     await _prefs.setString(keyUserName, name);
     if (age != null) await _prefs.setInt(keyUserAge, age);
+    if (phone != null) await _prefs.setString(keyUserPhone, phone);
     if (parentId != null) await _prefs.setInt(keyParentId, parentId);
   }
-  
+
   // 获取用户信息
   Map<String, dynamic>? getUser() {
     final userId = _prefs.getInt(keyUserId);
     if (userId == null) return null;
-    
+
     return {
       'id': userId,
       'type': _prefs.getString(keyUserType),
       'name': _prefs.getString(keyUserName),
       'age': _prefs.getInt(keyUserAge),
+      'phone': _prefs.getString(keyUserPhone),
       'parentId': _prefs.getInt(keyParentId),
     };
   }
@@ -61,8 +68,19 @@ class StorageService {
     await _prefs.remove(keyUserAge);
     await _prefs.remove(keyParentId);
     await _prefs.remove(keyAuthToken);
+    await _prefs.remove(keySelectedMode);
   }
   
+  // 保存 Token
+  Future<void> saveToken(String token) async {
+    await _prefs.setString(keyAuthToken, token);
+  }
+
+  // 获取 Token
+  String? getToken() {
+    return _prefs.getString(keyAuthToken);
+  }
+
   // 保存学习时长
   Future<void> saveTodayMinutes(int minutes) async {
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -118,5 +136,24 @@ class StorageService {
   // 获取设置
   T? getSetting<T>(String key) {
     return _prefs.get(key) as T?;
+  }
+
+  // 保存选择的模式（child/parent）
+  Future<void> saveSelectedMode(String mode) async {
+    await _prefs.setString(keySelectedMode, mode);
+  }
+
+  // 获取选择的模式
+  String? getSelectedMode() {
+    return _prefs.getString(keySelectedMode);
+  }
+
+  // 清除缓存
+  Future<void> clearCache() async {
+    await _prefs.remove(keyTodayMinutes);
+    await _prefs.remove(keyLastDate);
+    await _prefs.remove(keyCompletedContents);
+    await _prefs.remove(keyDailyLimit);
+    await _prefs.remove(keyAllowedDomains);
   }
 }

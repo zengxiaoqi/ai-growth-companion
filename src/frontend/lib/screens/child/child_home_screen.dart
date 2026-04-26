@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../components/bottom_nav.dart';
+import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
 import '../ai_chat_screen.dart';
 import '../learning/learning_home_screen.dart';
 import '../achievement/achievement_screen.dart';
 import '../profile/profile_screen.dart';
-
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
 
@@ -15,102 +16,56 @@ class ChildHomeScreen extends StatefulWidget {
   State<ChildHomeScreen> createState() => _ChildHomeScreenState();
 }
 
-class _ChildHomeScreenState extends State<ChildHomeScreen> with SingleTickerProviderStateMixin {
+class _ChildHomeScreenState extends State<ChildHomeScreen> {
   int _currentIndex = 0;
-  late AnimationController _animationController;
-  late Animation<double> _bounceAnimation;
-  
-  final List<Widget> _screens = [
-    const ChildHomeContent(),
-    const LearningHomeScreen(),
-    const AchievementScreen(),
-    const ProfileScreen(),
+
+  static const _navItems = [
+    BottomNavItem(key: 'home', label: '首页', icon: Icons.home_rounded),
+    BottomNavItem(key: 'learn', label: '学习', icon: Icons.school_rounded),
+    BottomNavItem(key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
+    BottomNavItem(key: 'achieve', label: '成就', icon: Icons.emoji_events_rounded),
+    BottomNavItem(key: 'me', label: '我的', icon: Icons.person_rounded),
   ];
+
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-    
-    _bounceAnimation = Tween<double>(begin: 0, end: 10).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
+    _screens = [
+      const ChildHomeContent(),
+      const LearningHomeScreen(),
+      const AIChatScreen(),
+      const AchievementScreen(),
+      const ProfileScreen(),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: _buildBottomNav(),
-      extendBody: true,
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.15),
-            blurRadius: 30,
-            offset: const Offset(0, -5),
+      body: Column(
+        children: [
+          TopBar(
+            title: _navItems[_currentIndex].label,
+            subtitle: '灵犀伴学',
+            actions: [
+              TopBarAction(
+                key: 'settings',
+                label: '设置',
+                icon: Icons.settings_rounded,
+                onTap: () => Navigator.pushNamed(context, '/settings'),
+              ),
+            ],
           ),
+          Expanded(child: _screens[_currentIndex]),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          items: [
-            _buildNavItem(Icons.home_rounded, '首页', 0),
-            _buildNavItem(Icons.school_rounded, '学习', 1),
-            _buildNavItem(Icons.emoji_events_rounded, '成就', 2),
-            _buildNavItem(Icons.person_rounded, '我的', 3),
-          ],
-        ),
+      bottomNavigationBar: BottomNav(
+        items: _navItems,
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
       ),
-    );
-  }
-
-  BottomNavigationBarItem _buildNavItem(IconData icon, String label, int index) {
-    final isSelected = _currentIndex == index;
-    return BottomNavigationBarItem(
-      icon: AnimatedBuilder(
-        animation: _bounceAnimation,
-        builder: (context, child) {
-          return Transform.translate(
-            offset: Offset(0, isSelected ? -_bounceAnimation.value : 0),
-            child: child,
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor.withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            icon,
-            size: 26,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary.withOpacity(0.5),
-          ),
-        ),
-      ),
-      label: label,
     );
   }
 }
@@ -126,29 +81,20 @@ class ChildHomeContent extends StatelessWidget {
     final todayMinutes = learningProvider.todayMinutes;
 
     return BubbleBackground(
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 欢迎语带装饰
-              _buildWelcomeSection(userName),
-              const SizedBox(height: 24),
-              
-              // 今日学习时长卡片
-              _buildStudyTimeCard(todayMinutes),
-              const SizedBox(height: 24),
-              
-              // AI 伙伴入口
-              _buildAICompanionCard(context),
-              const SizedBox(height: 24),
-              
-              // 功能入口
-              _buildFunctionSection(context),
-              const SizedBox(height: 20),
-            ],
-          ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildWelcomeSection(userName),
+            const SizedBox(height: 24),
+            _buildStudyTimeCard(todayMinutes),
+            const SizedBox(height: 24),
+            _buildAICompanionCard(context),
+            const SizedBox(height: 24),
+            _buildFunctionSection(context),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
@@ -195,7 +141,6 @@ class ChildHomeContent extends StatelessWidget {
             ],
           ),
         ),
-        // 右边装饰星星
         const Column(
           children: [
             StarDecoration(size: 24, color: AppTheme.softYellow),
@@ -222,7 +167,6 @@ class ChildHomeContent extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // 背景装饰
           Positioned(
             right: -20,
             top: -20,
@@ -237,7 +181,6 @@ class ChildHomeContent extends StatelessWidget {
             bottom: -10,
             child: const Text('📚', style: TextStyle(fontSize: 50)),
           ),
-          // 内容
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -347,7 +290,6 @@ class ChildHomeContent extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // 装饰云朵
             Positioned(
               right: 30,
               top: 20,
@@ -358,7 +300,6 @@ class ChildHomeContent extends StatelessWidget {
               bottom: 30,
               child: CloudDecoration(size: 40, color: Colors.white.withOpacity(0.15)),
             ),
-            // 魔法棒装饰
             Positioned(
               right: 20,
               bottom: 20,

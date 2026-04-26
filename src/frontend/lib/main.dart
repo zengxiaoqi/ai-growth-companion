@@ -12,17 +12,17 @@ import 'providers/content_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // 初始化本地存储
   final prefs = await SharedPreferences.getInstance();
   final storageService = StorageService(prefs);
-  
+
   // 初始化 API 服务
   final apiService = ApiService();
-  
+
   // 初始化 AI 服务
   final aiService = AiService(apiService);
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -30,7 +30,8 @@ void main() async {
         Provider<ApiService>.value(value: apiService),
         Provider<AiService>.value(value: aiService),
         ChangeNotifierProvider(
-          create: (_) => UserProvider(storageService),
+          // 传入 apiService 以便恢复 token
+          create: (_) => UserProvider(storageService, apiService),
         ),
         ChangeNotifierProvider(
           create: (_) => LearningProvider(storageService),

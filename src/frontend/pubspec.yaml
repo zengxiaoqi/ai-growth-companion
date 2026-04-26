@@ -27,6 +27,7 @@ dependencies:
   cached_network_image: ^3.3.0
   flutter_svg: ^2.0.9
   lottie: ^3.0.0
+  fl_chart: ^0.68.0
   
   # 音频
   audioplayers: ^5.2.1

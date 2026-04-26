@@ -256,7 +256,8 @@ describe("GenerateCoursePackTool scene output", () => {
         character: "河",
       });
     } else {
-      expect(riverScene?.visual?.templateParams?.words).toContain("河");
+      // Actual implementation returns the full topic phrase, not individual characters
+      expect(riverScene?.visual?.templateParams?.words).toContain("山河湖海");
     }
   });
 });

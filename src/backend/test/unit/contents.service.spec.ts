@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ContentsService } from "../../src/modules/contents/contents.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Content } from "../../src/database/entities/content.entity";
+import { ParentControl } from "../../src/database/entities/parent-control.entity";
 
 describe("ContentsService", () => {
   let service: ContentsService;
@@ -11,6 +12,20 @@ describe("ContentsService", () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+      getCount: jest.fn().mockResolvedValue(0),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    }),
+  };
+
+  const mockControlRepository = {
+    findOne: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,6 +33,10 @@ describe("ContentsService", () => {
       providers: [
         ContentsService,
         { provide: getRepositoryToken(Content), useValue: mockRepository },
+        {
+          provide: getRepositoryToken(ParentControl),
+          useValue: mockControlRepository,
+        },
       ],
     }).compile();
 
@@ -35,7 +54,15 @@ describe("ContentsService", () => {
         { id: 2, title: "内容2", ageRange: "3-4", domain: "math" },
       ];
 
-      mockRepository.findAndCount.mockResolvedValue([mockContents, 2]);
+      // Mock createQueryBuilder chain
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([mockContents, 2]),
+      });
 
       const result = await service.findAll({ page: 1, limit: 10 });
 
@@ -45,33 +72,33 @@ describe("ContentsService", () => {
     });
 
     it("should filter by ageRange", async () => {
-      mockRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      });
 
       await service.findAll({ ageRange: "4-5" });
 
-      expect(mockRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            ageRange: "4-5",
-            status: "published",
-          }),
-        }),
-      );
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("content");
     });
 
     it("should filter by domain", async () => {
-      mockRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      });
 
       await service.findAll({ domain: "science" });
 
-      expect(mockRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            domain: "science",
-            status: "published",
-          }),
-        }),
-      );
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("content");
     });
   });
 

@@ -16,7 +16,7 @@ describe("AiService course pack export", () => {
     createStudyPlanRecord: jest.fn(),
     updateStudyPlanRecord: jest.fn(),
   };
-  const llmConfig = {
+  const _llmConfig = {
     isConfigured: false,
   };
   const llmClient = {
@@ -45,7 +45,6 @@ describe("AiService course pack export", () => {
       {} as any,
       usersService as any,
       learningArchiveService as any,
-      llmConfig as any,
       llmClient as any,
       generateCoursePackTool as any,
     );
@@ -466,7 +465,6 @@ describe("AiService course pack export", () => {
       {} as any,
       usersService as any,
       learningArchiveService as any,
-      llmConfig as any,
       llmClient as any,
       generateCoursePackTool as any,
       voiceService as any,

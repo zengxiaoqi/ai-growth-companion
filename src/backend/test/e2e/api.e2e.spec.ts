@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
-import * as request from "supertest";
+import request from "supertest";
 
 // Simple smoke test to verify API is working
 describe("API Smoke Tests", () => {
@@ -9,13 +9,14 @@ describe("API Smoke Tests", () => {
 
   beforeAll(async () => {
     // Dynamic import to avoid issues with module loading
-    const { AppModule } = await import("../src/app.module");
+    const { AppModule } = await import("../../src/app.module");
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix("api");
     app.useGlobalPipes(new ValidationPipe({ transform: true }));
     await app.init();
     server = app.getHttpServer();
@@ -53,7 +54,10 @@ describe("API Smoke Tests", () => {
         .get("/api/voice/tts?text=hello")
         .expect(200);
 
-      expect(response.body).toHaveProperty("audioUrl");
+      // Voice API returns binary audio data
+      expect(response.type).toBe("audio/mpeg");
+      expect(Buffer.isBuffer(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThan(0);
     });
   });
 });

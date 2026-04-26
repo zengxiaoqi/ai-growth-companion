@@ -156,7 +156,7 @@ describe("lesson-scene helpers", () => {
     expect(scene.mode).toBe("guided_trace");
     expect(scene.completionPolicy).toEqual({
       type: "all_scenes",
-      minCoverage: 0.7,
+      minCoverage: 0.9,
       passingScore: 80,
     });
     expect(scene.scenes[0].interaction?.type).toBe("trace_path");

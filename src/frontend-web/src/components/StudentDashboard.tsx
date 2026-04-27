@@ -31,6 +31,7 @@ import api from '../services/api';
 import type { Content, Recommendation, Assignment, AchievementDisplay, GrowthReport } from '@/types';
 import EmergencyCallDialog from './EmergencyCallDialog';
 import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -82,8 +83,8 @@ const DOMAIN_META: Record<DomainKey, DomainMeta> = {
   },
   social: {
     icon: Users,
-    color: 'bg-[#ffefec]',
-    iconColor: 'text-error',
+    color: 'bg-danger-container',
+    iconColor: 'text-on-danger-container',
     label: '社会',
     radarColor: 'var(--color-domain-social)',
   },
@@ -155,6 +156,7 @@ export default function StudentDashboard({
   onOpenAssignment,
 }: StudentDashboardProps) {
   const { user } = useAuth();
+  const reducedMotion = useReducedMotion();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const ageRange: '3-4' | '5-6' = user?.age && user.age >= 5 ? '5-6' : '3-4';
 
@@ -544,10 +546,9 @@ export default function StudentDashboard({
                   <motion.div
                     key={ach.id}
                     layout
-                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                    {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10, scale: 0.96 }, exit: { opacity: 0, y: -10, scale: 0.96 } })}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.96 }}
-                    transition={{ delay: idx * 0.04, duration: 0.28 }}
+                    transition={reducedMotion ? { duration: 0 } : { delay: idx * 0.04, duration: 0.28 }}
                     className="panel-card flex items-center gap-4 p-4"
                   >
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-container text-2xl">
@@ -639,7 +640,7 @@ export default function StudentDashboard({
                             textAnchor="middle"
                             dominantBaseline="middle"
                             className="cursor-pointer text-[11px] font-bold"
-                            fill={isSelected ? DOMAIN_META[key].radarColor : '#555'}
+                            fill={isSelected ? DOMAIN_META[key].radarColor : 'var(--color-on-surface-variant)'}
                             onClick={() => setSelectedDomain((prev) => (prev === key ? null : key))}
                           >
                             {DOMAIN_META[key].label}
@@ -715,9 +716,9 @@ export default function StudentDashboard({
                   return (
                     <motion.div
                       key={rec.contentId}
-                      initial={{ opacity: 0, y: 16 }}
+                      {...(reducedMotion ? {} : { initial: { opacity: 0, y: 16 } })}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05, duration: 0.25 }}
+                      transition={reducedMotion ? { duration: 0 } : { delay: idx * 0.05, duration: 0.25 }}
                       className="w-64 flex-shrink-0 snap-start"
                     >
                       <div className="panel-card flex h-full flex-col p-5">

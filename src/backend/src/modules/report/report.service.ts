@@ -1,9 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, Between } from "typeorm";
 import { LearningRecord } from "../../database/entities/learning-record.entity";
 import { AbilityAssessment } from "../../database/entities/ability-assessment.entity";
 import { Achievement } from "../../database/entities/achievement.entity";
+import { LlmClientService } from "../../agent-framework/llm/llm-client.service";
 
 interface ReportParams {
   userId: number;
@@ -12,6 +13,8 @@ interface ReportParams {
 
 @Injectable()
 export class ReportService {
+  private readonly logger = new Logger(ReportService.name);
+
   constructor(
     @InjectRepository(LearningRecord)
     private learningRecordRepository: Repository<LearningRecord>,
@@ -19,6 +22,7 @@ export class ReportService {
     private abilityRepository: Repository<AbilityAssessment>,
     @InjectRepository(Achievement)
     private achievementRepository: Repository<Achievement>,
+    private readonly llmClient: LlmClientService,
   ) {}
 
   async generateReport(params: ReportParams) {
@@ -47,7 +51,7 @@ export class ReportService {
       dailyStats,
       skillProgress,
       achievements: achievementStats.recent || [],
-      insights: this.generateInsights(learningStats),
+      insights: await this.generateInsights(learningStats, achievementStats),
       streak: learningStats.streakDays,
       // Extra fields for backward compatibility
       summary: learningSummary,
@@ -429,7 +433,83 @@ export class ReportService {
     return points.length > 0 ? points.join("，") : "今天还没有学习记录";
   }
 
-  private generateInsights(learning: any): string[] {
+  private async generateInsights(
+    learning: any,
+    achievements: any,
+  ): Promise<string[]> {
+    // Try LLM-based insights first
+    if (this.llmClient?.isConfigured) {
+      try {
+        const llmInsights = await this.generateLlmInsights(
+          learning,
+          achievements,
+        );
+        if (llmInsights.length > 0) return llmInsights;
+      } catch (error: any) {
+        this.logger.warn(
+          `LLM insights generation failed, falling back to rule-based: ${error.message}`,
+        );
+      }
+    }
+
+    // Fallback: rule-based insights
+    return this.generateRuleBasedInsights(learning);
+  }
+
+  private async generateLlmInsights(
+    learning: any,
+    achievements: any,
+  ): Promise<string[]> {
+    const domainNames: Record<string, string> = {
+      language: "语言表达",
+      math: "数学逻辑",
+      science: "科学探索",
+      art: "艺术创造",
+      social: "社会交往",
+    };
+
+    const domainSummary =
+      Object.entries(learning.domainStats || {})
+        .map(
+          ([domain, count]) =>
+            `${domainNames[domain] || domain}: ${count} 次学习`,
+        )
+        .join("；") || "暂无领域数据";
+
+    const systemPrompt = `你是一个儿童教育专家，负责根据孩子的学习数据生成个性化、鼓励性的洞察建议。
+要求：
+1. 输出 2-3 条中文洞察建议
+2. 每条 20-50 字
+3. 语气温暖、鼓励、有建设性
+4. 基于数据给出具体建议，不要泛泛而谈
+5. 只输出 JSON 数组格式，不要其他文字
+6. 格式：["洞察1", "洞察2", "洞察3"]`;
+
+    const userPrompt = `以下是孩子的学习数据：
+- 总学习次数：${learning.totalSessions || 0}
+- 已完成课程：${learning.completedSessions || 0}
+- 总学习时长：${learning.totalMinutes || 0} 分钟
+- 连续学习天数：${learning.streakDays || 0} 天
+- 各领域学习情况：${domainSummary}
+- 获得成就数量：${achievements?.total || 0}
+
+请根据这些数据生成 2-3 条个性化洞察建议。`;
+
+    const response = await this.llmClient.generate(userPrompt, systemPrompt);
+
+    // Parse JSON array from response
+    const match = response.match(/\[[\s\S]*\]/);
+    if (!match) return [];
+
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((item: any) => typeof item === "string" && item.length >= 10)
+      .slice(0, 3);
+  }
+
+  private generateRuleBasedInsights(learning: any): string[] {
     const insights: string[] = [];
 
     if (learning.totalSessions >= 3) {

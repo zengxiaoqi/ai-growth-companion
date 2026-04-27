@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 
 interface MatchingGameProps {
@@ -16,6 +17,7 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [attempts, setAttempts] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   // Shuffle cards (left items + right items mixed)
   const cards = useMemo(() => {
@@ -89,8 +91,8 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
           return (
             <motion.button key={card.id}
               onClick={() => handleCardClick(card.id)}
-              whileHover={!isRevealed && !isMatched ? { scale: 1.05, y: -2 } : undefined}
-              whileTap={{ scale: 0.95 }}
+              whileHover={reducedMotion || (isRevealed && !isMatched) ? undefined : { scale: 1.05, y: -2 }}
+              whileTap={reducedMotion ? undefined : { scale: 0.95 }}
               className={cn(
                 'aspect-square rounded-2xl border-2 flex items-center justify-center text-sm min-[360px]:text-base sm:text-lg font-bold transition-all min-h-[48px]',
                 isMatched && 'bg-primary-container border-primary text-on-primary-container opacity-60',
@@ -101,9 +103,9 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
               style={{ perspective: '1000px' }}
             >
               <motion.div
-                initial={{ rotateY: isRevealed ? 0 : 180 }}
+                {...(reducedMotion ? {} : { initial: { rotateY: isRevealed ? 0 : 180 } })}
                 animate={{ rotateY: isRevealed || isMatched ? 0 : 180 }}
-                transition={{ duration: 0.3 }}
+                transition={reducedMotion ? { duration: 0 } : { duration: 0.3 }}
               >
                 {isRevealed || isMatched ? (
                   <span className="text-xl">{card.label}</span>

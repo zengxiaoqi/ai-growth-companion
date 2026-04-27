@@ -9,6 +9,24 @@ interface RegisterScreenProps {
   isLoading: boolean;
 }
 
+function validatePhone(phone: string): string | null {
+  if (!phone) return null;
+  if (!/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的11位手机号';
+  return null;
+}
+
+function validatePassword(password: string): string | null {
+  if (!password) return null;
+  if (password.length < 6) return '密码至少6位';
+  return null;
+}
+
+function validateConfirmPassword(password: string, confirm: string): string | null {
+  if (!confirm) return null;
+  if (password !== confirm) return '两次密码不一致';
+  return null;
+}
+
 export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isLoading }: RegisterScreenProps) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -18,13 +36,20 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
   const [age, setAge] = useState<number | undefined>(undefined);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      alert('两次输入的密码不一致');
-      return;
-    }
+    // Run final validation
+    const pErr = validatePhone(phone);
+    const pwErr = validatePassword(password);
+    const cErr = validateConfirmPassword(password, confirmPassword);
+    setPhoneError(pErr);
+    setPasswordError(pwErr);
+    setConfirmError(cErr);
+    if (pErr || pwErr || cErr || !name) return;
     await onRegister({
       phone,
       password,
@@ -66,14 +91,20 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
+                  onBlur={() => setPhoneError(validatePhone(phone))}
                   placeholder="请输入手机号"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                  className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
+                    phoneError ? 'border-error/60' : 'border-outline-variant/30'
+                  }`}
                   required
                   pattern="1[3-9]\d{9}"
                   maxLength={11}
                 />
               </div>
+              {phoneError && (
+                <p className="text-error text-xs font-medium px-1">{phoneError}</p>
+              )}
             </div>
 
             {/* Name Input */}
@@ -108,9 +139,12 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); setConfirmError(null); }}
+                  onBlur={() => setPasswordError(validatePassword(password))}
                   placeholder="请设置密码（至少6位）"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                  className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
+                    passwordError ? 'border-error/60' : 'border-outline-variant/30'
+                  }`}
                   required
                   minLength={6}
                 />
@@ -123,6 +157,9 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-error text-xs font-medium px-1">{passwordError}</p>
+              )}
             </div>
 
             {/* Confirm Password Input */}
@@ -137,9 +174,12 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError(null); }}
+                  onBlur={() => setConfirmError(validateConfirmPassword(password, confirmPassword))}
                   placeholder="请再次输入密码"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                  className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
+                    confirmError ? 'border-error/60' : 'border-outline-variant/30'
+                  }`}
                   required
                   minLength={6}
                 />
@@ -152,6 +192,9 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {confirmError && (
+                <p className="text-error text-xs font-medium px-1">{confirmError}</p>
+              )}
             </div>
 
             {/* Account Type */}

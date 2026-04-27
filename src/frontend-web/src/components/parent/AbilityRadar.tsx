@@ -48,15 +48,15 @@ export default function AbilityRadar({ abilities, radarData }: AbilityRadarProps
         {radarData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-              <PolarGrid stroke="#b9ae6e" strokeOpacity={0.35} />
-              <PolarAngleAxis dataKey="domain" tick={{ fill: '#655c25', fontSize: 13, fontWeight: 700 }} />
-              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: '#81783d', fontSize: 10 }} axisLine={false} />
+              <PolarGrid stroke="var(--color-outline)" strokeOpacity={0.25} />
+              <PolarAngleAxis dataKey="domain" tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 13, fontWeight: 700 }} />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: 'var(--color-outline)', fontSize: 10 }} axisLine={false} />
               <Radar
                 name="能力值"
                 dataKey="progress"
-                stroke="#006384"
-                fill="#97daff"
-                fillOpacity={0.4}
+                stroke="var(--color-secondary)"
+                fill="var(--color-secondary)"
+                fillOpacity={0.25}
                 strokeWidth={2}
               />
               <Tooltip

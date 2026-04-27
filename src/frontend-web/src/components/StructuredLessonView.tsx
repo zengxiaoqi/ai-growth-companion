@@ -241,7 +241,7 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       {/* Step Navigation */}
       <div className="flex gap-1 overflow-x-auto px-4 py-3 scrollbar-hide">
         {steps.map((step, i) => {
-          const meta = STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: 'bg-gray-100 text-gray-700' };
+          const meta = STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: 'bg-surface-container text-on-surface-variant' };
           const isDone = completedSteps.has(step.id);
           const isCurrent = i === currentStepIndex;
           return (

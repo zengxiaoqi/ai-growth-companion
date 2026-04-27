@@ -2,9 +2,11 @@ import {
   Bar,
   BarChart,
   Cell,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  YAxis,
 } from 'recharts';
 import { ArrowRight, Trophy } from '@/icons';
 import { Button, Card, EmptyState } from '../ui';
@@ -77,7 +79,13 @@ export default function GrowthReportSection({
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#81783d', fontSize: 12, fontWeight: 700 }}
+                  tick={{ fill: 'var(--color-outline)', fontSize: 12, fontWeight: 700 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--color-outline)', fontSize: 11 }}
+                  tickFormatter={(v: number) => `${v}分`}
                 />
                 <Tooltip
                   cursor={{ fill: 'rgba(112, 89, 0, 0.08)' }}
@@ -88,11 +96,17 @@ export default function GrowthReportSection({
                   }}
                   formatter={(value) => [formatMinutes(value), '学习时长']}
                 />
-                <Bar dataKey="time" radius={[8, 8, 0, 0]}>
+                <Legend
+                  verticalAlign="top"
+                  height={36}
+                  wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
+                  formatter={() => '学习时长（分钟）'}
+                />
+                <Bar dataKey="time" name="学习时长" radius={[8, 8, 0, 0]}>
                   {chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.time === maxTime ? '#006384' : '#f8e999'}
+                      fill={entry.time === maxTime ? '#0072B2' : '#E69F00'}
                     />
                   ))}
                 </Bar>

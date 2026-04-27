@@ -57,18 +57,18 @@ export default function AbilityTrend({ trendData }: AbilityTrendProps) {
         {trendData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
               <XAxis
                 dataKey="week"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#81783d', fontSize: 12, fontWeight: 600 }}
+                tick={{ fill: 'var(--color-outline)', fontSize: 12, fontWeight: 600 }}
               />
               <YAxis
                 domain={[0, 100]}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#81783d', fontSize: 11 }}
+                tick={{ fill: 'var(--color-outline)', fontSize: 11 }}
               />
               <Tooltip
                 contentStyle={{

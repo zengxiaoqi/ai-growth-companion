@@ -4,6 +4,7 @@ import { ArrowRight, Link2, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import { useGameVoice } from '@/hooks/useGameVoice';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 
 interface ConnectionGameProps {
@@ -20,6 +21,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
   const [userConnections, setUserConnections] = useState<Map<string, string>>(new Map());
   const [isFinished, setIsFinished] = useState(false);
   const { speak } = useGameVoice();
+  const reducedMotion = useReducedMotion();
 
   // Read instructions aloud on first load
   useEffect(() => {
@@ -105,8 +107,8 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
         </p>
       </div>
 
-      {/* Mobile: stacked layout (default), Desktop: side-by-side (md:) */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch">
+      {/* Small screens: stacked layout (default), sm+: side-by-side */}
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
         {/* Left column */}
         <div className="flex-1 space-y-3">
           {leftItems.map((item: any) => {
@@ -115,7 +117,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
             return (
               <motion.button key={item.id}
                 onClick={() => handleLeftClick(item.id)}
-                whileTap={{ scale: 0.95 }}
+                whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                 aria-label={`左侧: ${item.label}${connected ? '（已配对）' : isSelected ? '（已选中）' : ''}`}
                 className={cn(
                   'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all flex items-center gap-2 justify-center min-h-[48px] sm:min-h-[52px]',
@@ -132,8 +134,8 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
         </div>
 
         {/* Center connection indicator */}
-        <div className="flex md:flex-col items-center justify-center py-2 md:py-8">
-          <Link2 className="w-8 h-8 text-primary/30 md:rotate-0 rotate-90" />
+        <div className="flex sm:flex-col items-center justify-center py-2 sm:py-8">
+          <Link2 className="w-8 h-8 text-primary/30 sm:rotate-0 rotate-90" />
         </div>
 
         {/* Right column */}
@@ -143,7 +145,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
             return (
               <motion.button key={item.id}
                 onClick={() => handleRightClick(item.id)}
-                whileTap={{ scale: 0.95 }}
+                whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                 disabled={!selectedLeft && !connected}
                 aria-label={`右侧: ${item.label}${connected ? '（已配对）' : ''}`}
                 className={cn(
@@ -162,7 +164,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
       {/* Submit */}
       <AnimatePresence>
         {userConnections.size >= connections.length ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
             <button onClick={handleCheck}
               className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               提交答案 <ArrowRight className="w-4 h-4" />

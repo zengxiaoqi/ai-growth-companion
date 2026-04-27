@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import { getAudioVolume } from '@/lib/app-settings';
 import { resolveChatAvatarSettings } from '@/lib/app-settings';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useAuth } from '@/contexts/AuthContext';
 import type {
   ActivityType,
@@ -109,6 +110,8 @@ function SpeakerButton({ msgId, content, playingMsgId, onToggle }: {
   msgId: string; content: string; playingMsgId: string | null; onToggle: (id: string, text: string) => void;
 }) {
   const isPlaying = playingMsgId === msgId;
+  const reducedMotion = useReducedMotion();
+  
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onToggle(msgId, content); }}
@@ -120,10 +123,10 @@ function SpeakerButton({ msgId, content, playingMsgId, onToggle }: {
     >
       {isPlaying ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
       {isPlaying && (
-        <span className="flex items-center gap-0.5 h-3">
-          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '0ms' }} />
-          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '150ms' }} />
-          <span className="w-0.5 bg-primary rounded-full animate-sound-bar" style={{ animationDelay: '300ms' }} />
+        <span className={cn("flex items-center gap-0.5 h-3", reducedMotion && "motion-reduce:animate-none")}>
+          <span className={cn("w-0.5 bg-primary rounded-full", reducedMotion ? "h-2" : "animate-sound-bar")} style={reducedMotion ? undefined : { animationDelay: '0ms' }} />
+          <span className={cn("w-0.5 bg-primary rounded-full", reducedMotion ? "h-2" : "animate-sound-bar")} style={reducedMotion ? undefined : { animationDelay: '150ms' }} />
+          <span className={cn("w-0.5 bg-primary rounded-full", reducedMotion ? "h-2" : "animate-sound-bar")} style={reducedMotion ? undefined : { animationDelay: '300ms' }} />
         </span>
       )}
     </button>
@@ -152,6 +155,12 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const FAB_EDGE_MARGIN = 12;
   const FAB_DEFAULT_RIGHT = 24;
   const FAB_DEFAULT_BOTTOM = 220;
+  
+  // Drag to close state
+  const [dragY, setDragY] = useState(0);
+  const [isDraggingToClose, setIsDraggingToClose] = useState(false);
+  const chatPanelRef = useRef<HTMLDivElement>(null);
+  const messagesScrollTopRef = useRef(0);
 
   const starterPrompts = isParentMode
     ? [
@@ -186,6 +195,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
     };
   });
   const [isFabDragging, setIsFabDragging] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
   const [viewMode, setViewMode] = useState<'chat' | 'archive'>('chat');
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [learningPoints, setLearningPoints] = useState<LearningPoint[]>([]);
@@ -198,6 +208,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const [avatarState, setAvatarState] = useState<{ userAvatar?: string; aiAvatar?: string }>({});
   const { user } = useAuth();
   const { playingMsgId, play: playMessage, stop: stopPlayback, toggle: togglePlayback } = useVoicePlayback();
+  const reducedMotion = useReducedMotion();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -249,6 +260,9 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
     if (!container) return;
     const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     setShowJumpButton(distanceToBottom > 140);
+    // Track if scrolled to top for drag-to-close
+    messagesScrollTopRef.current = container.scrollTop;
+    setIsAtTop(container.scrollTop <= 10);
   }, []);
 
   const clampFabPosition = useCallback((x: number, y: number) => {
@@ -902,9 +916,15 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 </div>
                 <div className="bg-surface-container px-4 py-2.5 rounded-2xl rounded-bl-sm">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    {reducedMotion ? (
+                      <span className="text-xs text-on-surface-variant">思考中...</span>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -949,7 +969,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 onClick={handleToggleRecording}
                 className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
-                  isRecording ? 'bg-red-500 text-white animate-voice-pulse' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
+                  isRecording && !reducedMotion && 'animate-voice-pulse',
+                  isRecording ? 'bg-error text-white' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                 )}
                 aria-label={isRecording ? '停止录音' : '开始录音'}
               >
@@ -981,17 +1002,16 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
         <AnimatePresence>
           {activityFeedback && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              {...(reducedMotion ? { initial: { opacity: 0 }, exit: { opacity: 0 } } : { initial: { opacity: 0, scale: 0.8, y: 20 }, exit: { opacity: 0, scale: 0.8, y: 20 } })}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 25 }}
               onClick={() => setActivityFeedback(null)}
               className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 p-6"
             >
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                {...(reducedMotion ? {} : { initial: { opacity: 0, y: 30 }, exit: { opacity: 0, y: 30 } })}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 30 }}
+                transition={reducedMotion ? { duration: 0 } : undefined}
                 className="bg-surface-container-lowest rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-outline-variant/20 text-center"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1003,7 +1023,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${activityFeedback.score}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    transition={reducedMotion ? { duration: 0 } : { duration: 0.8, ease: 'easeOut' }}
                     className="h-full rounded-full"
                     style={{
                       backgroundColor:
@@ -1056,19 +1076,67 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            ref={chatPanelRef}
             initial={{ opacity: 0, y: 100, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 100, scale: 0.9 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            drag={!isMaximized && isAtTop ? 'y' : false}
+            dragConstraints={{ top: 0, bottom: 400 }}
+            dragElastic={0.3}
+            onDrag={(_, info) => {
+              setDragY(info.offset.y);
+              setIsDraggingToClose(info.offset.y > 50);
+            }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 120) {
+                setIsOpen(false);
+                setIsMaximized(false);
+              }
+              setDragY(0);
+              setIsDraggingToClose(false);
+            }}
             className={cn(
               "fixed right-4 bottom-20 bg-surface-container-lowest rounded-3xl shadow-2xl z-[100] flex h-[min(78vh,680px)] flex-col overflow-hidden border border-outline-variant/20",
               isMaximized
                 ? "inset-4 bottom-20 rounded-3xl"
+                : isDraggingToClose
+                ? "bg-red-50/90"
                 : ""
             )}
-            style={!isMaximized ? { width: size.w, height: size.h, maxHeight: 'calc(100dvh - 96px)' } : undefined}
+            style={{
+              ...(!isMaximized ? { width: size.w, height: size.h, maxHeight: 'calc(100dvh - 96px)' } : undefined),
+              y: dragY,
+              opacity: dragY > 0 ? Math.max(0.3, 1 - dragY / 400) : 1,
+            }}
             role="dialog" aria-label="AI 学习伙伴对话" aria-modal="true"
           >
+            {/* Drag hint / close indicator with tap-to-close */}
+            {!isMaximized && (
+              <div
+                className={cn(
+                  "h-10 flex items-center justify-center gap-1.5 flex-shrink-0 cursor-pointer transition-colors select-none",
+                  isDraggingToClose ? "bg-red-100" : "bg-surface-container-lowest hover:bg-surface-container"
+                )}
+                onClick={() => { if (!isDraggingToClose) { setIsOpen(false); setIsMaximized(false); } }}
+                aria-label="关闭 AI 对话"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsOpen(false); setIsMaximized(false); } }}
+              >
+                <div className={cn(
+                  "w-10 h-1 rounded-full transition-colors",
+                  isDraggingToClose ? "bg-red-400" : "bg-outline-variant/50"
+                )} />
+                <span className={cn(
+                  "text-[11px] font-medium transition-colors",
+                  isDraggingToClose ? "text-red-500" : "text-on-surface-variant/40"
+                )}>
+                  {isDraggingToClose ? "释放关闭" : "下拉关闭"}
+                </span>
+              </div>
+            )}
+
             {/* Header */}
             <div className="sticky top-0 z-20 bg-tertiary px-5 py-3 flex items-center justify-between flex-shrink-0"
               onPointerDown={(e) => !isMaximized && dragControls.start(e)}>
@@ -1271,9 +1339,15 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                     </div>
                     <div className="bg-surface-container px-3.5 py-2.5 rounded-2xl rounded-bl-sm">
                       <div className="flex gap-1">
-                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        {reducedMotion ? (
+                          <span className="text-xs text-on-surface-variant">思考中...</span>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1318,7 +1392,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                     onClick={handleToggleRecording}
                     className={cn(
                       'touch-target w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
-                      isRecording ? 'bg-red-500 text-white animate-voice-pulse' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
+                      isRecording && !reducedMotion && 'animate-voice-pulse',
+                      isRecording ? 'bg-error text-white' : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                     )}
                     aria-label={isRecording ? '停止录音' : '开始录音'}
                   >
@@ -1362,17 +1437,16 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
       <AnimatePresence>
         {activityFeedback && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            {...(reducedMotion ? { initial: { opacity: 0 }, exit: { opacity: 0 } } : { initial: { opacity: 0, scale: 0.8, y: 20 }, exit: { opacity: 0, scale: 0.8, y: 20 } })}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 25 }}
             onClick={() => setActivityFeedback(null)}
             className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 p-6"
           >
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              {...(reducedMotion ? {} : { initial: { opacity: 0, y: 30 }, exit: { opacity: 0, y: 30 } })}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 30 }}
+              transition={reducedMotion ? { duration: 0 } : undefined}
               className="bg-surface-container-lowest rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-outline-variant/20 text-center"
               onClick={(e) => e.stopPropagation()}
             >
@@ -1385,12 +1459,12 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${activityFeedback.score}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  transition={reducedMotion ? { duration: 0 } : { duration: 0.8, ease: 'easeOut' }}
                   className="h-full rounded-full"
                   style={{
                     backgroundColor:
-                      activityFeedback.score >= 80 ? '#4CAF50' :
-                      activityFeedback.score >= 60 ? '#FFC107' : '#FF5722',
+                      activityFeedback.score >= 80 ? 'var(--color-success)' :
+                      activityFeedback.score >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
                   }}
                 />
               </div>

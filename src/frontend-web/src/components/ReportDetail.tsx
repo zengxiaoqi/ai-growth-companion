@@ -202,13 +202,13 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                 {barChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#81783d', fontSize: 11, fontWeight: 600 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#81783d', fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-outline)', fontSize: 11, fontWeight: 600 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--color-outline)', fontSize: 11 }} />
                       <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                       <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
-                      <Bar dataKey="minutes" name="学习时长(分钟)" radius={[6, 6, 0, 0]} fill="#006384" />
-                      <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="#586000" />
+                      <Bar dataKey="minutes" name="学习时长(分钟)" radius={[6, 6, 0, 0]} fill="var(--color-secondary)" />
+                      <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="var(--color-tertiary)" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (

@@ -4,6 +4,7 @@ import { Check, X, ArrowRight, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import { useGameVoice } from '@/hooks/useGameVoice';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 import type { ReviewItem } from './GameCompletionScreen';
 
@@ -21,6 +22,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState<(boolean | null)[]>([]);
   const { speak } = useGameVoice();
+  const reducedMotion = useReducedMotion();
 
   const current = statements[currentIndex];
   const total = statements.length;
@@ -98,11 +100,19 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
         <span className="text-sm font-bold text-primary">{currentIndex + 1} / {total}</span>
       </div>
       <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-        <motion.div className="h-full bg-primary rounded-full" animate={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
+        <motion.div 
+          className="h-full bg-primary rounded-full" 
+          animate={{ width: `${((currentIndex + 1) / total) * 100}%` }} 
+          transition={reducedMotion ? { duration: 0 } : undefined}
+        />
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+        <motion.div 
+          key={currentIndex} 
+          {...(reducedMotion ? {} : { initial: { opacity: 0, x: 30 }, exit: { opacity: 0, x: -30 } })}
+          animate={{ opacity: 1, x: 0 }} 
+          transition={reducedMotion ? { duration: 0 } : undefined}
           className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4 sm:space-y-6 text-center">
           <div className="flex items-start gap-2 justify-center">
             <h4 className="text-xl font-black text-on-surface">{current.statement}</h4>
@@ -115,7 +125,8 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
 
           <div className="flex gap-3 sm:gap-4 justify-center px-2">
             <motion.button onClick={() => handleSelect(true)} disabled={isRevealed}
-              whileHover={!isRevealed ? { scale: 1.05, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
+              whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.05, y: -2 }} 
+              whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.95 }}
               aria-label="正确"
               className={cn(
                 'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
@@ -129,7 +140,8 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
               对
             </motion.button>
             <motion.button onClick={() => handleSelect(false)} disabled={isRevealed}
-              whileHover={!isRevealed ? { scale: 1.05, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.95 } : undefined}
+              whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.05, y: -2 }} 
+              whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.95 }}
               aria-label="错误"
               className={cn(
                 'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
@@ -145,7 +157,10 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
           </div>
 
           {isRevealed && current.explanation ? (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            <motion.p 
+              {...(reducedMotion ? {} : { initial: { opacity: 0 } })}
+              animate={{ opacity: 1 }}
+              transition={reducedMotion ? { duration: 0 } : undefined}
               className="text-sm text-on-surface-variant bg-surface-container/50 rounded-lg p-3">
               {current.explanation}
             </motion.p>
@@ -155,7 +170,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
 
       <AnimatePresence>
         {!isRevealed && selected !== null ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 }, exit: { opacity: 0 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
             <button onClick={handleSubmit}
               aria-label="确认答案"
               className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]">
@@ -164,7 +179,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
           </motion.div>
         ) : null}
         {isRevealed ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
             <button onClick={handleNext}
               className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
               {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}

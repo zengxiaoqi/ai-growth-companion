@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame, Volume2 } from '@/ic
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import { useGameVoice } from '@/hooks/useGameVoice';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 import type { ReviewItem } from './GameCompletionScreen';
 
@@ -21,6 +22,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   const [isFinished, setIsFinished] = useState(false);
   const [userAnswers, setUserAnswers] = useState<number[]>([]);
   const { speak } = useGameVoice();
+  const reducedMotion = useReducedMotion();
 
   const current = questions[currentIndex];
   const total = questions.length;
@@ -119,12 +121,20 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
         <span className="text-sm font-bold text-primary">{currentIndex + 1} / {total}</span>
       </div>
       <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-        <motion.div className="h-full bg-primary rounded-full" animate={{ width: `${((currentIndex + 1) / total) * 100}%` }} />
+        <motion.div 
+          className="h-full bg-primary rounded-full" 
+          animate={{ width: `${((currentIndex + 1) / total) * 100}%` }} 
+          transition={reducedMotion ? { duration: 0 } : undefined}
+        />
       </div>
 
       {/* Question */}
       <AnimatePresence mode="wait">
-        <motion.div key={currentIndex} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
+        <motion.div 
+          key={currentIndex} 
+          {...(reducedMotion ? {} : { initial: { opacity: 0, x: 30 }, exit: { opacity: 0, x: -30 } })}
+          animate={{ opacity: 1, x: 0 }} 
+          transition={reducedMotion ? { duration: 0 } : undefined}
           className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4">
           <div className="flex items-start gap-2">
             <h4 className="text-lg font-black text-on-surface flex-1">{current.question}</h4>
@@ -134,22 +144,36 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
               <Volume2 className="w-4 h-4" />
             </button>
           </div>
-          <div className="space-y-2">
+          <fieldset className="space-y-2">
+            <legend className="sr-only">{current.question}</legend>
             {current.options.map((opt: string, idx: number) => {
               const isCorrect = idx === currentCorrectIndex;
               const isSelected = idx === selectedOption;
+              const optionId = `quiz-q${currentIndex}-opt${idx}`;
               return (
-                <motion.button key={idx} type="button" onClick={() => handleSelect(idx)} disabled={isRevealed}
-                  whileHover={!isRevealed ? { scale: 1.02, y: -2 } : undefined} whileTap={!isRevealed ? { scale: 0.98 } : undefined}
-                  aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
+                <motion.label key={idx} htmlFor={optionId}
+                  whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.02, y: -2 }} 
+                  whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.98 }}
                   className={cn(
-                    'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px]',
+                    'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px] cursor-pointer',
                     isRevealed && isCorrect && 'bg-success-container border-success text-on-success-container',
                     isRevealed && isSelected && !isCorrect && 'bg-danger-container border-danger text-on-danger-container',
                     !isRevealed && isSelected && 'bg-primary-container/30 border-primary text-on-surface',
                     !isRevealed && !isSelected && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
                     isRevealed && !isCorrect && !isSelected && 'opacity-50',
+                    isRevealed && 'pointer-events-none',
                   )}>
+                  <input
+                    id={optionId}
+                    type="radio"
+                    name={`quiz-q${currentIndex}`}
+                    value={idx}
+                    checked={isSelected}
+                    onChange={() => handleSelect(idx)}
+                    disabled={isRevealed}
+                    className="sr-only"
+                    aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
+                  />
                   <span className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
                     isRevealed && isCorrect && 'bg-success text-on-success',
@@ -162,12 +186,15 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
                      String.fromCharCode(65 + idx)}
                   </span>
                   <span className="flex-1">{opt}</span>
-                </motion.button>
+                </motion.label>
               );
             })}
-          </div>
+          </fieldset>
           {isRevealed ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            <motion.div 
+              {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })}
+              animate={{ opacity: 1, y: 0 }}
+              transition={reducedMotion ? { duration: 0 } : undefined}
               className={cn('rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
                 selectedOption === currentCorrectIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
               {selectedOption === currentCorrectIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
@@ -179,7 +206,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
       {/* Submit or Next */}
       <AnimatePresence>
         {!isRevealed && selectedOption !== null ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 }, exit: { opacity: 0 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
             <button onClick={handleSubmit}
               aria-label="确认答案"
               className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
@@ -188,7 +215,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
           </motion.div>
         ) : null}
         {isRevealed ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
             <button onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
               className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">

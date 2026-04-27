@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 
 interface PuzzleGameProps {
@@ -30,6 +31,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
 
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [isFinished, setIsFinished] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   const handleSlotClick = useCallback((slotIndex: number) => {
     if (selectedSlot === null) {
@@ -98,8 +100,8 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
             <motion.button
               key={idx}
               onClick={() => handleSlotClick(idx)}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={reducedMotion ? undefined : { scale: 1.02, y: -2 }}
+              whileTap={reducedMotion ? undefined : { scale: 0.95 }}
               aria-label={piece ? `${piece.label}${isSelected ? '（已选中）' : ''}` : '空位置'}
               className={cn(
                 'aspect-square rounded-2xl border-2 flex flex-col items-center justify-center font-bold transition-all min-h-[60px]',

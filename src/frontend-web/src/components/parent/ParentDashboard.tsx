@@ -538,18 +538,18 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                     <div className="h-64 w-full" role="img" aria-label={`作业成绩趋势图，共 ${assignmentTrendData.length} 次作业`}>
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={assignmentTrendData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#b9ae6e" strokeOpacity={0.2} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
                           <XAxis
                             dataKey="date"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#81783d', fontSize: 11, fontWeight: 700 }}
+                            tick={{ fill: 'var(--color-outline)', fontSize: 11, fontWeight: 700 }}
                           />
                           <YAxis
                             domain={[0, 100]}
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#81783d', fontSize: 11 }}
+                            tick={{ fill: 'var(--color-outline)', fontSize: 11 }}
                           />
                           <Tooltip
                             contentStyle={{
@@ -562,9 +562,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                           <Line
                             type="monotone"
                             dataKey="score"
-                            stroke="#006384"
+                            stroke="var(--color-secondary)"
                             strokeWidth={2.5}
-                            dot={{ r: 3.5, fill: '#006384' }}
+                            dot={{ r: 3.5, fill: 'var(--color-secondary)' }}
                             activeDot={{ r: 5 }}
                           />
                         </LineChart>

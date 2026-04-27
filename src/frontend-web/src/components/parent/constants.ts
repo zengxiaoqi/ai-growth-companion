@@ -6,35 +6,35 @@ export const DOMAIN_CONFIG: Record<string, { label: string; color: string; conta
     color: 'bg-secondary',
     containerColor: 'bg-secondary-container/30',
     textColor: 'text-on-secondary-container',
-    chartColor: '#006384',
+    chartColor: '#0072B2', // 色盲友好蓝
   },
   math: {
     label: '数学',
     color: 'bg-tertiary',
     containerColor: 'bg-tertiary-container/30',
     textColor: 'text-on-tertiary-container',
-    chartColor: '#586000',
+    chartColor: '#009E73', // 色盲友好绿
   },
   science: {
     label: '科学',
     color: 'bg-primary',
     containerColor: 'bg-primary-container/30',
     textColor: 'text-on-primary-container',
-    chartColor: '#705900',
+    chartColor: '#E69F00', // 色盲友好橙
   },
   art: {
     label: '艺术',
     color: 'bg-surface-container-high',
     containerColor: 'bg-surface-container/50',
     textColor: 'text-on-surface',
-    chartColor: '#b9ae6e',
+    chartColor: '#CC79A7', // 色盲友好紫红
   },
   social: {
     label: '社会',
     color: 'bg-error',
     containerColor: 'bg-error-container/30',
     textColor: 'text-error',
-    chartColor: '#b02500',
+    chartColor: '#D55E00', // 色盲友好红橙
   },
 };
 

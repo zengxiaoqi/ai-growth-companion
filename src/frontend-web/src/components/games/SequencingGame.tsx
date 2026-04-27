@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowUpDown } from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import GameCompletionScreen from './GameCompletionScreen';
 
 interface SequencingGameProps {
@@ -12,6 +13,7 @@ interface SequencingGameProps {
 
 export default function SequencingGame({ data, onComplete }: SequencingGameProps) {
   const items = useMemo(() => data.items || [], [data.items]);
+  const reducedMotion = useReducedMotion();
 
   // Shuffle items on mount
   const [shuffled, setShuffled] = useState(() =>
@@ -188,7 +190,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerEnd}
             onPointerCancel={handlePointerEnd}
-            whileTap={{ scale: 0.97 }}
+            whileTap={reducedMotion ? undefined : { scale: 0.97 }}
             aria-label={`第 ${index + 1} 位：${item.label}${selectedIndex === index ? '（已选中）' : ''}`}
             className={cn(
               'w-full flex items-center gap-2 sm:gap-3 bg-surface-container-lowest p-3 sm:p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[48px] sm:min-h-[52px] transition-all',

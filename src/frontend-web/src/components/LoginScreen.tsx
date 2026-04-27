@@ -8,10 +8,23 @@ interface LoginScreenProps {
   isLoading: boolean;
 }
 
+function validatePhone(phone: string): string | null {
+  if (!phone) return null; // empty handled by required
+  if (!/^1[3-9]\d{9}$/.test(phone)) return '请输入正确的11位手机号';
+  return null;
+}
+
+function validatePassword(password: string): string | null {
+  if (!password) return '请输入密码';
+  return null;
+}
+
 export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoading }: LoginScreenProps) {
   const [phone, setPhone] = useState('13800000001');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,14 +71,20 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
+                  onBlur={() => setPhoneError(validatePhone(phone))}
                   placeholder="请输入手机号"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                  className={`w-full bg-surface-container-lowest border-2 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
+                    phoneError ? 'border-error/60' : 'border-outline-variant/30'
+                  }`}
                   required
                   pattern="1[3-9]\d{9}"
                   maxLength={11}
                 />
               </div>
+              {phoneError && (
+                <p className="text-error text-xs font-medium px-1">{phoneError}</p>
+              )}
             </div>
 
             {/* Password Input */}
@@ -80,9 +99,12 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
+                  onBlur={() => setPasswordError(validatePassword(password))}
                   placeholder="请输入密码"
-                  className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl py-4 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors"
+                  className={`w-full bg-surface-container-lowest border-2 rounded-xl py-4 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
+                    passwordError ? 'border-error/60' : 'border-outline-variant/30'
+                  }`}
                   required
                   minLength={6}
                 />
@@ -95,6 +117,9 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-error text-xs font-medium px-1">{passwordError}</p>
+              )}
             </div>
 
             {/* Error Message */}

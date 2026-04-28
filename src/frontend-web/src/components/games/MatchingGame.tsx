@@ -82,7 +82,7 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
         <p className="text-sm text-on-surface-variant">翻开卡片找到配对！{matched.size / 2} / {pairs.length}</p>
       </div>
 
-      <div className="grid grid-cols-2 min-[360px]:grid-cols-3 gap-2 sm:gap-3 px-1">
+      <div className="grid grid-cols-2 min-[360px]:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 px-1">
         {cards.map((card) => {
           const isRevealed = revealed.has(card.id);
           const isMatched = matched.has(card.id);

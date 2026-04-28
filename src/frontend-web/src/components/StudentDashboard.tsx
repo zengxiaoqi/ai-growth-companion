@@ -177,6 +177,7 @@ export default function StudentDashboard({
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [activeRecIndex, setActiveRecIndex] = useState(0);
   const recommendationsRef = useRef<HTMLElement>(null);
   const curriculumRef = useRef<HTMLElement>(null);
 
@@ -327,7 +328,29 @@ export default function StudentDashboard({
   }, [user?.id, onOpenContent]);
 
   const scrollRecommendations = useCallback((left: number) => {
-    scrollContainerRef.current?.scrollBy({ left, behavior: 'smooth' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollBy({ left, behavior: 'smooth' });
+    // Update active index based on scroll direction
+    const cardWidth = 272; // w-64 (256px) + gap-4 (16px)
+    const newIndex = Math.round((container.scrollLeft + left) / cardWidth);
+    setActiveRecIndex(Math.max(0, Math.min(newIndex, recommendations.length - 1)));
+  }, [recommendations.length]);
+
+  const handleRecScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const cardWidth = 272; // w-64 (256px) + gap-4 (16px)
+    const index = Math.round(container.scrollLeft / cardWidth);
+    setActiveRecIndex(Math.max(0, Math.min(index, recommendations.length - 1)));
+  }, [recommendations.length]);
+
+  const scrollToRec = useCallback((index: number) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const cardWidth = 272; // w-64 (256px) + gap-4 (16px)
+    container.scrollTo({ left: index * cardWidth, behavior: 'smooth' });
+    setActiveRecIndex(index);
   }, []);
 
   const scrollToSection = useCallback((target: 'recommendations' | 'curriculum') => {
@@ -706,8 +729,10 @@ export default function StudentDashboard({
                 <ChevronLeft className="h-5 w-5 text-on-surface" />
               </button>
 
+              <AnimatePresence>
               <div
                 ref={scrollContainerRef}
+                onScroll={handleRecScroll}
                 className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
@@ -716,7 +741,7 @@ export default function StudentDashboard({
                   return (
                     <motion.div
                       key={rec.contentId}
-                      {...(reducedMotion ? {} : { initial: { opacity: 0, y: 16 } })}
+                      {...(reducedMotion ? {} : { initial: { opacity: 0, y: 16 }, exit: { opacity: 0, scale: 0.95 } })}
                       animate={{ opacity: 1, y: 0 }}
                       transition={reducedMotion ? { duration: 0 } : { delay: idx * 0.05, duration: 0.25 }}
                       className="w-64 flex-shrink-0 snap-start"
@@ -743,6 +768,7 @@ export default function StudentDashboard({
                   );
                 })}
               </div>
+              </AnimatePresence>
 
               <button
                 onClick={() => scrollRecommendations(260)}
@@ -751,6 +777,23 @@ export default function StudentDashboard({
               >
                 <ChevronRight className="h-5 w-5 text-on-surface" />
               </button>
+
+              {/* Pagination dots */}
+              <div className="mt-3 flex items-center justify-center gap-1.5">
+                {recommendations.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => scrollToRec(idx)}
+                    className={cn(
+                      'h-2 w-2 rounded-full transition-all',
+                      idx === activeRecIndex
+                        ? 'bg-primary scale-110'
+                        : 'bg-surface-variant/30 hover:bg-surface-variant/50',
+                    )}
+                    aria-label={`转到第 ${idx + 1} 个推荐`}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </section>

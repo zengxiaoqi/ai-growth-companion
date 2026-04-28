@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -450,7 +451,14 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
   const DomainIcon = domainMeta.icon;
 
   return (
-    <div className="min-h-app pb-[calc(10rem+var(--safe-area-bottom))]">
+    <AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.25 }}
+      className="min-h-app pb-[calc(10rem+var(--safe-area-bottom))]"
+    >
       <TopBar
         title={content.title}
         subtitle={`${domainMeta.label} · ${content.ageRange} 岁`}
@@ -464,7 +472,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6">
         {content.thumbnail ? (
           <Card className="relative overflow-hidden p-0">
-            <img src={content.thumbnail} alt={content.title} className="h-56 w-full object-cover md:h-72" />
+            <img src={content.thumbnail} alt={content.title} className="h-56 w-full object-cover md:h-72" loading="lazy" width="400" height="224" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
             <div className={cn('absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black', domainMeta.badgeClass)}>
               <DomainIcon className="h-4 w-4" />
@@ -554,7 +562,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
             <div className="grid grid-cols-2 gap-3">
               {content.mediaUrls.map((url, index) => (
                 <div key={index} className="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface">
-                  <img src={url} alt={`学习资源 ${index + 1}`} className="h-28 w-full object-cover md:h-36" />
+                  <img src={url} alt={`学习资源 ${index + 1}`} className="h-28 w-full object-cover md:h-36" loading="lazy" width="300" height="112" />
                 </div>
               ))}
             </div>
@@ -667,6 +675,7 @@ export default function ContentDetail({ contentId, childId, onBack, onComplete }
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
+    </AnimatePresence>
   );
 }

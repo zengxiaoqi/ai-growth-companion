@@ -425,7 +425,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
             {user?.avatar ? (
-              <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+              <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" loading="lazy" width="80" height="80" />
             ) : (
               <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
             )}
@@ -586,7 +586,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/15 bg-surface p-4">
                   <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
                     {user?.avatar ? (
-                      <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+                      <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" loading="lazy" width="80" height="80" />
                     ) : (
                       <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
                     )}

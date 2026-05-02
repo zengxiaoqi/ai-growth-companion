@@ -444,26 +444,6 @@ export default function StudentDashboard({
               今日待完成
             </h3>
             <div className="space-y-3">
-              {lessonTodoEntries.map((lessonEntry) => (
-                <button
-                  key={`lesson-${lessonEntry.contentId}`}
-                  onClick={() => handlePlayContent(lessonEntry.contentId)}
-                  className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
-                >
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-container">
-                    <BookOpen className="h-6 w-6 text-on-primary-container" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-bold text-on-surface">{lessonEntry.title}</h4>
-                    <p className="text-xs text-on-surface-variant">
-                      看 · 听 · 读 · 写 · 练 · 评
-                      {lessonEntry.topic ? ` · ${lessonEntry.topic}` : ''}
-                    </p>
-                  </div>
-                  <Play className="h-5 w-5 flex-shrink-0 text-primary" />
-                </button>
-              ))}
-
               {standaloneAssignments.map((assignment) => {
                 const normalizedType = normalizeActivityType(assignment.activityType, assignment.activityData);
                 const normalizedData = normalizeActivityData(

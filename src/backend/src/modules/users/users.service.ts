@@ -23,21 +23,57 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  /** 获取用户信息（过滤密码哈希和 PIN） */
+  async findSafeById(id: number): Promise<Omit<User, "password" | "pin"> | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      select: {
+        id: true,
+        phone: true,
+        name: true,
+        type: true,
+        parentId: true,
+        avatar: true,
+        age: true,
+        gender: true,
+        settings: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return user;
+  }
+
   async findByPhone(phone: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { phone } });
   }
 
-  async findByParentId(parentId: number): Promise<User[]> {
-    return this.usersRepository.find({ where: { parentId } });
+  async findByParentId(parentId: number): Promise<Omit<User, "password" | "pin">[]> {
+    return this.usersRepository.find({
+      where: { parentId },
+      select: {
+        id: true,
+        phone: true,
+        name: true,
+        type: true,
+        parentId: true,
+        avatar: true,
+        age: true,
+        gender: true,
+        settings: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async update(id: number, userData: Partial<User>): Promise<User> {
     await this.usersRepository.update(id, userData);
-    const user = await this.findById(id);
+    const user = await this.findSafeById(id);
     if (!user) {
       throw new NotFoundException("用户不存在");
     }
-    return user;
+    return user as User;
   }
 
   async delete(id: number): Promise<void> {
@@ -65,7 +101,8 @@ export class UsersService {
     }
 
     child.parentId = parentId;
-    return this.usersRepository.save(child);
+    await this.usersRepository.save(child);
+    return this.findSafeById(child.id) as Promise<User>;
   }
 
   async canAccessChild(

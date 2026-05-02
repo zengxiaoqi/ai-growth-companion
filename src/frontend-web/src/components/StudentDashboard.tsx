@@ -189,10 +189,16 @@ export default function StudentDashboard({
   const [learningError, setLearningError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id || user.type !== 'child') return;
-    api.getChildAssignments(user.id).then((assignments) => {
+    if (!user?.id) return;
+    // Resolve the child ID: child users load their own, parent users need to pick a child
+    const targetChildId = user.type === 'child' ? user.id : undefined;
+    if (targetChildId == null) return;
+    api.getChildAssignments(targetChildId).then((assignments) => {
+      console.log('[StudentDashboard] Loaded assignments:', assignments.length, 'pending:', assignments.filter((a) => a.status === 'pending').length, 'userId:', user.id, 'userType:', user.type);
       setPendingAssignments(assignments.filter((a) => a.status === 'pending'));
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[StudentDashboard] Failed to load assignments:', err);
+    });
   }, [user?.id, user?.type]);
 
   const refreshAchievements = useCallback(() => {

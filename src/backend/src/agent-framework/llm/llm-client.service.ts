@@ -100,6 +100,16 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
+      this.logger.debug(
+        `[LLM REQUEST] model=${this.config.model} temp=${this.config.temperature} maxTokens=${this.config.maxTokens} messages=${messages.length} tools=${tools?.length ?? 0}`,
+      );
+      this.logger.verbose(`[LLM REQUEST] messages=${JSON.stringify(messages)}`);
+      if (tools && tools.length > 0) {
+        this.logger.verbose(
+          `[LLM REQUEST] tools=${JSON.stringify(tools.map((t: any) => t.function?.name || t.name))}`,
+        );
+      }
+
       const response = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
@@ -110,7 +120,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       });
 
       const choice = response.choices[0];
-      return {
+      const result: LlmResponse = {
         content: choice?.message?.content ?? null,
         toolCalls: choice?.message?.tool_calls?.map((tc) => ({
           id: tc.id,
@@ -128,6 +138,22 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
           : undefined,
         finishReason: choice?.finish_reason ?? undefined,
       };
+
+      this.logger.debug(
+        `[LLM RESPONSE] finishReason=${result.finishReason} contentLen=${result.content?.length ?? 0} toolCalls=${result.toolCalls?.length ?? 0} usage(prompt=${result.usage?.promptTokens} completion=${result.usage?.completionTokens})`,
+      );
+      this.logger.verbose(
+        `[LLM RESPONSE] content=${JSON.stringify(result.content?.slice(0, 500))}`,
+      );
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        for (const tc of result.toolCalls) {
+          this.logger.verbose(
+            `[LLM RESPONSE] toolCall: ${tc.function?.name}(${tc.function?.arguments?.slice(0, 300)})`,
+          );
+        }
+      }
+
+      return result;
     }, "chatCompletion");
   }
 
@@ -136,6 +162,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
   ): AsyncGenerator<string> {
     try {
+      this.logger.debug(
+        `[LLM STREAM REQUEST] model=${this.config.model} messages=${messages.length} tools=${tools?.length ?? 0}`,
+      );
       const stream = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
@@ -146,12 +175,20 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         stream: true,
       });
 
+      let totalContent = "";
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          totalContent += content;
           yield content;
         }
       }
+      this.logger.debug(
+        `[LLM STREAM RESPONSE] contentLen=${totalContent.length}`,
+      );
+      this.logger.verbose(
+        `[LLM STREAM RESPONSE] content=${JSON.stringify(totalContent.slice(0, 500))}`,
+      );
     } catch (error: any) {
       this.logger.error(`LLM stream failed: ${error.message}`);
       throw error;

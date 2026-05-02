@@ -226,9 +226,15 @@ export class AgentExecutor {
             executionContext,
             sessionId,
           );
+          this.logger.debug(
+            `[TOOL CALL] ${toolName} args=${JSON.stringify(normalizedToolArgs).slice(0, 500)}`,
+          );
           const result = await this.toolRegistry.execute(
             toolName,
             normalizedToolArgs,
+          );
+          this.logger.debug(
+            `[TOOL RESULT] ${toolName} resultLen=${result.length} preview=${result.slice(0, 300)}`,
           );
 
           // Add tool result to messages
@@ -257,6 +263,9 @@ export class AgentExecutor {
 
       // No tool calls — this is the final answer
       let finalReply = stripThinking(response.content || "");
+      this.logger.debug(
+        `[FINAL REPLY] contentLen=${finalReply.length} preview=${finalReply.slice(0, 300)}`,
+      );
 
       // Safety filter
       const safeResult = this.contentSafetyService.filterContent(finalReply);
@@ -372,9 +381,15 @@ export class AgentExecutor {
             toolName,
             toolArgs: normalizedToolArgs,
           };
+          this.logger.debug(
+            `[STREAM TOOL CALL] ${toolName} args=${JSON.stringify(normalizedToolArgs).slice(0, 500)}`,
+          );
           const result = await this.toolRegistry.execute(
             toolName,
             normalizedToolArgs,
+          );
+          this.logger.debug(
+            `[STREAM TOOL RESULT] ${toolName} resultLen=${result.length} preview=${result.slice(0, 300)}`,
           );
           yield {
             type: "tool_result",

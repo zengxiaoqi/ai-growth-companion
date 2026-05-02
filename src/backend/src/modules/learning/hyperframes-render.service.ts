@@ -91,16 +91,29 @@ export class HyperframesRenderService {
     onProgress?: (percent: number) => Promise<void> | void,
   ): Promise<Buffer> {
     if (!this.enabledByDefault) {
+      this.logger.warn(
+        `[renderLessonVideo] HyperFrames disabled by HYPERFRAMES_ENABLED env`,
+      );
       throw new Error("HYPERFRAMES_DISABLED");
     }
 
     const shots = this.buildShots(payload);
     if (!shots.length) {
+      this.logger.warn(
+        `[renderLessonVideo] taskId=${task.id} no shots built from payload — videoLesson.shots=${Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots.length : 0}, watchScene.scenes=${Array.isArray(payload?.watchScene?.scenes) ? payload.watchScene.scenes.length : 0}, visualStory.scenes=${Array.isArray(payload?.visualStory?.scenes) ? payload.visualStory.scenes.length : 0}`,
+      );
       throw new Error("HYPERFRAMES_EMPTY_SHOTS");
     }
 
     const domain = String(payload?.domain || "language").toLowerCase();
     const palette = DOMAIN_PALETTES[domain] || DEFAULT_PALETTE;
+
+    this.logger.log(
+      `[renderLessonVideo] taskId=${task.id} building HTML composition: domain=${domain}, shots=${shots.length}, palette.bg=${palette.bg}, palette.accent=${palette.accent}`,
+    );
+    this.logger.debug(
+      `[renderLessonVideo] taskId=${task.id} shots detail: ${shots.map((s, i) => `#${i + 1} "${s.title}" (${s.durationSec}s)`).join(", ")}`,
+    );
 
     const projectDir = await fs.mkdtemp(
       path.join(os.tmpdir(), "lingxi-hyperframes-"),
@@ -110,18 +123,39 @@ export class HyperframesRenderService {
       `${task.cacheKey || `task-${task.id}`}.mp4`,
     );
 
+    this.logger.debug(
+      `[renderLessonVideo] taskId=${task.id} projectDir=${projectDir}, outputPath=${outputPath}`,
+    );
+
     try {
       const totalDuration = shots.reduce(
         (sum, shot) => sum + Math.max(1, shot.durationSec),
         0,
       );
       const html = this.buildIndexHtml(shots, totalDuration, palette);
+      const htmlSize = Buffer.byteLength(html, "utf-8");
+      this.logger.log(
+        `[renderLessonVideo] taskId=${task.id} HTML generated: ${htmlSize} bytes, totalDuration=${totalDuration}s, shots=${shots.length}`,
+      );
       await fs.writeFile(path.join(projectDir, "index.html"), html, "utf-8");
       if (onProgress) await onProgress(10);
 
+      this.logger.log(
+        `[renderLessonVideo] taskId=${task.id} starting CLI render: cmd=${this.cliCmd}, timeout=${this.renderTimeoutMs}ms`,
+      );
       await this.runHyperframesRender(projectDir, outputPath);
       if (onProgress) await onProgress(95);
-      return fs.readFile(outputPath);
+
+      const buffer = await fs.readFile(outputPath);
+      this.logger.log(
+        `[renderLessonVideo] taskId=${task.id} render complete: output=${buffer.length} bytes`,
+      );
+      return buffer;
+    } catch (error: any) {
+      this.logger.error(
+        `[renderLessonVideo] taskId=${task.id} FAILED: ${error?.message || "unknown"}`,
+      );
+      throw error;
     } finally {
       await this.safeRemove(projectDir);
     }
@@ -497,7 +531,7 @@ ${shots
       outputPath,
     ];
     this.logger.log(
-      `Running HyperFrames render: ${this.cliCmd} ${args.join(" ")}`,
+      `[runHyperframesRender] cmd=${this.cliCmd} ${args.join(" ")}, cwd=${projectDir}, timeout=${this.renderTimeoutMs}ms`,
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -508,25 +542,43 @@ ${shots
       });
 
       const timer = setTimeout(() => {
+        this.logger.warn(
+          `[runHyperframesRender] render timed out after ${this.renderTimeoutMs}ms, killing process`,
+        );
         child.kill("SIGTERM");
       }, this.renderTimeoutMs);
 
       let stderr = "";
+      let stdout = "";
       child.stderr.on("data", (chunk) => {
         stderr += chunk.toString();
+      });
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk.toString();
       });
 
       child.on("error", (error) => {
         clearTimeout(timer);
+        this.logger.error(
+          `[runHyperframesRender] spawn error: ${error.message}. Check if "${this.cliCmd}" is installed and accessible in PATH.`,
+        );
         reject(error);
       });
 
       child.on("close", (code) => {
         clearTimeout(timer);
         if (code === 0) {
+          if (stdout.trim()) {
+            this.logger.debug(
+              `[runHyperframesRender] stdout: ${stdout.trim().slice(0, 500)}`,
+            );
+          }
           resolve();
           return;
         }
+        this.logger.error(
+          `[runHyperframesRender] exited with code=${code}. stderr: ${stderr.trim().slice(0, 800)}`,
+        );
         reject(
           new Error(
             `hyperframes render failed (code=${code}): ${stderr.trim().slice(0, 800)}`,

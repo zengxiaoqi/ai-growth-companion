@@ -146,7 +146,13 @@ export class RemotionRenderService {
 
     if (this.hasLessonVideoSource(payload)) {
       const videoData = this.buildVideoDataFromLesson(payload);
+      this.logger.log(
+        `[resolveComposition] using lesson video source: topic="${payload.topic}", slides=${videoData.slides?.length || 0}, ageGroup=${payload.ageGroup || "unknown"}`,
+      );
       const enrichedData = await this.generateNarrationAudioFiles(videoData);
+      this.logger.log(
+        `[resolveComposition] narration audio generated for ${enrichedData.slides?.filter((s: any) => s.narrationSrc).length || 0}/${enrichedData.slides?.length || 0} slides`,
+      );
       return {
         compositionId: "TopicVideo",
         inputProps: enrichedData,
@@ -154,9 +160,15 @@ export class RemotionRenderService {
     }
 
     if (this.isNumbersTopic(payload.topic)) {
+      this.logger.log(
+        `[resolveComposition] detected numbers topic, using NumbersVideo composition`,
+      );
       return { compositionId: "NumbersVideo", inputProps: {} };
     }
 
+    this.logger.log(
+      `[resolveComposition] no lesson source, generating video data via AI for topic="${payload.topic}"`,
+    );
     const videoData = await this.generateVideoDataTool.execute({
       topic: payload.topic,
       ageGroup: payload.ageGroup === "3-4" ? "3-4" : "5-6",
@@ -1340,7 +1352,7 @@ export class RemotionRenderService {
       ];
 
       this.logger.log(
-        `Spawning remotion render (concurrency=${concurrency}): npx ${args.join(" ")}`,
+        `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}`,
       );
 
       const proc = spawn("npx", args, {
@@ -1350,12 +1362,19 @@ export class RemotionRenderService {
       });
 
       let lastError = "";
+      let lastProgressLog = 0;
 
       proc.stdout?.on("data", (data: Buffer) => {
         const text = data.toString();
         const percent = this.parseProgress(text);
         if (percent !== null && onProgress) {
           onProgress(percent);
+          if (percent - lastProgressLog >= 20) {
+            this.logger.debug(
+              `[runRemotionRender] ${compositionId} progress: ${percent}%`,
+            );
+            lastProgressLog = percent;
+          }
         }
       });
 
@@ -1373,16 +1392,22 @@ export class RemotionRenderService {
       });
 
       proc.on("error", (err) => {
+        this.logger.error(
+          `[runRemotionRender] spawn error: ${err.message}. Check if remotion is installed at ${this.remotionDir}`,
+        );
         reject(new Error(`remotion spawn failed: ${err.message}`));
       });
 
       proc.on("close", (code) => {
         if (code === 0) {
           this.logger.log(
-            `Remotion render completed: ${compositionId} → ${outputPath}`,
+            `[runRemotionRender] Remotion render completed: ${compositionId} → ${outputPath}`,
           );
           resolve();
         } else {
+          this.logger.error(
+            `[runRemotionRender] Remotion render failed: compositionId=${compositionId}, exitCode=${code}, lastError="${lastError}"`,
+          );
           reject(
             new Error(`remotion render exited with code ${code}: ${lastError}`),
           );

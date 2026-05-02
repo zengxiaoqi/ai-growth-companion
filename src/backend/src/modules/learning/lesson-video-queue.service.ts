@@ -157,6 +157,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
     // Reset orphaned 'processing' tasks left from a previous server crash/restart
     void this.resetOrphanedProcessingTasks();
+
+    // Log environment diagnostics for video rendering
+    void this.logEnvironmentDiagnostics();
   }
 
   private async resetOrphanedProcessingTasks(): Promise<void> {
@@ -180,6 +183,76 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private async logEnvironmentDiagnostics(): Promise<void> {
+    const { exec } = await import("child_process");
+    const checks: string[] = [];
+
+    // Check FFmpeg
+    const ffmpegCheck = await new Promise<string>((resolve) => {
+      exec("ffmpeg -version", { timeout: 5000 }, (err, stdout) => {
+        if (err) {
+          resolve("NOT FOUND — install from https://ffmpeg.org/download.html");
+        } else {
+          const version = stdout.split("\n")[0]?.trim() || "unknown version";
+          resolve(`OK (${version})`);
+        }
+      });
+    });
+    checks.push(`FFmpeg: ${ffmpegCheck}`);
+
+    // Check HyperFrames CLI
+    const hyperframesCheck = await new Promise<string>((resolve) => {
+      exec("npx hyperframes --version", { timeout: 10000 }, (err, stdout) => {
+        if (err) {
+          resolve("NOT FOUND — hyperframes CLI not available");
+        } else {
+          resolve(`OK (${stdout.trim().slice(0, 40)})`);
+        }
+      });
+    });
+    checks.push(`HyperFrames CLI: ${hyperframesCheck}`);
+
+    // Check Remotion
+    const remotionCheck = await new Promise<string>((resolve) => {
+      exec("npx remotion --version", { timeout: 10000 }, (err, stdout) => {
+        if (err) {
+          resolve("NOT FOUND — remotion CLI not available");
+        } else {
+          resolve(`OK (${stdout.trim().slice(0, 40)})`);
+        }
+      });
+    });
+    checks.push(`Remotion CLI: ${remotionCheck}`);
+
+    // Check storage directory
+    const storageDir = path.join(process.cwd(), "storage", "lesson-videos");
+    try {
+      await fs.mkdir(storageDir, { recursive: true });
+      await fs.access(storageDir);
+      checks.push(`Storage dir: OK (${storageDir})`);
+    } catch {
+      checks.push(`Storage dir: NOT ACCESSIBLE (${storageDir})`);
+    }
+
+    // Check env config
+    checks.push(
+      `HYPERFRAMES_ENABLED=${process.env.HYPERFRAMES_ENABLED || "(default: true)"}`,
+    );
+    checks.push(
+      `HYPERFRAMES_CLI_COMMAND=${process.env.HYPERFRAMES_CLI_COMMAND || "(default: npx)"}`,
+    );
+    checks.push(
+      `VIDEO_PROVIDER_BASE_URL=${process.env.VIDEO_PROVIDER_BASE_URL || "(not set)"}`,
+    );
+    checks.push(
+      `VIDEO_TASK_MAX_RETRIES=${this.maxRetries}, VIDEO_CACHE_TTL_HOURS=${this.cacheTtlHours}`,
+    );
+
+    this.logger.log(
+      `[VideoDiagnostics] Environment check:\n  ${checks.join("\n  ")}`,
+    );
+  }
+
   onModuleDestroy() {
     if (this.queueTimer) {
       clearInterval(this.queueTimer);
@@ -201,6 +274,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const payload = this.buildPackPayloadFromContent(content);
     const cacheKey = this.computeCacheKey(content, payload);
     const normalizedEngine = this.normalizeRenderEngine(renderEngine);
+    this.logger.log(
+      `[enqueue] contentId=${contentId}, topic="${content.topic || ""}", title="${content.title || ""}", domain="${content.domain || ""}", engine=${normalizedEngine}, force=${force}`,
+    );
+    this.logger.debug(
+      `[enqueue] payload summary: visualStory.scenes=${Array.isArray(payload?.visualStory?.scenes) ? payload.visualStory.scenes.length : 0}, videoLesson.shots=${Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots.length : 0}, watchScene.scenes=${Array.isArray(payload?.watchScene?.scenes) ? payload.watchScene.scenes.length : 0}`,
+    );
     if (!force) {
       const reusable = await this.findReusableTask(
         contentId,
@@ -208,7 +287,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         cacheKey,
         normalizedEngine,
       );
-      if (reusable) return reusable;
+      if (reusable) {
+        this.logger.log(
+          `[enqueue] reusing existing task: taskId=${reusable.id}, status=${reusable.status}, progress=${reusable.progress}`,
+        );
+        return reusable;
+      }
     }
 
     const task = this.taskRepo.create({
@@ -225,7 +309,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     });
     const saved = await this.taskRepo.save(task);
     this.logger.log(
-      `Video task queued: taskId=${saved.id}, contentId=${contentId}`,
+      `Video task queued: taskId=${saved.id}, contentId=${contentId}, engine=${normalizedEngine}, cacheKey=${cacheKey.slice(0, 12)}...`,
     );
     return saved;
   }
@@ -287,6 +371,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     });
     if (!pending) return;
 
+    this.logger.log(
+      `[processQueue] claiming taskId=${pending.id}, contentId=${pending.contentId}, engine=${pending.renderEngine}, attempt=${pending.attemptCount}`,
+    );
+
     const claimResult = await this.taskRepo
       .createQueryBuilder()
       .update(VideoGenerationTask)
@@ -302,15 +390,25 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       })
       .execute();
 
-    if (!claimResult.affected) return;
+    if (!claimResult.affected) {
+      this.logger.warn(
+        `[processQueue] taskId=${pending.id} claim failed (already taken)`,
+      );
+      return;
+    }
 
     const task = await this.taskRepo.findOne({ where: { id: pending.id } });
     if (!task) return;
 
-    this.logger.log(`Video task processing: taskId=${task.id}`);
+    this.logger.log(
+      `Video task processing: taskId=${task.id}, attempt=${task.attemptCount}`,
+    );
 
     try {
       const payload = task.requestPayload || {};
+      this.logger.debug(
+        `[processQueue] taskId=${task.id} payload: topic="${payload.topic || ""}", visualStory.scenes=${Array.isArray(payload?.visualStory?.scenes) ? payload.visualStory.scenes.length : 0}, videoLesson.shots=${Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots.length : 0}`,
+      );
       const { buffer, providerTaskId, sourceVideoUrl } =
         await this.generateVideoBuffer(task, payload);
       const localPath = await this.writeVideoToCache(task.cacheKey, buffer);
@@ -329,7 +427,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       task.expiresAt = expiresAt;
       task.approvalStatus = "pending_approval";
       await this.taskRepo.save(task);
-      this.logger.log(`Video task completed: taskId=${task.id}`);
+      this.logger.log(
+        `Video task completed: taskId=${task.id}, size=${buffer.length} bytes, path=${localPath}, provider=${task.provider}`,
+      );
     } catch (error: any) {
       const canRetry = (task.attemptCount || 0) <= this.maxRetries;
       task.status = canRetry ? "pending" : "failed";
@@ -339,8 +439,13 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       ).slice(0, 500);
       await this.taskRepo.save(task);
       this.logger.warn(
-        `Video task ${canRetry ? "re-queued" : "failed"}: taskId=${task.id}, message=${task.errorMessage}`,
+        `Video task ${canRetry ? "re-queued" : "failed"}: taskId=${task.id}, attempt=${task.attemptCount}, maxRetries=${this.maxRetries}, message=${task.errorMessage}`,
       );
+      if (error?.stack) {
+        this.logger.debug(
+          `[processQueue] taskId=${task.id} error stack: ${String(error.stack).slice(0, 800)}`,
+        );
+      }
     }
   }
 
@@ -356,7 +461,15 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const engineOrder = this.resolveEngineOrder(requestedEngine);
     const errors: string[] = [];
 
+    this.logger.log(
+      `[generateVideoBuffer] taskId=${task.id}, requestedEngine=${requestedEngine}, engineOrder=[${engineOrder.join(",")}], topic="${payload?.topic || ""}"`,
+    );
+
     for (const engine of engineOrder) {
+      this.logger.log(
+        `[generateVideoBuffer] taskId=${task.id} trying engine: ${engine}`,
+      );
+      const engineStart = Date.now();
       try {
         if (engine === "hyperframes") {
           await this.taskRepo.update(task.id, {
@@ -364,9 +477,16 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
             renderEngine: task.renderEngine || requestedEngine,
           } as any);
           const buffer = await this.generateByHyperframes(task, payload);
-          if (buffer)
+          if (buffer) {
+            this.logger.log(
+              `[generateVideoBuffer] taskId=${task.id} engine=${engine} succeeded in ${Date.now() - engineStart}ms, size=${buffer.length}`,
+            );
             return { buffer, providerTaskId: null, sourceVideoUrl: null };
+          }
           errors.push("hyperframes returned empty buffer");
+          this.logger.warn(
+            `[generateVideoBuffer] taskId=${task.id} engine=${engine} returned empty buffer after ${Date.now() - engineStart}ms`,
+          );
           continue;
         }
 
@@ -377,6 +497,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           } as any);
           const remotionBuffer = await this.generateByRemotion(task, payload);
           if (remotionBuffer) {
+            this.logger.log(
+              `[generateVideoBuffer] taskId=${task.id} engine=${engine} succeeded in ${Date.now() - engineStart}ms, size=${remotionBuffer.length}`,
+            );
             return {
               buffer: remotionBuffer,
               providerTaskId: null,
@@ -384,18 +507,26 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
             };
           }
           errors.push("remotion returned empty buffer");
+          this.logger.warn(
+            `[generateVideoBuffer] taskId=${task.id} engine=${engine} returned empty buffer after ${Date.now() - engineStart}ms`,
+          );
           continue;
         }
       } catch (error: any) {
         const reason = `${engine}: ${error?.message || "unknown"}`;
         errors.push(reason);
-        this.logger.warn(`Video engine failed (${reason})`);
+        this.logger.warn(
+          `[generateVideoBuffer] taskId=${task.id} engine=${engine} failed after ${Date.now() - engineStart}ms: ${reason}`,
+        );
       }
     }
 
     // Keep previous fallback chain for compatibility.
     const thirdPartyEnabled = this.isThirdPartyEnabled();
     if (thirdPartyEnabled) {
+      this.logger.log(
+        `[generateVideoBuffer] taskId=${task.id} trying third-party provider`,
+      );
       try {
         await this.taskRepo.update(task.id, {
           provider: this.resolveProviderName("auto"),
@@ -409,12 +540,18 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    this.logger.log(
+      `[generateVideoBuffer] taskId=${task.id} trying local fallback (aiService.renderTeachingVideoFromPack)`,
+    );
     const localBuffer =
       await this.aiService.renderTeachingVideoFromPack(payload);
     if (localBuffer) {
       await this.taskRepo.update(task.id, {
         provider: this.resolveProviderName("auto"),
       } as any);
+      this.logger.log(
+        `[generateVideoBuffer] taskId=${task.id} local fallback succeeded, size=${localBuffer.length}`,
+      );
       return {
         buffer: localBuffer,
         providerTaskId: task.providerTaskId,
@@ -422,6 +559,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
+    this.logger.error(
+      `[generateVideoBuffer] taskId=${task.id} ALL engines failed: [${errors.join(" | ")}]`,
+    );
     throw new Error(
       `TEACHING_VIDEO_UNAVAILABLE: ${errors.join(" | ") || "all engines failed"}`,
     );
@@ -432,7 +572,15 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     payload: Record<string, any>,
   ): Promise<Buffer | null> {
     const topic = payload?.topic || "";
-    if (!topic) return null;
+    if (!topic) {
+      this.logger.warn(
+        `[generateByHyperframes] taskId=${task.id} skipped: no topic in payload`,
+      );
+      return null;
+    }
+    this.logger.log(
+      `[generateByHyperframes] taskId=${task.id} starting render, topic="${topic}", domain="${payload?.domain || "unknown"}"`,
+    );
     return this.hyperframesRender.renderLessonVideo(
       task,
       payload,
@@ -451,10 +599,21 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     payload: Record<string, any>,
   ): Promise<Buffer | null> {
     const topic = payload?.topic || "";
-    if (!topic) return null;
+    if (!topic) {
+      this.logger.warn(
+        `[generateByRemotion] taskId=${task.id} skipped: no topic in payload`,
+      );
+      return null;
+    }
+    this.logger.log(
+      `[generateByRemotion] taskId=${task.id} resolving composition, topic="${topic}", ageGroup="${payload?.ageGroup || "unknown"}"`,
+    );
 
     const { compositionId, inputProps } =
       await this.remotionRender.resolveComposition(payload, payload?.ageGroup);
+    this.logger.log(
+      `[generateByRemotion] taskId=${task.id} resolved compositionId=${compositionId}, slides=${Array.isArray(inputProps?.slides) ? inputProps.slides.length : "N/A"}`,
+    );
 
     try {
       const outputPath = path.join(
@@ -463,6 +622,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       );
       await fs.mkdir(this.storageDir, { recursive: true });
 
+      this.logger.log(
+        `[generateByRemotion] taskId=${task.id} spawning remotion render, compositionId=${compositionId}, outputPath=${outputPath}`,
+      );
       await this.remotionRender.renderComposition(
         compositionId,
         inputProps,
@@ -477,11 +639,19 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       );
 
       const buffer = await fs.readFile(outputPath);
+      this.logger.log(
+        `[generateByRemotion] taskId=${task.id} render complete, buffer=${buffer.length} bytes`,
+      );
       // Cleanup intermediate file
       try {
         await fs.unlink(outputPath);
       } catch {}
       return buffer;
+    } catch (error: any) {
+      this.logger.warn(
+        `[generateByRemotion] taskId=${task.id} render failed: ${error?.message || "unknown"}`,
+      );
+      throw error;
     } finally {
       // Cleanup temporary narration MP3 files
       await this.remotionRender.cleanupNarrationFiles(inputProps);

@@ -277,6 +277,14 @@ export default function StudentDashboard({
     [isStructuredLessonAssignment, pendingAssignments],
   );
 
+  // Debug: log rendering state
+  useEffect(() => {
+    console.log('[StudentDashboard] pendingAssignments:', pendingAssignments.length,
+      'lessonTodoEntries:', lessonTodoEntries.length,
+      'standaloneAssignments:', standaloneAssignments.length,
+      'standaloneIds:', standaloneAssignments.map(a => a.id));
+  }, [pendingAssignments.length, lessonTodoEntries.length, standaloneAssignments.length, standaloneAssignments]);
+
   const domainContentId = useMemo(() => {
     const next: Partial<Record<DomainKey, number>> = {};
     for (const content of safeContents) {

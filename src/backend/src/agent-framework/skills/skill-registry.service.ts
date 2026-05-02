@@ -7,6 +7,7 @@ import type {
 } from "../core";
 import { loadSkillsFromDirectory } from "./markdown-skill-loader";
 import * as path from "path";
+import { existsSync } from "fs";
 
 @Injectable()
 export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
@@ -15,8 +16,12 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     const builtInDir = path.join(__dirname, "definitions");
+    const configuredSkillsDir = String(process.env.SKILLS_DIR || "").trim();
+    const localSkillsDir = path.join(process.cwd(), "skills");
+    const repoSkillsDir = path.resolve(process.cwd(), "..", "..", "skills");
     const externalDir =
-      process.env.SKILLS_DIR || path.join(process.cwd(), "skills");
+      configuredSkillsDir ||
+      (existsSync(localSkillsDir) ? localSkillsDir : repoSkillsDir);
 
     const dirs = [builtInDir];
     if (externalDir !== builtInDir) {

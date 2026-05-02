@@ -13,6 +13,7 @@ export type VideoGenerationStatus =
   | "failed";
 
 export type VideoApprovalStatus = "pending_approval" | "approved" | "rejected";
+export type VideoRenderEngine = "auto" | "hyperframes" | "remotion";
 
 @Entity("video_generation_tasks")
 export class VideoGenerationTask {
@@ -30,6 +31,9 @@ export class VideoGenerationTask {
 
   @Column({ length: 80, default: "third_party" })
   provider: string;
+
+  @Column({ length: 20, default: "auto" })
+  renderEngine: VideoRenderEngine;
 
   @Column({ length: 120 })
   cacheKey: string;

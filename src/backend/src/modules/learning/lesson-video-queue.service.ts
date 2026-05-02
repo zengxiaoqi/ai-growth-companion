@@ -11,10 +11,14 @@ import { promises as fs } from "fs";
 import * as path from "path";
 import { Repository } from "typeorm";
 import { Content } from "../../database/entities/content.entity";
-import { VideoGenerationTask } from "../../database/entities/video-generation-task.entity";
+import {
+  VideoGenerationTask,
+  type VideoRenderEngine,
+} from "../../database/entities/video-generation-task.entity";
 import { suggestTemplateByDomain } from "../../animations/animation-templates";
 import { AiService } from "../ai/ai.service";
 import { RemotionRenderService } from "./remotion-render.service";
+import { HyperframesRenderService } from "./hyperframes-render.service";
 
 type ProviderStatus =
   | "queued"
@@ -22,6 +26,11 @@ type ProviderStatus =
   | "completed"
   | "failed"
   | "unknown";
+
+const FALLBACK_RENDER_ENGINES: VideoRenderEngine[] = [
+  "hyperframes",
+  "remotion",
+];
 
 @Injectable()
 export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
@@ -135,6 +144,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly contentRepo: Repository<Content>,
     private readonly aiService: AiService,
     private readonly remotionRender: RemotionRenderService,
+    private readonly hyperframesRender: HyperframesRenderService,
   ) {}
 
   onModuleInit() {
@@ -181,6 +191,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     contentId: number,
     childId: number,
     force = false,
+    renderEngine: VideoRenderEngine = "auto",
   ): Promise<VideoGenerationTask> {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
@@ -189,11 +200,13 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
     const payload = this.buildPackPayloadFromContent(content);
     const cacheKey = this.computeCacheKey(content, payload);
+    const normalizedEngine = this.normalizeRenderEngine(renderEngine);
     if (!force) {
       const reusable = await this.findReusableTask(
         contentId,
         childId,
         cacheKey,
+        normalizedEngine,
       );
       if (reusable) return reusable;
     }
@@ -202,7 +215,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       uuid: randomUUID(),
       contentId,
       childId,
-      provider: this.resolveProviderName(),
+      provider: this.resolveProviderName(normalizedEngine),
+      renderEngine: normalizedEngine,
       cacheKey,
       requestPayload: payload,
       status: "pending",
@@ -338,38 +352,98 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     providerTaskId?: string | null;
     sourceVideoUrl?: string | null;
   }> {
-    // Try Remotion rendering first (local, high quality)
-    try {
-      const remotionBuffer = await this.generateByRemotion(task, payload);
-      if (remotionBuffer) return { buffer: remotionBuffer };
-    } catch (error: any) {
-      this.logger.warn(
-        `Remotion rendering failed, falling back: ${error?.message || "unknown"}`,
-      );
-    }
+    const requestedEngine = this.normalizeRenderEngine(task.renderEngine);
+    const engineOrder = this.resolveEngineOrder(requestedEngine);
+    const errors: string[] = [];
 
-    // Try third-party API
-    const thirdPartyEnabled = this.isThirdPartyEnabled();
-    if (thirdPartyEnabled) {
+    for (const engine of engineOrder) {
       try {
-        const thirdParty = await this.generateByThirdParty(task, payload);
-        return thirdParty;
+        if (engine === "hyperframes") {
+          await this.taskRepo.update(task.id, {
+            provider: this.resolveProviderName("hyperframes"),
+            renderEngine: task.renderEngine || requestedEngine,
+          } as any);
+          const buffer = await this.generateByHyperframes(task, payload);
+          if (buffer)
+            return { buffer, providerTaskId: null, sourceVideoUrl: null };
+          errors.push("hyperframes returned empty buffer");
+          continue;
+        }
+
+        if (engine === "remotion") {
+          await this.taskRepo.update(task.id, {
+            provider: this.resolveProviderName("remotion"),
+            renderEngine: task.renderEngine || requestedEngine,
+          } as any);
+          const remotionBuffer = await this.generateByRemotion(task, payload);
+          if (remotionBuffer) {
+            return {
+              buffer: remotionBuffer,
+              providerTaskId: null,
+              sourceVideoUrl: null,
+            };
+          }
+          errors.push("remotion returned empty buffer");
+          continue;
+        }
       } catch (error: any) {
-        this.logger.warn(
-          `Third-party video generation failed: ${error?.message || "unknown"}`,
-        );
+        const reason = `${engine}: ${error?.message || "unknown"}`;
+        errors.push(reason);
+        this.logger.warn(`Video engine failed (${reason})`);
       }
     }
 
-    // Final fallback: FFmpeg-based rendering
+    // Keep previous fallback chain for compatibility.
+    const thirdPartyEnabled = this.isThirdPartyEnabled();
+    if (thirdPartyEnabled) {
+      try {
+        await this.taskRepo.update(task.id, {
+          provider: this.resolveProviderName("auto"),
+        } as any);
+        const thirdParty = await this.generateByThirdParty(task, payload);
+        return thirdParty;
+      } catch (error: any) {
+        const reason = `third-party: ${error?.message || "unknown"}`;
+        errors.push(reason);
+        this.logger.warn(`Third-party video generation failed: ${reason}`);
+      }
+    }
+
     const localBuffer =
       await this.aiService.renderTeachingVideoFromPack(payload);
-    if (!localBuffer) throw new Error("TEACHING_VIDEO_UNAVAILABLE");
-    return {
-      buffer: localBuffer,
-      providerTaskId: task.providerTaskId,
-      sourceVideoUrl: null,
-    };
+    if (localBuffer) {
+      await this.taskRepo.update(task.id, {
+        provider: this.resolveProviderName("auto"),
+      } as any);
+      return {
+        buffer: localBuffer,
+        providerTaskId: task.providerTaskId,
+        sourceVideoUrl: null,
+      };
+    }
+
+    throw new Error(
+      `TEACHING_VIDEO_UNAVAILABLE: ${errors.join(" | ") || "all engines failed"}`,
+    );
+  }
+
+  private async generateByHyperframes(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<Buffer | null> {
+    const topic = payload?.topic || "";
+    if (!topic) return null;
+    return this.hyperframesRender.renderLessonVideo(
+      task,
+      payload,
+      async (percent: number) => {
+        try {
+          await this.taskRepo.update(task.id, {
+            progress: Math.max(10, Math.min(95, percent)),
+          });
+        } catch {}
+      },
+    );
   }
 
   private async generateByRemotion(
@@ -569,9 +643,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     contentId: number,
     childId: number,
     cacheKey: string,
+    renderEngine: VideoRenderEngine,
   ): Promise<VideoGenerationTask | null> {
     const task = await this.taskRepo.findOne({
-      where: { contentId, childId, cacheKey },
+      where: { contentId, childId, cacheKey, renderEngine },
       order: { createdAt: "DESC" },
     });
     if (!task) return null;
@@ -986,8 +1061,31 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return createHash("sha1").update(seed).digest("hex");
   }
 
-  private resolveProviderName(): string {
+  private resolveProviderName(engine: VideoRenderEngine): string {
+    if (engine === "hyperframes") {
+      return String(
+        process.env.HYPERFRAMES_PROVIDER_NAME || "hyperframes",
+      ).trim();
+    }
+    if (engine === "remotion") {
+      return "remotion";
+    }
     return String(process.env.VIDEO_PROVIDER_NAME || "third_party").trim();
+  }
+
+  private normalizeRenderEngine(value: unknown): VideoRenderEngine {
+    const raw = String(value || "auto")
+      .trim()
+      .toLowerCase();
+    if (raw === "hyperframes") return "hyperframes";
+    if (raw === "remotion") return "remotion";
+    return "auto";
+  }
+
+  private resolveEngineOrder(engine: VideoRenderEngine): VideoRenderEngine[] {
+    if (engine === "hyperframes") return ["hyperframes"];
+    if (engine === "remotion") return ["remotion"];
+    return [...FALLBACK_RENDER_ENGINES];
   }
 
   private isThirdPartyEnabled(): boolean {

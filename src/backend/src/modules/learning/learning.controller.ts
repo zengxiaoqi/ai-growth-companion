@@ -29,6 +29,7 @@ import { LessonContentService } from "./lesson-content.service";
 import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { LearningService } from "./learning.service";
 import { LearningTrackerService } from "./learning-tracker.service";
+import type { VideoRenderEngine } from "../../database/entities/video-generation-task.entity";
 
 @ApiTags("学习记录")
 @Controller("learning")
@@ -409,7 +410,8 @@ export class LearningController {
   async enqueueLessonTeachingVideoTask(
     @Request() req: any,
     @Param("id") id: string,
-    @Body() body: { childId?: number; force?: boolean },
+    @Body()
+    body: { childId?: number; force?: boolean; engine?: VideoRenderEngine },
   ) {
     const resolvedChildId = this.resolveChildId(
       req,
@@ -421,6 +423,7 @@ export class LearningController {
       +id,
       resolvedChildId,
       !!body.force,
+      body?.engine || "auto",
     );
     return {
       taskId: task.id,

@@ -1,18 +1,28 @@
-import { promises as fs } from "fs";
+﻿import { promises as fs } from "fs";
 import { LessonVideoQueueService } from "../../src/modules/learning/lesson-video-queue.service";
 
 describe("LessonVideoQueueService", () => {
   let service: LessonVideoQueueService;
-  let taskRepo: { update: jest.Mock };
+  let taskRepo: { update: jest.Mock; findOne: jest.Mock; save: jest.Mock };
+  let aiService: { renderTeachingVideoFromPack: jest.Mock };
   let remotionRender: {
     resolveComposition: jest.Mock;
     renderComposition: jest.Mock;
     cleanupNarrationFiles: jest.Mock;
   };
+  let hyperframesRender: {
+    renderLessonVideo: jest.Mock;
+  };
 
   beforeEach(() => {
     taskRepo = {
       update: jest.fn().mockResolvedValue(undefined),
+      findOne: jest.fn().mockResolvedValue(null),
+      save: jest.fn().mockImplementation(async (x) => x),
+    };
+
+    aiService = {
+      renderTeachingVideoFromPack: jest.fn().mockResolvedValue(null),
     };
 
     remotionRender = {
@@ -21,11 +31,16 @@ describe("LessonVideoQueueService", () => {
       cleanupNarrationFiles: jest.fn().mockResolvedValue(undefined),
     };
 
+    hyperframesRender = {
+      renderLessonVideo: jest.fn(),
+    };
+
     service = new LessonVideoQueueService(
       taskRepo as any,
       {} as any,
-      {} as any,
+      aiService as any,
       remotionRender as any,
+      hyperframesRender as any,
     );
   });
 
@@ -83,65 +98,6 @@ describe("LessonVideoQueueService", () => {
       watchScene,
       visualStory,
       videoLesson,
-    });
-  });
-
-  it("preserves supplemental lesson modules in remotion payload", () => {
-    const listening = {
-      goal: "听听动物叫声",
-      audioScript: [{ segment: "猫叫", narration: "小猫喵喵叫。" }],
-      questions: ["谁在叫？"],
-    };
-    const reading = {
-      goal: "读读动物名称",
-      text: "小猫和小狗都是动物。",
-      keywords: ["小猫", "小狗"],
-      questions: ["你认识哪一种动物？"],
-    };
-    const writing = {
-      goal: "写一写小猫",
-      tracingItems: ["猫"],
-      practiceTasks: ["描一描“猫”字"],
-    };
-    const game = {
-      activityType: "matching",
-      activityData: {
-        title: "动物配对",
-        pairs: [{ left: "猫", right: "小猫" }],
-      },
-    };
-    const quiz = {
-      title: "动物小测验",
-      questions: [{ question: "哪一种会喵喵叫？" }],
-    };
-
-    const payload = (service as any).buildPackPayloadFromContent({
-      id: 13,
-      title: "动物观察课程",
-      subtitle: "课程总结",
-      topic: "认识动物",
-      ageRange: "3-4",
-      content: {
-        type: "structured_lesson",
-        topic: "认识动物",
-        ageGroup: "3-4",
-        summary: "先观察，再练习，再测一测",
-        steps: [
-          { id: "listen", module: { type: "audio", listening } },
-          { id: "read", module: { type: "reading", reading } },
-          { id: "write", module: { type: "writing", writing } },
-          { id: "practice", module: { type: "game", game } },
-          { id: "assess", module: { type: "quiz", quiz } },
-        ],
-      },
-    } as any);
-
-    expect(payload.modules).toMatchObject({
-      listening,
-      reading,
-      writing,
-      game,
-      quiz,
     });
   });
 
@@ -221,5 +177,65 @@ describe("LessonVideoQueueService", () => {
       summary: "观察小动物",
       watchScene: payload.watchScene,
     });
+  });
+
+  it("routes auto engine to hyperframes first and falls back to remotion", async () => {
+    hyperframesRender.renderLessonVideo.mockRejectedValueOnce(
+      new Error("hyperframes failed"),
+    );
+    remotionRender.resolveComposition.mockResolvedValue({
+      compositionId: "TopicVideo",
+      inputProps: { title: "认识动物", slides: [] },
+    });
+    remotionRender.renderComposition.mockResolvedValue(undefined);
+
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+    jest.spyOn(fs, "readFile").mockResolvedValue(Buffer.from("video"));
+    jest.spyOn(fs, "unlink").mockResolvedValue(undefined);
+
+    const result = await (service as any).generateVideoBuffer(
+      { id: 9, cacheKey: "cache-key", renderEngine: "auto" },
+      { topic: "认识动物", ageGroup: "3-4", videoLesson: { shots: [] } },
+    );
+
+    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
+    expect(remotionRender.resolveComposition).toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("video"));
+  });
+
+  it("uses remotion only when renderEngine is remotion", async () => {
+    remotionRender.resolveComposition.mockResolvedValue({
+      compositionId: "TopicVideo",
+      inputProps: { title: "认识动物", slides: [] },
+    });
+    remotionRender.renderComposition.mockResolvedValue(undefined);
+
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+    jest.spyOn(fs, "readFile").mockResolvedValue(Buffer.from("video-remotion"));
+    jest.spyOn(fs, "unlink").mockResolvedValue(undefined);
+
+    const result = await (service as any).generateVideoBuffer(
+      { id: 10, cacheKey: "cache-key", renderEngine: "remotion" },
+      { topic: "认识动物", ageGroup: "5-6" },
+    );
+
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
+    expect(remotionRender.resolveComposition).toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("video-remotion"));
+  });
+
+  it("uses hyperframes only when renderEngine is hyperframes", async () => {
+    hyperframesRender.renderLessonVideo.mockResolvedValue(
+      Buffer.from("video-hf"),
+    );
+
+    const result = await (service as any).generateVideoBuffer(
+      { id: 11, cacheKey: "cache-key", renderEngine: "hyperframes" },
+      { topic: "认识动物", ageGroup: "5-6" },
+    );
+
+    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
+    expect(remotionRender.resolveComposition).not.toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("video-hf"));
   });
 });

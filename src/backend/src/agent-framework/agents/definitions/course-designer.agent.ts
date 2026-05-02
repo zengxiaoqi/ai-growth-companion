@@ -34,6 +34,7 @@ function buildCourseDesignerPrompt(context: AgentContext): string {
     context.ageGroup !== "parent" ? `- ageGroup: ${context.ageGroup}` : "",
     "- Always specify ageGroup and topic when calling generateCoursePack.",
     "- Generate age-appropriate content.",
+    "- If the parent asks to create a teaching video task, call enqueueTeachingVideo with lessonId.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -49,7 +50,12 @@ export const courseDesignerDefinition: AgentDefinition = {
 
   buildSystemPrompt: buildCourseDesignerPrompt,
 
-  allowedTools: ["generateCoursePack", "generateActivity", "searchContent"],
+  allowedTools: [
+    "generateCoursePack",
+    "generateActivity",
+    "searchContent",
+    "enqueueTeachingVideo",
+  ],
 
   disallowedTools: [],
 
@@ -57,6 +63,8 @@ export const courseDesignerDefinition: AgentDefinition = {
     "course-pack-flow",
     "activity-validation",
     "remotion-video-creation",
+    "hyperframes-video-creation",
+    "video-generation-orchestrator",
   ],
 
   maxIterations: 5,

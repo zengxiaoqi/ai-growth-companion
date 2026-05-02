@@ -33,6 +33,7 @@ import { ViewReportTool } from "./agent/tools/view-report";
 import { ViewAbilitiesTool } from "./agent/tools/view-abilities";
 import { UpdateParentControlTool } from "./agent/tools/update-parent-control";
 import { ListAssignmentsTool } from "./agent/tools/list-assignments";
+import { EnqueueTeachingVideoTool } from "./agent/tools/enqueue-teaching-video";
 import { GenerateCoursePackTool as LegacyGenerateCoursePackTool } from "./agent/tools/generate-course-pack";
 import { GenerateVideoDataTool } from "./agent/tools/generate-video-data";
 import { ReportModule } from "../report/report.module";
@@ -58,6 +59,7 @@ import { GenerateVideoDataTool as FwGenerateVideoData } from "../../agent-framew
 import { GenerateActivityTool as FwGenerateActivity } from "../../agent-framework/tools/impl/generate-activity";
 import { AssignActivityTool as FwAssignActivity } from "../../agent-framework/tools/impl/assign-activity";
 import { GenerateCoursePackTool as FwGenerateCoursePack } from "../../agent-framework/tools/impl/generate-course-pack";
+import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from "../../agent-framework/tools/impl/enqueue-teaching-video";
 
 @Module({
   imports: [
@@ -99,6 +101,7 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from "../../agent-fram
     ViewAbilitiesTool,
     UpdateParentControlTool,
     ListAssignmentsTool,
+    EnqueueTeachingVideoTool,
     LegacyGenerateCoursePackTool,
     GenerateVideoDataTool,
     // Framework tools — providers declared here so their service dependencies resolve
@@ -118,6 +121,7 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from "../../agent-fram
     FwGenerateVideoData,
     FwGenerateActivity,
     FwAssignActivity,
+    FwEnqueueTeachingVideo,
     // Provide legacy course pack tool as the backing implementation
     {
       provide: FwGenerateCoursePack,

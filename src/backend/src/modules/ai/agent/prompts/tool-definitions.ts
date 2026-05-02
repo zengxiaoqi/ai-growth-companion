@@ -358,6 +358,35 @@ export const toolDefinitions: ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "enqueueTeachingVideo",
+      description:
+        "Create an async teaching-video generation task and return taskId immediately. Default engine is auto (prefer HyperFrames, fallback to Remotion).",
+      parameters: {
+        type: "object",
+        properties: {
+          lessonId: {
+            type: "number",
+            description: "Lesson content ID to generate video for",
+          },
+          childId: { type: "number", description: "Child user ID" },
+          engine: {
+            type: "string",
+            enum: ["auto", "hyperframes", "remotion"],
+            description: "Render engine selection, default auto",
+          },
+          force: {
+            type: "boolean",
+            description:
+              "Whether to force a new task and ignore reusable cached results",
+          },
+        },
+        required: ["lessonId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "generateCoursePack",
       description:
         "Generate a complete home-learning course pack from one parent sentence, including listening/speaking/reading/writing modules, game data, visual-story prompts, and video storyboard.",

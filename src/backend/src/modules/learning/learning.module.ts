@@ -15,6 +15,7 @@ import { LearningArchiveService } from "./learning-archive.service";
 import { LessonContentService } from "./lesson-content.service";
 import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { RemotionRenderService } from "./remotion-render.service";
+import { HyperframesRenderService } from "./hyperframes-render.service";
 import { LearningController } from "./learning.controller";
 import { SseModule } from "../sse/sse.module";
 import { AchievementsModule } from "../achievements/achievements.module";
@@ -54,6 +55,7 @@ import { VoiceModule } from "../voice/voice.module";
     LessonContentService,
     LessonVideoQueueService,
     RemotionRenderService,
+    HyperframesRenderService,
   ],
   controllers: [LearningController],
   exports: [
@@ -63,6 +65,7 @@ import { VoiceModule } from "../voice/voice.module";
     LessonContentService,
     LessonVideoQueueService,
     RemotionRenderService,
+    HyperframesRenderService,
   ],
 })
 export class LearningModule {}

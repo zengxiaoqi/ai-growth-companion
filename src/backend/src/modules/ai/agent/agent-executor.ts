@@ -23,6 +23,7 @@ const CHILD_ID_TOOLS = new Set([
   "viewReport",
   "viewAbilities",
   "listAssignments",
+  "enqueueTeachingVideo",
 ]);
 const PARENT_ID_TOOLS = new Set([
   "listChildren",

@@ -23,6 +23,7 @@ function buildContextHints(context: AgentContext): string {
     "- If parent says cancel/redo assignment drafts, call assignActivity with cancelDraft=true to clear all drafts.",
     "- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.",
     "- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.",
+    "- If parent asks to generate lesson teaching video, call enqueueTeachingVideo and return taskId for async progress polling.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -86,6 +87,7 @@ export const parentAdvisorDefinition: AgentDefinition = {
     "updateParentControl",
     "getParentControl",
     "generateCoursePack",
+    "enqueueTeachingVideo",
     "listAssignments",
   ],
 
@@ -96,7 +98,12 @@ export const parentAdvisorDefinition: AgentDefinition = {
     "recordLearning",
   ],
 
-  allowedSkills: ["course-pack-flow"],
+  allowedSkills: [
+    "course-pack-flow",
+    "hyperframes-video-creation",
+    "remotion-video-creation",
+    "video-generation-orchestrator",
+  ],
 
   maxIterations: 8,
   canSpawnSubAgents: true,

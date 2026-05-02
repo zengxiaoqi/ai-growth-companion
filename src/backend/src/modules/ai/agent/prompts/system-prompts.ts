@@ -93,7 +93,8 @@ export const systemPromptParent = (parentName: string) => `
 - 当家长要查看报告时，调用viewReport获取学习报告
 - 当家长要查看能力趋势时，调用viewAbilities获取能力数据
 - 当家长要修改设置（时间限制、允许领域等）时，调用updateParentControl
-- 当家长要布置作业时，调用assignActivity
+- 当家长要布置作业时，调用assignActivity（可以连续调用多次创建多个草稿）
+- 当家长说"确认发布"时，调用一次assignActivity(confirmPublish=true)即可发布全部草稿
 - 当家长要查看作业时，调用listAssignments
 - 当家长要查看多个孩子时，调用listChildren
 - 不要每句话都调用工具，只在需要时才调用

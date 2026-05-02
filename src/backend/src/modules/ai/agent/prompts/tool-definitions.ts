@@ -186,7 +186,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     function: {
       name: "assignActivity",
       description:
-        "Parent assignment flow: draft first, then confirm publish, and support canceling draft.",
+        "Parent assignment flow: call multiple times to batch-create drafts (confirmPublish=false), then call once with confirmPublish=true to publish ALL drafts at once. Also supports canceling all drafts (cancelDraft=true).",
       parameters: {
         type: "object",
         properties: {
@@ -229,11 +229,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
           confirmPublish: {
             type: "boolean",
             description:
-              "false/omit=create draft, true=publish confirmed draft",
+              "false/omit=create draft, true=publish ALL confirmed drafts at once",
           },
           cancelDraft: {
             type: "boolean",
-            description: "Whether to cancel current pending draft",
+            description: "Whether to cancel all pending drafts",
           },
         },
         required: [],

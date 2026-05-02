@@ -24,7 +24,9 @@ export class UsersService {
   }
 
   /** 获取用户信息（过滤密码哈希和 PIN） */
-  async findSafeById(id: number): Promise<Omit<User, "password" | "pin"> | null> {
+  async findSafeById(
+    id: number,
+  ): Promise<Omit<User, "password" | "pin"> | null> {
     const user = await this.usersRepository.findOne({
       where: { id },
       select: {
@@ -48,7 +50,9 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { phone } });
   }
 
-  async findByParentId(parentId: number): Promise<Omit<User, "password" | "pin">[]> {
+  async findByParentId(
+    parentId: number,
+  ): Promise<Omit<User, "password" | "pin">[]> {
     return this.usersRepository.find({
       where: { parentId },
       select: {

@@ -18,6 +18,8 @@ type PendingAssignmentDraft = {
 };
 
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+const DRAFTS_METADATA_KEY = "pendingAssignmentDrafts";
+const MAX_DRAFTS_PER_CONVERSATION = 10;
 
 @Injectable()
 export class AssignActivityTool {
@@ -49,41 +51,58 @@ export class AssignActivityTool {
       }
 
       if (args.cancelDraft) {
-        await this.saveDraft(conversationId, null);
+        await this.saveDrafts(conversationId, []);
         return JSON.stringify({
           status: "draft_cleared",
-          message: "已取消当前作业草稿",
+          message: "已取消全部作业草稿",
         });
       }
 
       if (args.confirmPublish) {
-        const draft = await this.loadValidDraft(conversationId);
-        if (!draft) {
+        const drafts = await this.loadValidDrafts(conversationId);
+        if (!drafts.length) {
           return JSON.stringify({
             error: "未找到可发布的作业草稿，请先生成草稿",
           });
         }
 
-        const assignment = await this.assignmentService.create({
-          parentId: draft.parentId,
-          childId: draft.childId,
-          activityType: draft.activityType,
-          activityData: draft.activityData,
-          domain: draft.domain,
-          difficulty: draft.difficulty,
-          dueDate: args.dueDate ?? draft.dueDate,
-        });
+        const results: Array<{
+          status: string;
+          assignmentId?: number;
+          topic: string;
+          activityType: string;
+          message: string;
+        }> = [];
 
-        await this.saveDraft(conversationId, null);
+        for (const draft of drafts) {
+          const assignment = await this.assignmentService.create({
+            parentId: draft.parentId,
+            childId: draft.childId,
+            activityType: draft.activityType,
+            activityData: draft.activityData,
+            domain: draft.domain,
+            difficulty: draft.difficulty,
+            dueDate: draft.dueDate,
+          });
+          results.push({
+            status: "published",
+            assignmentId: assignment.id,
+            topic: draft.topic,
+            activityType: draft.activityType,
+            message: "作业已发布",
+          });
+        }
+
+        await this.saveDrafts(conversationId, []);
         return JSON.stringify({
-          status: "published",
-          assignmentId: assignment.id,
-          topic: draft.topic,
-          activityType: draft.activityType,
-          message: "作业已发布",
+          status: "batch_published",
+          count: results.length,
+          assignments: results,
+          message: `已发布${results.length}个作业`,
         });
       }
 
+      // --- Draft creation mode ---
       if (!Number.isFinite(Number(args.childId))) {
         return JSON.stringify({
           status: "needs_child_selection",
@@ -129,11 +148,14 @@ export class AssignActivityTool {
         expiresAt: new Date(Date.now() + DRAFT_TTL_MS).toISOString(),
       };
 
-      await this.saveDraft(conversationId, draft);
+      const existing = await this.loadValidDrafts(conversationId);
+      const updated = [...existing, draft].slice(-MAX_DRAFTS_PER_CONVERSATION);
+      await this.saveDrafts(conversationId, updated);
 
       return JSON.stringify({
         status: "draft_ready",
         message: "作业草稿已生成，请确认后发布",
+        totalDrafts: updated.length,
         draft: {
           childId: draft.childId,
           topic: draft.topic,
@@ -151,30 +173,39 @@ export class AssignActivityTool {
     }
   }
 
-  private async loadValidDraft(
+  private async loadValidDrafts(
     conversationId: string,
-  ): Promise<PendingAssignmentDraft | null> {
+  ): Promise<PendingAssignmentDraft[]> {
     const conversation =
       await this.conversationManager.getConversationByUuid(conversationId);
-    const draft = (conversation?.metadata?.pendingAssignmentDraft ||
-      null) as PendingAssignmentDraft | null;
-    if (!draft) return null;
-
-    const expiresAt = new Date(draft.expiresAt).getTime();
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      await this.saveDraft(conversationId, null);
-      return null;
+    const raw = conversation?.metadata?.[DRAFTS_METADATA_KEY];
+    if (!Array.isArray(raw)) {
+      const legacyDraft = conversation?.metadata?.pendingAssignmentDraft;
+      if (legacyDraft) {
+        return [legacyDraft as PendingAssignmentDraft].filter((d) =>
+          this.isDraftValid(d),
+        );
+      }
+      return [];
     }
 
-    return draft;
+    return (raw as PendingAssignmentDraft[]).filter((d) =>
+      this.isDraftValid(d),
+    );
   }
 
-  private async saveDraft(
+  private isDraftValid(draft: PendingAssignmentDraft): boolean {
+    const expiresAt = new Date(draft.expiresAt).getTime();
+    return Number.isFinite(expiresAt) && expiresAt > Date.now();
+  }
+
+  private async saveDrafts(
     conversationId: string,
-    draft: PendingAssignmentDraft | null,
+    drafts: PendingAssignmentDraft[],
   ): Promise<void> {
     await this.conversationManager.updateMetadata(conversationId, {
-      pendingAssignmentDraft: draft,
+      [DRAFTS_METADATA_KEY]: drafts,
+      pendingAssignmentDraft: drafts.length === 1 ? drafts[0] : null,
     });
   }
 

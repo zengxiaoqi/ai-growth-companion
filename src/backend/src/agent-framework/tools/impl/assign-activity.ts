@@ -42,6 +42,8 @@ type PendingAssignmentDraft = {
 };
 
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+const DRAFTS_METADATA_KEY = "pendingAssignmentDrafts";
+const MAX_DRAFTS_PER_CONVERSATION = 10;
 
 const ACTIVITY_TYPE_NAMES: Record<string, string> = {
   quiz: "选择题",
@@ -123,15 +125,15 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
     }
 
     if (args.cancelDraft) {
-      await this.saveDraft(conversationId, null);
+      await this.saveDrafts(conversationId, []);
       return this.ok({
         status: "draft_cleared",
-        message: "已取消当前作业草稿。需要时我可以重新生成。",
+        message: "已取消全部作业草稿。需要时我可以重新生成。",
       });
     }
 
     if (args.confirmPublish) {
-      return this.publishDraft(args, context, parentId);
+      return this.publishDrafts(args, context, parentId);
     }
 
     return this.createDraft(args, context, parentId);
@@ -190,11 +192,14 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
       activityData: activityResult.data as Record<string, any>,
     });
 
-    await this.saveDraft(context.conversationId, draft);
+    const existing = await this.loadValidDrafts(context.conversationId);
+    const updated = [...existing, draft].slice(-MAX_DRAFTS_PER_CONVERSATION);
+    await this.saveDrafts(context.conversationId, updated);
 
     return this.ok({
       status: "draft_ready",
-      message: "作业草稿已生成。若确认发布，请回复“确认发布”。",
+      message: '作业草稿已生成。若确认发布，请回复"确认发布"。',
+      totalDrafts: updated.length,
       draft: {
         childId: draft.childId,
         activityType: draft.activityType,
@@ -210,37 +215,77 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
     });
   }
 
-  private async publishDraft(
+  private async publishDrafts(
     args: AssignActivityInput,
     context: ToolExecutionContext,
     parentId: number,
   ): Promise<ToolResult> {
-    const storedDraft = await this.loadValidDraft(context.conversationId);
-    const payload = this.resolvePublishPayload(args, parentId, storedDraft);
+    const drafts = await this.loadValidDrafts(context.conversationId);
 
-    if (!payload) {
-      return this.fail("未找到可发布的作业草稿，请先让我生成草稿。");
+    if (!drafts.length) {
+      const singleFallback = await this.loadValidDraft(context.conversationId);
+      const payload = this.resolvePublishPayload(
+        args,
+        parentId,
+        singleFallback,
+      );
+      if (!payload) {
+        return this.fail("未找到可发布的作业草稿，请先让我生成草稿。");
+      }
+      const assignment = await this.assignmentService.create({
+        parentId: payload.parentId,
+        childId: payload.childId,
+        activityType: payload.activityType,
+        activityData: payload.activityData,
+        domain: payload.domain,
+        difficulty: payload.difficulty,
+        dueDate: payload.dueDate,
+      });
+      await this.saveDrafts(context.conversationId, []);
+      return this.ok({
+        status: "published",
+        assignmentId: assignment.id,
+        message: `作业已发布：${payload.topic}（${ACTIVITY_TYPE_NAMES[payload.activityType] || payload.activityType}）`,
+        childId: payload.childId,
+        activityType: payload.activityType,
+        topic: payload.topic,
+      });
     }
 
-    const assignment = await this.assignmentService.create({
-      parentId: payload.parentId,
-      childId: payload.childId,
-      activityType: payload.activityType,
-      activityData: payload.activityData,
-      domain: payload.domain,
-      difficulty: payload.difficulty,
-      dueDate: payload.dueDate,
-    });
+    const results: Array<{
+      status: string;
+      assignmentId?: number;
+      topic: string;
+      activityType: string;
+      message: string;
+    }> = [];
 
-    await this.saveDraft(context.conversationId, null);
+    for (const d of drafts) {
+      const assignment = await this.assignmentService.create({
+        parentId: d.parentId,
+        childId: d.childId,
+        activityType: d.activityType,
+        activityData: d.activityData,
+        domain: d.domain,
+        difficulty: d.difficulty,
+        dueDate: args.dueDate ?? d.dueDate,
+      });
+      results.push({
+        status: "published",
+        assignmentId: assignment.id,
+        topic: d.topic,
+        activityType: d.activityType,
+        message: `作业已发布：${d.topic}（${ACTIVITY_TYPE_NAMES[d.activityType] || d.activityType}）`,
+      });
+    }
+
+    await this.saveDrafts(context.conversationId, []);
 
     return this.ok({
-      status: "published",
-      assignmentId: assignment.id,
-      message: `作业已发布：${payload.topic}（${ACTIVITY_TYPE_NAMES[payload.activityType] || payload.activityType}）`,
-      childId: payload.childId,
-      activityType: payload.activityType,
-      topic: payload.topic,
+      status: "batch_published",
+      count: results.length,
+      assignments: results,
+      message: `已发布${results.length}个作业`,
     });
   }
 
@@ -305,6 +350,20 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
     });
   }
 
+  private async loadValidDrafts(
+    conversationId: string,
+  ): Promise<PendingAssignmentDraft[]> {
+    const conversation =
+      await this.conversationManager.getConversationByUuid(conversationId);
+    const raw = conversation?.metadata?.[DRAFTS_METADATA_KEY];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return (raw as PendingAssignmentDraft[]).filter((d) =>
+      this.isDraftValid(d),
+    );
+  }
+
   private async loadValidDraft(
     conversationId: string,
   ): Promise<PendingAssignmentDraft | null> {
@@ -314,22 +373,27 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
       null) as PendingAssignmentDraft | null;
     if (!draft) return null;
 
-    const expiresAt = new Date(draft.expiresAt).getTime();
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      await this.saveDraft(conversationId, null);
+    if (!this.isDraftValid(draft)) {
+      await this.saveDrafts(conversationId, []);
       return null;
     }
 
     return draft;
   }
 
-  private async saveDraft(
+  private isDraftValid(draft: PendingAssignmentDraft): boolean {
+    const expiresAt = new Date(draft.expiresAt).getTime();
+    return Number.isFinite(expiresAt) && expiresAt > Date.now();
+  }
+
+  private async saveDrafts(
     conversationId: string,
-    draft: PendingAssignmentDraft | null,
+    drafts: PendingAssignmentDraft[],
   ): Promise<void> {
     try {
       await this.conversationManager.updateMetadata(conversationId, {
-        pendingAssignmentDraft: draft,
+        [DRAFTS_METADATA_KEY]: drafts,
+        pendingAssignmentDraft: drafts.length === 1 ? drafts[0] : null,
       });
     } catch (error: any) {
       this.logger.warn(

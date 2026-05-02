@@ -113,7 +113,7 @@ export class ConversationManager {
   /** Build the message array for LLM from conversation history */
   async buildMessageArray(
     sessionId: string,
-    maxMessages = 20,
+    maxMessages = 50,
   ): Promise<ChatCompletionMessageParam[]> {
     const session = this.activeSessions.get(sessionId);
     if (!session) return [];

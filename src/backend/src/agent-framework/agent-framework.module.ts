@@ -87,7 +87,6 @@ import { videoGeneratorDefinition } from "./agents/definitions/video-generator.a
   exports: [
     OrchestratorService,
     AgentExecutorService,
-    AgentRegistryService,
     SubAgentFactory,
     SkillRegistryModule,
     SkillExecutor,

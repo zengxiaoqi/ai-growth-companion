@@ -76,6 +76,12 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **Database resets:** Delete `lingxi.db` and restart backend to reset. The seeder runs automatically when the DB is empty.
 - **API prefix:** All backend routes are under `/api/`.
 
+## Task Closure
+
+- When a task changes files, finish by checking `git status`, then stage and commit the work with a concise conventional message.
+- On Windows, prefer `powershell -ExecutionPolicy Bypass -File scripts/codex-commit.ps1 -Message "<message>"` for the final commit.
+- Do not commit if the user explicitly asks to keep the changes local or wants a review first.
+
 ## gstack
 
 Use the `/browse` skill from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.

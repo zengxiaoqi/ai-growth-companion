@@ -286,31 +286,31 @@ export class VideoGenerationAgentService {
   private getFilteredToolDefinitions(
     definition: AgentDefinition,
   ): any[] | undefined {
-    return (this.executorService as any).toolRegistry.getToolDefinitions(
-      (tool: any) => {
-        const { allowedTools, disallowedTools } = definition;
-        if (
-          allowedTools &&
-          allowedTools.length > 0 &&
-          !allowedTools.includes(tool.metadata.name)
-        )
-          return false;
-        if (disallowedTools && disallowedTools.includes(tool.metadata.name))
-          return false;
-        return true;
-      },
-    );
+    return this.toolRegistry.getToolDefinitions((tool: any) => {
+      const { allowedTools, disallowedTools } = definition;
+      if (
+        allowedTools &&
+        allowedTools.length > 0 &&
+        !allowedTools.includes(tool.metadata.name)
+      )
+        return false;
+      if (disallowedTools && disallowedTools.includes(tool.metadata.name))
+        return false;
+      return true;
+    });
   }
 
   private extractStoryboard(
     toolCalls: AgentVideoResult["toolCalls"],
   ): VideoStoryboard | null {
-    for (const call of toolCalls) {
+    for (let i = toolCalls.length - 1; i >= 0; i -= 1) {
+      const call = toolCalls[i];
       if (call.tool !== "generateVideoContent") continue;
       try {
-        const parsed = JSON.parse(call.result);
-        if (parsed?.success && parsed?.data) {
-          return parsed.data as VideoStoryboard;
+        const parsed = this.parseToolResult(call.result);
+        const storyboard = this.unwrapToolData(parsed);
+        if (this.isVideoStoryboard(storyboard)) {
+          return storyboard;
         }
       } catch {
         // continue
@@ -328,12 +328,15 @@ export class VideoGenerationAgentService {
       const call = toolCalls[i];
       if (call.tool !== "reviewVideoQuality") continue;
       try {
-        const parsed = JSON.parse(call.result);
-        if (parsed?.success && parsed?.data) {
+        const parsed = this.parseToolResult(call.result);
+        const data = this.unwrapToolData(parsed);
+        if (data && typeof data === "object") {
           return {
-            passed: Boolean(parsed.data.passed),
-            score: Number(parsed.data.score) || 0,
-            issues: Array.isArray(parsed.data.issues) ? parsed.data.issues : [],
+            passed: Boolean((data as any).passed),
+            score: Number((data as any).score) || 0,
+            issues: Array.isArray((data as any).issues)
+              ? (data as any).issues
+              : [],
           };
         }
       } catch {
@@ -341,5 +344,36 @@ export class VideoGenerationAgentService {
       }
     }
     return { passed: false, score: 0, issues: ["no quality review performed"] };
+  }
+
+  private parseToolResult(result: string): unknown {
+    return JSON.parse(result);
+  }
+
+  /**
+   * AgentExecutorService stores tool callback results as JSON.stringify(result.data).
+   * Older bridge code expected the full ToolResult wrapper ({ success, data }), so
+   * keep both shapes here for tests and any direct callers that still use wrappers.
+   */
+  private unwrapToolData(parsed: unknown): unknown {
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "success" in parsed &&
+      "data" in parsed
+    ) {
+      return (parsed as any).success ? (parsed as any).data : null;
+    }
+    return parsed;
+  }
+
+  private isVideoStoryboard(value: unknown): value is VideoStoryboard {
+    return (
+      !!value &&
+      typeof value === "object" &&
+      typeof (value as any).topic === "string" &&
+      Array.isArray((value as any).scenes) &&
+      (value as any).scenes.length > 0
+    );
   }
 }

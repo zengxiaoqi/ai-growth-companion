@@ -1,6 +1,9 @@
 import { RemotionRenderService } from "../../src/modules/learning/remotion-render.service";
 import { GenerateVideoDataTool } from "../../src/modules/ai/agent/tools/generate-video-data";
 import { VoiceService } from "../../src/modules/voice/voice.service";
+import { promises as fs } from "fs";
+import * as os from "os";
+import * as path from "path";
 
 describe("RemotionRenderService", () => {
   let service: RemotionRenderService;
@@ -324,5 +327,57 @@ describe("RemotionRenderService", () => {
         ],
       },
     });
+  });
+
+  it("does not attach narrationSrc when dynamic TTS returns a zero-byte buffer", async () => {
+    let renderedProps: any = null;
+    jest
+      .spyOn(service as any, "runGeneratedRemotionRender")
+      .mockImplementation(
+        async (
+          _entryPath: string,
+          _compositionId: string,
+          _outputPath: string,
+          propsPath: string,
+        ) => {
+          renderedProps = JSON.parse(await fs.readFile(propsPath, "utf-8"));
+        },
+      );
+
+    await service.renderGeneratedComposition(
+      { id: 77, cacheKey: "cache-key" } as any,
+      {
+        compositionId: "GeneratedLesson_tiger",
+        files: [
+          { path: "index.ts", content: "export {};" },
+          { path: "Root.tsx", content: "export {};" },
+          { path: "GeneratedLesson.tsx", content: "export {};" },
+        ],
+        props: {
+          title: "认识动物老虎",
+          durationFrames: 180,
+          scenes: [
+            {
+              id: "scene-1",
+              title: "老虎条纹",
+              narration: "老虎身上有黑色条纹。",
+              generatedVisual: "tiger-showFeatures-forest-stripe",
+              durationFrames: 180,
+            },
+          ],
+        },
+        durationFrames: 180,
+        sceneAssetSummary: [
+          {
+            title: "老虎条纹",
+            generatedVisual: "tiger-showFeatures-forest-stripe",
+          },
+        ],
+      },
+      path.join(os.tmpdir(), "dynamic-remotion-empty-audio.mp4"),
+    );
+
+    expect(voiceService.textToSpeech).toHaveBeenCalledTimes(2);
+    expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
   });
 });

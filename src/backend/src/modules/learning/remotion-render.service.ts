@@ -10,6 +10,8 @@ import {
 } from "../ai/agent/tools/generate-video-data";
 import { VoiceService } from "../voice/voice.service";
 import { deriveWatchSceneDocument } from "./lesson-scene";
+import type { VideoGenerationTask } from "../../database/entities/video-generation-task.entity";
+import type { DynamicRemotionManifest } from "./video-generation-agent.service";
 
 export type ResolvedComposition = {
   compositionId: string;
@@ -1061,6 +1063,12 @@ export class RemotionRenderService {
     return text || fallback;
   }
 
+  private toInt(value: unknown, fallback: number, min: number, max: number) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, Math.trunc(parsed)));
+  }
+
   /** Truncate at the last complete sentence within the limit */
   private truncateAtSentenceEnd(text: string, maxLen: number): string {
     if (text.length <= maxLen) return text;
@@ -1246,6 +1254,257 @@ export class RemotionRenderService {
           // best effort cleanup
         }
       }
+    }
+  }
+
+  async renderGeneratedComposition(
+    task: VideoGenerationTask,
+    manifest: DynamicRemotionManifest,
+    outputPath: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    const taskName = `task-${task.id}-${Date.now()}`;
+    const taskDir = path.join(
+      this.remotionDir,
+      ".generated",
+      "remotion-tasks",
+      taskName,
+    );
+    const publicTaskDir = path.join(
+      this.remotionDir,
+      "public",
+      ".generated",
+      "remotion-tasks",
+      taskName,
+    );
+    const publicTaskRel = `.generated/remotion-tasks/${taskName}`;
+
+    try {
+      await fs.mkdir(taskDir, { recursive: true });
+      await fs.mkdir(publicTaskDir, { recursive: true });
+
+      const props = await this.prepareGeneratedPropsWithAudio(
+        task.id,
+        manifest,
+        publicTaskDir,
+        publicTaskRel,
+      );
+
+      for (const file of manifest.files) {
+        const target = this.resolveGeneratedFilePath(taskDir, file.path);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        await fs.writeFile(target, file.content, "utf-8");
+      }
+
+      const propsPath = path.join(taskDir, "props.json");
+      await fs.writeFile(propsPath, JSON.stringify(props), "utf-8");
+      const entryPath = path.join(taskDir, "index.ts");
+
+      this.logger.log(
+        `[renderGeneratedComposition] taskId=${task.id} dynamicRemotion=true compositionId=${manifest.compositionId}, files=${manifest.files.length}, scenes=${Array.isArray(props.scenes) ? props.scenes.length : 0}, outputPath=${outputPath}`,
+      );
+      await this.runGeneratedRemotionRender(
+        entryPath,
+        manifest.compositionId,
+        outputPath,
+        propsPath,
+        onProgress,
+      );
+    } finally {
+      await this.safeRemove(taskDir);
+      await this.safeRemove(publicTaskDir);
+    }
+  }
+
+  private async prepareGeneratedPropsWithAudio(
+    taskId: number,
+    manifest: DynamicRemotionManifest,
+    publicTaskDir: string,
+    publicTaskRel: string,
+  ): Promise<Record<string, any>> {
+    const props = JSON.parse(JSON.stringify(manifest.props || {}));
+    const scenes = Array.isArray(props.scenes) ? props.scenes : [];
+
+    let audioCount = 0;
+    for (let index = 0; index < scenes.length; index += 1) {
+      const scene = scenes[index];
+      const narration = this.toText(scene?.narration);
+      if (!narration) continue;
+
+      const audio = await this.tryGenerateNarrationAudio(
+        narration,
+        `${scene?.title || `scene-${index + 1}`}`,
+      );
+      if (!audio) {
+        this.logger.warn(
+          `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" generatedVisual=${scene?.generatedVisual || ""} audioBytes=0`,
+        );
+        continue;
+      }
+
+      const hash = createHash("sha1")
+        .update(`${index}:${narration}`)
+        .digest("hex")
+        .slice(0, 12);
+      const filename = `narration-${index + 1}-${hash}.mp3`;
+      await fs.writeFile(path.join(publicTaskDir, filename), audio.buffer);
+
+      scene.audioSrc = `${publicTaskRel}/${filename}`;
+      scene.durationFrames = Math.max(
+        Number(scene.durationFrames) || 0,
+        audio.durationFrames,
+      );
+      audioCount += 1;
+      this.logger.log(
+        `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" template=${scene?.template || ""} generatedVisual=${scene?.generatedVisual || ""} audioBytes=${audio.buffer.length}`,
+      );
+    }
+
+    props.scenes = scenes;
+    props.durationFrames = Math.max(
+      Number(props.durationFrames) || 0,
+      scenes.reduce(
+        (sum: number, scene: any) =>
+          sum + Math.max(90, Number(scene?.durationFrames) || 180),
+        0,
+      ),
+    );
+
+    this.logger.log(
+      `[renderGeneratedComposition] narration audio generated for ${audioCount}/${scenes.length} dynamic scenes`,
+    );
+    return props;
+  }
+
+  private async tryGenerateNarrationAudio(
+    narration: string,
+    label: string,
+  ): Promise<{ buffer: Buffer; durationFrames: number } | null> {
+    const minBytes = this.toInt(
+      process.env.REMOTION_TTS_MIN_BYTES,
+      1024,
+      1,
+      1024 * 1024,
+    );
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const buffer = await this.voiceService.textToSpeech(narration);
+        if (!Buffer.isBuffer(buffer) || buffer.length < minBytes) {
+          throw new Error(
+            `empty or too small TTS buffer (${buffer?.length || 0} bytes)`,
+          );
+        }
+        return {
+          buffer,
+          durationFrames: this.parseMp3DurationFrames(buffer),
+        };
+      } catch (error: any) {
+        if (attempt === 0) {
+          this.logger.warn(
+            `TTS attempt 1 failed for dynamic scene "${label}", retrying in 1 s: ${error?.message || "unknown"}`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        } else {
+          this.logger.warn(
+            `TTS generation failed for dynamic scene "${label}" after 2 attempts: ${error?.message || "unknown"}`,
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  private resolveGeneratedFilePath(root: string, relativePath: string): string {
+    const normalized = path.normalize(relativePath);
+    if (
+      path.isAbsolute(normalized) ||
+      normalized.startsWith("..") ||
+      normalized.includes(`..${path.sep}`)
+    ) {
+      throw new Error(`invalid generated file path: ${relativePath}`);
+    }
+    const resolved = path.resolve(root, normalized);
+    if (!resolved.startsWith(path.resolve(root))) {
+      throw new Error(`generated file escaped task directory: ${relativePath}`);
+    }
+    return resolved;
+  }
+
+  private runGeneratedRemotionRender(
+    entryPath: string,
+    compositionId: string,
+    outputPath: string,
+    propsPath: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const cpuCount = Math.max(1, (require("os").cpus() || []).length);
+      const concurrency = Math.min(cpuCount - 1 || 1, 4);
+      const args = [
+        "remotion",
+        "render",
+        entryPath,
+        compositionId,
+        outputPath,
+        "--codec=h264",
+        `--concurrency=${concurrency}`,
+        `--props=${propsPath}`,
+      ];
+
+      this.logger.log(
+        `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}`,
+      );
+
+      const proc = spawn("npx", args, {
+        cwd: this.remotionDir,
+        shell: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      let lastError = "";
+      proc.stdout?.on("data", (data: Buffer) => {
+        const text = data.toString();
+        const percent = this.parseProgress(text);
+        if (percent !== null && onProgress) onProgress(percent);
+      });
+      proc.stderr?.on("data", (data: Buffer) => {
+        const text = data.toString();
+        const percent = this.parseProgress(text);
+        if (percent !== null && onProgress) onProgress(percent);
+        const lines = text.trim().split("\n");
+        const lastLine = lines[lines.length - 1]?.trim();
+        if (lastLine && !lastLine.startsWith("[") && lastLine.length < 300) {
+          lastError = lastLine;
+        }
+      });
+      proc.on("error", (err) => {
+        reject(new Error(`dynamic remotion spawn failed: ${err.message}`));
+      });
+      proc.on("close", (code) => {
+        if (code === 0) {
+          this.logger.log(
+            `[runGeneratedRemotionRender] Dynamic Remotion render completed: ${compositionId} -> ${outputPath}`,
+          );
+          resolve();
+          return;
+        }
+        this.logger.error(
+          `[runGeneratedRemotionRender] Dynamic Remotion render failed: compositionId=${compositionId}, exitCode=${code}, lastError="${lastError}"`,
+        );
+        reject(
+          new Error(`dynamic remotion render exited with code ${code}: ${lastError}`),
+        );
+      });
+    });
+  }
+
+  private async safeRemove(target: string): Promise<void> {
+    try {
+      await fs.rm(target, { recursive: true, force: true });
+    } catch {
+      // best effort cleanup
     }
   }
 

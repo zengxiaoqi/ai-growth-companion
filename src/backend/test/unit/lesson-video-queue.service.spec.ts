@@ -8,6 +8,7 @@ describe("LessonVideoQueueService", () => {
   let remotionRender: {
     resolveComposition: jest.Mock;
     renderComposition: jest.Mock;
+    renderGeneratedComposition: jest.Mock;
     cleanupNarrationFiles: jest.Mock;
   };
   let hyperframesRender: {
@@ -28,6 +29,7 @@ describe("LessonVideoQueueService", () => {
     remotionRender = {
       resolveComposition: jest.fn(),
       renderComposition: jest.fn(),
+      renderGeneratedComposition: jest.fn(),
       cleanupNarrationFiles: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -182,10 +184,7 @@ describe("LessonVideoQueueService", () => {
     });
   });
 
-  it("routes auto engine to hyperframes first and falls back to remotion", async () => {
-    hyperframesRender.renderLessonVideo.mockRejectedValueOnce(
-      new Error("hyperframes failed"),
-    );
+  it("routes auto engine to fixed remotion when no dynamic storyboard is available", async () => {
     remotionRender.resolveComposition.mockResolvedValue({
       compositionId: "TopicVideo",
       inputProps: { title: "认识动物", slides: [] },
@@ -201,7 +200,7 @@ describe("LessonVideoQueueService", () => {
       { topic: "认识动物", ageGroup: "3-4", videoLesson: { shots: [] } },
     );
 
-    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
     expect(remotionRender.resolveComposition).toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from("video"));
   });
@@ -250,6 +249,36 @@ describe("LessonVideoQueueService", () => {
         issues: [],
         toolCalls: [],
       }),
+      generateRemotionComposition: jest.fn().mockResolvedValue({
+        compositionId: "GeneratedLesson_tiger",
+        files: [
+          { path: "index.ts", content: "dynamic visual tiger stripe forest" },
+          { path: "Root.tsx", content: "dynamic visual tiger stripe forest" },
+          {
+            path: "GeneratedLesson.tsx",
+            content: "dynamic visual tiger stripe forest river",
+          },
+        ],
+        props: {
+          title: "认识动物老虎视频",
+          durationFrames: 360,
+          scenes: [
+            {
+              title: "老虎登场",
+              narration: "老虎是大型猫科动物，身上有黑色条纹。",
+              generatedVisual: "tiger-showFeatures-forest-stripe",
+              durationFrames: 180,
+            },
+          ],
+        },
+        durationFrames: 360,
+        sceneAssetSummary: [
+          {
+            title: "老虎登场",
+            generatedVisual: "tiger-showFeatures-forest-stripe",
+          },
+        ],
+      }),
     };
     const agentService = new LessonVideoQueueService(
       taskRepo as any,
@@ -259,7 +288,10 @@ describe("LessonVideoQueueService", () => {
       hyperframesRender as any,
       videoAgent as any,
     );
-    hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from("video"));
+    remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+    jest.spyOn(fs, "readFile").mockResolvedValue(Buffer.from("video"));
+    jest.spyOn(fs, "unlink").mockResolvedValue(undefined);
 
     const result = await (agentService as any).generateVideoBuffer(
       {
@@ -287,20 +319,21 @@ describe("LessonVideoQueueService", () => {
         contentId: 62,
       }),
     );
-    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(videoAgent.generateRemotionComposition).toHaveBeenCalledWith(
       expect.objectContaining({
-        videoLesson: expect.objectContaining({
-          shots: expect.arrayContaining([
-            expect.objectContaining({
-              shot: "老虎登场",
-              narration: expect.stringContaining("老虎"),
-            }),
-          ]),
-        }),
+        title: "认识动物老虎视频",
       }),
+      expect.anything(),
+    );
+    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 15 }),
+      expect.objectContaining({
+        compositionId: "GeneratedLesson_tiger",
+      }),
+      expect.stringContaining("dynamic-remotion.mp4"),
       expect.any(Function),
     );
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from("video"));
   });
 

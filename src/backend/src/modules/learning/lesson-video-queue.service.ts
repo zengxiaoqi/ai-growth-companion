@@ -31,9 +31,12 @@ type ProviderStatus =
   | "failed"
   | "unknown";
 
-const FALLBACK_RENDER_ENGINES: VideoRenderEngine[] = [
-  "hyperframes",
+type RenderAttemptEngine = VideoRenderEngine | "dynamic-remotion";
+
+const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
+  "dynamic-remotion",
   "remotion",
+  "hyperframes",
 ];
 
 @Injectable()
@@ -493,6 +496,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
             const enrichedPayload = this.enrichPayloadWithStoryboard(
               payload,
               agentResult.storyboard,
+              {
+                passed: agentResult.qualityPassed,
+                score: agentResult.qualityScore,
+              },
             );
             // Fall through to render the enriched payload via existing engines
             return this.generateVideoBufferWithEngines(task, enrichedPayload);
@@ -514,12 +521,15 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   private enrichPayloadWithStoryboard(
     payload: Record<string, any>,
     storyboard: any,
+    quality?: { passed: boolean; score: number },
   ): Record<string, any> {
     const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
 
     return {
       ...payload,
       topic: storyboard.topic || payload.topic,
+      __storyboard: storyboard,
+      __storyboardQuality: quality || null,
       visualStory: {
         scenes: scenes.map((scene: any) => ({
           scene: scene.title || `场景${scene.sequence}`,
@@ -539,9 +549,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         durationSec: storyboard.totalDurationSec || 0,
         shots: scenes.map((scene: any) => ({
           shot: scene.title || `片段${scene.sequence}`,
+          visualPrompt: scene.visualDescription || scene.visualPrompt || "",
           narration: scene.narration || "",
           caption: (scene.onScreenText || scene.title || "").slice(0, 12),
           durationSec: scene.durationSec || 6,
+          animationTemplate: scene.animationTemplate?.id || undefined,
+          animationParams: scene.animationTemplate?.params || {},
         })),
       },
     };
@@ -570,6 +583,25 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       );
       const engineStart = Date.now();
       try {
+        if (engine === "dynamic-remotion") {
+          await this.taskRepo.update(task.id, {
+            provider: this.resolveProviderName("dynamic-remotion"),
+            renderEngine: task.renderEngine || requestedEngine,
+          } as any);
+          const buffer = await this.generateByDynamicRemotion(task, payload);
+          if (buffer) {
+            this.logger.log(
+              `[generateVideoBuffer] taskId=${task.id} engine=${engine} succeeded in ${Date.now() - engineStart}ms, size=${buffer.length}, dynamicRemotion=true`,
+            );
+            return { buffer, providerTaskId: null, sourceVideoUrl: null };
+          }
+          errors.push("dynamic-remotion returned empty buffer");
+          this.logger.warn(
+            `[generateVideoBuffer] taskId=${task.id} engine=${engine} returned empty buffer after ${Date.now() - engineStart}ms, dynamicRemotion=false`,
+          );
+          continue;
+        }
+
         if (engine === "hyperframes") {
           await this.taskRepo.update(task.id, {
             provider: this.resolveProviderName("hyperframes"),
@@ -691,6 +723,68 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         } catch {}
       },
     );
+  }
+
+  private async generateByDynamicRemotion(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<Buffer | null> {
+    const topic = payload?.topic || "";
+    const storyboard = payload?.__storyboard;
+    const quality = payload?.__storyboardQuality;
+
+    if (!this.videoGenerationAgent) {
+      this.logger.warn(
+        `[generateByDynamicRemotion] taskId=${task.id} skipped: videoGenerationAgent unavailable`,
+      );
+      return null;
+    }
+    if (!topic || !storyboard) {
+      this.logger.warn(
+        `[generateByDynamicRemotion] taskId=${task.id} skipped: missing topic or storyboard`,
+      );
+      return null;
+    }
+    if (quality && quality.passed === false && Number(quality.score || 0) < 70) {
+      this.logger.warn(
+        `[generateByDynamicRemotion] taskId=${task.id} skipped: storyboard quality not passed score=${quality.score}`,
+      );
+      return null;
+    }
+
+    this.logger.log(
+      `[generateByDynamicRemotion] taskId=${task.id} generating dynamic Remotion composition, topic="${topic}", domain="${payload?.domain || "unknown"}"`,
+    );
+
+    const manifest =
+      await this.videoGenerationAgent.generateRemotionComposition(
+        storyboard,
+        payload,
+      );
+    const outputPath = path.join(
+      this.storageDir,
+      `${task.cacheKey}-dynamic-remotion.mp4`,
+    );
+    await fs.mkdir(this.storageDir, { recursive: true });
+
+    await this.remotionRender.renderGeneratedComposition(
+      task,
+      manifest,
+      outputPath,
+      async (percent: number) => {
+        try {
+          await this.taskRepo.update(task.id, {
+            progress: Math.max(10, Math.min(95, percent)),
+          });
+        } catch {}
+      },
+    );
+
+    const buffer = await fs.readFile(outputPath);
+    try {
+      await fs.unlink(outputPath);
+    } catch {}
+    return buffer;
   }
 
   private ensureTopicAlignedVideoPayload(
@@ -1540,7 +1634,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return createHash("sha1").update(seed).digest("hex");
   }
 
-  private resolveProviderName(engine: VideoRenderEngine): string {
+  private resolveProviderName(engine: RenderAttemptEngine): string {
+    if (engine === "dynamic-remotion") {
+      return "remotion-dynamic";
+    }
     if (engine === "hyperframes") {
       return String(
         process.env.HYPERFRAMES_PROVIDER_NAME || "hyperframes",
@@ -1561,9 +1658,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return "auto";
   }
 
-  private resolveEngineOrder(engine: VideoRenderEngine): VideoRenderEngine[] {
+  private resolveEngineOrder(engine: VideoRenderEngine): RenderAttemptEngine[] {
     if (engine === "hyperframes") return ["hyperframes"];
-    if (engine === "remotion") return ["remotion"];
+    if (engine === "remotion") return ["dynamic-remotion", "remotion"];
     return [...FALLBACK_RENDER_ENGINES];
   }
 

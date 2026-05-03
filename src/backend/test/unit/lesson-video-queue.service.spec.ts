@@ -71,10 +71,12 @@ describe("LessonVideoQueueService", () => {
       subtitle: "课程总结",
       topic: "四季变化",
       ageRange: "5-6",
+      domain: "science",
       content: {
         type: "structured_lesson",
         topic: "四季变化",
         ageGroup: "5-6",
+        domain: "science",
         summary: "先认识四季，再观察变化",
         steps: [
           {
@@ -93,6 +95,7 @@ describe("LessonVideoQueueService", () => {
     expect(payload).toMatchObject({
       title: "四季变化课程",
       topic: "四季变化",
+      domain: "science",
       summary: "先认识四季，再观察变化",
       ageGroup: "5-6",
       watchScene,
@@ -200,6 +203,104 @@ describe("LessonVideoQueueService", () => {
 
     expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
     expect(remotionRender.resolveComposition).toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("video"));
+  });
+
+  it("uses video generation agent before rendering and renders agent storyboard", async () => {
+    const videoAgent = {
+      generateViaAgent: jest.fn().mockResolvedValue({
+        storyboard: {
+          title: "认识动物老虎视频",
+          topic: "认识动物老虎",
+          domain: "science",
+          totalDurationSec: 24,
+          scenes: [
+            {
+              sequence: 1,
+              title: "老虎登场",
+              concept: "老虎",
+              narration: "老虎是大型猫科动物，身上有黑色条纹。",
+              onScreenText: "老虎条纹",
+              visualDescription: "森林里的卡通老虎展示黑色条纹",
+              durationSec: 12,
+              transitionToNext: "fade",
+              emphasis: "intro",
+            },
+            {
+              sequence: 2,
+              title: "老虎捕食",
+              concept: "捕食",
+              narration: "老虎爱吃肉，会安静观察再行动。",
+              onScreenText: "爱吃肉",
+              visualDescription: "老虎在草丛边观察",
+              durationSec: 12,
+              transitionToNext: "fade",
+              emphasis: "core-concept",
+            },
+          ],
+          visualTheme: {
+            primaryPalette: "forest",
+            accentColor: "#35A86B",
+            mood: "playful",
+          },
+          narrativeArc: "认识老虎特点",
+        },
+        qualityScore: 92,
+        qualityPassed: true,
+        issues: [],
+        toolCalls: [],
+      }),
+    };
+    const agentService = new LessonVideoQueueService(
+      taskRepo as any,
+      {} as any,
+      aiService as any,
+      remotionRender as any,
+      hyperframesRender as any,
+      videoAgent as any,
+    );
+    hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from("video"));
+
+    const result = await (agentService as any).generateVideoBuffer(
+      {
+        id: 15,
+        contentId: 62,
+        childId: 3,
+        cacheKey: "cache-key",
+        renderEngine: "auto",
+      },
+      {
+        topic: "认识动物老虎",
+        ageGroup: "5-6",
+        domain: "science",
+        videoLesson: {
+          shots: [{ shot: "春天讲解", narration: "春天花开了。", caption: "春天" }],
+        },
+      },
+    );
+
+    expect(videoAgent.generateViaAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topic: "认识动物老虎",
+        domain: "science",
+        ageGroup: "5-6",
+        contentId: 62,
+      }),
+    );
+    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        videoLesson: expect.objectContaining({
+          shots: expect.arrayContaining([
+            expect.objectContaining({
+              shot: "老虎登场",
+              narration: expect.stringContaining("老虎"),
+            }),
+          ]),
+        }),
+      }),
+      expect.any(Function),
+    );
     expect(result.buffer).toEqual(Buffer.from("video"));
   });
 

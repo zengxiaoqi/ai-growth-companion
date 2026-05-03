@@ -222,6 +222,76 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     }
   }
 
+  async generateJson(
+    prompt: string,
+    systemPrompt?: string,
+    config?: { model?: string; maxTokens?: number; temperature?: number },
+  ): Promise<string> {
+    const overrideConfig = config || {};
+    const originalConfig = { ...this.config };
+
+    if (overrideConfig.model) this.config.model = overrideConfig.model;
+    if (overrideConfig.maxTokens)
+      this.config.maxTokens = overrideConfig.maxTokens;
+    if (overrideConfig.temperature !== undefined)
+      this.config.temperature = overrideConfig.temperature;
+
+    const messages: LlmMessage[] = [];
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
+    }
+    messages.push({ role: "user", content: prompt });
+
+    try {
+      const tokenLimits = Array.from(
+        new Set([
+          this.config.maxTokens,
+          ...this.ESCALATING_TOKEN_LIMITS,
+          20000,
+        ]),
+      )
+        .filter((limit) => Number.isFinite(limit) && limit > 0)
+        .sort((a, b) => a - b)
+        .filter((limit) => limit >= this.config.maxTokens);
+
+      let lastContent = "";
+      for (const maxTokens of tokenLimits) {
+        const response = await this.client.chat.completions.create({
+          model: this.config.model,
+          messages: this.toOpenAIMessages(messages),
+          max_tokens: maxTokens,
+          temperature: this.config.temperature,
+          response_format: { type: "json_object" } as any,
+        });
+        const choice = response.choices[0];
+        lastContent = stripThinking(choice?.message?.content ?? "");
+        this.logger.debug(
+          `[LLM JSON RESPONSE] finishReason=${choice?.finish_reason ?? "unknown"} contentLen=${lastContent.length} maxTokens=${maxTokens}`,
+        );
+        if (choice?.finish_reason === "length" && maxTokens < tokenLimits[tokenLimits.length - 1]) {
+          this.logger.debug(
+            `generateJson() hit token limit (${maxTokens}), escalating to next tier...`,
+          );
+          continue;
+        }
+        return lastContent;
+      }
+
+      return lastContent;
+    } catch (error: any) {
+      this.logger.warn(
+        `generateJson() JSON mode unavailable, falling back to text generation: ${error?.message || "unknown"}`,
+      );
+      try {
+        return await this.generate(prompt, systemPrompt);
+      } finally {
+        this.config = originalConfig;
+      }
+    } finally {
+      this.config = originalConfig;
+    }
+  }
+
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
     const messages: LlmMessage[] = [];
     if (systemPrompt) {

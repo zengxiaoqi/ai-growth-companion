@@ -49,6 +49,9 @@ const GENERIC_TERMS = [
 /** Alias mapping: user-input topic terms → curriculum record terms */
 const TOPIC_ALIASES: Record<string, string[]> = {
   动物: ["小动物", "农场动物", "动物朋友", "宠物", "野生动物"],
+  老虎: ["动物", "野生动物", "猫科", "动物世界", "动物朋友"],
+  狮子: ["动物", "野生动物", "猫科", "动物世界"],
+  兔子: ["兔", "小兔子", "动物", "动物朋友", "宠物"],
   颜色: ["色彩", "颜色宝宝", "彩色", "赤橙黄绿青蓝紫", "三原色"],
   数字: ["数数", "计数", "认识数字", "数学启蒙"],
   形状: ["图形", "几何", "圆形", "三角形", "方形"],
@@ -151,10 +154,18 @@ function scoreRecord(
   }
 
   let score = 0;
-  if (compactTopic && haystack.includes(compactTopic)) score += 8;
-  for (const term of expandedTerms) {
-    if (haystack.includes(term)) score += 4;
+  let topicMatched = false;
+  if (compactTopic && haystack.includes(compactTopic)) {
+    score += 8;
+    topicMatched = true;
   }
+  for (const term of expandedTerms) {
+    if (haystack.includes(term)) {
+      score += 4;
+      topicMatched = true;
+    }
+  }
+  if (!topicMatched) return 0;
   if (domain && toText(record.domain) === domain) score += 2;
   return score;
 }
@@ -326,14 +337,18 @@ function buildMatchingPairs(
 }
 
 function extractTopicTerms(source: string): string[] {
-  const rawTerms = toText(source).match(/[\u4e00-\u9fff]{1,6}/g) || [];
+  const text = toText(source);
+  const rawTerms = text.match(/[\u4e00-\u9fff]{1,8}/g) || [];
+  const knownTerms = Object.keys(TOPIC_ALIASES).filter((term) =>
+    text.includes(term),
+  );
 
   const filtered = rawTerms
     .map((term) => normalizeUnit(term))
     .filter(Boolean)
     .filter((term) => !GENERIC_TERMS.includes(term));
 
-  return unique(filtered);
+  return unique([...filtered, ...knownTerms]);
 }
 
 function normalizeUnit(value: unknown): string {

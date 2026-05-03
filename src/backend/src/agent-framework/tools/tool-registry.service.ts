@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { DiscoveryService } from "@nestjs/core";
+import { DiscoveryService, ModuleRef } from "@nestjs/core";
 import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
 import type {
   ITool,
@@ -21,21 +21,21 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   private readonly logger = new Logger(ToolRegistryService.name);
   private readonly tools: Map<string, ITool> = new Map();
 
-  constructor(private readonly discoveryService: DiscoveryService) {}
+  constructor(
+    private readonly discoveryService: DiscoveryService,
+    private readonly moduleRef: ModuleRef,
+  ) {}
 
   /** Auto-discover all @RegisterTool() decorated providers */
   onModuleInit() {
     const providers: InstanceWrapper[] = this.discoveryService.getProviders();
 
     for (const wrapper of providers) {
-      const { instance } = wrapper;
-      if (!instance || typeof instance !== "object") continue;
-
-      const metatype = wrapper.metatype;
+      const metatype = this.resolveToolMetatype(wrapper);
       if (!metatype) continue;
 
-      const hasToolMeta = Reflect.getMetadata(TOOL_REGISTRY_METADATA, metatype);
-      if (!hasToolMeta) continue;
+      const instance = this.resolveToolInstance(wrapper, metatype);
+      if (!instance) continue;
 
       if (!("metadata" in instance) || !("execute" in instance)) {
         this.logger.warn(
@@ -50,6 +50,48 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
     }
 
     this.logger.log(`ToolRegistry initialized with ${this.tools.size} tools`);
+  }
+
+  private resolveToolMetatype(wrapper: InstanceWrapper): any {
+    const candidates = [
+      wrapper.metatype,
+      typeof wrapper.token === "function" ? wrapper.token : null,
+      wrapper.instance?.constructor,
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+      if (this.hasToolMetadata(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private hasToolMetadata(metatype: any): boolean {
+    return Reflect.getMetadata(TOOL_REGISTRY_METADATA, metatype) === true;
+  }
+
+  private resolveToolInstance(
+    wrapper: InstanceWrapper,
+    metatype: any,
+  ): Record<string, any> | null {
+    const existing = wrapper.instance;
+    if (existing && typeof existing === "object") {
+      return existing;
+    }
+
+    try {
+      const token = wrapper.token ?? metatype;
+      const resolved = this.moduleRef.get(token as any, { strict: false });
+      if (resolved && typeof resolved === "object") return resolved;
+    } catch (error: any) {
+      this.logger.warn(
+        `Unable to resolve tool provider ${metatype?.name || String(wrapper.token)}: ${error?.message || "unknown"}`,
+      );
+    }
+
+    return null;
   }
 
   register(tool: ITool): void {

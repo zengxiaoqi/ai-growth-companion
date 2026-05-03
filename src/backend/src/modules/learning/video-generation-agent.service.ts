@@ -90,7 +90,7 @@ export class VideoGenerationAgentService {
         toolCalls.push({
           tool: event.toolName,
           args: event.args,
-          result: event.result.slice(0, 500),
+          result: event.result,
         });
         this.logger.log(
           `[generateViaAgent] Tool call: ${event.toolName} → ${event.result.slice(0, 100)}`,

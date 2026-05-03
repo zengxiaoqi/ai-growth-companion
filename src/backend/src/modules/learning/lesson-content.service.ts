@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   OnModuleInit,
+  Optional,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -19,6 +20,7 @@ import { AiService } from "../ai/ai.service";
 import { AssignmentService } from "../assignment/assignment.service";
 import { LearningTrackerService } from "./learning-tracker.service";
 import { LlmClientService } from "../../agent-framework/llm/llm-client.service";
+import { CourseGenerationAgentService } from "./course-generation-agent.service";
 import {
   derivePracticeSceneDocument,
   deriveWatchSceneDocument,
@@ -69,6 +71,7 @@ interface StructuredLessonContent {
   version: 1;
   topic: string;
   ageGroup: AgeGroup;
+  domain?: LessonDomain;
   summary: string;
   outcomes: string[];
   sourceCoursePackId: number | null;
@@ -154,6 +157,8 @@ export class LessonContentService implements OnModuleInit {
     private readonly assignmentService: AssignmentService,
     private readonly learningTracker: LearningTrackerService,
     private readonly llmClient: LlmClientService,
+    @Optional()
+    private readonly courseGenerationAgent?: CourseGenerationAgentService,
   ) {}
 
   async listDraftLessonsForChild(
@@ -341,7 +346,7 @@ export class LessonContentService implements OnModuleInit {
       } as any);
 
       const [coursePackRaw, practiceRaw] = await Promise.allSettled([
-        this.generateCoursePackTool.execute({
+        this.generateCoursePackForLesson(contentId, {
           topic,
           ageGroup,
           domain,
@@ -407,6 +412,7 @@ export class LessonContentService implements OnModuleInit {
       const lessonContent = this.assembleLesson(coursePack, practiceData, {
         topic,
         ageGroup,
+        domain,
         summary: coursePack.summary || "",
         outcomes: coursePack.outcomes || [],
       });
@@ -440,6 +446,47 @@ export class LessonContentService implements OnModuleInit {
    */
   async generateDraft(params: GenerateLessonParams): Promise<Content> {
     return this.startGeneration(params);
+  }
+
+  private async generateCoursePackForLesson(
+    contentId: number,
+    args: {
+      topic: string;
+      ageGroup: AgeGroup;
+      domain: LessonDomain;
+      focus: "literacy" | "math" | "science" | "mixed";
+      difficulty: number;
+      durationMinutes: number;
+      includeGame: boolean;
+      includeAudio: boolean;
+      includeVideo: boolean;
+      parentPrompt: string;
+    },
+  ): Promise<string> {
+    if (this.courseGenerationAgent) {
+      try {
+        const coursePack = await this.courseGenerationAgent.generateCoursePack({
+          ...args,
+          contentId,
+        });
+        if (coursePack) {
+          this.logger.log(
+            `[contentId=${contentId}] Course pack generated via course-designer agent`,
+          );
+          return JSON.stringify(coursePack);
+        }
+      } catch (error: any) {
+        this.logger.warn(
+          `[contentId=${contentId}] course-designer agent failed, falling back to legacy course pack tool: ${error?.message || "unknown"}`,
+        );
+      }
+    } else {
+      this.logger.warn(
+        `[contentId=${contentId}] course-designer agent unavailable, using legacy course pack tool`,
+      );
+    }
+
+    return this.generateCoursePackTool.execute(args);
   }
 
   async modifyDraft(
@@ -732,6 +779,7 @@ export class LessonContentService implements OnModuleInit {
     meta: {
       topic: string;
       ageGroup: AgeGroup;
+      domain?: LessonDomain;
       summary: string;
       outcomes: string[];
     },
@@ -807,6 +855,7 @@ export class LessonContentService implements OnModuleInit {
       version: 1,
       topic: meta.topic,
       ageGroup: meta.ageGroup,
+      domain: meta.domain,
       summary: meta.summary || `围绕${meta.topic}的四步综合课程`,
       outcomes: meta.outcomes || [],
       sourceCoursePackId: null,

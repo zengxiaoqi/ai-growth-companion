@@ -17,6 +17,7 @@ import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { RemotionRenderService } from "./remotion-render.service";
 import { HyperframesRenderService } from "./hyperframes-render.service";
 import { VideoGenerationAgentService } from "./video-generation-agent.service";
+import { CourseGenerationAgentService } from "./course-generation-agent.service";
 import { LearningController } from "./learning.controller";
 import { SseModule } from "../sse/sse.module";
 import { AchievementsModule } from "../achievements/achievements.module";
@@ -60,6 +61,7 @@ import { AgentFrameworkModule } from "../../agent-framework/agent-framework.modu
     RemotionRenderService,
     HyperframesRenderService,
     VideoGenerationAgentService,
+    CourseGenerationAgentService,
   ],
   controllers: [LearningController],
   exports: [
@@ -71,6 +73,7 @@ import { AgentFrameworkModule } from "../../agent-framework/agent-framework.modu
     RemotionRenderService,
     HyperframesRenderService,
     VideoGenerationAgentService,
+    CourseGenerationAgentService,
   ],
 })
 export class LearningModule {}

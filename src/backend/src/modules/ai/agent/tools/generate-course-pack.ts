@@ -46,6 +46,12 @@ type NormalizedArgs = {
   gameType: ActivityType;
 };
 
+type JsonParseResult = {
+  value: Record<string, any> | null;
+  error?: string;
+  likelyTruncated?: boolean;
+};
+
 const MAX_ATTEMPTS = 3;
 const ACTIVITY_TYPES: ActivityType[] = [
   "quiz",
@@ -82,7 +88,25 @@ export class GenerateCoursePackTool {
           failures,
           reflections,
         );
-        const llmResponse = await this.llmClient.generate(prompt);
+        this.logger.log(
+          `[generateCoursePack] llm_request ${JSON.stringify({
+            attempt,
+            topic: normalized.topic,
+            ageGroup: normalized.ageGroup,
+            domain: normalized.domain,
+            promptLength: prompt.length,
+            promptPreview: prompt.slice(0, 700),
+          })}`,
+        );
+        const llmResponse = await this.generateCoursePackJson(prompt);
+        this.logger.log(
+          `[generateCoursePack] llm_response ${JSON.stringify({
+            attempt,
+            topic: normalized.topic,
+            responseLength: llmResponse?.length || 0,
+            responsePreview: (llmResponse || "").slice(0, 700),
+          })}`,
+        );
 
         if (!llmResponse || !llmResponse.trim()) {
           failures.push(`attempt ${attempt}: model returned empty response`);
@@ -92,10 +116,24 @@ export class GenerateCoursePackTool {
           continue;
         }
 
-        const parsed = this.extractJsonObject(llmResponse);
-        if (!parsed) {
+        const parsed = this.parseJsonObjectDetailed(llmResponse);
+        if (!parsed.value) {
           const preview = llmResponse.slice(0, 200);
-          failures.push(`attempt ${attempt}: invalid JSON`);
+          const tail = llmResponse.slice(-240);
+          const reason = parsed.error || "unknown parse error";
+          failures.push(
+            `attempt ${attempt}: invalid JSON (${reason}${parsed.likelyTruncated ? "; likely truncated" : ""})`,
+          );
+          this.logger.warn(
+            `[generateCoursePack] invalid_json ${JSON.stringify({
+              attempt,
+              topic: normalized.topic,
+              responseLength: llmResponse.length,
+              reason,
+              likelyTruncated: Boolean(parsed.likelyTruncated),
+              tail,
+            })}`,
+          );
           reflections.push(
             `Your previous output was not valid JSON. Preview: "${preview}". You MUST output ONLY a raw JSON object. No markdown, no code fences, no explanation.`,
           );
@@ -104,7 +142,7 @@ export class GenerateCoursePackTool {
 
         const coursePack = this.sanitizeCoursePack(
           normalized,
-          parsed,
+          parsed.value,
           gameBundle,
         );
         return JSON.stringify(coursePack);
@@ -121,6 +159,21 @@ export class GenerateCoursePackTool {
       `generateCoursePack fell back to template. ${failures.join(" | ")}`,
     );
     return JSON.stringify(this.fallbackCoursePack(normalized, gameBundle));
+  }
+
+  private async generateCoursePackJson(prompt: string): Promise<string> {
+    const client = this.llmClient as any;
+    if (typeof client.generateJson === "function") {
+      return client.generateJson(
+        prompt,
+        "You output strict JSON only. Do not include markdown, comments, explanations, or thinking blocks.",
+        {
+          temperature: 0.2,
+          maxTokens: Number(process.env.LLM_COURSE_PACK_MAX_TOKENS) || 12000,
+        },
+      );
+    }
+    return this.llmClient.generate(prompt);
   }
 
   ensureTeachingMediaPack(pack: Record<string, any>): Record<string, any> {
@@ -311,33 +364,6 @@ export class GenerateCoursePackTool {
       "checklist": ["string", "string"]
     }
   },
-  "watch": {
-    "scene": {
-      "version": 1,
-      "stepType": "watch",
-      "mode": "playback",
-      "scenes": [{"id":"watch-scene-1","title":"string","narration":"string","onScreenText":"string","durationSec":12,"visual":{"background":{"type":"day"},"characters":[{"id":"teacher","label":"老师"}],"items":[{"id":"item-1","label":"花"}],"effects":["focus"],"caption":"string","templateId":"optional-template-id","templateParams":{}},"timeline":[{"type":"caption","value":"string","atSec":0}]}],
-      "completionPolicy": {"type":"all_scenes","passingScore":85}
-    }
-  },
-  "write": {
-    "scene": {
-      "version": 1,
-      "stepType": "write",
-      "mode": "guided_trace",
-      "scenes": [{"id":"write-scene-1","title":"string","narration":"string","onScreenText":"string","durationSec":20,"visual":{"background":{"type":"indoor"},"caption":"string"},"interaction":{"type":"trace_path","prompt":"string","minCoverage":0.7,"targets":[{"id":"trace-1","label":"string","kind":"glyph","text":"string","fontSize":84}]}}],
-      "completionPolicy": {"type":"all_scenes","minCoverage":0.7,"passingScore":80}
-    }
-  },
-  "practice": {
-    "scene": {
-      "version": 1,
-      "stepType": "practice",
-      "mode": "activity_shell",
-      "scenes": [{"id":"practice-intro","title":"string","narration":"string","onScreenText":"string","durationSec":10,"visual":{"background":{"type":"indoor"},"caption":"string","items":[{"id":"rule-1","label":"看提示"}]}},{"id":"practice-activity","title":"string","narration":"string","onScreenText":"开始练习","durationSec":20,"visual":{"background":{"type":"abstract"},"caption":"string"},"interaction":{"type":"launch_activity","prompt":"string","activityType":"matching","activityData":{"type":"matching","title":"string"}}}],
-      "completionPolicy": {"type":"any_interaction","passingScore":80}
-    }
-  },
   "visualStory": {
     "style": "string",
     "scenes": [{"scene":"string","imagePrompt":"string","narration":"string","onScreenText":"string","durationSec":12,"animationTemplate":"template-id (optional, from the template list above)","animationParams":{}}]
@@ -358,7 +384,7 @@ export class GenerateCoursePackTool {
 
     return [
       "You are a senior curriculum designer specializing in animated teaching videos for preschool and early primary learners.",
-      "Generate a complete multimodal course pack with rich, specific content.",
+      "Generate a compact multimodal course pack with rich, specific content.",
       `Topic: ${args.topic}`,
       `Age group: ${args.ageGroup}`,
       `Domain: ${args.domain}`,
@@ -377,9 +403,11 @@ export class GenerateCoursePackTool {
       "- Every module must align with the topic.",
       "- Use Chinese (Simplified) for ALL learner-facing text (narration, onScreenText, titles, etc.).",
       "- Return strict JSON only. No markdown. No explanation.",
+      "- Keep the JSON compact enough to fit in one response. Do not add fields outside the schema.",
+      "- Do NOT generate watch/write/practice scene documents; the backend derives those from modules, visualStory, videoLesson, and game data.",
       "",
       "## visualStory Scene Quality Requirements (CRITICAL):",
-      `- Generate at least 4, ideally 6-8 scenes for the visualStory.`,
+      "- Generate exactly 4 visualStory scenes.",
       "- Each scene MUST have ALL of these fields populated with SPECIFIC content:",
       "  - scene: descriptive scene title in Chinese (4-10 chars)",
       "  - imagePrompt: detailed visual description in Chinese (20-60 chars) describing composition, characters, objects, and mood",
@@ -410,11 +438,12 @@ export class GenerateCoursePackTool {
       "- Each narration MUST teach or describe something UNIQUE to that specific scene.",
       "",
       "## videoLesson Shot Requirements:",
-      "- Generate at least 4-6 shots",
+      "- Generate exactly 4 shots",
       "- Each shot narration: 20-60 Chinese characters with specific teaching content",
       "- Each shot must have a non-empty caption in Chinese",
       "",
       "## audioScript Requirements:",
+      "- Generate exactly 3 audioScript segments.",
       "- Each narration segment: 20-60 Chinese characters",
       "- Include specific knowledge points, not generic greetings",
       "",
@@ -1649,6 +1678,86 @@ export class GenerateCoursePackTool {
     if (domain === "math") return "quiz";
     if (domain === "language") return "fill_blank";
     return "matching";
+  }
+
+  private parseJsonObjectDetailed(text: string): JsonParseResult {
+    const source = this.toText(text);
+    if (!source) {
+      return { value: null, error: "empty response" };
+    }
+
+    const tryParse = (candidate: string): JsonParseResult => {
+      try {
+        const parsed = JSON.parse(candidate);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? { value: parsed }
+          : { value: null, error: "JSON root is not an object" };
+      } catch (error: any) {
+        return {
+          value: null,
+          error: error?.message || "JSON.parse failed",
+          likelyTruncated: this.looksLikeTruncatedJson(candidate),
+        };
+      }
+    };
+
+    const direct = tryParse(source);
+    if (direct.value) return direct;
+
+    const codeBlock =
+      source.match(/```json\s*([\s\S]*?)```/i) ||
+      source.match(/```\s*([\s\S]*?)```/i);
+    if (codeBlock?.[1]) {
+      const parsed = tryParse(codeBlock[1].trim());
+      if (parsed.value) return parsed;
+    }
+
+    const firstBrace = source.indexOf("{");
+    const lastBrace = source.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const parsed = tryParse(source.slice(firstBrace, lastBrace + 1));
+      if (parsed.value) return parsed;
+      return parsed;
+    }
+
+    return direct;
+  }
+
+  private looksLikeTruncatedJson(text: string): boolean {
+    const source = this.toText(text);
+    if (!source) return false;
+    if (!/^[\[{]/.test(source)) return false;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (const ch of source) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+
+      if (ch === "{" || ch === "[") {
+        stack.push(ch);
+      } else if (ch === "}" || ch === "]") {
+        const open = stack.pop();
+        if ((ch === "}" && open !== "{") || (ch === "]" && open !== "[")) {
+          return false;
+        }
+      }
+    }
+
+    return inString || stack.length > 0 || !/[}\]]\s*$/.test(source);
   }
 
   private extractJsonObject(text: string): Record<string, any> | null {

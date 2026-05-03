@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   Logger,
   NotFoundException,
   Optional,
@@ -17,10 +18,11 @@ import {
   type VideoRenderEngine,
 } from "../../database/entities/video-generation-task.entity";
 import { suggestTemplateByDomain } from "../../animations/animation-templates";
+import { getCoursePackCurriculumSeed } from "./course-curriculum-fallback";
 import { AiService } from "../ai/ai.service";
 import { RemotionRenderService } from "./remotion-render.service";
 import { HyperframesRenderService } from "./hyperframes-render.service";
-import type { VideoGenerationAgentService } from "./video-generation-agent.service";
+import { VideoGenerationAgentService } from "./video-generation-agent.service";
 
 type ProviderStatus =
   | "queued"
@@ -148,6 +150,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly remotionRender: RemotionRenderService,
     private readonly hyperframesRender: HyperframesRenderService,
     @Optional()
+    @Inject(VideoGenerationAgentService)
     private readonly videoGenerationAgent?: VideoGenerationAgentService,
   ) {}
 
@@ -157,6 +160,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     }, this.pollIntervalMs);
     this.logger.log(
       `Lesson video queue started (tick=${this.pollIntervalMs}ms)`,
+    );
+    this.logger.log(
+      `Lesson video agent pipeline ${this.videoGenerationAgent ? "enabled" : "disabled"}`,
     );
 
     // Reset orphaned 'processing' tasks left from a previous server crash/restart
@@ -549,6 +555,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     providerTaskId?: string | null;
     sourceVideoUrl?: string | null;
   }> {
+    payload = this.ensureTopicAlignedVideoPayload(payload);
     const requestedEngine = this.normalizeRenderEngine(task.renderEngine);
     const engineOrder = this.resolveEngineOrder(requestedEngine);
     const errors: string[] = [];
@@ -684,6 +691,214 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         } catch {}
       },
     );
+  }
+
+  private ensureTopicAlignedVideoPayload(
+    payload: Record<string, any>,
+  ): Record<string, any> {
+    const topic = this.toText(payload?.topic);
+    if (!topic) return payload;
+
+    const shots = Array.isArray(payload?.videoLesson?.shots)
+      ? payload.videoLesson.shots
+      : [];
+    if (shots.length === 0 || this.isVideoContentAligned(topic, shots)) {
+      return payload;
+    }
+
+    const watchScenes = Array.isArray(payload?.watchScene?.scenes)
+      ? payload.watchScene.scenes
+      : [];
+    const visualScenes = Array.isArray(payload?.visualStory?.scenes)
+      ? payload.visualStory.scenes
+      : [];
+
+    const alignedScenes = this.isVideoContentAligned(topic, visualScenes)
+      ? visualScenes
+      : this.isVideoContentAligned(topic, watchScenes)
+        ? watchScenes
+        : [];
+
+    const replacementShots =
+      alignedScenes.length > 0
+        ? this.mapScenesToVideoShots(topic, alignedScenes)
+        : this.buildTopicAlignedFallbackShots(payload);
+
+    if (replacementShots.length === 0) {
+      return payload;
+    }
+
+    this.logger.warn(
+      `[ensureTopicAlignedVideoPayload] Replaced off-topic videoLesson shots for topic="${topic}". oldShots=${shots.length}, newShots=${replacementShots.length}`,
+    );
+
+    return {
+      ...payload,
+      videoLesson: {
+        ...(payload.videoLesson || {}),
+        title: `${topic} 视频讲解`,
+        durationSec: replacementShots.reduce(
+          (sum, shot) => sum + this.toInt(shot.durationSec, 12, 4, 30),
+          0,
+        ),
+        shots: replacementShots,
+      },
+    };
+  }
+
+  private mapScenesToVideoShots(
+    topic: string,
+    scenes: any[],
+  ): Array<Record<string, any>> {
+    return scenes.slice(0, 8).map((scene, index) => ({
+      shot: this.toText(scene?.scene || scene?.title, `${topic}片段${index + 1}`),
+      visualPrompt: this.toText(
+        scene?.imagePrompt || scene?.visualDescription,
+        `${topic}教学场景，卡通教育风格`,
+      ),
+      narration: this.toText(scene?.narration, `我们继续学习${topic}。`),
+      caption: this.toText(
+        scene?.caption || scene?.onScreenText || scene?.title || scene?.scene,
+        topic,
+      ).slice(0, 18),
+      durationSec: this.toInt(scene?.durationSec, 12, 6, 24),
+    }));
+  }
+
+  private buildTopicAlignedFallbackShots(
+    payload: Record<string, any>,
+  ): Array<Record<string, any>> {
+    const topic = this.toText(payload?.topic);
+    const ageGroup =
+      payload?.ageGroup === "3-4" || payload?.ageGroup === "5-6"
+        ? payload.ageGroup
+        : "5-6";
+    const domain = this.normalizeCourseDomain(payload?.domain);
+    const seed = getCoursePackCurriculumSeed({ topic, ageGroup, domain });
+    const terms = this.extractVideoTopicTerms(topic);
+    const specificTerms = terms.filter((term) => !this.isBroadTopicTerm(term));
+    const units = Array.from(
+      new Set([
+        ...specificTerms,
+        ...(seed?.teachingUnits || []),
+        ...terms,
+      ]),
+    ).slice(0, 4);
+
+    const teachingUnits = units.length > 0 ? units : [topic];
+    const intro = {
+      shot: "主题导入",
+      visualPrompt: `老师展示${topic}的学习卡片，卡通课堂，明亮色彩`,
+      narration:
+        seed?.summary ||
+        `小朋友，今天我们来认识${topic}。请仔细看一看它有哪些重要特点。`,
+      caption: topic,
+      durationSec: 10,
+    };
+    const body = teachingUnits.map((unit) => {
+      const fact = seed?.unitFacts?.[unit];
+      return {
+        shot: `${unit}讲解`,
+        visualPrompt: `${topic}中的${unit}知识点，卡通教育风格，重点突出`,
+        narration: fact
+          ? `现在观察${unit}。${unit}是${fact}。请你跟老师说一说这个特点。`
+          : `现在观察${unit}。它和${topic}密切相关，请你找一找画面里的重点。`,
+        caption: unit,
+        durationSec: 12,
+      };
+    });
+    const review = {
+      shot: "复习总结",
+      visualPrompt: `${topic}总结画面，小朋友和老师一起复习重点`,
+      narration: `今天我们学习了${topic}。请你说一说自己记住的一个特点，再讲给家人听。`,
+      caption: "复习重点",
+      durationSec: 12,
+    };
+
+    return [intro, ...body, review].slice(0, 6);
+  }
+
+  private isVideoContentAligned(topic: string, items: any[]): boolean {
+    if (!Array.isArray(items) || items.length === 0) return false;
+    const terms = this.extractVideoTopicTerms(topic);
+    if (terms.length === 0) return true;
+    const specificTerms = terms.filter((term) => !this.isBroadTopicTerm(term));
+    const requiredTerms = specificTerms.length > 0 ? specificTerms : terms;
+    const body = items
+      .map((item) =>
+        [
+          item?.shot,
+          item?.title,
+          item?.scene,
+          item?.caption,
+          item?.onScreenText,
+          item?.narration,
+          item?.visualPrompt,
+          item?.imagePrompt,
+          item?.visualDescription,
+        ]
+          .map((value) => this.toText(value))
+          .filter(Boolean)
+          .join(" "),
+      )
+      .join(" ");
+
+    return requiredTerms.some((term) => body.includes(term));
+  }
+
+  private extractVideoTopicTerms(topic: string): string[] {
+    const source = this.toText(topic);
+    const knownTerms = [
+      "动物",
+      "老虎",
+      "狮子",
+      "猫",
+      "狗",
+      "兔",
+      "鸟",
+      "鱼",
+      "四季",
+      "春天",
+      "夏天",
+      "秋天",
+      "冬天",
+      "植物",
+      "水果",
+      "数字",
+      "形状",
+      "颜色",
+    ];
+    const rawTerms = source.match(/[\u4e00-\u9fff]{1,8}/g) || [];
+    return Array.from(
+      new Set([
+        ...rawTerms
+          .map((term) =>
+            term
+              .replace(/^(认识|学习|了解|观察)/, "")
+              .replace(/(课程|主题|内容|世界|朋友)$/, "")
+              .trim(),
+          )
+          .filter((term) => term.length >= 2 && term.length <= 8),
+        ...knownTerms.filter((term) => source.includes(term)),
+      ]),
+    );
+  }
+
+  private isBroadTopicTerm(term: string): boolean {
+    return ["动物", "学习", "认识", "课程", "主题", "内容"].includes(term);
+  }
+
+  private normalizeCourseDomain(value: any):
+    | "language"
+    | "math"
+    | "science"
+    | "art"
+    | "social"
+    | undefined {
+    const domain = this.toText(value);
+    return ["language", "math", "science", "art", "social"].includes(domain)
+      ? (domain as any)
+      : undefined;
   }
 
   private async generateByRemotion(
@@ -975,6 +1190,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const write = stepModule("write");
     const practice = stepModule("practice");
     const assess = stepModule("assess");
+    const domain = lesson.domain || content.domain || undefined;
 
     return {
       title:
@@ -982,6 +1198,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         lesson.title ||
         `${content.topic || "课程"} 全方位学习课`,
       topic: content.topic || lesson.topic || "",
+      domain,
       summary: lesson.summary || content.subtitle || "",
       ageGroup: lesson.ageGroup || content.ageRange || undefined,
       watchScene: watch.scene || null,
@@ -1622,6 +1839,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
     return Math.max(min, Math.min(max, Math.trunc(num)));
+  }
+
+  private toText(value: any, fallback = ""): string {
+    if (value == null) return fallback;
+    const text = String(value).replace(/\s+/g, " ").trim();
+    return text || fallback;
   }
 
   private toBool(value: any, fallback: boolean): boolean {

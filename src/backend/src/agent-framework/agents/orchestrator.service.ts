@@ -39,7 +39,8 @@ type AgentType =
   | "child-companion"
   | "parent-advisor"
   | "course-designer"
-  | "activity-generator";
+  | "activity-generator"
+  | "video-generator";
 
 type RouteMode = "single" | "coordinated";
 
@@ -49,6 +50,7 @@ interface IntentSignals {
   report: number;
   control: number;
   assignment: number;
+  video: number;
 }
 
 interface RoutePlan {
@@ -106,6 +108,14 @@ export class OrchestratorService {
   private static readonly ASSIGNMENT_PATTERNS: Array<[RegExp, number]> = [
     [/\u4F5C\u4E1A|\u5E03\u7F6E|\u4EFB\u52A1|\u7EC3\u4E60\u5B89\u6392/i, 2],
     [/\bassignment\b|\bassign\b|\bhomework\b/i, 2],
+  ];
+
+  private static readonly VIDEO_PATTERNS: Array<[RegExp, number]> = [
+    [
+      /\u751F\u6210\u89C6\u9891|\u5236\u4F5C\u89C6\u9891|\u6559\u5B66\u89C6\u9891|\u89C6\u9891\u751F\u6210|\u6E32\u67D3\u89C6\u9891/i,
+      3,
+    ],
+    [/\bvideo\b|\brender\b|\bgenerate\s*video\b|\bmake\s*video\b/i, 2],
   ];
 
   private static readonly ASSIGNMENT_PUBLISH_PATTERNS: RegExp[] = [
@@ -260,6 +270,25 @@ export class OrchestratorService {
     );
 
     if (context.ageGroup === "parent") {
+      // Video generation: route to video-generator
+      if (signals.video >= 3 && signals.course >= 3) {
+        return {
+          mode: "coordinated",
+          primaryAgent: "parent-advisor",
+          collaborators: ["course-designer", "video-generator"],
+          reason: "parent asks for course with video generation",
+          signals,
+        };
+      }
+      if (signals.video >= 3) {
+        return {
+          mode: "single",
+          primaryAgent: "video-generator",
+          collaborators: [],
+          reason: "parent requests video generation",
+          signals,
+        };
+      }
       if (signals.course >= 3 && signals.activity >= 3) {
         return {
           mode: "coordinated",
@@ -315,6 +344,17 @@ export class OrchestratorService {
       };
     }
 
+    // Video generation for non-parent context
+    if (signals.video >= 3) {
+      return {
+        mode: "single",
+        primaryAgent: "video-generator",
+        collaborators: [],
+        reason: "video generation request",
+        signals,
+      };
+    }
+
     if (signals.course >= 3 && signals.activity >= 3) {
       return {
         mode: "coordinated",
@@ -365,6 +405,7 @@ export class OrchestratorService {
         text,
         OrchestratorService.ASSIGNMENT_PATTERNS,
       ),
+      video: this.scoreIntent(text, OrchestratorService.VIDEO_PATTERNS),
     };
   }
 
@@ -545,6 +586,15 @@ export class OrchestratorService {
       ].join("\n");
     }
 
+    if (collaborator === "video-generator") {
+      return [
+        "You are the video-generation specialist in a coordinated run. Generate the complete video autonomously.",
+        `User request: ${userInput}`,
+        knownOutputs,
+        "Must include: storyboard generation, composition authoring, rendering, and quality review.",
+      ].join("\n");
+    }
+
     if (collaborator === "activity-generator") {
       return [
         "You are the activity-design specialist in a coordinated run. Output only activities/exercises.",
@@ -599,6 +649,8 @@ export class OrchestratorService {
         return "Course Designer";
       case "activity-generator":
         return "Activity Generator";
+      case "video-generator":
+        return "Video Generator";
       default:
         return agentType;
     }

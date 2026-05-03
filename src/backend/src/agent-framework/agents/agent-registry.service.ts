@@ -151,6 +151,23 @@ export class AgentRegistryService implements IAgentRegistry {
       }
     }
 
+    // Boost for video-generator when input mentions video generation
+    if (definition.type === "video-generator") {
+      const videoKeywords = [
+        "视频",
+        "渲染",
+        "视频生成",
+        "生成视频",
+        "制作视频",
+        "教学视频",
+        "video",
+        "render",
+      ];
+      for (const kw of videoKeywords) {
+        if (input.includes(kw)) score += 2;
+      }
+    }
+
     return score;
   }
 }

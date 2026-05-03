@@ -366,7 +366,17 @@ export function buildTemplatePromptContext(): string {
 /** Known template IDs for validation */
 export const KNOWN_TEMPLATE_IDS = new Set(ANIMATION_TEMPLATES.map((t) => t.id));
 
-/** Domain-based template mapping for rule-based fallback */
+/** Look up a template definition by ID */
+export function getTemplateById(
+  id: string,
+): AnimationTemplateSummary | undefined {
+  return ANIMATION_TEMPLATES.find((t) => t.id === id);
+}
+
+/**
+ * @deprecated Use VideoContentAnalyzerService (LLM-based) instead.
+ * Kept as fallback when LLM is unavailable.
+ */
 export function suggestTemplateByDomain(
   domain: string,
   topic: string,

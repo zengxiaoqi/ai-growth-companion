@@ -197,6 +197,31 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   private readonly ESCALATING_TOKEN_LIMITS = [4096, 8192, 16384];
 
+  /**
+   * Generate with per-call config overrides for model routing.
+   * Falls back to defaults from this.config for any unspecified field.
+   */
+  async generateWithConfig(
+    prompt: string,
+    systemPrompt?: string,
+    config?: { model?: string; maxTokens?: number; temperature?: number },
+  ): Promise<string> {
+    const overrideConfig = config || {};
+    const originalConfig = { ...this.config };
+
+    if (overrideConfig.model) this.config.model = overrideConfig.model;
+    if (overrideConfig.maxTokens)
+      this.config.maxTokens = overrideConfig.maxTokens;
+    if (overrideConfig.temperature !== undefined)
+      this.config.temperature = overrideConfig.temperature;
+
+    try {
+      return await this.generate(prompt, systemPrompt);
+    } finally {
+      this.config = originalConfig;
+    }
+  }
+
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
     const messages: LlmMessage[] = [];
     if (systemPrompt) {

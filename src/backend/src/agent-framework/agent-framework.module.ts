@@ -33,6 +33,7 @@ import { childCompanionDefinition } from "./agents/definitions/child-companion.a
 import { parentAdvisorDefinition } from "./agents/definitions/parent-advisor.agent";
 import { courseDesignerDefinition } from "./agents/definitions/course-designer.agent";
 import { activityGeneratorDefinition } from "./agents/definitions/activity-generator.agent";
+import { videoGeneratorDefinition } from "./agents/definitions/video-generator.agent";
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ export class AgentFrameworkModule implements OnModuleInit {
       parentAdvisorDefinition,
       courseDesignerDefinition,
       activityGeneratorDefinition,
+      videoGeneratorDefinition,
     ];
 
     for (const definition of agentDefinitions) {

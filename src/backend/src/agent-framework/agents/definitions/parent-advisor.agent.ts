@@ -103,6 +103,8 @@ export const parentAdvisorDefinition: AgentDefinition = {
     "hyperframes-video-creation",
     "remotion-video-creation",
     "video-generation-orchestrator",
+    "hyperframes",
+    "hyperframes-cli",
   ],
 
   maxIterations: 8,

@@ -378,11 +378,12 @@ export class GenerateVideoDataTool {
 
   private inferBgType(source: string): string {
     if (/(夜|晚上|星星|月亮|黑夜|睡觉)/.test(source)) return "night";
-    if (/(四季|季节|春)/.test(source)) return "spring";
-    if (/(夏|热|太阳大)/.test(source)) return "summer";
-    if (/(秋|落叶|丰收)/.test(source)) return "autumn";
-    if (/(冬|雪|冷)/.test(source)) return "winter";
-    if (/(教室|课堂|室内|家|房间)/.test(source)) return "indoor";
+    if (/(四季|季节|春夏秋冬)/.test(source)) return "spring";
+    if (/(春天|春季|花开|发芽|播种)/.test(source)) return "spring";
+    if (/(夏天|夏季|热|游泳|西瓜)/.test(source)) return "summer";
+    if (/(秋天|秋季|落叶|丰收|果实)/.test(source)) return "autumn";
+    if (/(冬天|冬季|雪|冷|棉袄)/.test(source)) return "winter";
+    if (/(教室|课堂|室内|家|房间|厨房)/.test(source)) return "indoor";
     return "day";
   }
 

@@ -417,7 +417,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   }
 
   return (
-    <div className="app-shell min-h-app bg-background pb-safe">
+    <div className="app-shell min-h-app bg-background">
       <div className="pointer-events-none absolute -left-10 top-16 h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-20 top-52 h-80 w-80 rounded-full bg-primary-container/25 blur-3xl" />
 
@@ -461,7 +461,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         </div>
       ) : null}
 
-      <main className="relative mx-auto mt-2 flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-4 md:px-6">
+      <main className="relative mx-auto mt-2 flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-28 md:px-6">
         {selectedChildId && activeTab !== 'chat' ? (
           <section className="content-visibility-auto mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {quickOverview.map((item) => (
@@ -648,8 +648,8 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         ) : null}
       </main>
 
-      <nav className="px-3 pb-safe md:px-6">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-2 py-1.5">
+      <nav className="fixed bottom-safe left-0 right-0 z-50 px-3 md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low/90 px-2 py-1.5 backdrop-blur-lg">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -669,7 +669,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       </nav>
 
       {!selectedChildId && activeTab !== 'chat' ? (
-        <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2">
+        <div className="pointer-events-none fixed bottom-24 left-1/2 z-30 -translate-x-1/2">
           <div className="rounded-full bg-surface-container-low px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
             先选择孩子后可使用更多功能
           </div>
@@ -677,7 +677,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       ) : null}
 
       {selectedChildId && activeTab === 'chat' ? (
-        <div className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-surface-container-low/95 px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
+        <div className="pointer-events-none fixed bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full bg-surface-container-low/95 px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
           AI 正在根据 {selectedChild?.name || '当前孩子'} 的学习情况给出建议
         </div>

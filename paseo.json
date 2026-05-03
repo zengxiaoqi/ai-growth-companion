@@ -1,0 +1,10 @@
+{
+  "worktree": {
+    "setup": "npm install"
+  },
+  "scripts": {
+    "local": {
+      "command": "start.bat"
+    }
+  }
+}

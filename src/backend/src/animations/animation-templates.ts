@@ -430,7 +430,7 @@ export function suggestTemplateByDomain(
         normalizedTopic,
       )
     )
-      return "science.plant-growth";
+      return "language.story-scene";
     if (/(天气|风|温度|冷热|晴|阴|雾|台风)/.test(normalizedTopic))
       return "science.seasons-cycle";
     if (

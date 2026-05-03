@@ -378,7 +378,7 @@ export default function StudentDashboard({
   const userName = user?.name || '小朋友';
 
   return (
-    <div className="app-shell min-h-app pb-safe">
+    <div className="app-shell min-h-app">
       <div className="pointer-events-none absolute -left-16 top-20 h-64 w-64 rounded-full bg-primary-container/25 blur-3xl" />
       <div className="pointer-events-none absolute -right-10 top-[35%] h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
 
@@ -401,7 +401,7 @@ export default function StudentDashboard({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 pt-6 md:px-6 md:pt-8">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 md:px-6 md:pt-8">
         <section className="panel-card-strong content-visibility-auto relative mb-6 overflow-hidden p-6 md:p-8">
           <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary-container/25 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -891,8 +891,8 @@ export default function StudentDashboard({
         </section>
       </main>
 
-      <nav className="px-3 pb-safe md:px-6">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-2.5">
+      <nav className="fixed bottom-safe left-0 right-0 z-50 px-3 md:px-6">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low/90 px-4 py-2.5 backdrop-blur-lg">
           <button onClick={() => scrollToSection('curriculum')} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
             <BookOpen className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">课程</span>
@@ -911,7 +911,7 @@ export default function StudentDashboard({
       <button
         aria-label="紧急呼叫"
         onClick={() => setShowEmergencyDialog(true)}
-        className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-error text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 md:right-7"
+        className="fixed bottom-20 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-error text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 md:right-7"
       >
         <AlertCircle className="h-8 w-8 fill-current" />
       </button>

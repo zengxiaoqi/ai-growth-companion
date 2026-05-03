@@ -742,9 +742,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               <Bot className="w-6 h-6 text-white" />
             )}
           </div>
-          <div className="flex-1">
-            <h3 className="text-white font-bold text-lg">AI 学习伙伴</h3>
-            <p className="text-white/70 text-xs">随时回答问题，也能出题陪练</p>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-bold text-sm leading-tight truncate">AI 学习伙伴</h3>
           </div>
           <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">
             <button
@@ -1148,9 +1147,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                     <Bot className="w-5 h-5 text-white" />
                   )}
                 </div>
-                <div>
-                  <h3 className="text-white font-bold text-sm">AI 学习伙伴</h3>
-                  <p className="text-white/70 text-[10px]">随时问，随时答</p>
+                <div className="min-w-0">
+                  <h3 className="text-white font-bold text-sm truncate">AI 学习伙伴</h3>
                 </div>
               </div>
               <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">

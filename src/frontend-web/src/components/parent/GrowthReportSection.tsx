@@ -144,9 +144,9 @@ export default function GrowthReportSection({
           <div className="mt-4 space-y-2.5">
             {recentMastered.length > 0 ? (
               recentMastered.map((item, index) => (
-                <div key={index} className="flex items-center gap-2.5">
-                  <div className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                  <span className="text-sm font-semibold text-on-surface">{item.label}</span>
+                <div key={index} className="flex items-center gap-2.5 min-w-0">
+                  <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${item.color}`} />
+                  <span className="text-sm font-semibold text-on-surface truncate">{item.label}</span>
                 </div>
               ))
             ) : (

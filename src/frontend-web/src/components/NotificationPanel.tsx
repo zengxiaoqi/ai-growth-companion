@@ -177,10 +177,10 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={cn('text-sm leading-snug text-on-surface', !notification.read && 'font-black')}>
+                          <p className={cn('text-sm leading-snug text-on-surface line-clamp-2', !notification.read && 'font-black')}>
                             {notification.title}
                           </p>
-                          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">{notification.message}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant line-clamp-2">{notification.message}</p>
                           <p className="mt-1.5 text-[11px] font-medium text-outline">{formatTime(notification.createdAt)}</p>
                         </div>
                         {!notification.read ? <span className="mt-2 h-2 w-2 rounded-full bg-primary" /> : null}

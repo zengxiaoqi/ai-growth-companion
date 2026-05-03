@@ -16,6 +16,7 @@ import { LessonContentService } from "./lesson-content.service";
 import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { RemotionRenderService } from "./remotion-render.service";
 import { HyperframesRenderService } from "./hyperframes-render.service";
+import { VideoGenerationAgentService } from "./video-generation-agent.service";
 import { LearningController } from "./learning.controller";
 import { SseModule } from "../sse/sse.module";
 import { AchievementsModule } from "../achievements/achievements.module";
@@ -25,6 +26,7 @@ import { AiModule } from "../ai/ai.module";
 import { ContentsModule } from "../contents/contents.module";
 import { AssignmentModule } from "../assignment/assignment.module";
 import { VoiceModule } from "../voice/voice.module";
+import { AgentFrameworkModule } from "../../agent-framework/agent-framework.module";
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { VoiceModule } from "../voice/voice.module";
     ContentsModule,
     forwardRef(() => AssignmentModule),
     VoiceModule,
+    forwardRef(() => AgentFrameworkModule),
   ],
   providers: [
     LearningService,
@@ -56,6 +59,7 @@ import { VoiceModule } from "../voice/voice.module";
     LessonVideoQueueService,
     RemotionRenderService,
     HyperframesRenderService,
+    VideoGenerationAgentService,
   ],
   controllers: [LearningController],
   exports: [
@@ -66,6 +70,7 @@ import { VoiceModule } from "../voice/voice.module";
     LessonVideoQueueService,
     RemotionRenderService,
     HyperframesRenderService,
+    VideoGenerationAgentService,
   ],
 })
 export class LearningModule {}

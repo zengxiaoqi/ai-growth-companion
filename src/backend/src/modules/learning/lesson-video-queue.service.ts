@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
@@ -19,6 +20,7 @@ import { suggestTemplateByDomain } from "../../animations/animation-templates";
 import { AiService } from "../ai/ai.service";
 import { RemotionRenderService } from "./remotion-render.service";
 import { HyperframesRenderService } from "./hyperframes-render.service";
+import type { VideoGenerationAgentService } from "./video-generation-agent.service";
 
 type ProviderStatus =
   | "queued"
@@ -145,6 +147,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly aiService: AiService,
     private readonly remotionRender: RemotionRenderService,
     private readonly hyperframesRender: HyperframesRenderService,
+    @Optional()
+    private readonly videoGenerationAgent?: VideoGenerationAgentService,
   ) {}
 
   onModuleInit() {
@@ -450,6 +454,94 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async generateVideoBuffer(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<{
+    buffer: Buffer;
+    providerTaskId?: string | null;
+    sourceVideoUrl?: string | null;
+  }> {
+    // --- Agent-first path: use VideoGenerationAgentService when available ---
+    if (this.videoGenerationAgent) {
+      const topic = payload?.topic || "";
+      if (topic) {
+        this.logger.log(
+          `[generateVideoBuffer] taskId=${task.id} using agent pipeline for topic="${topic}"`,
+        );
+        try {
+          const agentResult = await this.videoGenerationAgent.generateViaAgent({
+            topic,
+            domain: payload?.domain,
+            ageGroup: payload?.ageGroup,
+            contentId: task.contentId,
+            childId: task.childId,
+            payload,
+          });
+
+          this.logger.log(
+            `[generateVideoBuffer] taskId=${task.id} agent completed: storyboard=${agentResult.storyboard ? "yes" : "no"}, qualityScore=${agentResult.qualityScore}, passed=${agentResult.qualityPassed}, toolCalls=${agentResult.toolCalls.length}`,
+          );
+
+          // If the agent produced a storyboard, enrich the payload with it
+          if (agentResult.storyboard) {
+            const enrichedPayload = this.enrichPayloadWithStoryboard(
+              payload,
+              agentResult.storyboard,
+            );
+            // Fall through to render the enriched payload via existing engines
+            return this.generateVideoBufferWithEngines(task, enrichedPayload);
+          }
+        } catch (error: any) {
+          this.logger.warn(
+            `[generateVideoBuffer] taskId=${task.id} agent pipeline failed, falling back: ${error?.message || "unknown"}`,
+          );
+          // Fall through to legacy path
+        }
+      }
+    }
+
+    // --- Legacy path: direct engine rendering ---
+    return this.generateVideoBufferWithEngines(task, payload);
+  }
+
+  /** Enrich the render payload with agent-generated storyboard data */
+  private enrichPayloadWithStoryboard(
+    payload: Record<string, any>,
+    storyboard: any,
+  ): Record<string, any> {
+    const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
+
+    return {
+      ...payload,
+      topic: storyboard.topic || payload.topic,
+      visualStory: {
+        scenes: scenes.map((scene: any) => ({
+          scene: scene.title || `场景${scene.sequence}`,
+          imagePrompt:
+            scene.visualDescription ||
+            `${storyboard.topic}场景：${scene.title}，卡通教育风格`,
+          narration: scene.narration || "",
+          onScreenText: scene.onScreenText || scene.concept || "",
+          durationSec: scene.durationSec || 6,
+          animationTemplate: scene.animationTemplate?.id || undefined,
+          animationParams: scene.animationTemplate?.params || {},
+        })),
+        style: storyboard.visualTheme?.mood || "colorful-educational",
+      },
+      videoLesson: {
+        title: storyboard.title || payload.title,
+        durationSec: storyboard.totalDurationSec || 0,
+        shots: scenes.map((scene: any) => ({
+          shot: scene.title || `片段${scene.sequence}`,
+          narration: scene.narration || "",
+          caption: (scene.onScreenText || scene.title || "").slice(0, 12),
+          durationSec: scene.durationSec || 6,
+        })),
+      },
+    };
+  }
+
+  private async generateVideoBufferWithEngines(
     task: VideoGenerationTask,
     payload: Record<string, any>,
   ): Promise<{

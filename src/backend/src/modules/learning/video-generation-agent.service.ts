@@ -403,9 +403,10 @@ export class VideoGenerationAgentService {
     const skills = this.skillRegistry.getSkillsForAgent(allowedSkills);
     if (skills.length === 0) return systemPrompt;
 
-    const rendered = skills.map((skill) =>
-      this.skillExecutor.renderSkillForPrompt(skill.definition),
-    );
+    const rendered = skills.map((skill) => {
+      skill.ensureContentLoaded?.();
+      return this.skillExecutor.renderSkillForPrompt(skill.definition);
+    });
     this.logger.log(
       `[injectSkills] Injecting ${skills.length} skills: ${skills
         .map(
@@ -421,6 +422,7 @@ export class VideoGenerationAgentService {
   private hasRemotionSkillGuidance(): boolean {
     const skill = this.skillRegistry.get?.("remotion-video-creation");
     if (!skill) return false;
+    skill.ensureContentLoaded?.();
     const rules = skill.definition.rules || [];
     const searchable = `${skill.definition.body || ""}\n${rules
       .map((rule) => `${rule.name}\n${rule.content}`)

@@ -78,4 +78,6 @@ export interface ISkill {
     variables: Record<string, unknown>,
     context: SkillExecutionContext,
   ): Promise<ExecutionResult>;
+  /** Ensure body + rules are loaded (lazy-load for Markdown skills) */
+  ensureContentLoaded?(): void;
 }

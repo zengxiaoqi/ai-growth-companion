@@ -62,7 +62,7 @@ function loadSkillFromDirectory(
 ): SkillDefinition | null {
   const skillMdPath = path.join(skillDir, "SKILL.md");
   const raw = fs.readFileSync(skillMdPath, "utf-8");
-  const { data: frontmatter, content: body } = matter(raw);
+  const { data: frontmatter } = matter(raw);
 
   if (!frontmatter.name && !frontmatter.description) {
     return null;
@@ -76,20 +76,18 @@ function loadSkillFromDirectory(
   const ageGroups = asStringArray(frontmatter.ageGroups, undefined);
   const chainTo = asOptionalString(frontmatter.chainTo);
 
-  const rules = loadRulesFromDirectory(skillDir);
-
   return {
     id,
     sourceDir: skillDir,
     name: frontmatter.name || id,
     description: frontmatter.description || "",
     triggers,
-    body: body.trim() || undefined,
+    body: undefined,
     variables,
     requiredTools,
     chainTo,
     ageGroups: ageGroups as SkillDefinition["ageGroups"],
-    rules: rules.length > 0 ? rules : undefined,
+    rules: undefined,
   };
 }
 
@@ -141,4 +139,17 @@ function asStringArray(
 
 function asOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** Lazily load the Markdown body from a skill directory. */
+export function loadSkillBody(skillDir: string): string {
+  const skillMdPath = path.join(skillDir, "SKILL.md");
+  const raw = fs.readFileSync(skillMdPath, "utf-8");
+  const { content: body } = matter(raw);
+  return body.trim();
+}
+
+/** Lazily load rules from a skill directory. */
+export function loadSkillRules(skillDir: string): SkillRule[] {
+  return loadRulesFromDirectory(skillDir);
 }

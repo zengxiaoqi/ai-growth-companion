@@ -5,7 +5,11 @@ import type {
   SkillDefinition,
   SkillExecutionContext,
 } from "../core";
-import { loadSkillsFromDirectory } from "./markdown-skill-loader";
+import {
+  loadSkillsFromDirectory,
+  loadSkillBody,
+  loadSkillRules,
+} from "./markdown-skill-loader";
 import * as path from "path";
 import { existsSync } from "fs";
 
@@ -80,8 +84,26 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
 /** ISkill implementation backed by a Markdown definition */
 class MarkdownSkill implements ISkill {
   readonly definition: SkillDefinition;
+  private _bodyLoaded = false;
+  private _rulesLoaded = false;
+
   constructor(definition: SkillDefinition) {
     this.definition = definition;
+  }
+
+  ensureContentLoaded(): void {
+    const dir = this.definition.sourceDir;
+    if (!dir) return;
+
+    if (!this._bodyLoaded) {
+      this.definition.body = loadSkillBody(dir) || undefined;
+      this._bodyLoaded = true;
+    }
+    if (!this._rulesLoaded) {
+      const rules = loadSkillRules(dir);
+      this.definition.rules = rules.length > 0 ? rules : undefined;
+      this._rulesLoaded = true;
+    }
   }
 
   async execute(

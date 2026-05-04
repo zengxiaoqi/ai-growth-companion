@@ -722,9 +722,10 @@ export class OrchestratorService {
     const skills = this.skillRegistry.getSkillsForAgent(allowedSkills);
     if (skills.length === 0) return systemPrompt;
 
-    const rendered = skills.map((skill) =>
-      this.skillExecutor.renderSkillForPrompt(skill.definition),
-    );
+    const rendered = skills.map((skill) => {
+      skill.ensureContentLoaded?.();
+      return this.skillExecutor.renderSkillForPrompt(skill.definition);
+    });
     this.logger.debug(
       `Injecting ${skills.length} skills: ${skills.map((s) => s.definition.id).join(", ")}`,
     );

@@ -102,7 +102,9 @@ export class CourseGenerationAgentService {
     );
     if (skills.length > 0) {
       prompt = `${prompt}\n\n## Skills\n\n${skills
-        .map((skill) => this.skillExecutor.renderSkillForPrompt(skill.definition))
+        .map((skill) =>
+          this.skillExecutor.renderSkillForPrompt(skill.definition),
+        )
         .join("\n\n")}`;
     }
     return prompt;

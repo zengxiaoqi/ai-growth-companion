@@ -2,6 +2,11 @@ import { Injectable, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import * as path from "path";
+import {
+  type AnimalSubjectConfig,
+  ANIMAL_SUBJECTS,
+  findAnimalSubject,
+} from "./animal-subjects.config";
 
 export type VisualAssetKind = "character" | "background" | "overlay";
 
@@ -58,7 +63,7 @@ type AssetRequest = {
   minHeight: number;
 };
 
-type AnimalSubject = "tiger" | "rabbit";
+type AnimalSubject = string;
 
 @Injectable()
 export class VisualAssetService {
@@ -92,17 +97,20 @@ export class VisualAssetService {
     const mainCharacter = assets.find((asset) => asset.kind === "character");
     const background = assets.find((asset) => asset.kind === "background");
     const overlays = assets.filter((asset) => asset.kind === "overlay");
-    const requiresCharacter = requests.some((request) => request.kind === "character");
-    const primary = mainCharacter || (!requiresCharacter ? background : undefined) || overlays[0];
+    const requiresCharacter = requests.some(
+      (request) => request.kind === "character",
+    );
+    const primary =
+      mainCharacter ||
+      (!requiresCharacter ? background : undefined) ||
+      overlays[0];
     const provider = primary?.provider || "svgFallback";
     const resolvedQualityScore = Math.max(
       ...assets.map((asset) => asset.qualityScore),
       provider === "svgFallback" ? 35 : 0,
     );
     const qualityScore =
-      requiresCharacter && !mainCharacter
-        ? 35
-        : resolvedQualityScore;
+      requiresCharacter && !mainCharacter ? 35 : resolvedQualityScore;
 
     return {
       mainCharacter,
@@ -153,7 +161,7 @@ export class VisualAssetService {
           ? "forest-night"
           : habitat === "grassland"
             ? "grassland"
-          : "forest-day";
+            : "forest-day";
     requests.push({
       kind: "background",
       role: backgroundRole,
@@ -177,9 +185,20 @@ export class VisualAssetService {
     return requests;
   }
 
-  private async resolveAsset(request: AssetRequest): Promise<VisualAsset | null> {
+  private async resolveAsset(
+    request: AssetRequest,
+  ): Promise<VisualAsset | null> {
     const local = await this.findLocalAsset(request);
-    if (local) return local;
+    if (local) {
+      this.logger.log(
+        `[resolveAsset] role="${request.role}" resolved via local: ${local.staticPath}`,
+      );
+      return local;
+    }
+
+    this.logger.debug(
+      `[resolveAsset] role="${request.role}" not found locally, trying Openverse`,
+    );
 
     const openverse = await this.resolveOpenverseAsset(request);
     if (openverse) return openverse;
@@ -190,6 +209,9 @@ export class VisualAssetService {
     const kenney = await this.resolveKenneyAsset(request);
     if (kenney) return kenney;
 
+    this.logger.warn(
+      `[resolveAsset] role="${request.role}" unresolved: all providers returned null`,
+    );
     return null;
   }
 
@@ -198,20 +220,43 @@ export class VisualAssetService {
   ): Promise<VisualAsset | null> {
     const manifest = await this.loadLocalManifest();
     const assets = manifest?.assets || [];
-    const match = assets.find(
-      (asset) =>
-        asset.kind === request.kind &&
-        asset.role === request.role &&
-        (!asset.provider || asset.provider === "local") &&
-        this.isAllowedLicense(asset.license) &&
-        this.meetsMinimumSize(asset, request),
+
+    const matchCriteria = (asset: VisualAsset) =>
+      asset.kind === request.kind &&
+      (!asset.provider || asset.provider === "local") &&
+      this.isAllowedLicense(asset.license) &&
+      this.meetsMinimumSize(asset, request);
+
+    const exactMatch = assets.find(
+      (asset) => matchCriteria(asset) && asset.role === request.role,
     );
-    if (!match) return null;
-    return {
-      ...match,
-      provider: match.provider || "local",
-      qualityScore: match.qualityScore || 88,
-    };
+    if (exactMatch) {
+      return {
+        ...exactMatch,
+        provider: exactMatch.provider || "local",
+        qualityScore: exactMatch.qualityScore || 88,
+      };
+    }
+
+    const animalPrefix = request.role.split("-")[0];
+    if (animalPrefix && animalPrefix !== request.role) {
+      const prefixMatch = assets.find(
+        (asset) =>
+          matchCriteria(asset) && asset.role.startsWith(animalPrefix + "-"),
+      );
+      if (prefixMatch) {
+        this.logger.log(
+          `[findLocalAsset] 请求 "${request.role}" 未精确匹配，使用前缀兜底 "${prefixMatch.role}"`,
+        );
+        return {
+          ...prefixMatch,
+          provider: prefixMatch.provider || "local",
+          qualityScore: (prefixMatch.qualityScore || 88) - 2,
+        };
+      }
+    }
+
+    return null;
   }
 
   private async resolveKenneyAsset(
@@ -321,9 +366,7 @@ export class VisualAssetService {
         const info = page?.imageinfo?.[0];
         const metadata = info?.extmetadata || {};
         const license = String(
-          metadata?.LicenseShortName?.value ||
-            metadata?.License?.value ||
-            "",
+          metadata?.LicenseShortName?.value || metadata?.License?.value || "",
         );
         if (!this.isAllowedLicense(license)) continue;
         const width = Number(info?.width) || 0;
@@ -391,7 +434,10 @@ export class VisualAssetService {
       const response = await fetch(source.url);
       if (!response.ok) throw new Error(`download status ${response.status}`);
       const contentType = response.headers.get("content-type") || "";
-      if (!contentType.startsWith("image/") && !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)) {
+      if (
+        !contentType.startsWith("image/") &&
+        !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)
+      ) {
         throw new Error(`non-image content type ${contentType || "unknown"}`);
       }
       const buffer = Buffer.from(await response.arrayBuffer());
@@ -435,7 +481,9 @@ export class VisualAssetService {
   ): Promise<VisualAsset | null> {
     try {
       const manifest = await this.readGeneratedManifest();
-      return manifest.assets.find((asset) => asset.staticPath === staticPath) || null;
+      return (
+        manifest.assets.find((asset) => asset.staticPath === staticPath) || null
+      );
     } catch {
       return null;
     }
@@ -443,7 +491,9 @@ export class VisualAssetService {
 
   private async appendGeneratedManifest(asset: VisualAsset): Promise<void> {
     const manifest = await this.readGeneratedManifest();
-    const assets = manifest.assets.filter((item) => item.staticPath !== asset.staticPath);
+    const assets = manifest.assets.filter(
+      (item) => item.staticPath !== asset.staticPath,
+    );
     assets.push({ ...asset, downloadedAt: new Date().toISOString() } as any);
     await fs.mkdir(this.generatedAssetDir, { recursive: true });
     await fs.writeFile(
@@ -468,56 +518,41 @@ export class VisualAssetService {
 
   private queryForRole(role: string): string {
     const queries: Record<string, string> = {
-      "tiger-standing": "realistic tiger standing transparent cc0",
-      "tiger-running": "realistic tiger running cc0",
-      "tiger-swimming": "tiger swimming cc0",
-      "tiger-roaring": "tiger roaring cc0",
-      "rabbit-standing": "realistic rabbit standing transparent cc0",
-      "rabbit-eating": "rabbit eating carrot cc0",
-      "rabbit-jumping": "rabbit jumping grassland cc0",
-      "rabbit-listening": "rabbit long ears cc0",
-      "forest-day": "sunlit forest landscape cc0",
-      "forest-night": "night forest landscape cc0",
-      grassland: "sunlit grassland meadow cc0",
-      river: "forest river landscape cc0",
-      "water-splash": "water splash transparent cc0",
+      "tiger-standing": "tiger standing",
+      "tiger-running": "tiger running",
+      "tiger-swimming": "tiger swimming",
+      "tiger-roaring": "tiger roaring",
+      "rabbit-standing": "rabbit",
+      "rabbit-eating": "rabbit eating",
+      "rabbit-jumping": "rabbit jumping",
+      "rabbit-listening": "rabbit",
+      "forest-day": "sunlit forest landscape",
+      "forest-night": "night forest",
+      grassland: "grassland meadow",
+      river: "forest river",
+      "water-splash": "water splash",
     };
-    return queries[role] || `${role} cc0`;
+    return queries[role] || role.replace(/-/g, " ");
   }
 
   private inferAnimalSubject(
     source: string,
     assetKey?: string,
   ): AnimalSubject | null {
-    if (assetKey === "tiger" || this.hasAny(source, ["tiger", "\u8001\u864e"])) {
-      return "tiger";
-    }
-    if (
-      assetKey === "rabbit" ||
-      this.hasAny(source, ["rabbit", "bunny", "\u5154\u5b50", "\u5c0f\u5154"])
-    ) {
-      return "rabbit";
-    }
-    return null;
+    const config = findAnimalSubject(source, assetKey);
+    return config?.id ?? null;
+  }
+
+  private findAnimalConfig(animalId: string): AnimalSubjectConfig | undefined {
+    return ANIMAL_SUBJECTS.find((s) => s.id === animalId);
   }
 
   private roleForAnimalAction(animal: AnimalSubject, action: string): string {
-    if (animal === "tiger") {
-      return action === "run"
-        ? "tiger-running"
-        : action === "swim"
-          ? "tiger-swimming"
-          : action === "roar"
-            ? "tiger-roaring"
-            : "tiger-standing";
+    const config = this.findAnimalConfig(animal);
+    if (config) {
+      return config.actionRoles[action] || config.defaultRole;
     }
-    return action === "eat"
-      ? "rabbit-eating"
-      : action === "run" || action === "jump"
-        ? "rabbit-jumping"
-        : action === "listen" || action === "showFeatures"
-          ? "rabbit-listening"
-          : "rabbit-standing";
+    return `${animal}-${action}`;
   }
 
   private meetsMinimumSize(asset: VisualAsset, request: AssetRequest): boolean {
@@ -550,6 +585,10 @@ export class VisualAssetService {
 
   private stripHtml(value?: string): string | undefined {
     if (!value) return undefined;
-    return String(value).replace(/<[^>]+>/g, "").trim() || undefined;
+    return (
+      String(value)
+        .replace(/<[^>]+>/g, "")
+        .trim() || undefined
+    );
   }
 }

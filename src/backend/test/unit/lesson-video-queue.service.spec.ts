@@ -307,7 +307,9 @@ describe("LessonVideoQueueService", () => {
         ageGroup: "5-6",
         domain: "science",
         videoLesson: {
-          shots: [{ shot: "春天讲解", narration: "春天花开了。", caption: "春天" }],
+          shots: [
+            { shot: "春天讲解", narration: "春天花开了。", caption: "春天" },
+          ],
         },
       },
     );

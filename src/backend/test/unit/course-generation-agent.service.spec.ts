@@ -29,7 +29,9 @@ describe("CourseGenerationAgentService", () => {
       has: jest.fn().mockReturnValue(true),
       getToolDefinitions: jest
         .fn()
-        .mockReturnValue([{ type: "function", function: { name: "generateCoursePack" } }]),
+        .mockReturnValue([
+          { type: "function", function: { name: "generateCoursePack" } },
+        ]),
     };
     const service = new CourseGenerationAgentService(
       executorService as any,

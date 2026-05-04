@@ -1494,7 +1494,9 @@ export class RemotionRenderService {
           `[runGeneratedRemotionRender] Dynamic Remotion render failed: compositionId=${compositionId}, exitCode=${code}, lastError="${lastError}"`,
         );
         reject(
-          new Error(`dynamic remotion render exited with code ${code}: ${lastError}`),
+          new Error(
+            `dynamic remotion render exited with code ${code}: ${lastError}`,
+          ),
         );
       });
     });

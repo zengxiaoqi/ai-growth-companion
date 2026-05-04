@@ -11,7 +11,7 @@
  * the agent framework's tools.
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ToolRegistryService } from "../../agent-framework/tools/tool-registry.service";
 import { AgentRegistryService } from "../../agent-framework/agents/agent-registry.service";
 import { AgentExecutorService } from "../../agent-framework/agents/agent-executor.service";
@@ -30,6 +30,17 @@ import {
   type VisualAsset,
   type SceneVisualAssetPlan,
 } from "./visual-asset.service";
+import {
+  ANIMAL_SUBJECTS,
+  findAnimalSubject,
+  getInlineSvgAssetKeys,
+} from "./animal-subjects.config";
+import {
+  ACTION_KEYWORDS,
+  HABITAT_KEYWORDS,
+  ENVIRONMENT_TAG_KEYWORDS,
+  matchKeyword,
+} from "./visual-keywords.config";
 
 export interface AgentVideoRequest {
   topic: string;
@@ -84,7 +95,7 @@ export class VideoGenerationAgentService {
     private readonly executorService: AgentExecutorService,
     private readonly skillRegistry: SkillRegistryService,
     private readonly skillExecutor: SkillExecutor,
-    @Optional() private readonly visualAssetService?: VisualAssetService,
+    private readonly visualAssetService: VisualAssetService,
   ) {}
 
   /**
@@ -434,60 +445,64 @@ export class VideoGenerationAgentService {
             },
           ];
 
-    const builtScenes = sourceScenes.slice(0, 8).map((scene: any, index: number) => {
-      const title = this.toText(
-        scene?.title || scene?.scene || scene?.shot,
-        `${topic} ${index + 1}`,
-      ).slice(0, 32);
-      const narration = this.toText(scene?.narration, title).slice(0, 260);
-      const visualDescription = this.toText(
-        scene?.visualDescription || scene?.imagePrompt || scene?.visualPrompt,
-        `${topic} animated teaching scene`,
+    const builtScenes = sourceScenes
+      .slice(0, 8)
+      .map((scene: any, index: number) => {
+        const title = this.toText(
+          scene?.title || scene?.scene || scene?.shot,
+          `${topic} ${index + 1}`,
+        ).slice(0, 32);
+        const narration = this.toText(scene?.narration, title).slice(0, 260);
+        const visualDescription = this.toText(
+          scene?.visualDescription || scene?.imagePrompt || scene?.visualPrompt,
+          `${topic} animated teaching scene`,
+        );
+        const onScreenText = this.toText(
+          scene?.onScreenText || scene?.caption || scene?.concept,
+          title,
+        ).slice(0, 32);
+        const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
+        const source = `${topic} ${title} ${narration} ${visualDescription} ${onScreenText}`;
+        const tags = this.inferDynamicAssetTags(source);
+        const action = this.inferDynamicAction(source);
+        const habitat = this.inferDynamicHabitat(source);
+        const animalConfig = findAnimalSubject(source);
+        const assetKey = animalConfig?.id || "topic";
+        const template =
+          this.toText(
+            scene?.animationTemplate?.id || scene?.animationTemplate,
+          ) ||
+          (assetKey === "tiger"
+            ? `science.animal-${action === "rest" ? "habitat" : "abilities"}`
+            : "dynamic.story-scene");
+
+        return {
+          id: `scene-${index + 1}`,
+          title,
+          narration,
+          onScreenText,
+          visualDescription,
+          assetKey,
+          assetTags: tags,
+          action,
+          habitat,
+          template,
+          generatedVisual: animalConfig
+            ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join("-")}`
+            : `dynamic-${habitat}-${tags.slice(0, 4).join("-")}`,
+          durationSec,
+          durationFrames: durationSec * 30,
+          accentColor:
+            animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
+        };
+      });
+
+    if (!this.visualAssetService) {
+      this.logger.warn(
+        "[buildDynamicSceneProps] visualAssetService 不可用，场景将没有素材解析",
       );
-      const onScreenText = this.toText(
-        scene?.onScreenText || scene?.caption || scene?.concept,
-        title,
-      ).slice(0, 32);
-      const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
-      const source = `${topic} ${title} ${narration} ${visualDescription} ${onScreenText}`;
-      const tags = this.inferDynamicAssetTags(source);
-      const action = this.inferDynamicAction(source);
-      const habitat = this.inferDynamicHabitat(source);
-      const assetKey = tags.includes("tiger")
-        ? "tiger"
-        : tags.includes("rabbit")
-          ? "rabbit"
-          : "topic";
-      const template =
-        this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
-        (assetKey === "tiger"
-          ? `science.animal-${action === "rest" ? "habitat" : "abilities"}`
-          : "dynamic.story-scene");
-
-      return {
-        id: `scene-${index + 1}`,
-        title,
-        narration,
-        onScreenText,
-        visualDescription,
-        assetKey,
-        assetTags: tags,
-        action,
-        habitat,
-        template,
-        generatedVisual:
-          assetKey === "tiger"
-            ? `tiger-${action}-${habitat}-stripe-forest-river`
-            : assetKey === "rabbit"
-              ? `rabbit-${action}-${habitat}-long-ears-grassland-carrot`
-              : `dynamic-${habitat}-${tags.slice(0, 4).join("-")}`,
-        durationSec,
-        durationFrames: durationSec * 30,
-        accentColor: this.resolveSceneAccent(tags, index),
-      };
-    });
-
-    if (!this.visualAssetService) return builtScenes;
+      return builtScenes;
+    }
 
     return Promise.all(
       builtScenes.map(async (scene) => {
@@ -525,7 +540,9 @@ export class VideoGenerationAgentService {
     };
   }
 
-  private collectManifestAssets(scenes: Array<Record<string, any>>): VisualAsset[] {
+  private collectManifestAssets(
+    scenes: Array<Record<string, any>>,
+  ): VisualAsset[] {
     const byPath = new Map<string, VisualAsset>();
     for (const scene of scenes) {
       const visualAssets = scene.visualAssets || {};
@@ -551,7 +568,7 @@ export class VideoGenerationAgentService {
       'import { GeneratedLesson } from "./GeneratedLesson";',
       "",
       "export const RemotionRoot: React.FC = () => {",
-      "  const defaultProps = { title: \"\", topic: \"\", scenes: [], durationFrames: " +
+      '  const defaultProps = { title: "", topic: "", scenes: [], durationFrames: ' +
         fallbackDurationFrames +
         " };",
       "  return (",
@@ -619,9 +636,6 @@ type GeneratedLessonProps = {
   scenes: GeneratedScene[];
   durationFrames: number;
 };
-
-const TIGER_VISUAL_TERMS = "tiger stripe forest river swim roar claw teeth";
-const RABBIT_VISUAL_TERMS = "rabbit bunny long ears carrot grassland jump herbivore";
 
 const sceneStarts = (scenes: GeneratedScene[]) => {
   let cursor = 0;
@@ -853,8 +867,15 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       </div>
     );
   }
-  if (scene.assetKey === "tiger") return <TigerSvg scene={scene} />;
-  if (scene.assetKey === "rabbit") return <RabbitSvg scene={scene} />;
+  const animalKey = scene.assetKey === "tiger" || scene.assetKey === "rabbit"
+    ? scene.assetKey
+    : (scene.assetTags || []).includes("tiger")
+      ? "tiger"
+      : (scene.assetTags || []).includes("rabbit")
+        ? "rabbit"
+        : null;
+  if (animalKey === "tiger") return <TigerSvg scene={scene} />;
+  if (animalKey === "rabbit") return <RabbitSvg scene={scene} />;
   return (
     <svg width="480" height="320" viewBox="0 0 480 320">
       <circle cx="240" cy="160" r={94 * pulse} fill={scene.accentColor} opacity="0.18" />
@@ -935,9 +956,10 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       storyboard.scenes || [],
     )}`;
     const expected = this.expectedVisualTerms(source);
-    const searchable = `${joined} ${JSON.stringify(manifest.props)} ${JSON.stringify(
-      manifest.sceneAssetSummary,
-    )}`.toLowerCase();
+    const searchable =
+      `${joined} ${JSON.stringify(manifest.props)} ${JSON.stringify(
+        manifest.sceneAssetSummary,
+      )}`.toLowerCase();
     const missing = expected.filter((term) => !searchable.includes(term));
     if (missing.length > 0) {
       throw new Error(
@@ -945,11 +967,15 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       );
     }
 
+    const inlineSvgKeys = getInlineSvgAssetKeys();
+    const animalSceneIds = new Set(ANIMAL_SUBJECTS.map((s) => s.id));
     const animalScenes = ((manifest.props as any)?.scenes || []).filter(
-      (scene: any) => ["tiger", "rabbit"].includes(String(scene?.assetKey || "")),
+      (scene: any) => animalSceneIds.has(String(scene?.assetKey || "")),
     );
     const missingCharacters = animalScenes.filter(
-      (scene: any) => !scene?.visualAssets?.characterAssetSrc,
+      (scene: any) =>
+        !scene?.visualAssets?.characterAssetSrc &&
+        !inlineSvgKeys.has(String(scene?.assetKey || "")),
     );
     if (missingCharacters.length > 0) {
       throw new Error(
@@ -962,115 +988,53 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
   private expectedVisualTerms(source: string): string[] {
     const terms = new Set<string>(["dynamic", "visual"]);
-    if (/\u8001\u864e|tiger/i.test(source)) {
-      ["tiger", "stripe", "forest"].forEach((term) => terms.add(term));
-    }
-    if (/\u5154\u5b50|\u5c0f\u5154|rabbit|bunny/i.test(source)) {
-      ["rabbit", "long ears", "grassland"].forEach((term) => terms.add(term));
-    }
-    if (/\u68ee\u6797|forest/i.test(source)) terms.add("forest");
-    if (/\u6cb3|\u6eaa|\u6e38\u6cf3|river|swim/i.test(source)) {
-      terms.add("river");
-    }
-    if (/老虎|tiger/i.test(source)) {
-      ["tiger", "stripe", "forest"].forEach((term) => terms.add(term));
-    }
-    if (/兔子|小兔|rabbit|bunny/i.test(source)) {
-      ["rabbit", "long ears", "grassland"].forEach((term) => terms.add(term));
+    const animalConfig = findAnimalSubject(source);
+    if (animalConfig) {
+      animalConfig.visualTerms.forEach((term) => terms.add(term));
     }
     if (/森林|forest/i.test(source)) terms.add("forest");
-    if (/河|溪|游泳|river|swim/i.test(source)) terms.add("river");
+    if (/河|溪|游泳|river|swim/i.test(source)) {
+      terms.add("river");
+    }
     return Array.from(terms);
   }
 
   private inferDynamicAssetTags(source: string): string[] {
     const tags = new Set<string>();
-    const addIf = (regex: RegExp, values: string[]) => {
-      if (regex.test(source)) values.forEach((value) => tags.add(value));
-    };
-    addIf(/\u8001\u864e|tiger/i, ["tiger", "stripe", "claw", "forest"]);
-    addIf(/\u5154\u5b50|\u5c0f\u5154|rabbit|bunny/i, [
-      "rabbit",
-      "long-ears",
-      "grassland",
-    ]);
-    addIf(/\u6761\u7eb9|stripe/i, ["stripe"]);
-    addIf(/\u68ee\u6797|\u6811|forest|jungle/i, ["forest", "tree"]);
-    addIf(/\u8349\u5730|\u8349\u539f|\u9752\u8349|grassland|meadow/i, [
-      "grassland",
-      "grass",
-    ]);
-    addIf(/\u80e1\u841d\u535c|\u841d\u535c|\u83dc\u53f6|carrot|vegetable/i, [
-      "carrot",
-      "vegetable",
-    ]);
-    addIf(/\u8033\u6735|\u957f\u8033|ear/i, ["long-ears"]);
-    addIf(/\u8e66|\u8df3|jump|hop/i, ["jump", "legs"]);
-    addIf(/\u6cb3|\u6eaa|\u6c34|\u6e38\u6cf3|river|swim/i, [
-      "river",
-      "water",
-      "swim",
-    ]);
-    addIf(/\u8dd1|\u5954\u8dd1|\u8ffd|run/i, ["run", "legs"]);
-    addIf(/\u543c|\u53eb\u58f0|roar/i, ["roar", "sound"]);
-    addIf(/\u591c|\u665a\u4e0a|night/i, ["night", "moon"]);
-    addIf(/\u7259|\u722a|\u672c\u9886|ability/i, ["claw", "teeth"]);
-    addIf(/老虎|tiger/i, ["tiger", "stripe", "claw", "forest"]);
-    addIf(/兔子|小兔|rabbit|bunny/i, ["rabbit", "long-ears", "grassland"]);
-    addIf(/条纹|stripe/i, ["stripe"]);
-    addIf(/森林|树|forest|jungle/i, ["forest", "tree"]);
-    addIf(/草地|草原|青草|grassland|meadow/i, ["grassland", "grass"]);
-    addIf(/胡萝卜|萝卜|菜叶|carrot|vegetable/i, ["carrot", "vegetable"]);
-    addIf(/耳朵|长耳|ear/i, ["long-ears"]);
-    addIf(/蹦|跳|jump|hop/i, ["jump", "legs"]);
-    addIf(/河|溪|水|游泳|river|swim/i, ["river", "water", "swim"]);
-    addIf(/跑|奔跑|追|run/i, ["run", "legs"]);
-    addIf(/吼|叫声|roar/i, ["roar", "sound"]);
-    addIf(/夜|晚上|night/i, ["night", "moon"]);
-    addIf(/牙|爪|本领|ability/i, ["claw", "teeth"]);
 
-    const chineseTerms = source.match(/[\u4e00-\u9fff]{2,5}/g) || [];
+    const animalConfig = findAnimalSubject(source);
+    if (animalConfig) {
+      tags.add(animalConfig.id);
+      animalConfig.visualTerms.forEach((term) => tags.add(term));
+    }
+
+    for (const mapping of ENVIRONMENT_TAG_KEYWORDS) {
+      if (
+        mapping.keywords.some((kw) =>
+          source.toLowerCase().includes(kw.toLowerCase()),
+        )
+      ) {
+        tags.add(mapping.value);
+      }
+    }
+
+    const chineseTerms = source.match(/[一-鿿]{2,5}/g) || [];
     chineseTerms.slice(0, 4).forEach((term) => tags.add(term));
     if (tags.size === 0) tags.add("topic");
     return Array.from(tags).slice(0, 12);
   }
 
   private inferDynamicAction(source: string): string {
-    if (/\u6e38\u6cf3|\u6cb3|\u6eaa|swim|river/i.test(source)) return "swim";
-    if (/\u80e1\u841d\u535c|\u841d\u535c|\u83dc\u53f6|\u5403|carrot|eat|food/i.test(source)) {
-      return "eat";
-    }
-    if (/\u8e66|\u8df3|jump|hop/i.test(source)) return "jump";
-    if (/\u8dd1|\u5954\u8dd1|\u8ffd|run/i.test(source)) return "run";
-    if (/\u543c|\u53eb\u58f0|roar/i.test(source)) return "roar";
-    if (/\u7761|\u4f11\u606f|rest/i.test(source)) return "rest";
-    if (/\u6761\u7eb9|\u5916\u5f62|\u6837\u5b50|feature|stripe/i.test(source)) {
-      return "showFeatures";
-    }
-    if (/\u8033\u6735|\u957f\u8033|ear/i.test(source)) return "listen";
-    if (/游泳|河|溪|swim|river/i.test(source)) return "swim";
-    if (/跑|奔跑|追|run/i.test(source)) return "run";
-    if (/吼|叫声|roar/i.test(source)) return "roar";
-    if (/睡|休息|rest/i.test(source)) return "rest";
-    if (/条纹|外形|样子|feature|stripe/i.test(source)) return "showFeatures";
-    return "explore";
+    return matchKeyword(source, ACTION_KEYWORDS) || "explore";
   }
 
   private inferDynamicHabitat(source: string): string {
-    if (/\u591c|\u665a\u4e0a|night/i.test(source)) return "night";
-    if (/\u6cb3|\u6eaa|\u6c34|\u6e38\u6cf3|river|swim/i.test(source)) {
-      return "river";
-    }
-    if (/\u8349\u5730|\u8349\u539f|grass/i.test(source)) return "grassland";
-    if (/夜|晚上|night/i.test(source)) return "night";
-    if (/河|溪|水|游泳|river|swim/i.test(source)) return "river";
-    if (/草地|草原|grass/i.test(source)) return "grassland";
-    return "forest";
+    return matchKeyword(source, HABITAT_KEYWORDS) || "forest";
   }
 
   private resolveSceneAccent(tags: string[], index: number): string {
-    if (tags.includes("tiger")) return "#f08c00";
-    if (tags.includes("rabbit")) return "#e76f8a";
+    const animalConfig = ANIMAL_SUBJECTS.find((s) => tags.includes(s.id));
+    if (animalConfig) return animalConfig.accentColor;
     if (tags.includes("water") || tags.includes("river")) return "#00a6c8";
     const colors = ["#2f9e44", "#4d96ff", "#ff6b6b", "#845ef7"];
     return colors[index % colors.length];

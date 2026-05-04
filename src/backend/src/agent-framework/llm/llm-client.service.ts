@@ -268,7 +268,10 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         this.logger.debug(
           `[LLM JSON RESPONSE] finishReason=${choice?.finish_reason ?? "unknown"} contentLen=${lastContent.length} maxTokens=${maxTokens}`,
         );
-        if (choice?.finish_reason === "length" && maxTokens < tokenLimits[tokenLimits.length - 1]) {
+        if (
+          choice?.finish_reason === "length" &&
+          maxTokens < tokenLimits[tokenLimits.length - 1]
+        ) {
           this.logger.debug(
             `generateJson() hit token limit (${maxTokens}), escalating to next tier...`,
           );

@@ -88,12 +88,10 @@ describe("VideoGenerationAgentService", () => {
       ),
     };
     const toolRegistry = {
-      getToolDefinitions: jest
-        .fn()
-        .mockReturnValue([
-          { type: "function", function: { name: "generateVideoContent" } },
-          { type: "function", function: { name: "reviewVideoQuality" } },
-        ]),
+      getToolDefinitions: jest.fn().mockReturnValue([
+        { type: "function", function: { name: "generateVideoContent" } },
+        { type: "function", function: { name: "reviewVideoQuality" } },
+      ]),
     };
     const service = new VideoGenerationAgentService(
       toolRegistry as any,
@@ -101,6 +99,7 @@ describe("VideoGenerationAgentService", () => {
       executorService as any,
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
       { renderSkillForPrompt: jest.fn() } as any,
+      undefined as any,
     );
 
     const result = await service.generateViaAgent({
@@ -180,8 +179,8 @@ describe("VideoGenerationAgentService", () => {
       "GeneratedLesson.tsx",
     ]);
     expect(generatedCode).toContain("Img");
-    expect(generatedCode).toContain("stripe");
-    expect(generatedCode).toContain("forest");
+    expect(generatedCode).toContain("TigerSvg");
+    expect(generatedCode).toContain("ForestBackground");
     expect(manifest.assets).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

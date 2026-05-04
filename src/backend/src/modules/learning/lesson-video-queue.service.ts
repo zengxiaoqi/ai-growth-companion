@@ -745,7 +745,11 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       );
       return null;
     }
-    if (quality && quality.passed === false && Number(quality.score || 0) < 70) {
+    if (
+      quality &&
+      quality.passed === false &&
+      Number(quality.score || 0) < 70
+    ) {
       this.logger.warn(
         `[generateByDynamicRemotion] taskId=${task.id} skipped: storyboard quality not passed score=${quality.score}`,
       );
@@ -845,7 +849,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     scenes: any[],
   ): Array<Record<string, any>> {
     return scenes.slice(0, 8).map((scene, index) => ({
-      shot: this.toText(scene?.scene || scene?.title, `${topic}片段${index + 1}`),
+      shot: this.toText(
+        scene?.scene || scene?.title,
+        `${topic}片段${index + 1}`,
+      ),
       visualPrompt: this.toText(
         scene?.imagePrompt || scene?.visualDescription,
         `${topic}教学场景，卡通教育风格`,
@@ -872,11 +879,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     const terms = this.extractVideoTopicTerms(topic);
     const specificTerms = terms.filter((term) => !this.isBroadTopicTerm(term));
     const units = Array.from(
-      new Set([
-        ...specificTerms,
-        ...(seed?.teachingUnits || []),
-        ...terms,
-      ]),
+      new Set([...specificTerms, ...(seed?.teachingUnits || []), ...terms]),
     ).slice(0, 4);
 
     const teachingUnits = units.length > 0 ? units : [topic];
@@ -982,13 +985,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return ["动物", "学习", "认识", "课程", "主题", "内容"].includes(term);
   }
 
-  private normalizeCourseDomain(value: any):
-    | "language"
-    | "math"
-    | "science"
-    | "art"
-    | "social"
-    | undefined {
+  private normalizeCourseDomain(
+    value: any,
+  ): "language" | "math" | "science" | "art" | "social" | undefined {
     const domain = this.toText(value);
     return ["language", "math", "science", "art", "social"].includes(domain)
       ? (domain as any)

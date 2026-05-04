@@ -71,42 +71,48 @@ describe("VisualAssetService", () => {
       `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">
         <rect width="640" height="480" fill="#f5f5f5"/>
         ${Array.from({ length: 40 })
-          .map((_, index) => `<circle cx="${20 + index * 14}" cy="${80 + (index % 12) * 20}" r="8" fill="#222"/>`)
+          .map(
+            (_, index) =>
+              `<circle cx="${20 + index * 14}" cy="${80 + (index % 12) * 20}" r="8" fill="#222"/>`,
+          )
           .join("")}
       </svg>`,
     );
-    jest.spyOn(global as any, "fetch").mockImplementation(async (input: any) => {
-      const url = String(input);
-      if (url.includes("openverse")) {
+    jest
+      .spyOn(global as any, "fetch")
+      .mockImplementation(async (input: any) => {
+        const url = String(input);
+        if (url.includes("openverse")) {
+          return {
+            ok: true,
+            json: async () => ({
+              results: [
+                {
+                  id: "asset-1",
+                  url: "https://example.test/panda.svg",
+                  foreign_landing_url: "https://example.test/panda",
+                  license: "cc0",
+                  license_url:
+                    "https://creativecommons.org/publicdomain/zero/1.0/",
+                  creator: "Open artist",
+                  mature: false,
+                  width: 640,
+                  height: 480,
+                },
+              ],
+            }),
+          } as any;
+        }
         return {
           ok: true,
-          json: async () => ({
-            results: [
-              {
-                id: "asset-1",
-                url: "https://example.test/panda.svg",
-                foreign_landing_url: "https://example.test/panda",
-                license: "cc0",
-                license_url: "https://creativecommons.org/publicdomain/zero/1.0/",
-                creator: "Open artist",
-                mature: false,
-                width: 640,
-                height: 480,
-              },
-            ],
-          }),
+          headers: { get: () => "image/svg+xml" },
+          arrayBuffer: async () =>
+            imageBuffer.buffer.slice(
+              imageBuffer.byteOffset,
+              imageBuffer.byteOffset + imageBuffer.byteLength,
+            ),
         } as any;
-      }
-      return {
-        ok: true,
-        headers: { get: () => "image/svg+xml" },
-        arrayBuffer: async () =>
-          imageBuffer.buffer.slice(
-            imageBuffer.byteOffset,
-            imageBuffer.byteOffset + imageBuffer.byteLength,
-          ),
-      } as any;
-    });
+      });
 
     const service = new VisualAssetService();
     const asset = await (service as any).resolveAsset({
@@ -127,47 +133,49 @@ describe("VisualAssetService", () => {
   });
 
   it("rejects non-CC0 and undersized external assets", async () => {
-    jest.spyOn(global as any, "fetch").mockImplementation(async (input: any) => {
-      const url = String(input);
-      if (url.includes("openverse")) {
+    jest
+      .spyOn(global as any, "fetch")
+      .mockImplementation(async (input: any) => {
+        const url = String(input);
+        if (url.includes("openverse")) {
+          return {
+            ok: true,
+            json: async () => ({
+              results: [
+                {
+                  url: "https://example.test/small.jpg",
+                  license: "cc-by-sa",
+                  mature: false,
+                  width: 120,
+                  height: 90,
+                },
+              ],
+            }),
+          } as any;
+        }
         return {
           ok: true,
           json: async () => ({
-            results: [
-              {
-                url: "https://example.test/small.jpg",
-                license: "cc-by-sa",
-                mature: false,
-                width: 120,
-                height: 90,
-              },
-            ],
-          }),
-        } as any;
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          query: {
-            pages: {
-              "1": {
-                imageinfo: [
-                  {
-                    url: "https://example.test/by.jpg",
-                    mime: "image/jpeg",
-                    width: 1600,
-                    height: 900,
-                    extmetadata: {
-                      LicenseShortName: { value: "CC BY-SA 4.0" },
+            query: {
+              pages: {
+                "1": {
+                  imageinfo: [
+                    {
+                      url: "https://example.test/by.jpg",
+                      mime: "image/jpeg",
+                      width: 1600,
+                      height: 900,
+                      extmetadata: {
+                        LicenseShortName: { value: "CC BY-SA 4.0" },
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
             },
-          },
-        }),
-      } as any;
-    });
+          }),
+        } as any;
+      });
 
     const service = new VisualAssetService();
     const asset = await (service as any).resolveAsset({

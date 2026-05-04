@@ -17,6 +17,7 @@ import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { RemotionRenderService } from "./remotion-render.service";
 import { HyperframesRenderService } from "./hyperframes-render.service";
 import { VideoGenerationAgentService } from "./video-generation-agent.service";
+import { VisualAssetService } from "./visual-asset.service";
 import { CourseGenerationAgentService } from "./course-generation-agent.service";
 import { LearningController } from "./learning.controller";
 import { SseModule } from "../sse/sse.module";
@@ -61,6 +62,7 @@ import { AgentFrameworkModule } from "../../agent-framework/agent-framework.modu
     RemotionRenderService,
     HyperframesRenderService,
     VideoGenerationAgentService,
+    VisualAssetService,
     CourseGenerationAgentService,
   ],
   controllers: [LearningController],
@@ -73,6 +75,7 @@ import { AgentFrameworkModule } from "../../agent-framework/agent-framework.modu
     RemotionRenderService,
     HyperframesRenderService,
     VideoGenerationAgentService,
+    VisualAssetService,
     CourseGenerationAgentService,
   ],
 })

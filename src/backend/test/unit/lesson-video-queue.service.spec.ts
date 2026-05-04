@@ -271,6 +271,7 @@ describe("LessonVideoQueueService", () => {
             },
           ],
         },
+        assets: [],
         durationFrames: 360,
         sceneAssetSummary: [
           {

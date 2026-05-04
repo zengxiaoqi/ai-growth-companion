@@ -11,7 +11,7 @@
  * the agent framework's tools.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ToolRegistryService } from "../../agent-framework/tools/tool-registry.service";
 import { AgentRegistryService } from "../../agent-framework/agents/agent-registry.service";
 import { AgentExecutorService } from "../../agent-framework/agents/agent-executor.service";
@@ -25,6 +25,11 @@ import type {
 } from "../../agent-framework/core";
 import type { VideoStoryboard } from "../../agent-framework/tools/impl/generate-video-content";
 import { videoGeneratorDefinition } from "../../agent-framework/agents/definitions/video-generator.agent";
+import {
+  VisualAssetService,
+  type VisualAsset,
+  type SceneVisualAssetPlan,
+} from "./visual-asset.service";
 
 export interface AgentVideoRequest {
   topic: string;
@@ -52,12 +57,19 @@ export type DynamicRemotionSceneSummary = {
   title: string;
   generatedVisual: string;
   template?: string;
+  assetProvider?: string;
+  assetLicense?: string;
+  assetQuality?: number;
+  hasCharacterAsset?: boolean;
+  characterProvider?: string;
+  backgroundProvider?: string;
 };
 
 export type DynamicRemotionManifest = {
   compositionId: string;
   files: DynamicRemotionFile[];
   props: Record<string, any>;
+  assets: VisualAsset[];
   durationFrames: number;
   sceneAssetSummary: DynamicRemotionSceneSummary[];
 };
@@ -72,6 +84,7 @@ export class VideoGenerationAgentService {
     private readonly executorService: AgentExecutorService,
     private readonly skillRegistry: SkillRegistryService,
     private readonly skillExecutor: SkillExecutor,
+    @Optional() private readonly visualAssetService?: VisualAssetService,
   ) {}
 
   /**
@@ -148,7 +161,8 @@ export class VideoGenerationAgentService {
   ): Promise<DynamicRemotionManifest> {
     const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
     const compositionId = `GeneratedLesson-${this.slugForComposition(topic)}`;
-    const scenes = this.buildDynamicSceneProps(storyboard, payload);
+    const scenes = await this.buildDynamicSceneProps(storyboard, payload);
+    const assets = this.collectManifestAssets(scenes);
     const durationFrames = Math.max(
       180,
       scenes.reduce((sum, scene) => sum + scene.durationFrames, 0),
@@ -187,12 +201,19 @@ export class VideoGenerationAgentService {
       title: scene.title,
       template: scene.template,
       generatedVisual: scene.generatedVisual,
+      assetProvider: scene.visualAssets?.assetProvider,
+      assetLicense: scene.visualAssets?.license,
+      assetQuality: scene.visualAssets?.qualityScore,
+      hasCharacterAsset: scene.visualAssets?.hasCharacterAsset,
+      characterProvider: scene.visualAssets?.characterProvider,
+      backgroundProvider: scene.visualAssets?.backgroundProvider,
     }));
 
     const manifest: DynamicRemotionManifest = {
       compositionId,
       files,
       props,
+      assets,
       durationFrames,
       sceneAssetSummary,
     };
@@ -200,7 +221,10 @@ export class VideoGenerationAgentService {
     this.validateGeneratedManifest(manifest, storyboard);
     this.logger.log(
       `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, visuals=${sceneAssetSummary
-        .map((s) => `${s.title}:${s.generatedVisual}`)
+        .map(
+          (s) =>
+            `${s.title}:${s.generatedVisual}:assetProvider=${s.assetProvider || "svgFallback"}:characterProvider=${s.characterProvider || ""}:backgroundProvider=${s.backgroundProvider || ""}:license=${s.assetLicense || ""}:assetQuality=${s.assetQuality || 0}`,
+        )
         .join(", ")}`,
     );
     return manifest;
@@ -392,10 +416,10 @@ export class VideoGenerationAgentService {
     });
   }
 
-  private buildDynamicSceneProps(
+  private async buildDynamicSceneProps(
     storyboard: VideoStoryboard,
     payload: Record<string, any>,
-  ): Array<Record<string, any>> {
+  ): Promise<Array<Record<string, any>>> {
     const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
     const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
     const sourceScenes =
@@ -410,7 +434,7 @@ export class VideoGenerationAgentService {
             },
           ];
 
-    return sourceScenes.slice(0, 8).map((scene: any, index: number) => {
+    const builtScenes = sourceScenes.slice(0, 8).map((scene: any, index: number) => {
       const title = this.toText(
         scene?.title || scene?.scene || scene?.shot,
         `${topic} ${index + 1}`,
@@ -429,7 +453,11 @@ export class VideoGenerationAgentService {
       const tags = this.inferDynamicAssetTags(source);
       const action = this.inferDynamicAction(source);
       const habitat = this.inferDynamicHabitat(source);
-      const assetKey = tags.includes("tiger") ? "tiger" : "topic";
+      const assetKey = tags.includes("tiger")
+        ? "tiger"
+        : tags.includes("rabbit")
+          ? "rabbit"
+          : "topic";
       const template =
         this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
         (assetKey === "tiger"
@@ -450,12 +478,67 @@ export class VideoGenerationAgentService {
         generatedVisual:
           assetKey === "tiger"
             ? `tiger-${action}-${habitat}-stripe-forest-river`
-            : `dynamic-${habitat}-${tags.slice(0, 4).join("-")}`,
+            : assetKey === "rabbit"
+              ? `rabbit-${action}-${habitat}-long-ears-grassland-carrot`
+              : `dynamic-${habitat}-${tags.slice(0, 4).join("-")}`,
         durationSec,
         durationFrames: durationSec * 30,
         accentColor: this.resolveSceneAccent(tags, index),
       };
     });
+
+    if (!this.visualAssetService) return builtScenes;
+
+    return Promise.all(
+      builtScenes.map(async (scene) => {
+        const plan = await this.visualAssetService!.resolveSceneVisualAssets(
+          scene,
+          topic,
+        );
+        return {
+          ...scene,
+          visualAssets: this.toSceneVisualAssets(plan),
+        };
+      }),
+    );
+  }
+
+  private toSceneVisualAssets(plan: SceneVisualAssetPlan): Record<string, any> {
+    return {
+      characterAssetSrc: plan.mainCharacter?.staticPath,
+      backgroundAssetSrc: plan.background?.staticPath,
+      overlayAssetSrc: plan.overlays.map((asset) => asset.staticPath),
+      assetProvider: plan.sourceProvider,
+      license: plan.licenseInfo?.license,
+      licenseUrl: plan.licenseInfo?.licenseUrl,
+      creator: plan.licenseInfo?.creator,
+      sourceUrl: plan.licenseInfo?.sourceUrl,
+      landingUrl: plan.licenseInfo?.landingUrl,
+      qualityScore: plan.qualityScore,
+      hasCharacterAsset: Boolean(plan.mainCharacter?.staticPath),
+      characterProvider: plan.mainCharacter?.provider,
+      characterLicense: plan.mainCharacter?.license,
+      backgroundProvider: plan.background?.provider,
+      character: plan.mainCharacter,
+      background: plan.background,
+      overlays: plan.overlays,
+    };
+  }
+
+  private collectManifestAssets(scenes: Array<Record<string, any>>): VisualAsset[] {
+    const byPath = new Map<string, VisualAsset>();
+    for (const scene of scenes) {
+      const visualAssets = scene.visualAssets || {};
+      const assets = [
+        visualAssets.character,
+        visualAssets.background,
+        ...(Array.isArray(visualAssets.overlays) ? visualAssets.overlays : []),
+      ].filter(Boolean) as VisualAsset[];
+      for (const asset of assets) {
+        if (asset.staticPath) byPath.set(asset.staticPath, asset);
+      }
+    }
+    return Array.from(byPath.values());
   }
 
   private buildGeneratedRootTsx(
@@ -494,6 +577,7 @@ export class VideoGenerationAgentService {
     return String.raw`import React from "react";
 import {
   AbsoluteFill,
+  Img,
   Sequence,
   interpolate,
   staticFile,
@@ -515,6 +599,17 @@ type GeneratedScene = {
   generatedVisual: string;
   durationFrames: number;
   accentColor: string;
+  visualAssets?: {
+    characterAssetSrc?: string;
+    backgroundAssetSrc?: string;
+    overlayAssetSrc?: string[];
+    assetProvider?: string;
+    license?: string;
+    qualityScore?: number;
+    hasCharacterAsset?: boolean;
+    characterProvider?: string;
+    characterLicense?: string;
+  };
   audioSrc?: string;
 };
 
@@ -526,6 +621,7 @@ type GeneratedLessonProps = {
 };
 
 const TIGER_VISUAL_TERMS = "tiger stripe forest river swim roar claw teeth";
+const RABBIT_VISUAL_TERMS = "rabbit bunny long ears carrot grassland jump herbivore";
 
 const sceneStarts = (scenes: GeneratedScene[]) => {
   let cursor = 0;
@@ -543,9 +639,27 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const sky = night ? "#13233f" : scene.habitat === "grassland" ? "#bfeaff" : "#a7e8ff";
   const ground = scene.habitat === "river" ? "#5bc0de" : "#69b66d";
   const sunPulse = interpolate(Math.sin(frame / 18), [-1, 1], [0.94, 1.06]);
+  const bgDrift = interpolate(frame, [0, 180], [-18, 18], { extrapolateRight: "clamp" });
 
   return (
     <AbsoluteFill style={{ backgroundColor: sky, overflow: "hidden" }}>
+      {scene.visualAssets?.backgroundAssetSrc ? (
+        <>
+          <Img
+            src={staticFile(scene.visualAssets.backgroundAssetSrc)}
+            style={{
+              position: "absolute",
+              inset: -28,
+              width: 1336,
+              height: 776,
+              objectFit: "cover",
+              transform: "translateX(" + bgDrift + "px) scale(1.04)",
+              opacity: 0.98,
+            }}
+          />
+          <div style={{ position: "absolute", inset: 0, background: night ? "rgba(7, 18, 42, 0.26)" : "rgba(222, 255, 239, 0.14)" }} />
+        </>
+      ) : null}
       <svg width="1280" height="720" viewBox="0 0 1280 720" style={{ position: "absolute", inset: 0 }}>
         <defs>
           <linearGradient id="dynamicSky" x1="0" y1="0" x2="0" y2="1">
@@ -557,7 +671,7 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
             <stop offset="100%" stopColor="#74d9ff" />
           </linearGradient>
         </defs>
-        <rect width="1280" height="720" fill="url(#dynamicSky)" />
+        <rect width="1280" height="720" fill="url(#dynamicSky)" opacity={scene.visualAssets?.backgroundAssetSrc ? 0.22 : 1} />
         {night ? (
           Array.from({ length: 18 }).map((_, i) => (
             <circle key={i} cx={80 + i * 66} cy={44 + (i % 5) * 34} r={2 + (i % 3)} fill="#fff7b8" opacity={0.45 + (i % 4) * 0.1} />
@@ -640,10 +754,107 @@ const TigerSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   );
 };
 
+const RabbitSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
+  const frame = useCurrentFrame();
+  const jump = scene.action === "jump" || scene.action === "run";
+  const eat = scene.action === "eat";
+  const bob = interpolate(Math.sin(frame / (jump ? 5 : 13)), [-1, 1], [-14, 10]);
+  const ear = interpolate(Math.sin(frame / 9), [-1, 1], [-5, 5]);
+  const chew = eat ? interpolate(Math.sin(frame / 4), [-1, 1], [0, 8]) : 0;
+
+  return (
+    <svg width="540" height="360" viewBox="0 0 540 360" style={{ overflow: "visible" }}>
+      <g transform={"translate(0 " + bob + ")"}>
+        <ellipse cx="284" cy="224" rx="138" ry="72" fill="#f4f0e8" stroke="#b8ada2" strokeWidth="7" />
+        <ellipse cx="190" cy="178" rx="78" ry="66" fill="#f7f3ec" stroke="#b8ada2" strokeWidth="7" />
+        <g transform={"translate(" + ear + " 0)"}>
+          <path d="M154 128 C112 42 126 8 162 14 C194 56 198 96 182 142" fill="#f7f3ec" stroke="#b8ada2" strokeWidth="7" />
+          <path d="M194 126 C180 32 204 5 238 22 C252 76 244 112 218 148" fill="#f7f3ec" stroke="#b8ada2" strokeWidth="7" />
+          <path d="M158 108 C136 52 145 34 163 36 C178 66 178 94 168 120" fill="#ffd6e0" opacity="0.9" />
+          <path d="M204 108 C198 52 211 36 227 43 C231 76 224 98 212 120" fill="#ffd6e0" opacity="0.9" />
+        </g>
+        <circle cx="165" cy="170" r="8" fill="#3b2f2f" />
+        <circle cx="215" cy="168" r="8" fill="#3b2f2f" />
+        <ellipse cx="190" cy="192" rx="12" ry="8" fill="#ee8faa" />
+        <path d={"M190 200 C180 " + (210 + chew) + " 168 208 154 204 M190 200 C202 " + (210 + chew) + " 214 208 226 204"} stroke="#6d5550" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <circle cx="420" cy="210" r="30" fill="#fffaf2" stroke="#b8ada2" strokeWidth="6" />
+        <g stroke="#b8ada2" strokeWidth="11" strokeLinecap="round">
+          <line x1="242" y1="276" x2="210" y2={326 + (jump ? bob : 0)} />
+          <line x1="324" y1="282" x2="372" y2={330 - (jump ? bob : 0)} />
+        </g>
+        {eat ? (
+          <g transform="translate(92 226) rotate(-12)">
+            <path d="M0 22 C42 0 88 2 128 18 C91 42 44 48 0 22 Z" fill="#ff922b" stroke="#c75b12" strokeWidth="5" />
+            <path d="M119 16 C146 2 162 6 175 22 C150 31 133 30 119 16 Z" fill="#51cf66" />
+          </g>
+        ) : null}
+      </g>
+    </svg>
+  );
+};
+
 const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const pulse = interpolate(Math.sin(frame / 10), [-1, 1], [0.94, 1.04]);
+  const drift = scene.action === "run"
+    ? interpolate(frame, [0, Math.max(90, scene.durationFrames || 180)], [-90, 80], { extrapolateRight: "clamp" })
+    : 0;
+  const bob = interpolate(Math.sin(frame / (scene.action === "run" ? 5 : 14)), [-1, 1], [-8, 8]);
+  const roarScale = scene.action === "roar" ? interpolate(Math.sin(frame / 6), [-1, 1], [1.0, 1.045]) : 1;
+  if (scene.visualAssets?.characterAssetSrc) {
+    return (
+      <div style={{ position: "relative", width: 560, height: 370 }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 36,
+            background: "rgba(255, 255, 255, 0.16)",
+            filter: "blur(0.2px)",
+          }}
+        />
+        <Img
+          src={staticFile(scene.visualAssets.characterAssetSrc)}
+          style={{
+            position: "absolute",
+            left: 14 + drift,
+            top: scene.action === "swim" ? 42 + bob : 6 + bob,
+            width: 530,
+            height: 330,
+            objectFit: "contain",
+            transform: "scale(" + roarScale + ")",
+            filter: "drop-shadow(0 22px 24px rgba(23, 50, 20, 0.28))",
+          }}
+        />
+        {scene.visualAssets.overlayAssetSrc?.map((src, index) => (
+          <Img
+            key={src + index}
+            src={staticFile(src)}
+            style={{
+              position: "absolute",
+              left: 42,
+              bottom: 14 + index * 18,
+              width: 500,
+              height: 120,
+              objectFit: "contain",
+              opacity: scene.action === "swim" ? 0.84 : 0.36,
+              transform: "translateX(" + interpolate(Math.sin(frame / 8 + index), [-1, 1], [-18, 18]) + "px)",
+            }}
+          />
+        ))}
+        {scene.action === "roar" ? (
+          <svg width="560" height="370" viewBox="0 0 560 370" style={{ position: "absolute", inset: 0 }}>
+            <g fill="none" stroke="#ffb703" strokeWidth="8" strokeLinecap="round" opacity="0.75">
+              <path d="M390 120 C455 82 508 86 548 108" />
+              <path d="M394 160 C462 152 514 162 552 194" />
+            </g>
+          </svg>
+        ) : null}
+      </div>
+    );
+  }
   if (scene.assetKey === "tiger") return <TigerSvg scene={scene} />;
+  if (scene.assetKey === "rabbit") return <RabbitSvg scene={scene} />;
   return (
     <svg width="480" height="320" viewBox="0 0 480 320">
       <circle cx="240" cy="160" r={94 * pulse} fill={scene.accentColor} opacity="0.18" />
@@ -733,12 +944,39 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
         `DYNAMIC_REMOTION_MISSING_VISUAL_TERMS:${missing.join(",")}`,
       );
     }
+
+    const animalScenes = ((manifest.props as any)?.scenes || []).filter(
+      (scene: any) => ["tiger", "rabbit"].includes(String(scene?.assetKey || "")),
+    );
+    const missingCharacters = animalScenes.filter(
+      (scene: any) => !scene?.visualAssets?.characterAssetSrc,
+    );
+    if (missingCharacters.length > 0) {
+      throw new Error(
+        `DYNAMIC_REMOTION_MISSING_CHARACTER_ASSET:${missingCharacters
+          .map((scene: any) => scene.title || scene.id || "scene")
+          .join(",")}`,
+      );
+    }
   }
 
   private expectedVisualTerms(source: string): string[] {
     const terms = new Set<string>(["dynamic", "visual"]);
+    if (/\u8001\u864e|tiger/i.test(source)) {
+      ["tiger", "stripe", "forest"].forEach((term) => terms.add(term));
+    }
+    if (/\u5154\u5b50|\u5c0f\u5154|rabbit|bunny/i.test(source)) {
+      ["rabbit", "long ears", "grassland"].forEach((term) => terms.add(term));
+    }
+    if (/\u68ee\u6797|forest/i.test(source)) terms.add("forest");
+    if (/\u6cb3|\u6eaa|\u6e38\u6cf3|river|swim/i.test(source)) {
+      terms.add("river");
+    }
     if (/老虎|tiger/i.test(source)) {
       ["tiger", "stripe", "forest"].forEach((term) => terms.add(term));
+    }
+    if (/兔子|小兔|rabbit|bunny/i.test(source)) {
+      ["rabbit", "long ears", "grassland"].forEach((term) => terms.add(term));
     }
     if (/森林|forest/i.test(source)) terms.add("forest");
     if (/河|溪|游泳|river|swim/i.test(source)) terms.add("river");
@@ -750,9 +988,41 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     const addIf = (regex: RegExp, values: string[]) => {
       if (regex.test(source)) values.forEach((value) => tags.add(value));
     };
+    addIf(/\u8001\u864e|tiger/i, ["tiger", "stripe", "claw", "forest"]);
+    addIf(/\u5154\u5b50|\u5c0f\u5154|rabbit|bunny/i, [
+      "rabbit",
+      "long-ears",
+      "grassland",
+    ]);
+    addIf(/\u6761\u7eb9|stripe/i, ["stripe"]);
+    addIf(/\u68ee\u6797|\u6811|forest|jungle/i, ["forest", "tree"]);
+    addIf(/\u8349\u5730|\u8349\u539f|\u9752\u8349|grassland|meadow/i, [
+      "grassland",
+      "grass",
+    ]);
+    addIf(/\u80e1\u841d\u535c|\u841d\u535c|\u83dc\u53f6|carrot|vegetable/i, [
+      "carrot",
+      "vegetable",
+    ]);
+    addIf(/\u8033\u6735|\u957f\u8033|ear/i, ["long-ears"]);
+    addIf(/\u8e66|\u8df3|jump|hop/i, ["jump", "legs"]);
+    addIf(/\u6cb3|\u6eaa|\u6c34|\u6e38\u6cf3|river|swim/i, [
+      "river",
+      "water",
+      "swim",
+    ]);
+    addIf(/\u8dd1|\u5954\u8dd1|\u8ffd|run/i, ["run", "legs"]);
+    addIf(/\u543c|\u53eb\u58f0|roar/i, ["roar", "sound"]);
+    addIf(/\u591c|\u665a\u4e0a|night/i, ["night", "moon"]);
+    addIf(/\u7259|\u722a|\u672c\u9886|ability/i, ["claw", "teeth"]);
     addIf(/老虎|tiger/i, ["tiger", "stripe", "claw", "forest"]);
+    addIf(/兔子|小兔|rabbit|bunny/i, ["rabbit", "long-ears", "grassland"]);
     addIf(/条纹|stripe/i, ["stripe"]);
     addIf(/森林|树|forest|jungle/i, ["forest", "tree"]);
+    addIf(/草地|草原|青草|grassland|meadow/i, ["grassland", "grass"]);
+    addIf(/胡萝卜|萝卜|菜叶|carrot|vegetable/i, ["carrot", "vegetable"]);
+    addIf(/耳朵|长耳|ear/i, ["long-ears"]);
+    addIf(/蹦|跳|jump|hop/i, ["jump", "legs"]);
     addIf(/河|溪|水|游泳|river|swim/i, ["river", "water", "swim"]);
     addIf(/跑|奔跑|追|run/i, ["run", "legs"]);
     addIf(/吼|叫声|roar/i, ["roar", "sound"]);
@@ -766,6 +1036,18 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   }
 
   private inferDynamicAction(source: string): string {
+    if (/\u6e38\u6cf3|\u6cb3|\u6eaa|swim|river/i.test(source)) return "swim";
+    if (/\u80e1\u841d\u535c|\u841d\u535c|\u83dc\u53f6|\u5403|carrot|eat|food/i.test(source)) {
+      return "eat";
+    }
+    if (/\u8e66|\u8df3|jump|hop/i.test(source)) return "jump";
+    if (/\u8dd1|\u5954\u8dd1|\u8ffd|run/i.test(source)) return "run";
+    if (/\u543c|\u53eb\u58f0|roar/i.test(source)) return "roar";
+    if (/\u7761|\u4f11\u606f|rest/i.test(source)) return "rest";
+    if (/\u6761\u7eb9|\u5916\u5f62|\u6837\u5b50|feature|stripe/i.test(source)) {
+      return "showFeatures";
+    }
+    if (/\u8033\u6735|\u957f\u8033|ear/i.test(source)) return "listen";
     if (/游泳|河|溪|swim|river/i.test(source)) return "swim";
     if (/跑|奔跑|追|run/i.test(source)) return "run";
     if (/吼|叫声|roar/i.test(source)) return "roar";
@@ -775,6 +1057,11 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   }
 
   private inferDynamicHabitat(source: string): string {
+    if (/\u591c|\u665a\u4e0a|night/i.test(source)) return "night";
+    if (/\u6cb3|\u6eaa|\u6c34|\u6e38\u6cf3|river|swim/i.test(source)) {
+      return "river";
+    }
+    if (/\u8349\u5730|\u8349\u539f|grass/i.test(source)) return "grassland";
     if (/夜|晚上|night/i.test(source)) return "night";
     if (/河|溪|水|游泳|river|swim/i.test(source)) return "river";
     if (/草地|草原|grass/i.test(source)) return "grassland";
@@ -783,6 +1070,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
   private resolveSceneAccent(tags: string[], index: number): string {
     if (tags.includes("tiger")) return "#f08c00";
+    if (tags.includes("rabbit")) return "#e76f8a";
     if (tags.includes("water") || tags.includes("river")) return "#00a6c8";
     const colors = ["#2f9e44", "#4d96ff", "#ff6b6b", "#845ef7"];
     return colors[index % colors.length];

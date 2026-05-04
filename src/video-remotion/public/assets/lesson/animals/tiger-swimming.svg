@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+  <defs>
+    <linearGradient id="fur" x1="0" x2="1">
+      <stop offset="0" stop-color="#c96b16"/>
+      <stop offset="0.55" stop-color="#ef9224"/>
+      <stop offset="1" stop-color="#b85d12"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" x2="1">
+      <stop offset="0" stop-color="#0aa6c2" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#8ee8ff" stop-opacity="0.9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="9" flood-color="#0b4e5d" flood-opacity="0.26"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)" transform="translate(0 48)">
+    <path d="M205 315 C182 273 201 223 262 196 C340 161 478 154 610 190 C714 218 775 262 790 318 C716 350 606 361 484 350 C373 340 276 350 205 315 Z" fill="url(#fur)"/>
+    <path d="M742 298 C800 266 836 221 852 162 C888 222 858 295 793 329" fill="#d87016" stroke="#6f3409" stroke-width="10" stroke-linecap="round"/>
+    <path d="M234 205 C276 125 387 99 456 158 C513 207 490 279 411 301 C336 322 249 290 225 236 C219 222 222 211 234 205 Z" fill="#ef9224" stroke="#6f3409" stroke-width="9"/>
+    <path d="M266 198 L232 139 C276 134 303 153 318 183 Z" fill="#ef9224" stroke="#6f3409" stroke-width="8"/>
+    <path d="M419 162 L467 108 C488 149 469 185 436 198 Z" fill="#ef9224" stroke="#6f3409" stroke-width="8"/>
+    <ellipse cx="321" cy="226" rx="13" ry="17" fill="#111"/>
+    <ellipse cx="394" cy="218" rx="13" ry="17" fill="#111"/>
+    <path d="M354 240 L335 260 L376 260 Z" fill="#1d1008"/>
+    <path d="M342 277 C362 288 384 285 401 270" fill="none" stroke="#1d1008" stroke-width="5" stroke-linecap="round"/>
+    <g stroke="#130d08" stroke-width="16" stroke-linecap="round" opacity="0.92">
+      <path d="M324 170 L338 223"/>
+      <path d="M374 151 L365 216"/>
+      <path d="M426 176 L386 213"/>
+      <path d="M374 177 C345 232 342 282 360 333"/>
+      <path d="M463 166 C430 226 431 287 462 338"/>
+      <path d="M553 187 C520 239 522 298 557 338"/>
+      <path d="M647 224 C615 262 620 312 662 342"/>
+    </g>
+    <path d="M0 361 C96 318 173 393 270 350 C370 306 458 397 558 350 C665 300 745 390 900 330 L900 560 L0 560 Z" fill="url(#water)"/>
+    <path d="M35 392 C128 365 203 414 285 389 C379 360 449 416 545 388 C635 361 710 410 843 371" fill="none" stroke="#d8fbff" stroke-width="12" stroke-linecap="round" opacity="0.84"/>
+    <path d="M190 333 C246 310 308 338 365 327" fill="none" stroke="#d8fbff" stroke-width="10" stroke-linecap="round" opacity="0.8"/>
+  </g>
+</svg>

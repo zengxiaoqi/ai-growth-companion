@@ -23,5 +23,10 @@ Thumbs.db
 src/backend/.env
 src/backend/logs/
 src/backend/storage/
-src/video-remotion/public/
+src/video-remotion/public/*
+!src/video-remotion/public/assets/
+src/video-remotion/public/assets/*
+!src/video-remotion/public/assets/lesson/
+!src/video-remotion/public/assets/lesson/**
+src/video-remotion/public/.generated/
 src/video-remotion/out/

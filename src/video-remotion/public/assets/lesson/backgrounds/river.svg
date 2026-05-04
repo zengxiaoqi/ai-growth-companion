@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8adfff"/>
+      <stop offset="0.62" stop-color="#daf9ff"/>
+      <stop offset="1" stop-color="#eaffef"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" x2="1">
+      <stop offset="0" stop-color="#0aa6c2"/>
+      <stop offset="0.5" stop-color="#58d4ee"/>
+      <stop offset="1" stop-color="#0b93b6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="1088" cy="98" r="56" fill="#ffd45a"/>
+  <path d="M0 420 C202 352 364 448 538 382 C730 309 944 435 1280 360 L1280 720 L0 720 Z" fill="#66be70"/>
+  <path d="M0 552 C210 468 370 620 596 535 C800 458 980 616 1280 502 L1280 720 L0 720 Z" fill="url(#river)"/>
+  <path d="M30 592 C170 552 290 628 430 590 C575 550 700 620 850 582 C1000 546 1110 596 1260 548" fill="none" stroke="#e6fbff" stroke-width="13" stroke-linecap="round" opacity="0.74"/>
+  <path d="M66 646 C206 620 326 684 468 646 C605 610 734 670 884 634 C1017 602 1126 646 1242 612" fill="none" stroke="#baf4ff" stroke-width="9" stroke-linecap="round" opacity="0.7"/>
+  <g opacity="0.94">
+    <g transform="translate(40 245)">
+      <rect x="35" y="205" width="32" height="190" rx="14" fill="#754b25"/>
+      <circle cx="52" cy="152" r="86" fill="#218847"/>
+      <circle cx="-2" cy="187" r="65" fill="#45bd69"/>
+      <circle cx="104" cy="188" r="68" fill="#146d39"/>
+    </g>
+    <g transform="translate(360 220)">
+      <rect x="42" y="230" width="38" height="205" rx="15" fill="#6c421f"/>
+      <circle cx="60" cy="170" r="106" fill="#197a3c"/>
+      <circle cx="-8" cy="214" r="76" fill="#2fb45c"/>
+      <circle cx="130" cy="214" r="80" fill="#136a35"/>
+    </g>
+    <g transform="translate(720 238)">
+      <rect x="36" y="205" width="34" height="190" rx="14" fill="#7b4f28"/>
+      <circle cx="52" cy="154" r="88" fill="#279447"/>
+      <circle cx="-8" cy="190" r="68" fill="#49c86b"/>
+      <circle cx="107" cy="193" r="70" fill="#167a3b"/>
+    </g>
+    <g transform="translate(1050 238)">
+      <rect x="42" y="220" width="36" height="205" rx="15" fill="#704622"/>
+      <circle cx="64" cy="163" r="102" fill="#1d8741"/>
+      <circle cx="-5" cy="208" r="78" fill="#40bd65"/>
+      <circle cx="134" cy="210" r="80" fill="#146f39"/>
+    </g>
+  </g>
+</svg>

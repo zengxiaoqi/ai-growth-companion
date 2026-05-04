@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8ee7ff"/>
+      <stop offset="0.62" stop-color="#dcfbff"/>
+      <stop offset="1" stop-color="#efffdc"/>
+    </linearGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8bdc78"/>
+      <stop offset="1" stop-color="#4daa57"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="1084" cy="112" r="54" fill="#ffd166"/>
+  <circle cx="1084" cy="112" r="86" fill="#ffd166" opacity="0.2"/>
+  <g fill="#ffffff" opacity="0.88">
+    <ellipse cx="166" cy="116" rx="78" ry="28"/>
+    <ellipse cx="226" cy="106" rx="58" ry="24"/>
+    <ellipse cx="828" cy="132" rx="86" ry="30"/>
+    <ellipse cx="900" cy="120" rx="60" ry="24"/>
+  </g>
+  <path d="M0 472 C150 426 290 490 448 452 C620 410 768 486 942 438 C1060 406 1164 438 1280 410 L1280 720 L0 720 Z" fill="#6fc466"/>
+  <path d="M0 548 C206 486 392 584 608 530 C808 480 982 580 1280 506 L1280 720 L0 720 Z" fill="url(#grass)"/>
+  <g fill="none" stroke="#2f9e44" stroke-width="7" stroke-linecap="round" opacity="0.65">
+    <path d="M74 666 C78 630 84 604 102 574"/>
+    <path d="M118 674 C126 628 141 592 166 558"/>
+    <path d="M258 670 C272 626 286 599 316 564"/>
+    <path d="M512 674 C522 628 540 592 574 556"/>
+    <path d="M768 672 C778 624 796 590 828 552"/>
+    <path d="M1012 674 C1026 630 1044 596 1076 560"/>
+    <path d="M1168 674 C1180 626 1200 594 1230 560"/>
+  </g>
+  <g>
+    <circle cx="170" cy="586" r="9" fill="#ff6b9c"/>
+    <circle cx="184" cy="570" r="8" fill="#ffd166"/>
+    <circle cx="214" cy="604" r="9" fill="#845ef7"/>
+    <circle cx="918" cy="586" r="9" fill="#ff6b9c"/>
+    <circle cx="952" cy="614" r="8" fill="#ffd166"/>
+    <circle cx="992" cy="596" r="9" fill="#845ef7"/>
+  </g>
+</svg>

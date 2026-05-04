@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "local-tiger-standing",
+      "kind": "character",
+      "role": "tiger-standing",
+      "staticPath": "assets/lesson/animals/tiger-standing.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 90
+    },
+    {
+      "id": "local-tiger-running",
+      "kind": "character",
+      "role": "tiger-running",
+      "staticPath": "assets/lesson/animals/tiger-running.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-tiger-swimming",
+      "kind": "character",
+      "role": "tiger-swimming",
+      "staticPath": "assets/lesson/animals/tiger-swimming.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-tiger-roaring",
+      "kind": "character",
+      "role": "tiger-roaring",
+      "staticPath": "assets/lesson/animals/tiger-roaring.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-rabbit-standing",
+      "kind": "character",
+      "role": "rabbit-standing",
+      "staticPath": "assets/lesson/animals/rabbit-standing.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-rabbit-eating",
+      "kind": "character",
+      "role": "rabbit-eating",
+      "staticPath": "assets/lesson/animals/rabbit-eating.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-rabbit-jumping",
+      "kind": "character",
+      "role": "rabbit-jumping",
+      "staticPath": "assets/lesson/animals/rabbit-jumping.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-rabbit-listening",
+      "kind": "character",
+      "role": "rabbit-listening",
+      "staticPath": "assets/lesson/animals/rabbit-listening.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 560,
+      "qualityScore": 88
+    },
+    {
+      "id": "local-forest-day",
+      "kind": "background",
+      "role": "forest-day",
+      "staticPath": "assets/lesson/backgrounds/forest-day.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 1280,
+      "height": 720,
+      "qualityScore": 86
+    },
+    {
+      "id": "local-forest-night",
+      "kind": "background",
+      "role": "forest-night",
+      "staticPath": "assets/lesson/backgrounds/forest-night.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 1280,
+      "height": 720,
+      "qualityScore": 86
+    },
+    {
+      "id": "local-grassland",
+      "kind": "background",
+      "role": "grassland",
+      "staticPath": "assets/lesson/backgrounds/grassland.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 1280,
+      "height": 720,
+      "qualityScore": 87
+    },
+    {
+      "id": "local-river",
+      "kind": "background",
+      "role": "river",
+      "staticPath": "assets/lesson/backgrounds/river.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 1280,
+      "height": 720,
+      "qualityScore": 87
+    },
+    {
+      "id": "local-water-splash",
+      "kind": "overlay",
+      "role": "water-splash",
+      "staticPath": "assets/lesson/overlays/water-splash.svg",
+      "provider": "local",
+      "license": "cc0",
+      "creator": "Lingxi generated teaching asset",
+      "width": 900,
+      "height": 220,
+      "qualityScore": 82
+    }
+  ]
+}

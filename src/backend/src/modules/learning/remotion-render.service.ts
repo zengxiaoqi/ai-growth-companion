@@ -1337,7 +1337,7 @@ export class RemotionRenderService {
       );
       if (!audio) {
         this.logger.warn(
-          `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" generatedVisual=${scene?.generatedVisual || ""} audioBytes=0`,
+          `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" generatedVisual=${scene?.generatedVisual || ""} assetProvider=${scene?.visualAssets?.assetProvider || "svgFallback"} characterProvider=${scene?.visualAssets?.characterProvider || ""} backgroundProvider=${scene?.visualAssets?.backgroundProvider || ""} hasCharacterAsset=${Boolean(scene?.visualAssets?.characterAssetSrc)} license=${scene?.visualAssets?.license || ""} assetQuality=${scene?.visualAssets?.qualityScore || 0} audioBytes=0`,
         );
         continue;
       }
@@ -1356,7 +1356,7 @@ export class RemotionRenderService {
       );
       audioCount += 1;
       this.logger.log(
-        `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" template=${scene?.template || ""} generatedVisual=${scene?.generatedVisual || ""} audioBytes=${audio.buffer.length}`,
+        `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" template=${scene?.template || ""} generatedVisual=${scene?.generatedVisual || ""} assetProvider=${scene?.visualAssets?.assetProvider || "svgFallback"} characterProvider=${scene?.visualAssets?.characterProvider || ""} backgroundProvider=${scene?.visualAssets?.backgroundProvider || ""} hasCharacterAsset=${Boolean(scene?.visualAssets?.characterAssetSrc)} license=${scene?.visualAssets?.license || ""} assetQuality=${scene?.visualAssets?.qualityScore || 0} audioBytes=${audio.buffer.length}`,
       );
     }
 

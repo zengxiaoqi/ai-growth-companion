@@ -366,6 +366,7 @@ describe("RemotionRenderService", () => {
             },
           ],
         },
+        assets: [],
         durationFrames: 180,
         sceneAssetSummary: [
           {

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#08142d"/>
+      <stop offset="0.62" stop-color="#20375d"/>
+      <stop offset="1" stop-color="#193d39"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" x2="1">
+      <stop offset="0" stop-color="#123f32"/>
+      <stop offset="1" stop-color="#27644a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#night)"/>
+  <circle cx="1072" cy="102" r="50" fill="#fff1a8"/>
+  <circle cx="1048" cy="88" r="48" fill="#08142d"/>
+  <g fill="#fff4b8" opacity="0.78">
+    <circle cx="84" cy="70" r="3"/><circle cx="170" cy="124" r="2"/>
+    <circle cx="294" cy="58" r="3"/><circle cx="426" cy="146" r="2"/>
+    <circle cx="562" cy="82" r="3"/><circle cx="700" cy="132" r="2"/>
+    <circle cx="842" cy="64" r="3"/><circle cx="996" cy="156" r="2"/>
+    <circle cx="1190" cy="92" r="3"/>
+  </g>
+  <path d="M0 472 C207 385 380 500 578 438 C806 368 980 494 1280 415 L1280 720 L0 720 Z" fill="#21533f"/>
+  <path d="M0 555 C250 492 420 610 626 548 C845 482 1022 605 1280 522 L1280 720 L0 720 Z" fill="url(#ground)"/>
+  <g opacity="0.9">
+    <g transform="translate(30 220)">
+      <rect x="42" y="230" width="38" height="224" rx="15" fill="#5e3a20"/>
+      <circle cx="60" cy="170" r="110" fill="#0f5d36"/>
+      <circle cx="-14" cy="220" r="82" fill="#1b7b45"/>
+      <circle cx="136" cy="218" r="84" fill="#0b452d"/>
+    </g>
+    <g transform="translate(270 250)">
+      <rect x="34" y="200" width="32" height="190" rx="13" fill="#684322"/>
+      <circle cx="49" cy="152" r="88" fill="#165f39"/>
+      <circle cx="-10" cy="188" r="68" fill="#1d8048"/>
+      <circle cx="103" cy="190" r="69" fill="#0c4b2e"/>
+    </g>
+    <g transform="translate(565 210)">
+      <rect x="45" y="244" width="40" height="232" rx="16" fill="#55361d"/>
+      <circle cx="65" cy="178" r="118" fill="#104c32"/>
+      <circle cx="-5" cy="226" r="84" fill="#1b7744"/>
+      <circle cx="140" cy="226" r="88" fill="#083b29"/>
+    </g>
+    <g transform="translate(880 238)">
+      <rect x="38" y="212" width="34" height="202" rx="14" fill="#67401f"/>
+      <circle cx="54" cy="158" r="92" fill="#115936"/>
+      <circle cx="-8" cy="197" r="70" fill="#1b7b45"/>
+      <circle cx="112" cy="198" r="73" fill="#0c442d"/>
+    </g>
+    <g transform="translate(1140 260)">
+      <rect x="30" y="185" width="30" height="178" rx="12" fill="#6a4323"/>
+      <circle cx="45" cy="138" r="76" fill="#135f39"/>
+      <circle cx="0" cy="170" r="58" fill="#1d8048"/>
+      <circle cx="92" cy="170" r="59" fill="#0d472d"/>
+    </g>
+  </g>
+</svg>

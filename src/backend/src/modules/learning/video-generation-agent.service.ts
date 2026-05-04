@@ -32,8 +32,8 @@ import {
 } from "./visual-asset.service";
 import {
   ANIMAL_SUBJECTS,
-  findAnimalSubject,
   getInlineSvgAssetKeys,
+  inferAnimalFromText,
 } from "./animal-subjects.config";
 import {
   ACTION_KEYWORDS,
@@ -466,13 +466,14 @@ export class VideoGenerationAgentService {
         const tags = this.inferDynamicAssetTags(source);
         const action = this.inferDynamicAction(source);
         const habitat = this.inferDynamicHabitat(source);
-        const animalConfig = findAnimalSubject(source);
-        const assetKey = animalConfig?.id || "topic";
+        const animalResult = inferAnimalFromText(source);
+        const animalConfig = animalResult?.config ?? null;
+        const assetKey = animalResult?.id || "topic";
         const template =
           this.toText(
             scene?.animationTemplate?.id || scene?.animationTemplate,
           ) ||
-          (["tiger", "rabbit", "monkey"].includes(assetKey)
+          (assetKey !== "topic"
             ? `science.animal-${action === "rest" ? "habitat" : "abilities"}`
             : "dynamic.story-scene");
 
@@ -925,10 +926,10 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       </div>
     );
   }
-  const knownAnimals = ["tiger", "rabbit", "monkey"];
-  const animalKey = knownAnimals.includes(scene.assetKey)
+  const knownInlineAnimals = ["tiger", "rabbit", "monkey"];
+  const animalKey = knownInlineAnimals.includes(scene.assetKey)
     ? scene.assetKey
-    : knownAnimals.find((key) => (scene.assetTags || []).includes(key)) || null;
+    : knownInlineAnimals.find((key) => (scene.assetTags || []).includes(key)) || null;
   if (animalKey === "tiger") return <TigerSvg scene={scene} />;
   if (animalKey === "rabbit") return <RabbitSvg scene={scene} />;
   if (animalKey === "monkey") return <MonkeySvg scene={scene} />;
@@ -937,7 +938,7 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       <circle cx="240" cy="160" r={94 * pulse} fill={scene.accentColor} opacity="0.18" />
       <circle cx="240" cy="160" r="76" fill={scene.accentColor} opacity="0.9" />
       <text x="240" y="172" textAnchor="middle" fontSize="34" fontWeight="800" fill="#fff">{scene.onScreenText || scene.title}</text>
-      {scene.assetTags.slice(0, 5).map((tag, i) => (
+      {scene.assetTags && scene.assetTags.slice(0, 5).map((tag, i) => (
         <text key={tag + i} x={70 + i * 82} y={285 - (i % 2) * 18} fontSize="18" fontWeight="700" fill="#234">{tag}</text>
       ))}
     </svg>
@@ -1024,9 +1025,8 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     }
 
     const inlineSvgKeys = getInlineSvgAssetKeys();
-    const animalSceneIds = new Set(ANIMAL_SUBJECTS.map((s) => s.id));
     const animalScenes = ((manifest.props as any)?.scenes || []).filter(
-      (scene: any) => animalSceneIds.has(String(scene?.assetKey || "")),
+      (scene: any) => String(scene?.assetKey || "") !== "topic",
     );
     const missingCharacters = animalScenes.filter(
       (scene: any) =>
@@ -1044,9 +1044,11 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
   private expectedVisualTerms(source: string): string[] {
     const terms = new Set<string>(["dynamic", "visual"]);
-    const animalConfig = findAnimalSubject(source);
-    if (animalConfig) {
-      animalConfig.visualTerms.forEach((term) => terms.add(term));
+    const animalResult = inferAnimalFromText(source);
+    if (animalResult?.config) {
+      animalResult.config.visualTerms.forEach((term) => terms.add(term));
+    } else if (animalResult?.id) {
+      terms.add(animalResult.id);
     }
     if (/森林|forest/i.test(source)) terms.add("forest");
     if (/河|溪|游泳|river|swim/i.test(source)) {
@@ -1058,10 +1060,15 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private inferDynamicAssetTags(source: string): string[] {
     const tags = new Set<string>();
 
-    const animalConfig = findAnimalSubject(source);
-    if (animalConfig) {
-      tags.add(animalConfig.id);
-      animalConfig.visualTerms.forEach((term) => tags.add(term));
+    const animalResult = inferAnimalFromText(source);
+    if (animalResult) {
+      tags.add(animalResult.id);
+      if (animalResult.config) {
+        animalResult.config.visualTerms.forEach((term) => tags.add(term));
+      } else {
+        tags.add(animalResult.id);
+        tags.add("animal");
+      }
     }
 
     for (const mapping of ENVIRONMENT_TAG_KEYWORDS) {
@@ -1092,6 +1099,16 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     const animalConfig = ANIMAL_SUBJECTS.find((s) => tags.includes(s.id));
     if (animalConfig) return animalConfig.accentColor;
     if (tags.includes("water") || tags.includes("river")) return "#00a6c8";
+    // Generate a stable color from animal id if present
+    const animalId = tags.find(
+      (t) => t !== "animal" && t !== "topic" && /^[a-z]/.test(t),
+    );
+    if (animalId) {
+      let hash = 0;
+      for (const ch of animalId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+      const hue = hash % 360;
+      return `hsl(${hue}, 65%, 45%)`;
+    }
     const colors = ["#2f9e44", "#4d96ff", "#ff6b6b", "#845ef7"];
     return colors[index % colors.length];
   }

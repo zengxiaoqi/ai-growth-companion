@@ -6,6 +6,7 @@ import {
   type AnimalSubjectConfig,
   ANIMAL_SUBJECTS,
   findAnimalSubject,
+  inferAnimalFromText,
 } from "./animal-subjects.config";
 
 export type VisualAssetKind = "character" | "background" | "overlay";
@@ -535,12 +536,17 @@ export class VisualAssetService {
     return queries[role] || role.replace(/-/g, " ");
   }
 
+  private accentColorForAnimal(animalId: string): string | null {
+    const config = ANIMAL_SUBJECTS.find((s) => s.id === animalId);
+    return config?.accentColor ?? null;
+  }
+
   private inferAnimalSubject(
     source: string,
     assetKey?: string,
   ): AnimalSubject | null {
-    const config = findAnimalSubject(source, assetKey);
-    return config?.id ?? null;
+    const result = inferAnimalFromText(source, assetKey);
+    return result?.id ?? null;
   }
 
   private findAnimalConfig(animalId: string): AnimalSubjectConfig | undefined {
@@ -552,6 +558,7 @@ export class VisualAssetService {
     if (config) {
       return config.actionRoles[action] || config.defaultRole;
     }
+    // Generic: "dolphin-jumping", "elephant-running", etc.
     return `${animal}-${action}`;
   }
 

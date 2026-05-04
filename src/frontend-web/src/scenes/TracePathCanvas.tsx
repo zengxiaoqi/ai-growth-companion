@@ -55,15 +55,15 @@ function useGlyphTarget(target: Extract<TracePathSpec, { kind: 'glyph' }>) {
     ctx.fillStyle = '#CBD5E1';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `900 ${target.fontSize || 88}px "Microsoft YaHei", "PingFang SC", sans-serif`;
+    ctx.font = `900 ${target.fontSize || 200}px "Microsoft YaHei", "PingFang SC", sans-serif`;
     ctx.fillText(target.text, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + 8);
 
     const image = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     const samples: Point[] = [];
-    for (let y = 0; y < CANVAS_SIZE; y += 6) {
-      for (let x = 0; x < CANVAS_SIZE; x += 6) {
+    for (let y = 0; y < CANVAS_SIZE; y += 3) {
+      for (let x = 0; x < CANVAS_SIZE; x += 3) {
         const alpha = image.data[(y * CANVAS_SIZE + x) * 4 + 3];
-        if (alpha > 24) samples.push({ x, y });
+        if (alpha > 20) samples.push({ x, y });
       }
     }
 
@@ -73,7 +73,7 @@ function useGlyphTarget(target: Extract<TracePathSpec, { kind: 'glyph' }>) {
       renderCtx.fillStyle = '#CBD5E1';
       renderCtx.textAlign = 'center';
       renderCtx.textBaseline = 'middle';
-      renderCtx.font = `900 ${target.fontSize || 88}px "Microsoft YaHei", "PingFang SC", sans-serif`;
+      renderCtx.font = `900 ${target.fontSize || 200}px "Microsoft YaHei", "PingFang SC", sans-serif`;
       renderCtx.fillText(target.text, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + 8);
       renderCtx.restore();
     };
@@ -93,7 +93,7 @@ function usePolylineTarget(target: Extract<TracePathSpec, { kind: 'polyline' }>)
       ctx.save();
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       ctx.strokeStyle = '#CBD5E1';
-      ctx.lineWidth = 14;
+      ctx.lineWidth = 8;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -158,7 +158,7 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
 
     overlayCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     overlayCtx.strokeStyle = '#0EA5E9';
-    overlayCtx.lineWidth = 18;
+    overlayCtx.lineWidth = 8;
     overlayCtx.lineCap = 'round';
     overlayCtx.lineJoin = 'round';
     segmentsRef.current.forEach((segment) => {
@@ -170,7 +170,7 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
   }, [glyphGuide, polylineGuide]);
 
   const updateCoverage = useCallback((segment: Segment) => {
-    const tolerance = CANVAS_SIZE * 0.035;
+    const tolerance = CANVAS_SIZE * 0.045;
     samplePoints.forEach((point, index) => {
       if (coveredRef.current.has(index)) return;
       if (distanceToSegment(point, segment) <= tolerance) {

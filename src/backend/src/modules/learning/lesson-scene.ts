@@ -788,7 +788,7 @@ export function deriveWriteSceneDocument(
             label: text,
             kind: "glyph",
             text,
-            fontSize: 84,
+            fontSize: 200,
           },
         ],
         minCoverage: 0.9,

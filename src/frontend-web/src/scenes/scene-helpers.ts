@@ -379,7 +379,7 @@ function deriveWriteScene(module: any): LessonSceneDocument | null {
         interaction: {
           type: 'trace_path',
           prompt: toText(practiceTasks[index], `描一描 ${text}`),
-          targets: [{ id: `trace-${index + 1}`, label: text, kind: 'glyph', text, fontSize: 84 }],
+          targets: [{ id: `trace-${index + 1}`, label: text, kind: 'glyph', text, fontSize: 200 }],
           minCoverage: 0.7,
         },
       };

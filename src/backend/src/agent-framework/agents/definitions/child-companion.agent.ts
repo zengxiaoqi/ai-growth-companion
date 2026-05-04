@@ -131,6 +131,7 @@ export const childCompanionDefinition: AgentDefinition = {
     "generateActivity",
     "generateQuiz",
     "recordLearning",
+    "loadSkill",
   ],
 
   disallowedTools: [

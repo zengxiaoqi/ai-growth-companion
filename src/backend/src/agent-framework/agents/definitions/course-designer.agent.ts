@@ -62,6 +62,7 @@ export const courseDesignerDefinition: AgentDefinition = {
     "renderHyperframes",
     "renderRemotion",
     "reviewVideoQuality",
+    "loadSkill",
   ],
 
   disallowedTools: [],

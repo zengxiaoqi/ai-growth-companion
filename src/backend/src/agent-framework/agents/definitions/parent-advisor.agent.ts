@@ -89,6 +89,7 @@ export const parentAdvisorDefinition: AgentDefinition = {
     "generateCoursePack",
     "enqueueTeachingVideo",
     "listAssignments",
+    "loadSkill",
   ],
 
   disallowedTools: [

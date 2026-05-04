@@ -71,7 +71,6 @@ export class AiService {
             frameworkExecutor,
             this.conversationManager as any,
             skillRegistry,
-            skillExecutor || new SkillExecutor(),
           )
         : null;
   }

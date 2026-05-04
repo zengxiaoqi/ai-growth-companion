@@ -16,7 +16,6 @@ import { ToolRegistryService } from "../../agent-framework/tools/tool-registry.s
 import { AgentRegistryService } from "../../agent-framework/agents/agent-registry.service";
 import { AgentExecutorService } from "../../agent-framework/agents/agent-executor.service";
 import { SkillRegistryService } from "../../agent-framework/skills/skill-registry.service";
-import { SkillExecutor } from "../../agent-framework/skills/skill-executor";
 import type {
   AgentContext,
   AgentDefinition,
@@ -94,7 +93,6 @@ export class VideoGenerationAgentService {
     private readonly agentRegistry: AgentRegistryService,
     private readonly executorService: AgentExecutorService,
     private readonly skillRegistry: SkillRegistryService,
-    private readonly skillExecutor: SkillExecutor,
     private readonly visualAssetService: VisualAssetService,
   ) {}
 
@@ -403,12 +401,19 @@ export class VideoGenerationAgentService {
     const skills = this.skillRegistry.getSkillsForAgent(allowedSkills);
     if (skills.length === 0) return systemPrompt;
 
-    const rendered = skills.map((skill) => {
-      skill.ensureContentLoaded?.();
-      return this.skillExecutor.renderSkillForPrompt(skill.definition);
-    });
+    const index = skills
+      .map((s) => {
+        const d = s.definition;
+        const vars = d.variables
+          .filter((v) => v.required)
+          .map((v) => v.name)
+          .join(", ");
+        return `- **${d.id}**: ${d.description}${vars ? ` (required: ${vars})` : ""}`;
+      })
+      .join("\n");
+
     this.logger.log(
-      `[injectSkills] Injecting ${skills.length} skills: ${skills
+      `[injectSkills] Injecting skill index: ${skills
         .map(
           (skill) =>
             `${skill.definition.id}@${skill.definition.sourceDir || "unknown"}`,
@@ -416,7 +421,7 @@ export class VideoGenerationAgentService {
         .join(", ")}`,
     );
 
-    return `${systemPrompt}\n\n## Skills\n\n${rendered.join("\n\n")}`;
+    return `${systemPrompt}\n\n## Available Skills\n\nCall \`loadSkill\` with a skillId to get the full instructions when needed.\n\n${index}`;
   }
 
   private hasRemotionSkillGuidance(): boolean {

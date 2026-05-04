@@ -78,6 +78,7 @@ export const videoGeneratorDefinition: AgentDefinition = {
     "renderHyperframes",
     "renderRemotion",
     "reviewVideoQuality",
+    "loadSkill",
   ],
 
   disallowedTools: [],

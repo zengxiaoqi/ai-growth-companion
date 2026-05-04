@@ -33,6 +33,7 @@ import { ExecuteCommandTool } from "./tools/impl/execute-command";
 import { ReadFileTool, WriteFileTool } from "./tools/impl/file-operations";
 import { RenderHyperframesTool } from "./tools/impl/render-hyperframes";
 import { RenderRemotionTool } from "./tools/impl/render-remotion";
+import { LoadSkillTool } from "./tools/impl/load-skill";
 
 // Agent definitions
 import { childCompanionDefinition } from "./agents/definitions/child-companion.agent";
@@ -65,20 +66,17 @@ import { videoGeneratorDefinition } from "./agents/definitions/video-generator.a
         agentRegistry: AgentRegistryService,
         executor: AgentExecutorService,
         skillRegistry: SkillRegistryService,
-        skillExecutor: SkillExecutor,
       ) =>
         new OrchestratorService(
           agentRegistry,
           executor,
           null as any,
           skillRegistry,
-          skillExecutor,
         ),
       inject: [
         AgentRegistryService,
         AgentExecutorService,
         SkillRegistryService,
-        SkillExecutor,
       ],
     },
     {
@@ -96,6 +94,7 @@ import { videoGeneratorDefinition } from "./agents/definitions/video-generator.a
     WriteFileTool,
     RenderHyperframesTool,
     RenderRemotionTool,
+    LoadSkillTool,
   ],
   exports: [
     OrchestratorService,

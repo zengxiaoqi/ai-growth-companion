@@ -14,7 +14,7 @@ import type {
   ToolResult,
   ToolExecutionContext,
 } from "../../core";
-import type { ISkillRegistry } from "../../core";
+import { SkillRegistryService } from "../../skills/skill-registry.service";
 
 type LoadSkillArgs = {
   skillId: string;
@@ -47,7 +47,7 @@ export class LoadSkillTool extends BaseTool<LoadSkillArgs, string> {
     requiresAgeGroup: false,
   };
 
-  constructor(private readonly skillRegistry: ISkillRegistry) {
+  constructor(private readonly skillRegistry: SkillRegistryService) {
     super();
   }
 

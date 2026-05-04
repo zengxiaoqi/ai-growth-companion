@@ -16,6 +16,7 @@ import {
   ART_SOCIAL_TEST_VIDEO,
 } from "./data/test-animation-data";
 import { CHINESE_CHARACTERS_VIDEO } from "./data/chinese-characters";
+import { MONKEY_VIDEO } from "./data/monkey-video";
 
 // NumbersVideo: intro + 10*scene + outro - 11 transitions
 // = 90 + 10*210 + 90 - 11*12 = 2148
@@ -111,6 +112,19 @@ export const RemotionRoot = () => {
         width={1280}
         height={720}
         defaultProps={ART_SOCIAL_TEST_VIDEO}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
+      />
+
+      <Composition
+        id="MonkeyVideo"
+        component={TopicVideo}
+        fps={30}
+        width={1280}
+        height={720}
+        defaultProps={MONKEY_VIDEO}
         calculateMetadata={async ({ props }) => ({
           durationInFrames: calcTopicVideoFrames(props),
           props,

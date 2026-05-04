@@ -1,7 +1,7 @@
 ---
 id: video-generation-orchestrator
 name: Video Generation Orchestrator
-description: Full-pipeline video generation skill: storyboard → composition → render → quality review. Intelligently select engine and orchestrate the entire video creation workflow.
+description: "Full-pipeline video generation skill: storyboard → composition → render → quality review. Intelligently select engine and orchestrate the entire video creation workflow."
 triggers:
   - 生成教学视频
   - 制作教学视频

@@ -34,6 +34,8 @@ export interface SkillRule {
 export interface SkillDefinition {
   /** Unique skill identifier (derived from directory name for Markdown skills) */
   id: string;
+  /** Filesystem directory this skill was loaded from, when available */
+  sourceDir?: string;
   /** Human-readable name */
   name: string;
   /** What this skill does */

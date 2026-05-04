@@ -88,7 +88,6 @@ export const videoGeneratorDefinition: AgentDefinition = {
     "hyperframes-cli",
     "hyperframes-video-creation",
     "remotion-video-creation",
-    "remotion-video-creation-agent",
     "gsap",
     "css-animations",
     "three",

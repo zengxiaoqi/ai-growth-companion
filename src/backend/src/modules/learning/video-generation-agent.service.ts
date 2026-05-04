@@ -231,7 +231,7 @@ export class VideoGenerationAgentService {
 
     this.validateGeneratedManifest(manifest, storyboard);
     this.logger.log(
-      `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, visuals=${sceneAssetSummary
+      `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, remotionSkillGuidance=${this.hasRemotionSkillGuidance() ? "enabled" : "missing"}, visuals=${sceneAssetSummary
         .map(
           (s) =>
             `${s.title}:${s.generatedVisual}:assetProvider=${s.assetProvider || "svgFallback"}:characterProvider=${s.characterProvider || ""}:backgroundProvider=${s.backgroundProvider || ""}:license=${s.assetLicense || ""}:assetQuality=${s.assetQuality || 0}`,
@@ -406,8 +406,30 @@ export class VideoGenerationAgentService {
     const rendered = skills.map((skill) =>
       this.skillExecutor.renderSkillForPrompt(skill.definition),
     );
+    this.logger.log(
+      `[injectSkills] Injecting ${skills.length} skills: ${skills
+        .map(
+          (skill) =>
+            `${skill.definition.id}@${skill.definition.sourceDir || "unknown"}`,
+        )
+        .join(", ")}`,
+    );
 
     return `${systemPrompt}\n\n## Skills\n\n${rendered.join("\n\n")}`;
+  }
+
+  private hasRemotionSkillGuidance(): boolean {
+    const skill = this.skillRegistry.get?.("remotion-video-creation");
+    if (!skill) return false;
+    const rules = skill.definition.rules || [];
+    const searchable = `${skill.definition.body || ""}\n${rules
+      .map((rule) => `${rule.name}\n${rule.content}`)
+      .join("\n")}`;
+    return (
+      searchable.includes("<Img") &&
+      searchable.includes("staticFile") &&
+      rules.length > 0
+    );
   }
 
   private getFilteredToolDefinitions(

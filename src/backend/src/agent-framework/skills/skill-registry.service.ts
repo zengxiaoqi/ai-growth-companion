@@ -34,10 +34,14 @@ export class SkillRegistryService implements ISkillRegistry, OnModuleInit {
   register(skill: ISkill): void {
     const existing = this.skills.get(skill.definition.id);
     if (existing) {
-      this.logger.warn(`Overwriting skill: ${skill.definition.id}`);
+      this.logger.warn(
+        `Overwriting skill: ${skill.definition.id} (from=${existing.definition.sourceDir || "unknown"} to=${skill.definition.sourceDir || "unknown"})`,
+      );
     }
     this.skills.set(skill.definition.id, skill);
-    this.logger.log(`Registered skill: ${skill.definition.id}`);
+    this.logger.log(
+      `Registered skill: ${skill.definition.id} source=${skill.definition.sourceDir || "unknown"}`,
+    );
   }
 
   get(id: string): ISkill | undefined {

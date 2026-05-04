@@ -40,7 +40,9 @@ export function loadSkillsFromDirectory(
       const definition = loadSkillFromDirectory(skillDir, entry.name);
       if (definition) {
         skills.push(definition);
-        logger.log(`Loaded skill from directory: ${entry.name}`);
+        logger.log(
+          `Loaded skill from directory: ${entry.name} (id=${definition.id}, source=${definition.sourceDir})`,
+        );
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -78,6 +80,7 @@ function loadSkillFromDirectory(
 
   return {
     id,
+    sourceDir: skillDir,
     name: frontmatter.name || id,
     description: frontmatter.description || "",
     triggers,

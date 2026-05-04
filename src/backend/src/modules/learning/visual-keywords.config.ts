@@ -7,17 +7,33 @@ export const ACTION_KEYWORDS: KeywordMapping[] = [
   { value: "swim", keywords: ["游泳", "河", "溪", "swim", "river", "水"] },
   {
     value: "eat",
-    keywords: ["胡萝卜", "萝卜", "菜叶", "carrot", "eat", "food", "吃"],
+    keywords: [
+      "胡萝卜",
+      "萝卜",
+      "菜叶",
+      "carrot",
+      "eat",
+      "food",
+      "吃",
+      "香蕉",
+      "banana",
+      "桃子",
+      "水果",
+    ],
   },
-  { value: "jump", keywords: ["蹦", "跳", "jump", "hop"] },
+  {
+    value: "jump",
+    keywords: ["蹦", "跳", "jump", "hop", "攀", "爬树", "climb"],
+  },
   { value: "run", keywords: ["跑", "奔跑", "追", "run"] },
   { value: "roar", keywords: ["吼", "叫声", "roar"] },
   { value: "rest", keywords: ["睡", "休息", "rest"] },
   {
     value: "showFeatures",
-    keywords: ["条纹", "外形", "样子", "feature", "stripe"],
+    keywords: ["条纹", "外形", "样子", "feature", "stripe", "外貌", "尾巴"],
   },
   { value: "listen", keywords: ["耳朵", "长耳", "ear"] },
+  { value: "climb", keywords: ["攀", "爬树", "爬", "climb", "树"] },
 ];
 
 export const HABITAT_KEYWORDS: KeywordMapping[] = [

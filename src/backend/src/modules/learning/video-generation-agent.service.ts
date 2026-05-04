@@ -472,7 +472,7 @@ export class VideoGenerationAgentService {
           this.toText(
             scene?.animationTemplate?.id || scene?.animationTemplate,
           ) ||
-          (assetKey === "tiger"
+          (["tiger", "rabbit", "monkey"].includes(assetKey)
             ? `science.animal-${action === "rest" ? "habitat" : "abilities"}`
             : "dynamic.story-scene");
 
@@ -649,7 +649,7 @@ const sceneStarts = (scenes: GeneratedScene[]) => {
 const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const night = scene.habitat === "night";
-  const river = scene.habitat === "river" || scene.assetTags.includes("river");
+  const river = scene.habitat === "river" || (scene.assetTags || []).includes("river");
   const sky = night ? "#13233f" : scene.habitat === "grassland" ? "#bfeaff" : "#a7e8ff";
   const ground = scene.habitat === "river" ? "#5bc0de" : "#69b66d";
   const sunPulse = interpolate(Math.sin(frame / 18), [-1, 1], [0.94, 1.06]);
@@ -807,6 +807,64 @@ const RabbitSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   );
 };
 
+const MonkeySvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
+  const frame = useCurrentFrame();
+  const jump = scene.action === "jump" || scene.action === "run";
+  const eat = scene.action === "eat";
+  const climb = scene.action === "climb";
+  const bob = interpolate(Math.sin(frame / (jump ? 5 : 13)), [-1, 1], [-12, 8]);
+  const tail = interpolate(Math.sin(frame / 7), [-1, 1], [-8, 8]);
+  const chew = eat ? interpolate(Math.sin(frame / 4), [-1, 1], [0, 6]) : 0;
+  const armSwing = climb ? interpolate(Math.sin(frame / 4), [-1, 1], [-20, 20]) : 0;
+
+  return (
+    <svg width="520" height="350" viewBox="0 0 520 350" style={{ overflow: "visible" }}>
+      <g transform={"translate(0 " + bob + ")"}>
+        {climb && (
+          <g opacity="0.6">
+            <rect x="440" y="20" width="28" height="320" rx="10" fill="#8B5E3C" />
+            <rect x="432" y="40" width="44" height="12" rx="4" fill="#6d3a1e" />
+            <rect x="432" y="100" width="44" height="12" rx="4" fill="#6d3a1e" />
+            <rect x="432" y="160" width="44" height="12" rx="4" fill="#6d3a1e" />
+            <rect x="432" y="220" width="44" height="12" rx="4" fill="#6d3a1e" />
+          </g>
+        )}
+        <ellipse cx="260" cy="210" rx="110" ry="62" fill="#A0522D" />
+        <ellipse cx="260" cy="224" rx="82" ry="36" fill="#DEB887" opacity="0.9" />
+        <path d={"M370 200 C410 " + (190 + tail) + " 430 " + (140 + tail) + " 440 " + (100 + tail) + " C445 " + (80 + tail) + " 435 " + (70 + tail) + " 420 " + (75 + tail)} fill="none" stroke="#A0522D" strokeWidth="14" strokeLinecap="round" />
+        <circle cx="260" cy="120" r="72" fill="#A0522D" />
+        <ellipse cx="260" cy="132" rx="48" ry="40" fill="#DEB887" opacity="0.95" />
+        <circle cx="240" cy="114" r="10" fill="#fff" />
+        <circle cx="280" cy="114" r="10" fill="#fff" />
+        <circle cx="242" cy="116" r="6" fill="#1a1a1a" />
+        <circle cx="282" cy="116" r="6" fill="#1a1a1a" />
+        <circle cx="243" cy="114" r="2" fill="#fff" />
+        <circle cx="283" cy="114" r="2" fill="#fff" />
+        <ellipse cx="260" cy="140" rx="16" ry={8 + chew} fill="#6d3a1e" />
+        <path d={"M260 " + (148 + chew) + " C250 " + (156 + chew) + " 240 " + (154 + chew) + " 230 " + (150 + chew) + " M260 " + (148 + chew) + " C270 " + (156 + chew) + " 280 " + (154 + chew) + " 290 " + (150 + chew)} stroke="#4a2a0a" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <ellipse cx="196" cy="120" rx="22" ry="26" fill="#A0522D" />
+        <ellipse cx="196" cy="122" rx="14" ry="18" fill="#DEB887" opacity="0.7" />
+        <ellipse cx="324" cy="120" rx="22" ry="26" fill="#A0522D" />
+        <ellipse cx="324" cy="122" rx="14" ry="18" fill="#DEB887" opacity="0.7" />
+        <g stroke="#A0522D" strokeWidth="12" strokeLinecap="round">
+          <line x1="200" y1="258" x2={188 + armSwing} y2="310" />
+          <line x1="320" y1="258" x2={332 - armSwing} y2="310" />
+        </g>
+        <g stroke="#8B5E3C" strokeWidth="10" strokeLinecap="round">
+          <line x1="188" y1="310" x2={180 + armSwing} y2="340" />
+          <line x1="332" y1="310" x2={340 - armSwing} y2="340" />
+        </g>
+        {eat && (
+          <g transform="translate(130 200) rotate(-15)">
+            <path d="M0 18 C22 0 56 2 78 14 C52 32 22 34 0 18 Z" fill="#FFD700" stroke="#DAA520" strokeWidth="3" />
+            <path d="M68 12 C88 0 100 4 108 14 C90 22 80 22 68 12 Z" fill="#8BC34A" />
+          </g>
+        )}
+      </g>
+    </svg>
+  );
+};
+
 const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const pulse = interpolate(Math.sin(frame / 10), [-1, 1], [0.94, 1.04]);
@@ -867,15 +925,13 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       </div>
     );
   }
-  const animalKey = scene.assetKey === "tiger" || scene.assetKey === "rabbit"
+  const knownAnimals = ["tiger", "rabbit", "monkey"];
+  const animalKey = knownAnimals.includes(scene.assetKey)
     ? scene.assetKey
-    : (scene.assetTags || []).includes("tiger")
-      ? "tiger"
-      : (scene.assetTags || []).includes("rabbit")
-        ? "rabbit"
-        : null;
+    : knownAnimals.find((key) => (scene.assetTags || []).includes(key)) || null;
   if (animalKey === "tiger") return <TigerSvg scene={scene} />;
   if (animalKey === "rabbit") return <RabbitSvg scene={scene} />;
+  if (animalKey === "monkey") return <MonkeySvg scene={scene} />;
   return (
     <svg width="480" height="320" viewBox="0 0 480 320">
       <circle cx="240" cy="160" r={94 * pulse} fill={scene.accentColor} opacity="0.18" />

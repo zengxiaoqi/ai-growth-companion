@@ -37,6 +37,21 @@ export const ANIMAL_SUBJECTS: AnimalSubjectConfig[] = [
     visualTerms: ["rabbit", "long-ears", "grassland"],
     hasInlineSvg: true,
   },
+  {
+    id: "monkey",
+    keywords: ["monkey", "猴子", "小猴", "猴"],
+    actionRoles: {
+      run: "monkey-running",
+      jump: "monkey-jumping",
+      eat: "monkey-eating",
+      climb: "monkey-climbing",
+      showFeatures: "monkey-sitting",
+    },
+    defaultRole: "monkey-sitting",
+    accentColor: "#a0522d",
+    visualTerms: ["monkey", "tail", "tree", "banana"],
+    hasInlineSvg: true,
+  },
 ];
 
 export function findAnimalSubject(

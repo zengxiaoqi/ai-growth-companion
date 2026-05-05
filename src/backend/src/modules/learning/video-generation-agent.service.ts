@@ -139,6 +139,7 @@ export class VideoGenerationAgentService {
           `[generateViaAgent] Tool call: ${event.toolName} → ${event.result.slice(0, 100)}`,
         );
       },
+      16384,
     );
 
     this.logger.log(

@@ -58,6 +58,7 @@ export class AgentExecutorService {
       args: Record<string, any>;
       result: string;
     }) => Promise<void> | void,
+    maxTokensOverride?: number,
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [
       { role: "system", content: systemPrompt },
@@ -78,6 +79,7 @@ export class AgentExecutorService {
       const response = await this.llmClient.chatCompletion(
         fullMessages,
         toolDefinitions,
+        maxTokensOverride,
       );
 
       // Check for tool calls from LlmResponse

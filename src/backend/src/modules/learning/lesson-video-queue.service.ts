@@ -478,6 +478,11 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           `[generateVideoBuffer] taskId=${task.id} using agent pipeline for topic="${topic}"`,
         );
         try {
+          // Bump progress from 5 to 8 so the frontend knows the agent is running
+          try {
+            await this.taskRepo.update(task.id, { progress: 8 });
+          } catch {}
+
           const agentResult = await this.videoGenerationAgent.generateViaAgent({
             topic,
             domain: payload?.domain,

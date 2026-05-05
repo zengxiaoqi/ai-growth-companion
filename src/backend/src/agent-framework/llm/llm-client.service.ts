@@ -98,10 +98,12 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   async chatCompletion(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
+    maxTokensOverride?: number,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
+      const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
       this.logger.debug(
-        `[LLM REQUEST] model=${this.config.model} temp=${this.config.temperature} maxTokens=${this.config.maxTokens} messages=${messages.length} tools=${tools?.length ?? 0}`,
+        `[LLM REQUEST] model=${this.config.model} temp=${this.config.temperature} maxTokens=${effectiveMaxTokens} messages=${messages.length} tools=${tools?.length ?? 0}`,
       );
       this.logger.verbose(`[LLM REQUEST] messages=${JSON.stringify(messages)}`);
       if (tools && tools.length > 0) {
@@ -115,7 +117,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
         tool_choice: tools ? "auto" : undefined,
-        max_tokens: this.config.maxTokens,
+        max_tokens: effectiveMaxTokens,
         temperature: this.config.temperature,
       });
 

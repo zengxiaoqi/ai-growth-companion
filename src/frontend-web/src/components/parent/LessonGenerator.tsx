@@ -452,14 +452,14 @@ export default function LessonGenerator({
       }
     }, 3000);
 
-    // Safety timeout: 5 minutes
+    // Safety timeout: 10 minutes (agent pipeline can take 5+ minutes alone)
     setTimeout(() => {
       if (videoPollRef.current) {
         clearInterval(videoPollRef.current);
         videoPollRef.current = null;
         if (videoStatus === 'polling') setVideoStatus('failed');
       }
-    }, 300000);
+    }, 600000);
   };
 
   const handleApproveVideo = async (approved: boolean) => {

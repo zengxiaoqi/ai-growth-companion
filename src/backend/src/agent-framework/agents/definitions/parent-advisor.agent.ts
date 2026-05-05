@@ -101,7 +101,6 @@ export const parentAdvisorDefinition: AgentDefinition = {
 
   allowedSkills: [
     "course-pack-flow",
-    "hyperframes-video-creation",
     "remotion-video-creation",
     "video-generation-orchestrator",
     "hyperframes",

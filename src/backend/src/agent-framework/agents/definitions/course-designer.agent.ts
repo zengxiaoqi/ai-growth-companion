@@ -71,7 +71,6 @@ export const courseDesignerDefinition: AgentDefinition = {
     "course-pack-flow",
     "activity-validation",
     "remotion-video-creation",
-    "hyperframes-video-creation",
     "video-generation-orchestrator",
     "hyperframes",
     "hyperframes-cli",

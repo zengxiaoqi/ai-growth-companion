@@ -405,11 +405,15 @@ export class VideoGenerationAgentService {
 
     parts.push(
       "",
-      "请按以下步骤执行：",
-      "1. 调用 generateVideoContent 生成分镜脚本",
-      "2. 检查生成内容的质量（调用 reviewVideoQuality）",
-      "3. 如果质量不达标，重新生成",
-      "4. 返回最终的分镜脚本和质量评分",
+      "请严格按以下步骤执行（必须全部完成后才能停止）：",
+      '1. 调用 loadSkill("remotion-video-creation") 获取 Remotion 技能指导',
+      "2. 调用 generateVideoContent 生成分镜脚本",
+      '3. 根据分镜和技能指导，通过 writeFile("GeneratedLesson.tsx", ...) 生成自定义 React 组件',
+      "4. 调用 reviewVideoQuality 检查质量",
+      "5. 如果质量不达标（score < 70），修改 TSX 后重试",
+      "6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束",
+      "",
+      "⚠️ 你必须调用 writeFile 生成 GeneratedLesson.tsx。不生成 TSX 组件就停止是不允许的。",
     );
 
     return parts.join("\n");

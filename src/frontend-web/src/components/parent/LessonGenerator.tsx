@@ -430,6 +430,7 @@ export default function LessonGenerator({
           if (videoPollRef.current) clearInterval(videoPollRef.current);
           videoPollRef.current = null;
           setVideoStatus('completed');
+          setVideoProgress(100);
           setApprovalStatus(result.approvalStatus || 'pending_approval');
 
           // Fetch video blob for preview

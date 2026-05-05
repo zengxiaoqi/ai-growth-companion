@@ -798,6 +798,11 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       },
     );
 
+    // Render finished — bump progress to 98 to reduce the window where frontend sees 95%
+    try {
+      await this.taskRepo.update(task.id, { progress: 98 });
+    } catch {}
+
     const buffer = await fs.readFile(outputPath);
     try {
       await fs.unlink(outputPath);

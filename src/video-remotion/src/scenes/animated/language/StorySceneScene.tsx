@@ -507,6 +507,577 @@ const ItemSvg: React.FC<{
         </svg>
       );
 
+    case "monkey":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <circle cx="16" cy="28" r="10" fill={secondaryColor} />
+          <circle cx="64" cy="28" r="10" fill={secondaryColor} />
+          <circle cx="16" cy="28" r="6" fill="#FFCCBC" />
+          <circle cx="64" cy="28" r="6" fill="#FFCCBC" />
+          {/* Head */}
+          <circle cx="40" cy="34" r="24" fill={primaryColor} />
+          {/* Face */}
+          <ellipse cx="40" cy="40" rx="16" ry="14" fill="#FFCCBC" />
+          {/* Eyes */}
+          <circle cx="32" cy="32" r="4" fill="#FFFFFF" />
+          <circle cx="48" cy="32" r="4" fill="#FFFFFF" />
+          <circle cx="33" cy="32" r="2.2" fill="#333333" />
+          <circle cx="49" cy="32" r="2.2" fill="#333333" />
+          {/* Nose */}
+          <ellipse cx="40" cy="40" rx="3" ry="2" fill={secondaryColor} />
+          {/* Smile */}
+          <path d="M 34 45 Q 40 52 46 45" fill="none" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "rabbit":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <ellipse cx="30" cy="12" rx="7" ry="18" fill={primaryColor} />
+          <ellipse cx="50" cy="12" rx="7" ry="18" fill={primaryColor} />
+          <ellipse cx="30" cy="12" rx="4" ry="14" fill="#F8BBD0" />
+          <ellipse cx="50" cy="12" rx="4" ry="14" fill="#F8BBD0" />
+          {/* Head */}
+          <circle cx="40" cy="40" r="22" fill={primaryColor} />
+          {/* Eyes */}
+          <circle cx="32" cy="36" r="4" fill="#FFFFFF" />
+          <circle cx="48" cy="36" r="4" fill="#FFFFFF" />
+          <circle cx="33" cy="36" r="2.2" fill="#E91E63" />
+          <circle cx="49" cy="36" r="2.2" fill="#E91E63" />
+          {/* Nose */}
+          <ellipse cx="40" cy="43" rx="2.5" ry="2" fill="#F8BBD0" />
+          {/* Whiskers */}
+          <line x1="22" y1="42" x2="32" y2="44" stroke="#BDBDBD" strokeWidth="1" />
+          <line x1="22" y1="46" x2="32" y2="45" stroke="#BDBDBD" strokeWidth="1" />
+          <line x1="58" y1="42" x2="48" y2="44" stroke="#BDBDBD" strokeWidth="1" />
+          <line x1="58" y1="46" x2="48" y2="45" stroke="#BDBDBD" strokeWidth="1" />
+          {/* Mouth */}
+          <path d="M 37 47 Q 40 50 43 47" fill="none" stroke="#BDBDBD" strokeWidth="1" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "bear":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <circle cx="18" cy="22" r="10" fill={primaryColor} />
+          <circle cx="62" cy="22" r="10" fill={primaryColor} />
+          <circle cx="18" cy="22" r="6" fill={secondaryColor} />
+          <circle cx="62" cy="22" r="6" fill={secondaryColor} />
+          {/* Head */}
+          <circle cx="40" cy="38" r="24" fill={primaryColor} />
+          {/* Muzzle */}
+          <ellipse cx="40" cy="46" rx="12" ry="9" fill="#BCAAA4" />
+          {/* Eyes */}
+          <circle cx="32" cy="34" r="3.5" fill="#FFFFFF" />
+          <circle cx="48" cy="34" r="3.5" fill="#FFFFFF" />
+          <circle cx="33" cy="34" r="2" fill="#333333" />
+          <circle cx="49" cy="34" r="2" fill="#333333" />
+          {/* Nose */}
+          <ellipse cx="40" cy="43" rx="4" ry="3" fill={secondaryColor} />
+          {/* Mouth */}
+          <path d="M 36 49 Q 40 53 44 49" fill="none" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "panda":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <circle cx="18" cy="22" r="10" fill={secondaryColor} />
+          <circle cx="62" cy="22" r="10" fill={secondaryColor} />
+          {/* Head */}
+          <circle cx="40" cy="38" r="24" fill={primaryColor} />
+          {/* Eye patches */}
+          <ellipse cx="30" cy="34" rx="9" ry="7" fill={secondaryColor} />
+          <ellipse cx="50" cy="34" rx="9" ry="7" fill={secondaryColor} />
+          {/* Eyes */}
+          <circle cx="30" cy="34" r="4" fill="#FFFFFF" />
+          <circle cx="50" cy="34" r="4" fill="#FFFFFF" />
+          <circle cx="31" cy="34" r="2.2" fill="#333333" />
+          <circle cx="51" cy="34" r="2.2" fill="#333333" />
+          {/* Nose */}
+          <ellipse cx="40" cy="43" rx="4" ry="3" fill={secondaryColor} />
+          {/* Mouth */}
+          <path d="M 36 48 Q 40 52 44 48" fill="none" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "penguin":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Body */}
+          <ellipse cx="40" cy="46" rx="22" ry="26" fill={primaryColor} />
+          {/* Belly */}
+          <ellipse cx="40" cy="50" rx="14" ry="18" fill="#FFFFFF" />
+          {/* Flippers */}
+          <ellipse cx="16" cy="46" rx="6" ry="14" fill={primaryColor} transform="rotate(15 16 46)" />
+          <ellipse cx="64" cy="46" rx="6" ry="14" fill={primaryColor} transform="rotate(-15 64 46)" />
+          {/* Eyes */}
+          <circle cx="32" cy="30" r="4" fill="#FFFFFF" />
+          <circle cx="48" cy="30" r="4" fill="#FFFFFF" />
+          <circle cx="33" cy="30" r="2.2" fill="#333333" />
+          <circle cx="49" cy="30" r="2.2" fill="#333333" />
+          {/* Beak */}
+          <polygon points="37,38 43,38 40,44" fill={secondaryColor} />
+          {/* Feet */}
+          <ellipse cx="32" cy="70" rx="8" ry="3" fill={secondaryColor} />
+          <ellipse cx="48" cy="70" rx="8" ry="3" fill={secondaryColor} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "elephant":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <ellipse cx="16" cy="32" rx="14" ry="18" fill={secondaryColor} />
+          <ellipse cx="64" cy="32" rx="14" ry="18" fill={secondaryColor} />
+          {/* Head */}
+          <circle cx="40" cy="34" r="22" fill={primaryColor} />
+          {/* Trunk */}
+          <path d="M 40 44 Q 38 54 34 62 Q 32 66 36 66 Q 40 66 42 62 Q 44 54 42 44" fill={primaryColor} stroke={secondaryColor} strokeWidth="1" />
+          {/* Eyes */}
+          <circle cx="32" cy="30" r="3.5" fill="#FFFFFF" />
+          <circle cx="48" cy="30" r="3.5" fill="#FFFFFF" />
+          <circle cx="33" cy="30" r="2" fill="#333333" />
+          <circle cx="49" cy="30" r="2" fill="#333333" />
+          {/* Tusks */}
+          <path d="M 34 48 Q 30 54 32 56" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M 46 48 Q 50 54 48 56" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "lion":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Mane */}
+          {[0, 40, 80, 120, 160, 200, 240, 280, 320].map((angle) => (
+            <circle
+              key={`mane-${angle}`}
+              cx={40 + 22 * Math.cos((angle * Math.PI) / 180)}
+              cy={36 + 22 * Math.sin((angle * Math.PI) / 180)}
+              r="10"
+              fill={secondaryColor}
+            />
+          ))}
+          {/* Head */}
+          <circle cx="40" cy="36" r="20" fill={primaryColor} />
+          {/* Eyes */}
+          <circle cx="33" cy="32" r="3.5" fill="#FFFFFF" />
+          <circle cx="47" cy="32" r="3.5" fill="#FFFFFF" />
+          <circle cx="34" cy="32" r="2" fill="#333333" />
+          <circle cx="48" cy="32" r="2" fill="#333333" />
+          {/* Nose */}
+          <ellipse cx="40" cy="40" rx="4" ry="3" fill={secondaryColor} />
+          {/* Mouth */}
+          <path d="M 36 45 Q 40 49 44 45" fill="none" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "giraffe":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Neck */}
+          <rect x="34" y="24" width="12" height="36" rx="4" fill={primaryColor} />
+          {/* Spots on neck */}
+          <circle cx="38" cy="34" r="3" fill={secondaryColor} opacity={0.6} />
+          <circle cx="42" cy="44" r="2.5" fill={secondaryColor} opacity={0.6} />
+          <circle cx="37" cy="52" r="2" fill={secondaryColor} opacity={0.6} />
+          {/* Head */}
+          <ellipse cx="40" cy="18" rx="12" ry="10" fill={primaryColor} />
+          {/* Ossicones (horns) */}
+          <line x1="34" y1="10" x2="34" y2="4" stroke={secondaryColor} strokeWidth="3" strokeLinecap="round" />
+          <line x1="46" y1="10" x2="46" y2="4" stroke={secondaryColor} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="34" cy="4" r="2.5" fill={secondaryColor} />
+          <circle cx="46" cy="4" r="2.5" fill={secondaryColor} />
+          {/* Eyes */}
+          <circle cx="35" cy="17" r="3" fill="#FFFFFF" />
+          <circle cx="45" cy="17" r="3" fill="#FFFFFF" />
+          <circle cx="36" cy="17" r="1.8" fill="#333333" />
+          <circle cx="46" cy="17" r="1.8" fill="#333333" />
+          {/* Mouth */}
+          <path d="M 37 23 Q 40 26 43 23" fill="none" stroke="#333333" strokeWidth="1.2" strokeLinecap="round" />
+          {/* Body */}
+          <ellipse cx="40" cy="68" rx="18" ry="10" fill={primaryColor} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "frog":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Body */}
+          <ellipse cx="40" cy="50" rx="24" ry="18" fill={primaryColor} />
+          {/* Belly */}
+          <ellipse cx="40" cy="54" rx="16" ry="12" fill="#A5D6A7" />
+          {/* Head */}
+          <ellipse cx="40" cy="32" rx="20" ry="14" fill={primaryColor} />
+          {/* Eye bumps */}
+          <circle cx="28" cy="24" r="10" fill={primaryColor} />
+          <circle cx="52" cy="24" r="10" fill={primaryColor} />
+          {/* Eyes */}
+          <circle cx="28" cy="24" r="6" fill="#FFFFFF" />
+          <circle cx="52" cy="24" r="6" fill="#FFFFFF" />
+          <circle cx="29" cy="24" r="3" fill="#333333" />
+          <circle cx="53" cy="24" r="3" fill="#333333" />
+          {/* Mouth */}
+          <path d="M 26 38 Q 40 46 54 38" fill="none" stroke={secondaryColor} strokeWidth="2" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "butterfly":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Left wings */}
+          <ellipse cx="22" cy="30" rx="16" ry="12" fill={primaryColor} />
+          <ellipse cx="24" cy="50" rx="12" ry="10" fill={primaryColor} opacity={0.8} />
+          {/* Right wings */}
+          <ellipse cx="58" cy="30" rx="16" ry="12" fill={primaryColor} />
+          <ellipse cx="56" cy="50" rx="12" ry="10" fill={primaryColor} opacity={0.8} />
+          {/* Wing patterns */}
+          <circle cx="22" cy="30" r="5" fill={secondaryColor} opacity={0.6} />
+          <circle cx="58" cy="30" r="5" fill={secondaryColor} opacity={0.6} />
+          <circle cx="24" cy="50" r="3.5" fill={secondaryColor} opacity={0.6} />
+          <circle cx="56" cy="50" r="3.5" fill={secondaryColor} opacity={0.6} />
+          {/* Body */}
+          <ellipse cx="40" cy="40" rx="4" ry="18" fill="#333333" />
+          {/* Antennae */}
+          <line x1="38" y1="24" x2="32" y2="14" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="42" y1="24" x2="48" y2="14" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="32" cy="14" r="2" fill="#333333" />
+          <circle cx="48" cy="14" r="2" fill="#333333" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "bee":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Wings */}
+          <ellipse cx="28" cy="24" rx="14" ry="10" fill="#E3F2FD" opacity={0.7} />
+          <ellipse cx="52" cy="24" rx="14" ry="10" fill="#E3F2FD" opacity={0.7} />
+          {/* Body */}
+          <ellipse cx="40" cy="38" rx="18" ry="16" fill={primaryColor} />
+          {/* Stripes */}
+          <rect x="24" y="32" width="32" height="4" rx="2" fill={secondaryColor} />
+          <rect x="26" y="40" width="28" height="4" rx="2" fill={secondaryColor} />
+          <rect x="28" y="48" width="24" height="3" rx="1.5" fill={secondaryColor} />
+          {/* Eyes */}
+          <circle cx="34" cy="30" r="3" fill="#FFFFFF" />
+          <circle cx="46" cy="30" r="3" fill="#FFFFFF" />
+          <circle cx="35" cy="30" r="1.8" fill="#333333" />
+          <circle cx="47" cy="30" r="1.8" fill="#333333" />
+          {/* Antennae */}
+          <line x1="36" y1="22" x2="30" y2="12" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="44" y1="22" x2="50" y2="12" stroke="#333333" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="30" cy="12" r="2" fill="#333333" />
+          <circle cx="50" cy="12" r="2" fill="#333333" />
+          {/* Stinger */}
+          <polygon points="38,54 42,54 40,60" fill={secondaryColor} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "snake":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Body coil */}
+          <path d="M 20 20 Q 60 20 60 36 Q 60 52 20 52 Q 20 68 60 68" fill="none" stroke={primaryColor} strokeWidth="10" strokeLinecap="round" />
+          {/* Belly highlight */}
+          <path d="M 20 20 Q 60 20 60 36 Q 60 52 20 52 Q 20 68 60 68" fill="none" stroke="#A5D6A7" strokeWidth="4" strokeLinecap="round" />
+          {/* Head */}
+          <ellipse cx="20" cy="16" rx="8" ry="6" fill={primaryColor} />
+          {/* Eyes */}
+          <circle cx="17" cy="14" r="2.5" fill="#FFFFFF" />
+          <circle cx="24" cy="14" r="2.5" fill="#FFFFFF" />
+          <circle cx="17" cy="14" r="1.3" fill="#333333" />
+          <circle cx="24" cy="14" r="1.3" fill="#333333" />
+          {/* Tongue */}
+          <line x1="12" y1="18" x2="6" y2="16" stroke="#E53935" strokeWidth="1.5" strokeLinecap="round" />
+          <line x1="12" y1="18" x2="6" y2="20" stroke="#E53935" strokeWidth="1.5" strokeLinecap="round" />
+          {/* Pattern dots */}
+          <circle cx="40" cy="28" r="3" fill={secondaryColor} opacity={0.5} />
+          <circle cx="40" cy="44" r="3" fill={secondaryColor} opacity={0.5} />
+          <circle cx="40" cy="60" r="3" fill={secondaryColor} opacity={0.5} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "turtle":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Shell */}
+          <ellipse cx="40" cy="42" rx="24" ry="18" fill={primaryColor} />
+          {/* Shell pattern */}
+          <path d="M 28 42 Q 40 30 52 42" fill="none" stroke="#388E3C" strokeWidth="1.5" />
+          <path d="M 24 42 Q 40 50 56 42" fill="none" stroke="#388E3C" strokeWidth="1.5" />
+          <line x1="40" y1="26" x2="40" y2="58" stroke="#388E3C" strokeWidth="1" />
+          {/* Head */}
+          <circle cx="16" cy="38" r="8" fill="#66BB6A" />
+          {/* Eyes */}
+          <circle cx="13" cy="36" r="2.5" fill="#FFFFFF" />
+          <circle cx="14" cy="36" r="1.5" fill="#333333" />
+          {/* Legs */}
+          <ellipse cx="26" cy="58" rx="5" ry="4" fill="#66BB6A" />
+          <ellipse cx="54" cy="58" rx="5" ry="4" fill="#66BB6A" />
+          {/* Tail */}
+          <polygon points="64,44 70,42 64,46" fill="#66BB6A" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "owl":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ear tufts */}
+          <polygon points="24,18 20,4 30,14" fill={primaryColor} />
+          <polygon points="56,18 60,4 50,14" fill={primaryColor} />
+          {/* Body */}
+          <ellipse cx="40" cy="48" rx="22" ry="22" fill={primaryColor} />
+          {/* Belly */}
+          <ellipse cx="40" cy="54" rx="14" ry="14" fill="#D7CCC8" />
+          {/* Belly pattern */}
+          <path d="M 32 48 Q 36 52 32 56" fill="none" stroke={primaryColor} strokeWidth="1" opacity={0.4} />
+          <path d="M 40 46 Q 44 50 40 54" fill="none" stroke={primaryColor} strokeWidth="1" opacity={0.4} />
+          <path d="M 48 48 Q 52 52 48 56" fill="none" stroke={primaryColor} strokeWidth="1" opacity={0.4} />
+          {/* Eye circles */}
+          <circle cx="30" cy="32" r="10" fill="#FFFFFF" />
+          <circle cx="50" cy="32" r="10" fill="#FFFFFF" />
+          {/* Eyes */}
+          <circle cx="30" cy="32" r="5" fill={secondaryColor} />
+          <circle cx="50" cy="32" r="5" fill={secondaryColor} />
+          <circle cx="30" cy="32" r="2.5" fill="#333333" />
+          <circle cx="50" cy="32" r="2.5" fill="#333333" />
+          {/* Beak */}
+          <polygon points="37,40 43,40 40,46" fill="#FF8F00" />
+          {/* Wings */}
+          <path d="M 16 44 Q 10 36 16 30 Q 18 38 20 44" fill={secondaryColor} opacity={0.3} />
+          <path d="M 64 44 Q 70 36 64 30 Q 62 38 60 44" fill={secondaryColor} opacity={0.3} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "horse":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Neck */}
+          <path d="M 30 38 Q 28 24 34 14 L 46 14 Q 52 24 50 38 Z" fill={primaryColor} />
+          {/* Head */}
+          <ellipse cx="40" cy="14" rx="14" ry="10" fill={primaryColor} />
+          {/* Mane */}
+          <path d="M 32 14 Q 28 20 30 28 Q 32 20 34 14" fill={secondaryColor} />
+          <path d="M 34 12 Q 30 18 32 26 Q 34 18 36 12" fill={secondaryColor} />
+          {/* Eyes */}
+          <circle cx="34" cy="12" r="3" fill="#FFFFFF" />
+          <circle cx="46" cy="12" r="3" fill="#FFFFFF" />
+          <circle cx="35" cy="12" r="1.8" fill="#333333" />
+          <circle cx="47" cy="12" r="1.8" fill="#333333" />
+          {/* Nostrils */}
+          <circle cx="30" cy="18" r="1.5" fill={secondaryColor} />
+          <circle cx="36" cy="18" r="1.5" fill={secondaryColor} />
+          {/* Body */}
+          <ellipse cx="40" cy="56" rx="22" ry="14" fill={primaryColor} />
+          {/* Legs */}
+          <rect x="24" y="66" width="5" height="10" rx="2" fill={primaryColor} />
+          <rect x="35" y="66" width="5" height="10" rx="2" fill={primaryColor} />
+          <rect x="46" y="66" width="5" height="10" rx="2" fill={primaryColor} />
+          <rect x="55" y="66" width="5" height="10" rx="2" fill={primaryColor} />
+          {/* Hooves */}
+          <rect x="23" y="74" width="7" height="3" rx="1" fill={secondaryColor} />
+          <rect x="34" y="74" width="7" height="3" rx="1" fill={secondaryColor} />
+          <rect x="45" y="74" width="7" height="3" rx="1" fill={secondaryColor} />
+          <rect x="54" y="74" width="7" height="3" rx="1" fill={secondaryColor} />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "cow":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <ellipse cx="18" cy="22" rx="8" ry="5" fill={primaryColor} transform="rotate(-30 18 22)" />
+          <ellipse cx="62" cy="22" rx="8" ry="5" fill={primaryColor} transform="rotate(30 62 22)" />
+          {/* Head */}
+          <circle cx="40" cy="30" r="20" fill={primaryColor} />
+          {/* Spots */}
+          <circle cx="32" cy="24" r="6" fill={secondaryColor} />
+          <circle cx="50" cy="28" r="5" fill={secondaryColor} />
+          {/* Eyes */}
+          <circle cx="32" cy="30" r="3.5" fill="#FFFFFF" />
+          <circle cx="48" cy="30" r="3.5" fill="#FFFFFF" />
+          <circle cx="33" cy="30" r="2" fill="#333333" />
+          <circle cx="49" cy="30" r="2" fill="#333333" />
+          {/* Muzzle */}
+          <ellipse cx="40" cy="42" rx="10" ry="7" fill="#FFCCBC" />
+          {/* Nostrils */}
+          <circle cx="36" cy="42" r="2" fill="#BCAAA4" />
+          <circle cx="44" cy="42" r="2" fill="#BCAAA4" />
+          {/* Horns */}
+          <path d="M 30 14 Q 28 6 24 4" fill="none" stroke="#BCAAA4" strokeWidth="3" strokeLinecap="round" />
+          <path d="M 50 14 Q 52 6 56 4" fill="none" stroke="#BCAAA4" strokeWidth="3" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "pig":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Ears */}
+          <polygon points="20,20 14,8 28,14" fill={primaryColor} />
+          <polygon points="60,20 66,8 52,14" fill={primaryColor} />
+          {/* Head */}
+          <circle cx="40" cy="34" r="22" fill={primaryColor} />
+          {/* Snout */}
+          <ellipse cx="40" cy="42" rx="10" ry="7" fill={secondaryColor} />
+          {/* Nostrils */}
+          <circle cx="36" cy="42" r="2.5" fill="#C2185B" />
+          <circle cx="44" cy="42" r="2.5" fill="#C2185B" />
+          {/* Eyes */}
+          <circle cx="32" cy="30" r="4" fill="#FFFFFF" />
+          <circle cx="48" cy="30" r="4" fill="#FFFFFF" />
+          <circle cx="33" cy="30" r="2.2" fill="#333333" />
+          <circle cx="49" cy="30" r="2.2" fill="#333333" />
+          {/* Smile */}
+          <path d="M 34 46 Q 40 50 46 46" fill="none" stroke="#C2185B" strokeWidth="1.2" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "chicken":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Comb */}
+          <path d="M 36 12 Q 34 6 38 8 Q 40 4 42 8 Q 46 6 44 12" fill="#E53935" />
+          {/* Head */}
+          <circle cx="40" cy="24" r="14" fill={primaryColor} />
+          {/* Body */}
+          <ellipse cx="40" cy="50" rx="20" ry="16" fill="#FFF9C4" />
+          {/* Wing */}
+          <ellipse cx="54" cy="48" rx="10" ry="12" fill={secondaryColor} opacity={0.3} />
+          {/* Eyes */}
+          <circle cx="34" cy="22" r="3" fill="#FFFFFF" />
+          <circle cx="46" cy="22" r="3" fill="#FFFFFF" />
+          <circle cx="35" cy="22" r="1.8" fill="#333333" />
+          <circle cx="47" cy="22" r="1.8" fill="#333333" />
+          {/* Beak */}
+          <polygon points="44,28 52,26 44,32" fill="#FF8F00" />
+          {/* Wattle */}
+          <ellipse cx="42" cy="34" rx="3" ry="4" fill="#E53935" />
+          {/* Tail */}
+          <path d="M 58 44 Q 66 36 68 42 Q 64 38 62 46" fill={secondaryColor} />
+          {/* Legs */}
+          <line x1="34" y1="64" x2="30" y2="74" stroke="#FF8F00" strokeWidth="2" strokeLinecap="round" />
+          <line x1="46" y1="64" x2="50" y2="74" stroke="#FF8F00" strokeWidth="2" strokeLinecap="round" />
+          {/* Feet */}
+          <path d="M 26 74 L 30 74 L 34 74" fill="none" stroke="#FF8F00" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M 46 74 L 50 74 L 54 74" fill="none" stroke="#FF8F00" strokeWidth="1.5" strokeLinecap="round" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
+    case "banana":
+      return (
+        <svg width={size} height={size + 20} viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} xmlns="http://www.w3.org/2000/svg">
+          {/* Banana body */}
+          <path d="M 20 56 Q 10 30 34 14 Q 42 10 48 16 Q 30 20 28 54 Z" fill={primaryColor} />
+          <path d="M 20 56 Q 10 30 34 14 Q 42 10 48 16 Q 30 20 28 54 Z" fill="none" stroke={secondaryColor} strokeWidth="1.5" />
+          {/* Second banana */}
+          <path d="M 28 56 Q 18 34 38 18 Q 46 14 52 20 Q 36 24 34 54 Z" fill={primaryColor} opacity={0.85} />
+          <path d="M 28 56 Q 18 34 38 18 Q 46 14 52 20 Q 36 24 34 54 Z" fill="none" stroke={secondaryColor} strokeWidth="1" />
+          {/* Tip */}
+          <circle cx="50" cy="16" r="3" fill="#8D6E63" />
+          {/* Stem */}
+          <rect x="18" y="54" width="18" height="4" rx="2" fill="#8D6E63" />
+          {label && (
+            <text x="40" y={viewBoxH - 4} textAnchor="middle" fontSize="12" fontFamily={FONT_FAMILY} fontWeight={700} fill="#333333">
+              {label}
+            </text>
+          )}
+        </svg>
+      );
+
     // circle, generic, and anything else fall through to the generic circle
     default:
       return (

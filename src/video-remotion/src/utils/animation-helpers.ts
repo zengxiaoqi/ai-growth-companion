@@ -167,6 +167,25 @@ export type SvgItemShape =
   | "fish"
   | "cat"
   | "dog"
+  | "monkey"
+  | "rabbit"
+  | "bear"
+  | "panda"
+  | "penguin"
+  | "elephant"
+  | "lion"
+  | "giraffe"
+  | "frog"
+  | "butterfly"
+  | "bee"
+  | "snake"
+  | "turtle"
+  | "owl"
+  | "horse"
+  | "cow"
+  | "pig"
+  | "chicken"
+  | "banana"
   | "mountain"
   | "river"
   | "circle"
@@ -210,6 +229,48 @@ const SVG_ITEM_MAP: Record<string, SvgItemDescriptor> = {
   sad: { shape: "circle", primaryColor: "#42A5F5", secondaryColor: "#1565C0", label: "伤心" },
   angry: { shape: "circle", primaryColor: "#E53935", secondaryColor: "#B71C1C", label: "生气" },
   surprised: { shape: "circle", primaryColor: "#FFB74D", secondaryColor: "#E65100", label: "惊讶" },
+  // Animals
+  monkey: { shape: "monkey", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "猴子" },
+  rabbit: { shape: "rabbit", primaryColor: "#F5F5F5", secondaryColor: "#E0E0E0", label: "兔子" },
+  bear: { shape: "bear", primaryColor: "#795548", secondaryColor: "#4E342E", label: "熊" },
+  panda: { shape: "panda", primaryColor: "#FAFAFA", secondaryColor: "#212121", label: "熊猫" },
+  penguin: { shape: "penguin", primaryColor: "#37474F", secondaryColor: "#FFB74D", label: "企鹅" },
+  elephant: { shape: "elephant", primaryColor: "#78909C", secondaryColor: "#455A64", label: "大象" },
+  lion: { shape: "lion", primaryColor: "#FFB74D", secondaryColor: "#E65100", label: "狮子" },
+  giraffe: { shape: "giraffe", primaryColor: "#FFCC80", secondaryColor: "#6D4C41", label: "长颈鹿" },
+  frog: { shape: "frog", primaryColor: "#66BB6A", secondaryColor: "#2E7D32", label: "青蛙" },
+  butterfly: { shape: "butterfly", primaryColor: "#CE93D8", secondaryColor: "#AB47BC", label: "蝴蝶" },
+  bee: { shape: "bee", primaryColor: "#FDD835", secondaryColor: "#212121", label: "蜜蜂" },
+  snake: { shape: "snake", primaryColor: "#66BB6A", secondaryColor: "#1B5E20", label: "蛇" },
+  turtle: { shape: "turtle", primaryColor: "#4CAF50", secondaryColor: "#6D4C41", label: "乌龟" },
+  owl: { shape: "owl", primaryColor: "#8D6E63", secondaryColor: "#FFD54F", label: "猫头鹰" },
+  horse: { shape: "horse", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "马" },
+  cow: { shape: "cow", primaryColor: "#FAFAFA", secondaryColor: "#212121", label: "牛" },
+  pig: { shape: "pig", primaryColor: "#F8BBD0", secondaryColor: "#E91E63", label: "猪" },
+  chicken: { shape: "chicken", primaryColor: "#FFF9C4", secondaryColor: "#FF8F00", label: "鸡" },
+  banana: { shape: "banana", primaryColor: "#FDD835", secondaryColor: "#F9A825", label: "香蕉" },
+  // Chinese aliases for animals
+  猴子: { shape: "monkey", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "猴子" },
+  猴: { shape: "monkey", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "猴" },
+  兔子: { shape: "rabbit", primaryColor: "#F5F5F5", secondaryColor: "#E0E0E0", label: "兔子" },
+  熊: { shape: "bear", primaryColor: "#795548", secondaryColor: "#4E342E", label: "熊" },
+  熊猫: { shape: "panda", primaryColor: "#FAFAFA", secondaryColor: "#212121", label: "熊猫" },
+  大象: { shape: "elephant", primaryColor: "#78909C", secondaryColor: "#455A64", label: "大象" },
+  狮子: { shape: "lion", primaryColor: "#FFB74D", secondaryColor: "#E65100", label: "狮子" },
+  长颈鹿: { shape: "giraffe", primaryColor: "#FFCC80", secondaryColor: "#6D4C41", label: "长颈鹿" },
+  青蛙: { shape: "frog", primaryColor: "#66BB6A", secondaryColor: "#2E7D32", label: "青蛙" },
+  蝴蝶: { shape: "butterfly", primaryColor: "#CE93D8", secondaryColor: "#AB47BC", label: "蝴蝶" },
+  乌龟: { shape: "turtle", primaryColor: "#4CAF50", secondaryColor: "#6D4C41", label: "乌龟" },
+  马: { shape: "horse", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "马" },
+  牛: { shape: "cow", primaryColor: "#FAFAFA", secondaryColor: "#212121", label: "牛" },
+  猪: { shape: "pig", primaryColor: "#F8BBD0", secondaryColor: "#E91E63", label: "猪" },
+  鸡: { shape: "chicken", primaryColor: "#FFF9C4", secondaryColor: "#FF8F00", label: "鸡" },
+  香蕉: { shape: "banana", primaryColor: "#FDD835", secondaryColor: "#F9A825", label: "香蕉" },
+  苹果: { shape: "circle", primaryColor: "#E53935", secondaryColor: "#C62828", label: "苹果" },
+  爪子: { shape: "circle", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "爪子" },
+  尾巴: { shape: "circle", primaryColor: "#8D6E63", secondaryColor: "#5D4037", label: "尾巴" },
+  树枝: { shape: "tree", primaryColor: "#388E3C", secondaryColor: "#5D4037", label: "树枝" },
+  森林: { shape: "tree", primaryColor: "#388E3C", secondaryColor: "#2E7D32", label: "森林" },
 };
 
 /**

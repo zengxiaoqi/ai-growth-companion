@@ -82,6 +82,26 @@ const _ACCENT_PALETTE = [
 ] as const;
 
 const EMOJI_PALETTE = ["✨", "📘", "🌟", "🎈", "🧠", "🎨", "🔍", "🎵"] as const;
+const ANIMAL_EMOJI_PALETTE = [
+  "🐒",
+  "🐰",
+  "🐻",
+  "🐼",
+  "🐧",
+  "🦁",
+  "🐸",
+  "🦋",
+] as const;
+const ANIMAL_ITEM_EMOJI = [
+  "🍎",
+  "🍌",
+  "🌿",
+  "🌳",
+  "🐾",
+  "🥕",
+  "🥕",
+  "🐟",
+] as const;
 const SEASON_EMOJI = ["🌸", "☀️", "🍂", "❄️"] as const;
 const SEASON_BG = ["#F0FFF4", "#FFF8E1", "#FFF3E0", "#E8F4FF"] as const;
 const SEASON_ACCENT = ["#6BCB77", "#F59E0B", "#E67E22", "#4D96FF"] as const;
@@ -609,7 +629,12 @@ export class RemotionRenderService {
 
     const mergedItems = this.mergeItems(
       theme.items || [],
-      this.createItems(visualLabels.slice(0, 8), EMOJI_PALETTE),
+      this.createItems(
+        visualLabels.slice(0, 8),
+        this.isAnimalContext(visualLabels)
+          ? ANIMAL_EMOJI_PALETTE
+          : EMOJI_PALETTE,
+      ),
     );
 
     const headline = this.toText(
@@ -968,6 +993,54 @@ export class RemotionRenderService {
     return {
       emoji: EMOJI_PALETTE[index % EMOJI_PALETTE.length],
     };
+  }
+
+  private isAnimalContext(labels: string[]): boolean {
+    const animalKeywords = [
+      "猴子",
+      "兔",
+      "熊",
+      "猫",
+      "狗",
+      "熊猫",
+      "企鹅",
+      "大象",
+      "狮子",
+      "长颈鹿",
+      "青蛙",
+      "蝴蝶",
+      "蜜蜂",
+      "蛇",
+      "乌龟",
+      "猫头鹰",
+      "马",
+      "牛",
+      "猪",
+      "鸡",
+      "动物",
+      "monkey",
+      "rabbit",
+      "bear",
+      "panda",
+      "penguin",
+      "elephant",
+      "lion",
+      "giraffe",
+      "frog",
+      "butterfly",
+      "bee",
+      "snake",
+      "turtle",
+      "owl",
+      "horse",
+      "cow",
+      "pig",
+      "chicken",
+      "animal",
+    ];
+    return labels.some((l) =>
+      animalKeywords.some((k) => l.toLowerCase().includes(k)),
+    );
   }
 
   private buildFallbackSlide(topic: string, domain?: string): TeachingSlide {

@@ -488,7 +488,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           });
 
           this.logger.log(
-            `[generateVideoBuffer] taskId=${task.id} agent completed: storyboard=${agentResult.storyboard ? "yes" : "no"}, qualityScore=${agentResult.qualityScore}, passed=${agentResult.qualityPassed}, toolCalls=${agentResult.toolCalls.length}`,
+            `[generateVideoBuffer] taskId=${task.id} agent completed: storyboard=${agentResult.storyboard ? "yes" : "no"}, qualityScore=${agentResult.qualityScore}, passed=${agentResult.qualityPassed}, toolCalls=${agentResult.toolCalls.length}, agentFiles=${agentResult.agentFiles.size}`,
           );
 
           // If the agent produced a storyboard, enrich the payload with it
@@ -501,6 +501,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
                 score: agentResult.qualityScore,
               },
             );
+            // Attach agent-written files for dynamic-remotion to use
+            if (agentResult.agentFiles.size > 0) {
+              enrichedPayload.__agentFiles = Array.from(
+                agentResult.agentFiles.entries(),
+              ).map(([name, content]) => ({ name, content }));
+            }
             // Fall through to render the enriched payload via existing engines
             return this.generateVideoBufferWithEngines(task, enrichedPayload);
           }
@@ -760,10 +766,18 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       `[generateByDynamicRemotion] taskId=${task.id} generating dynamic Remotion composition, topic="${topic}", domain="${payload?.domain || "unknown"}"`,
     );
 
+    // Reconstruct agent files Map from enriched payload
+    const agentFilesEntries: Array<{ name: string; content: string }> =
+      payload?.__agentFiles || [];
+    const agentFiles = new Map<string, string>(
+      agentFilesEntries.map((entry) => [entry.name, entry.content]),
+    );
+
     const manifest =
       await this.videoGenerationAgent.generateRemotionComposition(
         storyboard,
         payload,
+        agentFiles,
       );
     const outputPath = path.join(
       this.storageDir,

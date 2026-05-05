@@ -31,6 +31,7 @@ import {
 } from "./visual-asset.service";
 import {
   ANIMAL_SUBJECTS,
+  ANIMAL_EMOJI_MAP,
   getInlineSvgAssetKeys,
   inferAnimalFromText,
 } from "./animal-subjects.config";
@@ -56,6 +57,7 @@ export interface AgentVideoResult {
   qualityPassed: boolean;
   issues: string[];
   toolCalls: Array<{ tool: string; args: Record<string, any>; result: string }>;
+  agentFiles: Map<string, string>;
 }
 
 export type DynamicRemotionFile = {
@@ -145,6 +147,7 @@ export class VideoGenerationAgentService {
 
     const storyboard = this.extractStoryboard(toolCalls);
     const quality = this.extractQuality(toolCalls);
+    const agentFiles = this.extractAgentFiles(toolCalls);
 
     return {
       storyboard,
@@ -152,6 +155,7 @@ export class VideoGenerationAgentService {
       qualityPassed: quality.passed,
       issues: quality.issues,
       toolCalls,
+      agentFiles,
     };
   }
 
@@ -167,6 +171,7 @@ export class VideoGenerationAgentService {
   async generateRemotionComposition(
     storyboard: VideoStoryboard,
     payload: Record<string, any> = {},
+    agentFiles?: Map<string, string>,
   ): Promise<DynamicRemotionManifest> {
     const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
     const compositionId = `GeneratedLesson-${this.slugForComposition(topic)}`;
@@ -185,24 +190,39 @@ export class VideoGenerationAgentService {
       scenes,
     };
 
+    const agentLessonTsx = agentFiles?.get("GeneratedLesson.tsx");
+    const agentRootTsx = agentFiles?.get("Root.tsx");
+    const agentIndexTs = agentFiles?.get("index.ts");
+    const usesAgentTsx = !!agentLessonTsx;
+
+    if (usesAgentTsx) {
+      this.logger.log(
+        `[generateRemotionComposition] using agent-generated TSX (${agentLessonTsx.length} chars)`,
+      );
+    }
+
     const files: DynamicRemotionFile[] = [
       {
         path: "index.ts",
-        content: [
-          'import { registerRoot } from "remotion";',
-          'import { RemotionRoot } from "./Root";',
-          "",
-          "registerRoot(RemotionRoot);",
-          "",
-        ].join("\n"),
+        content:
+          agentIndexTs ||
+          [
+            'import { registerRoot } from "remotion";',
+            'import { RemotionRoot } from "./Root";',
+            "",
+            "registerRoot(RemotionRoot);",
+            "",
+          ].join("\n"),
       },
       {
         path: "Root.tsx",
-        content: this.buildGeneratedRootTsx(compositionId, durationFrames),
+        content:
+          agentRootTsx ||
+          this.buildGeneratedRootTsx(compositionId, durationFrames),
       },
       {
         path: "GeneratedLesson.tsx",
-        content: this.buildGeneratedLessonTsx(),
+        content: agentLessonTsx || this.buildGeneratedLessonTsx(),
       },
     ];
 
@@ -227,7 +247,7 @@ export class VideoGenerationAgentService {
       sceneAssetSummary,
     };
 
-    this.validateGeneratedManifest(manifest, storyboard);
+    this.validateGeneratedManifest(manifest, storyboard, usesAgentTsx);
     this.logger.log(
       `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, remotionSkillGuidance=${this.hasRemotionSkillGuidance() ? "enabled" : "missing"}, visuals=${sceneAssetSummary
         .map(
@@ -633,6 +653,8 @@ import {
 } from "remotion";
 import { Audio } from "@remotion/media";
 
+const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
+
 type GeneratedScene = {
   id: string;
   title: string;
@@ -646,6 +668,7 @@ type GeneratedScene = {
   generatedVisual: string;
   durationFrames: number;
   accentColor: string;
+  domain?: string;
   visualAssets?: {
     characterAssetSrc?: string;
     backgroundAssetSrc?: string;
@@ -895,6 +918,81 @@ const MonkeySvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   );
 };
 
+const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
+  const frame = useCurrentFrame();
+  const domain = scene.domain || "science";
+  const text = scene.onScreenText || scene.title;
+  const bob = interpolate(Math.sin(frame / 14), [-1, 1], [-6, 6]);
+  const scale = interpolate(Math.sin(frame / 18), [-1, 1], [0.96, 1.04]);
+
+  if (domain === "math") {
+    const count = Math.min(10, Math.max(1, Math.floor((frame % 180) / 18)));
+    return (
+      <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+        {Array.from({ length: count }).map((_, i) => {
+          const angle = (i / Math.max(count, 1)) * Math.PI * 2;
+          const r = 80 + interpolate(Math.sin(frame / 10 + i), [-1, 1], [-5, 5]);
+          return <circle key={i} cx={240 + Math.cos(angle) * r} cy={140 + Math.sin(angle) * r} r="18" fill={scene.accentColor} opacity={0.5 + (i % 3) * 0.15} />;
+        })}
+        <text x="240" y="148" textAnchor="middle" fontSize="72" fontWeight="900" fill={scene.accentColor}>{text}</text>
+        <text x="240" y="260" textAnchor="middle" fontSize="28" fontWeight="700" fill="rgba(0,0,0,0.5)">{"= " + count}</text>
+      </svg>
+    );
+  }
+
+  if (domain === "language") {
+    const chars = text.split("").slice(0, 8);
+    return (
+      <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+        {chars.map((ch, i) => {
+          const cx = 60 + i * 50;
+          const cy = 140 + interpolate(Math.sin(frame / 12 + i * 0.5), [-1, 1], [-10, 10]);
+          return (
+            <g key={i} transform={"translate(" + cx + " " + cy + ")"}>
+              <rect x="-22" y="-28" width="44" height="56" rx="8" fill={scene.accentColor} opacity="0.18" />
+              <text textAnchor="middle" y="8" fontSize="32" fontWeight="800" fill={scene.accentColor}>{ch}</text>
+            </g>
+          );
+        })}
+        <text x="240" y="270" textAnchor="middle" fontSize="22" fontWeight="700" fill="rgba(0,0,0,0.5)">{scene.narration?.slice(0, 16) || text}</text>
+      </svg>
+    );
+  }
+
+  if (domain === "art") {
+    const colors = ["#e91e63", "#9c27b0", "#2196f3", "#4caf50", "#ff9800", "#795548"];
+    return (
+      <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+        <g transform={"translate(240 150) scale(" + scale + ")"}>
+          <circle r="80" fill="#fff" stroke={scene.accentColor} strokeWidth="3" />
+          {colors.map((c, i) => {
+            const angle = (i / colors.length) * Math.PI * 2;
+            const cx = Math.cos(angle) * 55;
+            const cy = Math.sin(angle) * 55;
+            return <circle key={i} cx={cx} cy={cy} r="22" fill={c} opacity={0.7 + interpolate(Math.sin(frame / 8 + i), [-1, 1], [-0.15, 0.15])} />;
+          })}
+        </g>
+        <text x="240" y="275" textAnchor="middle" fontSize="24" fontWeight="700" fill={scene.accentColor}>{text}</text>
+      </svg>
+    );
+  }
+
+  // science / social / default
+  return (
+    <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+      <g transform={"translate(0 " + bob + ")"}>
+        <rect x="160" y="40" width="160" height="200" rx="12" fill={scene.accentColor} opacity="0.15" />
+        <rect x="200" y="60" width="80" height="30" rx="6" fill={scene.accentColor} opacity="0.3" />
+        <circle cx="240" cy="150" r="40" fill="none" stroke={scene.accentColor} strokeWidth="3" opacity="0.5" />
+        <line x1="200" y1="150" x2="280" y2="150" stroke={scene.accentColor} strokeWidth="2" opacity="0.4" />
+        <line x1="240" y1="110" x2="240" y2="190" stroke={scene.accentColor} strokeWidth="2" opacity="0.4" />
+        <text x="240" y="158" textAnchor="middle" fontSize="28" fontWeight="800" fill={scene.accentColor}>{text.slice(0, 6)}</text>
+      </g>
+      <text x="240" y="275" textAnchor="middle" fontSize="22" fontWeight="700" fill="rgba(0,0,0,0.5)">{text}</text>
+    </svg>
+  );
+};
+
 const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
   const pulse = interpolate(Math.sin(frame / 10), [-1, 1], [0.94, 1.04]);
@@ -962,14 +1060,30 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   if (animalKey === "tiger") return <TigerSvg scene={scene} />;
   if (animalKey === "rabbit") return <RabbitSvg scene={scene} />;
   if (animalKey === "monkey") return <MonkeySvg scene={scene} />;
+  // Non-animal topics or unconfigured animals with no emoji
+  if (scene.assetKey === "topic" && scene.domain && scene.domain !== "science") {
+    return <DomainVisual scene={scene} />;
+  }
+  const emoji = ANIMAL_EMOJI_MAP[scene.assetKey] || ANIMAL_EMOJI_MAP[(scene.assetTags || []).find((t) => ANIMAL_EMOJI_MAP[t]) || ""] || "";
+  const orbitR = interpolate(Math.sin(frame / 14), [-1, 1], [90, 110]);
   return (
-    <svg width="480" height="320" viewBox="0 0 480 320">
-      <circle cx="240" cy="160" r={94 * pulse} fill={scene.accentColor} opacity="0.18" />
-      <circle cx="240" cy="160" r="76" fill={scene.accentColor} opacity="0.9" />
-      <text x="240" y="172" textAnchor="middle" fontSize="34" fontWeight="800" fill="#fff">{scene.onScreenText || scene.title}</text>
-      {scene.assetTags && scene.assetTags.slice(0, 5).map((tag, i) => (
-        <text key={tag + i} x={70 + i * 82} y={285 - (i % 2) * 18} fontSize="18" fontWeight="700" fill="#234">{tag}</text>
-      ))}
+    <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+      <circle cx="240" cy="160" r={orbitR * pulse} fill={scene.accentColor} opacity="0.12" />
+      <circle cx="240" cy="160" r="72" fill={scene.accentColor} opacity="0.22" />
+      {Array.from({ length: 6 }).map((_, i) => {
+        const angle = (i / 6) * Math.PI * 2 + frame * 0.02;
+        const rx = 110 + interpolate(Math.sin(frame / 12 + i), [-1, 1], [-8, 8]);
+        const ry = 80 + interpolate(Math.cos(frame / 10 + i), [-1, 1], [-6, 6]);
+        const cx = 240 + Math.cos(angle) * rx;
+        const cy = 160 + Math.sin(angle) * ry;
+        return <circle key={i} cx={cx} cy={cy} r={16 + (i % 3) * 4} fill={scene.accentColor} opacity={0.15 + (i % 3) * 0.08} />;
+      })}
+      {emoji ? (
+        <text x="240" y="175" textAnchor="middle" fontSize="120" dominantBaseline="central">{emoji}</text>
+      ) : (
+        <text x="240" y="172" textAnchor="middle" fontSize="48" fontWeight="800" fill="#fff">{scene.onScreenText || scene.title}</text>
+      )}
+      <text x="240" y="280" textAnchor="middle" fontSize="22" fontWeight="700" fill="rgba(0,0,0,0.6)">{scene.onScreenText || scene.title}</text>
     </svg>
   );
 };
@@ -1023,6 +1137,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private validateGeneratedManifest(
     manifest: DynamicRemotionManifest,
     storyboard: VideoStoryboard,
+    usesAgentTsx = false,
   ): void {
     if (!/^[A-Za-z][A-Za-z0-9-]{0,80}$/.test(manifest.compositionId)) {
       throw new Error("DYNAMIC_REMOTION_INVALID_COMPOSITION_ID");
@@ -1052,6 +1167,10 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
         `DYNAMIC_REMOTION_MISSING_VISUAL_TERMS:${missing.join(",")}`,
       );
     }
+
+    // When the agent generated custom TSX, it handles its own visuals — skip the
+    // character-asset check that applies only to the hardcoded template fallback.
+    if (usesAgentTsx) return;
 
     const inlineSvgKeys = getInlineSvgAssetKeys();
     const animalScenes = ((manifest.props as any)?.scenes || []).filter(
@@ -1242,5 +1361,31 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       Array.isArray((value as any).scenes) &&
       (value as any).scenes.length > 0
     );
+  }
+
+  /**
+   * Extract files written by the agent via writeFile tool calls.
+   * Returns a Map from filename (basename) to file content.
+   */
+  private extractAgentFiles(
+    toolCalls: AgentVideoResult["toolCalls"],
+  ): Map<string, string> {
+    const files = new Map<string, string>();
+    for (const call of toolCalls) {
+      if (call.tool !== "writeFile") continue;
+      try {
+        const filePath = call.args?.path || call.args?.filePath || "";
+        const content = call.args?.content || "";
+        if (!filePath || !content) continue;
+        const basename = filePath.split("/").pop() || filePath;
+        files.set(basename, content);
+        this.logger.log(
+          `[extractAgentFiles] captured agent file: ${basename} (${content.length} chars)`,
+        );
+      } catch {
+        // continue
+      }
+    }
+    return files;
   }
 }

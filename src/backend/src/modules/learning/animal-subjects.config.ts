@@ -86,7 +86,7 @@ export function inferAnimalFromText(
   if (cnMatch) {
     const name = cnMatch[1].trim();
     const id = cnToAnimalId(name);
-    if (id) return { id, config: null };
+    if (id) return { id, config: getOrCreateAnimalConfig(id) };
   }
 
   // 3. Try "learn about X" / "all about X" pattern (English)
@@ -94,12 +94,13 @@ export function inferAnimalFromText(
     /(?:learn\s+about|all\s+about|discover)\s+(\w+)/i,
   );
   if (enMatch) {
-    return { id: enMatch[1].toLowerCase(), config: null };
+    const id = enMatch[1].toLowerCase();
+    return { id, config: getOrCreateAnimalConfig(id) };
   }
 
   // 4. Use assetKey if it looks like an animal name (not "topic")
   if (assetKey && assetKey !== "topic" && /^[a-z]+$/.test(assetKey)) {
-    return { id: assetKey, config: null };
+    return { id: assetKey, config: getOrCreateAnimalConfig(assetKey) };
   }
 
   return null;
@@ -172,4 +173,166 @@ export function getInlineSvgAssetKeys(): Set<string> {
   return new Set(
     ANIMAL_SUBJECTS.filter((s) => s.hasInlineSvg).map((s) => s.id),
   );
+}
+
+/** Visual search terms for animals not in ANIMAL_SUBJECTS */
+const ANIMAL_VISUAL_TERMS: Record<string, string[]> = {
+  dolphin: ["dolphin", "ocean", "jump", "swim"],
+  elephant: ["elephant", "trunk", "tusks", "savanna"],
+  lion: ["lion", "mane", "roar", "savanna"],
+  panda: ["panda", "bamboo", "black-white", "forest"],
+  cat: ["cat", "whiskers", "tail", "indoor"],
+  dog: ["dog", "wag", "tail", "pet"],
+  fish: ["fish", "fins", "scales", "underwater"],
+  bird: ["bird", "feathers", "wings", "sky"],
+  snake: ["snake", "slither", "scales", "grass"],
+  turtle: ["turtle", "shell", "slow", "pond"],
+  frog: ["frog", "jump", "lily-pad", "pond"],
+  butterfly: ["butterfly", "wings", "colorful", "garden"],
+  bee: ["bee", "hive", "honey", "flowers"],
+  ant: ["ant", "colony", "antenna", "ground"],
+  penguin: ["penguin", "ice", "waddle", "snow"],
+  giraffe: ["giraffe", "long-neck", "spots", "savanna"],
+  deer: ["deer", "antlers", "graceful", "forest"],
+  zebra: ["zebra", "stripes", "savanna", "run"],
+  hippo: ["hippo", "river", "big", "water"],
+  crocodile: ["crocodile", "teeth", "river", "reptile"],
+  kangaroo: ["kangaroo", "pouch", "hop", "outback"],
+  koala: ["koala", "eucalyptus", "cuddly", "tree"],
+  sloth: ["sloth", "slow", "tree", "hang"],
+  squirrel: ["squirrel", "acorn", "bushy-tail", "tree"],
+  fox: ["fox", "clever", "bushy-tail", "forest"],
+  wolf: ["wolf", "howl", "pack", "forest"],
+  "polar-bear": ["polar-bear", "arctic", "ice", "white"],
+  bear: ["bear", "fur", "strong", "forest"],
+  shark: ["shark", "fins", "teeth", "ocean"],
+  whale: ["whale", "blowhole", "ocean", "massive"],
+  octopus: ["octopus", "tentacles", "underwater", "ink"],
+  crab: ["crab", "claws", "beach", "shell"],
+  starfish: ["starfish", "arms", "beach", "ocean"],
+  jellyfish: ["jellyfish", "tentacles", "translucent", "ocean"],
+  peacock: ["peacock", "feathers", "tail", "colorful", "bird"],
+  parrot: ["parrot", "colorful", "beak", "tropical"],
+  owl: ["owl", "eyes", "night", "wise"],
+  eagle: ["eagle", "soar", "beak", "mountains"],
+};
+
+/** Unicode emoji for animals */
+export const ANIMAL_EMOJI_MAP: Record<string, string> = {
+  tiger: "\u{1F42F}",
+  rabbit: "\u{1F430}",
+  monkey: "\u{1F412}",
+  dolphin: "\u{1F42C}",
+  elephant: "\u{1F418}",
+  lion: "\u{1F981}",
+  panda: "\u{1F43C}",
+  cat: "\u{1F431}",
+  dog: "\u{1F436}",
+  fish: "\u{1F41F}",
+  bird: "\u{1F426}",
+  snake: "\u{1F40D}",
+  turtle: "\u{1F422}",
+  frog: "\u{1F438}",
+  butterfly: "\u{1F98B}",
+  bee: "\u{1F41D}",
+  ant: "\u{1F41C}",
+  penguin: "\u{1F427}",
+  giraffe: "\u{1F992}",
+  deer: "\u{1F98C}",
+  zebra: "\u{1F993}",
+  hippo: "\u{1F99B}",
+  crocodile: "\u{1F40A}",
+  kangaroo: "\u{1F998}",
+  koala: "\u{1F428}",
+  sloth: "\u{1F9A5}",
+  squirrel: "\u{1F43F}",
+  fox: "\u{1F98A}",
+  wolf: "\u{1F43A}",
+  "polar-bear": "\u{1F43B}",
+  bear: "\u{1F43B}",
+  shark: "\u{1F988}",
+  whale: "\u{1F40B}",
+  octopus: "\u{1F419}",
+  crab: "\u{1F980}",
+  starfish: "\u{1FAB1}",
+  jellyfish: "\u{1FAB9}",
+  peacock: "\u{1F99A}",
+  parrot: "\u{1F99C}",
+  owl: "\u{1F989}",
+  eagle: "\u{1F985}",
+};
+
+/** Accent colors for animals not in ANIMAL_SUBJECTS */
+const ANIMAL_ACCENT_COLORS: Record<string, string> = {
+  dolphin: "#4da6ff",
+  elephant: "#8a8a8a",
+  lion: "#d4a017",
+  panda: "#2d2d2d",
+  cat: "#f5a623",
+  dog: "#c67b30",
+  fish: "#36b5c0",
+  bird: "#5cb85c",
+  snake: "#6b8e23",
+  turtle: "#3a7d44",
+  frog: "#4caf50",
+  butterfly: "#e91e90",
+  bee: "#f9a825",
+  ant: "#5d4037",
+  penguin: "#37474f",
+  giraffe: "#e8a628",
+  deer: "#8d6e63",
+  zebra: "#424242",
+  hippo: "#78909c",
+  crocodile: "#558b2f",
+  kangaroo: "#a1887f",
+  koala: "#607d8b",
+  sloth: "#795548",
+  squirrel: "#8d6e63",
+  fox: "#e65100",
+  wolf: "#546e7a",
+  "polar-bear": "#b0bec5",
+  bear: "#6d4c41",
+  shark: "#455a64",
+  whale: "#1a237e",
+  octopus: "#7b1fa2",
+  crab: "#d32f2f",
+  starfish: "#ff7043",
+  jellyfish: "#ce93d8",
+  peacock: "#1a73e8",
+  parrot: "#00c853",
+  owl: "#795548",
+  eagle: "#5d4037",
+};
+
+/** Generate a synthetic config for animals not in ANIMAL_SUBJECTS */
+export function getOrCreateAnimalConfig(animalId: string): AnimalSubjectConfig {
+  const existing = ANIMAL_SUBJECTS.find((s) => s.id === animalId);
+  if (existing) return existing;
+
+  const terms = ANIMAL_VISUAL_TERMS[animalId] || [animalId, "animal"];
+  const color = ANIMAL_ACCENT_COLORS[animalId] || stableColorForId(animalId);
+
+  return {
+    id: animalId,
+    keywords: [],
+    actionRoles: {
+      run: `${animalId}-running`,
+      swim: `${animalId}-swimming`,
+      eat: `${animalId}-eating`,
+      jump: `${animalId}-jumping`,
+    },
+    defaultRole: `${animalId}-standing`,
+    accentColor: color,
+    visualTerms: terms,
+    hasInlineSvg: false,
+  };
+}
+
+function stableColorForId(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  const hue = ((hash % 360) + 360) % 360;
+  return `hsl(${hue}, 60%, 45%)`;
 }

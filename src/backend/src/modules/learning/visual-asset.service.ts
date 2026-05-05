@@ -150,8 +150,8 @@ export class VisualAssetService {
         role,
         query: this.queryForRole(role),
         tags: [animal, role, action, "animal"],
-        minWidth: 512,
-        minHeight: 360,
+        minWidth: 256,
+        minHeight: 200,
       });
     }
 
@@ -533,7 +533,18 @@ export class VisualAssetService {
       river: "forest river",
       "water-splash": "water splash",
     };
-    return queries[role] || role.replace(/-/g, " ");
+    if (queries[role]) return queries[role];
+    // For animal roles not in the hardcoded map, build a better query
+    const animalMatch = role.match(
+      /^([a-z]+(?:-[a-z]+)?)-(standing|running|swimming|eating|jumping|exploring|roaring|climbing)/,
+    );
+    if (animalMatch) {
+      const animal = animalMatch[1];
+      const verb =
+        animalMatch[2] === "standing" ? "illustration cartoon" : animalMatch[2];
+      return `${animal} animal ${verb} educational`;
+    }
+    return role.replace(/-/g, " ");
   }
 
   private accentColorForAnimal(animalId: string): string | null {
@@ -581,7 +592,12 @@ export class VisualAssetService {
       license === "cc0" ||
       license.includes("cc0") ||
       license.includes("public domain") ||
-      license.includes("pdm")
+      license.includes("pdm") ||
+      license.includes("cc by") ||
+      license.includes("cc-by") ||
+      license.includes("cc by-sa") ||
+      license.includes("cc-by-sa") ||
+      license.includes("attribution")
     );
   }
 

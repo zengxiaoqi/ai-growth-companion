@@ -32,7 +32,8 @@ const VIDEO_GENERATOR_PROMPT = `你是一位专业的教学视频生成专家，
 ### 组件要求
 - 导出名为 \`GeneratedLesson\` 的 React 组件
 - Props 类型：\`{ title: string; topic: string; scenes: GeneratedScene[]; durationFrames: number }\`
-- 每个场景包含：id, title, narration, onScreenText, visualDescription, accentColor, durationFrames, action, habitat, assetKey, assetTags
+- 每个场景包含：id, title, narration, onScreenText, visualDescription, accentColor, durationFrames, action, habitat, assetKey, assetTags, audioSrc, visualAssets
+- visualAssets 包含 characterAssetSrc, backgroundAssetSrc, hasCharacterAsset 等（如果存在，优先用 \`<Img>\` 显示）
 - 使用 \`useCurrentFrame()\` 和 \`interpolate()\` 驱动所有动画
 - **禁止 CSS 动画和 Tailwind 动画类**，必须使用 Remotion 的帧驱动动画
 - 使用 \`<Sequence>\` 组件按时间排列场景
@@ -49,10 +50,42 @@ const VIDEO_GENERATOR_PROMPT = `你是一位专业的教学视频生成专家，
 - 旁白文字显示在底部半透明条中
 - 场景标题使用大字号显示
 
+### SVG 语法要求（常见错误 — 必须严格遵守）
+- SVG path 的 d 属性中，所有 JavaScript 表达式必须在模板字符串 \${} 内
+- 正确：\`d={\`M \${320 + headBob},190 L \${340 + headBob},195\`}\`
+- 错误：\`d={\`M \${320 + headBob},190 L 340 + headBob,195\`}\` ← 340 + headBob 不会被计算！
+- 如果 d 使用双引号（d="..."），不能包含任何 JS 变量
+- 每个 { 必须有对应的 }，不能有多余的 }
+
+### 图片素材使用（优先于 SVG）
+- 如果 \`scene.visualAssets.characterAssetSrc\` 存在，用 \`<Img>\` 显示角色：
+  \`<Img src={staticFile(scene.visualAssets.characterAssetSrc)} style={{ width: 400, objectFit: "contain" }} />\`
+- 如果 \`scene.visualAssets.backgroundAssetSrc\` 存在，用作背景图：
+  \`<Img src={staticFile(scene.visualAssets.backgroundAssetSrc)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />\`
+- 只有当没有图片素材时，才用 SVG 绘制角色
+
+### React Hooks 规范
+- 在组件顶部调用 \`useCurrentFrame()\` 和 \`useVideoConfig()\`，将结果存为变量
+- 禁止在 JSX 属性中直接调用 \`useCurrentFrame()\` 或 \`useVideoConfig()\`
+- 正确：\`const frame = useCurrentFrame(); ... <SomeComponent frame={frame} />\`
+- 错误：\`<SomeComponent frame={useCurrentFrame()} />\`
+- 将 frame 作为 prop 传递给子组件，而不是在子组件中重新调用 hook
+
+### 视频分辨率
+- 视频分辨率：1920 x 1080（宽 x 高）
+- SVG viewBox 使用 \`"0 0 1920 1080"\`
+
 ### 导入要求
 \`\`\`
 import { AbsoluteFill, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio } from "@remotion/media";
 \`\`\`
+
+### 音频要求（关键 — 不添加会导致视频无声音）
+- 每个 scene 的 props 中包含 \`audioSrc\`（系统自动生成的 TTS 音频路径）
+- 必须在每个 \`<Sequence>\` 内部添加音频播放：
+  \`{scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}\`
+- 这不是可选的 — 没有音频的视频无法通过质量审核
 
 ### 禁止事项
 - 不得 import fs, child_process, http, https, net, tls

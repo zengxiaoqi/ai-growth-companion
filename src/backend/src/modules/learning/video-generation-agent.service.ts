@@ -136,7 +136,7 @@ export class VideoGenerationAgentService {
           result: event.result,
         });
         this.logger.log(
-          `[generateViaAgent] Tool call: ${event.toolName} → ${event.result.slice(0, 100)}`,
+          `[generateViaAgent] Tool call: ${event.toolName} → ${event.result}`,
         );
       },
       16384,
@@ -415,6 +415,15 @@ export class VideoGenerationAgentService {
       "6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束",
       "",
       "⚠️ 你必须调用 writeFile 生成 GeneratedLesson.tsx。不生成 TSX 组件就停止是不允许的。",
+      "",
+      "⚠️ 音频要求（关键）：每个 scene 的 props 中包含 audioSrc 字段（TTS 音频路径）。",
+      "你必须在每个 <Sequence> 中添加 <Audio> 组件来播放旁白音频。",
+      '导入方式：import { Audio } from "@remotion/media";',
+      "使用方式：{scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}",
+      "",
+      "⚠️ SVG 语法：path d 属性中所有 JS 表达式必须在 ${} 内，禁止出现裸运算如 340 + headBob。",
+      "⚠️ Hooks 规范：useCurrentFrame() 必须在组件顶部调用存为变量，禁止在 JSX 属性中直接调用。",
+      "⚠️ 图片素材：如果 scene.visualAssets.characterAssetSrc 存在，优先用 <Img> 显示，不要手绘 SVG。",
     );
 
     return parts.join("\n");
@@ -631,8 +640,8 @@ export class VideoGenerationAgentService {
       `      id=${JSON.stringify(compositionId)}`,
       "      component={GeneratedLesson}",
       "      fps={30}",
-      "      width={1280}",
-      "      height={720}",
+      "      width={1920}",
+      "      height={1080}",
       "      defaultProps={defaultProps}",
       "      calculateMetadata={({ props: currentProps }) => ({",
       "        durationInFrames: Number((currentProps as any).durationFrames) || defaultProps.durationFrames,",
@@ -722,8 +731,8 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
             style={{
               position: "absolute",
               inset: -28,
-              width: 1336,
-              height: 776,
+              width: 2004,
+              height: 1164,
               objectFit: "cover",
               transform: "translateX(" + bgDrift + "px) scale(1.04)",
               opacity: 0.98,
@@ -732,7 +741,7 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
           <div style={{ position: "absolute", inset: 0, background: night ? "rgba(7, 18, 42, 0.26)" : "rgba(222, 255, 239, 0.14)" }} />
         </>
       ) : null}
-      <svg width="1280" height="720" viewBox="0 0 1280 720" style={{ position: "absolute", inset: 0 }}>
+      <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
         <defs>
           <linearGradient id="dynamicSky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={night ? "#101b36" : "#82ddff"} />
@@ -743,24 +752,24 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
             <stop offset="100%" stopColor="#74d9ff" />
           </linearGradient>
         </defs>
-        <rect width="1280" height="720" fill="url(#dynamicSky)" opacity={scene.visualAssets?.backgroundAssetSrc ? 0.22 : 1} />
+        <rect width="1920" height="1080" fill="url(#dynamicSky)" opacity={scene.visualAssets?.backgroundAssetSrc ? 0.22 : 1} />
         {night ? (
-          Array.from({ length: 18 }).map((_, i) => (
-            <circle key={i} cx={80 + i * 66} cy={44 + (i % 5) * 34} r={2 + (i % 3)} fill="#fff7b8" opacity={0.45 + (i % 4) * 0.1} />
+          Array.from({ length: 26 }).map((_, i) => (
+            <circle key={i} cx={80 + i * 72} cy={44 + (i % 6) * 42} r={2 + (i % 3)} fill="#fff7b8" opacity={0.45 + (i % 4) * 0.1} />
           ))
         ) : (
-          <g transform={"translate(1080 92) scale(" + sunPulse + ")"}>
-            <circle r="46" fill="#ffd166" />
-            <circle r="62" fill="#ffd166" opacity="0.2" />
+          <g transform={"translate(1620 138) scale(" + sunPulse + ")"}>
+            <circle r="69" fill="#ffd166" />
+            <circle r="93" fill="#ffd166" opacity="0.2" />
           </g>
         )}
-        <path d="M0 520 C180 470 330 560 520 510 C740 450 920 565 1280 500 L1280 720 L0 720 Z" fill={ground} />
-        {river && <path d="M0 610 C230 560 360 660 570 610 C820 550 980 650 1280 590 L1280 720 L0 720 Z" fill="url(#dynamicRiver)" opacity="0.95" />}
+        <path d="M0 780 C270 705 495 840 780 765 C1110 675 1380 848 1920 750 L1920 1080 L0 1080 Z" fill={ground} />
+        {river && <path d="M0 915 C345 840 540 990 855 915 C1230 825 1470 975 1920 885 L1920 1080 L0 1080 Z" fill="url(#dynamicRiver)" opacity="0.95" />}
         {Array.from({ length: 10 }).map((_, i) => {
-          const x = 35 + i * 128;
-          const h = 100 + (i % 3) * 28;
+          const x = 35 + i * 192;
+          const h = 150 + (i % 3) * 42;
           return (
-            <g key={i} transform={"translate(" + x + " " + (520 - h) + ")"}>
+            <g key={i} transform={"translate(" + x + " " + (780 - h) + ")"}>
               <rect x="25" y={h - 28} width="22" height="74" rx="8" fill="#7b4f28" />
               <circle cx="36" cy={h - 58} r="48" fill={i % 2 ? "#2f9e44" : "#37b24d"} />
               <circle cx="10" cy={h - 36} r="34" fill="#51cf66" opacity="0.9" />
@@ -1156,6 +1165,32 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       /\bfrom\s+["'](?:fs|child_process|http|https|net|tls)["']|require\s*\(|fetch\s*\(|XMLHttpRequest|eval\s*\(|new\s+Function|https?:\/\//;
     if (forbidden.test(joined)) {
       throw new Error("DYNAMIC_REMOTION_FORBIDDEN_CODE");
+    }
+
+    // SVG template literal sanity check for agent-generated TSX
+    if (usesAgentTsx) {
+      const lessonFile = manifest.files.find(
+        (file) => file.path === "GeneratedLesson.tsx",
+      );
+      if (lessonFile) {
+        const tsxContent = lessonFile.content;
+        const hasBareArithmeticInD =
+          /d=\{`[^}]*\b\d+\s*[+\-]\s*[a-zA-Z_]\w*\b/.test(tsxContent) &&
+          !tsxContent.includes("${");
+        const hasMissingAudioImport =
+          !tsxContent.includes("@remotion/media") &&
+          tsxContent.includes("audioSrc");
+        if (hasBareArithmeticInD) {
+          this.logger.warn(
+            "[validateGeneratedManifest] detected bare arithmetic in SVG d attribute — video may render incorrectly",
+          );
+        }
+        if (hasMissingAudioImport) {
+          this.logger.warn(
+            "[validateGeneratedManifest] audioSrc referenced but @remotion/media not imported — video will have no sound",
+          );
+        }
+      }
     }
 
     const source = `${storyboard.topic || ""} ${storyboard.title || ""} ${JSON.stringify(

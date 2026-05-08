@@ -1,16 +1,23 @@
 import { NestFactory } from "@nestjs/core";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe, Logger } from "@nestjs/common";
+import { join } from "path";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { loggerConfig } from "./common/logger.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: loggerConfig,
   });
 
   // 全局前缀
   app.setGlobalPrefix("api");
+
+  // 静态文件服务（Web 前端）
+  app.useStaticAssets(join(__dirname, "..", "public"), {
+    prefix: "/",
+  });
 
   // 开启 CORS
   app.enableCors({

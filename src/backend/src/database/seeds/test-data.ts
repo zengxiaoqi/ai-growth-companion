@@ -13,10 +13,13 @@ export async function seedTestData(dataSource: DataSource) {
     return;
   }
 
+  // bcrypt hash of "password123" (salt rounds: 10)
+  const testPasswordHash = "$2b$10$YpyvqoTPIFAGzcnnNRhNweFJTahEN7XlnlhCIYs83m7D4ZGHkWQCS";
+
   // Create test users
   const parent = await userRepo.save({
     phone: "13800000001",
-    password: "$2b$10$test_hash_placeholder", // In real app, hash the password
+    password: testPasswordHash,
     name: "家长用户",
     type: "parent",
     settings: { notifications: true, language: "zh-CN" },
@@ -24,7 +27,7 @@ export async function seedTestData(dataSource: DataSource) {
 
   const child = await userRepo.save({
     phone: "13800000002",
-    password: "$2b$10$test_hash_placeholder",
+    password: testPasswordHash,
     name: "小明",
     type: "child",
     age: 5,

@@ -1,0 +1,14 @@
+[Unit]
+Description=灵犀伴学 - Cloudflare Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/zxq
+ExecStart=/home/zxq/.local/bin/cloudflared --no-autoupdate tunnel run lingxi
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

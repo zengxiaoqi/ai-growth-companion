@@ -64,7 +64,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
 
       if (result.containsKey('error')) {
-        setState(() => _error = '登录失败，请检查账号密码');
+        final errMsg = result['error']?.toString() ?? '未知错误';
+        setState(() => _error = '登录失败: $errMsg');
         return;
       }
 
@@ -178,10 +179,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return TextFormField(
       controller: _phoneController,
       keyboardType: TextInputType.phone,
-      maxLength: 11,
+      maxLength: 15,
       decoration: InputDecoration(
-        labelText: '手机号码',
-        hintText: '请输入手机号',
+        labelText: '手机号 / 账号',
+        hintText: '请输入手机号或账号',
         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
         counterText: '',
         suffixIcon: _phoneController.text.isNotEmpty
@@ -195,8 +196,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             : null,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) return '请输入手机号';
-        if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(value)) return '请输入正确的手机号';
+        if (value == null || value.trim().isEmpty) return '请输入手机号或账号';
+        // 支持：纯数字账号（5-15位）、带+号的国际号码
+        final cleaned = value.trim();
+        if (cleaned.length < 5) return '账号太短';
         return null;
       },
       onChanged: (_) => setState(() {}),

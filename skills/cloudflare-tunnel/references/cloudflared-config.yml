@@ -1,0 +1,7 @@
+tunnel: 72e64688-c8a6-4c05-9a3f-af1a959a26bc
+credentials-file: /home/zxq/.cloudflared/72e64688-c8a6-4c05-9a3f-af1a959a26bc.json
+
+ingress:
+  - hostname: lingxi.chataifree.eu.org
+    service: http://localhost:3001
+  - service: http_status:404

@@ -3,13 +3,13 @@ import 'package:dio/dio.dart';
 class ApiService {
   final Dio _dio;
 
-  // API 基础地址（本地开发用 localhost）
-  static const String baseUrl = 'http://localhost:3000/api';
+  // API 基础地址（外网可访问）
+  static const String baseUrl = 'https://lingxi.chataifree.eu.org/api';
 
   ApiService() : _dio = Dio(BaseOptions(
     baseUrl: baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 30),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 60),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -630,6 +630,93 @@ class ApiService {
       return null;
     }
   }
+
+  // ==================== 课程生成相关 API ====================
+
+  /// 生成课程（AI 一键生成）
+  Future<Map<String, dynamic>?> generateLesson({
+    required String topic,
+    required int childId,
+    String? domain,
+    String focus = 'mixed',
+    String ageGroup = '5-6',
+    int durationMinutes = 20,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/lessons/generate',
+        data: {
+          'topic': topic,
+          'childId': childId,
+          if (domain != null) 'domain': domain,
+          'focus': focus,
+          'ageGroup': ageGroup,
+          'durationMinutes': durationMinutes,
+        },
+      );
+      if (response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      if (response.data is Map) {
+        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (e) {
+      print('Generate lesson error: $e');
+      return null;
+    }
+  }
+
+  /// 修改课程（AI 快速编辑）
+  Future<Map<String, dynamic>?> modifyLesson(
+    int contentId,
+    String modificationText, {
+    String? stepId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/lessons/$contentId/edit',
+        data: {
+          'modificationText': modificationText,
+          if (stepId != null) 'stepId': stepId,
+        },
+      );
+      if (response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      if (response.data is Map) {
+        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (e) {
+      print('Modify lesson error: $e');
+      return null;
+    }
+  }
+
+  /// 确认发布课程
+  Future<Map<String, dynamic>?> confirmLesson(
+    int contentId,
+    int childId,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/lessons/$contentId/confirm',
+        data: {'childId': childId},
+      );
+      if (response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      if (response.data is Map) {
+        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (e) {
+      print('Confirm lesson error: $e');
+      return null;
+    }
+  }
+
 }
 
 // Token 认证拦截器

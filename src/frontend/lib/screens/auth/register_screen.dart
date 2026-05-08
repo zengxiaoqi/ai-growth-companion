@@ -139,16 +139,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  maxLength: 11,
+                  maxLength: 15,
                   decoration: const InputDecoration(
-                    labelText: '手机号码',
-                    hintText: '请输入手机号',
+                    labelText: '手机号 / 账号',
+                    hintText: '请输入手机号或账号',
                     prefixIcon: Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
                     counterText: '',
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return '请输入手机号';
-                    if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(v)) return '请输入正确的手机号';
+                    if (v == null || v.trim().isEmpty) return '请输入手机号或账号';
+                    if (v.trim().length < 5) return '账号太短';
                     return null;
                   },
                 ),

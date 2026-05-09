@@ -31,6 +31,7 @@ dependencies:
   
   # 音频
   audioplayers: ^5.2.1
+  flutter_tts: ^4.2.2
   
   # 工具
   uuid: ^4.2.1

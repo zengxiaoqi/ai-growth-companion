@@ -2,37 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../services/tts_service.dart';
+import '../games/game_renderer.dart';
 import 'lesson_scene_models.dart';
 import 'scene_renderer.dart';
 import 'trace_path_canvas.dart';
 
 // Re-export models for consumers
 export 'lesson_scene_models.dart';
-
-// ==================== TTS 占位服务 ====================
-
-/// 简单 TTS 占位服务，后续可替换为 flutter_tts
-class TtsService {
-  static final TtsService _instance = TtsService._internal();
-  factory TtsService() => _instance;
-  TtsService._internal();
-
-  bool _isSpeaking = false;
-  bool get isSpeaking => _isSpeaking;
-
-  Future<void> speak(String text) async {
-    if (text.isEmpty) return;
-    _isSpeaking = true;
-    // 占位：模拟朗读时长（按字数估算）
-    final estimatedMs = text.length * 150;
-    await Future.delayed(Duration(milliseconds: estimatedMs.clamp(500, 8000)));
-    _isSpeaking = false;
-  }
-
-  Future<void> stop() async {
-    _isSpeaking = false;
-  }
-}
 
 // ==================== LessonScenePlayer ====================
 
@@ -80,7 +57,6 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
 
   final TtsService _tts = TtsService();
   Timer? _advanceTimer;
-  Timer? _voicePollTimer;
   Timer? _safetyTimer;
   bool _advanced = false;
 
@@ -125,10 +101,8 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
 
   void _clearAllTimers() {
     _advanceTimer?.cancel();
-    _voicePollTimer?.cancel();
     _safetyTimer?.cancel();
     _advanceTimer = null;
-    _voicePollTimer = null;
     _safetyTimer = null;
   }
 
@@ -173,11 +147,11 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
 
     _advanceTimer = Timer(Duration(milliseconds: durationMs), () {
       if (_tts.isSpeaking) {
-        _voicePollTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
-          if (!_tts.isSpeaking) {
-            _doAdvance();
-          }
+        // TTS 仍在播放，等待其自然完成（通过 Completer 避免轮询竞态）
+        _tts.onComplete.then((_) {
+          if (!_advanced) _doAdvance();
         });
+        // 安全兜底：8 秒后强制推进
         _safetyTimer = Timer(const Duration(seconds: 8), _doAdvance);
       } else {
         _doAdvance();
@@ -465,6 +439,18 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
     final activityInteraction = scene.interaction?.launchActivity;
     if (activityInteraction == null) return const SizedBox.shrink();
 
+    final activityData = activityInteraction.activityData;
+    final gameId =
+        activityData['gameId']?.toString() ?? activityData['id']?.toString();
+    final difficulty = activityData['difficulty'] is num
+        ? (activityData['difficulty'] as num).toInt()
+        : 1;
+
+    // 无有效游戏数据时回退到占位 UI
+    if (activityInteraction.activityType.isEmpty && activityData.isEmpty) {
+      return _buildActivityFallback(scene);
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
@@ -505,21 +491,24 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
               ],
             ),
             const SizedBox(height: 8),
-            // 活动占位（实际应由 GameRenderer 渲染）
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: Text(
-                  '活动: ${activityInteraction.activityType}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+            // GameRenderer 渲染真实互动游戏
+            SizedBox(
+              height: 280,
+              child: GameRenderer(
+                activityType: activityInteraction.activityType,
+                initialData: activityData,
+                gameId: gameId,
+                difficulty: difficulty,
+                onExit: () {},
+                onCompleted: (result) {
+                  final score = result['score'] as int? ?? 85;
+                  _handleActivityComplete(ActivityResult(
+                    score: score.clamp(0, 100),
+                    totalQuestions: result['totalQuestions'] as int? ?? 1,
+                    correctAnswers: result['correctAnswers'] as int? ?? 1,
+                    timeSpent: result['timeSpent'] as int?,
+                  ));
+                },
               ),
             ),
             if (_shellReady) ...[
@@ -541,6 +530,81 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 活动数据为空时的回退占位 UI
+  Widget _buildActivityFallback(LessonScene scene) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '互动练习',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textColor,
+                        ),
+                      ),
+                      Text(
+                        '暂无互动数据，点击完成跳过此步骤',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.volume_up_rounded,
+                      size: 20, color: AppTheme.primaryColor),
+                  onPressed: () => _speakScene(scene),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.games_outlined,
+                      size: 32,
+                      color: AppTheme.textSecondary.withOpacity(0.4),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '暂无互动内容',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

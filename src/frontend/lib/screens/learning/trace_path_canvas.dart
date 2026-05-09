@@ -91,17 +91,14 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     }
   }
 
-  /// 生成文字采样点
+  /// 生成文字采样点（基于 TextPainter 实际渲染）
+  ///
+  /// 使用 TextPainter.getBoxesForSelection 获取文字字形的准确
+  /// 包围盒，在包围盒内部生成采样点。相比之前的全画布均匀网格，
+  /// 此方法只在实际有文字笔画的区域内采样，大幅提升覆盖率计算精度。
   List<ui.Offset> _generateGlyphSamples(TraceGlyphTarget target) {
-    final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder);
+    final samples = <ui.Offset>[];
 
-    // 创建相同大小的画布用于采样
-    final paint = ui.Paint()
-      ..color = const ui.Color(0xFFCBD5E1)
-      ..style = ui.PaintingStyle.fill;
-
-    // 绘制文字
     final textPainter = TextPainter(
       text: TextSpan(
         text: target.text,
@@ -115,20 +112,37 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     );
 
     textPainter.layout(maxWidth: _canvasSize);
-    final offset = ui.Offset(
-      (_canvasSize - textPainter.width) / 2,
-      (_canvasSize - textPainter.height) / 2 + 8,
-    );
-    textPainter.paint(canvas, offset);
 
-    // 获取图像数据并提取非透明像素
-    final image = recorder.endRecording().toImage(
-      _canvasSize.toInt(),
-      _canvasSize.toInt(),
+    // 计算文字居中偏移
+    final offsetX = (_canvasSize - textPainter.width) / 2;
+    final offsetY = (_canvasSize - textPainter.height) / 2 + 8;
+
+    // 获取每个字形的包围盒（由 TextPainter 实际排版计算得出）
+    final boxes = textPainter.getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: target.text.length),
     );
-    // 注意：Flutter 中无法直接获取 image data，
-    // 这里使用简化的网格采样方式
-    return _simpleGlyphSampling(target);
+
+    if (boxes.isEmpty) {
+      // 降级：如果无法获取包围盒，回退到均匀网格
+      return _simpleGlyphSampling(target);
+    }
+
+    // 在包围盒区域内生成采样点
+    const step = 5.0; // 5px 步长，平衡精度和性能
+    for (final box in boxes) {
+      final left = box.left + offsetX;
+      final top = box.top + offsetY;
+      final right = box.right + offsetX;
+      final bottom = box.bottom + offsetY;
+
+      for (double y = top; y <= bottom; y += step) {
+        for (double x = left; x <= right; x += step) {
+          samples.add(ui.Offset(x, y));
+        }
+      }
+    }
+
+    return samples;
   }
 
   /// 简化的文字采样（网格方式）

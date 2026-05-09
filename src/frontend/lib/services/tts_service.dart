@@ -31,7 +31,7 @@ class TtsService {
     await _tts.setVolume(1.0);
 
     // 朗读完成时更新状态 + 触发 onComplete
-    await _tts.setCompletionHandler(() {
+    _tts.setCompletionHandler(() {
       _isSpeaking = false;
       final completer = _speakCompleter;
       _speakCompleter = null;
@@ -41,7 +41,7 @@ class TtsService {
     });
 
     // 错误时也触发完成，避免永久等待
-    await _tts.setErrorHandler((message) {
+    _tts.setErrorHandler((message) {
       _isSpeaking = false;
       final completer = _speakCompleter;
       _speakCompleter = null;

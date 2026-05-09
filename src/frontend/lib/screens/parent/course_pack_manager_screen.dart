@@ -226,7 +226,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
     if (!mounted) return;
 
-    if (success) {
+    if (success != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('导出成功')),
       );

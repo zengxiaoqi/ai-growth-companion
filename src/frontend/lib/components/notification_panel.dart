@@ -33,7 +33,9 @@ class NotificationItem {
 }
 
 class NotificationPanel extends StatefulWidget {
-  const NotificationPanel({super.key});
+  final int? userId;
+
+  const NotificationPanel({super.key, this.userId});
 
   @override
   State<NotificationPanel> createState() => _NotificationPanelState();
@@ -53,7 +55,12 @@ class _NotificationPanelState extends State<NotificationPanel> {
   Future<void> _fetchNotifications() async {
     try {
       final api = ApiService();
-      final response = await api.getNotifications();
+      final userId = widget.userId;
+      if (userId == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final response = await api.getNotifications(userId);
       final list = (response['notifications'] as List?) ?? [];
       setState(() {
         _notifications = list.map((item) => NotificationItem(
@@ -90,7 +97,9 @@ class _NotificationPanelState extends State<NotificationPanel> {
   Future<void> _markAllRead() async {
     try {
       final api = ApiService();
-      await api.markAllNotificationsRead();
+      final userId = widget.userId;
+      if (userId == null) return;
+      await api.markAllNotificationsRead(userId);
     } catch (_) {}
     setState(() {
       _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();

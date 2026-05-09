@@ -15,10 +15,8 @@ class ApiService {
       'Content-Type': 'application/json',
     },
   )) {
-    // 添加拦截器
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        // 添加 Token
         return handler.next(options);
       },
       onError: (error, handler) {
@@ -28,10 +26,8 @@ class ApiService {
     ));
   }
 
-  // 公共 Dio 实例访问
   Dio get dio => _dio;
 
-  // 设置认证 Token
   void setToken(String token) {
     _dio.interceptors.removeWhere((i) => i is _AuthInterceptor);
     if (token.isNotEmpty) {
@@ -39,9 +35,8 @@ class ApiService {
     }
   }
 
-  // ─── API Result 辅助方法 ─────────────────────────────────────────────
+  // ─── API Result helpers ─────────────────────────────────────────────
 
-  /// 将 DioException 映射为 ApiErrorType
   static ApiErrorType _mapDioError(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -61,7 +56,6 @@ class ApiService {
     return ApiErrorType.unknown;
   }
 
-  /// 包装 Dio 请求，返回 ApiResult<T>
   Future<ApiResult<T>> _wrapRequest<T>(Future<T> Function() request) async {
     try {
       final data = await request();
@@ -73,14 +67,12 @@ class ApiService {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      return ApiError<T>(
-        e.toString(),
-        type: ApiErrorType.unknown,
-      );
+      return ApiError<T>(e.toString(), type: ApiErrorType.unknown);
     }
   }
-  
-  // 用户相关 API
+
+  // ==================== 认证 API ====================
+
   Future<Map<String, dynamic>> login(String phone, String password) async {
     try {
       final response = await _dio.post('/auth/login', data: {
@@ -92,7 +84,7 @@ class ApiService {
       return {'error': e.toString()};
     }
   }
-  
+
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
     try {
       final response = await _dio.post('/auth/register', data: userData);
@@ -101,8 +93,89 @@ class ApiService {
       return {'error': e.toString()};
     }
   }
-  
-  // 内容相关 API
+
+  /// 获取当前登录用户信息
+  Future<Map<String, dynamic>?> getProfile() async {
+    try {
+      final response = await _dio.get('/auth/profile');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get profile error: $e');
+      return null;
+    }
+  }
+
+  /// 验证家长 PIN 码
+  Future<Map<String, dynamic>?> verifyPin(String pin) async {
+    try {
+      final response = await _dio.post('/auth/verify-pin', data: {'pin': pin});
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Verify pin error: $e');
+      return null;
+    }
+  }
+
+  /// 设置家长 PIN 码
+  Future<Map<String, dynamic>?> setPin(String pin) async {
+    try {
+      final response = await _dio.post('/auth/set-pin', data: {'pin': pin});
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Set pin error: $e');
+      return null;
+    }
+  }
+
+  // ==================== 用户 API ====================
+
+  Future<List<dynamic>> getChildrenByParent(int parentId) async {
+    try {
+      final response = await _dio.get('/users/children/$parentId');
+      if (response.data is List) {
+        return response.data as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      print('Get parent children error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> updateUser(int userId, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('/users/$userId', data: data);
+      return response.data;
+    } catch (e) {
+      print('Update user error: $e');
+      return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserById(int userId) async {
+    try {
+      final response = await _dio.get('/users/$userId');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get user error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> linkChild(String childPhone) async {
+    try {
+      final response = await _dio.post('/users/link-child', data: {
+        'childPhone': childPhone,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Link child error: $e');
+      return null;
+    }
+  }
+
+  // ==================== 内容 API ====================
+
   Future<List<dynamic>> getContents({
     String? ageRange,
     String? domain,
@@ -122,8 +195,7 @@ class ApiService {
       return [];
     }
   }
-  
-  /// 获取内容详情（新版 ApiResult 返回）
+
   Future<ApiResult<Map<String, dynamic>>> getContentDetailResult(int contentId) {
     return _wrapRequest(() async {
       final response = await _dio.get('/contents/$contentId');
@@ -131,37 +203,16 @@ class ApiService {
     });
   }
 
-  /// 获取内容详情（旧版，保持兼容）
   Future<Map<String, dynamic>?> getContentDetail(int contentId) async {
     final result = await getContentDetailResult(contentId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
     print('Get content detail error: ${(result as ApiError).message}');
     return null;
   }
-  
-  // 学习记录 API
-  Future<void> saveLearningRecord(Map<String, dynamic> record) async {
-    try {
-      await _dio.post('/learning/records', data: record);
-    } catch (e) {
-      print('Save learning record error: $e');
-    }
-  }
-  
-  Future<List<dynamic>> getLearningHistory(int userId, {int limit = 10}) async {
-    try {
-      final response = await _dio.get('/learning/records', queryParameters: {
-        'user_id': userId,
-        'limit': limit,
-      });
-      return response.data['list'] ?? [];
-    } catch (e) {
-      print('Get learning history error: $e');
-      return [];
-    }
-  }
-  
-  /// 开始学习（新版 ApiResult 返回）
+
+  // ==================== 学习记录 API ====================
+
+  /// 开始学习
   Future<ApiResult<Map<String, dynamic>>> startLearningResult({
     required int childId,
     required int contentId,
@@ -175,21 +226,17 @@ class ApiService {
     });
   }
 
-  /// 开始学习（旧版，保持兼容）
   Future<Map<String, dynamic>?> startLearning({
     required int childId,
     required int contentId,
   }) async {
-    final result = await startLearningResult(
-      childId: childId,
-      contentId: contentId,
-    );
+    final result = await startLearningResult(childId: childId, contentId: contentId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
     print('Start learning error: ${(result as ApiError).message}');
     return null;
   }
 
-  /// 完成学习（新版 ApiResult 返回）
+  /// 完成学习
   Future<ApiResult<Map<String, dynamic>>> completeLearningResult({
     required int recordId,
     int? score,
@@ -206,7 +253,6 @@ class ApiService {
     });
   }
 
-  /// 完成学习（旧版，保持兼容）
   Future<Map<String, dynamic>?> completeLearning({
     required int recordId,
     int? score,
@@ -214,17 +260,125 @@ class ApiService {
     String? feedback,
   }) async {
     final result = await completeLearningResult(
-      recordId: recordId,
-      score: score,
-      durationSeconds: durationSeconds,
-      feedback: feedback,
+      recordId: recordId, score: score, durationSeconds: durationSeconds, feedback: feedback,
     );
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
     print('Complete learning error: ${(result as ApiError).message}');
     return null;
   }
 
-  /// 获取课程进度（新版 ApiResult 返回）
+  /// 获取学习历史 [FIXED: was /learning/records, now /learning/history/:userId]
+  Future<ApiResult<List<dynamic>>> getLearningHistoryResult(int userId, {int limit = 10}) {
+    return _wrapRequest(() async {
+      final response = await _dio.get('/learning/history/$userId',
+          queryParameters: {'limit': limit});
+      final data = response.data;
+      if (data is List) return data;
+      if (data is Map && data['list'] is List) return data['list'] as List<dynamic>;
+      return <dynamic>[];
+    });
+  }
+
+  Future<List<dynamic>> getLearningHistory(int userId, {int limit = 10}) async {
+    final result = await getLearningHistoryResult(userId, limit: limit);
+    if (result is ApiSuccess<List<dynamic>>) return result.data;
+    print('Get learning history error: ${(result as ApiError).message}');
+    return [];
+  }
+
+  /// 记录互动学习活动（AI 对话等）
+  Future<Map<String, dynamic>?> recordActivity({
+    required int childId,
+    required String domain,
+    required int score,
+    int? durationSeconds,
+    String? sessionId,
+    String? activityType,
+    Map<String, dynamic>? interactionData,
+    String? topic,
+  }) async {
+    try {
+      final response = await _dio.post('/learning/record-activity', data: {
+        'childId': childId,
+        'domain': domain,
+        'score': score,
+        if (durationSeconds != null) 'durationSeconds': durationSeconds,
+        if (sessionId != null) 'sessionId': sessionId,
+        if (activityType != null) 'activityType': activityType,
+        if (interactionData != null) 'interactionData': interactionData,
+        if (topic != null) 'topic': topic,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Record activity error: $e');
+      return null;
+    }
+  }
+
+  /// 今日学习统计
+  Future<Map<String, dynamic>?> getTodayStats(int userId) async {
+    try {
+      final response = await _dio.get('/learning/today/$userId');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get today stats error: $e');
+      return null;
+    }
+  }
+
+  /// 今日学习统计（含来源分类）
+  Future<Map<String, dynamic>?> getTodayStatsDetail(int userId) async {
+    try {
+      final response = await _dio.get('/learning/today-detail/$userId');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get today detail error: $e');
+      return null;
+    }
+  }
+
+  /// 学习积分历史
+  Future<Map<String, dynamic>?> getLearningPoints(int childId, {
+    String? domain, String? status, String? from, String? to,
+    int page = 1, int limit = 20,
+  }) async {
+    try {
+      final response = await _dio.get('/learning/points/$childId', queryParameters: {
+        if (domain != null) 'domain': domain,
+        if (status != null) 'status': status,
+        if (from != null) 'from': from,
+        if (to != null) 'to': to,
+        'page': page,
+        'limit': limit,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get learning points error: $e');
+      return null;
+    }
+  }
+
+  /// 错题本
+  Future<Map<String, dynamic>?> getWrongQuestions(int childId, {
+    String? domain, String? status, int page = 1, int limit = 20,
+  }) async {
+    try {
+      final response = await _dio.get('/learning/wrong-questions/$childId',
+          queryParameters: {
+            if (domain != null) 'domain': domain,
+            if (status != null) 'status': status,
+            'page': page,
+            'limit': limit,
+          });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get wrong questions error: $e');
+      return null;
+    }
+  }
+
+  // ═══ 课程步骤进度 ═══
+
   Future<ApiResult<Map<String, dynamic>>> getLessonProgressResult({
     required int contentId,
     required int childId,
@@ -238,21 +392,16 @@ class ApiService {
     });
   }
 
-  /// 获取课程进度（旧版，保持兼容）
   Future<Map<String, dynamic>?> getLessonProgress({
     required int contentId,
     required int childId,
   }) async {
-    final result = await getLessonProgressResult(
-      contentId: contentId,
-      childId: childId,
-    );
+    final result = await getLessonProgressResult(contentId: contentId, childId: childId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
     print('Get lesson progress error: ${(result as ApiError).message}');
     return null;
   }
 
-  /// 完成课程步骤（新版 ApiResult 返回）
   Future<ApiResult<Map<String, dynamic>>> completeLessonStepResult({
     required int contentId,
     required String stepId,
@@ -276,7 +425,6 @@ class ApiService {
     });
   }
 
-  /// 完成课程步骤（旧版，保持兼容）
   Future<Map<String, dynamic>?> completeLessonStep({
     required int contentId,
     required String stepId,
@@ -286,26 +434,169 @@ class ApiService {
     Map<String, dynamic>? interactionData,
   }) async {
     final result = await completeLessonStepResult(
-      contentId: contentId,
-      stepId: stepId,
-      childId: childId,
-      score: score,
-      durationSeconds: durationSeconds,
-      interactionData: interactionData,
+      contentId: contentId, stepId: stepId, childId: childId,
+      score: score, durationSeconds: durationSeconds, interactionData: interactionData,
     );
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
     print('Complete lesson step error: ${(result as ApiError).message}');
     return null;
   }
 
-  // 游戏列表 API
+  // ═══ 课程草稿 / 生成 ═══
+
+  Future<List<dynamic>> getDraftLessons(int childId) async {
+    try {
+      final response = await _dio.get('/learning/lessons/drafts',
+          queryParameters: {'childId': childId});
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get draft lessons error: $e');
+      return [];
+    }
+  }
+
+  /// 生成结构化课程 [FIXED: was /lessons/generate, now /learning/lessons/generate]
+  Future<Map<String, dynamic>?> generateLesson({
+    required String topic,
+    required int childId,
+    String? domain,
+    String focus = 'mixed',
+    String ageGroup = '5-6',
+    int difficulty = 1,
+    int durationMinutes = 20,
+    String? parentPrompt,
+  }) async {
+    try {
+      final response = await _dio.post('/learning/lessons/generate', data: {
+        'topic': topic,
+        'childId': childId,
+        if (domain != null) 'domain': domain,
+        'focus': focus,
+        'ageGroup': ageGroup,
+        'difficulty': difficulty,
+        'durationMinutes': durationMinutes,
+        if (parentPrompt != null) 'parentPrompt': parentPrompt,
+      });
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      print('Generate lesson error: $e');
+      return null;
+    }
+  }
+
+  /// 修改课程草稿 [FIXED: was POST /lessons/:id/edit, now PATCH /learning/lessons/:id]
+  Future<Map<String, dynamic>?> modifyLesson(int contentId, String modification, {String? stepId}) async {
+    try {
+      final response = await _dio.patch('/learning/lessons/$contentId', data: {
+        'modification': modification,
+        if (stepId != null) 'stepId': stepId,
+      });
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      print('Modify lesson error: $e');
+      return null;
+    }
+  }
+
+  /// 确认并发布课程 [FIXED: was /lessons/:id/confirm]
+  Future<Map<String, dynamic>?> confirmLesson(int contentId, int childId) async {
+    try {
+      final response = await _dio.post('/learning/lessons/$contentId/confirm', data: {
+        'childId': childId,
+      });
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      print('Confirm lesson error: $e');
+      return null;
+    }
+  }
+
+  /// 学习计划历史
+  Future<Map<String, dynamic>?> getStudyPlans(int childId, {
+    String? sourceType, int page = 1, int limit = 20,
+  }) async {
+    try {
+      final response = await _dio.get('/learning/plans/$childId', queryParameters: {
+        if (sourceType != null) 'sourceType': sourceType,
+        'page': page,
+        'limit': limit,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get study plans error: $e');
+      return null;
+    }
+  }
+
+  // ═══ 教学视频 ═══
+
+  Future<Map<String, dynamic>?> createTeachingVideoTask(int lessonId, int childId, {bool force = false}) async {
+    try {
+      final response = await _dio.post('/learning/lessons/$lessonId/teaching-video/tasks', data: {
+        'childId': childId,
+        'force': force,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Create video task error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getTeachingVideoTaskStatus(int lessonId, int taskId, int childId) async {
+    try {
+      final response = await _dio.get(
+        '/learning/lessons/$lessonId/teaching-video/tasks/$taskId',
+        queryParameters: {'childId': childId},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get video task error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getVideoStatus(int lessonId, int childId, {int? taskId}) async {
+    try {
+      final response = await _dio.get(
+        '/learning/lessons/$lessonId/video-status',
+        queryParameters: {'childId': childId, if (taskId != null) 'taskId': taskId},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get video status error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> approveVideo(int lessonId, int childId, bool approved, {String? feedback, int? taskId}) async {
+    try {
+      final response = await _dio.post('/learning/lessons/$lessonId/video-approve', data: {
+        'childId': childId,
+        'approved': approved,
+        if (feedback != null) 'feedback': feedback,
+        if (taskId != null) 'taskId': taskId,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Approve video error: $e');
+      return null;
+    }
+  }
+
+  // ==================== 游戏 API ====================
+
   Future<List<dynamic>> getGameList({String ageRange = '3-4'}) async {
     try {
-      final response =
-          await _dio.get('/game/list', queryParameters: {'ageRange': ageRange});
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
+      final response = await _dio.get('/game/list', queryParameters: {'ageRange': ageRange});
+      if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
       print('Get game list error: $e');
@@ -313,23 +604,11 @@ class ApiService {
     }
   }
 
-  // 生成游戏数据
-  Future<Map<String, dynamic>?> getGameData({
-    required String gameId,
-    int difficulty = 1,
-  }) async {
+  Future<Map<String, dynamic>?> getGameData({required String gameId, int difficulty = 1}) async {
     try {
-      final response = await _dio.get(
-        '/game/$gameId',
-        queryParameters: {'difficulty': difficulty},
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map)
-            .map((k, v) => MapEntry(k.toString(), v));
-      }
+      final response = await _dio.get('/game/$gameId', queryParameters: {'difficulty': difficulty});
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Get game data error: $e');
@@ -337,7 +616,6 @@ class ApiService {
     }
   }
 
-  // 保存游戏结果
   Future<Map<String, dynamic>?> saveGameResult({
     required int userId,
     required String gameId,
@@ -355,13 +633,8 @@ class ApiService {
         'correctAnswers': correctAnswers,
         'totalQuestions': totalQuestions,
       });
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map)
-            .map((k, v) => MapEntry(k.toString(), v));
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Save game result error: $e');
@@ -369,13 +642,22 @@ class ApiService {
     }
   }
 
-  // 能力评估 API（返回该用户所有评估记录，按时间倒序）
+  Future<Map<String, dynamic>?> getGameLevelInfo(int userId) async {
+    try {
+      final response = await _dio.get('/game/level/$userId');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get game level error: $e');
+      return null;
+    }
+  }
+
+  // ==================== 能力评估 API ====================
+
   Future<List<dynamic>> getAbilityAssessment(int userId) async {
     try {
       final response = await _dio.get('/abilities/$userId');
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
+      if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
       print('Get ability assessment error: $e');
@@ -383,67 +665,93 @@ class ApiService {
     }
   }
 
-  // 能力趋势 API（按周聚合）
+  Future<Map<String, dynamic>?> createAbilityAssessment({
+    required int userId,
+    required String domain,
+    required int score,
+  }) async {
+    try {
+      final response = await _dio.post('/abilities', data: {
+        'userId': userId,
+        'domain': domain,
+        'score': score,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Create ability error: $e');
+      return null;
+    }
+  }
+
+  // ==================== 报告 API ====================
+
+  Future<Map<String, dynamic>?> getReport({required int userId, String period = 'weekly'}) async {
+    return getGrowthReport(userId: userId, period: period);
+  }
+
+  Future<Map<String, dynamic>?> getGrowthReport({required int userId, String period = 'weekly'}) async {
+    try {
+      final response = await _dio.get('/report', queryParameters: {'userId': userId, 'period': period});
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      print('Get growth report error: $e');
+      return null;
+    }
+  }
+
   Future<List<dynamic>> getAbilityTrend(int userId, {int weeks = 6}) async {
     try {
-      final response = await _dio.get('/report/trend', queryParameters: {
-        'userId': userId,
-        'weeks': weeks,
-      });
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
+      final response = await _dio.get('/report/trend', queryParameters: {'userId': userId, 'weeks': weeks});
+      if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
       print('Get ability trend error: $e');
       return [];
     }
   }
-  
-  // 成就 API
+
+  Future<List<dynamic>> getRecentSkills(int userId, {int limit = 3}) async {
+    try {
+      final response = await _dio.get('/report/recent-skills',
+          queryParameters: {'userId': userId, 'limit': limit});
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get recent skills error: $e');
+      return [];
+    }
+  }
+
+  // ==================== 成就 API ====================
+
+  /// [FIXED: now uses correct endpoint /achievements/user/:userId]
   Future<List<dynamic>> getAchievements(int userId) async {
     try {
-      final response = await _dio.get('/achievements', queryParameters: {
-        'user_id': userId,
-      });
-      return response.data['list'] ?? [];
+      final response = await _dio.get('/achievements/user/$userId');
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
     } catch (e) {
       print('Get achievements error: $e');
       return [];
     }
   }
-  
-  // 家长孩子列表 API
-  Future<List<dynamic>> getChildrenByParent(int parentId) async {
-    try {
-      final response = await _dio.get('/users/children/$parentId');
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
-      return [];
-    } catch (e) {
-      print('Get parent children error: $e');
-      return [];
-    }
-  }
 
-  // 家长控制 API
+  // ==================== 家长控制 API ====================
+
   Future<Map<String, dynamic>?> getParentControls(int parentId) async {
     try {
       final response = await _dio.get('/parent/controls/$parentId');
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Get parent controls error: $e');
       return null;
     }
   }
-  
+
   Future<void> updateParentControls(int parentId, Map<String, dynamic> controls) async {
     try {
       await _dio.patch('/parent/controls/$parentId', data: controls);
@@ -452,40 +760,56 @@ class ApiService {
     }
   }
 
-  // 通知 API
-  Future<Map<String, dynamic>> getNotifications() async {
+  // ==================== 通知 API ====================
+
+  /// [FIXED: was missing userId param]
+  Future<Map<String, dynamic>> getNotifications(int userId, {int limit = 20}) async {
     try {
-      final response = await _dio.get('/notifications');
-      return response.data;
+      final response = await _dio.get('/notifications/$userId', queryParameters: {'limit': limit});
+      final data = response.data;
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return data.map((k, v) => MapEntry(k.toString(), v));
+      return {};
     } catch (e) {
       print('Get notifications error: $e');
       return {};
     }
   }
 
+  Future<int> getUnreadNotificationCount(int userId) async {
+    try {
+      final response = await _dio.get('/notifications/$userId/unread-count');
+      return response.data['count'] as int? ?? 0;
+    } catch (e) {
+      print('Get unread count error: $e');
+      return 0;
+    }
+  }
+
+  /// [FIXED: was PUT /notifications/:id/read, now POST]
   Future<void> markNotificationRead(int id) async {
     try {
-      await _dio.put('/notifications/$id/read');
+      await _dio.post('/notifications/$id/read');
     } catch (e) {
       print('Mark notification read error: $e');
     }
   }
 
-  Future<void> markAllNotificationsRead() async {
+  /// [FIXED: was PUT /notifications/read-all, now correct POST endpoint]
+  Future<void> markAllNotificationsRead(int userId) async {
     try {
-      await _dio.put('/notifications/read-all');
+      await _dio.post('/notifications/user/$userId/read-all');
     } catch (e) {
       print('Mark all notifications read error: $e');
     }
   }
 
-  // 作业管理 API
-  Future<List<dynamic>> getAssignments(int parentId) async {
+  // ==================== 作业管理 API ====================
+
+  Future<List<dynamic>> getAssignmentsByParent(int parentId) async {
     try {
       final response = await _dio.get('/assignments/parent/$parentId');
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
+      if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
       print('Get assignments error: $e');
@@ -493,15 +817,32 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getAssignmentsByChild(int childId) async {
+    try {
+      final response = await _dio.get('/assignments/child/$childId');
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get child assignments error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getAssignmentById(int id) async {
+    try {
+      final response = await _dio.get('/assignments/$id');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get assignment error: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> createAssignment(Map<String, dynamic> data) async {
     try {
       final response = await _dio.post('/assignments', data: data);
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Create assignment error: $e');
@@ -512,12 +853,8 @@ class ApiService {
   Future<Map<String, dynamic>?> updateAssignment(int id, Map<String, dynamic> data) async {
     try {
       final response = await _dio.patch('/assignments/$id', data: data);
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Update assignment error: $e');
@@ -535,46 +872,22 @@ class ApiService {
     }
   }
 
-  // 草稿课程 API
-  Future<List<dynamic>> getDraftLessons(int childId) async {
+  /// 孩子完成作业
+  Future<Map<String, dynamic>?> completeAssignment(int id, int score, {Map<String, dynamic>? resultData}) async {
     try {
-      final response = await _dio.get('/learning/lessons/drafts', queryParameters: {
-        'childId': childId,
+      final response = await _dio.post('/assignments/$id/complete', data: {
+        'score': score,
+        if (resultData != null) 'resultData': resultData,
       });
-      if (response.data is List) {
-        return response.data as List<dynamic>;
-      }
-      return [];
+      return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get draft lessons error: $e');
-      return [];
+      print('Complete assignment error: $e');
+      return null;
     }
   }
 
-  // 成长报告 API（使用已有的 getGrowthReport 方法）
+  // ==================== 课程包 API ====================
 
-  /// 获取成长报告（别名方法，与 Web 端 API 保持一致）
-  Future<Map<String, dynamic>?> getReport({
-    required int userId,
-    String period = 'weekly',
-  }) async {
-    return getGrowthReport(userId: userId, period: period);
-  }
-
-  // 更新用户信息
-  Future<Map<String, dynamic>> updateUser(int userId, Map<String, dynamic> data) async {
-    try {
-      final response = await _dio.put('/users/$userId', data: data);
-      return response.data;
-    } catch (e) {
-      print('Update user error: $e');
-      return {'error': e.toString()};
-    }
-  }
-
-  // ==================== 课程包相关 API ====================
-
-  /// 生成单节课程包
   Future<Map<String, dynamic>?> generateCoursePack({
     required String topic,
     required int childId,
@@ -583,27 +896,21 @@ class ApiService {
     bool includeGame = true,
     bool includeAudio = true,
     bool includeVideo = true,
+    String? parentPrompt,
   }) async {
     try {
-      final response = await _dio.post(
-        '/ai/course-pack',
-        data: {
-          'topic': topic,
-          'parentPrompt': topic,
-          'childId': childId,
-          'focus': focus,
-          'durationMinutes': durationMinutes,
-          'includeGame': includeGame,
-          'includeAudio': includeAudio,
-          'includeVideo': includeVideo,
-        },
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
+      final response = await _dio.post('/ai/course-pack', data: {
+        'topic': topic,
+        'parentPrompt': parentPrompt ?? topic,
+        'childId': childId,
+        'focus': focus,
+        'durationMinutes': durationMinutes,
+        'includeGame': includeGame,
+        'includeAudio': includeAudio,
+        'includeVideo': includeVideo,
+      });
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Generate course pack error: $e');
@@ -611,20 +918,13 @@ class ApiService {
     }
   }
 
-  /// 获取课程包列表
-  Future<List<dynamic>> getCoursePacks(int childId, {int limit = 20}) async {
+  Future<List<dynamic>> getCoursePacks(int childId, {int page = 1, int limit = 20}) async {
     try {
-      final response = await _dio.get(
-        '/ai/course-packs',
-        queryParameters: {'childId': childId, 'limit': limit},
-      );
+      final response = await _dio.get('/ai/course-packs',
+          queryParameters: {'childId': childId, 'page': page, 'limit': limit});
       final data = response.data;
-      if (data is Map && data['list'] is List) {
-        return data['list'] as List<dynamic>;
-      }
-      if (data is List) {
-        return data;
-      }
+      if (data is Map && data['list'] is List) return data['list'] as List<dynamic>;
+      if (data is List) return data;
       return [];
     } catch (e) {
       print('Get course packs error: $e');
@@ -632,16 +932,11 @@ class ApiService {
     }
   }
 
-  /// 获取课程包详情
   Future<Map<String, dynamic>?> getCoursePackById(int id) async {
     try {
       final response = await _dio.get('/ai/course-packs/$id');
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
       print('Get course pack by id error: $e');
@@ -649,188 +944,286 @@ class ApiService {
     }
   }
 
-  /// 导出课程包（简化版，返回成功/失败状态）
-  Future<bool> exportCoursePack(int id, {String format = 'bundle_zip'}) async {
+  Future<Map<String, dynamic>?> exportCoursePack(int id, {String format = 'bundle_zip'}) async {
     try {
-      await _dio.get(
-        '/ai/course-packs/$id/export',
-        queryParameters: {'format': format},
-      );
-      return true;
+      final response = await _dio.get('/ai/course-packs/$id/export', queryParameters: {'format': format});
+      return response.data as Map<String, dynamic>;
     } catch (e) {
       print('Export course pack error: $e');
-      return false;
-    }
-  }
-
-  // ==================== AI 洞察相关 API ====================
-
-  /// 获取成长报告（含 AI 洞察）
-  Future<Map<String, dynamic>?> getGrowthReport({
-    required int userId,
-    String period = 'weekly',
-  }) async {
-    try {
-      final response = await _dio.get(
-        '/report',
-        queryParameters: {'userId': userId, 'period': period},
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
-      return null;
-    } catch (e) {
-      print('Get growth report error: $e');
       return null;
     }
   }
 
-  // ==================== 紧急呼叫 API ====================
-
-  /// 触发紧急呼叫
-  Future<Map<String, dynamic>?> triggerEmergencyCall(int childId) async {
+  /// 批量导出课程包
+  Future<Map<String, dynamic>?> exportCoursePacksBatch(List<int> ids, {List<String>? formats}) async {
     try {
-      final response = await _dio.post('/emergency/trigger', data: {
-        'childId': childId,
+      final response = await _dio.post('/ai/course-packs/export-batch', data: {
+        'ids': ids,
+        if (formats != null) 'formats': formats,
       });
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
-      return null;
+      return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Trigger emergency call error: $e');
-      return {'error': e.toString()};
+      print('Batch export error: $e');
+      return null;
     }
   }
 
-  // ==================== AI 相关 API ====================
+  /// 课程包版本历史
+  Future<List<dynamic>> getCoursePackVersions(int id, {int page = 1, int limit = 20}) async {
+    try {
+      final response = await _dio.get('/ai/course-packs/$id/versions',
+          queryParameters: {'page': page, 'limit': limit});
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get versions error: $e');
+      return [];
+    }
+  }
 
-  /// 获取 AI 学习建议
-  Future<String?> getAISuggestion({
-    required int userId,
-    String? ageRange,
+  /// 保存课程包编辑为新版本
+  Future<Map<String, dynamic>?> saveCoursePackVersion(int id, {
+    String? title,
+    Map<String, dynamic>? steps,
+    String? domain,
+    String? focus,
+    String? ageGroup,
+    int? difficulty,
+    int? durationMinutes,
+    String? remark,
   }) async {
     try {
-      final response = await _dio.get(
-        '/ai/suggestion',
-        queryParameters: {
-          'userId': userId,
-          if (ageRange != null) 'ageRange': ageRange,
-        },
-      );
-      final data = response.data;
-      if (data is Map && data['suggestion'] != null) {
-        return data['suggestion'].toString();
-      }
+      final response = await _dio.patch('/ai/course-packs/$id', data: {
+        if (title != null) 'title': title,
+        if (steps != null) 'steps': steps,
+        if (domain != null) 'domain': domain,
+        if (focus != null) 'focus': focus,
+        if (ageGroup != null) 'ageGroup': ageGroup,
+        if (difficulty != null) 'difficulty': difficulty,
+        if (durationMinutes != null) 'durationMinutes': durationMinutes,
+        if (remark != null) 'remark': remark,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Save version error: $e');
       return null;
+    }
+  }
+
+  /// 双语润色
+  Future<Map<String, dynamic>?> enrichCoursePackBilingual(int id) async {
+    try {
+      final response = await _dio.post('/ai/course-packs/$id/enrich-bilingual');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Enrich bilingual error: $e');
+      return null;
+    }
+  }
+
+  /// 生成一周学习计划
+  Future<Map<String, dynamic>?> generateWeeklyPlan(int childId, {String? startDate}) async {
+    try {
+      final response = await _dio.post('/ai/course-packs/generate-weekly', data: {
+        'childId': childId,
+        if (startDate != null) 'startDate': startDate,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Generate weekly plan error: $e');
+      return null;
+    }
+  }
+
+  /// AI 批改
+  Future<Map<String, dynamic>?> evaluateAnswer(String answer, {String? question, String? domain, String? ageGroup}) async {
+    try {
+      final response = await _dio.post('/ai/evaluate', data: {
+        'answer': answer,
+        if (question != null) 'question': question,
+        if (domain != null) 'domain': domain,
+        if (ageGroup != null) 'ageGroup': ageGroup,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Evaluate error: $e');
+      return null;
+    }
+  }
+
+  /// AI 生成测验
+  Future<Map<String, dynamic>?> generateQuiz(String topic, String domain, String ageGroup, {int questionCount = 5}) async {
+    try {
+      final response = await _dio.post('/ai/quiz', data: {
+        'topic': topic,
+        'domain': domain,
+        'ageGroup': ageGroup,
+        'questionCount': questionCount,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Generate quiz error: $e');
+      return null;
+    }
+  }
+
+  /// AI 生成故事
+  Future<Map<String, dynamic>?> generateStory(String theme, String ageGroup, {String? lang}) async {
+    try {
+      final response = await _dio.post('/ai/story', data: {
+        'theme': theme,
+        'ageGroup': ageGroup,
+        if (lang != null) 'lang': lang,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Generate story error: $e');
+      return null;
+    }
+  }
+
+  // ==================== AI 推荐 & 建议 ====================
+
+  /// [FIXED: was GET /ai/suggestion?userId=, now correct params]
+  Future<Map<String, dynamic>?> getAISuggestion({String ageRange = '5-6'}) async {
+    try {
+      final response = await _dio.get('/ai/suggest', queryParameters: {'ageRange': ageRange});
+      return response.data as Map<String, dynamic>;
     } catch (e) {
       print('Get AI suggestion error: $e');
       return null;
     }
   }
 
-  // ==================== 课程生成相关 API ====================
+  /// 垂直领域内容推荐（新版 recommend 端点）
+  Future<List<dynamic>> getRecommendations(int childId, {String? domain}) async {
+    try {
+      final response = await _dio.get('/recommend', queryParameters: {
+        'childId': childId,
+        if (domain != null) 'domain': domain,
+      });
+      if (response.data is List) return response.data as List<dynamic>;
+      if (response.data is Map && response.data['list'] is List) {
+        return response.data['list'] as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      print('Get recommendations error: $e');
+      return [];
+    }
+  }
 
-  /// 生成课程（AI 一键生成）
-  Future<Map<String, dynamic>?> generateLesson({
-    required String topic,
+  // ==================== AI 对话 ====================
+
+  Future<Map<String, dynamic>?> sendAIChatMessage(String message, {int? childId, int? sessionId}) async {
+    try {
+      final response = await _dio.post('/ai/chat', data: {
+        'message': message,
+        if (childId != null) 'childId': childId,
+        if (sessionId != null) 'sessionId': sessionId,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('AI chat error: $e');
+      return null;
+    }
+  }
+
+  Future<List<dynamic>> getAIChatSessions(int userId) async {
+    try {
+      final response = await _dio.get('/ai/history/sessions', queryParameters: {'userId': userId});
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get chat sessions error: $e');
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getAIChatMessages(int sessionId) async {
+    try {
+      final response = await _dio.get('/ai/history/sessions/$sessionId/messages');
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
+    } catch (e) {
+      print('Get chat messages error: $e');
+      return [];
+    }
+  }
+
+  // ==================== 紧急求助 API ====================
+
+  Future<Map<String, dynamic>?> triggerEmergencyCall({
     required int childId,
-    String? domain,
-    String focus = 'mixed',
-    String ageGroup = '5-6',
-    int durationMinutes = 20,
+    String emergencyType = 'general',
+    String? latitude,
+    String? longitude,
   }) async {
     try {
-      final response = await _dio.post(
-        '/lessons/generate',
-        data: {
-          'topic': topic,
-          'childId': childId,
-          if (domain != null) 'domain': domain,
-          'focus': focus,
-          'ageGroup': ageGroup,
-          'durationMinutes': durationMinutes,
-        },
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
-      return null;
+      final response = await _dio.post('/emergency/help', data: {
+        'childId': childId,
+        'type': emergencyType,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      });
+      return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Generate lesson error: $e');
+      print('Emergency call error: $e');
       return null;
     }
   }
 
-  /// 修改课程（AI 快速编辑）
-  Future<Map<String, dynamic>?> modifyLesson(
-    int contentId,
-    String modificationText, {
-    String? stepId,
-  }) async {
+  Future<List<dynamic>> getEmergencyHistory(int childId) async {
     try {
-      final response = await _dio.post(
-        '/lessons/$contentId/edit',
-        data: {
-          'modificationText': modificationText,
-          if (stepId != null) 'stepId': stepId,
-        },
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
-      return null;
+      final response = await _dio.get('/emergency/history/$childId');
+      if (response.data is List) return response.data as List<dynamic>;
+      return [];
     } catch (e) {
-      print('Modify lesson error: $e');
-      return null;
+      print('Get emergency history error: $e');
+      return [];
     }
   }
 
-  /// 确认发布课程
-  Future<Map<String, dynamic>?> confirmLesson(
-    int contentId,
-    int childId,
-  ) async {
+  // ==================== 语音 ====================
+
+  Future<Map<String, dynamic>?> requestTts(String text, {String voice = 'default', String? speed}) async {
     try {
-      final response = await _dio.post(
-        '/lessons/$contentId/confirm',
-        data: {'childId': childId},
-      );
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
-      if (response.data is Map) {
-        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
-      }
-      return null;
+      final response = await _dio.post('/voice/tts', data: {
+        'text': text,
+        'voice': voice,
+        if (speed != null) 'speed': speed,
+      });
+      return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Confirm lesson error: $e');
+      print('TTS error: $e');
       return null;
     }
   }
 
+  // ==================== SSE ====================
+
+  String get sseSubscribeUrl => '$baseUrl/sse/subscribe';
 }
 
-// Token 认证拦截器
+// ─── Auth Interceptor ─────────────────────────────────────────────────────
+
 class _AuthInterceptor extends Interceptor {
-  final String token;
-  _AuthInterceptor(this.token);
+  final String _token;
+
+  _AuthInterceptor(this._token);
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    options.headers['Authorization'] = 'Bearer $token';
+    options.headers['Authorization'] = 'Bearer $_token';
     handler.next(options);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    if (err.response?.statusCode == 401) {
+      // Token expired — you can emit to a stream here or rely on ApiResult error
+      print('Auth token expired or invalid');
+    }
+    handler.next(err);
   }
 }

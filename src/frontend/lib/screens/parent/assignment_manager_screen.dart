@@ -138,7 +138,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
 
     try {
       final results = await Future.wait([
-        parentId != null ? api.getAssignments(parentId) : Future.value([]),
+        parentId != null ? api.getAssignmentsByParent(parentId) : Future.value([]),
         api.getDraftLessons(childId),
       ]);
 

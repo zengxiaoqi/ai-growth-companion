@@ -93,7 +93,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
 
     final api = context.read<ApiService>();
     try {
-      final result = await api.triggerEmergencyCall(widget.childId);
+      final result = await api.triggerEmergencyCall(childId: widget.childId);
       if (!mounted) return;
 
       if (result != null && result.containsKey('error')) {

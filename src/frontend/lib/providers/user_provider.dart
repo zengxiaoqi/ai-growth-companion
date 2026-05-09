@@ -9,6 +9,7 @@ class UserProvider extends ChangeNotifier {
   bool _isLoading = true;
   Map<String, dynamic>? _currentUser;
   String? _selectedMode;
+  int? _activeChildId;
 
   UserProvider(this._storage, [this._apiService]) {
     _loadUser();
@@ -18,6 +19,7 @@ class UserProvider extends ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
   Map<String, dynamic>? get currentUser => _currentUser;
   String? get selectedMode => _selectedMode;
+  int? get activeChildId => _activeChildId;
   ApiService? get apiService => _apiService;
 
   void _loadUser() {
@@ -25,6 +27,13 @@ class UserProvider extends ChangeNotifier {
     _currentUser = user;
     _selectedMode = _storage.getSelectedMode();
     _isLoading = false;
+
+    // 恢复 activeChildId
+    _activeChildId = _storage.getActiveChildId();
+    // 如果未设置且当前用户是孩子，默认使用当前用户 ID
+    if (_activeChildId == null && user != null && user['type'] == 'child') {
+      _activeChildId = user['id'] as int?;
+    }
 
     // 恢复 token 到 API 拦截器
     if (_apiService != null) {
@@ -48,6 +57,14 @@ class UserProvider extends ChangeNotifier {
       parentId: userData['parentId'] is int ? userData['parentId'] : int.tryParse(userData['parentId'].toString()),
     );
 
+    // 孩子登录时自动设为 activeChildId
+    final userType = userData['type']?.toString() ?? 'child';
+    if (userType == 'child') {
+      final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
+      _activeChildId = userId;
+      await _storage.saveActiveChildId(userId);
+    }
+
     // 注入 token
     if (_apiService != null) {
       final token = _storage.getToken();
@@ -63,6 +80,7 @@ class UserProvider extends ChangeNotifier {
     await _storage.clearUser();
     _currentUser = null;
     _selectedMode = null;
+    _activeChildId = null;
 
     if (_apiService != null) {
       _apiService!.setToken('');
@@ -91,5 +109,14 @@ class UserProvider extends ChangeNotifier {
       );
       notifyListeners();
     }
+  }
+
+  /// 设置当前活跃孩子 ID（家长模式下切换孩子时调用）
+  Future<void> setActiveChildId(int? id) async {
+    _activeChildId = id;
+    if (id != null) {
+      await _storage.saveActiveChildId(id);
+    }
+    notifyListeners();
   }
 }

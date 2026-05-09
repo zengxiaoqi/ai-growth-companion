@@ -106,20 +106,20 @@ class SubjectContentListScreen extends StatelessWidget {
     final contentId = course['contentId'] as int? ?? 0;
     final type = course['type'] as String? ?? 'normal';
 
-    // 尝试从 Provider 获取 childId，fallback 到参数传入的
+    // 路由参数 childId 优先，fallback 到 Provider.activeChildId
     int? effectiveChildId = childId;
-    try {
-      final userProvider = context.read<UserProvider>();
-      if (userProvider.currentUser != null) {
-        effectiveChildId = userProvider.currentUser!['id'] as int?;
+    if (effectiveChildId == null) {
+      try {
+        final userProvider = context.read<UserProvider>();
+        effectiveChildId = userProvider.activeChildId;
+      } catch (_) {
+        // Provider not available
       }
-    } catch (_) {
-      // Provider not available, use passed childId
     }
 
-    final args = {
+    final args = <String, dynamic>{
       'contentId': contentId,
-      'childId': effectiveChildId,
+      if (effectiveChildId != null) 'childId': effectiveChildId,
     };
 
     if (type == 'structured') {

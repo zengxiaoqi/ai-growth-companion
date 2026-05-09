@@ -30,6 +30,20 @@ import 'screens/learning/subject_content_list_screen.dart';
 class LingxiApp extends StatelessWidget {
   const LingxiApp({super.key});
 
+  /// 解析 childId：路由参数优先，fallback 到 UserProvider.activeChildId
+  static int? _resolveChildId(BuildContext context, Map<String, dynamic>? args) {
+    if (args != null && args.containsKey('childId')) {
+      return args['childId'] as int?;
+    }
+    // Fallback: 从 Provider 获取 activeChildId
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      return userProvider.activeChildId;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,9 +70,10 @@ class LingxiApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         if (settings.name == '/child/emergencyCall') {
           final args = settings.arguments as Map<String, dynamic>?;
+          final childId = _resolveChildId(context, args) ?? 0;
           return MaterialPageRoute(
             builder: (_) => EmergencyCallScreen(
-              childId: args?['childId'] as int? ?? 0,
+              childId: childId,
             ),
           );
         }
@@ -72,28 +87,31 @@ class LingxiApp extends StatelessWidget {
         }
         if (settings.name == '/learning/subjectContentList') {
           final args = settings.arguments as Map<String, dynamic>?;
+          final childId = _resolveChildId(context, args);
           return MaterialPageRoute(
             builder: (_) => SubjectContentListScreen(
               subject: args?['subject'] as String? ?? '',
-              childId: args?['childId'] as int?,
+              childId: childId,
             ),
           );
         }
         if (settings.name == '/learning/contentDetail') {
           final args = settings.arguments as Map<String, dynamic>?;
+          final childId = _resolveChildId(context, args);
           return MaterialPageRoute(
             builder: (_) => ContentDetailScreen(
               contentId: args?['contentId'] as int? ?? 0,
-              childId: args?['childId'] as int?,
+              childId: childId,
             ),
           );
         }
         if (settings.name == '/learning/structuredLesson') {
           final args = settings.arguments as Map<String, dynamic>?;
+          final childId = _resolveChildId(context, args);
           return MaterialPageRoute(
             builder: (_) => StructuredLessonScreen(
               contentId: args?['contentId'] as int? ?? 0,
-              childId: args?['childId'] as int?,
+              childId: childId,
             ),
           );
         }

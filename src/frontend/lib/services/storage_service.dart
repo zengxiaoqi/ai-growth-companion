@@ -27,6 +27,9 @@ class StorageService {
 
   // 模式选择
   static const String keySelectedMode = 'selected_mode';
+
+  // 当前活跃孩子 ID
+  static const String keyActiveChildId = 'active_child_id';
   
   // 保存用户信息
   Future<void> saveUser({
@@ -69,6 +72,7 @@ class StorageService {
     await _prefs.remove(keyParentId);
     await _prefs.remove(keyAuthToken);
     await _prefs.remove(keySelectedMode);
+    await _prefs.remove(keyActiveChildId);
   }
   
   // 保存 Token
@@ -146,6 +150,16 @@ class StorageService {
   // 获取选择的模式
   String? getSelectedMode() {
     return _prefs.getString(keySelectedMode);
+  }
+
+  // 保存当前活跃孩子 ID
+  Future<void> saveActiveChildId(int childId) async {
+    await _prefs.setInt(keyActiveChildId, childId);
+  }
+
+  // 获取当前活跃孩子 ID
+  int? getActiveChildId() {
+    return _prefs.getInt(keyActiveChildId);
   }
 
   // 清除缓存

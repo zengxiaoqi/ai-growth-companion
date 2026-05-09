@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../components/top_bar.dart';
 import '../../providers/content_provider.dart';
+import '../../services/api_result.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../games/game_renderer.dart';
@@ -185,12 +186,20 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     }
 
     final api = context.read<ApiService>();
-    final data = await api.getLessonProgress(
+    final result = await api.getLessonProgressResult(
       contentId: widget.contentId,
       childId: widget.childId!,
     );
 
-    final ids = data?['completedSteps'];
+    if (result is! ApiSuccess<Map<String, dynamic>>) {
+      final err = result as ApiError;
+      // 进度加载失败不应该阻断课程加载，静默处理
+      print('Load progress error: ${err.message} (${err.type.name})');
+      return const _LessonProgress(completedSteps: {});
+    }
+
+    final data = result.data;
+    final ids = data['completedSteps'];
     if (ids is! List) return const _LessonProgress(completedSteps: {});
 
     final completed = ids
@@ -199,8 +208,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         .where((e) => e.isNotEmpty)
         .toSet();
 
-    final score = data?['overallScore'] is num
-        ? (data!['overallScore'] as num).toInt()
+    final score = data['overallScore'] is num
+        ? (data['overallScore'] as num).toInt()
         : 0;
 
     return _LessonProgress(completedSteps: completed, overallScore: score);
@@ -228,7 +237,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
     try {
       final api = context.read<ApiService>();
-      await api.completeLessonStep(
+      final result = await api.completeLessonStepResult(
         contentId: widget.contentId,
         stepId: step.id,
         childId: widget.childId!,
@@ -241,6 +250,35 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       );
 
       if (!mounted) return;
+
+      if (result is ApiError) {
+        final err = result as ApiError<Map<String, dynamic>>;
+        final msg = switch (err.type) {
+          ApiErrorType.networkTimeout => '网络连接超时，请检查网络后重试',
+          ApiErrorType.serverError => '服务器繁忙，请稍后重试',
+          ApiErrorType.unauthorized => '登录已过期，请重新登录',
+          ApiErrorType.notFound => '课程步骤不存在',
+          _ => '记录步骤失败：${err.message}',
+        };
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              behavior: SnackBarBehavior.floating,
+              action: err.isRetryable
+                  ? SnackBarAction(
+                      label: '重试',
+                      onPressed: () => _completeStep(
+                        score: score,
+                        interactionData: interactionData,
+                      ),
+                    )
+                  : null,
+            ),
+          );
+        }
+        return;
+      }
 
       // 更新本地进度
       final newCompleted = {..._progress.completedSteps, step.id};
@@ -416,45 +454,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
     // 错误状态（无内容）
     if (_error != null && _content == null) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        body: SafeArea(
-          child: Column(
-            children: [
-              TopBar(
-                title: '课程',
-                leftSlot: IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: AppTheme.warningColor),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _loadData,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorScreen();
     }
 
     // 主界面
@@ -644,7 +644,162 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     );
   }
 
-  // ─── 错误提示条 ─────────────────────────────────────────────────────────
+  // ─── 错误组件 ────────────────────────────────────────────────────────
+
+  /// 通用错误覆盖页面（课程加载失败时显示）
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            TopBar(
+              title: '课程',
+              leftSlot: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Expanded(
+              child: _buildErrorWidget(
+                message: _error!,
+                onRetry: _loadData,
+                onBack: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 通用错误展示组件
+  /// 根据错误消息推断类型并显示对应的图标和操作按钮
+  Widget _buildErrorWidget({
+    required String message,
+    VoidCallback? onRetry,
+    VoidCallback? onBack,
+  }) {
+    // 根据消息内容推断错误类型
+    final isTimeout = message.contains('超时') ||
+        message.contains('timeout') ||
+        message.contains('timed out');
+    final isNotFound = message.contains('不存在') ||
+        message.contains('not found') ||
+        message.contains('404');
+    final isServer = message.contains('服务器') ||
+        message.contains('server') ||
+        message.contains('500');
+    final isAuth = message.contains('登录') ||
+        message.contains('unauthorized') ||
+        message.contains('401');
+    final isNetwork = message.contains('网络') ||
+        message.contains('connection') ||
+        message.contains('SocketException');
+
+    final (icon, title, suggestions) = () {
+      if (isTimeout || isNetwork) {
+        return (
+          Icons.wifi_off_rounded,
+          '网络连接异常',
+          <String>['请检查网络连接', '尝试切换 Wi-Fi 或移动数据', '检查后点击下方按钮重试'],
+        );
+      }
+      if (isNotFound) {
+        return (
+          Icons.search_off_rounded,
+          '课程不存在',
+          <String>['该课程可能已被删除或下架', '请返回课程列表查看其他内容'],
+        );
+      }
+      if (isServer) {
+        return (
+          Icons.cloud_off_rounded,
+          '服务器繁忙',
+          <String>['服务器暂时无法响应', '请稍等片刻后重试', '如持续出现此问题，请联系客服'],
+        );
+      }
+      if (isAuth) {
+        return (
+          Icons.lock_outline_rounded,
+          '登录已过期',
+          <String>['请重新登录后再试', '返回首页重新进入'],
+        );
+      }
+      return (
+        Icons.error_outline_rounded,
+        '加载失败',
+        <String>[message],
+      );
+    }();
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.warningColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: AppTheme.warningColor),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...suggestions.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    s,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                )),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (onRetry != null)
+                  FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重试'),
+                  ),
+                if (onBack != null) ...[
+                  if (onRetry != null) const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    label: const Text('返回'),
+                  ),
+                ],
+                if (onRetry == null && onBack == null)
+                  FilledButton.icon(
+                    onPressed: _loadData,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('重试'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildErrorBar() {
     return Container(

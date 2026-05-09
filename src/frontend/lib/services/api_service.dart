@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'api_result.dart';
 
 class ApiService {
   final Dio _dio;
@@ -35,6 +36,47 @@ class ApiService {
     _dio.interceptors.removeWhere((i) => i is _AuthInterceptor);
     if (token.isNotEmpty) {
       _dio.interceptors.insert(0, _AuthInterceptor(token));
+    }
+  }
+
+  // ─── API Result 辅助方法 ─────────────────────────────────────────────
+
+  /// 将 DioException 映射为 ApiErrorType
+  static ApiErrorType _mapDioError(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.sendTimeout:
+        return ApiErrorType.networkTimeout;
+      default:
+        break;
+    }
+    final statusCode = e.response?.statusCode;
+    if (statusCode != null) {
+      if (statusCode == 401) return ApiErrorType.unauthorized;
+      if (statusCode == 404) return ApiErrorType.notFound;
+      if (statusCode >= 500) return ApiErrorType.serverError;
+      if (statusCode >= 400) return ApiErrorType.clientError;
+    }
+    return ApiErrorType.unknown;
+  }
+
+  /// 包装 Dio 请求，返回 ApiResult<T>
+  Future<ApiResult<T>> _wrapRequest<T>(Future<T> Function() request) async {
+    try {
+      final data = await request();
+      return ApiSuccess(data);
+    } on DioException catch (e) {
+      return ApiError<T>(
+        e.message ?? '网络请求失败',
+        type: _mapDioError(e),
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ApiError<T>(
+        e.toString(),
+        type: ApiErrorType.unknown,
+      );
     }
   }
   
@@ -81,14 +123,20 @@ class ApiService {
     }
   }
   
-  Future<Map<String, dynamic>?> getContentDetail(int contentId) async {
-    try {
+  /// 获取内容详情（新版 ApiResult 返回）
+  Future<ApiResult<Map<String, dynamic>>> getContentDetailResult(int contentId) {
+    return _wrapRequest(() async {
       final response = await _dio.get('/contents/$contentId');
-      return response.data;
-    } catch (e) {
-      print('Get content detail error: $e');
-      return null;
-    }
+      return response.data as Map<String, dynamic>;
+    });
+  }
+
+  /// 获取内容详情（旧版，保持兼容）
+  Future<Map<String, dynamic>?> getContentDetail(int contentId) async {
+    final result = await getContentDetailResult(contentId);
+    if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
+    print('Get content detail error: ${(result as ApiError).message}');
+    return null;
   }
   
   // 学习记录 API
@@ -113,70 +161,107 @@ class ApiService {
     }
   }
   
-  // 开始学习
-  Future<Map<String, dynamic>?> startLearning({
+  /// 开始学习（新版 ApiResult 返回）
+  Future<ApiResult<Map<String, dynamic>>> startLearningResult({
     required int childId,
     required int contentId,
-  }) async {
-    try {
+  }) {
+    return _wrapRequest(() async {
       final response = await _dio.post('/learning/start', data: {
         'childId': childId,
         'contentId': contentId,
       });
-      return response.data;
-    } catch (e) {
-      print('Start learning error: $e');
-      return null;
-    }
+      return response.data as Map<String, dynamic>;
+    });
   }
 
-  // 完成学习
+  /// 开始学习（旧版，保持兼容）
+  Future<Map<String, dynamic>?> startLearning({
+    required int childId,
+    required int contentId,
+  }) async {
+    final result = await startLearningResult(
+      childId: childId,
+      contentId: contentId,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
+    print('Start learning error: ${(result as ApiError).message}');
+    return null;
+  }
+
+  /// 完成学习（新版 ApiResult 返回）
+  Future<ApiResult<Map<String, dynamic>>> completeLearningResult({
+    required int recordId,
+    int? score,
+    int? durationSeconds,
+    String? feedback,
+  }) {
+    return _wrapRequest(() async {
+      final response = await _dio.post('/learning/complete/$recordId', data: {
+        if (score != null) 'score': score,
+        if (durationSeconds != null) 'durationSeconds': durationSeconds,
+        if (feedback != null) 'feedback': feedback,
+      });
+      return response.data as Map<String, dynamic>;
+    });
+  }
+
+  /// 完成学习（旧版，保持兼容）
   Future<Map<String, dynamic>?> completeLearning({
     required int recordId,
     int? score,
     int? durationSeconds,
     String? feedback,
   }) async {
-    try {
-      final response = await _dio.post('/learning/complete/$recordId', data: {
-        if (score != null) 'score': score,
-        if (durationSeconds != null) 'durationSeconds': durationSeconds,
-        if (feedback != null) 'feedback': feedback,
-      });
-      return response.data;
-    } catch (e) {
-      print('Complete learning error: $e');
-      return null;
-    }
+    final result = await completeLearningResult(
+      recordId: recordId,
+      score: score,
+      durationSeconds: durationSeconds,
+      feedback: feedback,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
+    print('Complete learning error: ${(result as ApiError).message}');
+    return null;
   }
 
-  // 获取课程进度
-  Future<Map<String, dynamic>?> getLessonProgress({
+  /// 获取课程进度（新版 ApiResult 返回）
+  Future<ApiResult<Map<String, dynamic>>> getLessonProgressResult({
     required int contentId,
     required int childId,
-  }) async {
-    try {
+  }) {
+    return _wrapRequest(() async {
       final response = await _dio.get(
         '/learning/lessons/$contentId/progress',
         queryParameters: {'childId': childId},
       );
-      return response.data;
-    } catch (e) {
-      print('Get lesson progress error: $e');
-      return null;
-    }
+      return response.data as Map<String, dynamic>;
+    });
   }
 
-  // 完成课程步骤
-  Future<Map<String, dynamic>?> completeLessonStep({
+  /// 获取课程进度（旧版，保持兼容）
+  Future<Map<String, dynamic>?> getLessonProgress({
+    required int contentId,
+    required int childId,
+  }) async {
+    final result = await getLessonProgressResult(
+      contentId: contentId,
+      childId: childId,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
+    print('Get lesson progress error: ${(result as ApiError).message}');
+    return null;
+  }
+
+  /// 完成课程步骤（新版 ApiResult 返回）
+  Future<ApiResult<Map<String, dynamic>>> completeLessonStepResult({
     required int contentId,
     required String stepId,
     required int childId,
     int? score,
     int? durationSeconds,
     Map<String, dynamic>? interactionData,
-  }) async {
-    try {
+  }) {
+    return _wrapRequest(() async {
       final response = await _dio.post(
         '/learning/lessons/$contentId/complete-step',
         data: {
@@ -187,11 +272,30 @@ class ApiService {
           if (interactionData != null) 'interactionData': interactionData,
         },
       );
-      return response.data;
-    } catch (e) {
-      print('Complete lesson step error: $e');
-      return null;
-    }
+      return response.data as Map<String, dynamic>;
+    });
+  }
+
+  /// 完成课程步骤（旧版，保持兼容）
+  Future<Map<String, dynamic>?> completeLessonStep({
+    required int contentId,
+    required String stepId,
+    required int childId,
+    int? score,
+    int? durationSeconds,
+    Map<String, dynamic>? interactionData,
+  }) async {
+    final result = await completeLessonStepResult(
+      contentId: contentId,
+      stepId: stepId,
+      childId: childId,
+      score: score,
+      durationSeconds: durationSeconds,
+      interactionData: interactionData,
+    );
+    if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
+    print('Complete lesson step error: ${(result as ApiError).message}');
+    return null;
   }
 
   // 游戏列表 API

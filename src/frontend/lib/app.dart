@@ -24,6 +24,7 @@ import 'screens/learning/animation_scene_player.dart';
 import 'screens/learning/content_detail_screen.dart';
 import 'screens/learning/structured_lesson_screen.dart';
 import 'screens/learning/lesson_scene_player.dart';
+import 'screens/learning/subject_content_list_screen.dart';
 // AnimationScene 已在 animation_scene_player.dart 中导出
 
 class LingxiApp extends StatelessWidget {
@@ -66,6 +67,15 @@ class LingxiApp extends StatelessWidget {
           return MaterialPageRoute(
             builder: (_) => AnimationScenePlayer(
               scenes: args?['scenes'] as List<AnimationScene>? ?? [],
+            ),
+          );
+        }
+        if (settings.name == '/learning/subjectContentList') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => SubjectContentListScreen(
+              subject: args?['subject'] as String? ?? '',
+              childId: args?['childId'] as int?,
             ),
           );
         }

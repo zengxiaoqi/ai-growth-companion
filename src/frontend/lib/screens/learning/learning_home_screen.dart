@@ -134,7 +134,11 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        // 跳转到对应学科页面
+        Navigator.pushNamed(
+          context,
+          '/learning/subjectContentList',
+          arguments: {'subject': widget.title},
+        );
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedContainer(

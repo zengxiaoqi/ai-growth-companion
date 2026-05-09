@@ -7,6 +7,7 @@ import '../../components/notification_panel.dart';
 import '../../providers/user_provider.dart';
 import '../learning/learning_home_screen.dart';
 import '../profile/profile_screen.dart';
+import 'growth_report_screen.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -33,7 +34,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     _screens = [
       const ParentHomeContent(),
       const LearningHomeScreen(),
-      const _ReportPlaceholder(),
+      const GrowthReportScreen(),
       const ProfileScreen(),
     ];
   }
@@ -251,61 +252,6 @@ class ParentHomeContent extends StatelessWidget {
           title: '内容管理',
           subtitle: '选择/屏蔽学习内容',
           color: AppTheme.accentColor,
-        ),
-      ],
-    );
-  }
-}
-
-/// 报告页占位
-class _ReportPlaceholder extends StatelessWidget {
-  const _ReportPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TopBar(
-          title: '学习报告',
-          subtitle: '查看孩子的学习情况',
-        ),
-        Expanded(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.assessment_outlined,
-                    size: 48,
-                    color: AppTheme.primaryColor.withOpacity(0.5),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  '学习报告',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '报告功能开发中，即将上线',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );

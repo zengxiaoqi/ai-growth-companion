@@ -17,8 +17,13 @@ import 'screens/parent/assignment_manager_screen.dart';
 import 'screens/parent/course_pack_manager_screen.dart';
 import 'screens/parent/growth_report_screen.dart';
 import 'screens/parent/ai_insights_panel.dart';
+import 'screens/parent/report_detail_screen.dart';
+import 'screens/parent/lesson_generator_screen.dart';
 import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
+import 'screens/learning/content_detail_screen.dart';
+import 'screens/learning/structured_lesson_screen.dart';
+import 'screens/learning/lesson_scene_player.dart';
 // AnimationScene 已在 animation_scene_player.dart 中导出
 
 class LingxiApp extends StatelessWidget {
@@ -44,6 +49,8 @@ class LingxiApp extends StatelessWidget {
         '/parent/coursePackManager': (_) => const CoursePackManagerScreen(),
         '/parent/growthReport': (_) => const GrowthReportScreen(),
         '/parent/aiInsights': (_) => const AIInsightsPanel(),
+        '/parent/reportDetail': (_) => const ReportDetailScreen(),
+        '/parent/lessonGenerator': (_) => const LessonGeneratorScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/child/emergencyCall') {
@@ -59,6 +66,35 @@ class LingxiApp extends StatelessWidget {
           return MaterialPageRoute(
             builder: (_) => AnimationScenePlayer(
               scenes: args?['scenes'] as List<AnimationScene>? ?? [],
+            ),
+          );
+        }
+        if (settings.name == '/learning/contentDetail') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => ContentDetailScreen(
+              contentId: args?['contentId'] as int? ?? 0,
+              childId: args?['childId'] as int?,
+            ),
+          );
+        }
+        if (settings.name == '/learning/structuredLesson') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => StructuredLessonScreen(
+              contentId: args?['contentId'] as int? ?? 0,
+              childId: args?['childId'] as int?,
+            ),
+          );
+        }
+        if (settings.name == '/learning/lessonScenePlayer') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (_) => LessonScenePlayer(
+              document: args?['document'] as LessonSceneDocument? ??
+                  const LessonSceneDocument(scenes: []),
+              isCompleted: args?['isCompleted'] as bool? ?? false,
+              onComplete: args?['onComplete'] as void Function(int?, Map<String, dynamic>?)?,
             ),
           );
         }

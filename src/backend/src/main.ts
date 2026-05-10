@@ -19,6 +19,12 @@ async function bootstrap() {
     prefix: "/",
   });
 
+  // SPA 回退：非 /api 路径返回 index.html
+  app.getHttpAdapter().get("*", (req: any, res: any, next: any) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile(join(__dirname, "..", "public", "index.html"));
+  });
+
   // 开启 CORS
   app.enableCors({
     origin: "*",

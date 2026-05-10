@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
 class ContentProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService;
+
+  ContentProvider(this._apiService);
   
   List<Map<String, dynamic>> _contents = [];
   List<Map<String, dynamic>> _recommendations = [];

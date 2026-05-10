@@ -179,6 +179,7 @@ class ApiService {
   Future<List<dynamic>> getContents({
     String? ageRange,
     String? domain,
+    int? childId,
     int page = 1,
     int limit = 20,
   }) async {
@@ -186,6 +187,7 @@ class ApiService {
       final response = await _dio.get('/contents', queryParameters: {
         if (ageRange != null) 'age_range': ageRange,
         if (domain != null) 'domain': domain,
+        if (childId != null) 'childId': childId,
         'page': page,
         'limit': limit,
       });
@@ -984,24 +986,16 @@ class ApiService {
   /// 保存课程包编辑为新版本
   Future<Map<String, dynamic>?> saveCoursePackVersion(int id, {
     String? title,
-    Map<String, dynamic>? steps,
-    String? domain,
-    String? focus,
-    String? ageGroup,
-    int? difficulty,
-    int? durationMinutes,
-    String? remark,
+    Map<String, dynamic>? planContent,
+    String? note,
+    String? sessionId,
   }) async {
     try {
       final response = await _dio.patch('/ai/course-packs/$id', data: {
         if (title != null) 'title': title,
-        if (steps != null) 'steps': steps,
-        if (domain != null) 'domain': domain,
-        if (focus != null) 'focus': focus,
-        if (ageGroup != null) 'ageGroup': ageGroup,
-        if (difficulty != null) 'difficulty': difficulty,
-        if (durationMinutes != null) 'durationMinutes': durationMinutes,
-        if (remark != null) 'remark': remark,
+        if (planContent != null) 'planContent': planContent,
+        if (note != null) 'note': note,
+        if (sessionId != null) 'sessionId': sessionId,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1022,9 +1016,14 @@ class ApiService {
   }
 
   /// 生成一周学习计划
-  Future<Map<String, dynamic>?> generateWeeklyPlan(int childId, {String? startDate}) async {
+  Future<Map<String, dynamic>?> generateWeeklyPlan({
+    required String topic,
+    required int childId,
+    String? startDate,
+  }) async {
     try {
       final response = await _dio.post('/ai/course-packs/generate-weekly', data: {
+        'topic': topic,
         'childId': childId,
         if (startDate != null) 'startDate': startDate,
       });
@@ -1036,13 +1035,16 @@ class ApiService {
   }
 
   /// AI 批改
-  Future<Map<String, dynamic>?> evaluateAnswer(String answer, {String? question, String? domain, String? ageGroup}) async {
+  Future<Map<String, dynamic>?> evaluateAnswer({
+    required int contentId,
+    required List<dynamic> answers,
+    int age = 5,
+  }) async {
     try {
       final response = await _dio.post('/ai/evaluate', data: {
-        'answer': answer,
-        if (question != null) 'question': question,
-        if (domain != null) 'domain': domain,
-        if (ageGroup != null) 'ageGroup': ageGroup,
+        'contentId': contentId,
+        'answers': answers,
+        'age': age,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1052,13 +1054,16 @@ class ApiService {
   }
 
   /// AI 生成测验
-  Future<Map<String, dynamic>?> generateQuiz(String topic, String domain, String ageGroup, {int questionCount = 5}) async {
+  Future<Map<String, dynamic>?> generateQuiz({
+    required int childId,
+    required String topic,
+    int count = 5,
+  }) async {
     try {
       final response = await _dio.post('/ai/quiz', data: {
+        'childId': childId,
         'topic': topic,
-        'domain': domain,
-        'ageGroup': ageGroup,
-        'questionCount': questionCount,
+        'count': count,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1068,12 +1073,16 @@ class ApiService {
   }
 
   /// AI 生成故事
-  Future<Map<String, dynamic>?> generateStory(String theme, String ageGroup, {String? lang}) async {
+  Future<Map<String, dynamic>?> generateStory({
+    required int childId,
+    String? theme,
+    String ageRange = '3-4',
+  }) async {
     try {
       final response = await _dio.post('/ai/story', data: {
-        'theme': theme,
-        'ageGroup': ageGroup,
-        if (lang != null) 'lang': lang,
+        'childId': childId,
+        if (theme != null) 'theme': theme,
+        'ageRange': ageRange,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1096,11 +1105,11 @@ class ApiService {
   }
 
   /// 垂直领域内容推荐（新版 recommend 端点）
-  Future<List<dynamic>> getRecommendations(int childId, {String? domain}) async {
+  Future<List<dynamic>> getRecommendations(int userId, {String ageRange = '3-4'}) async {
     try {
       final response = await _dio.get('/recommend', queryParameters: {
-        'childId': childId,
-        if (domain != null) 'domain': domain,
+        'userId': userId,
+        'ageRange': ageRange,
       });
       if (response.data is List) return response.data as List<dynamic>;
       if (response.data is Map && response.data['list'] is List) {
@@ -1131,7 +1140,7 @@ class ApiService {
 
   Future<List<dynamic>> getAIChatSessions(int userId) async {
     try {
-      final response = await _dio.get('/ai/history/sessions', queryParameters: {'userId': userId});
+      final response = await _dio.get('/ai/history/sessions', queryParameters: {'childId': userId});
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
@@ -1153,18 +1162,10 @@ class ApiService {
 
   // ==================== 紧急求助 API ====================
 
-  Future<Map<String, dynamic>?> triggerEmergencyCall({
-    required int childId,
-    String emergencyType = 'general',
-    String? latitude,
-    String? longitude,
-  }) async {
+  Future<Map<String, dynamic>?> triggerEmergencyCall({required int childId}) async {
     try {
-      final response = await _dio.post('/emergency/help', data: {
+      final response = await _dio.post('/emergency/trigger', data: {
         'childId': childId,
-        'type': emergencyType,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -1186,12 +1187,11 @@ class ApiService {
 
   // ==================== 语音 ====================
 
-  Future<Map<String, dynamic>?> requestTts(String text, {String voice = 'default', String? speed}) async {
+  Future<Map<String, dynamic>?> requestTts(String text, {String voice = 'zh-CN-XiaoxiaoNeural'}) async {
     try {
-      final response = await _dio.post('/voice/tts', data: {
+      final response = await _dio.get('/voice/tts', queryParameters: {
         'text': text,
         'voice': voice,
-        if (speed != null) 'speed': speed,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {

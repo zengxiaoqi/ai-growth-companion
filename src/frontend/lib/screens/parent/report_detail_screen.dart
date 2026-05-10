@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../components/top_bar.dart';
+import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'child_selector.dart';
@@ -68,7 +69,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     try {
       final api = context.read<ApiService>();
-      final parentId = 1; // TODO: 从 UserProvider 获取
+      final userProvider = context.read<UserProvider>();
+      final parentId = userProvider.currentUser?['id'] as int? ?? 1;
 
       // 加载孩子列表
       final children = await api.getChildrenByParent(parentId);

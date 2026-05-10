@@ -32,7 +32,7 @@ void main() {
             create: (_) => LearningProvider(storageService),
           ),
           ChangeNotifierProvider(
-            create: (_) => ContentProvider(),
+            create: (_) => ContentProvider(apiService),
           ),
         ],
         child: const LingxiApp(),
@@ -65,7 +65,7 @@ void main() {
             create: (_) => LearningProvider(storageService),
           ),
           ChangeNotifierProvider(
-            create: (_) => ContentProvider(),
+            create: (_) => ContentProvider(apiService),
           ),
         ],
         child: const LingxiApp(),

@@ -37,7 +37,7 @@ void main() async {
           create: (_) => LearningProvider(storageService),
         ),
         ChangeNotifierProvider(
-          create: (_) => ContentProvider(),
+          create: (_) => ContentProvider(apiService),
         ),
       ],
       child: const LingxiApp(),

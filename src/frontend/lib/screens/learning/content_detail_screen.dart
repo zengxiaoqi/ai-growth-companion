@@ -75,7 +75,7 @@ class ContentDetailScreen extends StatefulWidget {
 }
 
 class _ContentDetailScreenState extends State<ContentDetailScreen> {
-  final ApiService _api = ApiService();
+  ApiService get _api => context.read<ApiService>();
   
   Map<String, dynamic>? _content;
   bool _isLoading = true;

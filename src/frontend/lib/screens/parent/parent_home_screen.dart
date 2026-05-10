@@ -89,7 +89,7 @@ class ParentHomeContent extends StatelessWidget {
                 const SizedBox(height: 20),
                 _buildAbilityCard(),
                 const SizedBox(height: 20),
-                _buildMenuSection(),
+                _buildMenuSection(context),
                 const SizedBox(height: 100),
               ],
             ),
@@ -100,11 +100,13 @@ class ParentHomeContent extends StatelessWidget {
   }
 
   void _showNotificationPanel(BuildContext context) {
+    final userProvider = context.read<UserProvider>();
+    final userId = userProvider.currentUser?['id'] as int?;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const NotificationPanel(),
+      builder: (_) => NotificationPanel(userId: userId),
     );
   }
 
@@ -223,7 +225,7 @@ class ParentHomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection() {
+  Widget _buildMenuSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -236,22 +238,39 @@ class ParentHomeContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _MenuTile(
+          icon: Icons.auto_awesome_rounded,
+          title: 'AI 课程生成',
+          subtitle: '为孩子智能生成学习课程',
+          color: AppTheme.primaryColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/lessonGenerator'),
+        ),
+        _MenuTile(
+          icon: Icons.psychology_rounded,
+          title: 'AI 能力洞察',
+          subtitle: '查看孩子能力发展与趋势',
+          color: AppTheme.softPurple,
+          onTap: () => Navigator.pushNamed(context, '/parent/aiInsights'),
+        ),
+        _MenuTile(
+          icon: Icons.security_rounded,
+          title: '家长控制',
+          subtitle: '设置学习时长与内容限制',
+          color: AppTheme.secondaryColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/parentalControls'),
+        ),
+        _MenuTile(
           icon: Icons.assessment_rounded,
           title: '学习报告',
-          subtitle: '查看详细学习情况',
-          color: AppTheme.primaryColor,
-        ),
-        _MenuTile(
-          icon: Icons.schedule_rounded,
-          title: '时间管理',
-          subtitle: '设置每日学习时长',
-          color: AppTheme.secondaryColor,
-        ),
-        _MenuTile(
-          icon: Icons.lock_rounded,
-          title: '内容管理',
-          subtitle: '选择/屏蔽学习内容',
+          subtitle: '查看详细学习情况与报告',
           color: AppTheme.accentColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/growthReport'),
+        ),
+        _MenuTile(
+          icon: Icons.assignment_rounded,
+          title: '作业管理',
+          subtitle: '布置与检查孩子作业',
+          color: AppTheme.softOrange,
+          onTap: () => Navigator.pushNamed(context, '/parent/assignmentManager'),
         ),
       ],
     );
@@ -329,12 +348,14 @@ class _MenuTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color color;
+  final VoidCallback? onTap;
 
   const _MenuTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
+    this.onTap,
   });
 
   @override
@@ -357,7 +378,7 @@ class _MenuTile extends StatelessWidget {
         title: Text(title),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () {},
+        onTap: onTap,
       ),
     );
   }

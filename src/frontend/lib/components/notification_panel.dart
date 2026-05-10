@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 
@@ -54,7 +55,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _fetchNotifications() async {
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       final userId = widget.userId;
       if (userId == null) {
         setState(() => _isLoading = false);
@@ -81,7 +82,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _markRead(int id) async {
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.markNotificationRead(id);
     } catch (_) {}
     setState(() {
@@ -96,7 +97,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _markAllRead() async {
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       final userId = widget.userId;
       if (userId == null) return;
       await api.markAllNotificationsRead(userId);

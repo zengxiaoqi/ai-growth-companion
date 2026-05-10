@@ -7,6 +7,7 @@ import '../../components/top_bar.dart';
 import '../../providers/content_provider.dart';
 import '../../services/api_result.dart';
 import '../../services/api_service.dart';
+import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
 import '../games/game_renderer.dart';
 import 'animation_scene_player.dart';
@@ -112,10 +113,14 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   // 步骤计时
   DateTime? _stepStartTime;
 
+  // TTS 朗读状态
+  bool _isSpeakingStep = false;
+
   @override
   void initState() {
     super.initState();
     _stepStartTime = DateTime.now();
+    TtsService().init();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
@@ -323,6 +328,125 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         _currentStepIndex--;
         _stepStartTime = DateTime.now();
       });
+    }
+  }
+
+  // ─── 语音朗读 ──────────────────────────────────────────────────────
+
+  /// 提取步骤中的所有文本内容
+  String _extractStepText(_LessonStep step) {
+    final buf = StringBuffer();
+    final module = step.module;
+
+    switch (step.type) {
+      case 'read':
+        final reading = module['reading'] is Map
+            ? (module['reading'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v))
+            : <String, dynamic>{};
+        final text = reading['text']?.toString() ?? module['content']?.toString() ?? '';
+        final questions = reading['questions'] is List
+            ? (reading['questions'] as List)
+                .map((e) => e?.toString() ?? '')
+                .where((e) => e.isNotEmpty)
+                .toList()
+            : <String>[];
+        if (text.isNotEmpty) buf.writeln(text);
+        for (var i = 0; i < questions.length; i++) {
+          buf.writeln('第${i + 1}题：${questions[i]}');
+        }
+        break;
+      case 'watch':
+        final scenes = _extractRawScenes(module);
+        for (final scene in scenes) {
+          final narration = scene['narration']?.toString() ?? '';
+          final caption = scene['caption']?.toString() ??
+              scene['onScreenText']?.toString() ?? '';
+          if (caption.isNotEmpty && caption != narration) {
+            buf.writeln(caption);
+          }
+          if (narration.isNotEmpty) buf.writeln(narration);
+        }
+        // fallback: module-level content
+        if (buf.isEmpty) {
+          final c = module['content']?.toString() ?? '';
+          if (c.isNotEmpty) buf.write(c);
+        }
+        break;
+      case 'write':
+        final writing = module['writing'] is Map
+            ? (module['writing'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v))
+            : <String, dynamic>{};
+        final goal = writing['goal']?.toString() ?? '';
+        final tasks = writing['practiceTasks'] is List
+            ? (writing['practiceTasks'] as List)
+                .map((e) => e?.toString() ?? '')
+                .where((e) => e.isNotEmpty)
+                .toList()
+            : <String>[];
+        final checklist = writing['checklist'] is List
+            ? (writing['checklist'] as List)
+                .map((e) => e?.toString() ?? '')
+                .where((e) => e.isNotEmpty)
+                .toList()
+            : <String>[];
+        if (goal.isNotEmpty) buf.writeln('学习目标：$goal');
+        for (var i = 0; i < tasks.length; i++) {
+          buf.writeln('任务${i + 1}：${tasks[i]}');
+        }
+        for (var i = 0; i < checklist.length; i++) {
+          buf.writeln('检查项${i + 1}：${checklist[i]}');
+        }
+        break;
+      case 'practice':
+        final game = module['game'] is Map
+            ? (module['game'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v))
+            : <String, dynamic>{};
+        final title = game['title']?.toString() ?? '';
+        final instructions = game['instructions']?.toString() ??
+            game['description']?.toString() ?? '';
+        if (title.isNotEmpty) buf.writeln(title);
+        if (instructions.isNotEmpty) buf.writeln(instructions);
+        if (buf.isEmpty) {
+          final c = module['content']?.toString() ??
+              module['description']?.toString() ?? '';
+          if (c.isNotEmpty) buf.write(c);
+        }
+        break;
+      default:
+        final c = module['content']?.toString() ??
+            module['text']?.toString() ??
+            module['description']?.toString() ?? '';
+        if (c.isNotEmpty) buf.write(c);
+    }
+
+    if (buf.isEmpty) {
+      buf.write(step.label);
+    }
+    return buf.toString().trim();
+  }
+
+  Future<void> _speakStepContent() async {
+    if (_steps.isEmpty || _currentStepIndex >= _steps.length) return;
+
+    final tts = TtsService();
+
+    if (_isSpeakingStep) {
+      await tts.stop();
+      setState(() => _isSpeakingStep = false);
+      return;
+    }
+
+    final text = _extractStepText(_steps[_currentStepIndex]);
+    if (text.isEmpty) return;
+
+    setState(() => _isSpeakingStep = true);
+    await tts.speak(text);
+    await tts.onComplete;
+    if (mounted) {
+      setState(() => _isSpeakingStep = false);
     }
   }
 
@@ -839,6 +963,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 语音朗读控制栏
+          _buildTtsBar(),
           // 步骤标题
           _buildStepTitle(step),
           const SizedBox(height: 12),
@@ -872,6 +998,98 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+/// 语音朗读控制栏
+  Widget _buildTtsBar() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (_isSpeakingStep)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.volume_up_rounded,
+                    size: 18,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '正在朗读...',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: _speakStepContent,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.stop_rounded,
+                        size: 16,
+                        color: AppTheme.warningColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (!_isSpeakingStep)
+            GestureDetector(
+              onTap: _speakStepContent,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.volume_up_rounded,
+                      size: 18,
+                      color: AppTheme.primaryColor,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      '朗读',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],

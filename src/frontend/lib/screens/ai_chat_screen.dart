@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../theme/app_theme.dart';
+import '../services/api_service.dart';
+import '../services/tts_service.dart';
+import '../providers/user_provider.dart';
 
 class AIChatScreen extends StatefulWidget {
   const AIChatScreen({super.key});
@@ -8,21 +12,28 @@ class AIChatScreen extends StatefulWidget {
   State<AIChatScreen> createState() => _AIChatScreenState();
 }
 
-class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderStateMixin {
+class _AIChatScreenState extends State<AIChatScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = [];
   final ScrollController _scrollController = ScrollController();
+
   bool _isLoading = false;
+  int? _speakingMessageIndex;
   late AnimationController _bubbleAnimationController;
 
   @override
   void initState() {
     super.initState();
+
     _bubbleAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     )..repeat(reverse: true);
-    
+
+    // 初始化 TTS
+    TtsService().init();
+
     // 添加欢迎消息
     _messages.add({
       'role': 'assistant',
@@ -38,6 +49,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
+  // ─── 消息发送 ─────────────────────────────────────────────────────────
+
   void _sendMessage() async {
     final message = _controller.text.trim();
     if (message.isEmpty) return;
@@ -49,16 +62,28 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     _controller.clear();
     _scrollToBottom();
 
-    // 模拟 AI 响应
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    setState(() {
-      _messages.add({
-        'role': 'assistant',
-        'content': _getAIResponse(message),
+    try {
+      final userProvider = context.read<UserProvider>();
+      final childId = userProvider.activeChildId;
+      final api = context.read<ApiService>();
+      final response = await api.sendAIChatMessage(message, childId: childId);
+
+      final reply = response?['reply'] as String? ??
+          response?['content'] as String? ??
+          '抱歉，我暂时无法回复 ~';
+      setState(() {
+        _messages.add({'role': 'assistant', 'content': reply});
+        _isLoading = false;
       });
-      _isLoading = false;
-    });
+    } catch (_) {
+      setState(() {
+        _messages.add({
+          'role': 'assistant',
+          'content': '哎呀，网络不太好，再试一次吧 🌐',
+        });
+        _isLoading = false;
+      });
+    }
     _scrollToBottom();
   }
 
@@ -74,16 +99,37 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     });
   }
 
-  String _getAIResponse(String message) {
-    final responses = [
-      '太棒了！继续加油~ 🌟',
-      '你真聪明！🎉',
-      '让我们一起学习吧！📚',
-      '太好了，这个问题问得很好！',
-      '我喜欢你提出的问题，继续探索吧~ ✨',
-    ];
-    return responses[message.length % responses.length];
+  // ─── 语音输出 ────────────────────────────────────────────────────────
+
+  Future<void> _speakMessage(int index) async {
+    final tts = TtsService();
+
+    // 如果正在朗读同一条消息，则停止
+    if (_speakingMessageIndex == index) {
+      await tts.stop();
+      setState(() => _speakingMessageIndex = null);
+      return;
+    }
+
+    // 停止当前朗读（如果有）
+    if (_speakingMessageIndex != null) {
+      await tts.stop();
+    }
+
+    final content = _messages[index]['content'] ?? '';
+    if (content.isEmpty) return;
+
+    setState(() => _speakingMessageIndex = index);
+    await tts.speak(content);
+
+    // 等待朗读完成
+    await tts.onComplete;
+    if (mounted) {
+      setState(() => _speakingMessageIndex = null);
+    }
   }
+
+  // ─── 构建 ────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -99,8 +145,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         child: SafeArea(
           child: Column(
             children: [
-              // 自定义顶部栏
-              _buildAppBar(),
               // 消息列表
               Expanded(
                 child: _buildMessageList(),
@@ -114,69 +158,10 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
-            ),
-          ),
-          const Spacer(),
-          // 头像和名字
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: const Row(
-              children: [
-                Text('🦄', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 8),
-                Text(
-                  '小犀',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          // 装饰星星
-          const StarDecoration(size: 20),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMessageList() {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       itemCount: _messages.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (_isLoading && index == _messages.length) {
@@ -184,12 +169,14 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         }
         final message = _messages[index];
         final isUser = message['role'] == 'user';
-        return _buildMessageBubble(message['content']!, isUser);
+        return _buildMessageBubble(message['content']!, isUser, index);
       },
     );
   }
 
-  Widget _buildMessageBubble(String content, bool isUser) {
+  Widget _buildMessageBubble(String content, bool isUser, int index) {
+    final isSpeaking = _speakingMessageIndex == index;
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 300),
@@ -225,33 +212,70 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (isUser ? AppTheme.primaryColor : Colors.grey).withOpacity(0.15),
+                  color: (isUser ? AppTheme.primaryColor : Colors.grey)
+                      .withOpacity(0.15),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
               ],
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!isUser) ...[
-                  const Text('🦄', style: TextStyle(fontSize: 24)),
-                  const SizedBox(width: 10),
-                ],
-                Flexible(
-                  child: Text(
-                    content,
-                    style: TextStyle(
-                      color: isUser ? Colors.white : AppTheme.textColor,
-                      fontSize: 16,
-                      height: 1.4,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isUser) ...[
+                      const Text('🦄', style: TextStyle(fontSize: 24)),
+                      const SizedBox(width: 10),
+                    ],
+                    Flexible(
+                      child: Text(
+                        content,
+                        style: TextStyle(
+                          color: isUser ? Colors.white : AppTheme.textColor,
+                          fontSize: 16,
+                          height: 1.4,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (isUser) const SizedBox(width: 4),
+                  ],
                 ),
+                // 助手冒泡：朗读按钮
+                if (!isUser) ...[
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _buildSpeakButton(isSpeaking, index),
+                  ),
+                ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSpeakButton(bool isSpeaking, int index) {
+    return GestureDetector(
+      onTap: () => _speakMessage(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isSpeaking
+              ? AppTheme.primaryColor.withOpacity(0.15)
+              : AppTheme.primaryColor.withOpacity(0.08),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          isSpeaking ? Icons.volume_up_rounded : Icons.volume_mute_rounded,
+          size: 20,
+          color: isSpeaking ? AppTheme.primaryColor : AppTheme.textSecondary,
         ),
       ),
     );
@@ -351,7 +375,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                     color: AppTheme.textSecondary.withOpacity(0.5),
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 ),
                 onSubmitted: (_) => _sendMessage(),
               ),
@@ -363,7 +388,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             onTap: _isLoading ? null : _sendMessage,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(14),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 gradient: _isLoading
                     ? LinearGradient(
@@ -394,7 +420,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                         strokeWidth: 2.5,
                       ),
                     )
-                  : const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                  : const Icon(Icons.send_rounded,
+                      color: Colors.white, size: 24),
             ),
           ),
         ],

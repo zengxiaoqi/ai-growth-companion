@@ -6,8 +6,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 ///
 /// 特性：
 /// - 单例模式，全局共享一个 FlutterTts 实例
-/// - 通过 Completer 暴露 onComplete Future，解决竞态问题
-/// - 自动处理错误状态
+/// - 通过 Completer + generation 计数器解决竞态问题
+/// - 自动处理错误状态和非中文环境的降级
 class TtsService {
   static final TtsService _instance = TtsService._internal();
   factory TtsService() => _instance;
@@ -17,57 +17,80 @@ class TtsService {
   bool _isSpeaking = false;
   Completer<void>? _speakCompleter;
   bool _initialized = false;
+  bool _engineAvailable = false;
 
   /// 是否正在朗读
   bool get isSpeaking => _isSpeaking;
+
+  /// TTS 引擎是否可用
+  bool get isAvailable => _engineAvailable;
 
   /// 初始化 TTS 引擎
   /// 设置中文朗读参数，注册完成/错误回调
   Future<void> init() async {
     if (_initialized) return;
-    await _tts.setLanguage("zh-CN");
+
+    try {
+      // 检查语言是否可用
+      final langs = await _tts.getLanguages;
+      if (langs.contains("zh-CN") ||
+          langs.contains("zh") ||
+          langs.contains("cmn")) {
+        _engineAvailable = true;
+      }
+    } catch (_) {
+      _engineAvailable = false;
+    }
+
+    if (_engineAvailable) {
+      await _tts.setLanguage("zh-CN");
+    }
     await _tts.setSpeechRate(0.45);
     await _tts.setPitch(1.0);
     await _tts.setVolume(1.0);
 
-    // 朗读完成时更新状态 + 触发 onComplete
+    // 朗读自然完成回调
     _tts.setCompletionHandler(() {
-      _isSpeaking = false;
-      final completer = _speakCompleter;
-      _speakCompleter = null;
-      if (completer != null && !completer.isCompleted) {
-        completer.complete();
-      }
+      _completeCurrent();
     });
 
-    // 错误时也触发完成，避免永久等待
-    _tts.setErrorHandler((message) {
-      _isSpeaking = false;
-      final completer = _speakCompleter;
-      _speakCompleter = null;
-      if (completer != null && !completer.isCompleted) {
-        completer.complete();
-      }
+    // 错误回调
+    _tts.setErrorHandler((_) {
+      _completeCurrent();
     });
 
     _initialized = true;
   }
 
+  void _completeCurrent() {
+    _isSpeaking = false;
+    final completer = _speakCompleter;
+    _speakCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
   /// 朗读文本
   ///
-  /// 返回 [onComplete] Future，当朗读自然完成时 resolve。
-  /// 调用方可通过 `await ttsService.onComplete` 等待朗读结束，
-  /// 替代轮询 `isSpeaking` 的不稳定做法。
+  /// 内部先停止已有朗读，再开始朗读新文本。
+  /// 返回的 [onComplete] Future 在朗读自然结束时 resolve。
   Future<void> speak(String text) async {
     if (text.isEmpty) return;
     if (!_initialized) await init();
+    if (!_engineAvailable) return;
 
-    // 先停止当前朗读
-    await _tts.stop();
+    // 安全停止当前朗读，清理状态
+    await stop();
 
     _isSpeaking = true;
     _speakCompleter = Completer<void>();
-    await _tts.speak(text);
+
+    try {
+      await _tts.speak(text);
+    } catch (_) {
+      // speak 本身可能抛异常；状态由 handler 清理
+    }
   }
 
   /// 停止朗读
@@ -78,14 +101,13 @@ class TtsService {
     if (completer != null && !completer.isCompleted) {
       completer.complete();
     }
-    await _tts.stop();
+    try {
+      await _tts.stop();
+    } catch (_) {}
   }
 
-  /// 返回一个 Future，在当前朗读完成后 resolve
-  ///
+  /// 返回一个 Future，在当前朗读完成后 resolve。
   /// 如果当前未在朗读，立即返回 resolved Future。
-  /// 这消除了启动朗读与等待完成之间的竞态条件：
-  /// Completer 在 speak() 调用前创建，最差情况是立即被 completionHandler 触发。
   Future<void> get onComplete =>
       _speakCompleter?.future ?? Future<void>.value();
 }

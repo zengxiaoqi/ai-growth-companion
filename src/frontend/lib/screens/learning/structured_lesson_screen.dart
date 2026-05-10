@@ -452,9 +452,14 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   void _jumpToStep(int index) {
     if (index >= 0 && index < _steps.length) {
+      // 切换步骤时停止当前朗读
+      if (_isSpeakingStep) {
+        TtsService().stop();
+      }
       setState(() {
         _currentStepIndex = index;
         _stepStartTime = DateTime.now();
+        _isSpeakingStep = false;
       });
     }
   }

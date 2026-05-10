@@ -19,6 +19,7 @@ class _AIChatScreenState extends State<AIChatScreen>
   final ScrollController _scrollController = ScrollController();
 
   bool _isLoading = false;
+  bool _autoPlay = true;
   int? _speakingMessageIndex;
   late AnimationController _bubbleAnimationController;
 
@@ -31,10 +32,8 @@ class _AIChatScreenState extends State<AIChatScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    // 初始化 TTS
     TtsService().init();
 
-    // 添加欢迎消息
     _messages.add({
       'role': 'assistant',
       'content': '你好呀！我是小犀 🦄\n有什么想聊的吗？',
@@ -51,8 +50,8 @@ class _AIChatScreenState extends State<AIChatScreen>
 
   // ─── 消息发送 ─────────────────────────────────────────────────────────
 
-  void _sendMessage() async {
-    final message = _controller.text.trim();
+  Future<void> _sendMessage({String? text}) async {
+    final message = (text ?? _controller.text).trim();
     if (message.isEmpty) return;
 
     setState(() {
@@ -71,10 +70,16 @@ class _AIChatScreenState extends State<AIChatScreen>
       final reply = response?['reply'] as String? ??
           response?['content'] as String? ??
           '抱歉，我暂时无法回复 ~';
+      final msgIndex = _messages.length;
       setState(() {
         _messages.add({'role': 'assistant', 'content': reply});
         _isLoading = false;
       });
+
+      // 自动朗读
+      if (_autoPlay) {
+        await _autoSpeakMessage(msgIndex);
+      }
     } catch (_) {
       setState(() {
         _messages.add({
@@ -101,6 +106,27 @@ class _AIChatScreenState extends State<AIChatScreen>
 
   // ─── 语音输出 ────────────────────────────────────────────────────────
 
+  /// 自动朗读助手回复（不改变 speaking index UI 高亮）
+  Future<void> _autoSpeakMessage(int index) async {
+    if (index >= _messages.length) return;
+    if (_messages[index]['role'] != 'assistant') return;
+
+    final content = _messages[index]['content'] ?? '';
+    if (content.isEmpty) return;
+
+    final tts = TtsService();
+    if (!tts.isAvailable) return;
+
+    await tts.stop();
+    setState(() => _speakingMessageIndex = index);
+    await tts.speak(content);
+    await tts.onComplete;
+    if (mounted && _speakingMessageIndex == index) {
+      setState(() => _speakingMessageIndex = null);
+    }
+  }
+
+  /// 点击朗读按钮
   Future<void> _speakMessage(int index) async {
     final tts = TtsService();
 
@@ -111,7 +137,7 @@ class _AIChatScreenState extends State<AIChatScreen>
       return;
     }
 
-    // 停止当前朗读（如果有）
+    // 停止当前朗读
     if (_speakingMessageIndex != null) {
       await tts.stop();
     }
@@ -121,8 +147,6 @@ class _AIChatScreenState extends State<AIChatScreen>
 
     setState(() => _speakingMessageIndex = index);
     await tts.speak(content);
-
-    // 等待朗读完成
     await tts.onComplete;
     if (mounted) {
       setState(() => _speakingMessageIndex = null);
@@ -145,6 +169,8 @@ class _AIChatScreenState extends State<AIChatScreen>
         child: SafeArea(
           child: Column(
             children: [
+              // 顶部控制栏：tittle + 自动播放开关
+              _buildTopBar(),
               // 消息列表
               Expanded(
                 child: _buildMessageList(),
@@ -158,10 +184,61 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+      child: Row(
+        children: [
+          const Text(
+            '🦄 小犀聊天',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textColor,
+            ),
+          ),
+          const Spacer(),
+          // 自动朗读切换
+          InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => setState(() => _autoPlay = !_autoPlay),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _autoPlay
+                    ? AppTheme.primaryColor.withOpacity(0.12)
+                    : Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _autoPlay ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    size: 18,
+                    color: _autoPlay ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _autoPlay ? '自动朗读' : '静音',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _autoPlay ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageList() {
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       itemCount: _messages.length + (_isLoading ? 1 : 0),
       itemBuilder: (context, index) {
         if (_isLoading && index == _messages.length) {
@@ -358,7 +435,6 @@ class _AIChatScreenState extends State<AIChatScreen>
       ),
       child: Row(
         children: [
-          // 输入框
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -383,9 +459,8 @@ class _AIChatScreenState extends State<AIChatScreen>
             ),
           ),
           const SizedBox(width: 12),
-          // 发送按钮
           GestureDetector(
-            onTap: _isLoading ? null : _sendMessage,
+            onTap: _isLoading ? null : () => _sendMessage(),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 48,

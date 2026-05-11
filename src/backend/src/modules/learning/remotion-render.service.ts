@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "child_process";
 import { createHash } from "crypto";
-import { promises as fs } from "fs";
+import { promises as fs, existsSync, readdirSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import {
@@ -159,6 +159,79 @@ export class RemotionRenderService {
     private readonly generateVideoDataTool: GenerateVideoDataTool,
     private readonly voiceService: VoiceService,
   ) {}
+
+  /**
+   * Resolve the Chrome/Chromium browser executable path for Remotion rendering.
+   *
+   * Discovery order:
+   * 1. CHROME_PATH environment variable (per-environment override)
+   * 2. Puppeteer cached chrome-headless-shell
+   * 3. Playwright cached chromium
+   * 4. System-installed chromium-browser / google-chrome
+   *
+   * Returns null if no browser found (Remotion will attempt its own download as fallback).
+   */
+  private resolveChromePath(): string | null {
+    // 1. Explicit environment variable — highest priority
+    if (process.env.CHROME_PATH) {
+      const p = process.env.CHROME_PATH;
+      if (existsSync(p)) {
+        this.logger.log(`[resolveChromePath] Using CHROME_PATH: ${p}`);
+        return p;
+      }
+      this.logger.warn(`[resolveChromePath] CHROME_PATH set but file not found: ${p}`);
+    }
+
+    // 2. Puppeteer cache — chrome-headless-shell (lightweight, preferred)
+    const home = os.homedir();
+    const puppeteerDirs = existsSync(path.join(home, ".cache", "puppeteer", "chrome-headless-shell"))
+      ? readdirSync(path.join(home, ".cache", "puppeteer", "chrome-headless-shell")).sort().reverse()
+      : [];
+    for (const ver of puppeteerDirs) {
+      const candidate = path.join(
+        home, ".cache", "puppeteer", "chrome-headless-shell", ver,
+        "chrome-headless-shell-linux64", "chrome-headless-shell",
+      );
+      if (existsSync(candidate)) {
+        this.logger.log(`[resolveChromePath] Found puppeteer chrome-headless-shell: ${candidate}`);
+        return candidate;
+      }
+    }
+
+    // 3. Playwright cache — full Chromium
+    const playwrightDirs = existsSync(path.join(home, ".cache", "ms-playwright"))
+      ? readdirSync(path.join(home, ".cache", "ms-playwright")).sort().reverse()
+      : [];
+    for (const dir of playwrightDirs) {
+      const candidate = path.join(home, ".cache", "ms-playwright", dir, "chrome-linux64", "chrome");
+      if (existsSync(candidate)) {
+        this.logger.log(`[resolveChromePath] Found playwright chromium: ${candidate}`);
+        return candidate;
+      }
+    }
+
+    // 4. System-installed browsers
+    const systemPaths = [
+      "/usr/bin/chromium-browser",
+      "/usr/bin/chromium",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/google-chrome",
+      "/snap/bin/chromium",
+    ];
+    for (const candidate of systemPaths) {
+      if (existsSync(candidate)) {
+        this.logger.log(`[resolveChromePath] Found system browser: ${candidate}`);
+        return candidate;
+      }
+    }
+
+    this.logger.warn(
+      "[resolveChromePath] No Chrome/Chromium found. " +
+      "Set CHROME_PATH env var or install chromium-browser. " +
+      "Remotion will attempt its own download (may be slow or fail).",
+    );
+    return null;
+  }
 
   async resolveComposition(
     input: ResolveCompositionInput,
@@ -1515,6 +1588,7 @@ export class RemotionRenderService {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cpuCount = Math.max(1, (require("os").cpus() || []).length);
       const concurrency = Math.min(cpuCount - 1 || 1, 4);
+      const chromePath = this.resolveChromePath();
       const args = [
         "remotion",
         "render",
@@ -1524,10 +1598,11 @@ export class RemotionRenderService {
         "--codec=h264",
         `--concurrency=${concurrency}`,
         `--props=${propsPath}`,
+        ...(chromePath ? [`--browser-executable=${chromePath}`] : []),
       ];
 
       this.logger.log(
-        `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}`,
+        `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}, browser=${chromePath || "auto"}`,
       );
 
       const proc = spawn("npx", args, {
@@ -1675,6 +1750,7 @@ export class RemotionRenderService {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cpuCount = Math.max(1, (require("os").cpus() || []).length);
       const concurrency = Math.min(cpuCount - 1 || 1, 4); // Use N-1 cores, max 4
+      const chromePath = this.resolveChromePath();
       const args = [
         "remotion",
         "render",
@@ -1683,10 +1759,11 @@ export class RemotionRenderService {
         "--codec=h264",
         `--concurrency=${concurrency}`,
         `--props=${propsPath}`,
+        ...(chromePath ? [`--browser-executable=${chromePath}`] : []),
       ];
 
       this.logger.log(
-        `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}`,
+        `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}, browser=${chromePath || "auto"}`,
       );
 
       const proc = spawn("npx", args, {

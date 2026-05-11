@@ -1,6 +1,12 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../components/app_card.dart';
+import '../../components/empty_state.dart';
+import '../../components/section_header.dart';
+import '../../components/shimmer_loading.dart';
 import '../../services/api_service.dart';
 import '../../providers/user_provider.dart';
 
@@ -59,27 +65,19 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
+    return const Padding(
+      padding: EdgeInsets.all(20),
       child: Row(
         children: [
-          // 装饰云朵
-          const CloudDecoration(size: 32, color: AppTheme.softBlue),
+          CloudDecoration(size: 32, color: AppTheme.softBlue),
           const SizedBox(width: 12),
           const Expanded(
-            child: Text(
-              '📚 学习中心',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
+            child: SectionHeader(
+              title: '学习中心',
+              emoji: '📚',
+              trailing: Text('✨'),
             ),
           ),
-          // 装饰星星
-          const StarDecoration(size: 24),
-          const SizedBox(width: 8),
-          const Text('✨', style: TextStyle(fontSize: 24)),
         ],
       ),
     );
@@ -96,17 +94,12 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
           // Section header
           Row(
             children: [
-              const Text('📚', style: TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
-              const Text(
-                '我的课程',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
+              const Expanded(
+                child: SectionHeader(
+                  title: '我的课程',
+                  emoji: '📚',
                 ),
               ),
-              const Spacer(),
               if (_courses.isNotEmpty)
                 Text(
                   '${_courses.length} 门课',
@@ -120,39 +113,29 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
           const SizedBox(height: 12),
           // Content
           if (_loadingCourses)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryColor,
-                  strokeWidth: 2,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: SizedBox(
+                height: 140,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: const [
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                  ],
                 ),
               ),
             )
           else if (_courses.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.softBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.softBlue.withOpacity(0.3),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Text('🌱', style: TextStyle(fontSize: 36)),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '暂无课程，等待家长为你生成哦~',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: EmptyState(
+                emoji: '🌱',
+                title: '暂无课程，等待家长为你生成哦~',
               ),
             )
           else
@@ -292,29 +275,22 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                widget.gradient[0].withOpacity(0.15),
-                widget.gradient[1].withOpacity(0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: widget.color.withOpacity(0.2),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
+        child: AppCard(
+          gradient: LinearGradient(
+            colors: [
+              widget.gradient[0].withOpacity(0.15),
+              widget.gradient[1].withOpacity(0.05),
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
           child: Stack(
             children: [
               // 背景装饰
@@ -379,7 +355,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
                       ),
                       child: Text(
                         widget.title,
@@ -435,31 +411,24 @@ class _CourseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AppCard(
         width: 180,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color.withOpacity(0.12),
-              color.withOpacity(0.04),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: color.withOpacity(0.25),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.12),
+            color.withOpacity(0.04),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -469,7 +438,7 @@ class _CourseCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                 ),
                 child: Text(
                   domain,
@@ -516,7 +485,7 @@ class _CourseCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [color, color.withOpacity(0.7)],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                   boxShadow: [
                     BoxShadow(
                       color: color.withOpacity(0.3),

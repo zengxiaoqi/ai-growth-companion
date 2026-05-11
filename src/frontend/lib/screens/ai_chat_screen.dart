@@ -1,6 +1,13 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/animation_utils.dart';
+import '../components/app_card.dart';
+import '../components/section_header.dart';
+import '../components/shimmer_loading.dart';
+import '../components/section_header.dart';
 import '../services/api_service.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
@@ -21,16 +28,10 @@ class _AIChatScreenState extends State<AIChatScreen>
   bool _isLoading = false;
   bool _autoPlay = true;
   int? _speakingMessageIndex;
-  late AnimationController _bubbleAnimationController;
 
   @override
   void initState() {
     super.initState();
-
-    _bubbleAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    )..repeat(reverse: true);
 
     TtsService().init();
 
@@ -44,7 +45,6 @@ class _AIChatScreenState extends State<AIChatScreen>
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    _bubbleAnimationController.dispose();
     super.dispose();
   }
 
@@ -189,18 +189,14 @@ class _AIChatScreenState extends State<AIChatScreen>
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
       child: Row(
         children: [
-          const Text(
-            '🦄 小犀聊天',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textColor,
-            ),
+          const SectionHeader(
+            title: '小犀聊天',
+            emoji: '🦄',
           ),
           const Spacer(),
           // 自动朗读切换
           InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
             onTap: () => setState(() => _autoPlay = !_autoPlay),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -208,7 +204,7 @@ class _AIChatScreenState extends State<AIChatScreen>
                 color: _autoPlay
                     ? AppTheme.primaryColor.withOpacity(0.12)
                     : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -282,10 +278,10 @@ class _AIChatScreenState extends State<AIChatScreen>
                   : null,
               color: isUser ? null : Colors.white,
               borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(24),
-                topRight: const Radius.circular(24),
-                bottomLeft: Radius.circular(isUser ? 24 : 6),
-                bottomRight: Radius.circular(isUser ? 6 : 24),
+                topLeft: const Radius.circular(AppTheme.buttonRadius),
+                topRight: const Radius.circular(AppTheme.buttonRadius),
+                bottomLeft: Radius.circular(isUser ? AppTheme.buttonRadius : 6),
+                bottomRight: Radius.circular(isUser ? 6 : AppTheme.buttonRadius),
               ),
               boxShadow: [
                 BoxShadow(
@@ -359,63 +355,12 @@ class _AIChatScreenState extends State<AIChatScreen>
   }
 
   Widget _buildLoadingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 12),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 15,
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('🦄', style: TextStyle(fontSize: 24)),
-              const SizedBox(width: 12),
-              AnimatedBuilder(
-                animation: _bubbleAnimationController,
-                builder: (context, child) {
-                  return Row(
-                    children: [
-                      _buildDot(0),
-                      const SizedBox(width: 4),
-                      _buildDot(1),
-                      const SizedBox(width: 4),
-                      _buildDot(2),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+        child: ShimmerCard(width: 200, height: 48),
       ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return AnimatedBuilder(
-      animation: _bubbleAnimationController,
-      builder: (context, child) {
-        final delay = index * 0.2;
-        final value = ((_bubbleAnimationController.value + delay) % 1.0);
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.3 + value * 0.7),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
     );
   }
 
@@ -424,7 +369,7 @@ class _AIChatScreenState extends State<AIChatScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.cardRadius)),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryColor.withOpacity(0.1),
@@ -439,7 +384,7 @@ class _AIChatScreenState extends State<AIChatScreen>
             child: Container(
               decoration: BoxDecoration(
                 color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(AppTheme.buttonRadius + 1),
               ),
               child: TextField(
                 controller: _controller,

@@ -1,8 +1,19 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
+import '../../components/app_card.dart';
+import '../../components/section_header.dart';
 
-class AchievementScreen extends StatelessWidget {
+class AchievementScreen extends StatefulWidget {
   const AchievementScreen({super.key});
+
+  @override
+  State<AchievementScreen> createState() => _AchievementScreenState();
+}
+
+class _AchievementScreenState extends State<AchievementScreen> {
 
   @override
   Widget build(BuildContext context) {
@@ -48,40 +59,23 @@ class AchievementScreen extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return Row(
-      children: [
-        const Text('🏆', style: TextStyle(fontSize: 28)),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text(
-            '成就徽章',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
-          ),
-        ),
-        const StarDecoration(size: 24, color: AppTheme.softYellow),
-        const SizedBox(width: 8),
-        const Text('✨', style: TextStyle(fontSize: 24)),
-      ],
+    return const SectionHeader(
+      title: '成就徽章',
+      emoji: '🏆',
+      trailing: Text('✨'),
     );
   }
 
   Widget _buildStarsCard(int stars) {
-    return Container(
+    return AppCard(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFCE4E), Color(0xFFFFD700)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.glowShadow(const Color(0xFFFFCE4E)),
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFCE4E), Color(0xFFFFD700)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+      boxShadow: AppTheme.glowShadow(const Color(0xFFFFCE4E)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -140,19 +134,9 @@ class AchievementScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
-            Text('🎖️', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 8),
-            Text(
-              '已获得',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
-            ),
-          ],
+        const SectionHeader(
+          title: '已获得',
+          emoji: '🎖️',
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -190,19 +174,9 @@ class AchievementScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
-            Text('📊', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 8),
-            Text(
-              '学习进度',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
-            ),
-          ],
+        const SectionHeader(
+          title: '学习进度',
+          emoji: '📊',
         ),
         const SizedBox(height: 12),
         ...progressItems.map((item) => _ProgressItem(
@@ -216,7 +190,7 @@ class AchievementScreen extends StatelessWidget {
   }
 }
 
-class _AchievementBadge extends StatelessWidget {
+class _AchievementBadge extends StatefulWidget {
   final String name;
   final String icon;
   final String desc;
@@ -232,31 +206,67 @@ class _AchievementBadge extends StatelessWidget {
   });
 
   @override
+  State<_AchievementBadge> createState() => _AchievementBadgeState();
+}
+
+class _AchievementBadgeState extends State<_AchievementBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressController;
+  late Animation<double> _pressAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _pressAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 300 + index * 100),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: Opacity(opacity: value, child: child),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
+    return GestureDetector(
+      onTapDown: (_) => _pressController.forward(),
+      onTapUp: (_) => _pressController.reverse(),
+      onTapCancel: () => _pressController.reverse(),
+      child: AnimatedBuilder(
+        animation: _pressAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _pressAnimation.value,
+            child: child,
+          );
+        },
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: Duration(milliseconds: 300 + widget.index * 100),
+          curve: Curves.easeOutBack,
+          builder: (context, value, child) {
+            return Transform.scale(
+              scale: value,
+              child: Opacity(opacity: value, child: child),
+            );
+          },
+          child: AppCard(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.2),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
+            child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
@@ -266,13 +276,13 @@ class _AchievementBadge extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [color.withOpacity(0.2), color.withOpacity(0.1)],
+                      colors: [widget.color.withOpacity(0.2), widget.color.withOpacity(0.1)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     shape: BoxShape.circle,
                   ),
-                  child: Text(icon, style: const TextStyle(fontSize: 28)),
+                  child: Text(widget.icon, style: const TextStyle(fontSize: 28)),
                 ),
                 Positioned(
                   right: 0,
@@ -291,17 +301,17 @@ class _AchievementBadge extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              name,
+              widget.name,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: color,
+                color: widget.color,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
-              desc,
+              widget.desc,
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey[600],
@@ -313,7 +323,9 @@ class _AchievementBadge extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
@@ -332,27 +344,24 @@ class _ProgressItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: color.withOpacity(0.1),
+          blurRadius: 15,
+          offset: const Offset(0, 5),
+        ),
+      ],
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 24)),
           ),
@@ -405,7 +414,7 @@ class _ProgressItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: Text(
               '${(value * 100).toInt()}%',

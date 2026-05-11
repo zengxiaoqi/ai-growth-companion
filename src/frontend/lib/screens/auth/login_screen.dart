@@ -1,6 +1,10 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
+import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
@@ -142,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius + 8),
             boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
           ),
           child: const Center(
@@ -250,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     color: _rememberMe ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.4),
                     width: 2,
                   ),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                 ),
                 child: _rememberMe
                     ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
@@ -278,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.smallRadius),
         border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
@@ -302,17 +306,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // 登录按钮
   Widget _buildLoginButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleLogin,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
+    return PressAnimation(
+      onTap: _isLoading ? null : _handleLogin,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: null, // PressAnimation handles tap
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+            ),
           elevation: _isLoading ? 0 : 4,
           shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
         ),

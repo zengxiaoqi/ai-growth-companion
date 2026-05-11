@@ -1,6 +1,10 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
+import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
@@ -92,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: const Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
           ),
@@ -271,7 +275,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     color: _userType == 'child' ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
                       color: _userType == 'child' ? AppTheme.primaryColor : Colors.grey.shade200,
                       width: 2,
@@ -303,7 +307,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     color: _userType == 'parent' ? AppTheme.secondaryColor.withValues(alpha: 0.1) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
                       color: _userType == 'parent' ? AppTheme.secondaryColor : Colors.grey.shade200,
                       width: 2,
@@ -338,7 +342,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.smallRadius),
         border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
@@ -365,7 +369,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
           elevation: _isLoading ? 0 : 4,
         ),
         child: _isLoading

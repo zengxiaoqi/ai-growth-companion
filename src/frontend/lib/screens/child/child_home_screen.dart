@@ -1,8 +1,13 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/top_bar.dart';
+import '../../components/app_card.dart';
+import '../../components/section_header.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
 import '../ai_chat_screen.dart';
@@ -70,8 +75,37 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 }
 
-class ChildHomeContent extends StatelessWidget {
+class ChildHomeContent extends StatefulWidget {
   const ChildHomeContent({super.key});
+
+  @override
+  State<ChildHomeContent> createState() => _ChildHomeContentState();
+}
+
+class _ChildHomeContentState extends State<ChildHomeContent>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _bounceController;
+  late Animation<double> _bounceAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _bounceAnimation = CurvedAnimation(
+      parent: _bounceController,
+      curve: Curves.elasticOut,
+    );
+    _bounceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _bounceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +120,13 @@ class ChildHomeContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildWelcomeSection(userName),
+            ScaleTransition(
+              scale: _bounceAnimation,
+              child: FadeTransition(
+                opacity: _bounceAnimation,
+                child: _buildWelcomeSection(userName),
+              ),
+            ),
             const SizedBox(height: 24),
             _buildStudyTimeCard(todayMinutes),
             const SizedBox(height: 24),
@@ -131,7 +171,7 @@ class ChildHomeContent extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     '今天也要努力学习哦~',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       color: AppTheme.textSecondary,
                     ),
@@ -153,18 +193,15 @@ class ChildHomeContent extends StatelessWidget {
   }
 
   Widget _buildStudyTimeCard(int todayMinutes) {
-    return Container(
+    return AppCard(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
+      gradient: const LinearGradient(
+        colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+      boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
       child: Stack(
         children: [
           Positioned(
@@ -190,7 +227,7 @@ class ChildHomeContent extends StatelessWidget {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                     ),
                     child: const Icon(Icons.access_time, color: Colors.white, size: 20),
                   ),
@@ -234,7 +271,7 @@ class ChildHomeContent extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -276,18 +313,15 @@ class ChildHomeContent extends StatelessWidget {
           ),
         );
       },
-      child: Container(
+      child: AppCard(
         width: double.infinity,
         height: 170,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppTheme.secondaryColor, Color(0xFF9AD0E8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: AppTheme.glowShadow(AppTheme.secondaryColor),
+        gradient: const LinearGradient(
+          colors: [AppTheme.secondaryColor, Color(0xFF9AD0E8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: AppTheme.glowShadow(AppTheme.secondaryColor),
         child: Stack(
           children: [
             Positioned(
@@ -321,7 +355,7 @@ class ChildHomeContent extends StatelessWidget {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                         ),
                         child: const Text('🦄', style: TextStyle(fontSize: 32)),
                       ),
@@ -363,19 +397,9 @@ class ChildHomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
-          children: [
-            Text('🎨', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 8),
-            Text(
-              '更多功能',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
-            ),
-          ],
+        const SectionHeader(
+          title: '更多功能',
+          emoji: '🎨',
         ),
         const SizedBox(height: 16),
         Row(
@@ -464,19 +488,16 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
             child: child,
           );
         },
-        child: Container(
+        child: AppCard(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.2),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
           child: Column(
             children: [
               Container(
@@ -490,7 +511,7 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

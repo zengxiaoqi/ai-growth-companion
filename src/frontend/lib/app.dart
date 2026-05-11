@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'theme/app_theme.dart';
+import 'theme/page_transitions.dart';
 import 'providers/user_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -50,83 +51,134 @@ class LingxiApp extends StatelessWidget {
       title: '灵犀伴学',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      routes: {
-        '/login': (_) => const LoginScreen(),
-        '/register': (_) => const RegisterScreen(),
-        '/modeSelection': (_) => const ModeSelectionScreen(),
-        '/settings': (_) => const SettingsScreen(),
-        '/child': (_) => const ChildHomeScreen(),
-        '/parent': (_) => const ParentHomeScreen(),
-        '/parent/abilityRadar': (_) => const AbilityRadarScreen(),
-        '/parent/abilityTrend': (_) => const AbilityTrendScreen(),
-        '/parent/parentalControls': (_) => const ParentalControlsScreen(),
-        '/parent/assignmentManager': (_) => const AssignmentManagerScreen(),
-        '/parent/coursePackManager': (_) => const CoursePackManagerScreen(),
-        '/parent/growthReport': (_) => const GrowthReportScreen(),
-        '/parent/aiInsights': (_) => const AIInsightsPanel(),
-        '/parent/reportDetail': (_) => const ReportDetailScreen(),
-        '/parent/lessonGenerator': (_) => const LessonGeneratorScreen(),
-      },
+      // All routes use custom page transitions defined in
+      // theme/page_transitions.dart.  See that file for the transition
+      // assignment rationale.
       onGenerateRoute: (settings) {
-        if (settings.name == '/child/emergencyCall') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          final childId = _resolveChildId(context, args) ?? 0;
-          return MaterialPageRoute(
-            builder: (_) => EmergencyCallScreen(
-              childId: childId,
-            ),
-          );
+        final args = settings.arguments as Map<String, dynamic>?;
+        final childId = _resolveChildId(context, args);
+
+        // Helper — wraps a builder with the chosen transition factory.
+        Route<T> _page<T>(
+          WidgetBuilder builder,
+          Route<T> Function(WidgetBuilder, {RouteSettings? settings}) transition,
+        ) {
+          return transition(builder, settings: settings);
         }
-        if (settings.name == '/learning/animationPlayer') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          return MaterialPageRoute(
-            builder: (_) => AnimationScenePlayer(
-              scenes: args?['scenes'] as List<AnimationScene>? ?? [],
-            ),
-          );
+
+        switch (settings.name) {
+          // ── Authentication → fadeThrough ──
+          case '/login':
+            return _page((_) => const LoginScreen(), fadeThrough);
+          case '/register':
+            return _page((_) => const RegisterScreen(), fadeThrough);
+          case '/modeSelection':
+            return _page((_) => const ModeSelectionScreen(), fadeThrough);
+
+          // ── Settings → slideFromRight ──
+          case '/settings':
+            return _page((_) => const SettingsScreen(), slideFromRight);
+
+          // ── Child shell → slideFromRight ──
+          case '/child':
+            return _page((_) => const ChildHomeScreen(), slideFromRight);
+
+          // ── Child emergency → slideFromRight ──
+          case '/child/emergencyCall':
+            return _page(
+              (_) => EmergencyCallScreen(childId: childId ?? 0),
+              slideFromRight,
+            );
+
+          // ── Parent shell & management → slideFromRight ──
+          case '/parent':
+            return _page((_) => const ParentHomeScreen(), slideFromRight);
+          case '/parent/abilityRadar':
+            return _page((_) => const AbilityRadarScreen(), slideFromRight);
+          case '/parent/abilityTrend':
+            return _page((_) => const AbilityTrendScreen(), slideFromRight);
+          case '/parent/parentalControls':
+            return _page(
+              (_) => const ParentalControlsScreen(),
+              slideFromRight,
+            );
+          case '/parent/assignmentManager':
+            return _page(
+              (_) => const AssignmentManagerScreen(),
+              slideFromRight,
+            );
+          case '/parent/coursePackManager':
+            return _page(
+              (_) => const CoursePackManagerScreen(),
+              slideFromRight,
+            );
+          case '/parent/growthReport':
+            return _page(
+              (_) => const GrowthReportScreen(),
+              slideFromRight,
+            );
+          case '/parent/aiInsights':
+            return _page((_) => const AIInsightsPanel(), slideFromRight);
+          case '/parent/reportDetail':
+            return _page(
+              (_) => const ReportDetailScreen(),
+              slideFromRight,
+            );
+          case '/parent/lessonGenerator':
+            return _page(
+              (_) => const LessonGeneratorScreen(),
+              slideFromRight,
+            );
+
+          // ── Learning content → slideFromRight ──
+          case '/learning/subjectContentList':
+            return _page(
+              (_) => SubjectContentListScreen(
+                subject: args?['subject'] as String? ?? '',
+                childId: childId,
+              ),
+              slideFromRight,
+            );
+          case '/learning/contentDetail':
+            return _page(
+              (_) => ContentDetailScreen(
+                contentId: args?['contentId'] as int? ?? 0,
+                childId: childId,
+              ),
+              slideFromRight,
+            );
+          case '/learning/structuredLesson':
+            return _page(
+              (_) => StructuredLessonScreen(
+                contentId: args?['contentId'] as int? ?? 0,
+                childId: childId,
+              ),
+              slideFromRight,
+            );
+
+          // ── Games / interactive play → childFriendly ──
+          case '/learning/animationPlayer':
+            return _page(
+              (_) => AnimationScenePlayer(
+                scenes: args?['scenes'] as List<AnimationScene>? ?? [],
+              ),
+              childFriendly,
+            );
+          case '/learning/lessonScenePlayer':
+            return _page(
+              (_) => LessonScenePlayer(
+                document: args?['document'] as LessonSceneDocument? ??
+                    const LessonSceneDocument(scenes: []),
+                isCompleted: args?['isCompleted'] as bool? ?? false,
+                onComplete: args?['onComplete']
+                    as void Function(int?, Map<String, dynamic>?)?,
+              ),
+              childFriendly,
+            );
+
+          default:
+            return null;
         }
-        if (settings.name == '/learning/subjectContentList') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          final childId = _resolveChildId(context, args);
-          return MaterialPageRoute(
-            builder: (_) => SubjectContentListScreen(
-              subject: args?['subject'] as String? ?? '',
-              childId: childId,
-            ),
-          );
-        }
-        if (settings.name == '/learning/contentDetail') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          final childId = _resolveChildId(context, args);
-          return MaterialPageRoute(
-            builder: (_) => ContentDetailScreen(
-              contentId: args?['contentId'] as int? ?? 0,
-              childId: childId,
-            ),
-          );
-        }
-        if (settings.name == '/learning/structuredLesson') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          final childId = _resolveChildId(context, args);
-          return MaterialPageRoute(
-            builder: (_) => StructuredLessonScreen(
-              contentId: args?['contentId'] as int? ?? 0,
-              childId: childId,
-            ),
-          );
-        }
-        if (settings.name == '/learning/lessonScenePlayer') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          return MaterialPageRoute(
-            builder: (_) => LessonScenePlayer(
-              document: args?['document'] as LessonSceneDocument? ??
-                  const LessonSceneDocument(scenes: []),
-              isCompleted: args?['isCompleted'] as bool? ?? false,
-              onComplete: args?['onComplete'] as void Function(int?, Map<String, dynamic>?)?,
-            ),
-          );
-        }
-        return null;
       },
       home: Consumer<UserProvider>(
         builder: (context, userProvider, _) {

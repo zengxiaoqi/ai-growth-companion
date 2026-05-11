@@ -19,9 +19,11 @@ async function bootstrap() {
     prefix: "/",
   });
 
-  // SPA 回退：非 /api 路径返回 index.html
+  // SPA 回退：非 /api 路径且非静态资源文件，返回 index.html
   app.getHttpAdapter().get("*", (req: any, res: any, next: any) => {
     if (req.path.startsWith("/api")) return next();
+    // 有文件后缀的请求（.js/.wasm/.png/.json 等）交给 express.static 处理
+    if (req.path.includes(".")) return next();
     res.sendFile(join(__dirname, "..", "public", "index.html"));
   });
 

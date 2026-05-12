@@ -31,6 +31,9 @@ dependencies:
   
   # 音频
   audioplayers: ^5.2.1
+
+  # 语音识别
+  speech_to_text: ^7.3.0
   
   # 工具
   uuid: ^4.2.1

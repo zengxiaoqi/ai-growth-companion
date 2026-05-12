@@ -17,7 +17,10 @@ import 'child_selector.dart';
 /// 家长端课程生成器页面
 /// 功能：AI 一键生成课程、课程预览、步骤编辑、保存/重新生成、草稿加载
 class LessonGeneratorScreen extends StatefulWidget {
-  const LessonGeneratorScreen({super.key});
+  /// 如果从草稿管理页面进入，传入要加载的草稿 contentId
+  final int? draftContentId;
+
+  const LessonGeneratorScreen({super.key, this.draftContentId});
 
   @override
   State<LessonGeneratorScreen> createState() => _LessonGeneratorScreenState();
@@ -78,6 +81,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
 
   // ── 状态 ──
   bool _isLoadingChildren = true;
+  bool _isLoadingDraft = false;
   List<Map<String, dynamic>> _children = [];
   int? _selectedChildId;
 
@@ -107,7 +111,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   bool _scenesExpanded = false;
 
   @override
-  void initState() { super.initState(); _loadChildren(); }
+  void initState() { super.initState(); _loadChildren().then((_) { if (widget.draftContentId != null) _loadDraft(widget.draftContentId!); }); }
 
   @override
   void dispose() {
@@ -118,6 +122,31 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   }
 
   // ── 数据加载 ──
+
+  /// 加载已有草稿数据，恢复到编辑/预览状态
+  Future<void> _loadDraft(int contentId) async {
+    setState(() { _isLoadingDraft = true; _error = null; });
+    final api = context.read<ApiService>();
+    try {
+      final result = await api.getContentDetail(contentId);
+      if (!mounted) return;
+      if (result == null) {
+        setState(() { _error = '加载草稿失败'; _isLoadingDraft = false; });
+        return;
+      }
+      final status = result['status']?.toString();
+      if (status != 'draft') {
+        setState(() { _error = '该课程不是草稿状态，无法编辑'; _isLoadingDraft = false; });
+        return;
+      }
+      _onLessonGenerated(result);
+      setState(() { _isLoadingDraft = false; });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = '加载草稿失败: $e'; _isLoadingDraft = false; });
+    }
+  }
+
   Future<void> _loadChildren() async {
     final parentId = _currentParentId;
     if (parentId == null) {
@@ -452,7 +481,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoadingChildren) return const Padding(
+    if (_isLoadingChildren || _isLoadingDraft) return const Padding(
       padding: EdgeInsets.all(16),
       child: Column(children: [
         ShimmerCard(height: 90),

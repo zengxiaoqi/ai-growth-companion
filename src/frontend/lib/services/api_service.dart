@@ -1187,6 +1187,17 @@ class ApiService {
 
   // ==================== 语音 ====================
 
+  /// 删除课程草稿
+  Future<bool> deleteLessonDraft(int contentId) async {
+    try {
+      await _dio.delete('/learning/lessons/$contentId');
+      return true;
+    } catch (e) {
+      print('Delete lesson draft error: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>?> requestTts(String text, {String voice = 'zh-CN-XiaoxiaoNeural'}) async {
     try {
       final response = await _dio.get('/voice/tts', queryParameters: {

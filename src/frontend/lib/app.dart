@@ -20,6 +20,7 @@ import 'screens/parent/growth_report_screen.dart';
 import 'screens/parent/ai_insights_panel.dart';
 import 'screens/parent/report_detail_screen.dart';
 import 'screens/parent/lesson_generator_screen.dart';
+import 'screens/parent/draft_manager_screen.dart';
 import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
 import 'screens/learning/content_detail_screen.dart';
@@ -126,7 +127,14 @@ class LingxiApp extends StatelessWidget {
             );
           case '/parent/lessonGenerator':
             return _page(
-              (_) => const LessonGeneratorScreen(),
+              (_) => LessonGeneratorScreen(
+                draftContentId: args?['draftContentId'] as int?,
+              ),
+              slideFromRight,
+            );
+          case '/parent/draftManager':
+            return _page(
+              (_) => const DraftManagerScreen(),
               slideFromRight,
             );
 

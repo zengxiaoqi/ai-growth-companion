@@ -272,6 +272,34 @@ class ParentHomeContent extends StatelessWidget {
           color: AppTheme.softOrange,
           onTap: () => Navigator.pushNamed(context, '/parent/assignmentManager'),
         ),
+        _MenuTile(
+          icon: Icons.drafts_rounded,
+          title: '课程草稿',
+          subtitle: '管理 AI 生成的课程草稿',
+          color: AppTheme.softYellow,
+          onTap: () => Navigator.pushNamed(context, '/parent/draftManager'),
+        ),
+        _MenuTile(
+          icon: Icons.inventory_2_rounded,
+          title: '课程包管理',
+          subtitle: '查看和管理课程包',
+          color: AppTheme.softMint,
+          onTap: () => Navigator.pushNamed(context, '/parent/coursePackManager'),
+        ),
+        _MenuTile(
+          icon: Icons.radar_rounded,
+          title: '能力雷达',
+          subtitle: '查看孩子多维能力分布',
+          color: AppTheme.softBlue,
+          onTap: () => Navigator.pushNamed(context, '/parent/abilityRadar'),
+        ),
+        _MenuTile(
+          icon: Icons.trending_up_rounded,
+          title: '能力趋势',
+          subtitle: '追踪孩子能力成长曲线',
+          color: AppTheme.softPurple,
+          onTap: () => Navigator.pushNamed(context, '/parent/abilityTrend'),
+        ),
       ],
     );
   }

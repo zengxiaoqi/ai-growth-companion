@@ -82,29 +82,10 @@ class ChildHomeContent extends StatefulWidget {
   State<ChildHomeContent> createState() => _ChildHomeContentState();
 }
 
-class _ChildHomeContentState extends State<ChildHomeContent>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _bounceController;
-  late Animation<double> _bounceAnimation;
-
+class _ChildHomeContentState extends State<ChildHomeContent> {
   @override
   void initState() {
     super.initState();
-    _bounceController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _bounceAnimation = CurvedAnimation(
-      parent: _bounceController,
-      curve: Curves.elasticOut,
-    );
-    _bounceController.forward();
-  }
-
-  @override
-  void dispose() {
-    _bounceController.dispose();
-    super.dispose();
   }
 
   @override
@@ -120,12 +101,8 @@ class _ChildHomeContentState extends State<ChildHomeContent>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ScaleTransition(
-              scale: _bounceAnimation,
-              child: FadeTransition(
-                opacity: _bounceAnimation,
-                child: _buildWelcomeSection(userName),
-              ),
+            BounceIn(
+              child: _buildWelcomeSection(userName),
             ),
             const SizedBox(height: 24),
             _buildStudyTimeCard(todayMinutes),

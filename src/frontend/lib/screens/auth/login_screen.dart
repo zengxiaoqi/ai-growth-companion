@@ -105,24 +105,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 40),
-                    _buildPhoneField(),
-                    const SizedBox(height: 20),
-                    _buildPasswordField(),
-                    const SizedBox(height: 16),
-                    _buildRememberAndForgot(),
-                    const SizedBox(height: 24),
-                    if (_error != null) ...[
-                      _buildErrorBanner(),
+                child: AppCard(
+                  color: Colors.white,
+                  boxShadow: AppTheme.softShadow(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 40),
+                      _buildPhoneField(),
+                      const SizedBox(height: 20),
+                      _buildPasswordField(),
                       const SizedBox(height: 16),
+                      _buildRememberAndForgot(),
+                      const SizedBox(height: 24),
+                      if (_error != null) ...[
+                        _buildErrorBanner(),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildLoginButton(),
+                      const SizedBox(height: 24),
+                      _buildRegisterLink(),
                     ],
-                    _buildLoginButton(),
-                    const SizedBox(height: 24),
-                    _buildRegisterLink(),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -339,6 +344,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: Colors.white,
                 ),
               ),
+        ),
       ),
     );
   }

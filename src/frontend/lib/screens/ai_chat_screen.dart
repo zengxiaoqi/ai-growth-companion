@@ -3,11 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../theme/animation_utils.dart';
-import '../components/app_card.dart';
 import '../components/section_header.dart';
 import '../components/shimmer_loading.dart';
-import '../components/section_header.dart';
 import '../services/api_service.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';

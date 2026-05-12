@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../components/top_bar.dart';
@@ -101,6 +102,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   int? _editingSceneIndex;
   int _previewSceneIndex = 0;
   bool _isSavingDraft = false;
+  bool _scenesExpanded = false;
 
   @override
   void initState() { super.initState(); _loadChildren(); }
@@ -390,6 +392,44 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   int? _toInt(dynamic value) { if (value is int) return value; return int.tryParse(value?.toString() ?? ''); }
   String _contentStatus() => _generatedContent?['status']?.toString() ?? '';
 
+  // ── 场景编辑切换（含确认对话框 + 触觉反馈） ──
+  void _toggleSceneEdit(int index) async {
+    if (_editingSceneIndex == index) {
+      // 正在编辑 → 关闭编辑态
+      if (_sceneEdits.containsKey(index)) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('确认退出编辑', style: TextStyle(color: AppTheme.textColor)),
+            content: const Text('当前场景的修改将会保留在本地，你可以稍后保存草稿。确定要关闭编辑吗？', style: TextStyle(color: AppTheme.textSecondary)),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('继续编辑')),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                child: const Text('退出编辑'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+      }
+      setState(() { _editingSceneIndex = null; });
+      HapticFeedback.lightImpact();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('已退出场景编辑模式'), backgroundColor: AppTheme.textSecondary, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+      );
+    } else {
+      // 其他场景 → 打开编辑态
+      setState(() { _editingSceneIndex = index; });
+      HapticFeedback.lightImpact();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('正在编辑场景 ${index + 1}，修改后请记得保存草稿'), backgroundColor: AppTheme.primaryColor, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), duration: const Duration(seconds: 2)),
+      );
+    }
+  }
+
   // ── 构建 UI ──
   @override
   Widget build(BuildContext context) {
@@ -417,8 +457,43 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       const SizedBox(height: 14),
       if (_error != null) _buildErrorBanner(),
       if (_generatedContent == null) _buildInputForm(),
+      if (_generatedContent != null && _lessonData == null && _isGenerating) _buildGeneratingSkeleton(),
       if (_generatedContent != null && _lessonData != null) _buildLessonPreview(),
     ]);
+  }
+
+  /// 生成中骨架屏
+  Widget _buildGeneratingSkeleton() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _buildSkeletonCard(height: 90),
+      const SizedBox(height: 12),
+      ...List.generate(4, (_) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _buildSkeletonCard(height: 70),
+      )),
+      const SizedBox(height: 16),
+      Center(child: Column(children: [
+        const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor)),
+        const SizedBox(height: 12),
+        Text(_generationProgress.isNotEmpty ? _generationProgress : 'AI 正在生成课程...', style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+      ])),
+    ]);
+  }
+
+  Widget _buildSkeletonCard({double height = 80}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: ShaderMask(
+        shaderCallback: (bounds) => LinearGradient(
+          colors: [Colors.grey.shade200, Colors.grey.shade100, Colors.grey.shade200],
+          stops: const [0.1, 0.5, 0.9],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ).createShader(bounds),
+        child: Container(color: Colors.white, width: double.infinity),
+      ),
+    );
   }
 
   Widget _buildErrorBanner() {
@@ -513,6 +588,27 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       const SizedBox(height: 12),
       _buildConfirmSection(),
     ]);
+  }
+
+  Widget _buildLessonHeader(String title, String summary, dynamic outcomes) {
+    return Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(padding: const EdgeInsets.all(16),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+            if (summary.isNotEmpty) ...[const SizedBox(height: 4), Text(summary, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))],
+            if (outcomes is List && outcomes.isNotEmpty) ...[const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: outcomes.map<Widget>((o) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                child: Text(o.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+              )).toList()),
+            ],
+          ])),
+          IconButton(onPressed: _handleReset, tooltip: '重新生成', icon: const Icon(Icons.refresh_rounded, size: 22, color: AppTheme.textSecondary)),
+        ]),
+      ),
+    );
   }
 
   Widget _buildStepCard(Map<String, dynamic> step) {
@@ -709,9 +805,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
               GestureDetector(
-                onTap: () => setState(() {
-                  _editingSceneIndex = isEditing ? null : i;
-                }),
+                onTap: () => _toggleSceneEdit(i),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(

@@ -8,6 +8,7 @@ import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../screens/learning/animation_scene_player.dart';
 import 'child_selector.dart';
 
 /// 家长端课程生成器页面
@@ -45,6 +46,9 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       _QuickEditOption(label: '更贴主题', prompt: '把这一部分的动画讲解改得更贴合当前主题，避免只出现泛化的字词展示。'),
       _QuickEditOption(label: '丰富讲解', prompt: '把这一部分的动画讲解内容再丰富一些，增加更具体的观察点和讲解细节。'),
       _QuickEditOption(label: '放慢节奏', prompt: '把这一部分的动画讲解节奏放慢一些，每个场景多给一点停留和说明。'),
+      _QuickEditOption(label: '修改场景旁白', prompt: '请修改当前展开场景的旁白文字（narration），让它更贴近主题、更适合孩子理解，表达更自然有趣。修改后保持场景的原有角色和背景不变。'),
+      _QuickEditOption(label: '调整动画节奏', prompt: '请调整动画场景的数量和节奏。如果场景太少可以拆分增加，如果太多可以合并精简。每个场景保持合适的信息量和停留时间，确保 5-6 岁孩子能跟得上。'),
+      _QuickEditOption(label: '添加互动元素', prompt: '请在动画场景中加入互动点，例如在关键场景处插入提问（"你看到了什么？"）、互动指令（"指一指哪个是红色"）、或者等待孩子回应后再继续。让动画不再是单向播放，而是有互动感。'),
     ],
     'read': [
       _QuickEditOption(label: '更短更清楚', prompt: '把这一部分的阅读内容缩短一点，并让句子更清楚。'),
@@ -91,6 +95,12 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   String _editScope = 'selected';
   bool _isModifying = false;
   bool _isConfirming = false;
+
+  // ── 场景编辑状态 ──
+  Map<int, Map<String, String>> _sceneEdits = {};
+  int? _editingSceneIndex;
+  int _previewSceneIndex = 0;
+  bool _isSavingDraft = false;
 
   @override
   void initState() { super.initState(); _loadChildren(); }
@@ -169,6 +179,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     setState(() {
       _generatedContent = content; _lessonData = lesson; _isGenerating = false; _generationProgress = '';
       _expandedStepId = lesson?['steps'] is List && (lesson!['steps'] as List).isNotEmpty ? _stepId(lesson['steps'][0]) : null;
+      _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0;
     });
   }
 
@@ -211,7 +222,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       Map<String, dynamic>? lesson;
       if (rawContent is String) { try { lesson = jsonDecode(rawContent) as Map<String, dynamic>; } catch (_) {} }
       else if (rawContent is Map) { lesson = rawContent.map((k, v) => MapEntry(k.toString(), v)); }
-      setState(() { _generatedContent = result; _lessonData = lesson; _isModifying = false; _modificationController.clear(); });
+      setState(() { _generatedContent = result; _lessonData = lesson; _isModifying = false; _modificationController.clear(); _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('课程已更新'), backgroundColor: Color(0xFF0B8F55)));
     } catch (e) { if (!mounted) return; setState(() { _error = '修改课程失败: $e'; _isModifying = false; }); }
   }
@@ -220,20 +231,46 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   Future<void> _handleConfirm() async {
     final contentId = _toInt(_generatedContent?['id']);
     if (contentId == null || _selectedChildId == null) return;
+
+    // 如果有未保存的场景编辑，先保存
+    if (_sceneEdits.isNotEmpty) {
+      setState(() { _isConfirming = true; _error = null; });
+      final api = context.read<ApiService>();
+      final modDesc = _buildSceneEditDescription();
+      try {
+        final modResult = await api.modifyLesson(contentId, modDesc);
+        if (!mounted) return;
+        if (modResult == null || modResult['error'] != null) {
+          setState(() { _error = modResult?['error']?.toString() ?? '保存场景修改失败'; _isConfirming = false; });
+          return;
+        }
+        final rawContent = modResult['content'];
+        if (rawContent is String) { try { _lessonData = jsonDecode(rawContent) as Map<String, dynamic>; } catch (_) {} }
+        else if (rawContent is Map) { _lessonData = rawContent.map((k, v) => MapEntry(k.toString(), v)); }
+        _sceneEdits = {};
+        _editingSceneIndex = null;
+        _previewSceneIndex = 0;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() { _error = '保存场景修改失败: $e'; _isConfirming = false; });
+        return;
+      }
+    }
+
     setState(() { _isConfirming = true; _error = null; });
     final api = context.read<ApiService>();
     try {
       final result = await api.confirmLesson(contentId, _selectedChildId!);
       if (!mounted) return;
       if (result == null || result['error'] != null) { setState(() { _error = result?['error']?.toString() ?? '确认发布失败'; _isConfirming = false; }); return; }
-      setState(() { _generatedContent = result; _isConfirming = false; });
+      setState(() { _generatedContent = result; _isConfirming = false; _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('课程已发布到学生端！'), backgroundColor: Color(0xFF0B8F55)));
     } catch (e) { if (!mounted) return; setState(() { _error = '确认发布失败: $e'; _isConfirming = false; }); }
   }
 
   void _handleReset() {
     _pollTimer?.cancel(); _pollTimer = null;
-    setState(() { _generatedContent = null; _lessonData = null; _modificationController.clear(); _error = null; _expandedStepId = null; _isGenerating = false; _generationProgress = ''; });
+    setState(() { _generatedContent = null; _lessonData = null; _modificationController.clear(); _error = null; _expandedStepId = null; _isGenerating = false; _generationProgress = ''; _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
   }
 
   void _applyQuickEdit(_QuickEditOption option) {
@@ -275,11 +312,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     final module = step['module']; if (module is! Map) return '';
     final type = module['type']?.toString() ?? '';
     if (type == 'video') {
-      final scenes = module['visualStory']?['scenes'] ?? module['videoLesson']?['shots'] ?? [];
-      if (scenes is List && scenes.isNotEmpty) {
-        final first = scenes.first is Map ? scenes.first as Map : {};
-        return first['narration']?.toString() ?? first['caption']?.toString() ?? first['scene']?.toString() ?? '共 ${scenes.length} 个场景';
-      }
+      final scenesRaw = module['visualStory']?['scenes'] ?? module['videoLesson']?['shots'];
+      if (scenesRaw is List && scenesRaw.isNotEmpty) return '共 ${scenesRaw.length} 个动画场景';
       return '动画场景';
     }
     if (type == 'reading') return module['reading']?['text']?.toString() ?? '阅读材料';
@@ -295,6 +329,63 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     }
     return type;
   }
+
+  // ── 场景解析与编辑辅助 ──
+
+  /// 从步骤中解析动画场景列表
+  List<AnimationScene> _parseScenesFromStep(Map<String, dynamic> step) {
+    final module = step['module']; if (module is! Map) return [];
+    final scenesRaw = module['visualStory']?['scenes'] ?? module['videoLesson']?['shots'];
+    if (scenesRaw is! List || scenesRaw.isEmpty) return [];
+    return scenesRaw.whereType<Map>().map<AnimationScene>((s) {
+      return AnimationScene(
+        narration: s['narration']?.toString() ?? '',
+        onScreenText: s['onScreenText']?.toString() ?? '',
+        background: s['background']?.toString() ?? '#FFB6C1',
+        character: s['character']?.toString() ?? '🦄',
+      );
+    }).toList();
+  }
+
+  /// 合并场景编辑后的数据
+  AnimationScene _mergedScene(int index, List<AnimationScene> original) {
+    final orig = original[index];
+    final edits = _sceneEdits[index];
+    if (edits == null) return orig;
+    return AnimationScene(
+      narration: edits['narration'] ?? orig.narration,
+      onScreenText: edits['onScreenText'] ?? orig.onScreenText,
+      background: orig.background,
+      character: orig.character,
+    );
+  }
+
+  /// 解析场景背景颜色
+  Color _parseSceneColor(String background) {
+    final hex = background.replaceAll('#', '').trim();
+    if (RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex)) {
+      return Color(int.parse('FF$hex', radix: 16));
+    }
+    return AppTheme.softPink;
+  }
+
+  /// 构建场景编辑描述（用于 API 保存）
+  String _buildSceneEditDescription() {
+    final buffer = StringBuffer('请根据以下场景修改请求，更新课程中的 watch 步骤动画场景：\n\n');
+    _sceneEdits.forEach((index, edits) {
+      buffer.writeln('场景 ${index + 1}:');
+      if (edits.containsKey('narration')) {
+        buffer.writeln('  - 旁白修改为: ${edits['narration']}');
+      }
+      if (edits.containsKey('onScreenText')) {
+        buffer.writeln('  - 屏幕文字修改为: ${edits['onScreenText']}');
+      }
+      buffer.writeln();
+    });
+    buffer.write('请保持其他场景不变，只更新上述指定场景的内容。');
+    return buffer.toString();
+  }
+
   int? get _currentParentId { final user = context.read<UserProvider>().currentUser; return _toInt(user?['id']); }
   int? _toInt(dynamic value) { if (value is int) return value; return int.tryParse(value?.toString() ?? ''); }
   String _contentStatus() => _generatedContent?['status']?.toString() ?? '';
@@ -433,12 +524,18 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     final moduleType = module is Map ? module['type']?.toString() ?? '' : '';
     final isExpanded = _expandedStepId == stepId;
     final previewText = _buildStepPreviewText(step);
+    final isWatchStep = stepId == 'watch';
+    final scenes = isWatchStep ? _parseScenesFromStep(step) : <AnimationScene>[];
     return Card(elevation: 0, margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16),
         side: isExpanded ? BorderSide(color: AppTheme.primaryColor.withOpacity(0.35), width: 1.5) : BorderSide.none),
       color: isExpanded ? AppTheme.primaryColor.withOpacity(0.06) : Colors.white,
       child: InkWell(borderRadius: BorderRadius.circular(16),
-        onTap: () => setState(() { _expandedStepId = isExpanded ? null : stepId; }),
+        onTap: () => setState(() {
+          final wasSame = _expandedStepId == stepId;
+          _expandedStepId = wasSame ? null : stepId;
+          if (!wasSame) { _previewSceneIndex = 0; _editingSceneIndex = null; }
+        }),
         child: Padding(padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -453,15 +550,253 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
             ]),
             if (isExpanded) ...[
               const SizedBox(height: 12),
-              Container(padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
-                child: Text(previewText, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
-              ),
+              if (isWatchStep && scenes.isNotEmpty)
+                _buildLightweightScenePreview(scenes)
+              else
+                Container(padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(12)),
+                  child: Text(previewText, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.5), maxLines: 5, overflow: TextOverflow.ellipsis),
+                ),
+              if (isWatchStep && scenes.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildSceneEditList(scenes),
+              ],
             ],
           ]),
         ),
       ),
     );
+  }
+
+  // ── 轻量视频场景预览 ──
+
+  Widget _buildLightweightScenePreview(List<AnimationScene> scenes) {
+    if (_previewSceneIndex >= scenes.length) _previewSceneIndex = 0;
+    final scene = _mergedScene(_previewSceneIndex, scenes);
+    final bgColor = _parseSceneColor(scene.background);
+    return Column(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 180,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [bgColor, bgColor.withOpacity(0.5), AppTheme.backgroundColor],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Stack(children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 50),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(scene.character.isNotEmpty ? scene.character : '🎬',
+                    style: const TextStyle(fontSize: 42)),
+                  if (scene.onScreenText.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(scene.onScreenText, textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.textColor)),
+                  ],
+                ]),
+              ),
+            ),
+            if (scene.narration.isNotEmpty)
+              Positioned(left: 0, right: 0, bottom: 0, child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.92),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.record_voice_over_rounded, size: 14, color: AppTheme.primaryColor),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(scene.narration,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textColor),
+                    maxLines: 2, overflow: TextOverflow.ellipsis)),
+                ]),
+              )),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        _smallNavButton(Icons.chevron_left, () {
+          if (_previewSceneIndex > 0) setState(() { _previewSceneIndex--; _editingSceneIndex = null; });
+        }),
+        ...List.generate(scenes.length, (i) => AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          width: _previewSceneIndex == i ? 16 : 6, height: 6,
+          decoration: BoxDecoration(
+            color: _previewSceneIndex == i ? AppTheme.primaryColor : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        )),
+        _smallNavButton(Icons.chevron_right, () {
+          if (_previewSceneIndex < scenes.length - 1) setState(() { _previewSceneIndex++; _editingSceneIndex = null; });
+        }),
+      ]),
+    ]);
+  }
+
+  Widget _smallNavButton(IconData icon, VoidCallback onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 28, height: 28,
+        decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+        child: Icon(icon, size: 18, color: AppTheme.primaryColor),
+      ),
+    );
+  }
+
+  // ── 场景编辑列表 ──
+
+  Widget _buildSceneEditList(List<AnimationScene> scenes) {
+    final hasEditsSet = _sceneEdits.isNotEmpty;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: const Text('场景内容编辑', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor))),
+        if (hasEditsSet)
+          GestureDetector(
+            onTap: _handleSaveDraft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(12)),
+              child: _isSavingDraft
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('保存草稿', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
+            ),
+          ),
+      ]),
+      const SizedBox(height: 8),
+      ...List.generate(scenes.length, (i) {
+        final scene = _mergedScene(i, scenes);
+        final isEditing = _editingSceneIndex == i;
+        final hasEdit = _sceneEdits.containsKey(i);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isEditing ? AppTheme.primaryColor.withOpacity(0.05) : AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(12),
+            border: isEditing
+                ? Border.all(color: AppTheme.primaryColor.withOpacity(0.3))
+                : hasEdit
+                    ? Border.all(color: AppTheme.accentColor.withOpacity(0.5))
+                    : null,
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 20, height: 20,
+                decoration: BoxDecoration(
+                  color: hasEdit ? AppTheme.accentColor : AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(child: Text('${i + 1}',
+                  style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold))),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('旁白: ${scene.narration.isNotEmpty ? scene.narration : '(空)'}',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textColor, fontWeight: FontWeight.w500),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (scene.onScreenText.isNotEmpty)
+                  Text('屏幕文字: ${scene.onScreenText}',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ])),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _editingSceneIndex = isEditing ? null : i;
+                }),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isEditing ? Icons.check_rounded : Icons.edit_rounded,
+                    size: 16, color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ]),
+            if (isEditing) ...[
+              const SizedBox(height: 8),
+              _buildSceneEditFields(i, scene),
+            ],
+          ]),
+        );
+      }),
+    ]);
+  }
+
+  Widget _buildSceneEditFields(int index, AnimationScene scene) {
+    return Column(children: [
+      TextField(
+        decoration: InputDecoration(
+          labelText: '旁白文字',
+          labelStyle: const TextStyle(fontSize: 12),
+          hintText: scene.narration.isNotEmpty ? scene.narration : '输入旁白...',
+          filled: true, fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          isDense: true,
+        ),
+        style: const TextStyle(fontSize: 13),
+        maxLines: 2,
+        onChanged: (v) { _sceneEdits[index] ??= {}; _sceneEdits[index]!['narration'] = v; setState(() {}); },
+      ),
+      const SizedBox(height: 6),
+      TextField(
+        decoration: InputDecoration(
+          labelText: '屏幕文字',
+          labelStyle: const TextStyle(fontSize: 12),
+          hintText: scene.onScreenText.isNotEmpty ? scene.onScreenText : '输入屏幕文字...',
+          filled: true, fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          isDense: true,
+        ),
+        style: const TextStyle(fontSize: 13),
+        maxLines: 1,
+        onChanged: (v) { _sceneEdits[index] ??= {}; _sceneEdits[index]!['onScreenText'] = v; setState(() {}); },
+      ),
+    ]);
+  }
+
+  // ── 保存草稿 ──
+
+  Future<void> _handleSaveDraft() async {
+    final contentId = _toInt(_generatedContent?['id']);
+    if (contentId == null || _sceneEdits.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('没有需要保存的修改')));
+      return;
+    }
+    setState(() { _isSavingDraft = true; _error = null; });
+    final api = context.read<ApiService>();
+    final modDesc = _buildSceneEditDescription();
+    try {
+      final result = await api.modifyLesson(contentId, modDesc);
+      if (!mounted) return;
+      if (result == null || result['error'] != null) {
+        setState(() { _error = result?['error']?.toString() ?? '保存草稿失败'; _isSavingDraft = false; });
+        return;
+      }
+      final rawContent = result['content'];
+      Map<String, dynamic>? lesson;
+      if (rawContent is String) { try { lesson = jsonDecode(rawContent) as Map<String, dynamic>; } catch (_) {} }
+      else if (rawContent is Map) { lesson = rawContent.map((k, v) => MapEntry(k.toString(), v)); }
+      setState(() { _generatedContent = result; _lessonData = lesson; _isSavingDraft = false; _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('草稿已保存'), backgroundColor: Color(0xFF0B8F55)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _error = '保存草稿失败: $e'; _isSavingDraft = false; });
+    }
   }
 
   Widget _buildModificationPanel() {
@@ -539,14 +874,34 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   Widget _buildConfirmSection() {
     final status = _contentStatus();
     if (status == 'draft') {
-      return SizedBox(width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: (_isConfirming) ? null : _handleConfirm,
-          icon: _isConfirming ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline_rounded, size: 20),
-          label: Text(_isConfirming ? '正在发布...' : '确认内容，发布到学生端'),
-          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (_sceneEdits.isNotEmpty) ...[
+          SizedBox(width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isSavingDraft ? null : _handleSaveDraft,
+              icon: _isSavingDraft
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                  : const Icon(Icons.save_outlined, size: 20),
+              label: Text(_isSavingDraft ? '正在保存...' : '保存草稿（${_sceneEdits.length} 个场景已修改）'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                side: BorderSide(color: AppTheme.accentColor),
+                foregroundColor: AppTheme.accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        SizedBox(width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: (_isConfirming) ? null : _handleConfirm,
+            icon: _isConfirming ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline_rounded, size: 20),
+            label: Text(_isConfirming ? '正在发布...' : '确认内容，发布到学生端'),
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          ),
         ),
-      );
+      ]);
     }
     return Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),

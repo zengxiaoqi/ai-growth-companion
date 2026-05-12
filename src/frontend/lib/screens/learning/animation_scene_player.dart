@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../components/empty_state.dart';
 import '../../theme/app_theme.dart';
 
 /// 动画场景数据模型
@@ -235,7 +236,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
   @override
   Widget build(BuildContext context) {
     if (widget.scenes.isEmpty) {
-      return _buildEmptyState();
+      return const EmptyState(
+        emoji: '🎬',
+        title: '暂无动画内容',
+        subtitle: '学习内容正在准备中...',
+      );
     }
 
     // 需要用户点击才能开始（移动端自动播放限制）
@@ -263,41 +268,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
     );
   }
 
-  // ==================== 空状态 ====================
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.movie_outlined,
-              size: 56,
-              color: AppTheme.textSecondary.withOpacity(0.4),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '暂无动画内容',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '学习内容正在准备中...',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   // ==================== 点击开始覆盖层 ====================
   Widget _buildTapToStartOverlay() {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
 import '../../providers/user_provider.dart';
+import '../../components/empty_state.dart';
 import '../../services/api_service.dart';
 
 /// 学科课程列表页
@@ -103,24 +104,10 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
     }
 
     if (_courses.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.school_rounded, size: 64,
-                color: AppTheme.textSecondary.withOpacity(0.4)),
-            const SizedBox(height: 16),
-            const Text(
-              '该学科暂无课程',
-              style: TextStyle(fontSize: 18, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '更多课程正在制作中，敬请期待 ✨',
-              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
+      return const EmptyState(
+        emoji: '📚',
+        title: '该学科暂无课程',
+        subtitle: '更多课程正在制作中，敬请期待 ✨',
       );
     }
 

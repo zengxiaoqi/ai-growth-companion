@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
+import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../games/quiz_game.dart';
 
@@ -377,29 +378,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryColor,
-                        strokeWidth: 4,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '正在加载内容...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: ShimmerCard(height: 200),
               ),
             ),
           ],

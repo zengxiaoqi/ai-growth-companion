@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -450,8 +452,17 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoadingChildren) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-    if (_children.isEmpty) return _buildEmptyState('暂无孩子账号', '请先在家长端关联孩子，之后可生成课程。', Icons.family_restroom_rounded);
+    if (_isLoadingChildren) return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(children: [
+        ShimmerCard(height: 90),
+        SizedBox(height: 12),
+        ShimmerCard(height: 70),
+        SizedBox(height: 12),
+        ShimmerCard(height: 70),
+      ]),
+    );
+    if (_children.isEmpty) return const EmptyState(emoji: '👨‍👧', title: '选择孩子并输入主题', subtitle: 'AI 将为你生成个性化学习课程');
     return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
       ChildSelector(children: _children, selectedChildId: _selectedChildId, onChildChanged: _onChildChanged, mode: ChildSelectorMode.bottomSheet),
       const SizedBox(height: 14),
@@ -1037,23 +1048,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     }).toList());
   }
 
-  Widget _buildEmptyState(String title, String desc, IconData icon) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: AppTheme.textSecondary.withOpacity(0.5)),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-            const SizedBox(height: 8),
-            Text(desc, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
 
 // ── 数据类 ──

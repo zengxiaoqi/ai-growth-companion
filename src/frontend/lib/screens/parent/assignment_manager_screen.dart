@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -463,9 +465,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     }
 
     if (_children.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '👶',
         title: '暂无孩子账号',
-        description: '请先在家长端关联孩子，之后可布置作业。',
+        subtitle: '请先在家长端关联孩子，之后可布置作业。',
       );
     }
 
@@ -694,7 +697,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 草稿作业列表
   Widget _buildDraftSection() {
     if (_isLoadingData) {
-      return const _SectionSkeleton();
+      return const SizedBox(
+        height: 200,
+        child: Center(child: ShimmerCard(height: 120)),
+      );
     }
 
     // 按孩子过滤并按时间倒序
@@ -713,10 +719,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       });
 
     if (drafts.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '📝',
         title: '暂无草稿作业',
-        description: '未发布的一键生成课程会显示在这里，方便继续查看和编辑。',
-        icon: Icons.note_alt_outlined,
+        subtitle: '未发布的一键生成课程会显示在这里，方便继续查看和编辑。',
       );
     }
 
@@ -918,7 +924,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 已布置作业列表
   Widget _buildAssignmentSection() {
     if (_isLoadingData) {
-      return const _SectionSkeleton();
+      return const SizedBox(
+        height: 200,
+        child: Center(child: ShimmerCard(height: 120)),
+      );
     }
 
     // 按孩子过滤并按时间倒序
@@ -937,10 +946,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       });
 
     if (filtered.isEmpty) {
-      return const _EmptyState(
-        title: '暂无布置作业',
-        description: '点击上方"布置作业"按钮，为孩子创建本周任务。',
-        icon: Icons.inbox_outlined,
+      return const EmptyState(
+        emoji: '📋',
+        title: '暂无作业',
+        subtitle: '点击上方按钮为孩子布置作业',
       );
     }
 
@@ -1702,55 +1711,7 @@ class _SectionSkeleton extends StatelessWidget {
   }
 }
 
-/// 空状态组件
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
 
-  const _EmptyState({
-    required this.title,
-    required this.description,
-    this.icon = Icons.inbox_outlined,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  size: 48, color: AppTheme.textSecondary.withOpacity(0.5)),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ==================== 视频预览底部弹窗 ====================
 

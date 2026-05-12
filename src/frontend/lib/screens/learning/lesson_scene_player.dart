@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../components/empty_state.dart';
 import '../../services/tts_service.dart';
 import '../games/game_renderer.dart';
 import 'lesson_scene_models.dart';
@@ -238,7 +239,11 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
   @override
   Widget build(BuildContext context) {
     if (_scenes.isEmpty) {
-      return _buildEmptyState();
+      return const EmptyState(
+        emoji: '🎬',
+        title: '暂无动画内容',
+        subtitle: '学习内容正在准备中...',
+      );
     }
 
     return Column(
@@ -279,42 +284,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.movie_outlined,
-              size: 56,
-              color: AppTheme.textSecondary.withOpacity(0.4),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '暂无场景内容',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textColor,
-              ),
-            ),
-            if (!widget.isCompleted && !widget.previewMode) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => widget.onComplete?.call(80, null),
-                  child: const Text('完成此步骤'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildTapToStart() {
     final firstScene = _scenes.first;

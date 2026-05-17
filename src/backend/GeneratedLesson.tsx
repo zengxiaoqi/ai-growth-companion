@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio } from "@remotion/media";
 
-interface GeneratedScene {
+type GeneratedScene = {
   id: string;
   sequence: number;
   title: string;
@@ -11,920 +11,870 @@ interface GeneratedScene {
   onScreenText: string;
   visualDescription: string;
   durationSec: number;
-  transitionToNext: string;
-  emphasis: string;
-  accentColor: string;
-  action: string;
-  habitat: string;
-  assetKey: string;
-  assetTags: string[];
-  audioSrc: string;
-  visualAssets: {
+  accentColor?: string;
+  action?: string;
+  habitat?: string;
+  assetKey?: string;
+  assetTags?: string[];
+  audioSrc?: string;
+  visualAssets?: {
     characterAssetSrc?: string;
     backgroundAssetSrc?: string;
     hasCharacterAsset?: boolean;
-    hasBackgroundAsset?: boolean;
+    [key: string]: any;
   };
-}
+};
 
-interface GeneratedLessonProps {
+type GeneratedLessonProps = {
   title: string;
   topic: string;
   scenes: GeneratedScene[];
   durationFrames: number;
-}
+};
 
-export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, scenes, durationFrames }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  // 场景持续时间计算
-  const getSceneDuration = (sceneIndex: number) => {
-    return scenes[sceneIndex]?.durationSec * fps || 90;
-  };
-
-  // 场景开始帧
-  const getSceneStartFrame = (sceneIndex: number) => {
-    let start = 0;
-    for (let i = 0; i < sceneIndex; i++) {
-      start += getSceneDuration(i);
+const PeacockSVG: React.FC<{ frame: number; displayTail?: boolean; sceneType?: string }> = ({ frame, displayTail = false, sceneType = "walking" }) => {
+  const headBob = Math.sin(frame * 0.08) * 5;
+  const bodyBob = Math.sin(frame * 0.05) * 3;
+  const wingFlap = Math.sin(frame * 0.1) * 8;
+  const tailSpread = displayTail ? Math.min(interpolate(frame, [0, 30], [0, 1]), 1) : 0;
+  const tailWave = Math.sin(frame * 0.03) * 5 * tailSpread;
+  
+  // Tail feathers animation when displayed
+  const featherOscillation = displayTail ? Math.sin(frame * 0.05 + 1) * 3 : 0;
+  
+  const bodyX = 960;
+  const bodyY = 540 + bodyBob;
+  const headX = bodyX + headBob;
+  const headY = bodyY - 80;
+  
+  const neckColor = "#1A5F7A";
+  const bodyColor = "#2C6E49";
+  const crestColor = "#4ECDC4";
+  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA"];
+  
+  // Create tail feathers
+  const tailFeathers: React.ReactNode[] = [];
+  if (displayTail) {
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 11) * Math.PI - Math.PI / 2;
+      const length = 280 + Math.sin(i * 0.5) * 30;
+      const endX = bodyX + Math.cos(angle) * length * tailSpread;
+      const endY = bodyY + 120 + Math.sin(angle) * length * tailSpread;
+      const colorIndex = i % tailColors.length;
+      const featherWobble = Math.sin(frame * 0.03 + i * 0.3) * 8;
+      
+      const actualEndX = endX + featherWobble;
+      const actualEndY = endY;
+      
+      tailFeathers.push(
+        <g key={`feather-${i}`}>
+          <path
+            d={`M ${bodyX}, ${bodyY + 60} Q ${bodyX + Math.cos(angle) * 80}, ${bodyY + 80 + Math.sin(angle) * 60} ${actualEndX}, ${actualEndY}`}
+            stroke={tailColors[colorIndex]}
+            strokeWidth="12"
+            fill="none"
+            opacity={tailSpread}
+          />
+          {/* Eye spot on feather */}
+          <circle
+            cx={actualEndX - Math.cos(angle) * 40}
+            cy={actualEndY - Math.sin(angle) * 40}
+            r={15}
+            fill="#2C3E50"
+            opacity={tailSpread}
+          />
+          <circle
+            cx={actualEndX - Math.cos(angle) * 40}
+            cy={actualEndY - Math.sin(angle) * 40}
+            r={8}
+            fill="#3498DB"
+            opacity={tailSpread}
+          />
+          <circle
+            cx={actualEndX - Math.cos(angle) * 40}
+            cy={actualEndY - Math.sin(angle) * 40}
+            r={4}
+            fill="#1ABC9C"
+            opacity={tailSpread}
+          />
+        </g>
+      );
     }
-    return start;
-  };
+  }
+  
+  return (
+    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
+      {/* Background elements */}
+      <rect x="0" y="0" width="1920" height="1080" fill="#E8F5E9" />
+      
+      {/* Grass ground */}
+      <path d={`M 0,850 Q 480,830 960,850 T 1920,850 L 1920,1080 L 0,1080 Z`} fill="#81C784" />
+      
+      {/* Trees in background */}
+      <g>
+        <circle cx="200" cy="350" r="120" fill="#4CAF50" opacity="0.6" />
+        <circle cx="280" cy="280" r="100" fill="#66BB6A" opacity="0.5" />
+        <circle cx="150" cy="300" r="90" fill="#81C784" opacity="0.5" />
+        <rect x="180" y="420" width="40" height="150" fill="#795548" />
+        
+        <circle cx="1700" cy="380" r="140" fill="#4CAF50" opacity="0.6" />
+        <circle cx="1780" cy="300" r="110" fill="#66BB6A" opacity="0.5" />
+        <circle cx="1640" cy="320" r="100" fill="#81C784" opacity="0.5" />
+        <rect x="1670" y="450" width="45" height="160" fill="#795548" />
+      </g>
+      
+      {/* Sun */}
+      <circle cx="1600" cy="200" r="60" fill="#FFD54F" />
+      <circle cx="1600" cy="200" r="80" fill="#FFD54F" opacity="0.3" />
+      
+      {/* Tail feathers (behind body) */}
+      {tailFeathers}
+      
+      {/* Peacock body */}
+      <ellipse cx={bodyX} cy={bodyY} rx="70" ry="90" fill={bodyColor} />
+      
+      {/* Wings */}
+      <ellipse
+        cx={bodyX - 40 + wingFlap}
+        cy={bodyY + 20}
+        rx="45"
+        ry="70"
+        fill={bodyColor}
+        transform={`rotate(-10, ${bodyX - 40}, ${bodyY + 20})`}
+      />
+      <ellipse
+        cx={bodyX + 40 - wingFlap}
+        cy={bodyY + 20}
+        rx="45"
+        ry="70"
+        fill={bodyColor}
+        transform={`rotate(10, ${bodyX + 40}, ${bodyY + 20})`}
+      />
+      
+      {/* Neck */}
+      <path
+        d={`M ${bodyX - 20}, ${bodyY - 60} Q ${headX - 15}, ${headY + 30} ${headX}, ${headY}`}
+        stroke={neckColor}
+        strokeWidth="35"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Head */}
+      <circle cx={headX} cy={headY} r="35" fill={neckColor} />
+      
+      {/* Crest (crown) */}
+      <g>
+        <line x1={headX - 10} y1={headY - 30} x2={headX - 15} y2={headY - 60} stroke={crestColor} strokeWidth="4" />
+        <circle cx={headX - 15} cy={headY - 62} r="6" fill={crestColor} />
+        
+        <line x1={headX} y1={headY - 32} x2={headX} y2={headY - 68} stroke={crestColor} strokeWidth="4" />
+        <circle cx={headX} cy={headY - 70} r="7" fill={crestColor} />
+        
+        <line x1={headX + 10} y1={headY - 30} x2={headX + 15} y2={headY - 60} stroke={crestColor} strokeWidth="4" />
+        <circle cx={headX + 15} cy={headY - 62} r="6" fill={crestColor} />
+        
+        <line x1={headX - 5} y1={headY - 28} x2={headX - 8} y2={headY - 55} stroke={crestColor} strokeWidth="3" />
+        <circle cx={headX - 8} cy={headY - 56} r="5" fill={crestColor} />
+        
+        <line x1={headX + 5} y1={headY - 28} x2={headX + 8} y2={headY - 55} stroke={crestColor} strokeWidth="3" />
+        <circle cx={headX + 8} cy={headY - 56} r="5" fill={crestColor} />
+      </g>
+      
+      {/* Eye */}
+      <circle cx={headX + 12} cy={headY} r="10" fill="white" />
+      <circle cx={headX + 14} cy={headY} r="6" fill="#2C3E50" />
+      <circle cx={headX + 16} cy={headY - 2} r="2" fill="white" />
+      
+      {/* Beak */}
+      <path
+        d={`M ${headX + 30}, ${headY + 2} L ${headX + 50}, ${headY + 5} L ${headX + 30}, ${headY + 12} Z`}
+        fill="#F4A460"
+      />
+      
+      {/* Legs */}
+      <line x1={bodyX - 25} y1={bodyY + 80} x2={bodyX - 25} y2={bodyY + 140} stroke="#F4A460" strokeWidth="8" />
+      <line x1={bodyX + 25} y1={bodyY + 80} x2={bodyX + 25} y2={bodyY + 140} stroke="#F4A460" strokeWidth="8" />
+      
+      {/* Feet */}
+      <path d={`M ${bodyX - 35}, ${bodyY + 138} L ${bodyX - 15}, ${bodyY + 138} L ${bodyX - 25}, ${bodyY + 130} Z`} fill="#F4A460" />
+      <path d={`M ${bodyX + 15}, ${bodyY + 138} L ${bodyX + 35}, ${bodyY + 138} L ${bodyX + 25}, ${bodyY + 130} Z`} fill="#F4A460" />
+    </svg>
+  );
+};
 
-  // 森林背景组件
-  const ForestBackground: React.FC<{ frame: number }> = ({ frame }) => {
-    const tree sway = Math.sin(frame * 0.05) * 5;
-    const grassWave = Math.sin(frame * 0.03 + 1) * 8;
-    
-    return (
-      <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-        {/* 天空渐变 */}
-        <defs>
-          <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#87CEEB" />
-            <stop offset="100%" stopColor="#E0F2F1" />
-          </linearGradient>
-          <linearGradient id="grassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#90EE90" />
-            <stop offset="100%" stopColor="#228B22" />
-          </linearGradient>
-        </defs>
-        
-        {/* 天空 */}
-        <rect x="0" y="0" width="1920" height="700" fill="url(#skyGrad)" />
-        
-        {/* 太阳 */}
-        <circle cx="1600" cy="150" r="60" fill="#FFD700" opacity={0.9} />
-        <circle cx="1600" cy="150" r="80" fill="#FFD700" opacity={0.3} />
-        
-        {/* 远处的树木 */}
-        <g transform={`translate(${sway}, 0)`}>
-          <path d="M100 700 L180 400 L260 700 Z" fill="#2E7D32" />
-          <path d="M180 700 L250 450 L320 700 Z" fill="#388E3C" />
-          <path d="M250 700 L320 380 L390 700 Z" fill="#2E7D32" />
-        </g>
-        
-        <g transform={`translate(${sway * 0.8}, 0)`}>
-          <path d="M1500 700 L1580 420 L1660 700 Z" fill="#2E7D32" />
-          <path d="M1580 700 L1650 460 L1720 700 Z" fill="#388E3C" />
-          <path d="M1650 700 L1720 400 L1790 700 Z" fill="#2E7D32" />
-        </g>
-        
-        {/* 草地 */}
-        <rect x="0" y="650" width="1920" height="430" fill="url(#grassGrad)" />
-        
-        {/* 草丛细节 */}
-        <g transform={`translate(0, ${grassWave})`}>
-          <path d="M50 700 Q60 660 70 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M80 700 Q90 655 100 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M110 700 Q120 665 130 700" stroke="#228B22" strokeWidth="3" fill="none" />
-        </g>
-        
-        <g transform={`translate(200, ${grassWave * 0.9})`}>
-          <path d="M0 700 Q10 660 20 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M30 700 Q40 650 50 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M60 700 Q70 665 80 700" stroke="#228B22" strokeWidth="3" fill="none" />
-        </g>
-        
-        <g transform={`translate(1700, ${grassWave * 0.8})`}>
-          <path d="M0 700 Q10 660 20 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M30 700 Q40 655 50 700" stroke="#228B22" strokeWidth="3" fill="none" />
-          <path d="M60 700 Q70 665 80 700" stroke="#228B22" strokeWidth="3" fill="none" />
-        </g>
-      </svg>
-    );
-  };
-
-  // 孔雀身体组件
-  const PeacockBody: React.FC<{ frame: number; x: number; y: number; scale: number; isDisplaying?: boolean }> = 
-    ({ frame, x, y, scale, isDisplaying = false }) => {
-    const walkBob = Math.sin(frame * 0.1) * 3;
-    const headBob = Math.sin(frame * 0.1 + 0.5) * 2;
-    const crestWave = Math.sin(frame * 0.08) * 3;
-    
-    // 开屏动画
-    const tailSpread = isDisplaying ? 
-      Math.min(interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" }), 1) : 0;
-    const tailAngle = tailSpread * 80;
-    const tailScale = 1 + tailSpread * 0.5;
-
-    return (
-      <svg 
-        viewBox="0 0 1920 1080" 
-        style={{ 
-          position: "absolute", 
-          left: x, 
-          top: y, 
-          width: 600 * scale, 
-          height: 600 * scale,
-          transform: `scale(${scale})`
-        }}
-      >
-        {/* 尾羽（开屏时展开） */}
-        {isDisplaying ? (
-          <g transform={`translate(300, 450)`}>
-            {/* 后层尾羽 */}
-            {[...Array(8)].map((_, i) => {
-              const angle = (i - 3.5) * 12;
-              const length = 350 * tailScale;
-              const spread = tailSpread;
-              return (
-                <g key={i} transform={`rotate(${angle * spread})`}>
-                  <path 
-                    d={`M0 0 L${length} ${-40 - i * 5} L${length} ${40 + i * 5} Z`}
-                    fill="#00695C"
-                    opacity={0.7}
-                  />
-                  {/* 眼状斑纹 */}
-                  <g transform={`translate(${length * 0.7}, 0)`}>
-                    <ellipse cx="0" cy="0" rx="25" ry="35" fill="#1A237E" />
-                    <ellipse cx="0" cy="0" rx="18" ry="25" fill="#0D47A1" />
-                    <circle cx="0" cy="0" r="10" fill="#1565C0" />
-                    <circle cx="0" cy="0" r="5" fill="#1976D2" />
-                  </g>
-                </g>
-              );
-            })}
-            
-            {/* 中层尾羽 */}
-            {[...Array(6)].map((_, i) => {
-              const angle = (i - 2.5) * 16;
-              const length = 320 * tailScale;
-              return (
-                <g key={i} transform={`rotate(${angle * tailSpread})`}>
-                  <path 
-                    d={`M0 0 L${length} ${-35 - i * 6} L${length} ${35 + i * 6} Z`}
-                    fill="#00796B"
-                  />
-                  <g transform={`translate(${length * 0.65}, 0)`}>
-                    <ellipse cx="0" cy="0" rx="22" ry="30" fill="#1A237E" />
-                    <ellipse cx="0" cy="0" rx="15" ry="22" fill="#0D47A1" />
-                    <circle cx="0" cy="0" r="8" fill="#1565C0" />
-                  </g>
-                </g>
-              );
-            })}
-            
-            {/* 前层尾羽 */}
-            {[...Array(4)].map((_, i) => {
-              const angle = (i - 1.5) * 20;
-              const length = 280 * tailScale;
-              return (
-                <g key={i} transform={`rotate(${angle * tailSpread})`}>
-                  <path 
-                    d={`M0 0 L${length} ${-30 - i * 7} L${length} ${30 + i * 7} Z`}
-                    fill="#00897B"
-                  />
-                  <g transform={`translate(${length * 0.6}, 0)`}>
-                    <ellipse cx="0" cy="0" rx="20" ry="28" fill="#1A237E" />
-                    <ellipse cx="0" cy="0" rx="14" ry="20" fill="#0D47A1" />
-                    <circle cx="0" cy="0" r="7" fill="#1565C0" />
-                  </g>
-                </g>
-              );
-            })}
-          </g>
-        ) : (
-          /* 闭合的尾羽 */
-          <g transform={`translate(280, ${480 + walkBob})`}>
-            <path d="M0 0 Q-50 100 -30 200 Q-60 250 -20 280" 
-                  stroke="#00796B" strokeWidth="8" fill="none" />
-            <path d="M5 0 Q-30 100 -10 200 Q-35 250 0 280" 
-                  stroke="#00897B" strokeWidth="6" fill="none" />
-            <path d="M10 0 Q-10 100 10 200 Q-10 250 20 280" 
-                  stroke="#009688" strokeWidth="6" fill="none" />
-          </g>
-        )}
-        
-        {/* 身体 */}
-        <ellipse 
-          cx="300" 
-          cy={480 + walkBob} 
-          rx="70" 
-          ry="90" 
-          fill="#1565C0"
-        />
-        
-        {/* 胸部蓝色渐变区域 */}
-        <ellipse 
-          cx="300" 
-          cy={470 + walkBob} 
-          rx="55" 
-          ry="75" 
-          fill="#1976D2"
-        />
-        
-        {/* 翅膀 */}
-        <path 
-          d={`M250 ${460 + walkBob} Q180 ${420 + walkBob} 160 ${480 + walkBob} Q180 ${520 + walkBob} 250 ${500 + walkBob}`}
-          fill="#0D47A1"
-        />
-        <path 
-          d={`M255 ${465 + walkBob} Q190 ${430 + walkBob} 175 ${480 + walkBob} Q190 ${515 + walkBob} 255 ${495 + walkBob}`}
-          fill="#1565C0"
-        />
-        
-        {/* 脖子 */}
-        <path 
-          d={`M285 ${400 + walkBob} Q275 ${350 + walkBob} 290 ${300 + headBob}`}
-          stroke="#1565C0" 
-          strokeWidth="35" 
+const FeatherCloseupSVG: React.FC<{ frame: number }> = ({ frame }) => {
+  const shimmer = Math.sin(frame * 0.1) * 0.15;
+  const scale = interpolate(frame, [0, 20], [0.5, 1], { extrapolateRight: "clamp" });
+  const centerX = 960;
+  const centerY = 540;
+  
+  return (
+    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
+      {/* Blurred background */}
+      <rect x="0" y="0" width="1920" height="1080" fill="#81C784" opacity="0.3" />
+      <circle cx="400" cy="500" r="200" fill="#4CAF50" opacity="0.2" />
+      <circle cx="1500" cy="600" r="250" fill="#66BB6A" opacity="0.2" />
+      
+      {/* Main feather */}
+      <g transform={`translate(${centerX}, ${centerY}) scale(${scale})`}>
+        {/* Feather shaft */}
+        <path
+          d="M -10, -300 Q 0, 0 10, 300"
+          stroke="#5D4E37"
+          strokeWidth="6"
           fill="none"
-          strokeLinecap="round"
-        />
-        <path 
-          d={`M285 ${400 + walkBob} Q275 ${350 + walkBob} 290 ${300 + headBob}`}
-          stroke="#1976D2" 
-          strokeWidth="25" 
-          fill="none"
-          strokeLinecap="round"
         />
         
-        {/* 头部 */}
-        <ellipse 
-          cx={295 + headBob} 
-          cy={280 + headBob} 
-          rx="35" 
-          ry="40" 
-          fill="#1565C0"
-        />
-        
-        {/* 羽冠 */}
-        {[0, 1, 2, 3, 4].map((i) => {
-          const angle = (i - 2) * 8;
-          const height = 35 + i * 2;
+        {/* Feather barbs - left side */}
+        {[...Array(15)].map((_, i) => {
+          const y = -280 + i * 40;
+          const length = 80 - Math.abs(i - 7) * 5;
           return (
-            <g key={i} transform={`translate(${295 + headBob}, ${245 + headBob})`}>
-              <path 
-                d={`M0 0 L${Math.sin(angle * 0.1) * 10} ${-height + Math.sin(frame * 0.1 + i) * 3}`}
-                stroke="#00897B" 
-                strokeWidth="3" 
-                fill="none"
-                strokeLinecap="round"
-              />
-              <circle 
-                cx={`${Math.sin(angle * 0.1) * 10}`}
-                cy={`${-height + Math.sin(frame * 0.1 + i) * 3}`}
-                r="4"
-                fill="#4DB6AC"
-              />
-            </g>
+            <path
+              key={`left-${i}`}
+              d={`M -5, ${y} Q ${-length * 0.5}, ${y + 10} ${-length}, ${y}`}
+              stroke={i % 2 === 0 ? "#FF6B6B" : "#4ECDC4"}
+              strokeWidth="8"
+              fill="none"
+              opacity={0.8 + shimmer}
+            />
           );
         })}
         
-        {/* 眼睛 */}
-        <circle cx={308 + headBob} cy={275 + headBob} r="10" fill="white" />
-        <circle cx={310 + headBob} cy={275 + headBob} r="6" fill="black" />
-        <circle cx={312 + headBob} cy={273 + headBob} r="2" fill="white" />
-        
-        {/* 喙 */}
-        <path 
-          d={`M330 ${280 + headBob} L360 ${285 + headBob} L330 ${290 + headBob} Z`}
-          fill="#FFB300"
-        />
-        <path 
-          d={`M330 ${282 + headBob} L355 ${285 + headBob} L330 ${288 + headBob} Z`}
-          fill="#FF8F00"
-        />
-        
-        {/* 白色脸颊斑 */}
-        <ellipse 
-          cx={325 + headBob} 
-          cy={290 + headBob} 
-          rx="12" 
-          ry="10" 
-          fill="white"
-        />
-        
-        {/* 腿 */}
-        <g transform={`translate(275, ${560 + walkBob})`}>
-          <line x1="0" y1="0" x2="0" y2="50" stroke="#FFB300" strokeWidth="6" />
-          <ellipse cx="0" cy="55" rx="15" ry="5" fill="#FFB300" />
-        </g>
-        <g transform={`translate(315, ${560 + walkBob})`}>
-          <line x1="0" y1="0" x2="0" y2="45" stroke="#FFB300" strokeWidth="6" />
-          <ellipse cx="0" cy="50" rx="15" ry="5" fill="#FFB300" />
-        </g>
-      </svg>
-    );
-  };
-
-  // 雌孔雀（灰色）
-  const FemalePeacock: React.FC<{ frame: number; x: number; y: number }> = ({ frame, x, y }) => {
-    const headBob = Math.sin(frame * 0.08 + 2) * 2;
-    
-    return (
-      <svg viewBox="0 0 1920 1080" style={{ position: "absolute", left: x, top: y, width: 400, height: 400 }}>
-        {/* 身体 */}
-        <ellipse cx="200" cy="320" rx="50" ry="70" fill="#78909C" />
-        
-        {/* 脖子 */}
-        <path 
-          d="M185 260 Q175 220 190 175"
-          stroke="#78909C" 
-          strokeWidth="28" 
-          fill="none"
-          strokeLinecap="round"
-        />
-        <path 
-          d="M185 260 Q175 220 190 175"
-          stroke="#90A4AE" 
-          strokeWidth="20" 
-          fill="none"
-          strokeLinecap="round"
-        />
-        
-        {/* 头部 */}
-        <ellipse cx={195 + headBob} cy="160" rx="28" ry="32" fill="#78909C" />
-        
-        {/* 羽冠（较短） */}
-        {[0, 1, 2].map((i) => {
-          const angle = (i - 1) * 8;
+        {/* Feather barbs - right side */}
+        {[...Array(15)].map((_, i) => {
+          const y = -280 + i * 40;
+          const length = 80 - Math.abs(i - 7) * 5;
           return (
-            <g key={i} transform={`translate(${195 + headBob}, 130)`}>
-              <path 
-                d={`M0 0 L${Math.sin(angle * 0.1) * 5} ${-20}`}
-                stroke="#546E7A" 
-                strokeWidth="2" 
-                fill="none"
-                strokeLinecap="round"
-              />
-              <circle 
-                cx={`${Math.sin(angle * 0.1) * 5}`}
-                cy={-20}
-                r="2.5"
-                fill="#78909C"
-              />
-            </g>
+            <path
+              key={`right-${i}`}
+              d={`M 5, ${y} Q ${length * 0.5}, ${y + 10} ${length}, ${y}`}
+              stroke={i % 2 === 0 ? "#FF6B6B" : "#4ECDC4"}
+              strokeWidth="8"
+              fill="none"
+              opacity={0.8 + shimmer}
+            />
           );
         })}
         
-        {/* 眼睛 */}
-        <circle cx={205 + headBob} cy="155" r="7" fill="white" />
-        <circle cx={206 + headBob} cy="155" r="4" fill="black" />
-        
-        {/* 喙 */}
-        <path 
-          d={`M220 ${160 + headBob} L240 ${163 + headBob} L220 ${166 + headBob} Z`}
-          fill="#A1887F"
+        {/* Eye spot */}
+        <circle cx="0" cy="0" r="50" fill="#2C3E50" />
+        <circle cx="0" cy="0" r="35" fill="#3498DB" />
+        <circle cx="0" cy="0" r="20" fill="#1ABC9C" />
+        <circle cx="0" cy="0" r="10" fill="#16A085" />
+        <circle cx="-8" cy="-8" r="5" fill="white" opacity="0.4" />
+      </g>
+      
+      {/* Sparkle effects */}
+      {[...Array(6)].map((_, i) => {
+        const angle = (i / 6) * Math.PI * 2;
+        const radius = 300 + Math.sin(frame * 0.05 + i) * 30;
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+        const sparkleSize = 10 + Math.sin(frame * 0.1 + i) * 5;
+        return (
+          <circle
+            key={`sparkle-${i}`}
+            cx={x}
+            cy={y}
+            r={sparkleSize}
+            fill="#FFD54F"
+            opacity={0.6 + Math.sin(frame * 0.08 + i) * 0.3}
+          />
+        );
+      })}
+    </svg>
+  );
+};
+
+const PeacockDisplaySVG: React.FC<{ frame: number }> = ({ frame }) => {
+  const tailProgress = Math.min(interpolate(frame, [0, 40], [0, 1]), 1);
+  const featherWave = Math.sin(frame * 0.04) * 8;
+  const bodyBob = Math.sin(frame * 0.03) * 5;
+  
+  const bodyX = 960;
+  const bodyY = 600 + bodyBob;
+  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA", "#74B9FF", "#FD79A8"];
+  
+  // Create fan of tail feathers
+  const tailFeathers: React.ReactNode[] = [];
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 15) * Math.PI - Math.PI / 2;
+    const length = 380 + Math.sin(i * 0.8) * 40;
+    const endX = bodyX + Math.cos(angle) * length * tailProgress;
+    const endY = bodyY - 50 + Math.sin(angle) * length * tailProgress;
+    const colorIndex = i % tailColors.length;
+    const featherWobble = Math.sin(frame * 0.03 + i * 0.4) * 10;
+    
+    const actualEndX = endX + featherWobble * tailProgress;
+    const actualEndY = endY;
+    
+    tailFeathers.push(
+      <g key={`fan-feather-${i}`}>
+        {/* Feather shaft */}
+        <path
+          d={`M ${bodyX}, ${bodyY} Q ${bodyX + Math.cos(angle) * 100 * tailProgress}, ${bodyY - 20 + Math.sin(angle) * 60 * tailProgress} ${actualEndX}, ${actualEndY}`}
+          stroke={tailColors[colorIndex]}
+          strokeWidth="14"
+          fill="none"
+          opacity={tailProgress}
         />
         
-        {/* 尾羽 */}
-        <path d="M180 380 Q140 420 160 460 Q130 490 150 520" 
-              stroke="#78909C" strokeWidth="5" fill="none" />
-        <path d="M185 380 Q155 420 170 460 Q150 490 165 520" 
-              stroke="#90A4AE" strokeWidth="4" fill="none" />
-        <path d="M190 380 Q170 420 180 460 Q170 490 180 520" 
-              stroke="#90A4AE" strokeWidth="4" fill="none" />
+        {/* Eye spot */}
+        const eyeX = actualEndX - Math.cos(angle) * 50;
+        const eyeY = actualEndY - Math.sin(angle) * 50;
+        const eyeScale = tailProgress;
         
-        {/* 腿 */}
-        <g transform="translate(180, 380)">
-          <line x1="0" y1="0" x2="0" y2="40" stroke="#A1887F" strokeWidth="5" />
-          <ellipse cx="0" cy="44" rx="12" ry="4" fill="#A1887F" />
+        <g transform={`translate(${eyeX}, ${eyeY}) scale(${eyeScale})`}>
+          <circle cx="0" cy="0" r="25" fill="#2C3E50" />
+          <circle cx="0" cy="0" r="18" fill="#3498DB" />
+          <circle cx="0" cy="0" r="10" fill="#1ABC9C" />
+          <circle cx="0" cy="0" r="5" fill="#16A085" />
         </g>
-        <g transform="translate(210, 380)">
-          <line x1="0" y1="0" x2="0" y2="35" stroke="#A1887F" strokeWidth="5" />
-          <ellipse cx="0" cy="39" rx="12" ry="4" fill="#A1887F" />
-        </g>
-      </svg>
+      </g>
     );
-  };
+  }
+  
+  return (
+    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
+      {/* Simple background */}
+      <rect x="0" y="0" width="1920" height="1080" fill="#E0F7FA" />
+      
+      {/* Ground */}
+      <path d="M 0,800 Q 960,780 1920,800 L 1920,1080 L 0,1080 Z" fill="#81C784" />
+      
+      {/* Tail feathers (behind body) */}
+      {tailFeathers}
+      
+      {/* Peacock body */}
+      <ellipse cx={bodyX} cy={bodyY} rx="80" ry="100" fill="#2C6E49" />
+      
+      {/* Neck */}
+      <path
+        d={`M ${bodyX - 15}, ${bodyY - 70} Q ${bodyX - 10}, ${bodyY - 100} ${bodyX}, ${bodyY - 130}`}
+        stroke="#1A5F7A"
+        strokeWidth="40"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Head */}
+      <circle cx={bodyX} cy={bodyY - 140} r="40" fill="#1A5F7A" />
+      
+      {/* Crest */}
+      {[...Array(5)].map((_, i) => {
+        const offsetX = (i - 2) * 12;
+        return (
+          <g key={`crest-${i}`}>
+            <line
+              x1={bodyX + offsetX}
+              y1={bodyY - 175}
+              x2={bodyX + offsetX * 1.2}
+              y2={bodyY - 210}
+              stroke="#4ECDC4"
+              strokeWidth="5"
+            />
+            <circle
+              cx={bodyX + offsetX * 1.2}
+              cy={bodyY - 212}
+              r={7}
+              fill="#4ECDC4"
+            />
+          </g>
+        );
+      })}
+      
+      {/* Eye */}
+      <circle cx={bodyX + 12} cy={bodyY - 140} r="12" fill="white" />
+      <circle cx={bodyX + 14} cy={bodyY - 140} r="7" fill="#2C3E50" />
+      <circle cx={bodyX + 16} cy={bodyY - 142} r="3" fill="white" />
+      
+      {/* Beak */}
+      <path
+        d={`M ${bodyX + 35}, ${bodyY - 138} L ${bodyX + 55}, ${bodyY - 135} L ${bodyX + 35}, ${bodyY - 128} Z`}
+        fill="#F4A460"
+      />
+      
+      {/* Legs */}
+      <line x1={bodyX - 30} y1={bodyY + 90} x2={bodyX - 30} y2={bodyY + 150} stroke="#F4A460" strokeWidth="10" />
+      <line x1={bodyX + 30} y1={bodyY + 90} x2={bodyX + 30} y2={bodyY + 150} stroke="#F4A460" strokeWidth="10" />
+      
+      {/* Light rays */}
+      {[...Array(8)].map((_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        return (
+          <line
+            key={`ray-${i}`}
+            x1={bodyX + Math.cos(angle) * 450}
+            y1={bodyY + Math.sin(angle) * 450}
+            x2={bodyX + Math.cos(angle) * 520}
+            y2={bodyY + Math.sin(angle) * 520}
+            stroke="#FFD54F"
+            strokeWidth="4"
+            opacity={0.3 + Math.sin(frame * 0.05 + i) * 0.2}
+          />
+        );
+      })}
+    </svg>
+  );
+};
 
-  // 场景1：认识孔雀朋友
-  const Scene1: React.FC<{ frame: number }> = ({ frame }) => {
-    const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-    const peacockX = interpolate(frame, [0, 180], [-200, 700], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
-    const textOpacity = interpolate(frame, [60, 90], [0, 1], { extrapolateRight: "clamp" });
-    const titleY = interpolate(frame, [60, 90], [100, 150], { extrapolateRight: "clamp" });
+const CourtshipSVG: React.FC<{ frame: number }> = ({ frame }) => {
+  const tailProgress = Math.min(interpolate(frame, [0, 30], [0, 1]), 1);
+  const bodyBob = Math.sin(frame * 0.04) * 5;
+  const heartFloat = Math.sin(frame * 0.06) * 20;
+  const heartOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
+  
+  const maleX = 700;
+  const maleY = 600 + bodyBob;
+  const femaleX = 1220;
+  const femaleY = 650 + Math.sin(frame * 0.03 + 1) * 3;
+  
+  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181"];
+  
+  // Male tail feathers
+  const maleTailFeathers: React.ReactNode[] = [];
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 11) * Math.PI - Math.PI / 2 + 0.3;
+    const length = 320;
+    const endX = maleX + Math.cos(angle) * length * tailProgress;
+    const endY = maleY - 50 + Math.sin(angle) * length * tailProgress;
+    const colorIndex = i % tailColors.length;
+    const featherWobble = Math.sin(frame * 0.04 + i * 0.3) * 8;
     
-    return (
-      <AbsoluteFill style={{ opacity }}>
-        <ForestBackground frame={frame} />
-        <PeacockBody frame={frame} x={peacockX} y={200} scale={1} />
+    const actualEndX = endX + featherWobble * tailProgress;
+    const actualEndY = endY;
+    
+    maleTailFeathers.push(
+      <g key={`male-feather-${i}`}>
+        <path
+          d={`M ${maleX}, ${maleY} Q ${maleX + Math.cos(angle) * 80 * tailProgress}, ${maleY - 20 + Math.sin(angle) * 50 * tailProgress} ${actualEndX}, ${actualEndY}`}
+          stroke={tailColors[colorIndex]}
+          strokeWidth="12"
+          fill="none"
+          opacity={tailProgress}
+        />
         
-        {/* 标题 */}
-        <div 
-          style={{
-            position: "absolute",
-            top: titleY,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 100,
-            fontWeight: "bold",
-            color: "#1565C0",
-            textShadow: "4px 4px 8px rgba(0,0,0,0.3)",
-            opacity: textOpacity
-          }}
-        >
-          认识孔雀朋友
-        </div>
-        
-        {/* 屏幕文字 */}
-        <div 
-          style={{
-            position: "absolute",
-            bottom: 150,
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "rgba(0, 121, 107, 0.85)",
-            padding: "20px 60px",
-            borderRadius: 30,
-            fontSize: 56,
-            color: "white",
-            fontWeight: "bold",
-            opacity: textOpacity
-          }}
-        >
-          这是孔雀
-        </div>
-      </AbsoluteFill>
+        <circle
+          cx={actualEndX - Math.cos(angle) * 40}
+          cy={actualEndY - Math.sin(angle) * 40}
+          r="15"
+          fill="#2C3E50"
+          opacity={tailProgress}
+        />
+        <circle
+          cx={actualEndX - Math.cos(angle) * 40}
+          cy={actualEndY - Math.sin(angle) * 40}
+          r="8"
+          fill="#3498DB"
+          opacity={tailProgress}
+        />
+      </g>
     );
-  };
+  }
+  
+  return (
+    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
+      {/* Background */}
+      <rect x="0" y="0" width="1920" height="1080" fill="#FFF3E0" />
+      
+      {/* Ground */}
+      <path d="M 0,750 Q 960,730 1920,750 L 1920,1080 L 0,1080 Z" fill="#A5D6A7" />
+      
+      {/* Bushes */}
+      <ellipse cx="300" cy="720" rx="150" ry="80" fill="#66BB6A" opacity="0.5" />
+      <ellipse cx="1620" cy="710" rx="180" ry="90" fill="#66BB6A" opacity="0.5" />
+      
+      {/* Male peacock tail (behind body) */}
+      {maleTailFeathers}
+      
+      {/* Male peacock body */}
+      <ellipse cx={maleX} cy={maleY} rx="70" ry="90" fill="#2C6E49" />
+      
+      {/* Male neck */}
+      <path
+        d={`M ${maleX - 15}, ${maleY - 65} Q ${maleX - 10}, ${maleY - 95} ${maleX}, ${maleY - 125}`}
+        stroke="#1A5F7A"
+        strokeWidth="35"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Male head */}
+      <circle cx={maleX} cy={maleY - 135} r="35" fill="#1A5F7A" />
+      
+      {/* Male crest */}
+      {[...Array(3)].map((_, i) => {
+        const offsetX = (i - 1) * 10;
+        return (
+          <g key={`male-crest-${i}`}>
+            <line
+              x1={maleX + offsetX}
+              y1={maleY - 168}
+              x2={maleX + offsetX * 1.3}
+              y2={maleY - 195}
+              stroke="#4ECDC4"
+              strokeWidth="4"
+            />
+            <circle
+              cx={maleX + offsetX * 1.3}
+              cy={maleY - 197}
+              r={6}
+              fill="#4ECDC4"
+            />
+          </g>
+        );
+      })}
+      
+      {/* Male eye */}
+      <circle cx={maleX + 10} cy={maleY - 135} r="10" fill="white" />
+      <circle cx={maleX + 12} cy={maleY - 135} r="6" fill="#2C3E50" />
+      
+      {/* Male beak */}
+      <path
+        d={`M ${maleX + 32}, ${maleY - 133} L ${maleX + 50}, ${maleY - 130} L ${maleX + 32}, ${maleY - 124} Z`}
+        fill="#F4A460"
+      />
+      
+      {/* Male legs */}
+      <line x1={maleX - 25} y1={maleY + 80} x2={maleX - 25} y2={maleY + 140} stroke="#F4A460" strokeWidth="8" />
+      <line x1={maleX + 25} y1={maleY + 80} x2={maleX + 25} y2={maleY + 140} stroke="#F4A460" strokeWidth="8" />
+      
+      {/* Female peacock (brown, simpler) */}
+      <ellipse cx={femaleX} cy={femaleY} rx="60" ry="80" fill="#8D6E63" />
+      
+      {/* Female neck */}
+      <path
+        d={`M ${femaleX - 10}, ${femaleY - 55} Q ${femaleX - 5}, ${femaleY - 85} ${femaleX}, ${femaleY - 115}`}
+        stroke="#A1887F"
+        strokeWidth="30"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Female head */}
+      <circle cx={femaleX} cy={femaleY - 125} r="30" fill="#A1887F" />
+      
+      {/* Female crest */}
+      {[...Array(3)].map((_, i) => {
+        const offsetX = (i - 1) * 8;
+        return (
+          <g key={`female-crest-${i}`}>
+            <line
+              x1={femaleX + offsetX}
+              y1={femaleY - 152}
+              x2={femaleX + offsetX * 1.2}
+              y2={femaleY - 175}
+              stroke="#BCAAA4"
+              strokeWidth="3"
+            />
+            <circle
+              cx={femaleX + offsetX * 1.2}
+              cy={femaleY - 177}
+              r={5}
+              fill="#BCAAA4"
+            />
+          </g>
+        );
+      })}
+      
+      {/* Female eye */}
+      <circle cx={femaleX + 8} cy={femaleY - 125} r="8" fill="white" />
+      <circle cx={femaleX + 10} cy={femaleY - 125} r="5" fill="#2C3E50" />
+      
+      {/* Female beak */}
+      <path
+        d={`M ${femaleX + 28}, ${femaleY - 123} L ${femaleX + 45}, ${femaleY - 120} L ${femaleX + 28}, ${femaleY - 115} Z`}
+        fill="#F4A460"
+      />
+      
+      {/* Female legs */}
+      <line x1={femaleX - 20} y1={femaleY + 70} x2={femaleX - 20} y2={femaleY + 130} stroke="#F4A460" strokeWidth="7" />
+      <line x1={femaleX + 20} y1={femaleY + 70} x2={femaleX + 20} y2={femaleY + 130} stroke="#F4A460" strokeWidth="7" />
+      
+      {/* Floating hearts */}
+      <g opacity={heartOpacity}>
+        <path
+          d={`M 960, ${350 + heartFloat} C 920, ${310 + heartFloat} 860, ${330 + heartFloat} 860, ${380 + heartFloat} C 860, ${430 + heartFloat} 960, ${490 + heartFloat} 1060, ${430 + heartFloat} C 1060, ${380 + heartFloat} 1000, ${310 + heartFloat} 960, ${350 + heartFloat}`}
+          fill="#E91E63"
+          transform="scale(0.8)"
+        />
+        <path
+          d={`M 850, ${450 + heartFloat * 0.7} C 830, ${430 + heartFloat * 0.7} 800, ${440 + heartFloat * 0.7} 800, ${465 + heartFloat * 0.7} C 800, ${490 + heartFloat * 0.7} 850, ${520 + heartFloat * 0.7} 900, ${490 + heartFloat * 0.7} C 900, ${465 + heartFloat * 0.7} 870, ${430 + heartFloat * 0.7} 850, ${450 + heartFloat * 0.7}`}
+          fill="#E91E63"
+          transform="scale(0.5)"
+          opacity="0.7"
+        />
+      </g>
+    </svg>
+  );
+};
 
-  // 场景2：华丽的羽毛
-  const Scene2: React.FC<{ frame: number }> = ({ frame }) => {
-    const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-    const featherScale = interpolate(frame, [0, 60], [0.5, 1], { extrapolateRight: "clamp" });
-    const textOpacity = interpolate(frame, [90, 120], [0, 1], { extrapolateRight: "clamp" });
-    
-    // 羽毛绘制动画
-    const featherProgress = Math.min(frame / 90, 1);
-    
-    return (
-      <AbsoluteFill style={{ opacity }}>
-        {/* 虚化森林背景 */}
-        <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%", filter: "blur(8px)" }}>
-          <rect x="0" y="0" width="1920" height="1080" fill="#E0F2F1" />
-        </svg>
-        
-        {/* 羽毛特写 */}
-        <svg 
-          viewBox="0 0 1920 1080" 
-          style={{ 
-            position: "absolute", 
-            width: "100%", 
-            height: "100%",
-            transform: `scale(${featherScale})`
-          }}
-        >
-          <defs>
-            <linearGradient id="featherGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#00695C" />
-              <stop offset="50%" stopColor="#00897B" />
-              <stop offset="100%" stopColor="#00796B" />
-            </linearGradient>
-          </defs>
-          
-          {/* 三根羽毛 */}
-          {[0, 1, 2].map((i) => {
-            const yOffset = i * 120;
-            const xOffset = i * 40;
-            const drawProgress = Math.max(0, Math.min((featherProgress - i * 0.2) / 0.8, 1));
-            
-            return (
-              <g key={i} transform={`translate(${500 + xOffset}, ${350 + yOffset})`}>
-                {/* 羽毛杆 */}
-                <line 
-                  x1="0" 
-                  y1="0" 
-                  x2={`${500 * drawProgress}`} 
-                  y2="0" 
-                  stroke="#004D40" 
-                  strokeWidth="4"
-                />
-                
-                {/* 羽毛主体 */}
-                <path 
-                  d={`M0 0 Q${250 * drawProgress} ${-30 - i * 10} ${500 * drawProgress} 0 Q${250 * drawProgress} ${30 + i * 10} 0 0`}
-                  fill="url(#featherGrad)"
-                  opacity={drawProgress}
-                />
-                
-                {/* 眼状斑纹 */}
-                {drawProgress > 0.7 && (
-                  <g transform={`translate(${350}, 0)`} opacity={drawProgress}>
-                    <ellipse cx="0" cy="0" rx="30" ry="40" fill="#1A237E" />
-                    <ellipse cx="0" cy="0" rx="22" ry="30" fill="#0D47A1" />
-                    <circle cx="0" cy="0" r="12" fill="#1565C0" />
-                    <circle cx="0" cy="0" r="6" fill="#1976D2" />
-                  </g>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-        
-        {/* 标题 */}
-        <div 
-          style={{
-            position: "absolute",
-            top: 120,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 90,
-            fontWeight: "bold",
-            color: "#00695C",
-            textShadow: "4px 4px 8px rgba(0,0,0,0.2)",
-            opacity: textOpacity
-          }}
-        >
-          华丽的羽毛
-        </div>
-        
-        {/* 屏幕文字 */}
-        <div 
-          style={{
-            position: "absolute",
-            bottom: 150,
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "rgba(0, 121, 107, 0.85)",
-            padding: "20px 60px",
-            borderRadius: 30,
-            fontSize: 56,
-            color: "white",
-            fontWeight: "bold",
-            opacity: textOpacity
-          }}
-        >
-          翠绿的长尾羽
-        </div>
-      </AbsoluteFill>
-    );
-  };
+const SummarySVG: React.FC<{ frame: number }> = ({ frame }) => {
+  const bodyBob = Math.sin(frame * 0.05) * 3;
+  const bubbleScale = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" });
+  
+  const bodyX = 960;
+  const bodyY = 580 + bodyBob;
+  
+  return (
+    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
+      {/* Background */}
+      <rect x="0" y="0" width="1920" height="1080" fill="#E8F5E9" />
+      
+      {/* Ground */}
+      <path d="M 0,750 Q 960,730 1920,750 L 1920,1080 L 0,1080 Z" fill="#81C784" />
+      
+      {/* Decorative trees */}
+      <circle cx="200" cy="400" r="100" fill="#4CAF50" opacity="0.4" />
+      <circle cx="1700" cy="420" r="110" fill="#4CAF50" opacity="0.4" />
+      
+      {/* Peacock body */}
+      <ellipse cx={bodyX} cy={bodyY} rx="75" ry="95" fill="#2C6E49" />
+      
+      {/* Wings */}
+      <ellipse
+        cx={bodyX - 45}
+        cy={bodyY + 25}
+        rx="50"
+        ry="75"
+        fill="#2C6E49"
+        transform="rotate(-8, ${bodyX - 45}, ${bodyY + 25})"
+      />
+      <ellipse
+        cx={bodyX + 45}
+        cy={bodyY + 25}
+        rx="50"
+        ry="75"
+        fill="#2C6E49"
+        transform="rotate(8, ${bodyX + 45}, ${bodyY + 25})"
+      />
+      
+      {/* Neck */}
+      <path
+        d={`M ${bodyX - 18}, ${bodyY - 68} Q ${bodyX - 12}, ${bodyY - 100} ${bodyX}, ${bodyY - 130}`}
+        stroke="#1A5F7A"
+        strokeWidth="38"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Head */}
+      <circle cx={bodyX} cy={bodyY - 140} r="38" fill="#1A5F7A" />
+      
+      {/* Crest */}
+      {[...Array(5)].map((_, i) => {
+        const offsetX = (i - 2) * 12;
+        return (
+          <g key={`summary-crest-${i}`}>
+            <line
+              x1={bodyX + offsetX}
+              y1={bodyY - 175}
+              x2={bodyX + offsetX * 1.2}
+              y2={bodyY - 215}
+              stroke="#4ECDC4"
+              strokeWidth="5"
+            />
+            <circle
+              cx={bodyX + offsetX * 1.2}
+              cy={bodyY - 217}
+              r={7}
+              fill="#4ECDC4"
+            />
+          </g>
+        );
+      })}
+      
+      {/* Eye */}
+      <circle cx={bodyX + 12} cy={bodyY - 140} r="11" fill="white" />
+      <circle cx={bodyX + 14} cy={bodyY - 140} r="7" fill="#2C3E50" />
+      <circle cx={bodyX + 16} cy={bodyY - 142} r="3" fill="white" />
+      
+      {/* Beak */}
+      <path
+        d={`M ${bodyX + 35}, ${bodyY - 138} L ${bodyX + 55}, ${bodyY - 135} L ${bodyX + 35}, ${bodyY - 128} Z`}
+        fill="#F4A460"
+      />
+      
+      {/* Legs */}
+      <line x1={bodyX - 28} y1={bodyY + 85} x2={bodyX - 28} y2={bodyY + 145} stroke="#F4A460" strokeWidth="10" />
+      <line x1={bodyX + 28} y1={bodyY + 85} x2={bodyX + 28} y2={bodyY + 145" stroke="#F4A460" strokeWidth="10" />
+      
+      {/* Feature bubbles */}
+      {/* Crest bubble */}
+      <g transform={`translate(500, 280) scale(${bubbleScale})`}>
+        <ellipse cx="0" cy="0" rx="100" ry="70" fill="#4ECDC4" opacity="0.3" />
+        <text x="0" y="10" fontSize="40" fill="#00695C" textAnchor="middle" fontWeight="bold">羽冠</text>
+        <path d="M 50, 60 L 80, 100 L 60, 100 L 70, 130 L 40, 90 L 60, 90 Z" fill="#4ECDC4" />
+      </g>
+      
+      {/* Tail spot bubble */}
+      <g transform={`translate(1420, 280) scale(${bubbleScale})`}>
+        <ellipse cx="0" cy="0" rx="100" ry="70" fill="#FF6B6B" opacity="0.3" />
+        <text x="0" y="10" fontSize="40" fill="#C62828" textAnchor="middle" fontWeight="bold">眼斑</text>
+        <circle cx="-40" cy="-10" r="20" fill="#2C3E50" />
+        <circle cx="-40" cy="-10" r="12" fill="#3498DB" />
+        <circle cx="-40" cy="-10" r="6" fill="#1ABC9C" />
+      </g>
+      
+      {/* Display bubble */}
+      <g transform={`translate(960, 200) scale(${bubbleScale})`}>
+        <ellipse cx="0" cy="0" rx="90" ry="65" fill="#FFE66D" opacity="0.3" />
+        <text x="0" y="10" fontSize="40" fill="#F57F17" textAnchor="middle" fontWeight="bold">开屏</text>
+        {/* Mini tail display */}
+        {[...Array(5)].map((_, i) => {
+          const angle = (i / 4) * Math.PI - Math.PI / 2;
+          return (
+            <path
+              key={`mini-tail-${i}`}
+              d={`M 0, 25 L ${Math.cos(angle) * 40}, ${Math.sin(angle) * 40}`}
+              stroke="#FF6B6B"
+              strokeWidth="6"
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </g>
+      
+      {/* Waving wing (goodbye gesture) */}
+      <ellipse
+        cx={bodyX + 55 + Math.sin(frame * 0.15) * 15}
+        cy={bodyY + 40}
+        rx="40"
+        ry="60"
+        fill="#2C6E49"
+        transform={`rotate(${20 + Math.sin(frame * 0.15) * 10}, ${bodyX + 55}, ${bodyY + 40})`}
+      />
+    </svg>
+  );
+};
 
-  // 场景3：孔雀为什么开屏
-  const Scene3: React.FC<{ frame: number }> = ({ frame }) => {
-    const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-    const textOpacity = interpolate(frame, [180, 210], [0, 1], { extrapolateRight: "clamp" });
-    
-    return (
-      <AbsoluteFill style={{ opacity }}>
-        <ForestBackground frame={frame} />
-        
-        {/* 雄孔雀开屏 */}
-        <PeacockBody frame={frame} x={600} y={150} scale={1.3} isDisplaying={true} />
-        
-        {/* 雌孔雀在旁边观察 */}
-        <FemalePeacock frame={frame} x={1200} y={480} />
-        
-        {/* 爱心动画 */}
-        {frame > 90 && (
-          <svg 
-            viewBox="0 0 1920 1080" 
-            style={{ position: "absolute", width: "100%", height: "100%" }}
-          >
-            <g transform="translate(1050, 400)">
-              {[0, 1, 2].map((i) => {
-                const heartDelay = i * 30;
-                const heartFrame = Math.max(0, frame - 90 - heartDelay);
-                const heartOpacity = interpolate(heartFrame, [0, 15, 45], [0, 1, 0], { extrapolateRight: "clamp" });
-                const heartY = interpolate(heartFrame, [0, 45], [0, -80], { extrapolateRight: "clamp" });
-                const heartScale = interpolate(heartFrame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-                
-                return (
-                  <g key={i} transform={`translate(${i * 40}, ${heartY}) scale(${heartScale})`} opacity={heartOpacity}>
-                    <path 
-                      d="M0 10 C-20 -10, -40 10, 0 40 C40 10, 20 -10, 0 10"
-                      fill="#E91E63"
-                    />
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        )}
-        
-        {/* 标题 */}
-        <div 
-          style={{
-            position: "absolute",
-            top: 80,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 80,
-            fontWeight: "bold",
-            color: "#1565C0",
-            textShadow: "4px 4px 8px rgba(0,0,0,0.3)",
-            opacity: textOpacity
-          }}
-        >
-          孔雀为什么开屏
-        </div>
-        
-        {/* 屏幕文字 */}
-        <div 
-          style={{
-            position: "absolute",
-            bottom: 150,
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "rgba(0, 121, 107, 0.85)",
-            padding: "20px 60px",
-            borderRadius: 30,
-            fontSize: 56,
-            color: "white",
-            fontWeight: "bold",
-            opacity: textOpacity
-          }}
-        >
-          开屏求偶
-        </div>
-      </AbsoluteFill>
-    );
+const SceneComponent: React.FC<{
+  scene: GeneratedScene;
+  sceneFrame: number;
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
+}> = ({ scene, sceneFrame, fadeInFrames = 15, fadeOutFrames = 15 }) => {
+  const opacity = interpolate(
+    sceneFrame,
+    [0, fadeInFrames, scene.durationFrames * 30 - fadeOutFrames, scene.durationFrames * 30],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+  
+  const getVisualComponent = () => {
+    switch (scene.sequence) {
+      case 1:
+        return <PeacockSVG frame={sceneFrame} displayTail={false} sceneType="walking" />;
+      case 2:
+        return <FeatherCloseupSVG frame={sceneFrame} />;
+      case 3:
+        return <PeacockDisplaySVG frame={sceneFrame} />;
+      case 4:
+        return <CourtshipSVG frame={sceneFrame} />;
+      case 5:
+        return <SummarySVG frame={sceneFrame} />;
+      default:
+        return <PeacockSVG frame={sceneFrame} displayTail={false} />;
+    }
   };
-
-  // 场景4：羽毛上的眼睛
-  const Scene4: React.FC<{ frame: number }> = ({ frame }) => {
-    const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-    const textOpacity = interpolate(frame, [150, 180], [0, 1], { extrapolateRight: "clamp" });
-    
-    return (
-      <AbsoluteFill style={{ opacity }}>
-        {/* 深色背景突出眼状斑纹 */}
-        <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-          <rect x="0" y="0" width="1920" height="1080" fill="#1A237E" opacity={0.3} />
-          <rect x="0" y="0" width="1920" height="1080" fill="#E0F2F1" />
-        </svg>
-        
-        {/* 三个眼状斑纹依次高亮 */}
-        <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-          {[0, 1, 2].map((i) => {
-            const highlightDelay = i * 50;
-            const highlightFrame = Math.max(0, frame - highlightDelay);
-            const scale = interpolate(highlightFrame, [0, 20, 180], [0.5, 1.5, 1.5], { extrapolateRight: "clamp" });
-            const glowOpacity = interpolate(highlightFrame, [0, 20, 40, 180], [0, 0.8, 0.4, 0], { extrapolateRight: "clamp" });
-            const textFade = interpolate(highlightFrame, [30, 60], [0, 1], { extrapolateRight: "clamp" });
-            
-            const xPos = 450 + i * 350;
-            const yPos = 440;
-            
-            return (
-              <g key={i} transform={`translate(${xPos}, ${yPos}) scale(${scale})`}>
-                {/* 发光效果 */}
-                <ellipse 
-                  cx="0" 
-                  cy="0" 
-                  rx="50" 
-                  ry="65" 
-                  fill="#FFD54F"
-                  opacity={glowOpacity * 0.3}
-                />
-                
-                {/* 斑纹 */}
-                <ellipse cx="0" cy="0" rx="35" ry="48" fill="#1A237E" />
-                <ellipse cx="0" cy="0" rx="26" ry="36" fill="#0D47A1" />
-                <circle cx="0" cy="0" r="14" fill="#1565C0" />
-                <circle cx="0" cy="0" r="7" fill="#1976D2" />
-                <circle cx="-2" cy="-2" r="3" fill="#42A5F5" />
-                
-                {/* 编号 */}
-                {textFade > 0 && (
-                  <text 
-                    x="0" 
-                    y="80" 
-                    textAnchor="middle"
-                    fontSize="36"
-                    fill="#1565C0"
-                    fontWeight="bold"
-                    opacity={textFade}
-                  >
-                    {i + 1}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-        
-        {/* 标题 */}
-        <div 
-          style={{
-            position: "absolute",
-            top: 100,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 85,
-            fontWeight: "bold",
-            color: "#1565C0",
-            textShadow: "4px 4px 8px rgba(0,0,0,0.2)",
-            opacity: textOpacity
-          }}
-        >
-          羽毛上的眼睛
-        </div>
-        
-        {/* 屏幕文字 */}
-        <div 
-          style={{
-            position: "absolute",
-            bottom: 150,
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "rgba(0, 121, 107, 0.85)",
-            padding: "20px 60px",
-            borderRadius: 30,
-            fontSize: 56,
-            color: "white",
-            fontWeight: "bold",
-            opacity: textOpacity
-          }}
-        >
-          眼状斑纹
-        </div>
-      </AbsoluteFill>
-    );
-  };
-
-  // 场景5：孔雀小总结
-  const Scene5: React.FC<{ frame: number }> = ({ frame }) => {
-    const opacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: "clamp" });
-    const textOpacity = interpolate(frame, [120, 150], [0, 1], { extrapolateRight: "clamp" });
-    
-    // 关键词动画
-    const keyword1Opacity = interpolate(frame, [30, 60], [0, 1], { extrapolateRight: "clamp" });
-    const keyword2Opacity = interpolate(frame, [60, 90], [0, 1], { extrapolateRight: "clamp" });
-    const keyword3Opacity = interpolate(frame, [90, 120], [0, 1], { extrapolateRight: "clamp" });
-    
-    const keyword1Y = interpolate(frame, [30, 60], [150, 250], { extrapolateRight: "clamp" });
-    const keyword2Y = interpolate(frame, [60, 90], [150, 350], { extrapolateRight: "clamp" });
-    const keyword3Y = interpolate(frame, [90, 120], [150, 450], { extrapolateRight: "clamp" });
-    
-    return (
-      <AbsoluteFill style={{ opacity }}>
-        <ForestBackground frame={frame} />
-        
-        {/* 开屏的孔雀 */}
-        <PeacockBody frame={frame} x={660} y={120} scale={1.4} isDisplaying={true} />
-        
-        {/* 关键词展示 */}
-        <div style={{ position: "absolute", left: 1300, top: 0, width: 500 }}>
-          <div 
-            style={{
-              fontSize: 70,
-              fontWeight: "bold",
-              color: "#00695C",
-              marginTop: keyword1Y,
-              opacity: keyword1Opacity,
-              backgroundColor: "rgba(255,255,255,0.9)",
-              padding: "15px 40px",
-              borderRadius: 20,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-            }}
-          >
-            孔雀
-          </div>
-          
-          <div 
-            style={{
-              fontSize: 70,
-              fontWeight: "bold",
-              color: "#1565C0",
-              marginTop: 30,
-              opacity: keyword2Opacity,
-              backgroundColor: "rgba(255,255,255,0.9)",
-              padding: "15px 40px",
-              borderRadius: 20,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-            }}
-          >
-            冠羽
-          </div>
-          
-          <div 
-            style={{
-              fontSize: 70,
-              fontWeight: "bold",
-              color: "#00897B",
-              marginTop: 30,
-              opacity: keyword3Opacity,
-              backgroundColor: "rgba(255,255,255,0.9)",
-              padding: "15px 40px",
-              borderRadius: 20,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-            }}
-          >
-            开屏
-          </div>
-        </div>
-        
-        {/* 标题 */}
-        <div 
-          style={{
-            position: "absolute",
-            top: 80,
-            left: "50%",
-            transform: "translateX(-50%)",
-            fontSize: 90,
-            fontWeight: "bold",
-            color: "#1565C0",
-            textShadow: "4px 4px 8px rgba(0,0,0,0.3)",
-            opacity: textOpacity
-          }}
-        >
-          孔雀小总结
-        </div>
-        
-        {/* 屏幕文字 */}
-        <div 
-          style={{
-            position: "absolute",
-            bottom: 150,
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "rgba(0, 121, 107, 0.85)",
-            padding: "20px 60px",
-            borderRadius: 30,
-            fontSize: 56,
-            color: "white",
-            fontWeight: "bold",
-            opacity: textOpacity
-          }}
-        >
-          森林里的孔雀
-        </div>
-      </AbsoluteFill>
-    );
-  };
-
-  // 旁白文字组件
-  const NarrationText: React.FC<{ text: string; frame: number }> = ({ text, frame }) => {
-    const opacity = interpolate(frame, [0, 15, 60, 75], [0, 1, 1, 0], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
-    
-    return (
-      <div 
+  
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      {getVisualComponent()}
+      
+      {/* Title at top */}
+      <div
         style={{
           position: "absolute",
-          bottom: 50,
-          left: "50%",
-          transform: "translateX(-50%)",
-          backgroundColor: "rgba(0, 0, 0, 0.7)",
-          padding: "20px 50px",
-          borderRadius: 25,
-          fontSize: 42,
-          color: "white",
-          fontWeight: "500",
-          maxWidth: 1600,
+          top: "80px",
+          left: "0",
+          right: "0",
           textAlign: "center",
-          opacity
+          fontSize: "64px",
+          fontWeight: "bold",
+          color: "#00695C",
+          textShadow: "3px 3px 6px rgba(0,0,0,0.2)",
+          fontFamily: "Arial, sans-serif",
         }}
       >
-        {text}
+        {scene.title}
       </div>
-    );
-  };
+      
+      {/* On-screen text at bottom */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "200px",
+          left: "0",
+          right: "0",
+          textAlign: "center",
+          fontSize: "48px",
+          fontWeight: "bold",
+          color: "#FFFFFF",
+          backgroundColor: "rgba(0, 150, 136, 0.85)",
+          padding: "20px 40px",
+          margin: "0 100px",
+          borderRadius: "20px",
+          fontFamily: "Arial, sans-serif",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}
+      >
+        {scene.onScreenText}
+      </div>
+      
+      {/* Narration bar */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "50px",
+          left: "0",
+          right: "0",
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          padding: "15px 40px",
+          color: "#FFFFFF",
+          fontSize: "28px",
+          fontFamily: "Arial, sans-serif",
+          lineHeight: "1.4",
+          textAlign: "center",
+        }}
+      >
+        {scene.narration}
+      </div>
+    </AbsoluteFill>
+  );
+};
 
+export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({
+  title,
+  topic,
+  scenes,
+  durationFrames,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  
+  let currentFrame = 0;
+  
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ backgroundColor: "#E0F2F1" }}>
       {scenes.map((scene, index) => {
-        const startFrame = getSceneStartFrame(index);
-        const sceneDuration = getSceneDuration(index);
+        const sceneDuration = scene.durationSec * fps;
+        const from = currentFrame;
+        currentFrame += sceneDuration;
         
         return (
-          <Sequence 
-            key={scene.id} 
-            from={startFrame} 
+          <Sequence
+            key={scene.id}
+            from={from}
             durationInFrames={sceneDuration}
-            premountFor={30}
+            premountFor={fps}
           >
-            {/* 音频播放 */}
-            {scene.audioSrc && (
-              <Audio 
-                src={staticFile(scene.audioSrc)} 
-                volume={0.94}
-              />
-            )}
-            
-            {/* 场景内容 */}
-            {index === 0 && <Scene1 frame={frame - startFrame} />}
-            {index === 1 && <Scene2 frame={frame - startFrame} />}
-            {index === 2 && <Scene3 frame={frame - startFrame} />}
-            {index === 3 && <Scene4 frame={frame - startFrame} />}
-            {index === 4 && <Scene5 frame={frame - startFrame} />}
-            
-            {/* 旁白文字 */}
-            <NarrationText text={scene.narration} frame={frame - startFrame} />
+            <SceneComponent scene={scene} sceneFrame={frame - from} />
+            {scene.audioSrc ? (
+              <Audio src={staticFile(scene.audioSrc)} volume={0.94} />
+            ) : null}
           </Sequence>
         );
       })}

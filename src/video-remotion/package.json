@@ -11,7 +11,7 @@
   "dependencies": {
     "@remotion/cli": "^4.0.261",
     "@remotion/google-fonts": "^4.0.261",
-    "@remotion/lottie": "^4.0.261",
+    "@remotion/lottie": "^4.0.446",
     "@remotion/media": "^4.0.261",
     "@remotion/transitions": "^4.0.261",
     "lottie-web": "^5.13.0",

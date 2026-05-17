@@ -197,6 +197,17 @@ async function fixUnclosedString(
   if (lineIdx < 0 || lineIdx >= lines.length) return false;
 
   const line = lines[lineIdx];
+
+  // Try to fix pattern where } is mistakenly used instead of " in JSX attributes
+  // e.g. strokeWidth="3} → strokeWidth="3"
+  const mismatched = line.replace(/="([^"}]*)}([^"]*)"/g, '="$1"$2"');
+  if (mismatched !== line) {
+    lines[lineIdx] = mismatched;
+    await fs.writeFile(filePath, lines.join("\n"), "utf-8");
+    return true;
+  }
+
+  // Fallback: odd quote count — append the missing closing quote
   const dq = (line.match(/"/g) || []).length;
   const sq = (line.match(/'/g) || []).length;
   const bt = (line.match(/`/g) || []).length;
@@ -231,6 +242,54 @@ async function fixBareConstInJsx(
   if (!/^\s*(const|let|var)\s+/.test(line)) return false;
 
   lines[lineIdx] = `{${line}}`;
+  await fs.writeFile(filePath, lines.join("\n"), "utf-8");
+  return true;
+}
+
+async function fixMismatchedQuotes(
+  filePath: string,
+  err: TsError,
+): Promise<boolean> {
+  const content = await fs.readFile(filePath, "utf-8");
+  const lines = content.split("\n");
+  const lineIdx = err.line - 1;
+  if (lineIdx < 0 || lineIdx >= lines.length) return false;
+
+  const line = lines[lineIdx];
+  const col0 = err.col - 1;
+
+  // Pattern: JSX attribute like attr="value} — closing brace in a quoted string
+  const fixed = line.replace(
+    /="([^"}]*)}([^"]*)"/g,
+    (match, before: string, after: string) => {
+      // The } inside the quotes is likely a mistake — replace with "
+      return `="${before}"${after}"`;
+    },
+  );
+
+  if (fixed === line) {
+    // Simpler fix: find a " followed by non-" chars ending with } before a space/attribute boundary
+    const simpler = line.replace(/="([^"]*?)(})(\s)/g, '="$1"$3');
+    if (simpler !== line) {
+      lines[lineIdx] = simpler;
+      await fs.writeFile(filePath, lines.join("\n"), "utf-8");
+      return true;
+    }
+
+    // Last resort: if odd double quotes, the } at/near error col might be a misplaced "
+    const beforeCol = line.slice(0, col0);
+    const dqBefore = (beforeCol.match(/"/g) || []).length;
+    if (dqBefore % 2 !== 0) {
+      // We're inside an unclosed string — find the } and replace with "
+      const patched = line.slice(0, col0) + line.slice(col0).replace("}", '"');
+      lines[lineIdx] = patched;
+      await fs.writeFile(filePath, lines.join("\n"), "utf-8");
+      return true;
+    }
+    return false;
+  }
+
+  lines[lineIdx] = fixed;
   await fs.writeFile(filePath, lines.join("\n"), "utf-8");
   return true;
 }
@@ -275,6 +334,11 @@ const AUTO_FIX_RULES: AutoFixRule[] = [
       (e.code === "TS1005" || e.code === "TS1128") &&
       e.message.includes("Declaration expected"),
     fix: fixBareConstInJsx,
+  },
+  {
+    detect: (e) =>
+      e.code === "TS1003" && e.message.includes("Identifier expected"),
+    fix: fixMismatchedQuotes,
   },
 ];
 

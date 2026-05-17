@@ -1,6 +1,12 @@
-import React from "react";
 import { AbsoluteFill, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio } from "@remotion/media";
+
+type VisualAssets = {
+  characterAssetSrc?: string;
+  backgroundAssetSrc?: string;
+  hasCharacterAsset?: boolean;
+  hasBackgroundAsset?: boolean;
+};
 
 type GeneratedScene = {
   id: string;
@@ -11,18 +17,16 @@ type GeneratedScene = {
   onScreenText: string;
   visualDescription: string;
   durationSec: number;
-  accentColor?: string;
+  transitionToNext: string;
+  emphasis: string;
+  accentColor: string;
+  durationFrames: number;
   action?: string;
   habitat?: string;
   assetKey?: string;
   assetTags?: string[];
-  audioSrc?: string;
-  visualAssets?: {
-    characterAssetSrc?: string;
-    backgroundAssetSrc?: string;
-    hasCharacterAsset?: boolean;
-    [key: string]: any;
-  };
+  audioSrc: string;
+  visualAssets: VisualAssets;
 };
 
 type GeneratedLessonProps = {
@@ -32,812 +36,134 @@ type GeneratedLessonProps = {
   durationFrames: number;
 };
 
-const PeacockSVG: React.FC<{ frame: number; displayTail?: boolean; sceneType?: string }> = ({ frame, displayTail = false, sceneType = "walking" }) => {
-  const headBob = Math.sin(frame * 0.08) * 5;
-  const bodyBob = Math.sin(frame * 0.05) * 3;
-  const wingFlap = Math.sin(frame * 0.1) * 8;
-  const tailSpread = displayTail ? Math.min(interpolate(frame, [0, 30], [0, 1]), 1) : 0;
-  const tailWave = Math.sin(frame * 0.03) * 5 * tailSpread;
-  
-  // Tail feathers animation when displayed
-  const featherOscillation = displayTail ? Math.sin(frame * 0.05 + 1) * 3 : 0;
-  
-  const bodyX = 960;
-  const bodyY = 540 + bodyBob;
-  const headX = bodyX + headBob;
-  const headY = bodyY - 80;
-  
-  const neckColor = "#1A5F7A";
-  const bodyColor = "#2C6E49";
-  const crestColor = "#4ECDC4";
-  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA"];
-  
-  // Create tail feathers
-  const tailFeathers: React.ReactNode[] = [];
-  if (displayTail) {
-    for (let i = 0; i < 12; i++) {
-      const angle = (i / 11) * Math.PI - Math.PI / 2;
-      const length = 280 + Math.sin(i * 0.5) * 30;
-      const endX = bodyX + Math.cos(angle) * length * tailSpread;
-      const endY = bodyY + 120 + Math.sin(angle) * length * tailSpread;
-      const colorIndex = i % tailColors.length;
-      const featherWobble = Math.sin(frame * 0.03 + i * 0.3) * 8;
-      
-      const actualEndX = endX + featherWobble;
-      const actualEndY = endY;
-      
-      tailFeathers.push(
-        <g key={`feather-${i}`}>
-          <path
-            d={`M ${bodyX}, ${bodyY + 60} Q ${bodyX + Math.cos(angle) * 80}, ${bodyY + 80 + Math.sin(angle) * 60} ${actualEndX}, ${actualEndY}`}
-            stroke={tailColors[colorIndex]}
-            strokeWidth="12"
-            fill="none"
-            opacity={tailSpread}
-          />
-          {/* Eye spot on feather */}
-          <circle
-            cx={actualEndX - Math.cos(angle) * 40}
-            cy={actualEndY - Math.sin(angle) * 40}
-            r={15}
-            fill="#2C3E50"
-            opacity={tailSpread}
-          />
-          <circle
-            cx={actualEndX - Math.cos(angle) * 40}
-            cy={actualEndY - Math.sin(angle) * 40}
-            r={8}
-            fill="#3498DB"
-            opacity={tailSpread}
-          />
-          <circle
-            cx={actualEndX - Math.cos(angle) * 40}
-            cy={actualEndY - Math.sin(angle) * 40}
-            r={4}
-            fill="#1ABC9C"
-            opacity={tailSpread}
-          />
-        </g>
-      );
-    }
-  }
-  
-  return (
-    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-      {/* Background elements */}
-      <rect x="0" y="0" width="1920" height="1080" fill="#E8F5E9" />
-      
-      {/* Grass ground */}
-      <path d={`M 0,850 Q 480,830 960,850 T 1920,850 L 1920,1080 L 0,1080 Z`} fill="#81C784" />
-      
-      {/* Trees in background */}
-      <g>
-        <circle cx="200" cy="350" r="120" fill="#4CAF50" opacity="0.6" />
-        <circle cx="280" cy="280" r="100" fill="#66BB6A" opacity="0.5" />
-        <circle cx="150" cy="300" r="90" fill="#81C784" opacity="0.5" />
-        <rect x="180" y="420" width="40" height="150" fill="#795548" />
-        
-        <circle cx="1700" cy="380" r="140" fill="#4CAF50" opacity="0.6" />
-        <circle cx="1780" cy="300" r="110" fill="#66BB6A" opacity="0.5" />
-        <circle cx="1640" cy="320" r="100" fill="#81C784" opacity="0.5" />
-        <rect x="1670" y="450" width="45" height="160" fill="#795548" />
-      </g>
-      
-      {/* Sun */}
-      <circle cx="1600" cy="200" r="60" fill="#FFD54F" />
-      <circle cx="1600" cy="200" r="80" fill="#FFD54F" opacity="0.3" />
-      
-      {/* Tail feathers (behind body) */}
-      {tailFeathers}
-      
-      {/* Peacock body */}
-      <ellipse cx={bodyX} cy={bodyY} rx="70" ry="90" fill={bodyColor} />
-      
-      {/* Wings */}
-      <ellipse
-        cx={bodyX - 40 + wingFlap}
-        cy={bodyY + 20}
-        rx="45"
-        ry="70"
-        fill={bodyColor}
-        transform={`rotate(-10, ${bodyX - 40}, ${bodyY + 20})`}
-      />
-      <ellipse
-        cx={bodyX + 40 - wingFlap}
-        cy={bodyY + 20}
-        rx="45"
-        ry="70"
-        fill={bodyColor}
-        transform={`rotate(10, ${bodyX + 40}, ${bodyY + 20})`}
-      />
-      
-      {/* Neck */}
-      <path
-        d={`M ${bodyX - 20}, ${bodyY - 60} Q ${headX - 15}, ${headY + 30} ${headX}, ${headY}`}
-        stroke={neckColor}
-        strokeWidth="35"
-        fill="none"
-        strokeLinecap="round"
-      />
-      
-      {/* Head */}
-      <circle cx={headX} cy={headY} r="35" fill={neckColor} />
-      
-      {/* Crest (crown) */}
-      <g>
-        <line x1={headX - 10} y1={headY - 30} x2={headX - 15} y2={headY - 60} stroke={crestColor} strokeWidth="4" />
-        <circle cx={headX - 15} cy={headY - 62} r="6" fill={crestColor} />
-        
-        <line x1={headX} y1={headY - 32} x2={headX} y2={headY - 68} stroke={crestColor} strokeWidth="4" />
-        <circle cx={headX} cy={headY - 70} r="7" fill={crestColor} />
-        
-        <line x1={headX + 10} y1={headY - 30} x2={headX + 15} y2={headY - 60} stroke={crestColor} strokeWidth="4" />
-        <circle cx={headX + 15} cy={headY - 62} r="6" fill={crestColor} />
-        
-        <line x1={headX - 5} y1={headY - 28} x2={headX - 8} y2={headY - 55} stroke={crestColor} strokeWidth="3" />
-        <circle cx={headX - 8} cy={headY - 56} r="5" fill={crestColor} />
-        
-        <line x1={headX + 5} y1={headY - 28} x2={headX + 8} y2={headY - 55} stroke={crestColor} strokeWidth="3" />
-        <circle cx={headX + 8} cy={headY - 56} r="5" fill={crestColor} />
-      </g>
-      
-      {/* Eye */}
-      <circle cx={headX + 12} cy={headY} r="10" fill="white" />
-      <circle cx={headX + 14} cy={headY} r="6" fill="#2C3E50" />
-      <circle cx={headX + 16} cy={headY - 2} r="2" fill="white" />
-      
-      {/* Beak */}
-      <path
-        d={`M ${headX + 30}, ${headY + 2} L ${headX + 50}, ${headY + 5} L ${headX + 30}, ${headY + 12} Z`}
-        fill="#F4A460"
-      />
-      
-      {/* Legs */}
-      <line x1={bodyX - 25} y1={bodyY + 80} x2={bodyX - 25} y2={bodyY + 140} stroke="#F4A460" strokeWidth="8" />
-      <line x1={bodyX + 25} y1={bodyY + 80} x2={bodyX + 25} y2={bodyY + 140} stroke="#F4A460" strokeWidth="8" />
-      
-      {/* Feet */}
-      <path d={`M ${bodyX - 35}, ${bodyY + 138} L ${bodyX - 15}, ${bodyY + 138} L ${bodyX - 25}, ${bodyY + 130} Z`} fill="#F4A460" />
-      <path d={`M ${bodyX + 15}, ${bodyY + 138} L ${bodyX + 35}, ${bodyY + 138} L ${bodyX + 25}, ${bodyY + 130} Z`} fill="#F4A460" />
-    </svg>
-  );
-};
+export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({
+  title,
+  topic,
+  scenes,
+  durationFrames,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
 
-const FeatherCloseupSVG: React.FC<{ frame: number }> = ({ frame }) => {
-  const shimmer = Math.sin(frame * 0.1) * 0.15;
-  const scale = interpolate(frame, [0, 20], [0.5, 1], { extrapolateRight: "clamp" });
-  const centerX = 960;
-  const centerY = 540;
-  
   return (
-    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-      {/* Blurred background */}
-      <rect x="0" y="0" width="1920" height="1080" fill="#81C784" opacity="0.3" />
-      <circle cx="400" cy="500" r="200" fill="#4CAF50" opacity="0.2" />
-      <circle cx="1500" cy="600" r="250" fill="#66BB6A" opacity="0.2" />
-      
-      {/* Main feather */}
-      <g transform={`translate(${centerX}, ${centerY}) scale(${scale})`}>
-        {/* Feather shaft */}
-        <path
-          d="M -10, -300 Q 0, 0 10, 300"
-          stroke="#5D4E37"
-          strokeWidth="6"
-          fill="none"
-        />
-        
-        {/* Feather barbs - left side */}
-        {[...Array(15)].map((_, i) => {
-          const y = -280 + i * 40;
-          const length = 80 - Math.abs(i - 7) * 5;
-          return (
-            <path
-              key={`left-${i}`}
-              d={`M -5, ${y} Q ${-length * 0.5}, ${y + 10} ${-length}, ${y}`}
-              stroke={i % 2 === 0 ? "#FF6B6B" : "#4ECDC4"}
-              strokeWidth="8"
-              fill="none"
-              opacity={0.8 + shimmer}
-            />
-          );
-        })}
-        
-        {/* Feather barbs - right side */}
-        {[...Array(15)].map((_, i) => {
-          const y = -280 + i * 40;
-          const length = 80 - Math.abs(i - 7) * 5;
-          return (
-            <path
-              key={`right-${i}`}
-              d={`M 5, ${y} Q ${length * 0.5}, ${y + 10} ${length}, ${y}`}
-              stroke={i % 2 === 0 ? "#FF6B6B" : "#4ECDC4"}
-              strokeWidth="8"
-              fill="none"
-              opacity={0.8 + shimmer}
-            />
-          );
-        })}
-        
-        {/* Eye spot */}
-        <circle cx="0" cy="0" r="50" fill="#2C3E50" />
-        <circle cx="0" cy="0" r="35" fill="#3498DB" />
-        <circle cx="0" cy="0" r="20" fill="#1ABC9C" />
-        <circle cx="0" cy="0" r="10" fill="#16A085" />
-        <circle cx="-8" cy="-8" r="5" fill="white" opacity="0.4" />
-      </g>
-      
-      {/* Sparkle effects */}
-      {[...Array(6)].map((_, i) => {
-        const angle = (i / 6) * Math.PI * 2;
-        const radius = 300 + Math.sin(frame * 0.05 + i) * 30;
-        const x = centerX + Math.cos(angle) * radius;
-        const y = centerY + Math.sin(angle) * radius;
-        const sparkleSize = 10 + Math.sin(frame * 0.1 + i) * 5;
+    <AbsoluteFill style={{ backgroundColor: "#E0F7FA" }}>
+      {scenes.map((scene, index) => {
+        const startFrame = index * scene.durationFrames;
         return (
-          <circle
-            key={`sparkle-${i}`}
-            cx={x}
-            cy={y}
-            r={sparkleSize}
-            fill="#FFD54F"
-            opacity={0.6 + Math.sin(frame * 0.08 + i) * 0.3}
-          />
+          <Sequence
+            key={scene.id}
+            from={startFrame}
+            durationInFrames={scene.durationFrames}
+            premountFor={1 * fps}
+          >
+            {/* Audio for each scene */}
+            {scene.audioSrc && <Audio src={staticFile(scene.audioSrc)} volume={0.94} />}
+            
+            {/* Scene content */}
+            <SceneComponent scene={scene} frame={frame} fps={fps} width={width} height={height} />
+          </Sequence>
         );
       })}
-    </svg>
-  );
-};
-
-const PeacockDisplaySVG: React.FC<{ frame: number }> = ({ frame }) => {
-  const tailProgress = Math.min(interpolate(frame, [0, 40], [0, 1]), 1);
-  const featherWave = Math.sin(frame * 0.04) * 8;
-  const bodyBob = Math.sin(frame * 0.03) * 5;
-  
-  const bodyX = 960;
-  const bodyY = 600 + bodyBob;
-  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181", "#AA96DA", "#74B9FF", "#FD79A8"];
-  
-  // Create fan of tail feathers
-  const tailFeathers: React.ReactNode[] = [];
-  for (let i = 0; i < 16; i++) {
-    const angle = (i / 15) * Math.PI - Math.PI / 2;
-    const length = 380 + Math.sin(i * 0.8) * 40;
-    const endX = bodyX + Math.cos(angle) * length * tailProgress;
-    const endY = bodyY - 50 + Math.sin(angle) * length * tailProgress;
-    const colorIndex = i % tailColors.length;
-    const featherWobble = Math.sin(frame * 0.03 + i * 0.4) * 10;
-    
-    const actualEndX = endX + featherWobble * tailProgress;
-    const actualEndY = endY;
-    
-    tailFeathers.push(
-      <g key={`fan-feather-${i}`}>
-        {/* Feather shaft */}
-        <path
-          d={`M ${bodyX}, ${bodyY} Q ${bodyX + Math.cos(angle) * 100 * tailProgress}, ${bodyY - 20 + Math.sin(angle) * 60 * tailProgress} ${actualEndX}, ${actualEndY}`}
-          stroke={tailColors[colorIndex]}
-          strokeWidth="14"
-          fill="none"
-          opacity={tailProgress}
-        />
-        
-        {/* Eye spot */}
-        const eyeX = actualEndX - Math.cos(angle) * 50;
-        const eyeY = actualEndY - Math.sin(angle) * 50;
-        const eyeScale = tailProgress;
-        
-        <g transform={`translate(${eyeX}, ${eyeY}) scale(${eyeScale})`}>
-          <circle cx="0" cy="0" r="25" fill="#2C3E50" />
-          <circle cx="0" cy="0" r="18" fill="#3498DB" />
-          <circle cx="0" cy="0" r="10" fill="#1ABC9C" />
-          <circle cx="0" cy="0" r="5" fill="#16A085" />
-        </g>
-      </g>
-    );
-  }
-  
-  return (
-    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-      {/* Simple background */}
-      <rect x="0" y="0" width="1920" height="1080" fill="#E0F7FA" />
-      
-      {/* Ground */}
-      <path d="M 0,800 Q 960,780 1920,800 L 1920,1080 L 0,1080 Z" fill="#81C784" />
-      
-      {/* Tail feathers (behind body) */}
-      {tailFeathers}
-      
-      {/* Peacock body */}
-      <ellipse cx={bodyX} cy={bodyY} rx="80" ry="100" fill="#2C6E49" />
-      
-      {/* Neck */}
-      <path
-        d={`M ${bodyX - 15}, ${bodyY - 70} Q ${bodyX - 10}, ${bodyY - 100} ${bodyX}, ${bodyY - 130}`}
-        stroke="#1A5F7A"
-        strokeWidth="40"
-        fill="none"
-        strokeLinecap="round"
-      />
-      
-      {/* Head */}
-      <circle cx={bodyX} cy={bodyY - 140} r="40" fill="#1A5F7A" />
-      
-      {/* Crest */}
-      {[...Array(5)].map((_, i) => {
-        const offsetX = (i - 2) * 12;
-        return (
-          <g key={`crest-${i}`}>
-            <line
-              x1={bodyX + offsetX}
-              y1={bodyY - 175}
-              x2={bodyX + offsetX * 1.2}
-              y2={bodyY - 210}
-              stroke="#4ECDC4"
-              strokeWidth="5"
-            />
-            <circle
-              cx={bodyX + offsetX * 1.2}
-              cy={bodyY - 212}
-              r={7}
-              fill="#4ECDC4"
-            />
-          </g>
-        );
-      })}
-      
-      {/* Eye */}
-      <circle cx={bodyX + 12} cy={bodyY - 140} r="12" fill="white" />
-      <circle cx={bodyX + 14} cy={bodyY - 140} r="7" fill="#2C3E50" />
-      <circle cx={bodyX + 16} cy={bodyY - 142} r="3" fill="white" />
-      
-      {/* Beak */}
-      <path
-        d={`M ${bodyX + 35}, ${bodyY - 138} L ${bodyX + 55}, ${bodyY - 135} L ${bodyX + 35}, ${bodyY - 128} Z`}
-        fill="#F4A460"
-      />
-      
-      {/* Legs */}
-      <line x1={bodyX - 30} y1={bodyY + 90} x2={bodyX - 30} y2={bodyY + 150} stroke="#F4A460" strokeWidth="10" />
-      <line x1={bodyX + 30} y1={bodyY + 90} x2={bodyX + 30} y2={bodyY + 150} stroke="#F4A460" strokeWidth="10" />
-      
-      {/* Light rays */}
-      {[...Array(8)].map((_, i) => {
-        const angle = (i / 8) * Math.PI * 2;
-        return (
-          <line
-            key={`ray-${i}`}
-            x1={bodyX + Math.cos(angle) * 450}
-            y1={bodyY + Math.sin(angle) * 450}
-            x2={bodyX + Math.cos(angle) * 520}
-            y2={bodyY + Math.sin(angle) * 520}
-            stroke="#FFD54F"
-            strokeWidth="4"
-            opacity={0.3 + Math.sin(frame * 0.05 + i) * 0.2}
-          />
-        );
-      })}
-    </svg>
-  );
-};
-
-const CourtshipSVG: React.FC<{ frame: number }> = ({ frame }) => {
-  const tailProgress = Math.min(interpolate(frame, [0, 30], [0, 1]), 1);
-  const bodyBob = Math.sin(frame * 0.04) * 5;
-  const heartFloat = Math.sin(frame * 0.06) * 20;
-  const heartOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
-  
-  const maleX = 700;
-  const maleY = 600 + bodyBob;
-  const femaleX = 1220;
-  const femaleY = 650 + Math.sin(frame * 0.03 + 1) * 3;
-  
-  const tailColors = ["#FF6B6B", "#FFE66D", "#4ECDC4", "#95E1D3", "#F38181"];
-  
-  // Male tail feathers
-  const maleTailFeathers: React.ReactNode[] = [];
-  for (let i = 0; i < 12; i++) {
-    const angle = (i / 11) * Math.PI - Math.PI / 2 + 0.3;
-    const length = 320;
-    const endX = maleX + Math.cos(angle) * length * tailProgress;
-    const endY = maleY - 50 + Math.sin(angle) * length * tailProgress;
-    const colorIndex = i % tailColors.length;
-    const featherWobble = Math.sin(frame * 0.04 + i * 0.3) * 8;
-    
-    const actualEndX = endX + featherWobble * tailProgress;
-    const actualEndY = endY;
-    
-    maleTailFeathers.push(
-      <g key={`male-feather-${i}`}>
-        <path
-          d={`M ${maleX}, ${maleY} Q ${maleX + Math.cos(angle) * 80 * tailProgress}, ${maleY - 20 + Math.sin(angle) * 50 * tailProgress} ${actualEndX}, ${actualEndY}`}
-          stroke={tailColors[colorIndex]}
-          strokeWidth="12"
-          fill="none"
-          opacity={tailProgress}
-        />
-        
-        <circle
-          cx={actualEndX - Math.cos(angle) * 40}
-          cy={actualEndY - Math.sin(angle) * 40}
-          r="15"
-          fill="#2C3E50"
-          opacity={tailProgress}
-        />
-        <circle
-          cx={actualEndX - Math.cos(angle) * 40}
-          cy={actualEndY - Math.sin(angle) * 40}
-          r="8"
-          fill="#3498DB"
-          opacity={tailProgress}
-        />
-      </g>
-    );
-  }
-  
-  return (
-    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-      {/* Background */}
-      <rect x="0" y="0" width="1920" height="1080" fill="#FFF3E0" />
-      
-      {/* Ground */}
-      <path d="M 0,750 Q 960,730 1920,750 L 1920,1080 L 0,1080 Z" fill="#A5D6A7" />
-      
-      {/* Bushes */}
-      <ellipse cx="300" cy="720" rx="150" ry="80" fill="#66BB6A" opacity="0.5" />
-      <ellipse cx="1620" cy="710" rx="180" ry="90" fill="#66BB6A" opacity="0.5" />
-      
-      {/* Male peacock tail (behind body) */}
-      {maleTailFeathers}
-      
-      {/* Male peacock body */}
-      <ellipse cx={maleX} cy={maleY} rx="70" ry="90" fill="#2C6E49" />
-      
-      {/* Male neck */}
-      <path
-        d={`M ${maleX - 15}, ${maleY - 65} Q ${maleX - 10}, ${maleY - 95} ${maleX}, ${maleY - 125}`}
-        stroke="#1A5F7A"
-        strokeWidth="35"
-        fill="none"
-        strokeLinecap="round"
-      />
-      
-      {/* Male head */}
-      <circle cx={maleX} cy={maleY - 135} r="35" fill="#1A5F7A" />
-      
-      {/* Male crest */}
-      {[...Array(3)].map((_, i) => {
-        const offsetX = (i - 1) * 10;
-        return (
-          <g key={`male-crest-${i}`}>
-            <line
-              x1={maleX + offsetX}
-              y1={maleY - 168}
-              x2={maleX + offsetX * 1.3}
-              y2={maleY - 195}
-              stroke="#4ECDC4"
-              strokeWidth="4"
-            />
-            <circle
-              cx={maleX + offsetX * 1.3}
-              cy={maleY - 197}
-              r={6}
-              fill="#4ECDC4"
-            />
-          </g>
-        );
-      })}
-      
-      {/* Male eye */}
-      <circle cx={maleX + 10} cy={maleY - 135} r="10" fill="white" />
-      <circle cx={maleX + 12} cy={maleY - 135} r="6" fill="#2C3E50" />
-      
-      {/* Male beak */}
-      <path
-        d={`M ${maleX + 32}, ${maleY - 133} L ${maleX + 50}, ${maleY - 130} L ${maleX + 32}, ${maleY - 124} Z`}
-        fill="#F4A460"
-      />
-      
-      {/* Male legs */}
-      <line x1={maleX - 25} y1={maleY + 80} x2={maleX - 25} y2={maleY + 140} stroke="#F4A460" strokeWidth="8" />
-      <line x1={maleX + 25} y1={maleY + 80} x2={maleX + 25} y2={maleY + 140} stroke="#F4A460" strokeWidth="8" />
-      
-      {/* Female peacock (brown, simpler) */}
-      <ellipse cx={femaleX} cy={femaleY} rx="60" ry="80" fill="#8D6E63" />
-      
-      {/* Female neck */}
-      <path
-        d={`M ${femaleX - 10}, ${femaleY - 55} Q ${femaleX - 5}, ${femaleY - 85} ${femaleX}, ${femaleY - 115}`}
-        stroke="#A1887F"
-        strokeWidth="30"
-        fill="none"
-        strokeLinecap="round"
-      />
-      
-      {/* Female head */}
-      <circle cx={femaleX} cy={femaleY - 125} r="30" fill="#A1887F" />
-      
-      {/* Female crest */}
-      {[...Array(3)].map((_, i) => {
-        const offsetX = (i - 1) * 8;
-        return (
-          <g key={`female-crest-${i}`}>
-            <line
-              x1={femaleX + offsetX}
-              y1={femaleY - 152}
-              x2={femaleX + offsetX * 1.2}
-              y2={femaleY - 175}
-              stroke="#BCAAA4"
-              strokeWidth="3"
-            />
-            <circle
-              cx={femaleX + offsetX * 1.2}
-              cy={femaleY - 177}
-              r={5}
-              fill="#BCAAA4"
-            />
-          </g>
-        );
-      })}
-      
-      {/* Female eye */}
-      <circle cx={femaleX + 8} cy={femaleY - 125} r="8" fill="white" />
-      <circle cx={femaleX + 10} cy={femaleY - 125} r="5" fill="#2C3E50" />
-      
-      {/* Female beak */}
-      <path
-        d={`M ${femaleX + 28}, ${femaleY - 123} L ${femaleX + 45}, ${femaleY - 120} L ${femaleX + 28}, ${femaleY - 115} Z`}
-        fill="#F4A460"
-      />
-      
-      {/* Female legs */}
-      <line x1={femaleX - 20} y1={femaleY + 70} x2={femaleX - 20} y2={femaleY + 130} stroke="#F4A460" strokeWidth="7" />
-      <line x1={femaleX + 20} y1={femaleY + 70} x2={femaleX + 20} y2={femaleY + 130} stroke="#F4A460" strokeWidth="7" />
-      
-      {/* Floating hearts */}
-      <g opacity={heartOpacity}>
-        <path
-          d={`M 960, ${350 + heartFloat} C 920, ${310 + heartFloat} 860, ${330 + heartFloat} 860, ${380 + heartFloat} C 860, ${430 + heartFloat} 960, ${490 + heartFloat} 1060, ${430 + heartFloat} C 1060, ${380 + heartFloat} 1000, ${310 + heartFloat} 960, ${350 + heartFloat}`}
-          fill="#E91E63"
-          transform="scale(0.8)"
-        />
-        <path
-          d={`M 850, ${450 + heartFloat * 0.7} C 830, ${430 + heartFloat * 0.7} 800, ${440 + heartFloat * 0.7} 800, ${465 + heartFloat * 0.7} C 800, ${490 + heartFloat * 0.7} 850, ${520 + heartFloat * 0.7} 900, ${490 + heartFloat * 0.7} C 900, ${465 + heartFloat * 0.7} 870, ${430 + heartFloat * 0.7} 850, ${450 + heartFloat * 0.7}`}
-          fill="#E91E63"
-          transform="scale(0.5)"
-          opacity="0.7"
-        />
-      </g>
-    </svg>
-  );
-};
-
-const SummarySVG: React.FC<{ frame: number }> = ({ frame }) => {
-  const bodyBob = Math.sin(frame * 0.05) * 3;
-  const bubbleScale = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" });
-  
-  const bodyX = 960;
-  const bodyY = 580 + bodyBob;
-  
-  return (
-    <svg viewBox="0 0 1920 1080" style={{ position: "absolute", width: "100%", height: "100%" }}>
-      {/* Background */}
-      <rect x="0" y="0" width="1920" height="1080" fill="#E8F5E9" />
-      
-      {/* Ground */}
-      <path d="M 0,750 Q 960,730 1920,750 L 1920,1080 L 0,1080 Z" fill="#81C784" />
-      
-      {/* Decorative trees */}
-      <circle cx="200" cy="400" r="100" fill="#4CAF50" opacity="0.4" />
-      <circle cx="1700" cy="420" r="110" fill="#4CAF50" opacity="0.4" />
-      
-      {/* Peacock body */}
-      <ellipse cx={bodyX} cy={bodyY} rx="75" ry="95" fill="#2C6E49" />
-      
-      {/* Wings */}
-      <ellipse
-        cx={bodyX - 45}
-        cy={bodyY + 25}
-        rx="50"
-        ry="75"
-        fill="#2C6E49"
-        transform="rotate(-8, ${bodyX - 45}, ${bodyY + 25})"
-      />
-      <ellipse
-        cx={bodyX + 45}
-        cy={bodyY + 25}
-        rx="50"
-        ry="75"
-        fill="#2C6E49"
-        transform="rotate(8, ${bodyX + 45}, ${bodyY + 25})"
-      />
-      
-      {/* Neck */}
-      <path
-        d={`M ${bodyX - 18}, ${bodyY - 68} Q ${bodyX - 12}, ${bodyY - 100} ${bodyX}, ${bodyY - 130}`}
-        stroke="#1A5F7A"
-        strokeWidth="38"
-        fill="none"
-        strokeLinecap="round"
-      />
-      
-      {/* Head */}
-      <circle cx={bodyX} cy={bodyY - 140} r="38" fill="#1A5F7A" />
-      
-      {/* Crest */}
-      {[...Array(5)].map((_, i) => {
-        const offsetX = (i - 2) * 12;
-        return (
-          <g key={`summary-crest-${i}`}>
-            <line
-              x1={bodyX + offsetX}
-              y1={bodyY - 175}
-              x2={bodyX + offsetX * 1.2}
-              y2={bodyY - 215}
-              stroke="#4ECDC4"
-              strokeWidth="5"
-            />
-            <circle
-              cx={bodyX + offsetX * 1.2}
-              cy={bodyY - 217}
-              r={7}
-              fill="#4ECDC4"
-            />
-          </g>
-        );
-      })}
-      
-      {/* Eye */}
-      <circle cx={bodyX + 12} cy={bodyY - 140} r="11" fill="white" />
-      <circle cx={bodyX + 14} cy={bodyY - 140} r="7" fill="#2C3E50" />
-      <circle cx={bodyX + 16} cy={bodyY - 142} r="3" fill="white" />
-      
-      {/* Beak */}
-      <path
-        d={`M ${bodyX + 35}, ${bodyY - 138} L ${bodyX + 55}, ${bodyY - 135} L ${bodyX + 35}, ${bodyY - 128} Z`}
-        fill="#F4A460"
-      />
-      
-      {/* Legs */}
-      <line x1={bodyX - 28} y1={bodyY + 85} x2={bodyX - 28} y2={bodyY + 145} stroke="#F4A460" strokeWidth="10" />
-      <line x1={bodyX + 28} y1={bodyY + 85} x2={bodyX + 28} y2={bodyY + 145" stroke="#F4A460" strokeWidth="10" />
-      
-      {/* Feature bubbles */}
-      {/* Crest bubble */}
-      <g transform={`translate(500, 280) scale(${bubbleScale})`}>
-        <ellipse cx="0" cy="0" rx="100" ry="70" fill="#4ECDC4" opacity="0.3" />
-        <text x="0" y="10" fontSize="40" fill="#00695C" textAnchor="middle" fontWeight="bold">羽冠</text>
-        <path d="M 50, 60 L 80, 100 L 60, 100 L 70, 130 L 40, 90 L 60, 90 Z" fill="#4ECDC4" />
-      </g>
-      
-      {/* Tail spot bubble */}
-      <g transform={`translate(1420, 280) scale(${bubbleScale})`}>
-        <ellipse cx="0" cy="0" rx="100" ry="70" fill="#FF6B6B" opacity="0.3" />
-        <text x="0" y="10" fontSize="40" fill="#C62828" textAnchor="middle" fontWeight="bold">眼斑</text>
-        <circle cx="-40" cy="-10" r="20" fill="#2C3E50" />
-        <circle cx="-40" cy="-10" r="12" fill="#3498DB" />
-        <circle cx="-40" cy="-10" r="6" fill="#1ABC9C" />
-      </g>
-      
-      {/* Display bubble */}
-      <g transform={`translate(960, 200) scale(${bubbleScale})`}>
-        <ellipse cx="0" cy="0" rx="90" ry="65" fill="#FFE66D" opacity="0.3" />
-        <text x="0" y="10" fontSize="40" fill="#F57F17" textAnchor="middle" fontWeight="bold">开屏</text>
-        {/* Mini tail display */}
-        {[...Array(5)].map((_, i) => {
-          const angle = (i / 4) * Math.PI - Math.PI / 2;
-          return (
-            <path
-              key={`mini-tail-${i}`}
-              d={`M 0, 25 L ${Math.cos(angle) * 40}, ${Math.sin(angle) * 40}`}
-              stroke="#FF6B6B"
-              strokeWidth="6"
-              strokeLinecap="round"
-            />
-          );
-        })}
-      </g>
-      
-      {/* Waving wing (goodbye gesture) */}
-      <ellipse
-        cx={bodyX + 55 + Math.sin(frame * 0.15) * 15}
-        cy={bodyY + 40}
-        rx="40"
-        ry="60"
-        fill="#2C6E49"
-        transform={`rotate(${20 + Math.sin(frame * 0.15) * 10}, ${bodyX + 55}, ${bodyY + 40})`}
-      />
-    </svg>
+    </AbsoluteFill>
   );
 };
 
 const SceneComponent: React.FC<{
   scene: GeneratedScene;
-  sceneFrame: number;
-  fadeInFrames?: number;
-  fadeOutFrames?: number;
-}> = ({ scene, sceneFrame, fadeInFrames = 15, fadeOutFrames = 15 }) => {
-  const opacity = interpolate(
-    sceneFrame,
-    [0, fadeInFrames, scene.durationFrames * 30 - fadeOutFrames, scene.durationFrames * 30],
-    [0, 1, 1, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-  
-  const getVisualComponent = () => {
+  frame: number;
+  fps: number;
+  width: number;
+  height: number;
+}> = ({ scene, frame, fps, width, height }) => {
+  const localFrame = frame % scene.durationFrames;
+  const opacity = interpolate(localFrame, [0, 0.5 * fps, scene.durationFrames - 0.5 * fps, scene.durationFrames], [0, 1, 1, 0], {
+    extrapolateRight: "clamp",
+    extrapolateLeft: "clamp",
+  });
+
+  // Scene-specific animations and visuals
+  const renderSceneContent = () => {
     switch (scene.sequence) {
       case 1:
-        return <PeacockSVG frame={sceneFrame} displayTail={false} sceneType="walking" />;
+        return <Scene1Introduction frame={localFrame} fps={fps} />;
       case 2:
-        return <FeatherCloseupSVG frame={sceneFrame} />;
+        return <Scene2TailFeathers frame={localFrame} fps={fps} />;
       case 3:
-        return <PeacockDisplaySVG frame={sceneFrame} />;
+        return <Scene3DisplayFeathers frame={localFrame} fps={fps} />;
       case 4:
-        return <CourtshipSVG frame={sceneFrame} />;
+        return <Scene4Food frame={localFrame} fps={fps} />;
       case 5:
-        return <SummarySVG frame={sceneFrame} />;
+        return <Scene5Summary frame={localFrame} fps={fps} />;
       default:
-        return <PeacockSVG frame={sceneFrame} displayTail={false} />;
+        return null;
     }
   };
-  
+
   return (
     <AbsoluteFill style={{ opacity }}>
-      {getVisualComponent()}
+      {/* Background */}
+      <BackgroundSVG scene={scene} frame={localFrame} fps={fps} />
       
-      {/* Title at top */}
+      {/* Scene content */}
+      <AbsoluteFill>{renderSceneContent()}</AbsoluteFill>
+      
+      {/* Scene title */}
       <div
         style={{
           position: "absolute",
-          top: "80px",
-          left: "0",
-          right: "0",
+          top: 80,
+          left: 0,
+          right: 0,
           textAlign: "center",
-          fontSize: "64px",
+          fontSize: 72,
           fontWeight: "bold",
           color: "#00695C",
-          textShadow: "3px 3px 6px rgba(0,0,0,0.2)",
           fontFamily: "Arial, sans-serif",
+          textShadow: "2px 2px 8px rgba(255,255,255,0.8)",
         }}
       >
         {scene.title}
       </div>
       
-      {/* On-screen text at bottom */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "200px",
-          left: "0",
-          right: "0",
-          textAlign: "center",
-          fontSize: "48px",
-          fontWeight: "bold",
-          color: "#FFFFFF",
-          backgroundColor: "rgba(0, 150, 136, 0.85)",
-          padding: "20px 40px",
-          margin: "0 100px",
-          borderRadius: "20px",
-          fontFamily: "Arial, sans-serif",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        }}
-      >
-        {scene.onScreenText}
-      </div>
+      {/* On-screen text */}
+      {scene.onScreenText && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 200,
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontSize: 56,
+            fontWeight: "bold",
+            color: "#D81B60",
+            backgroundColor: "rgba(255,255,255,0.9)",
+            padding: "20px 40px",
+            borderRadius: 20,
+            maxWidth: "80%",
+            margin: "0 auto",
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          {scene.onScreenText}
+        </div>
+      )}
       
-      {/* Narration bar */}
+      {/* Narration text bar */}
       <div
         style={{
           position: "absolute",
-          bottom: "50px",
-          left: "0",
-          right: "0",
-          backgroundColor: "rgba(0, 0, 0, 0.7)",
-          padding: "15px 40px",
-          color: "#FFFFFF",
-          fontSize: "28px",
+          bottom: 40,
+          left: 80,
+          right: 80,
+          backgroundColor: "rgba(0,105,92,0.85)",
+          padding: "20px 40px",
+          borderRadius: 15,
+          color: "white",
+          fontSize: 32,
           fontFamily: "Arial, sans-serif",
-          lineHeight: "1.4",
           textAlign: "center",
+          lineHeight: 1.4,
         }}
       >
         {scene.narration}
@@ -846,40 +172,592 @@ const SceneComponent: React.FC<{
   );
 };
 
-export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({
-  title,
-  topic,
-  scenes,
-  durationFrames,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  
-  let currentFrame = 0;
-  
+const BackgroundSVG: React.FC<{ scene: GeneratedScene; frame: number; fps: number }> = ({ scene, frame, fps }) => {
+  const bgColor = interpolate(frame, [0, 1 * fps], ["#E0F7FA", scene.accentColor || "#E0F7FA"], {
+    extrapolateRight: "clamp",
+  }) as string;
+
   return (
-    <AbsoluteFill style={{ backgroundColor: "#E0F2F1" }}>
-      {scenes.map((scene, index) => {
-        const sceneDuration = scene.durationSec * fps;
-        const from = currentFrame;
-        currentFrame += sceneDuration;
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      <defs>
+        <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#87CEEB" />
+          <stop offset="100%" stopColor="#E0F7FA" />
+        </linearGradient>
+        <linearGradient id="grassGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#81C784" />
+          <stop offset="100%" stopColor="#4CAF50" />
+        </linearGradient>
+      </defs>
+      
+      {/* Sky */}
+      <rect width="1920" height="1080" fill="url(#skyGradient)" />
+      
+      {/* Sun */}
+      <circle cx={1600} cy={150} r={80} fill="#FFD54F" />
+      
+      {/* Trees in background */}
+      <g>
+        <path d="M150,500 L250,300 L350,500 Z" fill="#2E7D32" />
+        <rect x={225} y={500} width={50} height={200} fill="#795548" />
         
+        <path d="M1600,550 L1750,250 L1900,550 Z" fill="#388E3C" />
+        <rect x={1725} y={550} width={50} height={250} fill="#5D4037" />
+        
+        <path d="M800,520 L900,350 L1000,520 Z" fill="#2E7D32" />
+        <rect x={875} y={520} width={50} height={180} fill="#6D4C41" />
+      </g>
+      
+      {/* Grass */}
+      <rect x="0" y="700" width="1920" height="380" fill="url(#grassGradient)" />
+      
+      {/* Grass blades */}
+      {Array.from({ length: 30 }, (_, i) => {
+        const x = 50 + i * 65;
+        const sway = interpolate(frame, [0, fps * 2], [0, Math.sin(i) * 20], {
+          extrapolateRight: "wrap",
+          extrapolateLeft: "wrap",
+        });
         return (
-          <Sequence
-            key={scene.id}
-            from={from}
-            durationInFrames={sceneDuration}
-            premountFor={fps}
-          >
-            <SceneComponent scene={scene} sceneFrame={frame - from} />
-            {scene.audioSrc ? (
-              <Audio src={staticFile(scene.audioSrc)} volume={0.94} />
-            ) : null}
-          </Sequence>
+          <path
+            key={i}
+            d={`M${x},700 L${x + sway},630`}
+            stroke="#388E3C"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
         );
       })}
-    </AbsoluteFill>
+      
+      {/* Flowers */}
+      {Array.from({ length: 12 }, (_, i) => {
+        const x = 100 + i * 150;
+        const y = 750 + (i % 3) * 100;
+        const flowerBloom = interpolate(frame, [i * 5, i * 5 + 15], [0, 1], {
+          extrapolateRight: "clamp",
+        });
+        const scale = flowerBloom;
+        return (
+          <g key={i} transform={`translate(${x}, ${y}) scale(${scale})`}>
+            <circle cx="0" cy="0" r={15} fill="#FF4081" />
+            <circle cx="-10" cy="-10" r={10} fill="#FF4081" />
+            <circle cx="10" cy="-10" r={10} fill="#FF4081" />
+            <circle cx="-10" cy="10" r={10} fill="#FF4081" />
+            <circle cx="10" cy="10" r={10} fill="#FF4081" />
+            <circle cx="0" cy="0" r={8} fill="#FFEB3B" />
+          </g>
+        );
+      })}
+    </svg>
   );
 };
 
-export default GeneratedLesson;
+// Scene 1: Introduction - Peacock walks out
+const Scene1Introduction: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
+  const walkCycle = frame % 60;
+  const x = interpolate(frame, [0, 4 * fps], [1920, 960], { extrapolateRight: "clamp" });
+  const legAngle = Math.sin(walkCycle * 0.1) * 15;
+  const headBob = Math.sin(walkCycle * 0.15) * 8;
+  const crestWave = Math.sin(walkCycle * 0.2) * 5;
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      {/* Peacock body */}
+      <g transform={`translate(${x}, 650)`}>
+        {/* Body */}
+        <ellipse cx="0" cy="0" rx={90} ry={60} fill="#1565C0" />
+        <ellipse cx="0" cy="10" rx={70} ry={45} fill="#1976D2" />
+        
+        {/* Neck */}
+        <path
+          d={`M50,${-10 + headBob} Q80,${-60 + headBob} 70,${-120 + headBob}`}
+          stroke="#1565C0"
+          strokeWidth="35"
+          strokeLinecap="round"
+          fill="none"
+        />
+        
+        {/* Head */}
+        <circle cx={70 + headBob * 0.3} cy={-125 + headBob} r={35} fill="#1565C0" />
+        
+        {/* Eye */}
+        <circle cx={80 + headBob * 0.3} cy={-128 + headBob} r={8} fill="white" />
+        <circle cx={82 + headBob * 0.3} cy={-128 + headBob} r={5} fill="black" />
+        
+        {/* Beak */}
+        <path d={`M${100 + headBob * 0.3},${-125 + headBob} L${120 + headBob * 0.3},${-122 + headBob} L${100 + headBob * 0.3},${-118 + headBob}`} fill="#FFA000" />
+        
+        {/* Crest (crown feathers) */}
+        <g transform={`translate(${70 + headBob * 0.3}, ${-160 + headBob})`}>
+          {Array.from({ length: 5 }, (_, i) => {
+            const angle = (i - 2) * 15 + crestWave;
+            const featherX = Math.sin(angle * Math.PI / 180) * 25;
+            const featherY = -Math.cos(angle * Math.PI / 180) * 25 - 5;
+            return (
+              <line
+                key={i}
+                x1="0"
+                y1="0"
+                x2={featherX}
+                y2={featherY}
+                stroke="#00BCD4"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {/* Crest tips */}
+          {Array.from({ length: 5 }, (_, i) => {
+            const angle = (i - 2) * 15 + crestWave;
+            const featherX = Math.sin(angle * Math.PI / 180) * 25;
+            const featherY = -Math.cos(angle * Math.PI / 180) * 25 - 5;
+            return (
+              <circle key={i} cx={featherX} cy={featherY} r={5} fill="#00BCD4" />
+            );
+          })}
+        </g>
+        
+        {/* Tail feathers (closed) */}
+        <path d="M-80,-30 Q-120,-80 -140,-40 L-130,-20 Z" fill="#1565C0" />
+        <path d="M-85,-35 Q-130,-90 -155,-50 L-145,-30 Z" fill="#0D47A1" />
+        <path d="M-90,-40 Q-140,-100 -170,-60 L-160,-40 Z" fill="#1565C0" />
+        
+        {/* Legs */}
+        <line x1="-30" y1="50" x2={-30 + Math.sin(legAngle * Math.PI / 180) * 10} y2="150" stroke="#FFA000" strokeWidth="8" strokeLinecap="round" />
+        <line x1="30" y1="50" x2={30 - Math.sin(legAngle * Math.PI / 180) * 10} y2="150" stroke="#FFA000" strokeWidth="8" strokeLinecap="round" />
+        
+        {/* Feet */}
+        <g transform={`translate(${Math.round(-30 + Math.sin(legAngle * Math.PI / 180) * 10)}, 150)`}>
+          <line x1="0" y1="0" x2="-15" y2="20" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="0" y2="25" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="15" y2="20" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+        </g>
+        <g transform={`translate(${Math.round(30 - Math.sin(legAngle * Math.PI / 180) * 10)}, 150)`}>
+          <line x1="0" y1="0" x2="-15" y2="20" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="0" y2="25" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+          <line x1="0" y1="0" x2="15" y2="20" stroke="#FFA000" strokeWidth="6" strokeLinecap="round" />
+        </g>
+      </g>
+    </svg>
+  );
+};
+
+// Scene 2: Tail feathers with eye spots
+const Scene2TailFeathers: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
+  const highlightIndex = Math.floor(frame / (fps * 2)) % 3;
+  const pulse = Math.sin(frame * 0.1) * 5;
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      {/* Peacock body (facing right) */}
+      <g transform="translate(960, 500)">
+        {/* Body */}
+        <ellipse cx="0" cy="0" rx={100} ry={70} fill="#1565C0" />
+        <ellipse cx="0" cy="10" rx={80} ry={50} fill="#1976D2" />
+        
+        {/* Neck */}
+        <path d="M60,-10 Q100,-60 90,-130" stroke="#1565C0" strokeWidth="40" strokeLinecap="round" fill="none" />
+        
+        {/* Head */}
+        <circle cx="90" cy="-135" r={40} fill="#1565C0" />
+        
+        {/* Eye */}
+        <circle cx="100" cy="-138" r={10} fill="white" />
+        <circle cx="103" cy="-138" r={6} fill="black" />
+        
+        {/* Beak */}
+        <path d="M120,-135 L145,-130 L120,-125" fill="#FFA000" />
+        
+        {/* Crest */}
+        <g transform="translate(90, -175)">
+          {Array.from({ length: 5 }, (_, i) => {
+            const angle = (i - 2) * 12;
+            return <line key={i} x1="0" y1="0" x2={Math.sin(angle * Math.PI / 180) * 30} y2={-Math.cos(angle * Math.PI / 180) * 30} stroke="#00BCD4" strokeWidth="4" strokeLinecap="round" />;
+          })}
+        </g>
+        
+        {/* Tail feathers with eye spots */}
+        {Array.from({ length: 8 }, (_, i) => {
+          const baseY = 50;
+          const featherLength = 200 + i * 15;
+          const angle = (i - 3.5) * 8;
+          const isHighlighted = i < 3 && i === highlightIndex;
+          const featherOpacity = isHighlighted ? 1 : 0.7;
+          const eyeScale = isHighlighted ? 1.3 : 1;
+          
+          const tipX = Math.sin(angle * Math.PI / 180) * 120;
+          const tipY = baseY + featherLength;
+          
+          return (
+            <g key={i} style={{ opacity: featherOpacity }}>
+              {/* Feather shaft */}
+              <line x1="-50 + i * 15" y1={baseY} x2={-50 + i * 15 + tipX * 0.3} y2={tipY} stroke="#1565C0" strokeWidth={6 - i * 0.3} />
+              
+              {/* Eye spot at tip */}
+              <g transform={`translate(${-50 + i * 15 + tipX * 0.3}, ${tipY}) scale(${eyeScale})`}>
+                {/* Outer circle */}
+                <circle cx="0" cy="0" r={30 + pulse * 0.1} fill="none" stroke="#4A148C" strokeWidth={4} />
+                <circle cx="0" cy="0" r={25 + pulse * 0.1} fill="#7B1FA2" />
+                {/* Middle circle */}
+                <circle cx="0" cy="0" r={18 + pulse * 0.08} fill="#9C27B0" />
+                {/* Inner circle (eye) */}
+                <circle cx="0" cy="0" r={10 + pulse * 0.05} fill="#1A237E" />
+                {/* Shine */}
+                <circle cx="-4" cy="-4" r={4} fill="rgba(255,255,255,0.6)" />
+              </g>
+            </g>
+          );
+        })}
+        
+        {/* Number badges */}
+        {Array.from({ length: 3 }, (_, i) => {
+          const isActive = i === highlightIndex;
+          const scale = isActive ? 1.5 : 1;
+          const badgeY = 280 + i * 80;
+          const badgeX = -100 + i * 100;
+          
+          return (
+            <g key={i} transform={`translate(${badgeX}, ${badgeY}) scale(${scale})`} style={{ transition: "transform 0.3s" }}>
+              <circle cx="0" cy="0" r={30} fill={isActive ? "#FF4081" : "#FF80AB"} />
+              <text x="0" y="12" textAnchor="middle" fontSize="36" fontWeight="bold" fill="white">{i + 1}</text>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+};
+
+// Scene 3: Peacock displaying feathers
+const Scene3DisplayFeathers: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
+  const displayProgress = interpolate(frame, [0, 2 * fps], [0, 1], { extrapolateRight: "clamp" });
+  const tailSpread = displayProgress * Math.PI * 0.8;
+  const shimmer = Math.sin(frame * 0.15) * 0.1 + 1;
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      {/* Rock */}
+      <ellipse cx="960" cy="850" rx={200} ry={60} fill="#78909C" />
+      <ellipse cx="960" cy="840" rx={180} ry={50} fill="#90A4AE" />
+      
+      {/* Male peacock on rock */}
+      <g transform="translate(960, 750)">
+        {/* Body */}
+        <ellipse cx="0" cy="0" rx={90} ry={65} fill="#1565C0" />
+        <ellipse cx="0" cy="8" rx={70} ry={45} fill="#1976D2" />
+        
+        {/* Neck */}
+        <path d="M50,-15 Q80,-70 70,-140" stroke="#1565C0" strokeWidth="38" strokeLinecap="round" fill="none" />
+        
+        {/* Head */}
+        <circle cx="70" cy="-145" r={38} fill="#1565C0" />
+        
+        {/* Eye */}
+        <circle cx="80" cy="-148" r={9} fill="white" />
+        <circle cx="82" cy="-148" r={6} fill="black" />
+        
+        {/* Beak */}
+        <path d="M100,-145 L125,-140 L100,-135" fill="#FFA000" />
+        
+        {/* Crest */}
+        <g transform="translate(70, -185)">
+          {Array.from({ length: 5 }, (_, i) => {
+            const angle = (i - 2) * 12;
+            return <line key={i} x1="0" y1="0" x2={Math.sin(angle * Math.PI / 180) * 28} y2={-Math.cos(angle * Math.PI / 180) * 28} stroke="#00BCD4" strokeWidth="4" strokeLinecap="round" />;
+          })}
+        </g>
+        
+        {/* Legs */}
+        <line x1="-30" y1="55" x2="-30" y2="100" stroke="#FFA000" strokeWidth="7" strokeLinecap="round" />
+        <line x1="30" y1="55" x2="30" y2="100" stroke="#FFA000" strokeWidth="7" strokeLinecap="round" />
+      </g>
+      
+      {/* Displayed tail feathers (fan shape) */}
+      <g transform="translate(960, 750)">
+        {Array.from({ length: 16 }, (_, i) => {
+          const angle = -Math.PI / 2 + (i - 7.5) * 0.12 * displayProgress;
+          const featherLength = 350 * displayProgress + Math.sin(frame * 0.05 + i * 0.3) * 10;
+          const featherX = Math.sin(angle) * featherLength;
+          const featherY = Math.cos(angle) * featherLength;
+          const eyeScale = shimmer * (1 + Math.sin(frame * 0.08 + i) * 0.1);
+          
+          return (
+            <g key={i} style={{ opacity: displayProgress }}>
+              {/* Feather */}
+              <line x1="0" y1="-30" x2={featherX} y2={featherY - 30} stroke="#1565C0" strokeWidth={8} />
+              
+              {/* Eye spot */}
+              <g transform={`translate(${featherX}, ${featherY - 30}) scale(${eyeScale})`}>
+                <circle cx="0" cy="0" r={35} fill="none" stroke="#4A148C" strokeWidth={5} />
+                <circle cx="0" cy="0" r={28} fill="#7B1FA2" />
+                <circle cx="0" cy="0" r={20} fill="#9C27B0" />
+                <circle cx="0" cy="0" r={12} fill="#1A237E" />
+                <circle cx="-5" cy="-5" r={5} fill="rgba(255,255,255,0.5)" />
+              </g>
+            </g>
+          );
+        })}
+      </g>
+      
+      {/* Female peacock watching */}
+      <g transform="translate(400, 720)">
+        {/* Body */}
+        <ellipse cx="0" cy="0" rx={60} ry={45} fill="#8D6E63" />
+        
+        {/* Neck */}
+        <path d="M35,-10 Q55,-45 45,-90" stroke="#8D6E63" strokeWidth="28" strokeLinecap="round" fill="none" />
+        
+        {/* Head */}
+        <circle cx="45" cy="-95" r={28} fill="#8D6E63" />
+        
+        {/* Eye */}
+        <circle cx="52" cy="-97" r={7} fill="white" />
+        <circle cx="54" cy="-97" r={4} fill="black" />
+        
+        {/* Beak */}
+        <path d="M65,-95 L82,-92 L65,-89" fill="#FFA000" />
+        
+        {/* Simple crest */}
+        <g transform="translate(45, -120)">
+          {Array.from({ length: 3 }, (_, i) => {
+            const angle = (i - 1) * 10;
+            return <line key={i} x1="0" y1="0" x2={Math.sin(angle * Math.PI / 180) * 20} y2={-Math.cos(angle * Math.PI / 180) * 20} stroke="#8D6E63" strokeWidth="3" strokeLinecap="round" />;
+          })}
+        </g>
+        
+        {/* Legs */}
+        <line x1="-20" y1="40" x2="-20" y2="80" stroke="#FFA000" strokeWidth="5" strokeLinecap="round" />
+        <line x1="20" y1="40" x2="20" y2="80" stroke="#FFA000" strokeWidth="5" strokeLinecap="round" />
+        
+        {/* Heart animation */}
+        <g transform={`translate(80, -80) scale(${1 + Math.sin(frame * 0.1) * 0.2})`}>
+          <path d="M0,10 C-10,0 -15,-10 0,-20 C15,-10 10,0 0,10" fill="#E91E63" opacity="0.8" />
+        </g>
+      </g>
+    </svg>
+  );
+};
+
+// Scene 4: Peacock eating food
+const Scene4Food: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
+  const peckCycle = frame % 40;
+  const headDown = peckCycle < 20 ? interpolate(peckCycle, [0, 15], [0, 40], { extrapolateRight: "clamp", extrapolateLeft: "clamp" }) : interpolate(peckCycle, [20, 35], [40, 0], { extrapolateRight: "clamp", extrapolateLeft: "clamp" });
+  
+  const word1Visible = frame > fps * 1.5;
+  const word2Visible = frame > fps * 3;
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      {/* Ground with grass */}
+      <rect x="0" y="750" width="1920" height="330" fill="#81C784" />
+      
+      {/* Corn kernels */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const x = 700 + i * 60;
+        const y = 850 + (i % 2) * 30;
+        return (
+          <g key={i}>
+            <ellipse cx={x} cy={y} rx={12} ry={8} fill="#FFEB3B" />
+            <ellipse cx={x + 4} cy={y + 2} rx={5} ry={4} fill="#FFC107" />
+          </g>
+        );
+      })}
+      
+      {/* Insects */}
+      {Array.from({ length: 5 }, (_, i) => {
+        const x = 1100 + i * 70;
+        const y = 820 + (i % 2) * 40;
+        const crawlX = Math.sin(frame * 0.05 + i) * 5;
+        
+        return (
+          <g key={i} transform={`translate(${x + crawlX}, ${y})`}>
+            {/* Body */}
+            <ellipse cx="0" cy="0" rx={15} ry={10} fill="#4CAF50" />
+            {/* Head */}
+            <circle cx="15" cy="0" r={8} fill="#66BB6A" />
+            {/* Eyes */}
+            <circle cx="18" cy="-3" r={2} fill="black" />
+            <circle cx="18" cy="3" r={2} fill="black" />
+            {/* Antennae */}
+            <line x1="18" y1="-6" x2="25" y2="-15" stroke="#4CAF50" strokeWidth="2" />
+            <line x1="18" y1="6" x2="25" y2="15" stroke="#4CAF50" strokeWidth="2" />
+            {/* Legs */}
+            {Array.from({ length: 3 }, (_, j) => (
+              <line key={j} x1={-5 + j * 8} y1="8" x2={-5 + j * 8} y2="18" stroke="#4CAF50" strokeWidth="2" />
+            ))}
+          </g>
+        );
+      })}
+      
+      {/* Peacock pecking */}
+      <g transform="translate(960, 680)">
+        {/* Body */}
+        <ellipse cx="0" cy="0" rx={85} ry={60} fill="#1565C0" />
+        <ellipse cx="0" cy="8" rx={65} ry={42} fill="#1976D2" />
+        
+        {/* Neck and head (animated) */}
+        <g transform={`translate(0, ${headDown})`}>
+          <path d="M45,-10 Q75,-50 65,-110" stroke="#1565C0" strokeWidth="35" strokeLinecap="round" fill="none" />
+          
+          {/* Head */}
+          <circle cx="65" cy="-115" r={35} fill="#1565C0" />
+          
+          {/* Eye */}
+          <circle cx="75" cy="-118" r={9} fill="white" />
+          <circle cx="77" cy="-118" r={5} fill="black" />
+          
+          {/* Beak (pointing down when pecking) */}
+          <path d="M95,-115 L118,-110 L95,-105" fill="#FFA000" />
+          
+          {/* Crest */}
+          <g transform="translate(65, -150)">
+            {Array.from({ length: 5 }, (_, i) => {
+              const angle = (i - 2) * 12;
+              return <line key={i} x1="0" y1="0" x2={Math.sin(angle * Math.PI / 180) * 26} y2={-Math.cos(angle * Math.PI / 180) * 26} stroke="#00BCD4" strokeWidth="3" strokeLinecap="round" />;
+            })}
+          </g>
+        </g>
+        
+        {/* Tail */}
+        <path d="M-70,-25 Q-105,-70 -125,-35 L-115,-18 Z" fill="#1565C0" />
+        <path d="M-75,-30 Q-115,-80 -140,-45 L-130,-28 Z" fill="#0D47A1" />
+        
+        {/* Legs */}
+        <line x1="-25" y1="50" x2="-25" y2="120" stroke="#FFA000" strokeWidth="7" strokeLinecap="round" />
+        <line x1="25" y1="50" x2="25" y2="120" stroke="#FFA000" strokeWidth="7" strokeLinecap="round" />
+      </g>
+      
+      {/* Word labels */}
+      {word1Visible && (
+        <g transform="translate(720, 780)" style={{ opacity: interpolate(frame, [1.5 * fps, 2 * fps], [0, 1], { extrapolateRight: "clamp" }) }}>
+          <rect x="-50" y="-40" width="100" height="50" rx="10" fill="rgba(255,235,59,0.9)" />
+          <text x="0" y="-8" textAnchor="middle" fontSize="28" fontWeight="bold" fill="#E65100">玉米</text>
+        </g>
+      )}
+      
+      {word2Visible && (
+        <g transform="translate(1180, 750)" style={{ opacity: interpolate(frame, [3 * fps, 3.5 * fps], [0, 1], { extrapolateRight: "clamp" }) }}>
+          <rect x="-50" y="-40" width="100" height="50" rx="10" fill="rgba(76,175,80,0.9)" />
+          <text x="0" y="-8" textAnchor="middle" fontSize="28" fontWeight="bold" fill="white">昆虫</text>
+        </g>
+      )}
+    </svg>
+  );
+};
+
+// Scene 5: Summary with character writing
+const Scene5Summary: React.FC<{ frame: number; fps: number }> = ({ frame, fps }) => {
+  // Stroke animation for "孔雀" characters
+  const peacockStrokes = [
+    "M 100 100 L 200 100", // Top horizontal
+    "M 150 50 L 150 150", // Middle vertical
+    "M 100 150 L 200 150", // Bottom horizontal
+  ];
+  
+  const kongStrokes = [
+    "M 300 80 L 380 80",
+    "M 340 40 L 340 120",
+    "M 300 120 L 380 120",
+    "M 320 120 L 300 160",
+    "M 360 120 L 380 160",
+  ];
+  
+  const getStrokeProgress = (strokeIndex: number, startFrame: number) => {
+    return interpolate(frame, [startFrame + strokeIndex * 8, startFrame + strokeIndex * 8 + 15], [0, 1], {
+      extrapolateRight: "clamp",
+      extrapolateLeft: "clamp",
+    });
+  };
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      {/* Background - gradient with peacock silhouette */}
+      <defs>
+        <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#E0F7FA" />
+          <stop offset="100%" stopColor="#B2EBF2" />
+        </linearGradient>
+      </defs>
+      <rect width="1920" height="1080" fill="url(#bgGradient)" />
+      
+      {/* Peacock silhouette in background */}
+      <g opacity="0.15">
+        <ellipse cx="960" cy="700" rx={120} ry={80} fill="#00695C" />
+        <path d="M1020,680 Q1070,620 1060,540" stroke="#00695C" strokeWidth="50" strokeLinecap="round" fill="none" />
+        <circle cx="1060" cy="530" r={50} fill="#00695C" />
+        
+        {/* Fan of tail feathers */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const angle = -Math.PI / 2 + (i - 5.5) * 0.15;
+          const length = 280;
+          const x = Math.sin(angle) * length;
+          const y = Math.cos(angle) * length;
+          return <line key={i} x1="960" y1="700" x2={960 + x} y2={700 + y} stroke="#00695C" strokeWidth={6} />;
+        })}
+      </g>
+      
+      {/* Large character "孔雀" */}
+      <g transform="translate(760, 440)">
+        {/* 孔 */}
+        <g stroke="#00695C" strokeWidth={12} fill="none" strokeLinecap="round">
+          {peacockStrokes.map((d, i) => {
+            const progress = getStrokeProgress(i, 0);
+            if (progress <= 0) return null;
+            
+            const length = 100;
+            const currentLength = length * progress;
+            
+            return <path key={i} d={d} strokeDasharray={`${currentLength} ${length}`} />;
+          })}
+        </g>
+        
+        {/* 雀 */}
+        <g transform="translate(200, 0)" stroke="#00695C" strokeWidth={12} fill="none" strokeLinecap="round">
+          {kongStrokes.map((d, i) => {
+            const progress = getStrokeProgress(i, 30);
+            if (progress <= 0) return null;
+            
+            const length = 120;
+            const currentLength = length * progress;
+            
+            return <path key={i} d={d} strokeDasharray={`${currentLength} ${length}`} />;
+          })}
+        </g>
+      </g>
+      
+      {/* Decorative feathers around the characters */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const angle = (i / 8) * Math.PI * 2;
+        const radius = 250;
+        const x = 960 + Math.cos(angle) * radius;
+        const y = 480 + Math.sin(angle) * radius;
+        const rotation = angle * 180 / Math.PI;
+        const featherScale = 0.8 + Math.sin(frame * 0.05 + i) * 0.1;
+        
+        return (
+          <g key={i} transform={`translate(${x}, ${y}) rotate(${rotation}) scale(${featherScale})`}>
+            {/* Feather */}
+            <path d="M0,-40 Q10,0 0,40 Q-10,0 0,-40" fill="#00BCD4" opacity="0.6" />
+            <circle cx="0" cy="0" r={12} fill="#9C27B0" opacity="0.6" />
+            <circle cx="0" cy="0" r={6} fill="#7B1FA2" opacity="0.6" />
+          </g>
+        );
+      })}
+      
+      {/* Sparkle effects */}
+      {Array.from({ length: 12 }, (_, i) => {
+        const sparkleProgress = interpolate(frame, [i * 5, i * 5 + 20], [0, 1], { extrapolateRight: "clamp" });
+        const x = 200 + (i % 4) * 500;
+        const y = 200 + Math.floor(i / 4) * 300;
+        const scale = sparkleProgress * (1 - sparkleProgress) * 4;
+        
+        return (
+          <g key={i} transform={`translate(${x}, ${y}) scale(${scale})`}>
+            <path d="M0,-20 L5,0 L0,20 L-5,0 Z" fill="#FFD54F" />
+            <path d="M-20,0 L0,5 L20,0 L0,-5 Z" fill="#FFD54F" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+};

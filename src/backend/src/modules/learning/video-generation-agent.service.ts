@@ -409,7 +409,7 @@ export class VideoGenerationAgentService {
       "请严格按以下步骤执行（必须全部完成后才能停止）：",
       '1. 调用 loadSkill("remotion-video-creation") 获取 Remotion 技能指导',
       "2. 调用 generateVideoContent 生成分镜脚本",
-      '3. 根据分镜和技能指导，通过 writeFile("GeneratedLesson.tsx", ...) 生成自定义 React 组件',
+      '3. 根据分镜和技能指导，通过 writeFile("GeneratedLesson.tsx", ...) 生成自定义 React 组件（内容通过内存传递，不写入磁盘源码目录）',
       "4. 调用 reviewVideoQuality 检查质量",
       "5. 如果质量不达标（score < 70），修改 TSX 后重试",
       "6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束",

@@ -94,7 +94,8 @@ import { Audio } from "@remotion/media";
 - 只能使用 remotion 包提供的组件和 hooks
 
 ## writeFile 路径
-使用 writeFile 时，文件名必须为 "GeneratedLesson.tsx"
+使用 writeFile 时，文件名必须为 "GeneratedLesson.tsx"。
+注意：文件内容通过内存传递给渲染管线，不会写入工程源码目录。
 
 ## 内容质量标准
 - 每个场景的旁白必须包含与主题相关的具体知识

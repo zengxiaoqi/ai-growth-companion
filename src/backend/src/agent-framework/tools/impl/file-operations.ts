@@ -199,7 +199,25 @@ export class WriteFileTool extends BaseTool<WriteFileArgs> {
     const resolved = path.resolve(normalized);
     const projectRoot = process.cwd();
     const tmpDir = os.tmpdir();
-    if (!resolved.startsWith(projectRoot) && !resolved.startsWith(tmpDir)) {
+
+    if (resolved.startsWith(tmpDir)) {
+      return { safe: true };
+    }
+
+    if (resolved.includes(`${path.sep}.generated${path.sep}`)) {
+      return { safe: true };
+    }
+
+    const srcPattern = `${path.sep}src${path.sep}`;
+    if (resolved.includes(srcPattern) && /\.(ts|tsx|js|jsx)$/.test(resolved)) {
+      return {
+        safe: false,
+        reason:
+          "Writing source code files under src/ is not allowed — file content is passed through memory to the render pipeline",
+      };
+    }
+
+    if (!resolved.startsWith(projectRoot)) {
       return {
         safe: false,
         reason: "Path must be within project directory or temp directory",

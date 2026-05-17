@@ -681,6 +681,44 @@ class ApiService {
     }, 120000);
   }
 
+  /** Direct draft save — bypasses LLM, pure CRUD */
+  async saveDraftDirectly(params: {
+    childId: number;
+    title: string;
+    subtitle?: string;
+    domain?: string;
+    topic?: string;
+    ageGroup?: '3-4' | '5-6';
+    difficulty?: number;
+    durationMinutes?: number;
+    content?: any;
+  }): Promise<Content> {
+    return this.request<Content>('/learning/lessons/draft', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  /** Direct draft update — bypasses LLM, pure CRUD */
+  async updateDraftDirectly(
+    id: number,
+    params: {
+      title?: string;
+      subtitle?: string;
+      domain?: string;
+      topic?: string;
+      ageGroup?: '3-4' | '5-6';
+      difficulty?: number;
+      durationMinutes?: number;
+      content?: any;
+    },
+  ): Promise<Content> {
+    return this.request<Content>(`/learning/lessons/${id}/draft`, {
+      method: 'PUT',
+      body: JSON.stringify(params),
+    });
+  }
+
   async modifyLesson(id: number, modification: string, options?: { stepId?: string }): Promise<Content> {
     return this.request<Content>(`/learning/lessons/${id}`, {
       method: 'PATCH',

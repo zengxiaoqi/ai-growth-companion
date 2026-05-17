@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import { createHash } from "crypto";
 import { promises as fs, existsSync, readdirSync } from "fs";
 import * as os from "os";
@@ -155,10 +155,94 @@ export class RemotionRenderService {
     "../../../../video-remotion",
   );
 
+  /**
+   * Hard timeout for Remotion render processes (15 minutes).
+   * When Chrome/Chromium hangs, the render process can block indefinitely.
+   * This ensures the process is force-killed after the timeout.
+   */
+  private readonly RENDER_HARD_TIMEOUT_MS = this.toInt(
+    process.env.REMOTION_RENDER_TIMEOUT_MS,
+    15 * 60 * 1000, // 15 minutes
+    60_000,
+    60 * 60 * 1000,
+  );
+
   constructor(
     private readonly generateVideoDataTool: GenerateVideoDataTool,
     private readonly voiceService: VoiceService,
   ) {}
+
+  /**
+   * Spawn a child process with a hard timeout that escalates from SIGTERM to SIGKILL.
+   *
+   * Strategy:
+   * 1. Start a timeout timer for RENDER_HARD_TIMEOUT_MS
+   * 2. On timeout: send SIGTERM for graceful shutdown
+   * 3. After 2 seconds: send SIGKILL to force-terminate
+   * 4. Log every step for observability
+   */
+  private spawnWithHardTimeout(
+    label: string,
+    proc: ChildProcess,
+    resolve: () => void,
+    reject: (err: Error) => void,
+    lastErrorRef: { value: string },
+  ): void {
+    let timedOut = false;
+    let sigkillTimer: NodeJS.Timeout | null = null;
+
+    const hardTimer = setTimeout(() => {
+      timedOut = true;
+      this.logger.error(
+        `[${label}] ⏰ RENDER TIMEOUT after ${this.RENDER_HARD_TIMEOUT_MS}ms — sending SIGTERM to pid=${proc.pid}`,
+      );
+
+      // Step 1: SIGTERM for graceful shutdown
+      if (proc.pid && !proc.killed) {
+        proc.kill("SIGTERM");
+      }
+
+      // Step 2: After 2 seconds, force SIGKILL if still alive
+      sigkillTimer = setTimeout(() => {
+        if (proc.pid && !proc.killed) {
+          this.logger.error(
+            `[${label}] 🔫 SIGTERM ineffective, sending SIGKILL to pid=${proc.pid}`,
+          );
+          proc.kill("SIGKILL");
+        }
+      }, 2000);
+    }, this.RENDER_HARD_TIMEOUT_MS);
+
+    proc.on("close", (code, signal) => {
+      clearTimeout(hardTimer);
+      if (sigkillTimer) clearTimeout(sigkillTimer);
+
+      if (timedOut) {
+        const reason = signal
+          ? `killed by signal ${signal} after ${this.RENDER_HARD_TIMEOUT_MS}ms timeout`
+          : `exited with code ${code} after ${this.RENDER_HARD_TIMEOUT_MS}ms timeout`;
+        this.logger.error(
+          `[${label}] Render process terminated by timeout: ${reason}`,
+        );
+        reject(
+          new Error(
+            `视频渲染超时（${Math.round(this.RENDER_HARD_TIMEOUT_MS / 60000)} 分钟）。渲染进程已强制终止，请检查 Chrome/Chromium 是否正常运行，或稍后重试。`,
+          ),
+        );
+        return;
+      }
+
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `remotion render exited with code ${code}: ${lastErrorRef.value}`,
+          ),
+        );
+      }
+    });
+  }
 
   /**
    * Resolve the Chrome/Chromium browser executable path for Remotion rendering.
@@ -1602,7 +1686,7 @@ export class RemotionRenderService {
       ];
 
       this.logger.log(
-        `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}, browser=${chromePath || "auto"}`,
+        `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}, browser=${chromePath || "auto"}, timeout=${this.RENDER_HARD_TIMEOUT_MS}ms`,
       );
 
       const proc = spawn("npx", args, {
@@ -1611,7 +1695,22 @@ export class RemotionRenderService {
         stdio: ["ignore", "pipe", "pipe"],
       });
 
-      let lastError = "";
+      const lastErrorRef = { value: "" };
+
+      // Wire up hard timeout (SIGTERM → 2s → SIGKILL)
+      this.spawnWithHardTimeout(
+        "runGeneratedRemotionRender",
+        proc,
+        () => {
+          this.logger.log(
+            `[runGeneratedRemotionRender] Dynamic Remotion render completed: ${compositionId} -> ${outputPath}`,
+          );
+          resolve();
+        },
+        reject,
+        lastErrorRef,
+      );
+
       proc.stdout?.on("data", (data: Buffer) => {
         const text = data.toString();
         const percent = this.parseProgress(text);
@@ -1624,28 +1723,11 @@ export class RemotionRenderService {
         const lines = text.trim().split("\n");
         const lastLine = lines[lines.length - 1]?.trim();
         if (lastLine && !lastLine.startsWith("[") && lastLine.length < 300) {
-          lastError = lastLine;
+          lastErrorRef.value = lastLine;
         }
       });
       proc.on("error", (err) => {
         reject(new Error(`dynamic remotion spawn failed: ${err.message}`));
-      });
-      proc.on("close", (code) => {
-        if (code === 0) {
-          this.logger.log(
-            `[runGeneratedRemotionRender] Dynamic Remotion render completed: ${compositionId} -> ${outputPath}`,
-          );
-          resolve();
-          return;
-        }
-        this.logger.error(
-          `[runGeneratedRemotionRender] Dynamic Remotion render failed: compositionId=${compositionId}, exitCode=${code}, lastError="${lastError}"`,
-        );
-        reject(
-          new Error(
-            `dynamic remotion render exited with code ${code}: ${lastError}`,
-          ),
-        );
       });
     });
   }
@@ -1763,7 +1845,7 @@ export class RemotionRenderService {
       ];
 
       this.logger.log(
-        `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}, browser=${chromePath || "auto"}`,
+        `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}, browser=${chromePath || "auto"}, timeout=${this.RENDER_HARD_TIMEOUT_MS}ms`,
       );
 
       const proc = spawn("npx", args, {
@@ -1772,8 +1854,22 @@ export class RemotionRenderService {
         stdio: ["ignore", "pipe", "pipe"],
       });
 
-      let lastError = "";
+      const lastErrorRef = { value: "" };
       let lastProgressLog = 0;
+
+      // Wire up hard timeout (SIGTERM → 2s → SIGKILL)
+      this.spawnWithHardTimeout(
+        "runRemotionRender",
+        proc,
+        () => {
+          this.logger.log(
+            `[runRemotionRender] Remotion render completed: ${compositionId} → ${outputPath}`,
+          );
+          resolve();
+        },
+        reject,
+        lastErrorRef,
+      );
 
       proc.stdout?.on("data", (data: Buffer) => {
         const text = data.toString();
@@ -1798,7 +1894,7 @@ export class RemotionRenderService {
         const lines = text.trim().split("\n");
         const lastLine = lines[lines.length - 1]?.trim();
         if (lastLine && !lastLine.startsWith("[") && lastLine.length < 200) {
-          lastError = lastLine;
+          lastErrorRef.value = lastLine;
         }
       });
 
@@ -1807,22 +1903,6 @@ export class RemotionRenderService {
           `[runRemotionRender] spawn error: ${err.message}. Check if remotion is installed at ${this.remotionDir}`,
         );
         reject(new Error(`remotion spawn failed: ${err.message}`));
-      });
-
-      proc.on("close", (code) => {
-        if (code === 0) {
-          this.logger.log(
-            `[runRemotionRender] Remotion render completed: ${compositionId} → ${outputPath}`,
-          );
-          resolve();
-        } else {
-          this.logger.error(
-            `[runRemotionRender] Remotion render failed: compositionId=${compositionId}, exitCode=${code}, lastError="${lastError}"`,
-          );
-          reject(
-            new Error(`remotion render exited with code ${code}: ${lastError}`),
-          );
-        }
       });
     });
   }

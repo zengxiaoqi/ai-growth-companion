@@ -543,9 +543,21 @@ ${shots
 
       const timer = setTimeout(() => {
         this.logger.warn(
-          `[runHyperframesRender] render timed out after ${this.renderTimeoutMs}ms, killing process`,
+          `[runHyperframesRender] render timed out after ${this.renderTimeoutMs}ms, sending SIGTERM to pid=${child.pid}`,
         );
-        child.kill("SIGTERM");
+        if (child.pid && !child.killed) {
+          child.kill("SIGTERM");
+        }
+
+        // Force SIGKILL after 2 seconds if process is still alive
+        setTimeout(() => {
+          if (child.pid && !child.killed) {
+            this.logger.error(
+              `[runHyperframesRender] SIGTERM ineffective, sending SIGKILL to pid=${child.pid}`,
+            );
+            child.kill("SIGKILL");
+          }
+        }, 2000);
       }, this.renderTimeoutMs);
 
       let stderr = "";

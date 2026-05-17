@@ -2,6 +2,8 @@ import { NestFactory } from "@nestjs/core";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { join } from "path";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const compression = require("compression");
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { loggerConfig } from "./common/logger.module";
@@ -14,9 +16,20 @@ async function bootstrap() {
   // 全局前缀
   app.setGlobalPrefix("api");
 
+  // 启用 gzip/brotli 压缩（必须在静态文件之前）
+  app.use(compression());
+
   // 静态文件服务（Web 前端）
   app.useStaticAssets(join(__dirname, "..", "public"), {
     prefix: "/",
+    setHeaders: (res, filePath) => {
+      // 带哈希的静态资源（.js/.wasm/字体/图片）：长期缓存
+      if (filePath.match(/\.(js|wasm|woff2?|ttf|otf)$/)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico)$/)) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    },
   });
 
   // SPA 回退：非 /api 路径且非静态资源文件，返回 index.html

@@ -84,14 +84,12 @@ class AppTheme {
         secondary: secondaryColor,
         surface: backgroundColor,
       ),
-      scaffoldBackgroundColor: backgroundColor,
-      fontFamily: 'PingFang',
+scaffoldBackgroundColor: backgroundColor,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
-          fontFamily: 'PingFang',
+titleTextStyle: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.bold,
           color: textColor,

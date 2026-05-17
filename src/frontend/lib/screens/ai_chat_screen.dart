@@ -11,6 +11,7 @@ import '../components/shimmer_loading.dart';
 import '../services/api_service.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
+import '../components/speech_input_widget.dart';
 
 // ─── 测验数据工具函数 ──────────────────────────────────────────────────────
 
@@ -599,6 +600,7 @@ class _AIChatScreenState extends State<AIChatScreen>
 
   bool _isLoading = false;
   bool _autoPlay = true;
+  bool _isListening = false;
   int? _speakingMessageIndex;
 
   /// 每条消息的答题记录：key = "${messageIndex}_${questionIndex}", value = 所选选项索引
@@ -743,6 +745,20 @@ class _AIChatScreenState extends State<AIChatScreen>
     final msg = _messages[index];
     return (msg['displayText']?.toString() ?? msg['content']?.toString() ?? '')
         .trim();
+  }
+
+  // ─── 语音输入回调 ─────────────────────────────────────────────────────
+
+  /// 语音识别结果：自动填入输入框并发送。
+  void _onSpeechResult(String text) {
+    if (text.trim().isNotEmpty) {
+      _sendMessage(text: text.trim());
+    }
+  }
+
+  /// 录音状态变化：更新 UI 提示。
+  void _onListeningChange(bool isListening) {
+    setState(() => _isListening = isListening);
   }
 
   // ─── 构建 ────────────────────────────────────────────────────────────
@@ -997,6 +1013,13 @@ class _AIChatScreenState extends State<AIChatScreen>
       ),
       child: Row(
         children: [
+          // 语音输入按钮
+          SpeechInputWidget(
+            onResult: _onSpeechResult,
+            onListeningChange: _onListeningChange,
+          ),
+          const SizedBox(width: 8),
+          // 文字输入框
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1009,7 +1032,7 @@ class _AIChatScreenState extends State<AIChatScreen>
                 maxLines: 3,
                 minLines: 1,
                 decoration: InputDecoration(
-                  hintText: '和小犀聊天吧~',
+                  hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
                   hintStyle: TextStyle(
                     color: AppTheme.textSecondary.withOpacity(0.5),
                   ),
@@ -1022,6 +1045,7 @@ class _AIChatScreenState extends State<AIChatScreen>
             ),
           ),
           const SizedBox(width: 12),
+          // 发送按钮
           GestureDetector(
             onTap: _isLoading ? null : () => _sendMessage(),
             child: AnimatedContainer(

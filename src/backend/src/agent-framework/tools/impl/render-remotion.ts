@@ -26,7 +26,7 @@ type RenderRemotionArgs = {
   height?: number;
 };
 
-const RENDER_TIMEOUT = 180_000;
+const RENDER_TIMEOUT = 900_000; // 15 minutes — hard timeout with SIGKILL escalation
 
 @Injectable()
 @RegisterTool()
@@ -186,6 +186,8 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
       const start = Date.now();
       let stdout = "";
       let stderr = "";
+      let timedOut = false;
+      let sigkillTimer: NodeJS.Timeout | null = null;
 
       const proc = spawn(
         "npx",
@@ -209,9 +211,24 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         },
       );
 
+      // Hard timeout: SIGTERM first, then SIGKILL after 2 seconds
       const timer = setTimeout(() => {
-        proc.kill("SIGTERM");
-        reject(new Error(`Render timed out after ${RENDER_TIMEOUT}ms`));
+        timedOut = true;
+        this.logger.error(
+          `[runRender] ⏰ RENDER TIMEOUT after ${RENDER_TIMEOUT}ms — sending SIGTERM to pid=${proc.pid}`,
+        );
+        if (proc.pid && !proc.killed) {
+          proc.kill("SIGTERM");
+        }
+
+        sigkillTimer = setTimeout(() => {
+          if (proc.pid && !proc.killed) {
+            this.logger.error(
+              `[runRender] 🔫 SIGTERM ineffective, sending SIGKILL to pid=${proc.pid}`,
+            );
+            proc.kill("SIGKILL");
+          }
+        }, 2000);
       }, RENDER_TIMEOUT);
 
       proc.stdout?.on("data", (data: Buffer) => {
@@ -222,8 +239,22 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         stderr += data.toString();
       });
 
-      proc.on("close", (code) => {
+      proc.on("close", (code, signal) => {
         clearTimeout(timer);
+        if (sigkillTimer) clearTimeout(sigkillTimer);
+
+        if (timedOut) {
+          const reason = signal
+            ? `killed by signal ${signal} after ${RENDER_TIMEOUT}ms timeout`
+            : `exited with code ${code} after ${RENDER_TIMEOUT}ms timeout`;
+          reject(
+            new Error(
+              `Remotion 渲染超时（${Math.round(RENDER_TIMEOUT / 60000)} 分钟）。渲染进程已强制终止，请检查 Chrome/Chromium 是否正常运行，或稍后重试。`,
+            ),
+          );
+          return;
+        }
+
         resolve({
           exitCode: code ?? 1,
           stdout,
@@ -234,6 +265,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
 
       proc.on("error", (err) => {
         clearTimeout(timer);
+        if (sigkillTimer) clearTimeout(sigkillTimer);
         reject(err);
       });
     });

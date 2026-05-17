@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../components/top_bar.dart';
 import '../../providers/content_provider.dart';
@@ -11,6 +13,8 @@ import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
 import '../games/game_renderer.dart';
 import 'animation_scene_player.dart';
+import 'trace_path_canvas.dart';
+import 'lesson_scene_models.dart';
 
 // ─── 步骤类型元数据 ─────────────────────────────────────────────────────
 
@@ -84,11 +88,13 @@ class _LessonProgress {
 class StructuredLessonScreen extends StatefulWidget {
   final int contentId;
   final int? childId;
+  final bool previewMode;
 
   const StructuredLessonScreen({
     super.key,
     required this.contentId,
     this.childId,
+    this.previewMode = false,
   });
 
   @override
@@ -116,12 +122,24 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   // TTS 朗读状态
   bool _isSpeakingStep = false;
 
+  // 视频生成状态
+  String? _videoUrl;
+  bool _isVideoGenerating = false;
+  Timer? _videoPollTimer;
+
   @override
   void initState() {
     super.initState();
     _stepStartTime = DateTime.now();
     TtsService().init();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
+
+  @override
+  void dispose() {
+    _videoPollTimer?.cancel();
+    TtsService().stop();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -145,9 +163,9 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         throw Exception('该课程暂无步骤内容');
       }
 
-      // 加载进度
+      // 加载进度（预览模式下跳过）
       _LessonProgress progress = const _LessonProgress(completedSteps: {});
-      if (widget.childId != null) {
+      if (!widget.previewMode && widget.childId != null) {
         progress = await _loadProgress();
       }
 
@@ -177,6 +195,10 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         _currentStepIndex = startIndex;
         _stepStartTime = DateTime.now();
       });
+      // 进入页面后自动朗读当前步骤内容
+      _autoSpeakStep();
+      // 异步检查视频生成状态（不阻塞 UI）
+      _checkVideoStatus();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '加载课程失败：$e');
@@ -220,17 +242,106 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     return _LessonProgress(completedSteps: completed, overallScore: score);
   }
 
+  /// 检查视频生成状态并在处理中时轮询
+  Future<void> _checkVideoStatus() async {
+    if (widget.childId == null) return;
+
+    final api = context.read<ApiService>();
+    try {
+      final status = await api.getVideoStatus(widget.contentId, widget.childId!);
+      if (status == null || !mounted) return;
+
+      final exists = status['exists'] == true;
+      final taskStatus = status['status']?.toString() ?? '';
+
+      if (!exists) {
+        // No video task created yet — check if watch module already has videoUrl
+        _syncVideoUrlFromModule();
+        return;
+      }
+
+      if (taskStatus == 'completed') {
+        final videoUrl = api.getLessonVideoPlaybackUrl(
+          widget.contentId,
+          widget.childId!,
+        );
+        if (mounted) {
+          setState(() {
+            _videoUrl = videoUrl;
+            _isVideoGenerating = false;
+          });
+        }
+        return;
+      }
+
+      if (taskStatus == 'pending' || taskStatus == 'processing') {
+        if (mounted) {
+          setState(() => _isVideoGenerating = true);
+        }
+        // Poll every 3 seconds
+        _videoPollTimer?.cancel();
+        _videoPollTimer = Timer(
+          const Duration(seconds: 3),
+          () => _checkVideoStatus(),
+        );
+        return;
+      }
+
+      // failed or unknown — fall back to module check
+      _syncVideoUrlFromModule();
+    } catch (_) {
+      _syncVideoUrlFromModule();
+    }
+  }
+
+  /// 从课程模块数据中同步 videoUrl（课程已发布且视频已就绪时后端会写入）
+  void _syncVideoUrlFromModule() {
+    final watchStep = _steps.isNotEmpty
+        ? _steps.firstWhere((s) => s.id == 'watch', orElse: () => _steps.first)
+        : null;
+    if (watchStep == null) return;
+
+    final moduleUrl = watchStep.module['videoUrl']?.toString();
+    if (moduleUrl != null && moduleUrl.isNotEmpty) {
+      final fullUrl = '${ApiService.baseUrl}$moduleUrl';
+      if (mounted) {
+        setState(() {
+          _videoUrl = fullUrl;
+          _isVideoGenerating = false;
+        });
+      }
+    }
+  }
+
   /// 完成当前步骤
   Future<void> _completeStep({
     int? score,
     Map<String, dynamic>? interactionData,
   }) async {
-    if (widget.childId == null || _currentStepIndex >= _steps.length) return;
+    if ((widget.childId == null && !widget.previewMode) || _currentStepIndex >= _steps.length) return;
 
     final step = _steps[_currentStepIndex];
     if (_progress.completedSteps.contains(step.id)) {
       // 已完成，直接跳到下一步
       _goToNextStep();
+      return;
+    }
+
+    // 预览模式：只在本地标记完成，不调用 API
+    if (widget.previewMode) {
+      final newCompleted = {..._progress.completedSteps, step.id};
+      setState(() {
+        _progress = _LessonProgress(
+          completedSteps: newCompleted,
+          overallScore: _progress.overallScore + (score ?? 100),
+        );
+        _isCompleting = false;
+      });
+      if (_steps.every((s) => newCompleted.contains(s.id))) {
+        setState(() => _showCompleteScreen = true);
+      } else {
+        _goToNextStep();
+      }
       return;
     }
 
@@ -315,19 +426,27 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   void _goToNextStep() {
     if (_currentStepIndex < _steps.length - 1) {
+      // 切换步骤时停止当前朗读
+      TtsService().stop();
       setState(() {
         _currentStepIndex++;
         _stepStartTime = DateTime.now();
+        _isSpeakingStep = false;
       });
+      _autoSpeakStep();
     }
   }
 
   void _goToPrevStep() {
     if (_currentStepIndex > 0) {
+      // 切换步骤时停止当前朗读
+      TtsService().stop();
       setState(() {
         _currentStepIndex--;
         _stepStartTime = DateTime.now();
+        _isSpeakingStep = false;
       });
+      _autoSpeakStep();
     }
   }
 
@@ -461,6 +580,28 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         _stepStartTime = DateTime.now();
         _isSpeakingStep = false;
       });
+      _autoSpeakStep();
+    }
+  }
+
+  /// 自动朗读当前步骤内容（进入页面 / 切换步骤时调用）
+  Future<void> _autoSpeakStep() async {
+    if (_steps.isEmpty || _currentStepIndex >= _steps.length) return;
+
+    final tts = TtsService();
+
+    final text = _extractStepText(_steps[_currentStepIndex]);
+    if (text.isEmpty) return;
+
+    // 短暂延迟让 UI 先渲染完成
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    if (!mounted) return;
+    setState(() => _isSpeakingStep = true);
+    await tts.speak(text);
+    await tts.onComplete;
+    if (mounted) {
+      setState(() => _isSpeakingStep = false);
     }
   }
 
@@ -633,7 +774,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       child: Column(
         children: [
           TopBar(
-            title: _lessonTitle,
+            title: _lessonTitle + (widget.previewMode ? ' [预览]' : ''),
             subtitle: '$completedCount/$totalCount 步骤完成' +
                 (_ageGroup.isNotEmpty ? ' · $_ageGroup 岁' : ''),
             leftSlot: IconButton(
@@ -1152,6 +1293,22 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   Widget _buildWatchStep(_LessonStep step, bool isCompleted) {
     final module = step.module;
+
+    // Video is ready → use video player
+    if (_videoUrl != null && _videoUrl!.isNotEmpty) {
+      final api = context.read<ApiService>();
+      return LessonVideoPlayer(
+        videoUrl: _videoUrl!,
+        authToken: api.token,
+        onComplete: (score) => _completeStep(score: score),
+      );
+    }
+
+    // Video is generating → show progress indicator
+    if (_isVideoGenerating) {
+      return _buildVideoGeneratingPlaceholder(isCompleted);
+    }
+
     final scenes = _extractScenes(module);
 
     if (scenes.isNotEmpty) {
@@ -1215,6 +1372,73 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       scenes: scenes,
       isCompleted: isCompleted,
       onComplete: (score) => _completeStep(score: score),
+    );
+  }
+
+  /// 视频生成中的占位组件
+  Widget _buildVideoGeneratingPlaceholder(bool isCompleted) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '🎬',
+              style: TextStyle(fontSize: 36),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '视频正在生成中...',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'AI 正在为这节课制作动画视频\n请稍等片刻，马上就好',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: () {
+                // Allow skipping to animation fallback
+                setState(() {
+                  _isVideoGenerating = false;
+                  _videoPollTimer?.cancel();
+                });
+              },
+              icon: const Icon(Icons.skip_next_rounded),
+              label: const Text('先看动画版'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1991,12 +2215,21 @@ class _WriteStepContent extends StatefulWidget {
 
 class _WriteStepContentState extends State<_WriteStepContent> {
   late Set<int> _checkedItems;
+  final Map<int, TraceResult> _traceResults = {};
 
   @override
   void initState() {
     super.initState();
     _checkedItems = {};
   }
+
+  /// 是否有描红内容需要完成
+  bool get _hasTracing => widget.tracingItems.isNotEmpty;
+
+  /// 所有描红项是否已完成
+  bool get _allTraced =>
+      widget.tracingItems.isEmpty ||
+      _traceResults.length == widget.tracingItems.length;
 
   @override
   Widget build(BuildContext context) {
@@ -2030,59 +2263,11 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           ),
         if (widget.goal.isNotEmpty) const SizedBox(height: 12),
 
-        // 描红练习
-        if (widget.tracingItems.isNotEmpty) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              boxShadow: AppTheme.softShadow(),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '描红练习',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: widget.tracingItems.map((item) {
-                    return Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 2,
-                          style: BorderStyle.solid,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
+        // 描红练习 — 交互式 TracePathCanvas
+        if (_hasTracing) ...[
+          _buildTracingHeader(),
+          const SizedBox(height: 8),
+          ..._buildTracingCanvases(),
           const SizedBox(height: 12),
         ],
 
@@ -2217,6 +2402,102 @@ class _WriteStepContentState extends State<_WriteStepContent> {
     );
   }
 
+  /// 描红标题 + 进度提示
+  Widget _buildTracingHeader() {
+    final doneCount = _traceResults.length;
+    final totalCount = widget.tracingItems.length;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDDA0DD).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFDDA0DD).withOpacity(0.25),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Text('✍', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '描红练习',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '用手指沿着浅色字形描画，完成 $totalCount 个字即可',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_allTraced)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                '全部完成 ✅',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.accentColor,
+                ),
+              ),
+            )
+          else
+            Text(
+              '$doneCount / $totalCount',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建交互式描红画布列表
+  List<Widget> _buildTracingCanvases() {
+    return List.generate(widget.tracingItems.length, (index) {
+      final item = widget.tracingItems[index];
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TracePathCanvas(
+          target: TraceGlyphTarget(
+            id: 'trace_${index}',
+            label: '描红: $item',
+            text: item,
+            fontSize: 160,
+          ),
+          minCoverage: 0.65,
+          onSolved: (traceResult) {
+            setState(() {
+              _traceResults[index] = traceResult;
+            });
+          },
+        ),
+      );
+    });
+  }
+
   Widget _buildCompleteButton() {
     if (widget.isCompleted) {
       return const Row(
@@ -2237,24 +2518,69 @@ class _WriteStepContentState extends State<_WriteStepContent> {
       );
     }
 
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: FilledButton.icon(
-        onPressed: () => widget.onComplete(
-          80,
-          {'checkedItems': _checkedItems.toList()},
-        ),
-        icon: const Icon(Icons.check_rounded),
-        label: const Text('写完了，进入下一步'),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    // 如果有描红但未完成，禁用按钮并提示
+    final canComplete = !_hasTracing || _allTraced;
+    final buttonLabel = _hasTracing && !_allTraced
+        ? '请先完成描红练习 ✍'
+        : '写完了，进入下一步';
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: canComplete
+                ? () {
+                    // 收集描红得分
+                    final traceScores = _traceResults.values
+                        .map((r) => r.score)
+                        .toList();
+                    final avgTraceScore = traceScores.isNotEmpty
+                        ? traceScores.reduce((a, b) => a + b) ~/
+                            traceScores.length
+                        : 80;
+                    widget.onComplete(
+                      avgTraceScore,
+                      {
+                        'checkedItems': _checkedItems.toList(),
+                        'traceResults': _traceResults.values
+                            .map((r) => {
+                                  'coverage': r.coverage,
+                                  'attempts': r.attempts,
+                                  'score': r.score,
+                                })
+                            .toList(),
+                      },
+                    );
+                  }
+                : null,
+            icon: const Icon(Icons.check_rounded),
+            label: Text(buttonLabel),
+            style: FilledButton.styleFrom(
+              backgroundColor: canComplete
+                  ? AppTheme.primaryColor
+                  : Colors.grey.shade300,
+              foregroundColor:
+                  canComplete ? Colors.white : AppTheme.textSecondary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
         ),
-      ),
+        if (_hasTracing && !_allTraced)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              '还有 ${widget.tracingItems.length - _traceResults.length} 个字需要描完哦~',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -2289,4 +2615,318 @@ Widget _buildEmptyCard(String message) {
       ],
     ),
   );
+}
+
+// ─── 课程视频播放器 ───────────────────────────────────────────────────
+
+/// 课程视频播放组件
+///
+/// 使用 video_player 播放 Remotion 生成的教学视频。
+/// 视频播放完毕后调用 onComplete 完成步骤。
+class LessonVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+  final String? authToken;
+  final void Function(int score) onComplete;
+
+  const LessonVideoPlayer({
+    super.key,
+    required this.videoUrl,
+    this.authToken,
+    required this.onComplete,
+  });
+
+  @override
+  State<LessonVideoPlayer> createState() => _LessonVideoPlayerState();
+}
+
+class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+  String _errorMessage = '';
+  bool _hasCompleted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  Future<void> _initPlayer() async {
+    try {
+      final uri = Uri.parse(widget.videoUrl);
+      final httpHeaders = <String, String>{};
+      if (widget.authToken != null && widget.authToken!.isNotEmpty) {
+        httpHeaders['Authorization'] = 'Bearer ${widget.authToken}';
+      }
+      _controller = VideoPlayerController.networkUrl(uri, httpHeaders: httpHeaders);
+      await _controller.initialize();
+      if (!mounted) return;
+
+      setState(() => _isInitialized = true);
+
+      // Listen for playback completion
+      _controller.addListener(() {
+        if (!mounted) return;
+        final position = _controller.value.position;
+        final duration = _controller.value.duration;
+        if (position >= duration && duration > Duration.zero && !_hasCompleted) {
+          _hasCompleted = true;
+        }
+      });
+
+      // Auto-play
+      _controller.play();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_isInitialized) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return _buildErrorState();
+    }
+
+    if (!_isInitialized) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppTheme.primaryColor),
+            SizedBox(height: 12),
+            Text(
+              '正在加载视频...',
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final position = _controller.value.position;
+    final duration = _controller.value.duration;
+    final isPlaying = _controller.value.isPlaying;
+    final isBuffering = _controller.value.isBuffering;
+    final progress = duration > Duration.zero
+        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+        : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Video display
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          child: AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(_controller),
+                // Play/pause overlay
+                if (!isPlaying && !isBuffering)
+                  GestureDetector(
+                    onTap: () => _controller.play(),
+                    child: Container(
+                      color: Colors.black26,
+                      child: const Icon(
+                        Icons.play_circle_fill_rounded,
+                        size: 64,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                // Buffering indicator
+                if (isBuffering)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.white70),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Progress bar
+        Row(
+          children: [
+            Text(
+              _formatDuration(position),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 4,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  activeTrackColor: AppTheme.primaryColor,
+                  inactiveTrackColor: Colors.grey.shade200,
+                  thumbColor: AppTheme.primaryColor,
+                ),
+                child: Slider(
+                  value: progress,
+                  onChanged: (value) {
+                    final targetMs =
+                        (value * duration.inMilliseconds).round();
+                    _controller.seekTo(Duration(milliseconds: targetMs));
+                  },
+                ),
+              ),
+            ),
+            Text(
+              _formatDuration(duration),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // Playback controls + complete button
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // Rewind 10s
+            IconButton(
+              icon: const Icon(Icons.replay_10_rounded),
+              onPressed: () {
+                final newPos = position - const Duration(seconds: 10);
+                _controller.seekTo(
+                  newPos < Duration.zero ? Duration.zero : newPos,
+                );
+              },
+              tooltip: '后退10秒',
+              color: AppTheme.primaryColor,
+            ),
+            // Play/pause
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () {
+                  if (isPlaying) {
+                    _controller.pause();
+                  } else {
+                    _controller.play();
+                  }
+                },
+              ),
+            ),
+            // Forward 10s
+            IconButton(
+              icon: const Icon(Icons.forward_10_rounded),
+              onPressed: () {
+                final newPos = position + const Duration(seconds: 10);
+                _controller.seekTo(
+                  newPos > duration ? duration : newPos,
+                );
+              },
+              tooltip: '快进10秒',
+              color: AppTheme.primaryColor,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Complete button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () {
+              _controller.pause();
+              widget.onComplete(_hasCompleted ? 95 : 70);
+            },
+            icon: const Icon(Icons.check_rounded),
+            label: Text(_hasCompleted ? '看完了，进入下一步' : '看好了，进入下一步'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.videocam_off_rounded,
+              size: 48,
+              color: AppTheme.textSecondary,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '视频加载失败',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage.length > 100
+                  ? '${_errorMessage.substring(0, 100)}...'
+                  : _errorMessage,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _errorMessage = '';
+                });
+                _initPlayer();
+              },
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 }

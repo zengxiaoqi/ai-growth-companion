@@ -32,8 +32,14 @@ dependencies:
   # 音频
   audioplayers: ^5.2.1
 
+  # 视频播放
+  video_player: ^2.9.2
+
   # 语音识别
   speech_to_text: ^7.3.0
+
+  # 权限处理
+  permission_handler: ^11.3.1
   
   # 工具
   uuid: ^4.2.1
@@ -59,11 +65,4 @@ flutter:
     - assets/audios/
     - assets/animations/
   
-  fonts:
-    - family: PingFang
-      fonts:
-        - asset: assets/fonts/PingFang-Regular.ttf
-        - asset: assets/fonts/PingFang-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/PingFang-Bold.ttf
-          weight: 700
+# 字体使用系统默认栈：macOS→PingFang SC, Windows→微软雅黑, Android/iOS→系统中文字体

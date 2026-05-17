@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
@@ -11,6 +13,8 @@ class UserProvider extends ChangeNotifier {
   String? _selectedMode;
   int? _activeChildId;
 
+  Timer? _loadTimer;
+
   UserProvider(this._storage, [this._apiService]) {
     _loadUser();
   }
@@ -23,27 +27,31 @@ class UserProvider extends ChangeNotifier {
   ApiService? get apiService => _apiService;
 
   void _loadUser() {
-    final user = _storage.getUser();
-    _currentUser = user;
-    _selectedMode = _storage.getSelectedMode();
-    _isLoading = false;
+    // 使用微小的 Timer 延迟，确保 SplashScreen 在首帧中渲染
+    // Timer 在当前帧 pump 完成后才触发，避免同步切换导致 SplashScreen 跳过
+    _loadTimer = Timer(const Duration(milliseconds: 30), () {
+      final user = _storage.getUser();
+      _currentUser = user;
+      _selectedMode = _storage.getSelectedMode();
+      _isLoading = false;
 
-    // 恢复 activeChildId
-    _activeChildId = _storage.getActiveChildId();
-    // 如果未设置且当前用户是孩子，默认使用当前用户 ID
-    if (_activeChildId == null && user != null && user['type'] == 'child') {
-      _activeChildId = user['id'] as int?;
-    }
-
-    // 恢复 token 到 API 拦截器
-    if (_apiService != null) {
-      final token = _storage.getToken();
-      if (token != null) {
-        _apiService!.setToken(token);
+      // 恢复 activeChildId
+      _activeChildId = _storage.getActiveChildId();
+      // 如果未设置且当前用户是孩子，默认使用当前用户 ID
+      if (_activeChildId == null && user != null && user['type'] == 'child') {
+        _activeChildId = user['id'] as int?;
       }
-    }
 
-    notifyListeners();
+      // 恢复 token 到 API 拦截器
+      if (_apiService != null) {
+        final token = _storage.getToken();
+        if (token != null) {
+          _apiService!.setToken(token);
+        }
+      }
+
+      notifyListeners();
+    });
   }
 
   Future<void> login(Map<String, dynamic> userData) async {
@@ -118,5 +126,11 @@ class UserProvider extends ChangeNotifier {
       await _storage.saveActiveChildId(id);
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _loadTimer?.cancel();
+    super.dispose();
   }
 }

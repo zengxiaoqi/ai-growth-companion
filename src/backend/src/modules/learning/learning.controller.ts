@@ -8,6 +8,7 @@
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   Request,
@@ -339,6 +340,92 @@ export class LearningController {
     return this.lessonContentService.generateDraft({
       ...body,
       parentId,
+    });
+  }
+
+  @Post("lessons/draft")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "直接保存课程草稿（绕过LLM，纯CRUD）" })
+  async createDraft(
+    @Request() req: any,
+    @Body()
+    body: {
+      childId: number;
+      title: string;
+      subtitle?: string;
+      domain?: string;
+      topic?: string;
+      ageGroup?: "3-4" | "5-6";
+      difficulty?: number;
+      durationMinutes?: number;
+      content?: any;
+      parentPrompt?: string;
+    },
+  ) {
+    const parentId = req.user?.sub;
+    if (req.user?.type !== "parent") {
+      throw new ForbiddenException("仅家长可创建课程草稿");
+    }
+    await this.assertAccessToChild(req, body.childId);
+
+    if (!body.title?.trim()) {
+      throw new BadRequestException("title is required");
+    }
+
+    return this.lessonContentService.saveDraftDirectly({
+      title: body.title,
+      subtitle: body.subtitle,
+      domain: body.domain,
+      topic: body.topic,
+      ageGroup: body.ageGroup,
+      difficulty: body.difficulty,
+      durationMinutes: body.durationMinutes,
+      content: body.content,
+      childId: body.childId,
+      parentId,
+    });
+  }
+
+  @Put("lessons/:id/draft")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "直接更新课程草稿（绕过LLM，纯CRUD）" })
+  async updateDraft(
+    @Request() req: any,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      title?: string;
+      subtitle?: string;
+      domain?: string;
+      topic?: string;
+      ageGroup?: "3-4" | "5-6";
+      difficulty?: number;
+      durationMinutes?: number;
+      content?: any;
+    },
+  ) {
+    if (req.user?.type !== "parent") {
+      throw new ForbiddenException("仅家长可修改课程草稿");
+    }
+
+    const content = await this.contentRepo.findOne({ where: { id: +id } });
+    if (!content) throw new NotFoundException("Content not found");
+    if (content.status !== "draft") {
+      throw new ForbiddenException("仅可修改草稿状态的课程");
+    }
+    await this.assertAccessToChild(req, content.childId!);
+
+    return this.lessonContentService.updateDraftDirectly(+id, {
+      title: body.title,
+      subtitle: body.subtitle,
+      domain: body.domain,
+      topic: body.topic,
+      ageGroup: body.ageGroup,
+      difficulty: body.difficulty,
+      durationMinutes: body.durationMinutes,
+      content: body.content,
     });
   }
 

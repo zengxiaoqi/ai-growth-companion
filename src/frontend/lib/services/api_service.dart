@@ -3,6 +3,7 @@ import 'api_result.dart';
 
 class ApiService {
   final Dio _dio;
+  String? _token;
 
   // API 基础地址（外网可访问）
   static const String baseUrl = 'https://lingxi.chataifree.eu.org/api';
@@ -29,11 +30,15 @@ class ApiService {
   Dio get dio => _dio;
 
   void setToken(String token) {
+    _token = token;
     _dio.interceptors.removeWhere((i) => i is _AuthInterceptor);
     if (token.isNotEmpty) {
       _dio.interceptors.insert(0, _AuthInterceptor(token));
     }
   }
+
+  /// Current auth token for use with HTTP headers (e.g., video player)
+  String? get token => _token;
 
   // ─── API Result helpers ─────────────────────────────────────────────
 
@@ -576,6 +581,11 @@ class ApiService {
       print('Get video status error: $e');
       return null;
     }
+  }
+
+  /// Get the full video playback URL (token passed separately via httpHeaders)
+  String getLessonVideoPlaybackUrl(int lessonId, int childId) {
+    return '$baseUrl/learning/lessons/$lessonId/teaching-video?childId=$childId';
   }
 
   Future<Map<String, dynamic>?> approveVideo(int lessonId, int childId, bool approved, {String? feedback, int? taskId}) async {

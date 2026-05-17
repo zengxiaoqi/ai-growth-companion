@@ -32,3 +32,5 @@ src/video-remotion/public/.generated/
 src/video-remotion/out/
 
 *.tsbuildinfo
+# Flutter Web build output (served as static by backend)
+src/backend/public/

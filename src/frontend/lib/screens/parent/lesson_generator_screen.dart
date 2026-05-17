@@ -12,6 +12,7 @@ import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/learning/animation_scene_player.dart';
+import '../../screens/learning/structured_lesson_screen.dart';
 import 'child_selector.dart';
 
 /// 家长端课程生成器页面
@@ -304,6 +305,44 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   void _handleReset() {
     _pollTimer?.cancel(); _pollTimer = null;
     setState(() { _generatedContent = null; _lessonData = null; _modificationController.clear(); _error = null; _expandedStepId = null; _isGenerating = false; _generationProgress = ''; _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
+  }
+
+  /// 以学生视角预览课程
+  Future<void> _handlePreview() async {
+    final contentId = _toInt(_generatedContent?['id']);
+    if (contentId == null) return;
+
+    // 如果有未保存的场景编辑，先保存草稿
+    if (_sceneEdits.isNotEmpty) {
+      setState(() { _isSavingDraft = true; _error = null; });
+      final api = context.read<ApiService>();
+      final modDesc = _buildSceneEditDescription();
+      try {
+        final result = await api.modifyLesson(contentId, modDesc);
+        if (!mounted) return;
+        if (result == null || result['error'] != null) {
+          setState(() { _error = result?['error']?.toString() ?? '保存草稿失败'; _isSavingDraft = false; });
+          return;
+        }
+        final rawContent = result['content'];
+        if (rawContent is String) { try { _lessonData = jsonDecode(rawContent) as Map<String, dynamic>; } catch (_) {} }
+        else if (rawContent is Map) { _lessonData = rawContent.map((k, v) => MapEntry(k.toString(), v)); }
+        setState(() { _generatedContent = result; _isSavingDraft = false; _sceneEdits = {}; _editingSceneIndex = null; _previewSceneIndex = 0; });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() { _error = '保存草稿失败: $e'; _isSavingDraft = false; });
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => StructuredLessonScreen(
+        contentId: contentId,
+        childId: _selectedChildId,
+        previewMode: true,
+      ),
+    ));
   }
 
   void _applyQuickEdit(_QuickEditOption option) {
@@ -612,6 +651,17 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
                 )).toList()),
               ],
             ])),
+            TextButton.icon(
+              onPressed: _isSavingDraft ? null : _handlePreview,
+              icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+              label: const Text('以学生视角预览', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppTheme.primaryColor,
+              ),
+            ),
             IconButton(onPressed: _handleReset, tooltip: '重新生成', icon: const Icon(Icons.refresh_rounded, size: 22, color: AppTheme.textSecondary)),
           ]),
         ),

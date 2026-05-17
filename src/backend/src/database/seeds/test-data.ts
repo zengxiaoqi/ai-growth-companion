@@ -14,7 +14,8 @@ export async function seedTestData(dataSource: DataSource) {
   }
 
   // bcrypt hash of "password123" (salt rounds: 10)
-  const testPasswordHash = "$2b$10$YpyvqoTPIFAGzcnnNRhNweFJTahEN7XlnlhCIYs83m7D4ZGHkWQCS";
+  const testPasswordHash =
+    "$2b$10$YpyvqoTPIFAGzcnnNRhNweFJTahEN7XlnlhCIYs83m7D4ZGHkWQCS";
 
   // Create test users
   const parent = await userRepo.save({

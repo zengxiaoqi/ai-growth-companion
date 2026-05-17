@@ -263,56 +263,145 @@ export class RemotionRenderService {
         this.logger.log(`[resolveChromePath] Using CHROME_PATH: ${p}`);
         return p;
       }
-      this.logger.warn(`[resolveChromePath] CHROME_PATH set but file not found: ${p}`);
+      this.logger.warn(
+        `[resolveChromePath] CHROME_PATH set but file not found: ${p}`,
+      );
     }
 
-    // 2. Puppeteer cache — chrome-headless-shell (lightweight, preferred)
     const home = os.homedir();
-    const puppeteerDirs = existsSync(path.join(home, ".cache", "puppeteer", "chrome-headless-shell"))
-      ? readdirSync(path.join(home, ".cache", "puppeteer", "chrome-headless-shell")).sort().reverse()
+    const isWin = process.platform === "win32";
+    const isMac = process.platform === "darwin";
+
+    // 2. Puppeteer cache — chrome-headless-shell (lightweight, preferred)
+    const puppeteerBase = isWin
+      ? path.join(
+          process.env.LOCALAPPDATA ?? path.join(home, ".cache"),
+          "puppeteer",
+          "chrome-headless-shell",
+        )
+      : path.join(home, ".cache", "puppeteer", "chrome-headless-shell");
+    const puppeteerDirs = existsSync(puppeteerBase)
+      ? readdirSync(puppeteerBase).sort().reverse()
       : [];
     for (const ver of puppeteerDirs) {
-      const candidate = path.join(
-        home, ".cache", "puppeteer", "chrome-headless-shell", ver,
-        "chrome-headless-shell-linux64", "chrome-headless-shell",
+      const platformDir = isWin
+        ? "chrome-headless-shell-win64"
+        : isMac
+          ? "chrome-headless-shell-mac-"
+          : "chrome-headless-shell-linux64";
+      // Match any platform subdirectory that starts with the expected prefix
+      const verDir = path.join(puppeteerBase, ver);
+      const entries = existsSync(verDir) ? readdirSync(verDir) : [];
+      const match = entries.find(
+        (e) => e.startsWith(platformDir) || e.includes("chrome-headless-shell"),
       );
-      if (existsSync(candidate)) {
-        this.logger.log(`[resolveChromePath] Found puppeteer chrome-headless-shell: ${candidate}`);
-        return candidate;
+      if (match) {
+        const exe = isWin
+          ? "chrome-headless-shell.exe"
+          : "chrome-headless-shell";
+        const candidate = path.join(verDir, match, exe);
+        if (existsSync(candidate)) {
+          this.logger.log(
+            `[resolveChromePath] Found puppeteer chrome-headless-shell: ${candidate}`,
+          );
+          return candidate;
+        }
       }
     }
 
     // 3. Playwright cache — full Chromium
-    const playwrightDirs = existsSync(path.join(home, ".cache", "ms-playwright"))
-      ? readdirSync(path.join(home, ".cache", "ms-playwright")).sort().reverse()
+    const playwrightBase = isWin
+      ? path.join(
+          process.env.LOCALAPPDATA ?? path.join(home, ".cache"),
+          "ms-playwright",
+        )
+      : isMac
+        ? path.join(home, "Library", "Caches", "ms-playwright")
+        : path.join(home, ".cache", "ms-playwright");
+    const playwrightDirs = existsSync(playwrightBase)
+      ? readdirSync(playwrightBase).sort().reverse()
       : [];
     for (const dir of playwrightDirs) {
-      const candidate = path.join(home, ".cache", "ms-playwright", dir, "chrome-linux64", "chrome");
-      if (existsSync(candidate)) {
-        this.logger.log(`[resolveChromePath] Found playwright chromium: ${candidate}`);
-        return candidate;
+      const dirPath = path.join(playwrightBase, dir);
+      const entries = existsSync(dirPath) ? readdirSync(dirPath) : [];
+      const chromeSubdir = entries.find((e) => e.startsWith("chrome-"));
+      if (chromeSubdir) {
+        const exe = isWin ? "chrome.exe" : "chrome";
+        const candidate = path.join(dirPath, chromeSubdir, exe);
+        if (existsSync(candidate)) {
+          this.logger.log(
+            `[resolveChromePath] Found playwright chromium: ${candidate}`,
+          );
+          return candidate;
+        }
       }
     }
 
     // 4. System-installed browsers
-    const systemPaths = [
-      "/usr/bin/chromium-browser",
-      "/usr/bin/chromium",
-      "/usr/bin/google-chrome-stable",
-      "/usr/bin/google-chrome",
-      "/snap/bin/chromium",
-    ];
+    const systemPaths = isWin
+      ? [
+          path.join(
+            process.env.PROGRAMFILES ?? "C:\\Program Files",
+            "Google",
+            "Chrome",
+            "Application",
+            "chrome.exe",
+          ),
+          path.join(
+            process.env["PROGRAMFILES(X86)"] ?? "C:\\Program Files (x86)",
+            "Google",
+            "Chrome",
+            "Application",
+            "chrome.exe",
+          ),
+          path.join(
+            process.env.LOCALAPPDATA ?? path.join(home, "AppData", "Local"),
+            "Google",
+            "Chrome",
+            "Application",
+            "chrome.exe",
+          ),
+          path.join(
+            process.env.PROGRAMFILES ?? "C:\\Program Files",
+            "BraveSoftware",
+            "Brave-Browser",
+            "Application",
+            "brave.exe",
+          ),
+          path.join(
+            process.env.LOCALAPPDATA ?? path.join(home, "AppData", "Local"),
+            "Microsoft",
+            "Edge",
+            "Application",
+            "msedge.exe",
+          ),
+        ]
+      : isMac
+        ? [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+          ]
+        : [
+            "/usr/bin/chromium-browser",
+            "/usr/bin/chromium",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/google-chrome",
+            "/snap/bin/chromium",
+          ];
     for (const candidate of systemPaths) {
       if (existsSync(candidate)) {
-        this.logger.log(`[resolveChromePath] Found system browser: ${candidate}`);
+        this.logger.log(
+          `[resolveChromePath] Found system browser: ${candidate}`,
+        );
         return candidate;
       }
     }
 
     this.logger.warn(
       "[resolveChromePath] No Chrome/Chromium found. " +
-      "Set CHROME_PATH env var or install chromium-browser. " +
-      "Remotion will attempt its own download (may be slow or fail).",
+        "Set CHROME_PATH env var or install Chrome/Chromium. " +
+        "Remotion will attempt its own download (may be slow or fail).",
     );
     return null;
   }

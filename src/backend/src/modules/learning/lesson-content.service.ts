@@ -564,7 +564,9 @@ export class LessonContentService implements OnModuleInit {
     });
     if (!content) throw new NotFoundException("Content not found");
     if (content.status !== "draft") {
-      throw new ForbiddenException("Only draft lessons can be updated directly");
+      throw new ForbiddenException(
+        "Only draft lessons can be updated directly",
+      );
     }
 
     const updateData: Partial<Content> = {};
@@ -574,7 +576,8 @@ export class LessonContentService implements OnModuleInit {
     if (params.domain !== undefined) updateData.domain = params.domain;
     if (params.topic !== undefined) updateData.topic = params.topic;
     if (params.ageGroup !== undefined) updateData.ageRange = params.ageGroup;
-    if (params.difficulty !== undefined) updateData.difficulty = params.difficulty;
+    if (params.difficulty !== undefined)
+      updateData.difficulty = params.difficulty;
     if (params.durationMinutes !== undefined)
       updateData.durationMinutes = params.durationMinutes;
     if (params.content !== undefined) {

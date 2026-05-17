@@ -34,3 +34,6 @@ src/video-remotion/out/
 *.tsbuildinfo
 # Flutter Web build output (served as static by backend)
 src/backend/public/
+
+# AI-generated video component (dynamically generated at runtime)
+src/backend/GeneratedLesson.tsx

@@ -7,6 +7,7 @@ import '../../components/notification_panel.dart';
 import '../../providers/user_provider.dart';
 import '../learning/learning_home_screen.dart';
 import '../profile/profile_screen.dart';
+import 'growth_report_screen.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -33,7 +34,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     _screens = [
       const ParentHomeContent(),
       const LearningHomeScreen(),
-      const _ReportPlaceholder(),
+      const GrowthReportScreen(),
       const ProfileScreen(),
     ];
   }
@@ -88,7 +89,7 @@ class ParentHomeContent extends StatelessWidget {
                 const SizedBox(height: 20),
                 _buildAbilityCard(),
                 const SizedBox(height: 20),
-                _buildMenuSection(),
+                _buildMenuSection(context),
                 const SizedBox(height: 100),
               ],
             ),
@@ -99,11 +100,13 @@ class ParentHomeContent extends StatelessWidget {
   }
 
   void _showNotificationPanel(BuildContext context) {
+    final userProvider = context.read<UserProvider>();
+    final userId = userProvider.currentUser?['id'] as int?;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const NotificationPanel(),
+      builder: (_) => NotificationPanel(userId: userId),
     );
   }
 
@@ -222,7 +225,7 @@ class ParentHomeContent extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuSection() {
+  Widget _buildMenuSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -235,77 +238,67 @@ class ParentHomeContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _MenuTile(
+          icon: Icons.auto_awesome_rounded,
+          title: 'AI 课程生成',
+          subtitle: '为孩子智能生成学习课程',
+          color: AppTheme.primaryColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/lessonGenerator'),
+        ),
+        _MenuTile(
+          icon: Icons.psychology_rounded,
+          title: 'AI 能力洞察',
+          subtitle: '查看孩子能力发展与趋势',
+          color: AppTheme.softPurple,
+          onTap: () => Navigator.pushNamed(context, '/parent/aiInsights'),
+        ),
+        _MenuTile(
+          icon: Icons.security_rounded,
+          title: '家长控制',
+          subtitle: '设置学习时长与内容限制',
+          color: AppTheme.secondaryColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/parentalControls'),
+        ),
+        _MenuTile(
           icon: Icons.assessment_rounded,
           title: '学习报告',
-          subtitle: '查看详细学习情况',
-          color: AppTheme.primaryColor,
-        ),
-        _MenuTile(
-          icon: Icons.schedule_rounded,
-          title: '时间管理',
-          subtitle: '设置每日学习时长',
-          color: AppTheme.secondaryColor,
-        ),
-        _MenuTile(
-          icon: Icons.lock_rounded,
-          title: '内容管理',
-          subtitle: '选择/屏蔽学习内容',
+          subtitle: '查看详细学习情况与报告',
           color: AppTheme.accentColor,
+          onTap: () => Navigator.pushNamed(context, '/parent/growthReport'),
         ),
-      ],
-    );
-  }
-}
-
-/// 报告页占位
-class _ReportPlaceholder extends StatelessWidget {
-  const _ReportPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TopBar(
-          title: '学习报告',
-          subtitle: '查看孩子的学习情况',
+        _MenuTile(
+          icon: Icons.assignment_rounded,
+          title: '作业管理',
+          subtitle: '布置与检查孩子作业',
+          color: AppTheme.softOrange,
+          onTap: () => Navigator.pushNamed(context, '/parent/assignmentManager'),
         ),
-        Expanded(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.assessment_outlined,
-                    size: 48,
-                    color: AppTheme.primaryColor.withOpacity(0.5),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  '学习报告',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '报告功能开发中，即将上线',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        _MenuTile(
+          icon: Icons.drafts_rounded,
+          title: '课程草稿',
+          subtitle: '管理 AI 生成的课程草稿',
+          color: AppTheme.softYellow,
+          onTap: () => Navigator.pushNamed(context, '/parent/draftManager'),
+        ),
+        _MenuTile(
+          icon: Icons.inventory_2_rounded,
+          title: '课程包管理',
+          subtitle: '查看和管理课程包',
+          color: AppTheme.softMint,
+          onTap: () => Navigator.pushNamed(context, '/parent/coursePackManager'),
+        ),
+        _MenuTile(
+          icon: Icons.radar_rounded,
+          title: '能力雷达',
+          subtitle: '查看孩子多维能力分布',
+          color: AppTheme.softBlue,
+          onTap: () => Navigator.pushNamed(context, '/parent/abilityRadar'),
+        ),
+        _MenuTile(
+          icon: Icons.trending_up_rounded,
+          title: '能力趋势',
+          subtitle: '追踪孩子能力成长曲线',
+          color: AppTheme.softPurple,
+          onTap: () => Navigator.pushNamed(context, '/parent/abilityTrend'),
         ),
       ],
     );
@@ -383,12 +376,14 @@ class _MenuTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color color;
+  final VoidCallback? onTap;
 
   const _MenuTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
+    this.onTap,
   });
 
   @override
@@ -411,7 +406,7 @@ class _MenuTile extends StatelessWidget {
         title: Text(title),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () {},
+        onTap: onTap,
       ),
     );
   }

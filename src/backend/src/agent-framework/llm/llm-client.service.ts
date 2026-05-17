@@ -35,8 +35,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       ),
       apiKey: this.configService.get<string>("LLM_API_KEY", "unused"),
       model: this.configService.get<string>("LLM_MODEL", "qwen2.5:7b"),
-      maxTokens: this.configService.get<number>("LLM_MAX_TOKENS", 4096),
-      temperature: this.configService.get<number>("LLM_TEMPERATURE", 0.7),
+      maxTokens: Number(this.configService.get("LLM_MAX_TOKENS", 4096)),
+      temperature: Number(this.configService.get("LLM_TEMPERATURE", 0.7)),
     };
 
     this.retryStrategy = new RetryStrategy({

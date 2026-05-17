@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 
@@ -33,7 +34,9 @@ class NotificationItem {
 }
 
 class NotificationPanel extends StatefulWidget {
-  const NotificationPanel({super.key});
+  final int? userId;
+
+  const NotificationPanel({super.key, this.userId});
 
   @override
   State<NotificationPanel> createState() => _NotificationPanelState();
@@ -52,8 +55,13 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _fetchNotifications() async {
     try {
-      final api = ApiService();
-      final response = await api.getNotifications();
+      final api = context.read<ApiService>();
+      final userId = widget.userId;
+      if (userId == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final response = await api.getNotifications(userId);
       final list = (response['notifications'] as List?) ?? [];
       setState(() {
         _notifications = list.map((item) => NotificationItem(
@@ -74,7 +82,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _markRead(int id) async {
     try {
-      final api = ApiService();
+      final api = context.read<ApiService>();
       await api.markNotificationRead(id);
     } catch (_) {}
     setState(() {
@@ -89,8 +97,10 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Future<void> _markAllRead() async {
     try {
-      final api = ApiService();
-      await api.markAllNotificationsRead();
+      final api = context.read<ApiService>();
+      final userId = widget.userId;
+      if (userId == null) return;
+      await api.markAllNotificationsRead(userId);
     } catch (_) {}
     setState(() {
       _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();

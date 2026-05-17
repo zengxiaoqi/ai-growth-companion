@@ -1,49 +1,178 @@
-import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
 
-class LearningHomeScreen extends StatelessWidget {
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../theme/app_theme.dart';
+import '../../components/app_card.dart';
+import '../../components/empty_state.dart';
+import '../../components/section_header.dart';
+import '../../components/shimmer_loading.dart';
+import '../../services/api_service.dart';
+import '../../providers/user_provider.dart';
+
+class LearningHomeScreen extends StatefulWidget {
   const LearningHomeScreen({super.key});
+
+  @override
+  State<LearningHomeScreen> createState() => _LearningHomeScreenState();
+}
+
+class _LearningHomeScreenState extends State<LearningHomeScreen> {
+  List<dynamic> _courses = [];
+  bool _loadingCourses = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    try {
+      final userProvider = context.read<UserProvider>();
+      final childId = userProvider.activeChildId;
+      if (childId != null) {
+        final courses = await context.read<ApiService>().getContents(childId: childId);
+        if (mounted) {
+          setState(() {
+            _courses = courses;
+            _loadingCourses = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _loadingCourses = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingCourses = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return BubbleBackground(
       child: SafeArea(
-        child: Column(
-          children: [
-            // 顶部标题
-            _buildHeader(),
-            // 学科选择
-            Expanded(
-              child: _buildSubjectGrid(),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildCoursesSection(),
+              _buildSubjectGrid(),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
+    return const Padding(
+      padding: EdgeInsets.all(20),
       child: Row(
         children: [
-          // 装饰云朵
-          const CloudDecoration(size: 32, color: AppTheme.softBlue),
+          CloudDecoration(size: 32, color: AppTheme.softBlue),
           const SizedBox(width: 12),
           const Expanded(
-            child: Text(
-              '📚 学习中心',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
-              ),
+            child: SectionHeader(
+              title: '学习中心',
+              emoji: '📚',
+              trailing: Text('✨'),
             ),
           ),
-          // 装饰星星
-          const StarDecoration(size: 24),
-          const SizedBox(width: 8),
-          const Text('✨', style: TextStyle(fontSize: 24)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoursesSection() {
+    final childId = context.watch<UserProvider>().activeChildId;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              const Expanded(
+                child: SectionHeader(
+                  title: '我的课程',
+                  emoji: '📚',
+                ),
+              ),
+              if (_courses.isNotEmpty)
+                Text(
+                  '${_courses.length} 门课',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Content
+          if (_loadingCourses)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: SizedBox(
+                height: 140,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: const [
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                    SizedBox(width: 12),
+                    ShimmerCard(width: 180, height: 140),
+                  ],
+                ),
+              ),
+            )
+          else if (_courses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: EmptyState(
+                emoji: '🌱',
+                title: '暂无课程，等待家长为你生成哦~',
+              ),
+            )
+          else
+            SizedBox(
+              height: 140,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _courses.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final course = _courses[index];
+                  final title = course['title'] as String? ?? '未命名课程';
+                  final summary = course['summary'] as String? ?? '';
+                  final domain = course['domain'] as String? ?? '';
+                  final courseId = course['id'];
+                  final colorIndex = index % AppTheme.childColors.length;
+                  final color = AppTheme.childColors[colorIndex];
+
+                  return _CourseCard(
+                    title: title,
+                    summary: summary,
+                    domain: domain,
+                    color: color,
+                    onTap: () {
+                      Navigator.pushNamed(
+                        context,
+                        '/learning/structuredLesson',
+                        arguments: {
+                          'contentId': courseId,
+                          'childId': childId,
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -60,6 +189,8 @@ class LearningHomeScreen extends StatelessWidget {
     ];
 
     return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
@@ -134,35 +265,32 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        // 跳转到对应学科页面
+        Navigator.pushNamed(
+          context,
+          '/learning/subjectContentList',
+          arguments: {'subject': widget.title},
+        );
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                widget.gradient[0].withOpacity(0.15),
-                widget.gradient[1].withOpacity(0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: widget.color.withOpacity(0.2),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
+        child: AppCard(
+          gradient: LinearGradient(
+            colors: [
+              widget.gradient[0].withOpacity(0.15),
+              widget.gradient[1].withOpacity(0.05),
             ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
           child: Stack(
             children: [
               // 背景装饰
@@ -227,7 +355,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
                       ),
                       child: Text(
                         widget.title,
@@ -258,6 +386,132 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseCard extends StatelessWidget {
+  final String title;
+  final String summary;
+  final String domain;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _CourseCard({
+    required this.title,
+    required this.summary,
+    required this.domain,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AppCard(
+        width: 180,
+        padding: const EdgeInsets.all(16),
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.12),
+            color.withOpacity(0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Domain badge
+            if (domain.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
+                ),
+                child: Text(
+                  domain,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            // Title
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textColor,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            // Summary
+            Expanded(
+              child: Text(
+                summary,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  height: 1.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Enter button
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [color, color.withOpacity(0.7)],
+                  ),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '进入学习',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -32,17 +32,23 @@ void main() {
             create: (_) => LearningProvider(storageService),
           ),
           ChangeNotifierProvider(
-            create: (_) => ContentProvider(),
+            create: (_) => ContentProvider(apiService),
           ),
         ],
         child: const LingxiApp(),
       ),
     );
 
+    // 首帧应显示 SplashScreen
+    // pump() 不推进时钟，Timer 不会触发，SplashScreen 保持可见
     await tester.pump();
 
-    // Should show splash/login screen since no user is logged in
+    // Should show splash screen since no user is logged in and loading is deferred
     expect(find.text('灵犀伴学'), findsOneWidget);
+
+    // 推进时钟让延迟加载 Timer 触发，避免测试结束时存在 pending timer
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.pump();
   });
 
   testWidgets('App renders MaterialApp with correct title', (WidgetTester tester) async {
@@ -65,13 +71,17 @@ void main() {
             create: (_) => LearningProvider(storageService),
           ),
           ChangeNotifierProvider(
-            create: (_) => ContentProvider(),
+            create: (_) => ContentProvider(apiService),
           ),
         ],
         child: const LingxiApp(),
       ),
     );
 
+    await tester.pump();
+
+    // 推进时钟让延迟加载 Timer 触发，避免测试结束时存在 pending timer
+    await tester.pump(const Duration(milliseconds: 30));
     await tester.pump();
 
     // Verify MaterialApp is present

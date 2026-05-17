@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/user_provider.dart';
+import '../../components/empty_state.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'child_selector.dart';
@@ -159,9 +160,10 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
     }
 
     if (_children.isEmpty) {
-      return const _EmptyState(
-        title: '暂无孩子账号',
-        description: '请先在家长端关联孩子，之后可查看 AI 洞察。',
+      return const EmptyState(
+        emoji: '💡',
+        title: '暂无 AI 洞察',
+        subtitle: '完成更多课程后，AI 会生成个性化的学习洞察',
       );
     }
 
@@ -381,50 +383,3 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
   }
 }
 
-/// 空状态组件（独立使用时的展示）
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String description;
-
-  const _EmptyState({
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.lightbulb_outline_rounded,
-              color: AppTheme.textSecondary.withOpacity(0.4),
-              size: 48,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

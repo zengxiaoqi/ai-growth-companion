@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../learning/animation_scene_player.dart';
 import 'child_selector.dart';
 
 /// 家长端作业管理页面
@@ -40,6 +43,9 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     _ActivityTypeMeta(value: 'connection', label: '连线游戏'),
     _ActivityTypeMeta(value: 'sequencing', label: '排序游戏'),
     _ActivityTypeMeta(value: 'puzzle', label: '拼图游戏'),
+    _ActivityTypeMeta(value: 'video', label: '视频'),
+    _ActivityTypeMeta(value: 'animation', label: '动画'),
+    _ActivityTypeMeta(value: 'lesson', label: '课程'),
   ];
 
   // 难度等级
@@ -138,7 +144,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
 
     try {
       final results = await Future.wait([
-        parentId != null ? api.getAssignments(parentId) : Future.value([]),
+        parentId != null ? api.getAssignmentsByParent(parentId) : Future.value([]),
         api.getDraftLessons(childId),
       ]);
 
@@ -253,6 +259,55 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       _editDifficulty = _toInt(assignment['difficulty']) ?? 1;
       _error = null;
     });
+  }
+
+  /// 判断是否视频/动画/课程类内容类型
+  bool _isVideoContentType(String? contentType) {
+    if (contentType == null) return false;
+    final ct = contentType.toLowerCase();
+    return ct == 'video' || ct == 'animation' || ct == 'lesson';
+  }
+
+  /// 判断是否视频/动画/课程类活动类型
+  bool _isVideoActivityType(String? activityType) {
+    if (activityType == null) return false;
+    final at = activityType.toLowerCase();
+    return at == 'video' || at == 'animation' || at == 'lesson';
+  }
+
+  /// 从草稿/课程数据中提取场景列表
+  List<Map<String, dynamic>> _extractScenes(Map<String, dynamic> draft) {
+    final lessonData = draft['lessonData'];
+    if (lessonData is! Map) return [];
+
+    final steps = lessonData['steps'];
+    if (steps is! List) return [];
+
+    final List<Map<String, dynamic>> allScenes = [];
+
+    for (final step in steps) {
+      if (step is! Map) continue;
+      final modules = step['modules'];
+      if (modules is! List) continue;
+
+      for (final module in modules) {
+        if (module is! Map) continue;
+        final type = module['type']?.toString().toLowerCase() ?? '';
+        if (type != 'video' && type != 'animation') continue;
+
+        final scenes = module['visualStory']?['scenes'] ??
+            module['videoLesson']?['shots'] ?? [];
+        if (scenes is List) {
+          for (final scene in scenes) {
+            if (scene is Map) {
+              allScenes.add(Map<String, dynamic>.from(scene));
+            }
+          }
+        }
+      }
+    }
+
+    return allScenes;
   }
 
   /// 取消编辑
@@ -410,9 +465,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     }
 
     if (_children.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '👶',
         title: '暂无孩子账号',
-        description: '请先在家长端关联孩子，之后可布置作业。',
+        subtitle: '请先在家长端关联孩子，之后可布置作业。',
       );
     }
 
@@ -641,7 +697,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 草稿作业列表
   Widget _buildDraftSection() {
     if (_isLoadingData) {
-      return const _SectionSkeleton();
+      return const SizedBox(
+        height: 200,
+        child: Center(child: ShimmerCard(height: 120)),
+      );
     }
 
     // 按孩子过滤并按时间倒序
@@ -660,10 +719,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       });
 
     if (drafts.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '📝',
         title: '暂无草稿作业',
-        description: '未发布的一键生成课程会显示在这里，方便继续查看和编辑。',
-        icon: Icons.note_alt_outlined,
+        subtitle: '未发布的一键生成课程会显示在这里，方便继续查看和编辑。',
       );
     }
 
@@ -684,7 +743,11 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       (d) => d.key == domainKey,
       orElse: () => _domains.first,
     );
-    final isCoursePack = draft['contentType']?.toString() == 'course_pack';
+    final contentType = draft['contentType']?.toString() ?? '';
+    final isCoursePack = contentType == 'course_pack';
+    final isVideoDraft = _isVideoContentType(contentType);
+    final hasScenes =
+        isVideoDraft && _extractScenes(draft).isNotEmpty;
     final title = draft['title']?.toString() ?? '未命名草稿';
     final subtitle = draft['subtitle']?.toString();
     final createdAt = _toDateTime(draft['createdAt']);
@@ -786,8 +849,74 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                 ),
               ],
             ),
+            // 视频/动画/课程类草稿的预览按钮
+            if (isVideoDraft) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (hasScenes)
+                    TextButton.icon(
+                      onPressed: () => _showVideoPreview(context, draft),
+                      icon: const Icon(Icons.play_circle_outline_rounded,
+                          size: 18),
+                      label: const Text('预览场景'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.pushNamed(
+                          context, '/parent/lessonGenerator');
+                    },
+                    icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                    label: const Text('去课程生成器'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.secondaryColor,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// 视频/动画作业场景预览（底部弹出面板）
+  void _showVideoPreview(BuildContext context, Map<String, dynamic> draft) {
+    final scenes = _extractScenes(draft);
+    final title = draft['title']?.toString() ?? '未命名草稿';
+
+    if (scenes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('暂无可预览的场景数据'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _VideoPreviewSheet(
+        title: title,
+        scenes: scenes,
+        theme: Theme.of(context),
       ),
     );
   }
@@ -795,7 +924,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 已布置作业列表
   Widget _buildAssignmentSection() {
     if (_isLoadingData) {
-      return const _SectionSkeleton();
+      return const SizedBox(
+        height: 200,
+        child: Center(child: ShimmerCard(height: 120)),
+      );
     }
 
     // 按孩子过滤并按时间倒序
@@ -814,10 +946,10 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       });
 
     if (filtered.isEmpty) {
-      return const _EmptyState(
-        title: '暂无布置作业',
-        description: '点击上方"布置作业"按钮，为孩子创建本周任务。',
-        icon: Icons.inbox_outlined,
+      return const EmptyState(
+        emoji: '📋',
+        title: '暂无作业',
+        subtitle: '点击上方按钮为孩子布置作业',
       );
     }
 
@@ -1121,7 +1253,13 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
             selectedColor: AppTheme.accentColor,
             compact: true,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+
+          // 视频/动画作业专属内容
+          if (_isVideoActivityType(_editActivityType)) ...[
+            _buildEditVideoSection(),
+          ],
+          const SizedBox(height: 6),
 
           // 操作按钮
           Row(
@@ -1161,6 +1299,232 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
         ],
       ),
     );
+  }
+
+  /// 编辑面板中的视频/动画作业专属内容
+  Widget _buildEditVideoSection() {
+    final assignment = _assignments.firstWhere(
+      (a) => _toInt(a['id']) == _editingId,
+      orElse: () => {},
+    );
+
+    final activityData = assignment['activityData'];
+    final scenes = activityData is Map<String, dynamic>
+        ? _extractScenesFromActivityData(activityData)
+        : activityData is Map
+            ? _extractScenesFromActivityData(
+                Map<String, dynamic>.from(activityData))
+            : <Map<String, dynamic>>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.primaryColor.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.movie_creation_outlined,
+                      size: 18, color: AppTheme.primaryColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    '视频/动画作业',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (scenes.isNotEmpty) ...[
+                const Text(
+                  '场景列表预览：',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...List.generate(scenes.length.clamp(0, 5),
+                    (i) => _buildSceneSummaryTile(scenes[i], i)),
+                if (scenes.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '... 共 ${scenes.length} 个场景',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.textSecondary,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ] else ...[
+                const Text(
+                  '作业内容需在"AI 课程生成器"中编辑场景和内容。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                        context, '/parent/lessonGenerator');
+                  },
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                  label: const Text('去 AI 课程生成器编辑'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.secondaryColor,
+                    side: BorderSide(
+                      color: AppTheme.secondaryColor.withOpacity(0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 场景摘要行
+  Widget _buildSceneSummaryTile(Map<String, dynamic> scene, int index) {
+    final narration = scene['narration']?.toString() ?? '';
+    final onScreenText = scene['onScreenText']?.toString() ?? '';
+    final displayTitle = onScreenText.isNotEmpty
+        ? onScreenText
+        : narration.length > 40
+            ? '${narration.substring(0, 40)}...'
+            : narration;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: AppTheme.accentColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayTitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (narration.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    narration.length > 60
+                        ? '${narration.substring(0, 60)}...'
+                        : narration,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 从活动数据中提取场景
+  List<Map<String, dynamic>> _extractScenesFromActivityData(
+      Map<String, dynamic> activityData) {
+    final List<Map<String, dynamic>> result = [];
+
+    // 尝试多种可能的场景数据路径
+    void tryExtract(dynamic source) {
+      if (source is List) {
+        for (final item in source) {
+          if (item is Map) {
+            result.add(Map<String, dynamic>.from(item));
+          }
+        }
+      }
+    }
+
+    tryExtract(activityData['scenes']);
+    tryExtract(activityData['visualStory']?['scenes']);
+    tryExtract(activityData['videoLesson']?['shots']);
+
+    // 也尝试 lessonData
+    final lessonData = activityData['lessonData'];
+    if (lessonData is Map) {
+      final steps = lessonData['steps'];
+      if (steps is List) {
+        for (final step in steps) {
+          if (step is Map) {
+            final modules = step['modules'];
+            if (modules is List) {
+              for (final module in modules) {
+                if (module is Map) {
+                  final type =
+                      module['type']?.toString().toLowerCase() ?? '';
+                  if (type == 'video' || type == 'animation') {
+                    tryExtract(module['visualStory']?['scenes']);
+                    tryExtract(module['videoLesson']?['shots']);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   // ==================== 辅助组件 ====================
@@ -1276,121 +1640,492 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   }
 }
 
-// ==================== 辅助组件 ====================
 
-class _SectionSkeleton extends StatelessWidget {
-  const _SectionSkeleton();
+
+
+/// 视频/动画作业场景预览底部弹出面板
+class _VideoPreviewSheet extends StatefulWidget {
+  final String title;
+  final List<Map<String, dynamic>> scenes;
+  final ThemeData theme;
+
+  const _VideoPreviewSheet({
+    required this.title,
+    required this.scenes,
+    required this.theme,
+  });
+
+  @override
+  State<_VideoPreviewSheet> createState() => _VideoPreviewSheetState();
+}
+
+class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
+  late final PageController _pageController;
+  int _currentScene = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  List<AnimationScene> get _parsedScenes =>
+      widget.scenes.map((s) => AnimationScene.fromJson(s)).toList();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 18,
-          width: 80,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(4),
-          ),
+    final scenes = _parsedScenes;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        const SizedBox(height: 10),
-        Card(
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            height: 80,
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(12),
+        child: Column(
+          children: [
+            // 拖拽指示器
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // 标题栏
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.movie_creation_outlined,
+                      color: AppTheme.primaryColor, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 14,
-                        width: 120,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${scenes.length} 个场景',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // 场景进度条
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Row(
+                children: [
+                  Text(
+                    '场景 ${_currentScene + 1} / ${scenes.length}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  // 进度点
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                      scenes.length,
+                      (i) => Container(
+                        width: _currentScene == i ? 16 : 8,
+                        height: 8,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
+                          color: _currentScene == i
+                              ? AppTheme.primaryColor
+                              : Colors.grey.shade300,
                           borderRadius: BorderRadius.circular(4),
                         ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // 场景页面
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (i) => setState(() => _currentScene = i),
+                itemCount: scenes.length,
+                itemBuilder: (context, index) =>
+                    _buildScenePage(scenes[index], index),
+              ),
+            ),
+
+            // 底部导航栏
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 上一个
+                    _NavButton(
+                      icon: Icons.arrow_back_rounded,
+                      label: '上一场景',
+                      enabled: _currentScene > 0,
+                      onTap: () {
+                        if (_currentScene > 0) {
+                          _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    ),
+
+                    // 场景跳转下拉
+                    PopupMenuButton<int>(
+                      offset: const Offset(0, -300),
+                      onSelected: (index) {
+                        _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      itemBuilder: (context) => List.generate(
+                        scenes.length,
+                        (i) => PopupMenuItem(
+                          value: i,
+                          child: Text(
+                            '场景 ${i + 1}${_currentScene == i ? ' ←' : ''}',
+                            style: TextStyle(
+                              fontWeight: _currentScene == i
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.apps_rounded,
+                          size: 20,
+                          color: AppTheme.secondaryColor,
+                        ),
+                      ),
+                    ),
+
+                    // 下一个
+                    _NavButton(
+                      icon: Icons.arrow_forward_rounded,
+                      label: '下一场景',
+                      isNext: true,
+                      enabled: _currentScene < scenes.length - 1,
+                      onTap: () {
+                        if (_currentScene < scenes.length - 1) {
+                          _pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScenePage(AnimationScene scene, int index) {
+    final bgColor = _parseSceneBackground(scene.background);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 场景编号标识
+            Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '🎬 场景 ${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.accentColor,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // 屏幕文字展示框
+            if (scene.onScreenText.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      bgColor ?? AppTheme.primaryColor.withOpacity(0.15),
+                      (bgColor ?? AppTheme.primaryColor)
+                          .withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: (bgColor ?? AppTheme.primaryColor)
+                        .withOpacity(0.2),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    if (scene.character.isNotEmpty) ...[
+                      Text(
+                        scene.character,
+                        style: const TextStyle(fontSize: 48),
                       ),
                       const SizedBox(height: 8),
-                      Container(
-                        height: 10,
-                        width: 80,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
                     ],
-                  ),
+                    Text(
+                      scene.onScreenText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // 旁白文字
+            if (scene.narration.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.record_voice_over_rounded,
+                            size: 16, color: AppTheme.textSecondary),
+                        const SizedBox(width: 6),
+                        const Text(
+                          '旁白',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      scene.narration,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textColor,
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // 场景详情信息
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '场景详情',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('背景', scene.background),
+                  _buildDetailRow('角色', scene.character),
+                  if (scene.imageUrl != null &&
+                      scene.imageUrl!.isNotEmpty)
+                    _buildDetailRow('图片', scene.imageUrl!),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color? _parseSceneBackground(String background) {
+    final b = background.toLowerCase();
+    // 尝试解析十六进制颜色
+    if (b.startsWith('#') && b.length == 7) {
+      try {
+        return Color(
+            int.parse('0xFF${b.substring(1)}'));
+      } catch (_) {}
+    }
+    // 基于关键词返回颜色
+    if (b.contains('sky') || b.contains('blue')) return Colors.blue.shade100;
+    if (b.contains('night') || b.contains('dark')) return Colors.indigo.shade100;
+    if (b.contains('sun') || b.contains('yellow')) return Colors.amber.shade100;
+    if (b.contains('forest') || b.contains('green')) return Colors.green.shade100;
+    if (b.contains('sea') || b.contains('ocean')) return Colors.teal.shade100;
+    if (b.contains('pink') || b.contains('rose')) return Colors.pink.shade100;
+    return null;
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+              ),
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// 空状态组件
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String description;
+/// 视频预览底部导航按钮
+class _NavButton extends StatelessWidget {
   final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+  final bool isNext;
 
-  const _EmptyState({
-    required this.title,
-    required this.description,
-    this.icon = Icons.inbox_outlined,
+  const _NavButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+    this.isNext = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  size: 48, color: AppTheme.textSecondary.withOpacity(0.5)),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
+    return TextButton.icon(
+      onPressed: enabled ? onTap : null,
+      label: Text(label),
+      icon: Icon(isNext ? icon : icon,
+          size: 18),
+      style: TextButton.styleFrom(
+        foregroundColor: AppTheme.primaryColor,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
       ),
     );

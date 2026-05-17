@@ -1,6 +1,10 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
+import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
@@ -92,7 +96,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: const Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
           ),
@@ -104,9 +108,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            child: AppCard(
+              color: Colors.white,
+              boxShadow: AppTheme.softShadow(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 // 标题
                 const Text(
                   '加入灵犀伴学',
@@ -139,16 +146,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  maxLength: 11,
+                  maxLength: 15,
                   decoration: const InputDecoration(
-                    labelText: '手机号码',
-                    hintText: '请输入手机号',
+                    labelText: '手机号 / 账号',
+                    hintText: '请输入手机号或账号',
                     prefixIcon: Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
                     counterText: '',
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return '请输入手机号';
-                    if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(v)) return '请输入正确的手机号';
+                    if (v == null || v.trim().isEmpty) return '请输入手机号或账号';
+                    if (v.trim().length < 5) return '账号太短';
                     return null;
                   },
                 ),
@@ -242,6 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ],
             ),
           ),
+          ),
         ),
       ),
     );
@@ -271,7 +279,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     color: _userType == 'child' ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
                       color: _userType == 'child' ? AppTheme.primaryColor : Colors.grey.shade200,
                       width: 2,
@@ -303,7 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
                     color: _userType == 'parent' ? AppTheme.secondaryColor.withValues(alpha: 0.1) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
                       color: _userType == 'parent' ? AppTheme.secondaryColor : Colors.grey.shade200,
                       width: 2,
@@ -338,7 +346,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.smallRadius),
         border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
@@ -357,27 +365,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildRegisterButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleRegister,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          elevation: _isLoading ? 0 : 4,
+    return PressAnimation(
+      onTap: _isLoading ? null : _handleRegister,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: null, // PressAnimation handles tap
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
+            elevation: _isLoading ? 0 : 4,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                )
+              : const Text(
+                  '注册',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
         ),
-        child: _isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-              )
-            : const Text(
-                '注册',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
       ),
     );
   }

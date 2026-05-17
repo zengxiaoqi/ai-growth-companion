@@ -1,0 +1,15 @@
+[Unit]
+Description=灵犀伴学 - NestJS Backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/zxq/ai-growth-companion/src/backend
+Environment=NODE_ENV=production
+Environment=PORT=3001
+ExecStart=/home/zxq/.nvm/versions/node/v22.22.0/bin/node dist/main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

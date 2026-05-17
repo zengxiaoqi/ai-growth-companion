@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/empty_state.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -138,9 +139,10 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
     }
 
     if (_children.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '👶',
         title: '暂无孩子账号',
-        description: '请先在家长端关联孩子，之后可查看能力雷达。',
+        subtitle: '请先在家长端关联孩子，之后可查看能力雷达。',
       );
     }
 
@@ -195,9 +197,10 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
             else if (!hasData)
               const SizedBox(
                 height: 280,
-                child: _EmptyState(
+                child: EmptyState(
+                  emoji: '📊',
                   title: '暂无能力数据',
-                  description: '完成学习后会逐步生成能力雷达图。',
+                  subtitle: '完成更多课程后，这里会展示孩子的能力雷达图',
                 ),
               )
             else
@@ -424,38 +427,6 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String description;
-
-  const _EmptyState({required this.title, required this.description});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.insights_rounded, color: AppTheme.textSecondary.withOpacity(0.45), size: 42),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _RadarCompare {
   final List<double> currentValues;

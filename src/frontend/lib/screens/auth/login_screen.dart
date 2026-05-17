@@ -1,6 +1,10 @@
+// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/animation_utils.dart';
+import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/storage_service.dart';
@@ -64,7 +68,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
 
       if (result.containsKey('error')) {
-        setState(() => _error = '登录失败，请检查账号密码');
+        final errMsg = result['error']?.toString() ?? '未知错误';
+        setState(() => _error = '登录失败: $errMsg');
         return;
       }
 
@@ -100,24 +105,29 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 40),
-                    _buildPhoneField(),
-                    const SizedBox(height: 20),
-                    _buildPasswordField(),
-                    const SizedBox(height: 16),
-                    _buildRememberAndForgot(),
-                    const SizedBox(height: 24),
-                    if (_error != null) ...[
-                      _buildErrorBanner(),
+                child: AppCard(
+                  color: Colors.white,
+                  boxShadow: AppTheme.softShadow(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 40),
+                      _buildPhoneField(),
+                      const SizedBox(height: 20),
+                      _buildPasswordField(),
                       const SizedBox(height: 16),
+                      _buildRememberAndForgot(),
+                      const SizedBox(height: 24),
+                      if (_error != null) ...[
+                        _buildErrorBanner(),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildLoginButton(),
+                      const SizedBox(height: 24),
+                      _buildRegisterLink(),
                     ],
-                    _buildLoginButton(),
-                    const SizedBox(height: 24),
-                    _buildRegisterLink(),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -141,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius + 8),
             boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
           ),
           child: const Center(
@@ -178,10 +188,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return TextFormField(
       controller: _phoneController,
       keyboardType: TextInputType.phone,
-      maxLength: 11,
+      maxLength: 15,
       decoration: InputDecoration(
-        labelText: '手机号码',
-        hintText: '请输入手机号',
+        labelText: '手机号 / 账号',
+        hintText: '请输入手机号或账号',
         prefixIcon: const Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
         counterText: '',
         suffixIcon: _phoneController.text.isNotEmpty
@@ -195,8 +205,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             : null,
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) return '请输入手机号';
-        if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(value)) return '请输入正确的手机号';
+        if (value == null || value.trim().isEmpty) return '请输入手机号或账号';
+        // 支持：纯数字账号（5-15位）、带+号的国际号码
+        final cleaned = value.trim();
+        if (cleaned.length < 5) return '账号太短';
         return null;
       },
       onChanged: (_) => setState(() {}),
@@ -247,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     color: _rememberMe ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.4),
                     width: 2,
                   ),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                 ),
                 child: _rememberMe
                     ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
@@ -275,7 +287,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.smallRadius),
         border: Border.all(color: Colors.red.shade200),
       ),
       child: Row(
@@ -299,17 +311,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // 登录按钮
   Widget _buildLoginButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _handleLogin,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
+    return PressAnimation(
+      onTap: _isLoading ? null : _handleLogin,
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: ElevatedButton(
+          onPressed: null, // PressAnimation handles tap
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+            ),
           elevation: _isLoading ? 0 : 4,
           shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
         ),
@@ -330,6 +344,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: Colors.white,
                 ),
               ),
+        ),
       ),
     );
   }

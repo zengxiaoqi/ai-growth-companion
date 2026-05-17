@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/empty_state.dart';
+import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -226,7 +228,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
     if (!mounted) return;
 
-    if (success) {
+    if (success != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('导出成功')),
       );
@@ -281,13 +283,17 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
   Widget _buildBody() {
     if (_isLoadingChildren) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ShimmerCard(height: 200),
+      );
     }
 
     if (_children.isEmpty) {
-      return const _EmptyState(
+      return const EmptyState(
+        emoji: '👶',
         title: '暂无孩子账号',
-        description: '请先在家长端关联孩子，之后可生成课程包。',
+        subtitle: '请先在家长端关联孩子，之后可生成课程包。',
       );
     }
 
@@ -562,10 +568,10 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
               )
             else if (_packs.isEmpty)
-              const _EmptyState(
+              const EmptyState(
+                emoji: '📚',
                 title: '暂无课程包',
-                description: '生成后会自动保存到这里，方便反复使用。',
-                small: true,
+                subtitle: '生成你的第一个课程包吧',
               ),
             // 直接用 ListView 渲染排序后的列表
             if (_packs.isNotEmpty) ..._buildSortedPackItems(),
@@ -770,56 +776,3 @@ class _FocusOption {
   const _FocusOption({required this.value, required this.label});
 }
 
-/// 空状态组件
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String description;
-  final bool small;
-
-  const _EmptyState({
-    required this.title,
-    required this.description,
-    this.small = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final iconSize = small ? 36.0 : 42.0;
-    final titleSize = small ? 14.0 : 16.0;
-    final descSize = small ? 12.0 : 13.0;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.auto_stories_rounded,
-              color: AppTheme.textSecondary.withOpacity(0.4),
-              size: iconSize,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: titleSize,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: descSize,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

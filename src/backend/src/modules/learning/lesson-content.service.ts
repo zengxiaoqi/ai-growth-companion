@@ -19,6 +19,7 @@ import { GenerateActivityTool } from "../ai/agent/tools/generate-activity";
 import { AiService } from "../ai/ai.service";
 import { AssignmentService } from "../assignment/assignment.service";
 import { LearningTrackerService } from "./learning-tracker.service";
+import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { LlmClientService } from "../../agent-framework/llm/llm-client.service";
 import { CourseGenerationAgentService } from "./course-generation-agent.service";
 import {
@@ -32,6 +33,30 @@ import { getCoursePackCurriculumSeed } from "./course-curriculum-fallback";
 
 type AgeGroup = "3-4" | "5-6";
 type LessonDomain = "language" | "math" | "science" | "art" | "social";
+
+export interface SaveDraftDirectlyParams {
+  title: string;
+  subtitle?: string;
+  domain?: string;
+  topic?: string;
+  ageGroup?: AgeGroup;
+  difficulty?: number;
+  durationMinutes?: number;
+  content?: any;
+  childId: number;
+  parentId: number;
+}
+
+export interface UpdateDraftDirectlyParams {
+  title?: string;
+  subtitle?: string;
+  domain?: string;
+  topic?: string;
+  ageGroup?: AgeGroup;
+  difficulty?: number;
+  durationMinutes?: number;
+  content?: any;
+}
 
 export interface GenerateLessonParams {
   topic: string;
@@ -157,6 +182,7 @@ export class LessonContentService implements OnModuleInit {
     private readonly assignmentService: AssignmentService,
     private readonly learningTracker: LearningTrackerService,
     private readonly llmClient: LlmClientService,
+    private readonly videoQueueService: LessonVideoQueueService,
     @Optional()
     private readonly courseGenerationAgent?: CourseGenerationAgentService,
   ) {}
@@ -173,6 +199,7 @@ export class LessonContentService implements OnModuleInit {
         "content.domain AS domain",
         "content.status AS status",
         "content.contentType AS contentType",
+        "content.content AS content",
         "content.createdAt AS createdAt",
         "content.updatedAt AS updatedAt",
       ])
@@ -191,6 +218,7 @@ export class LessonContentService implements OnModuleInit {
         domain: string;
         status: string;
         contentType: string;
+        content: any;
         createdAt: Date | string;
         updatedAt: Date | string;
       }>();
@@ -202,6 +230,7 @@ export class LessonContentService implements OnModuleInit {
       domain: draft.domain,
       status: draft.status,
       contentType: draft.contentType,
+      content: draft.content,
       childId,
       createdAt:
         draft.createdAt instanceof Date
@@ -428,6 +457,18 @@ export class LessonContentService implements OnModuleInit {
       });
 
       this.logger.log(`Lesson generation completed: contentId=${contentId}`);
+
+      // Trigger async video rendering (fire-and-forget)
+      try {
+        await this.videoQueueService.enqueue(contentId, params.childId);
+        this.logger.log(
+          `Video task enqueued for contentId=${contentId}, childId=${params.childId}`,
+        );
+      } catch (error: any) {
+        this.logger.warn(
+          `Failed to enqueue video task for contentId=${contentId}: ${error?.message}`,
+        );
+      }
     } catch (error: any) {
       this.logger.error(
         `Lesson generation FAILED: contentId=${contentId}, ${error?.message}`,
@@ -444,6 +485,116 @@ export class LessonContentService implements OnModuleInit {
   /**
    * Original synchronous method kept for backward compatibility.
    */
+  /**
+   * Save a draft lesson directly without any LLM involvement.
+   * Pure CRUD: takes complete data from the frontend and writes to DB.
+   */
+  async saveDraftDirectly(params: SaveDraftDirectlyParams): Promise<Content> {
+    const {
+      title,
+      subtitle,
+      domain = "language",
+      topic,
+      ageGroup = "5-6",
+      difficulty = ageGroup === "3-4" ? 1 : 2,
+      durationMinutes = 20,
+      content,
+      childId,
+      parentId,
+    } = params;
+
+    const uuid = randomUUID();
+    const now = new Date().toISOString();
+
+    const lessonContent =
+      content && typeof content === "object"
+        ? content
+        : {
+            type: "structured_lesson",
+            version: 1,
+            topic: topic || title,
+            ageGroup,
+            domain,
+            summary: subtitle || "",
+            outcomes: [],
+            sourceCoursePackId: null,
+            steps: [],
+            parentGuide: {
+              beforeClass: [],
+              duringClass: [],
+              afterClass: [],
+            },
+            generatedAt: now,
+          };
+
+    const draft = await this.contentsService.create({
+      uuid,
+      title,
+      subtitle: subtitle || null,
+      ageRange: ageGroup,
+      domain,
+      topic: topic || null,
+      difficulty,
+      durationMinutes,
+      contentType: "structured_lesson",
+      parentId,
+      childId,
+      content: lessonContent,
+      mediaUrls: [],
+      status: "draft",
+    });
+
+    this.logger.log(
+      `Draft saved directly: contentId=${draft.id}, title="${title}"`,
+    );
+
+    return draft;
+  }
+
+  /**
+   * Update an existing draft lesson directly without any LLM involvement.
+   * Pure CRUD: takes partial data from the frontend and updates the DB record.
+   */
+  async updateDraftDirectly(
+    contentId: number,
+    params: UpdateDraftDirectlyParams,
+  ): Promise<Content> {
+    const content = await this.contentRepo.findOne({
+      where: { id: contentId },
+    });
+    if (!content) throw new NotFoundException("Content not found");
+    if (content.status !== "draft") {
+      throw new ForbiddenException("Only draft lessons can be updated directly");
+    }
+
+    const updateData: Partial<Content> = {};
+
+    if (params.title !== undefined) updateData.title = params.title;
+    if (params.subtitle !== undefined) updateData.subtitle = params.subtitle;
+    if (params.domain !== undefined) updateData.domain = params.domain;
+    if (params.topic !== undefined) updateData.topic = params.topic;
+    if (params.ageGroup !== undefined) updateData.ageRange = params.ageGroup;
+    if (params.difficulty !== undefined) updateData.difficulty = params.difficulty;
+    if (params.durationMinutes !== undefined)
+      updateData.durationMinutes = params.durationMinutes;
+    if (params.content !== undefined) {
+      updateData.content = params.content;
+    }
+
+    await this.contentRepo.update(contentId, updateData as any);
+
+    const updated = await this.contentRepo.findOne({
+      where: { id: contentId },
+    });
+    if (!updated) throw new NotFoundException("Content not found after update");
+
+    this.logger.log(
+      `Draft updated directly: contentId=${contentId}, fields=[${Object.keys(updateData).join(", ")}]`,
+    );
+
+    return updated;
+  }
+
   async generateDraft(params: GenerateLessonParams): Promise<Content> {
     return this.startGeneration(params);
   }
@@ -586,6 +737,31 @@ export class LessonContentService implements OnModuleInit {
         });
         updatedSteps[i] = { ...step, assignmentId: assignment.id };
       }
+    }
+
+    // Check if video is ready and attach videoUrl to watch step
+    try {
+      const videoTask = await this.videoQueueService.getLatestTask(
+        contentId,
+        childId,
+      );
+      if (videoTask && videoTask.status === "completed") {
+        const watchStep = updatedSteps.find((s) => s.id === "watch");
+        if (watchStep) {
+          watchStep.module = {
+            ...watchStep.module,
+            videoUrl: `/api/learning/lessons/${contentId}/teaching-video?childId=${childId}`,
+          };
+          this.logger.log(
+            `Video attached to watch step for contentId=${contentId}`,
+          );
+        }
+      }
+    } catch (error: any) {
+      // Video not ready is fine — continue without it
+      this.logger.debug(
+        `Video not ready for contentId=${contentId}: ${error?.message}`,
+      );
     }
 
     // Update content

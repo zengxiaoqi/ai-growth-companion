@@ -83,12 +83,12 @@ export const NumberScene: React.FC<NumberSceneProps> = ({ data }) => {
       >
         <NumberDisplay digit={data.digit} color={data.color} delay={0} />
 
-        <Sequence from={60} premountFor={30} layout="none">
+        <Sequence from={60} premountFor={30}>
           <ChineseCharacter text={data.chinese} delay={0} />
         </Sequence>
       </div>
 
-      <Sequence from={countingStartFrame} premountFor={30} layout="none">
+      <Sequence from={countingStartFrame} premountFor={30}>
         <CountingObjects
           emoji={data.emoji}
           count={count}

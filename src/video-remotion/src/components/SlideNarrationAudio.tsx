@@ -6,8 +6,7 @@ type SlideNarrationAudioProps = {
   narrationSrc?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const handleAudioError = () => {};
+const handleAudioError = () => "fallback" as const;
 
 export const SlideNarrationAudio: React.FC<SlideNarrationAudioProps> = ({
   narrationSrc,

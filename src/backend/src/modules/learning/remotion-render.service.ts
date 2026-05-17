@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { spawn, ChildProcess } from "child_process";
 import { createHash } from "crypto";
 import { promises as fs, existsSync, readdirSync } from "fs";
@@ -12,6 +12,11 @@ import { VoiceService } from "../voice/voice.service";
 import { deriveWatchSceneDocument } from "./lesson-scene";
 import type { VideoGenerationTask } from "../../database/entities/video-generation-task.entity";
 import type { DynamicRemotionManifest } from "./video-generation-agent.service";
+import {
+  checkStaticFiles,
+  checkGeneratedFiles,
+  autoFixErrors,
+} from "./remotion-ts-validator";
 
 export type ResolvedComposition = {
   compositionId: string;
@@ -148,7 +153,7 @@ const DOMAIN_THEMES: Record<
 };
 
 @Injectable()
-export class RemotionRenderService {
+export class RemotionRenderService implements OnModuleInit {
   private readonly logger = new Logger(RemotionRenderService.name);
   private readonly remotionDir = path.resolve(
     __dirname,
@@ -172,6 +177,33 @@ export class RemotionRenderService {
     private readonly voiceService: VoiceService,
   ) {}
 
+  async onModuleInit(): Promise<void> {
+    const result = await checkStaticFiles(this.remotionDir);
+    if (result.passed) {
+      this.logger.log("[onModuleInit] static Remotion TS check passed");
+      return;
+    }
+
+    this.logger.warn(
+      `[onModuleInit] static TS check found ${result.errors.length} errors, attempting auto-fix`,
+    );
+
+    const { fixed, unfixed } = await autoFixErrors(
+      result.errors,
+      this.remotionDir,
+    );
+    this.logger.log(`[onModuleInit] auto-fixed ${fixed} static TS errors`);
+
+    if (unfixed.length > 0) {
+      const recheck = await checkStaticFiles(this.remotionDir);
+      if (!recheck.passed) {
+        this.logger.warn(
+          `[onModuleInit] ${recheck.errors.length} static TS errors remain after auto-fix — rendering may fail`,
+        );
+      }
+    }
+  }
+
   /**
    * Spawn a child process with a hard timeout that escalates from SIGTERM to SIGKILL.
    *
@@ -187,6 +219,7 @@ export class RemotionRenderService {
     resolve: () => void,
     reject: (err: Error) => void,
     lastErrorRef: { value: string },
+    stderrBuffer?: { value: string },
   ): void {
     let timedOut = false;
     let sigkillTimer: NodeJS.Timeout | null = null;
@@ -235,9 +268,12 @@ export class RemotionRenderService {
       if (code === 0) {
         resolve();
       } else {
+        const stderrSnippet = stderrBuffer
+          ? `\nstderr: ${stderrBuffer.value.slice(0, 2000)}`
+          : "";
         reject(
           new Error(
-            `remotion render exited with code ${code}: ${lastErrorRef.value}`,
+            `remotion render exited with code ${code}: ${lastErrorRef.value}${stderrSnippet}`,
           ),
         );
       }
@@ -1597,6 +1633,8 @@ export class RemotionRenderService {
       taskName,
     );
     const publicTaskRel = `.generated/remotion-tasks/${taskName}`;
+    const preserveFailedDir =
+      process.env.REMOTION_PRESERVE_FAILED_TASK_DIR === "true";
 
     try {
       await fs.mkdir(taskDir, { recursive: true });
@@ -1622,6 +1660,29 @@ export class RemotionRenderService {
       this.logger.log(
         `[renderGeneratedComposition] taskId=${task.id} dynamicRemotion=true compositionId=${manifest.compositionId}, files=${manifest.files.length}, scenes=${Array.isArray(props.scenes) ? props.scenes.length : 0}, outputPath=${outputPath}`,
       );
+
+      const tsResult = await checkGeneratedFiles(taskDir, this.remotionDir);
+      if (!tsResult.passed) {
+        this.logger.warn(
+          `[renderGeneratedComposition] taskId=${task.id} TS check found ${tsResult.errors.length} errors, auto-fixing`,
+        );
+        const { fixed, unfixed } = await autoFixErrors(
+          tsResult.errors,
+          taskDir,
+        );
+        this.logger.log(
+          `[renderGeneratedComposition] taskId=${task.id} auto-fixed ${fixed} TS errors`,
+        );
+        if (unfixed.length > 0) {
+          const recheck = await checkGeneratedFiles(taskDir, this.remotionDir);
+          if (!recheck.passed) {
+            throw new Error(
+              `dynamic Remotion TS check failed with ${recheck.errors.length} unfixable errors:\n${recheck.errors.map((e) => `${e.file}(${e.line},${e.col}): ${e.code}: ${e.message}`).join("\n")}`,
+            );
+          }
+        }
+      }
+
       await this.runGeneratedRemotionRender(
         entryPath,
         manifest.compositionId,
@@ -1629,9 +1690,18 @@ export class RemotionRenderService {
         propsPath,
         onProgress,
       );
+    } catch (err) {
+      if (preserveFailedDir) {
+        this.logger.warn(
+          `[renderGeneratedComposition] REMOTION_PRESERVE_FAILED_TASK_DIR=true — keeping task dir for debugging: ${taskDir}`,
+        );
+      }
+      throw err;
     } finally {
-      await this.safeRemove(taskDir);
-      await this.safeRemove(publicTaskDir);
+      if (!preserveFailedDir) {
+        await this.safeRemove(taskDir);
+        await this.safeRemove(publicTaskDir);
+      }
     }
   }
 
@@ -1785,6 +1855,7 @@ export class RemotionRenderService {
       });
 
       const lastErrorRef = { value: "" };
+      const stderrBuffer = { value: "" };
 
       // Wire up hard timeout (SIGTERM → 2s → SIGKILL)
       this.spawnWithHardTimeout(
@@ -1798,6 +1869,7 @@ export class RemotionRenderService {
         },
         reject,
         lastErrorRef,
+        stderrBuffer,
       );
 
       proc.stdout?.on("data", (data: Buffer) => {
@@ -1807,6 +1879,7 @@ export class RemotionRenderService {
       });
       proc.stderr?.on("data", (data: Buffer) => {
         const text = data.toString();
+        stderrBuffer.value += text;
         const percent = this.parseProgress(text);
         if (percent !== null && onProgress) onProgress(percent);
         const lines = text.trim().split("\n");
@@ -1816,7 +1889,11 @@ export class RemotionRenderService {
         }
       });
       proc.on("error", (err) => {
-        reject(new Error(`dynamic remotion spawn failed: ${err.message}`));
+        reject(
+          new Error(
+            `dynamic remotion spawn failed: ${err.message}\nstderr: ${stderrBuffer.value.slice(0, 2000)}`,
+          ),
+        );
       });
     });
   }
@@ -1944,6 +2021,7 @@ export class RemotionRenderService {
       });
 
       const lastErrorRef = { value: "" };
+      const stderrBuffer = { value: "" };
       let lastProgressLog = 0;
 
       // Wire up hard timeout (SIGTERM → 2s → SIGKILL)
@@ -1958,6 +2036,7 @@ export class RemotionRenderService {
         },
         reject,
         lastErrorRef,
+        stderrBuffer,
       );
 
       proc.stdout?.on("data", (data: Buffer) => {
@@ -1976,6 +2055,7 @@ export class RemotionRenderService {
 
       proc.stderr?.on("data", (data: Buffer) => {
         const text = data.toString();
+        stderrBuffer.value += text;
         const percent = this.parseProgress(text);
         if (percent !== null && onProgress) {
           onProgress(percent);
@@ -1991,7 +2071,11 @@ export class RemotionRenderService {
         this.logger.error(
           `[runRemotionRender] spawn error: ${err.message}. Check if remotion is installed at ${this.remotionDir}`,
         );
-        reject(new Error(`remotion spawn failed: ${err.message}`));
+        reject(
+          new Error(
+            `remotion spawn failed: ${err.message}\nstderr: ${stderrBuffer.value.slice(0, 2000)}`,
+          ),
+        );
       });
     });
   }

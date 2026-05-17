@@ -2,9 +2,7 @@ import { loadFont } from "@remotion/google-fonts/NotoSansSC";
 
 const { fontFamily } = loadFont("normal", {
   weights: ["400", "700", "900"],
-  options: {
-    ignoreTooManyRequestsWarning: true,
-  },
+  ignoreTooManyRequestsWarning: true,
 });
 
 export const FONT_FAMILY = fontFamily;

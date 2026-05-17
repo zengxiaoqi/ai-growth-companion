@@ -36,4 +36,4 @@ src/video-remotion/out/
 src/backend/public/
 
 # AI-generated video component (dynamically generated at runtime)
-src/backend/GeneratedLesson.tsx
+src/video-remotion/src/GeneratedLesson.tsx

@@ -6,7 +6,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "child_process";
-import { promises as fs } from "fs";
+import { promises as fs, existsSync } from "fs";
 import * as os from "os";
 import * as path from "path";
 import { BaseTool } from "../base-tool";
@@ -162,7 +162,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
       path.join(process.cwd(), "..", "video-remotion"),
     ];
     for (const candidate of candidates) {
-      if (require("fs").existsSync(path.join(candidate, "package.json"))) {
+      if (existsSync(path.join(candidate, "package.json"))) {
         return candidate;
       }
     }
@@ -244,7 +244,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         if (sigkillTimer) clearTimeout(sigkillTimer);
 
         if (timedOut) {
-          const reason = signal
+          const _reason = signal
             ? `killed by signal ${signal} after ${RENDER_TIMEOUT}ms timeout`
             : `exited with code ${code} after ${RENDER_TIMEOUT}ms timeout`;
           reject(

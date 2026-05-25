@@ -260,6 +260,69 @@ export class VideoGenerationAgentService {
     return manifest;
   }
 
+  async repairGeneratedRemotionComposition(
+    storyboard: VideoStoryboard,
+    payload: Record<string, any> = {},
+    currentFiles: Map<string, string>,
+    renderError: string,
+  ): Promise<DynamicRemotionManifest> {
+    const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
+    this.logger.log(
+      `[repairGeneratedRemotionComposition] repairing generated Remotion files for topic="${topic}"`,
+    );
+
+    const context = this.buildAgentContext(
+      Number(payload?.contentId || 0),
+      payload?.childId,
+      payload?.ageGroup,
+    );
+    const definition = videoGeneratorDefinition;
+    const toolDefs = this.getFilteredToolDefinitions(definition);
+    const messages: LlmMessage[] = [
+      {
+        role: "user",
+        content: this.buildRepairUserMessage(
+          storyboard,
+          payload,
+          currentFiles,
+          renderError,
+        ),
+      },
+    ];
+    const toolCalls: AgentVideoResult["toolCalls"] = [];
+
+    await this.executorService.runLoop(
+      this.buildSystemPrompt(definition, context),
+      messages,
+      toolDefs,
+      Math.min(definition.maxIterations, 6),
+      context,
+      (event) => {
+        toolCalls.push({
+          tool: event.toolName,
+          args: event.args,
+          result: event.result,
+        });
+        this.logger.log(
+          `[repairGeneratedRemotionComposition] Tool call: ${event.toolName} -> ${event.result}`,
+        );
+      },
+      16384,
+    );
+
+    const repairedFiles = this.extractAgentFiles(toolCalls);
+    if (!repairedFiles.has("GeneratedLesson.tsx")) {
+      throw new Error("DYNAMIC_REMOTION_REPAIR_MISSING_GENERATED_LESSON");
+    }
+
+    const mergedFiles = new Map(currentFiles);
+    for (const [name, content] of repairedFiles.entries()) {
+      mergedFiles.set(name, content);
+    }
+
+    return this.generateRemotionComposition(storyboard, payload, mergedFiles);
+  }
+
   /**
    * Step 1 only: Generate storyboard via LLM tool without running the full agent loop.
    * Use this when you only need the storyboard data but want the render service
@@ -427,6 +490,49 @@ export class VideoGenerationAgentService {
     );
 
     return parts.join("\n");
+  }
+
+  private buildRepairUserMessage(
+    storyboard: VideoStoryboard,
+    payload: Record<string, any>,
+    currentFiles: Map<string, string>,
+    renderError: string,
+  ): string {
+    const files = Array.from(currentFiles.entries())
+      .map(
+        ([name, content]) =>
+          `## ${name}\n\`\`\`tsx\n${this.truncateForPrompt(content, 12000)}\n\`\`\``,
+      )
+      .join("\n\n");
+
+    return [
+      "Repair the generated Remotion lesson component. The previous render failed.",
+      "",
+      "Rules:",
+      "- Do not change the lesson topic, storyboard, narration, or educational intent.",
+      "- Fix only generated React/Remotion code problems.",
+      '- Call loadSkill("remotion-video-creation") before writing code.',
+      '- Call writeFile("GeneratedLesson.tsx", ...) with the full repaired file content.',
+      "- If Root.tsx or index.ts must change, also write the complete replacement file.",
+      "- Do not use fs, child_process, network APIs, eval, CSS animations, or external URLs.",
+      "",
+      `Topic: ${this.toText(storyboard.topic || payload?.topic, "lesson")}`,
+      `Age group: ${this.toText(payload?.ageGroup, "5-6")}`,
+      "",
+      "Render error:",
+      this.truncateForPrompt(renderError, 4000),
+      "",
+      "Storyboard JSON:",
+      this.truncateForPrompt(JSON.stringify(storyboard, null, 2), 6000),
+      "",
+      "Current generated files:",
+      files || "(none)",
+    ].join("\n");
+  }
+
+  private truncateForPrompt(value: string, maxChars: number): string {
+    if (value.length <= maxChars) return value;
+    return `${value.slice(0, maxChars)}\n...[truncated ${value.length - maxChars} chars]`;
   }
 
   private injectSkills(systemPrompt: string, allowedSkills?: string[]): string {

@@ -5,7 +5,6 @@ import * as path from "path";
 import {
   type AnimalSubjectConfig,
   ANIMAL_SUBJECTS,
-  findAnimalSubject,
   inferAnimalFromText,
 } from "./animal-subjects.config";
 

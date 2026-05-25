@@ -32,6 +32,7 @@ type ProviderStatus =
   | "unknown";
 
 type RenderAttemptEngine = VideoRenderEngine | "dynamic-remotion";
+type RemotionFailureKind = "environment" | "generated-code" | "unknown";
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   "dynamic-remotion",
@@ -778,30 +779,72 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       agentFilesEntries.map((entry) => [entry.name, entry.content]),
     );
 
-    const manifest =
-      await this.videoGenerationAgent.generateRemotionComposition(
-        storyboard,
-        payload,
-        agentFiles,
-      );
+    let manifest = await this.videoGenerationAgent.generateRemotionComposition(
+      storyboard,
+      payload,
+      agentFiles,
+    );
     const outputPath = path.join(
       this.storageDir,
       `${task.cacheKey}-dynamic-remotion.mp4`,
     );
     await fs.mkdir(this.storageDir, { recursive: true });
 
-    await this.remotionRender.renderGeneratedComposition(
-      task,
-      manifest,
-      outputPath,
-      async (percent: number) => {
-        try {
-          await this.taskRepo.update(task.id, {
-            progress: Math.max(10, Math.min(95, percent)),
-          });
-        } catch {}
-      },
-    );
+    const onProgress = async (percent: number) => {
+      try {
+        await this.taskRepo.update(task.id, {
+          progress: Math.max(10, Math.min(95, percent)),
+        });
+      } catch {}
+    };
+
+    try {
+      await this.remotionRender.renderGeneratedComposition(
+        task,
+        manifest,
+        outputPath,
+        onProgress,
+      );
+    } catch (error: any) {
+      const failureKind = this.classifyRemotionFailure(error);
+      const canRepair =
+        failureKind === "generated-code" &&
+        agentFiles.has("GeneratedLesson.tsx");
+      this.logger.warn(
+        `[generateByDynamicRemotion] taskId=${task.id} render failed kind=${failureKind}, canRepair=${canRepair}: ${error?.message || "unknown"}`,
+      );
+
+      if (!canRepair) {
+        throw error;
+      }
+
+      try {
+        this.logger.log(
+          `[generateByDynamicRemotion] taskId=${task.id} requesting AI repair for generated Remotion files`,
+        );
+        manifest =
+          await this.videoGenerationAgent.repairGeneratedRemotionComposition(
+            storyboard,
+            payload,
+            agentFiles,
+            error?.message || String(error),
+          );
+        await this.remotionRender.renderGeneratedComposition(
+          task,
+          manifest,
+          outputPath,
+          onProgress,
+        );
+        this.logger.log(
+          `[generateByDynamicRemotion] taskId=${task.id} AI repair retry succeeded`,
+        );
+      } catch (repairError: any) {
+        this.logger.warn(
+          `[generateByDynamicRemotion] taskId=${task.id} AI repair retry failed: original=${error?.message || "unknown"} repair=${repairError?.message || "unknown"}`,
+        );
+        throw repairError;
+      }
+    }
 
     // Render finished — bump progress to 98 to reduce the window where frontend sees 95%
     try {
@@ -813,6 +856,47 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       await fs.unlink(outputPath);
     } catch {}
     return buffer;
+  }
+
+  private classifyRemotionFailure(error: unknown): RemotionFailureKind {
+    const message =
+      error instanceof Error ? error.message : String(error || "");
+    const stack = error instanceof Error ? error.stack || "" : "";
+    const lower = `${message}\n${stack}`.toLowerCase();
+
+    if (
+      lower.includes("browserexecutable") ||
+      lower.includes("browser executable") ||
+      lower.includes("chrome/chromium") ||
+      lower.includes("chromium") ||
+      lower.includes("chrome") ||
+      lower.includes("spawn failed") ||
+      lower.includes("enoent") ||
+      lower.includes("remotion cli not found") ||
+      lower.includes("timeout")
+    ) {
+      return "environment";
+    }
+
+    if (
+      lower.includes("generatedlesson") ||
+      lower.includes("root.tsx") ||
+      lower.includes("index.ts") ||
+      lower.includes(".tsx") ||
+      lower.includes("typescript") ||
+      lower.includes("typeerror") ||
+      lower.includes("syntaxerror") ||
+      lower.includes("unexpected token") ||
+      lower.includes("failed to compile") ||
+      lower.includes("module not found") ||
+      lower.includes("does not provide an export") ||
+      lower.includes("invalid hook call") ||
+      lower.includes("element type is invalid")
+    ) {
+      return "generated-code";
+    }
+
+    return "unknown";
   }
 
   private ensureTopicAlignedVideoPayload(

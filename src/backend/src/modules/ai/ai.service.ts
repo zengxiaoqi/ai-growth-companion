@@ -62,7 +62,7 @@ export class AiService {
     @Optional() agentRegistry?: AgentRegistryService,
     @Optional() frameworkExecutor?: FrameworkAgentExecutorService,
     @Optional() skillRegistry?: SkillRegistryService,
-    @Optional() skillExecutor?: SkillExecutor,
+    @Optional() _skillExecutor?: SkillExecutor,
   ) {
     this.frameworkOrchestrator =
       agentRegistry && frameworkExecutor && skillRegistry

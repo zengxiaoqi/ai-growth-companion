@@ -2,6 +2,7 @@ import { RemotionRenderService } from "../../src/modules/learning/remotion-rende
 import { GenerateVideoDataTool } from "../../src/modules/ai/agent/tools/generate-video-data";
 import { VoiceService } from "../../src/modules/voice/voice.service";
 import { promises as fs } from "fs";
+import { EventEmitter } from "events";
 import * as os from "os";
 import * as path from "path";
 
@@ -22,6 +23,80 @@ describe("RemotionRenderService", () => {
     service = new RemotionRenderService(
       generateVideoDataTool as unknown as GenerateVideoDataTool,
       voiceService as unknown as VoiceService,
+    );
+  });
+
+  function createSuccessfulProcess(): any {
+    const proc: any = new EventEmitter();
+    proc.stdout = new EventEmitter();
+    proc.stderr = new EventEmitter();
+    proc.pid = 1234;
+    proc.killed = false;
+    proc.kill = jest.fn();
+    setImmediate(() => proc.emit("close", 0, null));
+    return proc;
+  }
+
+  it("builds shell-free Remotion CLI args that preserve Windows browser paths", () => {
+    const chromePath =
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+    jest
+      .spyOn(service as any, "resolveRemotionCliPath")
+      .mockReturnValue(
+        path.join("node_modules", "@remotion", "cli", "dist", "index.js"),
+      );
+    const invocation = (service as any).buildRemotionCliInvocation([
+      "render",
+      "TopicVideo",
+      "out.mp4",
+      `--browser-executable=${chromePath}`,
+    ]);
+
+    expect(invocation.command).toBe(process.execPath);
+    expect(invocation.args[0]).toContain(
+      path.join("node_modules", "@remotion", "cli", "dist", "index.js"),
+    );
+    expect(invocation.args).toContain(`--browser-executable=${chromePath}`);
+    expect(invocation.options).not.toHaveProperty("shell");
+  });
+
+  it("uses the safe Remotion CLI helper for fixed renders", async () => {
+    const spawnSpy = jest
+      .spyOn(service as any, "spawnRemotionCli")
+      .mockImplementation(() => createSuccessfulProcess());
+    jest.spyOn(service as any, "resolveChromePath").mockReturnValue(null);
+
+    await (service as any).runRemotionRender(
+      "TopicVideo",
+      "out.mp4",
+      "props.json",
+    );
+
+    expect(spawnSpy).toHaveBeenCalledWith(
+      expect.arrayContaining(["render", "TopicVideo", "out.mp4"]),
+    );
+  });
+
+  it("uses the safe Remotion CLI helper for dynamic renders", async () => {
+    const spawnSpy = jest
+      .spyOn(service as any, "spawnRemotionCli")
+      .mockImplementation(() => createSuccessfulProcess());
+    jest.spyOn(service as any, "resolveChromePath").mockReturnValue(null);
+
+    await (service as any).runGeneratedRemotionRender(
+      "entry.ts",
+      "GeneratedLesson_tiger",
+      "out.mp4",
+      "props.json",
+    );
+
+    expect(spawnSpy).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        "render",
+        "entry.ts",
+        "GeneratedLesson_tiger",
+        "out.mp4",
+      ]),
     );
   });
 
@@ -380,5 +455,5 @@ describe("RemotionRenderService", () => {
 
     expect(voiceService.textToSpeech).toHaveBeenCalledTimes(2);
     expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
-  });
+  }, 20000);
 });

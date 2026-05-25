@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, type SpawnOptions } from "child_process";
 import { createHash } from "crypto";
 import { promises as fs, existsSync, readdirSync } from "fs";
 import * as os from "os";
@@ -31,6 +31,12 @@ type TeachingSlide = OriginalTeachingSlide & {
   transitionIn?: "fade" | "slide-left" | "slide-right" | "zoom";
 };
 type TeachingSlideItem = NonNullable<OriginalTeachingSlide["items"]>[number];
+
+type RemotionCliInvocation = {
+  command: string;
+  args: string[];
+  options: SpawnOptions;
+};
 
 type LessonModules = {
   listening?: Record<string, any>;
@@ -97,7 +103,7 @@ const ANIMAL_EMOJI_PALETTE = [
   "🐸",
   "🦋",
 ] as const;
-const ANIMAL_ITEM_EMOJI = [
+const _ANIMAL_ITEM_EMOJI = [
   "🍎",
   "🍌",
   "🌿",
@@ -1820,6 +1826,39 @@ export class RemotionRenderService implements OnModuleInit {
     return resolved;
   }
 
+  private resolveRemotionCliPath(): string {
+    const cliPath = path.join(
+      this.remotionDir,
+      "node_modules",
+      "@remotion",
+      "cli",
+      "dist",
+      "index.js",
+    );
+    if (!existsSync(cliPath)) {
+      throw new Error(`remotion cli not found at ${cliPath}`);
+    }
+    return cliPath;
+  }
+
+  private buildRemotionCliInvocation(
+    renderArgs: string[],
+  ): RemotionCliInvocation {
+    return {
+      command: process.execPath,
+      args: [this.resolveRemotionCliPath(), ...renderArgs],
+      options: {
+        cwd: this.remotionDir,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    };
+  }
+
+  private spawnRemotionCli(renderArgs: string[]): ChildProcess {
+    const invocation = this.buildRemotionCliInvocation(renderArgs);
+    return spawn(invocation.command, invocation.args, invocation.options);
+  }
+
   private runGeneratedRemotionRender(
     entryPath: string,
     compositionId: string,
@@ -1833,7 +1872,6 @@ export class RemotionRenderService implements OnModuleInit {
       const concurrency = Math.min(cpuCount - 1 || 1, 4);
       const chromePath = this.resolveChromePath();
       const args = [
-        "remotion",
         "render",
         entryPath,
         compositionId,
@@ -1848,11 +1886,7 @@ export class RemotionRenderService implements OnModuleInit {
         `[runGeneratedRemotionRender] Spawning dynamic Remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, entry=${entryPath}, browser=${chromePath || "auto"}, timeout=${this.RENDER_HARD_TIMEOUT_MS}ms`,
       );
 
-      const proc = spawn("npx", args, {
-        cwd: this.remotionDir,
-        shell: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      const proc = this.spawnRemotionCli(args);
 
       const lastErrorRef = { value: "" };
       const stderrBuffer = { value: "" };
@@ -2000,7 +2034,6 @@ export class RemotionRenderService implements OnModuleInit {
       const concurrency = Math.min(cpuCount - 1 || 1, 4); // Use N-1 cores, max 4
       const chromePath = this.resolveChromePath();
       const args = [
-        "remotion",
         "render",
         compositionId,
         outputPath,
@@ -2014,11 +2047,7 @@ export class RemotionRenderService implements OnModuleInit {
         `[runRemotionRender] Spawning remotion render: compositionId=${compositionId}, concurrency=${concurrency}, cwd=${this.remotionDir}, outputPath=${outputPath}, browser=${chromePath || "auto"}, timeout=${this.RENDER_HARD_TIMEOUT_MS}ms`,
       );
 
-      const proc = spawn("npx", args, {
-        cwd: this.remotionDir,
-        shell: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      const proc = this.spawnRemotionCli(args);
 
       const lastErrorRef = { value: "" };
       const stderrBuffer = { value: "" };

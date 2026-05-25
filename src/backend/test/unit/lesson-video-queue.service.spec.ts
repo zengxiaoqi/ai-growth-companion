@@ -50,6 +50,91 @@ describe("LessonVideoQueueService", () => {
     jest.restoreAllMocks();
   });
 
+  function createDynamicManifest(compositionId = "GeneratedLesson_tiger") {
+    return {
+      compositionId,
+      files: [
+        { path: "index.ts", content: "dynamic visual tiger stripe forest" },
+        { path: "Root.tsx", content: "dynamic visual tiger stripe forest" },
+        {
+          path: "GeneratedLesson.tsx",
+          content: "dynamic visual tiger stripe forest river",
+        },
+      ],
+      props: {
+        title: "认识动物老虎视频",
+        durationFrames: 360,
+        scenes: [
+          {
+            title: "老虎登场",
+            narration: "老虎是大型猫科动物，身上有黑色条纹。",
+            generatedVisual: "tiger-showFeatures-forest-stripe",
+            durationFrames: 180,
+          },
+        ],
+      },
+      assets: [],
+      durationFrames: 360,
+      sceneAssetSummary: [
+        {
+          title: "老虎登场",
+          generatedVisual: "tiger-showFeatures-forest-stripe",
+        },
+      ],
+    };
+  }
+
+  function createVideoAgent(overrides: Record<string, any> = {}) {
+    return {
+      generateViaAgent: jest.fn().mockResolvedValue({
+        storyboard: {
+          title: "认识动物老虎视频",
+          topic: "认识动物老虎",
+          domain: "science",
+          totalDurationSec: 24,
+          scenes: [
+            {
+              sequence: 1,
+              title: "老虎登场",
+              concept: "条纹",
+              narration: "老虎是大型猫科动物，身上有黑色条纹。",
+              onScreenText: "老虎条纹",
+              visualDescription: "森林里的卡通老虎展示黑色条纹",
+              durationSec: 12,
+            },
+          ],
+        },
+        qualityScore: 92,
+        qualityPassed: true,
+        issues: [],
+        toolCalls: [],
+        agentFiles: new Map([
+          ["GeneratedLesson.tsx", "broken generated lesson component"],
+        ]),
+      }),
+      generateRemotionComposition: jest
+        .fn()
+        .mockResolvedValue(createDynamicManifest()),
+      repairGeneratedRemotionComposition: jest
+        .fn()
+        .mockResolvedValue(
+          createDynamicManifest("GeneratedLesson_tiger_repair"),
+        ),
+      ...overrides,
+    };
+  }
+
+  function createAgentBackedService(videoAgent: Record<string, any>) {
+    return new LessonVideoQueueService(
+      taskRepo as any,
+      {} as any,
+      aiService as any,
+      remotionRender as any,
+      hyperframesRender as any,
+      videoAgent as any,
+    );
+  }
+
   it("builds remotion payload from structured lesson watch content", () => {
     const watchScene = {
       version: 1,
@@ -248,6 +333,9 @@ describe("LessonVideoQueueService", () => {
         qualityPassed: true,
         issues: [],
         toolCalls: [],
+        agentFiles: new Map([
+          ["GeneratedLesson.tsx", "dynamic visual tiger stripe forest river"],
+        ]),
       }),
       generateRemotionComposition: jest.fn().mockResolvedValue({
         compositionId: "GeneratedLesson_tiger",
@@ -327,6 +415,7 @@ describe("LessonVideoQueueService", () => {
         title: "认识动物老虎视频",
       }),
       expect.anything(),
+      expect.any(Map),
     );
     expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledWith(
       expect.objectContaining({ id: 15 }),
@@ -338,6 +427,104 @@ describe("LessonVideoQueueService", () => {
     );
     expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from("video"));
+  });
+
+  it("repairs generated-code dynamic Remotion failures once before fallback", async () => {
+    const videoAgent = createVideoAgent();
+    const agentService = createAgentBackedService(videoAgent);
+    remotionRender.renderGeneratedComposition
+      .mockRejectedValueOnce(
+        new Error("Failed to compile GeneratedLesson.tsx: Unexpected token"),
+      )
+      .mockResolvedValueOnce(undefined);
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+    jest.spyOn(fs, "readFile").mockResolvedValue(Buffer.from("repaired-video"));
+    jest.spyOn(fs, "unlink").mockResolvedValue(undefined);
+
+    const result = await (agentService as any).generateVideoBuffer(
+      {
+        id: 16,
+        contentId: 62,
+        childId: 3,
+        cacheKey: "cache-key",
+        renderEngine: "auto",
+      },
+      { topic: "认识动物老虎", ageGroup: "5-6", domain: "science" },
+    );
+
+    expect(videoAgent.repairGeneratedRemotionComposition).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(2);
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("repaired-video"));
+  });
+
+  it("skips AI repair for dynamic Remotion environment failures", async () => {
+    const videoAgent = createVideoAgent();
+    const agentService = createAgentBackedService(videoAgent);
+    remotionRender.renderGeneratedComposition.mockRejectedValueOnce(
+      new Error(
+        "\"browserExecutable\" was specified as 'C:\\Program' but the path does not exist",
+      ),
+    );
+    remotionRender.resolveComposition.mockRejectedValue(
+      new Error("fixed remotion unavailable"),
+    );
+    hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from("hf"));
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+
+    const result = await (agentService as any).generateVideoBuffer(
+      {
+        id: 17,
+        contentId: 62,
+        childId: 3,
+        cacheKey: "cache-key",
+        renderEngine: "auto",
+      },
+      { topic: "认识动物老虎", ageGroup: "5-6", domain: "science" },
+    );
+
+    expect(
+      videoAgent.repairGeneratedRemotionComposition,
+    ).not.toHaveBeenCalled();
+    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("hf"));
+  });
+
+  it("falls back to HyperFrames when AI repair retry also fails", async () => {
+    const videoAgent = createVideoAgent();
+    const agentService = createAgentBackedService(videoAgent);
+    remotionRender.renderGeneratedComposition
+      .mockRejectedValueOnce(
+        new Error("Failed to compile GeneratedLesson.tsx: Unexpected token"),
+      )
+      .mockRejectedValueOnce(
+        new Error("Failed to compile GeneratedLesson.tsx: repaired error"),
+      );
+    remotionRender.resolveComposition.mockRejectedValue(
+      new Error("fixed remotion unavailable"),
+    );
+    hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from("hf"));
+    jest.spyOn(fs, "mkdir").mockResolvedValue(undefined as any);
+
+    const result = await (agentService as any).generateVideoBuffer(
+      {
+        id: 18,
+        contentId: 62,
+        childId: 3,
+        cacheKey: "cache-key",
+        renderEngine: "auto",
+      },
+      { topic: "认识动物老虎", ageGroup: "5-6", domain: "science" },
+    );
+
+    expect(videoAgent.repairGeneratedRemotionComposition).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(2);
+    expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
+    expect(result.buffer).toEqual(Buffer.from("hf"));
   });
 
   it("uses remotion only when renderEngine is remotion", async () => {

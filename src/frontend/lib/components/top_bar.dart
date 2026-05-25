@@ -48,7 +48,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
             blurRadius: 15,
             offset: const Offset(0, 2),
           ),

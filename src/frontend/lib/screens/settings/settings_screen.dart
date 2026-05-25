@@ -105,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
             blurRadius: 15,
             offset: const Offset(0, 4),
           ),
@@ -118,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.15),
+              color: AppTheme.primaryColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Center(
@@ -234,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: AppTheme.primaryColor,
-                inactiveTrackColor: AppTheme.primaryColor.withOpacity(0.2),
+                inactiveTrackColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                 thumbColor: AppTheme.primaryColor,
                 trackHeight: 4,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
@@ -261,7 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         width: 48,
         height: 28,
         decoration: BoxDecoration(
-          color: value ? AppTheme.primaryColor : AppTheme.textSecondary.withOpacity(0.35),
+          color: value ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(14),
         ),
         child: AnimatedAlign(
@@ -276,7 +276,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -301,7 +301,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.accentColor.withOpacity(0.15),
+              color: AppTheme.accentColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text(
@@ -391,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withOpacity(0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -550,7 +550,7 @@ class _SettingsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
             blurRadius: 15,
             offset: const Offset(0, 4),
           ),
@@ -666,7 +666,7 @@ class _QuickLinkButton extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: 20, color: color),

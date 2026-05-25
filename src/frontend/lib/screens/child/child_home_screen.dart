@@ -187,7 +187,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             child: Icon(
               Icons.auto_awesome,
               size: 100,
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
             ),
           ),
           Positioned(
@@ -203,7 +203,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                     ),
                     child: const Icon(Icons.access_time, color: Colors.white, size: 20),
@@ -247,7 +247,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
                 ),
                 child: const Row(
@@ -304,12 +304,12 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             Positioned(
               right: 30,
               top: 20,
-              child: CloudDecoration(size: 60, color: Colors.white.withOpacity(0.2)),
+              child: CloudDecoration(size: 60, color: Colors.white.withValues(alpha: 0.2)),
             ),
             Positioned(
               right: 80,
               bottom: 30,
-              child: CloudDecoration(size: 40, color: Colors.white.withOpacity(0.15)),
+              child: CloudDecoration(size: 40, color: Colors.white.withValues(alpha: 0.15)),
             ),
             Positioned(
               right: 20,
@@ -317,7 +317,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               child: Icon(
                 Icons.auto_awesome,
                 size: 70,
-                color: Colors.white.withOpacity(0.25),
+                color: Colors.white.withValues(alpha: 0.25),
               ),
             ),
             Padding(
@@ -331,7 +331,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
+                          color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                         ),
                         child: const Text('🦄', style: TextStyle(fontSize: 32)),
@@ -356,7 +356,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                         '点击开始聊天~',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white.withOpacity(0.85),
+                          color: Colors.white.withValues(alpha: 0.85),
                         ),
                       ),
                     ],
@@ -470,7 +470,7 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: widget.color.withOpacity(0.2),
+              color: widget.color.withValues(alpha: 0.2),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -482,8 +482,8 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      widget.color.withOpacity(0.15),
-                      widget.color.withOpacity(0.05),
+                      widget.color.withValues(alpha: 0.15),
+                      widget.color.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,

@@ -201,10 +201,10 @@ class _SequencingGameState extends State<SequencingGame> {
                   key: ValueKey(item.id),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.softBlue.withOpacity(0.12),
+                    color: AppTheme.softBlue.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppTheme.secondaryColor.withOpacity(0.35),
+                      color: AppTheme.secondaryColor.withValues(alpha: 0.35),
                       width: 1.6,
                     ),
                   ),
@@ -214,7 +214,7 @@ class _SequencingGameState extends State<SequencingGame> {
                       vertical: 4,
                     ),
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.14),
+                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.14),
                       child: Text(
                         '${index + 1}',
                         style: const TextStyle(
@@ -269,7 +269,7 @@ class _SequencingGameState extends State<SequencingGame> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: AppTheme.softMint.withOpacity(0.25),
+            color: AppTheme.softMint.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
@@ -368,8 +368,8 @@ class _OrderPanel extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isCorrect
-                        ? AppTheme.accentColor.withOpacity(0.14)
-                        : AppTheme.warningColor.withOpacity(0.14),
+                        ? AppTheme.accentColor.withValues(alpha: 0.14)
+                        : AppTheme.warningColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color:

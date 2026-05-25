@@ -24,7 +24,7 @@ class ModeSelectionScreen extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentColor.withOpacity(0.15),
+                    color: AppTheme.accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -78,14 +78,14 @@ class ModeSelectionScreen extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.shield_rounded, size: 16, color: AppTheme.textSecondary.withOpacity(0.6)),
+                    Icon(Icons.shield_rounded, size: 16, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
                     const SizedBox(width: 6),
                     Text(
                       '全程启用安全保护与家长管控能力',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary.withOpacity(0.6),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -112,7 +112,7 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.12),
+              color: AppTheme.primaryColor.withValues(alpha: 0.12),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
@@ -128,7 +128,7 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.15),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: const Icon(
@@ -225,7 +225,7 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withOpacity(0.12),
+              color: AppTheme.secondaryColor.withValues(alpha: 0.12),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
@@ -241,7 +241,7 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryColor.withOpacity(0.15),
+                    color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: const Icon(

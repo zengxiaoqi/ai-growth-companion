@@ -58,7 +58,7 @@ class ProfileScreen extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.2),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.2),
                   blurRadius: 20,
                 ),
               ],
@@ -94,7 +94,7 @@ class ProfileScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.secondaryColor.withOpacity(0.15),
+            color: AppTheme.secondaryColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -163,7 +163,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 5),
               ),
@@ -241,7 +241,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withOpacity(0.3),
+                color: Colors.red.withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -304,7 +304,7 @@ class _SettingItemState extends State<_SettingItem> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
-          color: _isPressed ? widget.color.withOpacity(0.05) : Colors.transparent,
+          color: _isPressed ? widget.color.withValues(alpha: 0.05) : Colors.transparent,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(widget.isLast ? 24 : 0),
             bottom: Radius.circular(widget.isLast ? 24 : 0),
@@ -317,7 +317,7 @@ class _SettingItemState extends State<_SettingItem> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.1),
+                  color: widget.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(widget.emoji, style: const TextStyle(fontSize: 20)),
@@ -336,7 +336,7 @@ class _SettingItemState extends State<_SettingItem> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.1),
+                  color: widget.color.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

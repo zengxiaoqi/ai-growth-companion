@@ -323,15 +323,15 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: AppTheme.softBlue.withOpacity(0.25),
+          color: AppTheme.softBlue.withValues(alpha: 0.25),
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppTheme.secondaryColor.withOpacity(0.4),
+            color: AppTheme.secondaryColor.withValues(alpha: 0.4),
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withOpacity(0.12),
+              color: AppTheme.secondaryColor.withValues(alpha: 0.12),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -382,7 +382,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.warningColor.withOpacity(
+                        color: AppTheme.warningColor.withValues(alpha: 
                           0.4 * _pulseOpacity.value,
                         ),
                         blurRadius: 20,
@@ -409,7 +409,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: AppTheme.warningColor.withOpacity(0.8),
+            color: AppTheme.warningColor.withValues(alpha: 0.8),
           ),
         ),
       ],
@@ -431,7 +431,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
                 height: 20 * _waveAnimations[index].value,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.warningColor.withOpacity(0.6),
+                  color: AppTheme.warningColor.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(999),
                 ),
               );
@@ -449,10 +449,10 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        color: AppTheme.softPurple.withOpacity(0.25),
+        color: AppTheme.softPurple.withValues(alpha: 0.25),
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppTheme.softPurple.withOpacity(0.5),
+          color: AppTheme.softPurple.withValues(alpha: 0.5),
           width: 2,
         ),
       ),
@@ -477,10 +477,10 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: AppTheme.warningColor.withOpacity(0.15),
+          color: AppTheme.warningColor.withValues(alpha: 0.15),
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppTheme.warningColor.withOpacity(0.4),
+            color: AppTheme.warningColor.withValues(alpha: 0.4),
             width: 2,
           ),
         ),
@@ -550,10 +550,10 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.12),
+          color: Colors.grey.withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppTheme.textSecondary.withOpacity(0.3),
+            color: AppTheme.textSecondary.withValues(alpha: 0.3),
             width: 2,
           ),
         ),

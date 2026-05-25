@@ -268,9 +268,9 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            widget.baseColor.withOpacity(0.0),
+                            widget.baseColor.withValues(alpha: 0.0),
                             widget.highlightColor,
-                            widget.baseColor.withOpacity(0.0),
+                            widget.baseColor.withValues(alpha: 0.0),
                           ],
                           stops: const [0.0, 0.5, 1.0],
                         ),

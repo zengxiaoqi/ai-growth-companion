@@ -307,9 +307,9 @@ class _MatchingGameState extends State<MatchingGame> {
                     : (selected ? AppTheme.primaryColor : Colors.grey.shade300);
 
                 final bgColor = isMatched
-                    ? AppTheme.accentColor.withOpacity(0.2)
+                    ? AppTheme.accentColor.withValues(alpha: 0.2)
                     : (selected
-                        ? AppTheme.softPink.withOpacity(0.2)
+                        ? AppTheme.softPink.withValues(alpha: 0.2)
                         : Colors.white);
 
                 return AnimatedScale(

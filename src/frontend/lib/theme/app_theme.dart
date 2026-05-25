@@ -56,7 +56,7 @@ class AppTheme {
   static List<BoxShadow> softShadow([Color? color]) {
     return [
       BoxShadow(
-        color: (color ?? primaryColor).withOpacity(0.15),
+        color: (color ?? primaryColor).withValues(alpha: 0.15),
         blurRadius: 20,
         offset: const Offset(0, 8),
       ),
@@ -66,7 +66,7 @@ class AppTheme {
   static List<BoxShadow> glowShadow([Color? color]) {
     return [
       BoxShadow(
-        color: (color ?? primaryColor).withOpacity(0.3),
+        color: (color ?? primaryColor).withValues(alpha: 0.3),
         blurRadius: 30,
         spreadRadius: 2,
         offset: const Offset(0, 5),
@@ -121,7 +121,7 @@ titleTextStyle: TextStyle(
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
         selectedItemColor: primaryColor,
-        unselectedItemColor: textSecondary.withOpacity(0.6),
+        unselectedItemColor: textSecondary.withValues(alpha: 0.6),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
         selectedLabelStyle: const TextStyle(
@@ -148,7 +148,7 @@ titleTextStyle: TextStyle(
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        hintStyle: TextStyle(color: textSecondary.withOpacity(0.6)),
+        hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.6)),
       ),
       // 添加浮动按钮主题
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -269,22 +269,22 @@ class BubbleBackground extends StatelessWidget {
         Positioned(
           top: 50,
           left: 20,
-          child: _buildBubble(30, Colors.white.withOpacity(0.5)),
+          child: _buildBubble(30, Colors.white.withValues(alpha: 0.5)),
         ),
         Positioned(
           top: 120,
           right: 30,
-          child: _buildBubble(20, Colors.white.withOpacity(0.4)),
+          child: _buildBubble(20, Colors.white.withValues(alpha: 0.4)),
         ),
         Positioned(
           bottom: 150,
           left: 40,
-          child: _buildBubble(25, Colors.white.withOpacity(0.3)),
+          child: _buildBubble(25, Colors.white.withValues(alpha: 0.3)),
         ),
         Positioned(
           bottom: 80,
           right: 50,
-          child: _buildBubble(35, Colors.white.withOpacity(0.4)),
+          child: _buildBubble(35, Colors.white.withValues(alpha: 0.4)),
         ),
         child,
       ],

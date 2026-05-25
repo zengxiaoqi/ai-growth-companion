@@ -193,7 +193,7 @@ class _FillBlankGameState extends State<FillBlankGame> {
                 value: (_currentIndex + 1) / _sentences.length,
                 borderRadius: BorderRadius.circular(999),
                 color: AppTheme.primaryColor,
-                backgroundColor: AppTheme.softPink.withOpacity(0.2),
+                backgroundColor: AppTheme.softPink.withValues(alpha: 0.2),
               ),
             ),
             const SizedBox(width: 10),
@@ -229,7 +229,7 @@ class _FillBlankGameState extends State<FillBlankGame> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.softYellow.withOpacity(0.35),
+                    color: AppTheme.softYellow.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -260,12 +260,12 @@ class _FillBlankGameState extends State<FillBlankGame> {
 
             final bgColor = _revealed
                 ? (isAnswer
-                    ? AppTheme.accentColor.withOpacity(0.18)
+                    ? AppTheme.accentColor.withValues(alpha: 0.18)
                     : (isSelected
-                        ? AppTheme.warningColor.withOpacity(0.18)
+                        ? AppTheme.warningColor.withValues(alpha: 0.18)
                         : Colors.white))
                 : (isSelected
-                    ? AppTheme.softPink.withOpacity(0.3)
+                    ? AppTheme.softPink.withValues(alpha: 0.3)
                     : Colors.white);
 
             return Draggable<String>(
@@ -302,8 +302,8 @@ class _FillBlankGameState extends State<FillBlankGame> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isCurrentCorrect
-                  ? AppTheme.accentColor.withOpacity(0.18)
-                  : AppTheme.warningColor.withOpacity(0.18),
+                  ? AppTheme.accentColor.withValues(alpha: 0.18)
+                  : AppTheme.warningColor.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -373,9 +373,9 @@ class _SentenceWithBlank extends StatelessWidget {
 
         final bgColor = revealed
             ? (isCorrect
-                ? AppTheme.accentColor.withOpacity(0.18)
-                : AppTheme.warningColor.withOpacity(0.18))
-            : AppTheme.softPink.withOpacity(0.18);
+                ? AppTheme.accentColor.withValues(alpha: 0.18)
+                : AppTheme.warningColor.withValues(alpha: 0.18))
+            : AppTheme.softPink.withValues(alpha: 0.18);
 
         return DragTarget<String>(
           onWillAcceptWithDetails: (details) => !revealed,
@@ -388,7 +388,7 @@ class _SentenceWithBlank extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: candidate.isNotEmpty
-                    ? AppTheme.softBlue.withOpacity(0.25)
+                    ? AppTheme.softBlue.withValues(alpha: 0.25)
                     : bgColor,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: borderColor, width: 2.2),

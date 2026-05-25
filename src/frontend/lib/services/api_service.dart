@@ -1,15 +1,42 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'api_result.dart';
+
+/// 默认生产环境 API 地址
+const String _defaultApiUrl = 'https://lingxi.chataifree.eu.org/api';
+
+/// 动态获取 API base URL
+/// - Web: 使用当前页面同源 + /api
+/// - Android: 使用 10.0.2.2:3000/api（模拟器特殊地址）
+/// - 其他平台: 使用默认生产地址
+String getApiBaseUrl() {
+  if (kIsWeb) {
+    // Web 环境：从当前页面 URL 自动构建（同源 API）
+    return '/api';
+  }
+
+  // 非 Web 环境
+  if (Platform.isAndroid) {
+    // Android 模拟器使用特殊地址；需要局域网开发时改为实际 IP
+    return 'http://10.0.2.2:3000/api';
+  }
+
+  // iOS 模拟器、物理设备、桌面等使用默认生产地址
+  return _defaultApiUrl;
+}
 
 class ApiService {
   final Dio _dio;
   String? _token;
 
-  // API 基础地址（外网可访问）
-  static const String baseUrl = 'https://lingxi.chataifree.eu.org/api';
+  /// 运行时解析的 API base URL（由 getApiBaseUrl() 动态决定）
+  static String get baseUrl => getApiBaseUrl();
 
   ApiService() : _dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
+    baseUrl: getApiBaseUrl(),
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 60),
     headers: {

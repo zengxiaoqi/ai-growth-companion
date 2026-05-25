@@ -34,7 +34,8 @@ import '../components/speech_input_widget.dart';
         return (displayText: _buildDisplayText(decoded), questions: qs);
       }
     }
-  } catch (_) {
+  } catch (e) {
+    debugPrint('⚠️ Quiz JSON parse error (full message): $e');
     // 不是纯 JSON，继续检查混合内容
   }
 
@@ -51,7 +52,9 @@ import '../components/speech_input_widget.dart';
           return (displayText: textPart, questions: qs);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ Quiz JSON parse error (trailing): $e');
+    }
   }
 
   // 3) 查找行内的 JSON 对象（被其他文本包裹的 {...}）
@@ -70,7 +73,9 @@ import '../components/speech_input_widget.dart';
           return (displayText: text, questions: qs);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ Quiz JSON parse error (inline): $e');
+    }
   }
 
   // 没有测验数据
@@ -90,6 +95,17 @@ List<Map<String, dynamic>>? _extractQuestions(Map<String, dynamic> decoded) {
     if (data['questions'] is List) {
       return _normalizeQuestions(data['questions'] as List);
     }
+    // 🔧 P2-4: data 层检测其他游戏类型
+    final dataActivityType = data['activityType']?.toString().toLowerCase();
+    if (dataActivityType != null && dataActivityType.isNotEmpty && dataActivityType != 'quiz') {
+      return _buildGameHintCard(dataActivityType);
+    }
+  }
+
+  // 🔧 P2-4: 检测其他游戏类型（非 quiz），生成提示卡片
+  final activityType = decoded['activityType']?.toString().toLowerCase();
+  if (activityType != null && activityType.isNotEmpty && activityType != 'quiz') {
+    return _buildGameHintCard(activityType);
   }
 
   return null;
@@ -132,8 +148,45 @@ List<Map<String, dynamic>> _normalizeQuestions(List rawQuestions) {
       .toList();
 }
 
+/// 为非 quiz 游戏类型生成提示卡片。
+List<Map<String, dynamic>> _buildGameHintCard(String activityType) {
+  const typeNames = {
+    'true_false': '判断题',
+    'fill_blank': '填空题',
+    'matching': '配对连线',
+    'sequencing': '排序题',
+    'connection': '关联题',
+    'puzzle': '拼图游戏',
+  };
+  final displayName = typeNames[activityType] ?? activityType;
+
+  return [
+    {
+      'question': '🎮 这是一个互动游戏（$displayName），可在课程模式中打开完整版本哦！',
+      'options': ['我知道了 👍', '带我去课程模式 📚'],
+      'correctIndex': 0,
+      'explanation': '当前聊天模式暂不支持此游戏类型。切换到课程模式即可体验完整的$displayName！',
+    }
+  ];
+}
+
 /// 构建 JSON-only 情况下的可展示文本（题目说明）。
 String _buildDisplayText(Map<String, dynamic> decoded) {
+  // 🔧 P2-4: 非 quiz 游戏类型展示提示文案
+  final activityType = decoded['activityType']?.toString().toLowerCase();
+  if (activityType != null && activityType.isNotEmpty && activityType != 'quiz') {
+    const typeNames = {
+      'true_false': '判断题',
+      'fill_blank': '填空题',
+      'matching': '配对连线',
+      'sequencing': '排序题',
+      'connection': '关联题',
+      'puzzle': '拼图游戏',
+    };
+    final displayName = typeNames[activityType] ?? activityType;
+    return '🎮 这是一个互动游戏（$displayName），可在课程模式中打开完整版本哦！';
+  }
+
   final topic = decoded['topic']?.toString();
   final ageGroup = decoded['ageGroup']?.toString();
   if (topic != null && topic.isNotEmpty) {
@@ -187,7 +240,8 @@ bool _isValidJsonLike(String s) {
   try {
     json.decode(s);
     return true;
-  } catch (_) {
+  } catch (e) {
+    debugPrint('⚠️ Quiz JSON parse error (validation): $e');
     return false;
   }
 }
@@ -286,9 +340,9 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.softYellow.withOpacity(0.3),
+        color: AppTheme.softYellow.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.softOrange.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +354,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.15),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -320,7 +374,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
                   height: 6,
                   child: LinearProgressIndicator(
                     value: (_currentIndex + 1) / _questions.length,
-                    backgroundColor: AppTheme.softPink.withOpacity(0.3),
+                    backgroundColor: AppTheme.softPink.withValues(alpha: 0.3),
                     color: AppTheme.primaryColor,
                   ),
                 ),
@@ -352,12 +406,12 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
 
             if (_revealed) {
               if (isCorrect) {
-                bgColor = AppTheme.accentColor.withOpacity(0.15);
+                bgColor = AppTheme.accentColor.withValues(alpha: 0.15);
                 borderColor = AppTheme.accentColor;
                 trailingIcon = const Icon(Icons.check_circle_rounded,
                     color: AppTheme.accentColor, size: 22);
               } else if (isSelected) {
-                bgColor = AppTheme.warningColor.withOpacity(0.18);
+                bgColor = AppTheme.warningColor.withValues(alpha: 0.18);
                 borderColor = AppTheme.warningColor;
                 trailingIcon = const Icon(Icons.cancel_rounded,
                     color: AppTheme.warningColor, size: 22);
@@ -368,7 +422,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               }
             } else {
               bgColor = isSelected
-                  ? AppTheme.softPink.withOpacity(0.25)
+                  ? AppTheme.softPink.withValues(alpha: 0.25)
                   : Colors.white;
               borderColor = isSelected
                   ? AppTheme.primaryColor
@@ -397,7 +451,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
                       children: [
                         CircleAvatar(
                           radius: 14,
-                          backgroundColor: borderColor.withOpacity(0.12),
+                          backgroundColor: borderColor.withValues(alpha: 0.12),
                           child: Text(
                             String.fromCharCode(65 + index),
                             style: TextStyle(
@@ -435,8 +489,8 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: (_selectedOption == correctIndex)
-                    ? AppTheme.accentColor.withOpacity(0.12)
-                    : AppTheme.warningColor.withOpacity(0.12),
+                    ? AppTheme.accentColor.withValues(alpha: 0.12)
+                    : AppTheme.warningColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -524,8 +578,8 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: allCorrect
-              ? AppTheme.accentColor.withOpacity(0.4)
-              : AppTheme.warningColor.withOpacity(0.3),
+              ? AppTheme.accentColor.withValues(alpha: 0.4)
+              : AppTheme.warningColor.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -557,7 +611,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.4)),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -669,7 +723,8 @@ class _AIChatScreenState extends State<AIChatScreen>
       if (_autoPlay) {
         await _autoSpeakMessage(msgIndex);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('⚠️ AI chat send error: $e');
       setState(() {
         _messages.add({
           'role': 'assistant',
@@ -806,8 +861,8 @@ class _AIChatScreenState extends State<AIChatScreen>
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: _autoPlay
-                    ? AppTheme.primaryColor.withOpacity(0.12)
-                    : Colors.grey.withOpacity(0.1),
+                    ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                    : Colors.grey.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
               ),
               child: Row(
@@ -903,7 +958,7 @@ class _AIChatScreenState extends State<AIChatScreen>
               boxShadow: [
                 BoxShadow(
                   color: (isUser ? AppTheme.primaryColor : Colors.grey)
-                      .withOpacity(0.15),
+                      .withValues(alpha: 0.15),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 ),
@@ -973,8 +1028,8 @@ class _AIChatScreenState extends State<AIChatScreen>
         height: 36,
         decoration: BoxDecoration(
           color: isSpeaking
-              ? AppTheme.primaryColor.withOpacity(0.15)
-              : AppTheme.primaryColor.withOpacity(0.08),
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : AppTheme.primaryColor.withValues(alpha: 0.08),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -1005,7 +1060,7 @@ class _AIChatScreenState extends State<AIChatScreen>
             top: Radius.circular(AppTheme.cardRadius)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -1034,7 +1089,7 @@ class _AIChatScreenState extends State<AIChatScreen>
                 decoration: InputDecoration(
                   hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
                   hintStyle: TextStyle(
-                    color: AppTheme.textSecondary.withOpacity(0.5),
+                    color: AppTheme.textSecondary.withValues(alpha: 0.5),
                   ),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
@@ -1067,7 +1122,7 @@ class _AIChatScreenState extends State<AIChatScreen>
                     ? null
                     : [
                         BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.4),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.4),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),

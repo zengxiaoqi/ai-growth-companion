@@ -49,7 +49,7 @@ class GameCompletionScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.92),
+              color: Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -103,7 +103,7 @@ class GameCompletionScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppTheme.softYellow.withOpacity(0.65),
+                    color: AppTheme.softYellow.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(

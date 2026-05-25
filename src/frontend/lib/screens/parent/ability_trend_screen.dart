@@ -252,17 +252,17 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                       horizontalInterval: 20,
                       verticalInterval: 1,
                       getDrawingHorizontalLine: (_) => FlLine(
-                        color: AppTheme.textSecondary.withOpacity(0.14),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.14),
                         strokeWidth: 1,
                       ),
                       getDrawingVerticalLine: (_) => FlLine(
-                        color: AppTheme.textSecondary.withOpacity(0.08),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.08),
                         strokeWidth: 1,
                       ),
                     ),
                     borderData: FlBorderData(
                       show: true,
-                      border: Border.all(color: AppTheme.textSecondary.withOpacity(0.16)),
+                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.16)),
                     ),
                     titlesData: FlTitlesData(
                       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -325,8 +325,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              domain.color.withOpacity(0.18),
-                              domain.color.withOpacity(0.0),
+                              domain.color.withValues(alpha: 0.18),
+                              domain.color.withValues(alpha: 0.0),
                             ],
                           ),
                         ),

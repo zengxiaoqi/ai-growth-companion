@@ -280,13 +280,13 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppTheme.primaryColor.withOpacity(0.15),
-              AppTheme.secondaryColor.withOpacity(0.1),
+              AppTheme.primaryColor.withValues(alpha: 0.15),
+              AppTheme.secondaryColor.withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.2),
+            color: AppTheme.primaryColor.withValues(alpha: 0.2),
             width: 1.5,
           ),
         ),
@@ -296,7 +296,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.15),
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -343,7 +343,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           gradient: LinearGradient(
             colors: [
               bgColor,
-              bgColor.withOpacity(0.6),
+              bgColor.withValues(alpha: 0.6),
               AppTheme.backgroundColor,
             ],
             begin: Alignment.topCenter,
@@ -351,7 +351,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           ),
           boxShadow: [
             BoxShadow(
-              color: bgColor.withOpacity(0.2),
+              color: bgColor.withValues(alpha: 0.2),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -376,7 +376,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -435,11 +435,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         width: 100,
         height: 100,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.6),
+          color: Colors.white.withValues(alpha: 0.6),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -476,11 +476,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
       width: 90,
       height: 90,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.6),
+        color: Colors.white.withValues(alpha: 0.6),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -508,11 +508,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.92),
+        color: Colors.white.withValues(alpha: 0.92),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -525,7 +525,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.12),
+              color: AppTheme.primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -610,7 +610,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           boxShadow: isPrimary
               ? [
                   BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -623,7 +623,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
               ? Colors.white
               : enabled
                   ? AppTheme.textColor
-                  : AppTheme.textSecondary.withOpacity(0.4),
+                  : AppTheme.textSecondary.withValues(alpha: 0.4),
           size: isPrimary ? 28 : 24,
         ),
       ),
@@ -648,7 +648,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             color: isCurrent
                 ? AppTheme.primaryColor
                 : isPast
-                    ? AppTheme.primaryColor.withOpacity(0.4)
+                    ? AppTheme.primaryColor.withValues(alpha: 0.4)
                     : Colors.grey.shade200,
             borderRadius: BorderRadius.circular(3),
           ),
@@ -694,7 +694,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             elevation: 2,
-            shadowColor: AppTheme.primaryColor.withOpacity(0.3),
+            shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),

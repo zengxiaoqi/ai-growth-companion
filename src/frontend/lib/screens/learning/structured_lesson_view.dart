@@ -362,7 +362,7 @@ class _ProgressCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: scheme.surfaceContainerHighest.withOpacity(0.5),
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -429,11 +429,11 @@ class _LessonStepCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: status == _LessonStepStatus.completed
-          ? scheme.primaryContainer.withOpacity(0.35)
+          ? scheme.primaryContainer.withValues(alpha: 0.35)
           : scheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant.withOpacity(0.4)),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),

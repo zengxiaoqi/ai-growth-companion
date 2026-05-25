@@ -198,7 +198,7 @@ class _PuzzleGameState extends State<PuzzleGame> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.softPurple.withOpacity(0.2),
+                color: AppTheme.softPurple.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -299,13 +299,13 @@ class _PuzzleGridState extends State<_PuzzleGrid> {
     return Container(
       decoration: BoxDecoration(
         color: isCorrect
-            ? AppTheme.accentColor.withOpacity(0.15)
+            ? AppTheme.accentColor.withValues(alpha: 0.15)
             : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCorrect
               ? AppTheme.accentColor
-              : AppTheme.secondaryColor.withOpacity(0.3),
+              : AppTheme.secondaryColor.withValues(alpha: 0.3),
           width: 2,
         ),
         boxShadow: dragging

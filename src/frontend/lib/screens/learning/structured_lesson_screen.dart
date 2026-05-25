@@ -35,7 +35,7 @@ const Map<String, Map<String, dynamic>> _stepMeta = {
     'emoji': '✍',
     'label': '写',
     'icon': Icons.edit_rounded,
-    'color': Color(0xFFDDA0DD),
+    'color': AppTheme.softPurple,
   },
   'practice': {
     'emoji': '🎮',
@@ -765,7 +765,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
             blurRadius: 15,
             offset: const Offset(0, 2),
           ),
@@ -808,12 +808,12 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                 color: isCompleted
                     ? AppTheme.primaryColor
                     : isCurrent
-                        ? AppTheme.primaryColor.withOpacity(0.4)
-                        : AppTheme.backgroundColor.withOpacity(0.8),
+                        ? AppTheme.primaryColor.withValues(alpha: 0.4)
+                        : AppTheme.backgroundColor.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: isCurrent
-                      ? AppTheme.primaryColor.withOpacity(0.3)
+                      ? AppTheme.primaryColor.withValues(alpha: 0.3)
                       : Colors.transparent,
                   width: 1,
                 ),
@@ -853,13 +853,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                   color: isCurrent
                       ? AppTheme.primaryColor
                       : isCompleted
-                          ? AppTheme.primaryColor.withOpacity(0.12)
+                          ? AppTheme.primaryColor.withValues(alpha: 0.12)
                           : Colors.white,
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: isCurrent
                       ? [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -869,7 +869,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                     color: isCurrent
                         ? Colors.transparent
                         : isCompleted
-                            ? AppTheme.primaryColor.withOpacity(0.3)
+                            ? AppTheme.primaryColor.withValues(alpha: 0.3)
                             : Colors.grey.shade200,
                     width: 1.5,
                   ),
@@ -1013,7 +1013,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withOpacity(0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 40, color: AppTheme.warningColor),
@@ -1076,7 +1076,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.warningColor.withOpacity(0.1),
+        color: AppTheme.warningColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1167,10 +1167,10 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -1198,7 +1198,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: AppTheme.warningColor.withOpacity(0.2),
+                        color: AppTheme.warningColor.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -1218,7 +1218,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
@@ -1387,7 +1387,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Padding(
@@ -1492,7 +1492,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.secondaryColor.withOpacity(0.1),
+              color: AppTheme.secondaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -1547,7 +1547,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               ...keywords.map((kw) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.secondaryColor.withOpacity(0.15),
+                      color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -1839,7 +1839,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -4),
           ),
@@ -1856,7 +1856,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             style: TextButton.styleFrom(
               foregroundColor: hasPrev
                   ? AppTheme.primaryColor
-                  : AppTheme.textSecondary.withOpacity(0.3),
+                  : AppTheme.textSecondary.withValues(alpha: 0.3),
             ),
           ),
           // 步骤指示
@@ -1875,7 +1875,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             style: TextButton.styleFrom(
               foregroundColor: hasNext
                   ? AppTheme.primaryColor
-                  : AppTheme.textSecondary.withOpacity(0.3),
+                  : AppTheme.textSecondary.withValues(alpha: 0.3),
             ),
           ),
         ],
@@ -1960,7 +1960,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Row(
@@ -2073,8 +2073,8 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppTheme.secondaryColor.withOpacity(0.15),
-                AppTheme.primaryColor.withOpacity(0.1),
+                AppTheme.secondaryColor.withValues(alpha: 0.15),
+                AppTheme.primaryColor.withValues(alpha: 0.1),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -2241,13 +2241,13 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFDDA0DD).withOpacity(0.1),
+              color: AppTheme.softPurple.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
                 const Icon(Icons.flag_rounded,
-                    size: 18, color: Color(0xFFDDA0DD)),
+                    size: 18, color: AppTheme.softPurple),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2267,7 +2267,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
         if (_hasTracing) ...[
           _buildTracingHeader(),
           const SizedBox(height: 8),
-          ..._buildTracingCanvases(),
+          ..._buildTraceCanvas(),
           const SizedBox(height: 12),
         ],
 
@@ -2404,15 +2404,14 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
   /// 描红标题 + 进度提示
   Widget _buildTracingHeader() {
-    final doneCount = _traceResults.length;
     final totalCount = widget.tracingItems.length;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFDDA0DD).withOpacity(0.08),
+        color: AppTheme.softPurple.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFDDA0DD).withOpacity(0.25),
+          color: AppTheme.softPurple.withValues(alpha: 0.25),
           width: 1,
         ),
       ),
@@ -2420,61 +2419,73 @@ class _WriteStepContentState extends State<_WriteStepContent> {
         children: [
           const Text('✍', style: TextStyle(fontSize: 20)),
           const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '描红练习',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '用手指沿着浅色字形描画，完成 $totalCount 个字即可',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_allTraced)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.accentColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                '全部完成 ✅',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.accentColor,
-                ),
-              ),
-            )
-          else
-            Text(
-              '$doneCount / $totalCount',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
+          _buildTraceHint(totalCount),
+          _buildTraceProgress(),
         ],
       ),
     );
   }
 
-  /// 构建交互式描红画布列表
-  List<Widget> _buildTracingCanvases() {
+  /// 描红提示文字
+  Widget _buildTraceHint(int totalCount) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '描红练习',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textColor,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '用手指沿着浅色字形描画，完成 $totalCount 个字即可',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 描红进度指示
+  Widget _buildTraceProgress() {
+    final doneCount = _traceResults.length;
+    final totalCount = widget.tracingItems.length;
+    if (_allTraced) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.accentColor.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          '全部完成 ✅',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.accentColor,
+          ),
+        ),
+      );
+    }
+    return Text(
+      '$doneCount / $totalCount',
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.primaryColor,
+      ),
+    );
+  }
+
+  /// 描红画布区域
+  List<Widget> _buildTraceCanvas() {
     return List.generate(widget.tracingItems.length, (index) {
       final item = widget.tracingItems[index];
 
@@ -2602,7 +2613,7 @@ Widget _buildEmptyCard(String message) {
         Icon(
           Icons.inbox_rounded,
           size: 48,
-          color: AppTheme.textSecondary.withOpacity(0.4),
+          color: AppTheme.textSecondary.withValues(alpha: 0.4),
         ),
         const SizedBox(height: 12),
         Text(

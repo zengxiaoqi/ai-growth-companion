@@ -164,7 +164,7 @@ class _QuizGameState extends State<QuizGame> {
                 child: LinearProgressIndicator(
                   minHeight: 12,
                   value: (_currentIndex + 1) / questions.length,
-                  backgroundColor: AppTheme.softBlue.withOpacity(0.2),
+                  backgroundColor: AppTheme.softBlue.withValues(alpha: 0.2),
                   color: AppTheme.primaryColor,
                 ),
               ),
@@ -203,12 +203,12 @@ class _QuizGameState extends State<QuizGame> {
 
           final bg = _revealed
               ? (isCorrect
-                  ? AppTheme.accentColor.withOpacity(0.18)
+                  ? AppTheme.accentColor.withValues(alpha: 0.18)
                   : (isSelected
-                      ? AppTheme.warningColor.withOpacity(0.2)
+                      ? AppTheme.warningColor.withValues(alpha: 0.2)
                       : Colors.white))
               : (isSelected
-                  ? AppTheme.softPink.withOpacity(0.3)
+                  ? AppTheme.softPink.withValues(alpha: 0.3)
                   : Colors.white);
 
           final border = _revealed
@@ -241,7 +241,7 @@ class _QuizGameState extends State<QuizGame> {
                       children: [
                         CircleAvatar(
                           radius: 14,
-                          backgroundColor: border.withOpacity(0.15),
+                          backgroundColor: border.withValues(alpha: 0.15),
                           child: Text(
                             String.fromCharCode(65 + index),
                             style: TextStyle(
@@ -279,8 +279,8 @@ class _QuizGameState extends State<QuizGame> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: _feedbackCorrect
-                  ? AppTheme.accentColor.withOpacity(0.18)
-                  : AppTheme.warningColor.withOpacity(0.18),
+                  ? AppTheme.accentColor.withValues(alpha: 0.18)
+                  : AppTheme.warningColor.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

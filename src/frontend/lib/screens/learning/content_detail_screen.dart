@@ -409,7 +409,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     Icon(
                       Icons.sentiment_dissatisfied_rounded,
                       size: 64,
-                      color: AppTheme.textSecondary.withOpacity(0.5),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -510,7 +510,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 height: 200,
-                color: AppTheme.softBlue.withOpacity(0.2),
+                color: AppTheme.softBlue.withValues(alpha: 0.2),
                 child: const Center(
                   child: Icon(Icons.image_rounded, size: 48, color: AppTheme.textSecondary),
                 ),
@@ -524,7 +524,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.4),
+                      Colors.black.withValues(alpha: 0.4),
                     ],
                   ),
                 ),
@@ -627,7 +627,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -677,7 +677,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.12),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -784,7 +784,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   mediaUrls[index],
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    color: AppTheme.softBlue.withOpacity(0.2),
+                    color: AppTheme.softBlue.withValues(alpha: 0.2),
                     child: const Center(
                       child: Icon(Icons.image_rounded, color: AppTheme.textSecondary),
                     ),
@@ -805,8 +805,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.secondaryColor.withOpacity(0.15),
-            AppTheme.primaryColor.withOpacity(0.1),
+            AppTheme.secondaryColor.withValues(alpha: 0.15),
+            AppTheme.primaryColor.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
@@ -818,7 +818,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.15),
+              color: AppTheme.primaryColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -884,7 +884,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -914,10 +914,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Colors.white.withValues(alpha: 0.95),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -938,7 +938,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.warningColor.withOpacity(0.1),
+                color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -1033,9 +1033,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 child: SliderTheme(
                   data: SliderThemeData(
                     activeTrackColor: AppTheme.primaryColor,
-                    inactiveTrackColor: AppTheme.primaryColor.withOpacity(0.2),
+                    inactiveTrackColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                     thumbColor: AppTheme.primaryColor,
-                    overlayColor: AppTheme.primaryColor.withOpacity(0.2),
+                    overlayColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                     trackHeight: 6,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
                   ),

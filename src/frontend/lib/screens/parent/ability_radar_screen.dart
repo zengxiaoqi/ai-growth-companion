@@ -220,11 +220,11 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                       fontSize: 10,
                     ),
                     tickBorderData: BorderSide(
-                      color: AppTheme.textSecondary.withOpacity(0.15),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.15),
                       width: 1,
                     ),
                     gridBorderData: BorderSide(
-                      color: AppTheme.textSecondary.withOpacity(0.15),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.15),
                       width: 1,
                     ),
                     titlePositionPercentageOffset: 0.2,
@@ -236,14 +236,14 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                     },
                     dataSets: [
                       RadarDataSet(
-                        fillColor: AppTheme.primaryColor.withOpacity(0.28),
+                        fillColor: AppTheme.primaryColor.withValues(alpha: 0.28),
                         borderColor: AppTheme.primaryColor,
                         borderWidth: 2,
                         entryRadius: 3,
                         dataEntries: chart.currentValues.map((v) => RadarEntry(value: v)).toList(),
                       ),
                       RadarDataSet(
-                        fillColor: AppTheme.secondaryColor.withOpacity(0.16),
+                        fillColor: AppTheme.secondaryColor.withValues(alpha: 0.16),
                         borderColor: AppTheme.secondaryColor,
                         borderWidth: 2,
                         entryRadius: 3,

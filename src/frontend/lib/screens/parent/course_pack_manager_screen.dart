@@ -342,7 +342,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.12),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.auto_awesome_rounded, size: 18, color: AppTheme.primaryColor),
@@ -413,7 +413,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppTheme.primaryColor.withOpacity(0.4),
+                  disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
@@ -507,9 +507,9 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFB3261E).withOpacity(0.08),
+        color: const Color(0xFFB3261E).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFB3261E).withOpacity(0.25)),
+        border: Border.all(color: const Color(0xFFB3261E).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -607,10 +607,10 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor.withOpacity(0.35) : Colors.grey.shade200,
+            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.35) : Colors.grey.shade200,
           ),
         ),
         child: Row(
@@ -618,7 +618,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withOpacity(0.12),
+                color: AppTheme.secondaryColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.menu_book_rounded, size: 20, color: AppTheme.secondaryColor),
@@ -683,7 +683,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: AppTheme.accentColor.withOpacity(0.12),
+                        color: AppTheme.accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.accentColor),

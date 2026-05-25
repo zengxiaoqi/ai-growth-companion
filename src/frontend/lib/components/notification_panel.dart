@@ -236,7 +236,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
           Icon(
             Icons.notifications_none_rounded,
             size: 56,
-            color: AppTheme.textSecondary.withOpacity(0.3),
+            color: AppTheme.textSecondary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -252,7 +252,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
             '有新的学习动态时会第一时间提醒你',
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.textSecondary.withOpacity(0.7),
+              color: AppTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -269,7 +269,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
         if (!notification.isRead) _markRead(notification.id);
       },
       child: Container(
-        color: notification.isRead ? null : color.withOpacity(0.04),
+        color: notification.isRead ? null : color.withValues(alpha: 0.04),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +277,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, size: 20, color: color),
@@ -300,7 +300,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
                     notification.message,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textSecondary.withOpacity(0.85),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.85),
                       height: 1.4,
                     ),
                     maxLines: 2,
@@ -311,7 +311,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
                     _formatTime(notification.createdAt),
                     style: TextStyle(
                       fontSize: 11,
-                      color: AppTheme.textSecondary.withOpacity(0.6),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.6),
                     ),
                   ),
                 ],

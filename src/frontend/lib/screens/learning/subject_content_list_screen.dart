@@ -199,12 +199,12 @@ class _CourseCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            border: Border.all(color: color.withOpacity(0.15)),
+            border: Border.all(color: color.withValues(alpha: 0.15)),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.08),
+                color: color.withValues(alpha: 0.08),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -217,7 +217,7 @@ class _CourseCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -251,7 +251,7 @@ class _CourseCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.12),
+                              color: color.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -267,7 +267,7 @@ class _CourseCard extends StatelessWidget {
                       description,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textSecondary.withOpacity(0.85),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.85),
                         height: 1.3,
                       ),
                       maxLines: 2,
@@ -286,7 +286,7 @@ class _CourseCard extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Icon(Icons.arrow_forward_ios_rounded, size: 16,
-                  color: AppTheme.textSecondary.withOpacity(0.4)),
+                  color: AppTheme.textSecondary.withValues(alpha: 0.4)),
             ],
           ),
         ),
@@ -298,13 +298,13 @@ class _CourseCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: AppTheme.textSecondary.withOpacity(0.5)),
+        Icon(icon, size: 13, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
         const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
             fontSize: 11,
-            color: AppTheme.textSecondary.withOpacity(0.7),
+            color: AppTheme.textSecondary.withValues(alpha: 0.7),
           ),
         ),
       ],

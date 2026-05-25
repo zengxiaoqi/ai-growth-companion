@@ -44,7 +44,7 @@ class ChildSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -101,7 +101,7 @@ class ChildSelector extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.06),
+              color: AppTheme.primaryColor.withValues(alpha: 0.06),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -152,7 +152,7 @@ class ChildSelector extends StatelessWidget {
 
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppTheme.secondaryColor.withOpacity(0.18),
+      backgroundColor: AppTheme.secondaryColor.withValues(alpha: 0.18),
       child: Text(
         display,
         style: const TextStyle(

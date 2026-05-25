@@ -280,13 +280,13 @@ class _ConnectionGameState extends State<ConnectionGame> {
 
         final bgColor = _submitted
             ? (borderColor == AppTheme.accentColor
-                ? AppTheme.accentColor.withOpacity(0.12)
+                ? AppTheme.accentColor.withValues(alpha: 0.12)
                 : (borderColor == AppTheme.warningColor
-                    ? AppTheme.warningColor.withOpacity(0.12)
+                    ? AppTheme.warningColor.withValues(alpha: 0.12)
                     : Colors.white))
             : (isSelected
-                ? AppTheme.softBlue.withOpacity(0.25)
-                : (isConnected ? AppTheme.softPink.withOpacity(0.18) : Colors.white));
+                ? AppTheme.softBlue.withValues(alpha: 0.25)
+                : (isConnected ? AppTheme.softPink.withValues(alpha: 0.18) : Colors.white));
 
         return GestureDetector(
           onTap: () => isLeft ? _tapLeft(item.id) : _tapRight(item.id),
@@ -378,7 +378,7 @@ class _ConnectionPainter extends CustomPainter {
 
       paint.color = submitted
           ? (isCorrect ? AppTheme.accentColor : AppTheme.warningColor)
-          : AppTheme.secondaryColor.withOpacity(0.7);
+          : AppTheme.secondaryColor.withValues(alpha: 0.7);
 
       // 贝塞尔曲线连线。
       final path = Path();

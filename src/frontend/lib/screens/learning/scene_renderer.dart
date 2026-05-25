@@ -56,9 +56,9 @@ class SceneRenderer extends StatelessWidget {
       case BackgroundType.abstract:
         return LinearGradient(
           colors: [
-            AppTheme.primaryColor.withOpacity(0.15),
-            AppTheme.secondaryColor.withOpacity(0.12),
-            AppTheme.softPurple.withOpacity(0.1),
+            AppTheme.primaryColor.withValues(alpha: 0.15),
+            AppTheme.secondaryColor.withValues(alpha: 0.12),
+            AppTheme.softPurple.withValues(alpha: 0.1),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -108,8 +108,8 @@ class SceneRenderer extends StatelessWidget {
             ? LinearGradient(
                 colors: [
                   themeColor,
-                  themeColor.withOpacity(0.6),
-                  themeColor.withOpacity(0.3),
+                  themeColor.withValues(alpha: 0.6),
+                  themeColor.withValues(alpha: 0.3),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -117,7 +117,7 @@ class SceneRenderer extends StatelessWidget {
             : _backgroundGradient(bgType),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withValues(alpha: 0.05),
           width: 1,
         ),
       ),
@@ -159,7 +159,7 @@ class SceneRenderer extends StatelessWidget {
             ? LinearGradient(
                 colors: [
                   themeColor,
-                  themeColor.withOpacity(0.6),
+                  themeColor.withValues(alpha: 0.6),
                 ],
               )
             : _backgroundGradient(bgType),
@@ -173,7 +173,7 @@ class SceneRenderer extends StatelessWidget {
             Icon(
               Icons.auto_awesome_rounded,
               size: 48,
-              color: textColor.withOpacity(0.6),
+              color: textColor.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 12),
             Text(
@@ -192,7 +192,7 @@ class SceneRenderer extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: textColor.withOpacity(0.85),
+                  color: textColor.withValues(alpha: 0.85),
                   height: 1.5,
                 ),
               ),
@@ -218,10 +218,10 @@ class SceneRenderer extends StatelessWidget {
                 height: 96,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       blurRadius: 40,
                       spreadRadius: 10,
                     ),
@@ -237,10 +237,10 @@ class SceneRenderer extends StatelessWidget {
                 height: 112,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       blurRadius: 40,
                       spreadRadius: 10,
                     ),
@@ -270,7 +270,7 @@ class SceneRenderer extends StatelessWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 2,
-                  color: textColor.withOpacity(0.7),
+                  color: textColor.withValues(alpha: 0.7),
                 ),
               ),
               if (scene.onScreenText?.isNotEmpty == true ||
@@ -301,7 +301,7 @@ class SceneRenderer extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Colors.white.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -330,7 +330,7 @@ class SceneRenderer extends StatelessWidget {
           scene.narration,
           style: TextStyle(
             fontSize: 14,
-            color: textColor.withOpacity(0.85),
+            color: textColor.withValues(alpha: 0.85),
             height: 1.5,
           ),
         ),
@@ -372,10 +372,10 @@ class SceneRenderer extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.35),
+                    color: Colors.white.withValues(alpha: 0.35),
                     width: 1,
                   ),
-                  color: Colors.white.withOpacity(0.25),
+                  color: Colors.white.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
@@ -383,7 +383,7 @@ class SceneRenderer extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: textColor.withOpacity(0.9),
+                    color: textColor.withValues(alpha: 0.9),
                   ),
                 ),
               );
@@ -398,7 +398,7 @@ class SceneRenderer extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.4),
+        color: Colors.white.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -409,7 +409,7 @@ class SceneRenderer extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -447,7 +447,7 @@ class SceneRenderer extends StatelessWidget {
                     character.pose ?? character.mood ?? '',
                     style: TextStyle(
                       fontSize: 11,
-                      color: textColor.withOpacity(0.7),
+                      color: textColor.withValues(alpha: 0.7),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

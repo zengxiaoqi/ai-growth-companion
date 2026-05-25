@@ -222,7 +222,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: (_domainColors[domain] ?? AppTheme.primaryColor)
-                          .withOpacity(0.15),
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -269,7 +269,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                             height: 28,
                             decoration: BoxDecoration(
                               color: AppTheme.primaryColor
-                                  .withOpacity(0.12),
+                                  .withValues(alpha: 0.12),
                               borderRadius:
                                   BorderRadius.circular(8),
                             ),
@@ -714,7 +714,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: domainColor.withOpacity(0.1),
+                          color: domainColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -748,7 +748,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: domainColor.withOpacity(0.15),
+                        color: domainColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -765,7 +765,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.softYellow.withOpacity(0.3),
+                        color: AppTheme.softYellow.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Row(

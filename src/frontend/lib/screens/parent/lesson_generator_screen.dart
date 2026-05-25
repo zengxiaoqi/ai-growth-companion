@@ -646,7 +646,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
               if (outcomes is List && outcomes.isNotEmpty) ...[const SizedBox(height: 8),
                 Wrap(spacing: 6, runSpacing: 6, children: outcomes.map<Widget>((o) => Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
                   child: Text(o.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
                 )).toList()),
               ],
@@ -690,7 +690,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
             if (outcomes is List && outcomes.isNotEmpty) ...[const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: outcomes.map<Widget>((o) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
                 child: Text(o.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
               )).toList()),
             ],
@@ -714,8 +714,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     final scenes = isWatchStep ? _parseScenesFromStep(step) : <AnimationScene>[];
     return Card(elevation: 0, margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16),
-        side: isExpanded ? BorderSide(color: AppTheme.primaryColor.withOpacity(0.35), width: 1.5) : BorderSide.none),
-      color: isExpanded ? AppTheme.primaryColor.withOpacity(0.06) : Colors.white,
+        side: isExpanded ? BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.35), width: 1.5) : BorderSide.none),
+      color: isExpanded ? AppTheme.primaryColor.withValues(alpha: 0.06) : Colors.white,
       child: InkWell(borderRadius: BorderRadius.circular(16),
         onTap: () => setState(() {
           final wasSame = _expandedStepId == stepId;
@@ -767,7 +767,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
           height: 180,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [bgColor, bgColor.withOpacity(0.5), AppTheme.backgroundColor],
+              colors: [bgColor, bgColor.withValues(alpha: 0.5), AppTheme.backgroundColor],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -791,7 +791,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
               Positioned(left: 0, right: 0, bottom: 0, child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
+                  color: Colors.white.withValues(alpha: 0.92),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
                 child: Row(children: [
@@ -831,7 +831,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       onTap: onPressed,
       child: Container(
         width: 28, height: 28,
-        decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), shape: BoxShape.circle),
         child: Icon(icon, size: 18, color: AppTheme.primaryColor),
       ),
     );
@@ -865,12 +865,12 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: isEditing ? AppTheme.primaryColor.withOpacity(0.05) : AppTheme.backgroundColor,
+            color: isEditing ? AppTheme.primaryColor.withValues(alpha: 0.05) : AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(12),
             border: isEditing
-                ? Border.all(color: AppTheme.primaryColor.withOpacity(0.3))
+                ? Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3))
                 : hasEdit
-                    ? Border.all(color: AppTheme.accentColor.withOpacity(0.5))
+                    ? Border.all(color: AppTheme.accentColor.withValues(alpha: 0.5))
                     : null,
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -899,7 +899,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -1088,7 +1088,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       ]);
     }
     return Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.check_circle_rounded, size: 20, color: AppTheme.primaryColor), const SizedBox(width: 8),
         Text('课程已发布，学生可以在学习页面看到此课程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),

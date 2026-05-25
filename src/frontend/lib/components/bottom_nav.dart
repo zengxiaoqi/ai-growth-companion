@@ -39,7 +39,7 @@ class BottomNav extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
             blurRadius: 30,
             offset: const Offset(0, -5),
           ),
@@ -135,8 +135,8 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
           decoration: BoxDecoration(
             color: widget.isActive
                 ? (widget.item.isAccent
-                    ? AppTheme.accentColor.withOpacity(0.15)
-                    : AppTheme.primaryColor.withOpacity(0.12))
+                    ? AppTheme.accentColor.withValues(alpha: 0.15)
+                    : AppTheme.primaryColor.withValues(alpha: 0.12))
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
@@ -150,7 +150,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
                     ? (widget.item.isAccent
                         ? AppTheme.accentColor
                         : AppTheme.primaryColor)
-                    : AppTheme.textSecondary.withOpacity(0.5),
+                    : AppTheme.textSecondary.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 3),
               Text(
@@ -162,7 +162,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
                       ? (widget.item.isAccent
                           ? AppTheme.accentColor
                           : AppTheme.primaryColor)
-                      : AppTheme.textSecondary.withOpacity(0.5),
+                      : AppTheme.textSecondary.withValues(alpha: 0.5),
                 ),
               ),
             ],

@@ -248,7 +248,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, -3),
                     ),
@@ -387,7 +387,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
                         },
                         label: Text(label),
                         avatar: Icon(icon, size: 16, color: color),
-                        selectedColor: color.withOpacity(0.15),
+                        selectedColor: color.withValues(alpha: 0.15),
                         checkmarkColor: color,
                       );
                     }).toList(),
@@ -467,7 +467,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
             if (selected) setState(() => _dailyLimitMinutes = minutes);
           },
           label: Text('${minutes}分钟'),
-          selectedColor: AppTheme.primaryColor.withOpacity(0.15),
+          selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.primaryColor,
         );
       }).toList(),
@@ -486,7 +486,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
             if (selected) setState(() => _restReminderMinutes = minutes);
           },
           label: Text('每${minutes}分钟'),
-          selectedColor: AppTheme.secondaryColor.withOpacity(0.15),
+          selectedColor: AppTheme.secondaryColor.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.secondaryColor,
         );
       }).toList(),

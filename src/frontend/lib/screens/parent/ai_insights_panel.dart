@@ -207,7 +207,7 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
             gradient: LinearGradient(
               colors: [
                 Colors.white,
-                AppTheme.secondaryColor.withOpacity(0.08),
+                AppTheme.secondaryColor.withValues(alpha: 0.08),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -226,8 +226,8 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppTheme.secondaryColor.withOpacity(0.25),
-                        AppTheme.secondaryColor.withOpacity(0),
+                        AppTheme.secondaryColor.withValues(alpha: 0.25),
+                        AppTheme.secondaryColor.withValues(alpha: 0),
                       ],
                     ),
                   ),
@@ -243,8 +243,8 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        AppTheme.accentColor.withOpacity(0.15),
-                        AppTheme.accentColor.withOpacity(0),
+                        AppTheme.accentColor.withValues(alpha: 0.15),
+                        AppTheme.accentColor.withValues(alpha: 0),
                       ],
                     ),
                   ),
@@ -260,7 +260,7 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.secondaryColor.withOpacity(0.15),
+                        color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -309,7 +309,7 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                                 width: 5,
                                 height: 5,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.textSecondary.withOpacity(0.5),
+                                  color: AppTheme.textSecondary.withValues(alpha: 0.5),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -334,7 +334,7 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                         style: TextStyle(
                           fontSize: 14,
                           height: 1.5,
-                          color: AppTheme.textSecondary.withOpacity(0.8),
+                          color: AppTheme.textSecondary.withValues(alpha: 0.8),
                         ),
                       ),
                     const SizedBox(height: 20),

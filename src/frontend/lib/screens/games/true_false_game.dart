@@ -137,7 +137,7 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
           value: (_currentIndex + 1) / items.length,
           minHeight: 12,
           borderRadius: BorderRadius.circular(999),
-          backgroundColor: AppTheme.softMint.withOpacity(0.25),
+          backgroundColor: AppTheme.softMint.withValues(alpha: 0.25),
           color: AppTheme.secondaryColor,
         ),
         const SizedBox(height: 12),
@@ -201,8 +201,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: (_selected == answer)
-                  ? AppTheme.accentColor.withOpacity(0.15)
-                  : AppTheme.warningColor.withOpacity(0.15),
+                  ? AppTheme.accentColor.withValues(alpha: 0.15)
+                  : AppTheme.warningColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -237,10 +237,10 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
             : (selected ? color : Colors.grey.shade300);
 
     final bgColor = showSuccess
-        ? AppTheme.accentColor.withOpacity(0.2)
+        ? AppTheme.accentColor.withValues(alpha: 0.2)
         : showFail
-            ? AppTheme.warningColor.withOpacity(0.2)
-            : (selected ? color.withOpacity(0.12) : Colors.white);
+            ? AppTheme.warningColor.withValues(alpha: 0.2)
+            : (selected ? color.withValues(alpha: 0.12) : Colors.white);
 
     return Material(
       color: bgColor,

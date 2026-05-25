@@ -194,7 +194,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
         _buildIconCircle(
           icon: Icons.phone_rounded,
           color: const Color(0xFFD32F2F),
-          bgColor: const Color(0xFFD32F2F).withOpacity(0.1),
+          bgColor: const Color(0xFFD32F2F).withValues(alpha: 0.1),
           size: 100,
           iconSize: 52,
         ),
@@ -228,7 +228,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
               backgroundColor: const Color(0xFFD32F2F),
               foregroundColor: Colors.white,
               elevation: 4,
-              shadowColor: const Color(0xFFD32F2F).withOpacity(0.4),
+              shadowColor: const Color(0xFFD32F2F).withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
@@ -281,7 +281,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
               color: Color(0xFFD32F2F),
             ),
           ),
-          bgColor: const Color(0xFFD32F2F).withOpacity(0.1),
+          bgColor: const Color(0xFFD32F2F).withValues(alpha: 0.1),
           size: 130,
         ),
         const SizedBox(height: 32),
@@ -343,7 +343,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
               child: _buildIconCircle(
                 icon: Icons.phone_rounded,
                 color: AppTheme.primaryColor,
-                bgColor: AppTheme.primaryColor.withOpacity(0.1),
+                bgColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                 size: 100,
                 iconSize: 52,
               ),
@@ -401,7 +401,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
           child: _buildIconCircle(
             icon: Icons.check_circle_rounded,
             color: const Color(0xFF2E7D32),
-            bgColor: const Color(0xFF2E7D32).withOpacity(0.12),
+            bgColor: const Color(0xFF2E7D32).withValues(alpha: 0.12),
             size: 100,
             iconSize: 56,
           ),
@@ -444,7 +444,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
         _buildIconCircle(
           icon: Icons.warning_rounded,
           color: const Color(0xFFD32F2F),
-          bgColor: const Color(0xFFD32F2F).withOpacity(0.1),
+          bgColor: const Color(0xFFD32F2F).withValues(alpha: 0.1),
           size: 100,
           iconSize: 52,
         ),

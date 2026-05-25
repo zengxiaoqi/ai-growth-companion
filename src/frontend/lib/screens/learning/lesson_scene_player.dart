@@ -295,13 +295,13 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppTheme.primaryColor.withOpacity(0.15),
-              AppTheme.secondaryColor.withOpacity(0.1),
+              AppTheme.primaryColor.withValues(alpha: 0.15),
+              AppTheme.secondaryColor.withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.2),
+            color: AppTheme.primaryColor.withValues(alpha: 0.2),
             width: 1.5,
           ),
         ),
@@ -311,7 +311,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.15),
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -487,7 +487,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
@@ -561,7 +561,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                     Icon(
                       Icons.games_outlined,
                       size: 32,
-                      color: AppTheme.textSecondary.withOpacity(0.4),
+                      color: AppTheme.textSecondary.withValues(alpha: 0.4),
                     ),
                     const SizedBox(height: 6),
                     const Text(
@@ -591,7 +591,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -655,7 +655,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.3),
+              color: AppTheme.primaryColor.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -706,7 +706,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
               size: 16,
               color: enabled
                   ? AppTheme.textColor
-                  : AppTheme.textSecondary.withOpacity(0.4),
+                  : AppTheme.textSecondary.withValues(alpha: 0.4),
             ),
             const SizedBox(width: 4),
             Text(
@@ -715,7 +715,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                 fontSize: 12,
                 color: enabled
                     ? AppTheme.textSecondary
-                    : AppTheme.textSecondary.withOpacity(0.4),
+                    : AppTheme.textSecondary.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -815,7 +815,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             elevation: 2,
-            shadowColor: AppTheme.primaryColor.withOpacity(0.3),
+            shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),

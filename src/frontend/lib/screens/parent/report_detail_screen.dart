@@ -310,7 +310,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -364,7 +364,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         Expanded(
           child: _buildStatCard(
             icon: Icons.timer_rounded,
-            iconBg: AppTheme.secondaryColor.withOpacity(0.12),
+            iconBg: AppTheme.secondaryColor.withValues(alpha: 0.12),
             iconColor: AppTheme.secondaryColor,
             label: '总学习时长',
             value: '$_totalTimeMinutes',
@@ -375,7 +375,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         Expanded(
           child: _buildStatCard(
             icon: Icons.school_rounded,
-            iconBg: AppTheme.accentColor.withOpacity(0.12),
+            iconBg: AppTheme.accentColor.withValues(alpha: 0.12),
             iconColor: AppTheme.accentColor,
             label: '完成课程',
             value: '$_totalLessons',
@@ -386,7 +386,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         Expanded(
           child: _buildStatCard(
             icon: Icons.emoji_events_rounded,
-            iconBg: AppTheme.primaryColor.withOpacity(0.12),
+            iconBg: AppTheme.primaryColor.withValues(alpha: 0.12),
             iconColor: AppTheme.primaryColor,
             label: '平均得分',
             value: '$_avgScore',
@@ -494,7 +494,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryColor.withOpacity(0.1),
+                    color: AppTheme.secondaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -516,7 +516,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.bar_chart_rounded,
-                          size: 40, color: AppTheme.textSecondary.withOpacity(0.4)),
+                          size: 40, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
                       const SizedBox(height: 8),
                       Text(
                         '暂无学习数据',
@@ -528,7 +528,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       Text(
                         '完成学习任务后，这里会显示趋势图。',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary.withOpacity(0.7),
+                          color: AppTheme.textSecondary.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -610,11 +610,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               colors: isMax
                                   ? [
                                       AppTheme.primaryColor,
-                                      AppTheme.primaryColor.withOpacity(0.7),
+                                      AppTheme.primaryColor.withValues(alpha: 0.7),
                                     ]
                                   : [
-                                      AppTheme.secondaryColor.withOpacity(0.6),
-                                      AppTheme.secondaryColor.withOpacity(0.3),
+                                      AppTheme.secondaryColor.withValues(alpha: 0.6),
+                                      AppTheme.secondaryColor.withValues(alpha: 0.3),
                                     ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -721,7 +721,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       child: LinearProgressIndicator(
                         value: progress / 100,
                         minHeight: 8,
-                        backgroundColor: config.color.withOpacity(0.12),
+                        backgroundColor: config.color.withValues(alpha: 0.12),
                         color: config.color,
                       ),
                     ),
@@ -775,7 +775,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     children: [
                       Icon(Icons.emoji_events_outlined,
                           size: 36,
-                          color: AppTheme.primaryColor.withOpacity(0.5)),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.5)),
                       const SizedBox(height: 8),
                       Text(
                         '暂无成就',
@@ -787,7 +787,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       Text(
                         '继续学习即可解锁更多成长徽章。',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary.withOpacity(0.7),
+                          color: AppTheme.textSecondary.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -812,12 +812,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   return Container(
                     decoration: BoxDecoration(
                       color: ach.unlocked
-                          ? AppTheme.primaryColor.withOpacity(0.08)
+                          ? AppTheme.primaryColor.withValues(alpha: 0.08)
                           : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: ach.unlocked
-                            ? AppTheme.primaryColor.withOpacity(0.2)
+                            ? AppTheme.primaryColor.withValues(alpha: 0.2)
                             : Colors.grey.shade200,
                       ),
                     ),
@@ -835,7 +835,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                     horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
                                   color:
-                                      AppTheme.primaryColor.withOpacity(0.15),
+                                      AppTheme.primaryColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
@@ -916,7 +916,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             end: Alignment.bottomRight,
             colors: [
               AppTheme.secondaryColor,
-              AppTheme.secondaryColor.withOpacity(0.85),
+              AppTheme.secondaryColor.withValues(alpha: 0.85),
             ],
           ),
         ),
@@ -930,7 +930,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -964,7 +964,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     child: Text(
                       '继续学习后，AI 会根据最新表现给出更个性化的建议。',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         height: 1.5,
                       ),
                     ),
@@ -1006,7 +1006,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           child: Text(
                             insight,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.85),
+                              color: Colors.white.withValues(alpha: 0.85),
                               height: 1.5,
                             ),
                           ),

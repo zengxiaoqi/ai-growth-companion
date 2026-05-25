@@ -82,7 +82,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.star_rounded, color: Colors.white, size: 32),
@@ -223,7 +223,7 @@ class _AchievementBadge extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -238,7 +238,7 @@ class _AchievementBadge extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [color.withOpacity(0.2), color.withOpacity(0.1)],
+                        colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.1)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -311,7 +311,7 @@ class _ProgressItem extends StatelessWidget {
       color: Colors.white,
       boxShadow: [
         BoxShadow(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           blurRadius: 15,
           offset: const Offset(0, 5),
         ),
@@ -321,7 +321,7 @@ class _ProgressItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: Text(emoji, style: const TextStyle(fontSize: 24)),
@@ -344,7 +344,7 @@ class _ProgressItem extends StatelessWidget {
                     Container(
                       height: 10,
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
+                        color: color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(5),
                       ),
                     ),
@@ -354,12 +354,12 @@ class _ProgressItem extends StatelessWidget {
                       width: MediaQuery.of(context).size.width * 0.5 * value,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [color, color.withOpacity(0.7)],
+                          colors: [color, color.withValues(alpha: 0.7)],
                         ),
                         borderRadius: BorderRadius.circular(5),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withOpacity(0.3),
+                            color: color.withValues(alpha: 0.3),
                             blurRadius: 5,
                           ),
                         ],
@@ -374,7 +374,7 @@ class _ProgressItem extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
             child: Text(

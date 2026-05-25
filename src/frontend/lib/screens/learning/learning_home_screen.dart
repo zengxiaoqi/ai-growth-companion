@@ -278,15 +278,15 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
         child: AppCard(
           gradient: LinearGradient(
             colors: [
-              widget.gradient[0].withOpacity(0.15),
-              widget.gradient[1].withOpacity(0.05),
+              widget.gradient[0].withValues(alpha: 0.15),
+              widget.gradient[1].withValues(alpha: 0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: widget.color.withOpacity(0.15),
+              color: widget.color.withValues(alpha: 0.15),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -308,7 +308,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                   child: Icon(
                     widget.icon,
                     size: 80,
-                    color: widget.color.withOpacity(0.1),
+                    color: widget.color.withValues(alpha: 0.1),
                   ),
                 ),
               ),
@@ -319,7 +319,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                   widget.emoji,
                   style: TextStyle(
                     fontSize: 30,
-                    color: widget.color.withOpacity(0.3),
+                    color: widget.color.withValues(alpha: 0.3),
                   ),
                 ),
               ),
@@ -334,8 +334,8 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            widget.color.withOpacity(0.2),
-                            widget.color.withOpacity(0.1),
+                            widget.color.withValues(alpha: 0.2),
+                            widget.color.withValues(alpha: 0.1),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -343,7 +343,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: widget.color.withOpacity(0.3),
+                            color: widget.color.withValues(alpha: 0.3),
                             blurRadius: 15,
                           ),
                         ],
@@ -354,7 +354,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
                       ),
                       child: Text(
@@ -370,13 +370,13 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.arrow_forward_rounded, size: 16, color: widget.color.withOpacity(0.6)),
+                        Icon(Icons.arrow_forward_rounded, size: 16, color: widget.color.withValues(alpha: 0.6)),
                         const SizedBox(width: 4),
                         Text(
                           '开始学习',
                           style: TextStyle(
                             fontSize: 12,
-                            color: widget.color.withOpacity(0.6),
+                            color: widget.color.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -416,15 +416,15 @@ class _CourseCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.12),
-            color.withOpacity(0.04),
+            color.withValues(alpha: 0.12),
+            color.withValues(alpha: 0.04),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.12),
+            color: color.withValues(alpha: 0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -437,7 +437,7 @@ class _CourseCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                 ),
                 child: Text(
@@ -483,12 +483,12 @@ class _CourseCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [color, color.withOpacity(0.7)],
+                    colors: [color, color.withValues(alpha: 0.7)],
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.3),
+                      color: color.withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),

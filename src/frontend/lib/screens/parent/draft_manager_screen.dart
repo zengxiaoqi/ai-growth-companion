@@ -349,14 +349,74 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     );
   }
 
-  void _continueEdit(Map<String, dynamic> draft) {
+  Future<void> _publishDraft(Map<String, dynamic> draft) async {
     final contentId = _toInt(draft['id']);
     if (contentId == null) return;
-    Navigator.pushNamed(
+    final childId = _selectedChildId;
+    if (childId == null) return;
+
+    final title = draft['title']?.toString() ?? '未命名课程';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: const Text('确认发布'),
+        content: Text('确定要发布"$title"吗？\n发布后课程将加入孩子的学习计划。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('发布'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final api = context.read<ApiService>();
+    final result = await api.confirmLesson(contentId, childId);
+    if (!mounted) return;
+
+    if (result != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$title" 已成功发布！'),
+            backgroundColor: const Color(0xFF0B8F55),
+          ),
+        );
+      }
+      _loadDrafts();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('发布失败，请稍后重试'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _continueEdit(Map<String, dynamic> draft) async {
+    final contentId = _toInt(draft['id']);
+    if (contentId == null) return;
+    await Navigator.pushNamed(
       context,
       '/parent/lessonGenerator',
       arguments: {'draftContentId': contentId},
     );
+    _loadDrafts();
   }
 
   // ── 辅助方法 ──
@@ -771,7 +831,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
               children: [
                 _buildActionButton(
                   icon: Icons.edit_outlined,
-                  label: '继续编辑',
+                  label: '编辑',
                   color: AppTheme.primaryColor,
                   onTap: () => _continueEdit(draft),
                 ),
@@ -780,6 +840,12 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                   label: '预览',
                   color: AppTheme.secondaryColor,
                   onTap: () => _showPreview(draft),
+                ),
+                _buildActionButton(
+                  icon: Icons.outbox_outlined,
+                  label: '发布',
+                  color: const Color(0xFF0B8F55),
+                  onTap: () => _publishDraft(draft),
                 ),
                 _buildActionButton(
                   icon: Icons.delete_outline_rounded,

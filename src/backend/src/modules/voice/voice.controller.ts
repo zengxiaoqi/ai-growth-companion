@@ -18,6 +18,7 @@ export class VoiceController {
   /**
    * 文字转语音 - 返回 MP3 音频流
    */
+  @UseGuards(JwtAuthGuard)
   @Get("tts")
   async textToSpeech(
     @Query("text") text: string,
@@ -61,6 +62,7 @@ export class VoiceController {
   /**
    * 儿歌列表
    */
+  @UseGuards(JwtAuthGuard)
   @Get("rhyme")
   async getNurseryRhyme(@Query("id") id?: string) {
     return this.voiceService.getNurseryRhyme(id);

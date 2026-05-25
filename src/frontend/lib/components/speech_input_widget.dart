@@ -90,6 +90,9 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
   // ── 定时器 ──
   Timer? _silenceTimer;
 
+  // ── 防重入 ──
+  bool _isTransitioning = false;
+
   // ──────────────── 生命周期 ────────────────
 
   @override
@@ -137,6 +140,9 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
   @override
   void dispose() {
+    if (_speech.isListening) {
+      _speech.cancel();
+    }
     _pulseController.dispose();
     _waveController.dispose();
     _silenceTimer?.cancel();
@@ -174,46 +180,52 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
   // ──────────────── 语音控制 ────────────────
 
   Future<void> _startListening() async {
-    final hasPermission = await _requestPermission();
-    if (!hasPermission) return;
+    if (_isTransitioning) return;
+    _isTransitioning = true;
+    try {
+      final hasPermission = await _requestPermission();
+      if (!hasPermission) return;
 
-    // 初始化语音引擎
-    bool available = _speech.isAvailable;
-    if (!available) {
-      available = await _speech.initialize(
-        onStatus: _onSpeechStatus,
-        onError: (error) {
-          debugPrint('Speech error: ${error.errorMsg}');
-          if (mounted) setState(() => _state = SpeechInputState.error);
-        },
+      // 初始化语音引擎
+      bool available = _speech.isAvailable;
+      if (!available) {
+        available = await _speech.initialize(
+          onStatus: _onSpeechStatus,
+          onError: (error) {
+            debugPrint('Speech error: ${error.errorMsg}');
+            if (mounted) setState(() => _state = SpeechInputState.error);
+          },
+        );
+      }
+
+      if (!available) {
+        if (mounted) setState(() => _state = SpeechInputState.error);
+        return;
+      }
+
+      _recognizedWords = '';
+      setState(() => _state = SpeechInputState.listening);
+      widget.onListeningChange?.call(true);
+
+      // 启动脉冲动画
+      _pulseController.repeat(reverse: true);
+
+      await _speech.listen(
+        onResult: _onSpeechResult,
+        localeId: widget.localeId,
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          onDevice: false,
+          listenMode: stt.ListenMode.dictation,
+          cancelOnError: false,
+        ),
       );
+
+      // 设置 10 秒无语音自动停止
+      _resetSilenceTimer();
+    } finally {
+      _isTransitioning = false;
     }
-
-    if (!available) {
-      if (mounted) setState(() => _state = SpeechInputState.error);
-      return;
-    }
-
-    _recognizedWords = '';
-    setState(() => _state = SpeechInputState.listening);
-    widget.onListeningChange?.call(true);
-
-    // 启动脉冲动画
-    _pulseController.repeat(reverse: true);
-
-    await _speech.listen(
-      onResult: _onSpeechResult,
-      localeId: widget.localeId,
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        onDevice: false,
-        listenMode: stt.ListenMode.dictation,
-        cancelOnError: false,
-      ),
-    );
-
-    // 设置 10 秒无语音自动停止
-    _resetSilenceTimer();
   }
 
   Future<void> _stopListening() async {

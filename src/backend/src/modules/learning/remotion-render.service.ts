@@ -184,6 +184,11 @@ export class RemotionRenderService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    // P1-3: Clean orphan narration MP3 files left from prior sessions.
+    // On startup no renders are in progress, so all narration-*.mp3 files
+    // in public/ (excluding bg-music.mp3) are stale leftovers.
+    await this.cleanupStaleNarrationFiles();
+
     const result = await checkStaticFiles(this.remotionDir);
     if (result.passed) {
       this.logger.log("[onModuleInit] static Remotion TS check passed");
@@ -207,6 +212,41 @@ export class RemotionRenderService implements OnModuleInit {
           `[onModuleInit] ${recheck.errors.length} static TS errors remain after auto-fix — rendering may fail`,
         );
       }
+    }
+  }
+
+  /**
+   * P1-3: Remove stale narration-*.mp3 files from public/ that were
+   * left behind by failed/crashed renders. bg-music.mp3 is preserved.
+   * Files in .generated/remotion-tasks/ are **not** touched — each
+   * render job cleans its own task directory via safeRemove() in finally.
+   */
+  private async cleanupStaleNarrationFiles(): Promise<void> {
+    const publicDir = path.join(this.remotionDir, "public");
+    try {
+      const entries = await fs.readdir(publicDir);
+      const staleFiles = entries.filter(
+        (name) =>
+          name !== "bg-music.mp3" &&
+          name.startsWith("narration-") &&
+          name.endsWith(".mp3"),
+      );
+
+      if (staleFiles.length === 0) return;
+
+      this.logger.log(
+        `[cleanupStaleNarrationFiles] removing ${staleFiles.length} stale narration file(s): ${staleFiles.join(", ")}`,
+      );
+
+      for (const file of staleFiles) {
+        try {
+          await fs.unlink(path.join(publicDir, file));
+        } catch {
+          // best effort
+        }
+      }
+    } catch {
+      // directory may not exist yet — fine
     }
   }
 

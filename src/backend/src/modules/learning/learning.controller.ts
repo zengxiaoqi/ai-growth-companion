@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Body,
   Controller,
@@ -31,6 +31,19 @@ import { LessonVideoQueueService } from "./lesson-video-queue.service";
 import { LearningService } from "./learning.service";
 import { LearningTrackerService } from "./learning-tracker.service";
 import type { VideoRenderEngine } from "../../database/entities/video-generation-task.entity";
+import {
+  StartLearningDto,
+  CompleteLearningDto,
+  RecordActivityDto,
+  GenerateDraftDto,
+  SaveDraftDto,
+  UpdateDraftDto,
+  ModifyDraftDto,
+  ConfirmLessonDto,
+  CreateVideoTaskDto,
+  ApproveVideoDto,
+  CompleteStepDto,
+} from "./learning.dto";
 
 @ApiTags("学习记录")
 @Controller("learning")
@@ -87,7 +100,7 @@ export class LearningController {
   @ApiOperation({ summary: "开始学习" })
   async start(
     @Request() req: any,
-    @Body() body: { childId: number; contentId: number },
+    @Body() body: StartLearningDto,
   ) {
     await this.assertAccessToChild(req, body.childId);
     return this.learningService.create(body.childId, body.contentId);
@@ -100,7 +113,7 @@ export class LearningController {
   async complete(
     @Request() req: any,
     @Param("id") id: string,
-    @Body() body: any,
+    @Body() body: CompleteLearningDto,
   ) {
     const record = await this.learningService.findById(+id);
     if (!record) return null;
@@ -167,23 +180,12 @@ export class LearningController {
   @ApiOperation({ summary: "记录互动学习活动（AI对话等）" })
   async recordActivity(
     @Request() req: any,
-    @Body()
-    body: {
-      childId: number;
-      domain: string;
-      score: number;
-      durationSeconds?: number;
-      sessionId?: string;
-      activityType?: string;
-      interactionData?: Record<string, any>;
-      reviewItems?: WrongQuestionReviewItem[];
-      topic?: string;
-    },
+    @Body() body: RecordActivityDto,
   ) {
     await this.assertAccessToChild(req, body.childId);
 
     const reviewItems =
-      body.reviewItems ||
+      (body.reviewItems as WrongQuestionReviewItem[] | undefined) ||
       ((body.interactionData?.reviewData ||
         body.interactionData?.reviewItems) as
         | WrongQuestionReviewItem[]
@@ -318,17 +320,7 @@ export class LearningController {
   @ApiOperation({ summary: "一键生成结构化课程（四步学习）" })
   async generateLesson(
     @Request() req: any,
-    @Body()
-    body: {
-      topic: string;
-      childId: number;
-      ageGroup?: "3-4" | "5-6";
-      domain?: "language" | "math" | "science" | "art" | "social";
-      focus?: "literacy" | "math" | "science" | "mixed";
-      difficulty?: number;
-      durationMinutes?: number;
-      parentPrompt?: string;
-    },
+    @Body() body: GenerateDraftDto,
   ) {
     const parentId = req.user?.sub;
     const viewerType = req.user?.type;
@@ -349,19 +341,7 @@ export class LearningController {
   @ApiOperation({ summary: "直接保存课程草稿（绕过LLM，纯CRUD）" })
   async createDraft(
     @Request() req: any,
-    @Body()
-    body: {
-      childId: number;
-      title: string;
-      subtitle?: string;
-      domain?: string;
-      topic?: string;
-      ageGroup?: "3-4" | "5-6";
-      difficulty?: number;
-      durationMinutes?: number;
-      content?: any;
-      parentPrompt?: string;
-    },
+    @Body() body: SaveDraftDto,
   ) {
     const parentId = req.user?.sub;
     if (req.user?.type !== "parent") {
@@ -394,17 +374,7 @@ export class LearningController {
   async updateDraft(
     @Request() req: any,
     @Param("id") id: string,
-    @Body()
-    body: {
-      title?: string;
-      subtitle?: string;
-      domain?: string;
-      topic?: string;
-      ageGroup?: "3-4" | "5-6";
-      difficulty?: number;
-      durationMinutes?: number;
-      content?: any;
-    },
+    @Body() body: UpdateDraftDto,
   ) {
     if (req.user?.type !== "parent") {
       throw new ForbiddenException("仅家长可修改课程草稿");
@@ -436,7 +406,7 @@ export class LearningController {
   async modifyLesson(
     @Request() req: any,
     @Param("id") id: string,
-    @Body() body: { modification: string; stepId?: string },
+    @Body() body: ModifyDraftDto,
   ) {
     const parentId = req.user?.sub;
     if (req.user?.type !== "parent") {
@@ -462,7 +432,7 @@ export class LearningController {
   async confirmLesson(
     @Request() req: any,
     @Param("id") id: string,
-    @Body() body: { childId: number },
+    @Body() body: ConfirmLessonDto,
   ) {
     const parentId = req.user?.sub;
     if (req.user?.type !== "parent") {
@@ -497,8 +467,7 @@ export class LearningController {
   async enqueueLessonTeachingVideoTask(
     @Request() req: any,
     @Param("id") id: string,
-    @Body()
-    body: { childId?: number; force?: boolean; engine?: VideoRenderEngine },
+    @Body() body: CreateVideoTaskDto,
   ) {
     const resolvedChildId = this.resolveChildId(
       req,
@@ -510,7 +479,7 @@ export class LearningController {
       +id,
       resolvedChildId,
       !!body.force,
-      body?.engine || "auto",
+      (body?.engine || "auto") as VideoRenderEngine,
     );
     return {
       taskId: task.id,
@@ -693,13 +662,7 @@ export class LearningController {
   async approveVideo(
     @Request() req: any,
     @Param("id") id: string,
-    @Body()
-    body: {
-      childId: number;
-      approved: boolean;
-      feedback?: string;
-      taskId?: number;
-    },
+    @Body() body: ApproveVideoDto,
   ) {
     if (req.user?.type !== "parent") {
       throw new ForbiddenException("仅家长可审批视频");
@@ -736,14 +699,7 @@ export class LearningController {
   async completeLessonStep(
     @Request() req: any,
     @Param("id") id: string,
-    @Body()
-    body: {
-      childId: number;
-      stepId: string;
-      score?: number;
-      durationSeconds?: number;
-      interactionData?: Record<string, any>;
-    },
+    @Body() body: CompleteStepDto,
   ) {
     await this.assertAccessToChild(req, body.childId);
     return this.lessonContentService.completeStep({

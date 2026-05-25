@@ -130,6 +130,7 @@ export interface DraftLessonSummary {
   childId: number;
   createdAt: string;
   updatedAt: string;
+  content?: any;
 }
 
 @Injectable()
@@ -249,6 +250,7 @@ export class LessonContentService implements OnModuleInit {
         "plan.title AS title",
         "plan.sourceType AS sourceType",
         "plan.status AS status",
+        "plan.planContent AS planContent",
         "plan.createdAt AS createdAt",
         "plan.updatedAt AS updatedAt",
       ])
@@ -262,6 +264,7 @@ export class LessonContentService implements OnModuleInit {
         title: string;
         sourceType: string;
         status: string;
+        planContent: any;
         createdAt: Date | string;
         updatedAt: Date | string;
       }>();
@@ -275,6 +278,7 @@ export class LessonContentService implements OnModuleInit {
         status: row.status || "draft",
         contentType: "course_pack",
         childId,
+        content: row.planContent,
         createdAt:
           row.createdAt instanceof Date
             ? row.createdAt.toISOString()
@@ -555,6 +559,25 @@ export class LessonContentService implements OnModuleInit {
    * Update an existing draft lesson directly without any LLM involvement.
    * Pure CRUD: takes partial data from the frontend and updates the DB record.
    */
+  /**
+   * Delete a draft lesson. Only content records with status='draft' and
+   * contentType='structured_lesson' can be deleted.
+   */
+  async deleteDraft(contentId: number): Promise<{ success: boolean }> {
+    const content = await this.contentRepo.findOne({
+      where: { id: contentId },
+    });
+    if (!content) throw new NotFoundException("Content not found");
+    if (content.status !== "draft") {
+      throw new ForbiddenException("Only draft lessons can be deleted");
+    }
+
+    await this.contentRepo.delete(contentId);
+
+    this.logger.log(`Draft deleted: contentId=${contentId}`);
+    return { success: true };
+  }
+
   async updateDraftDirectly(
     contentId: number,
     params: UpdateDraftDirectlyParams,

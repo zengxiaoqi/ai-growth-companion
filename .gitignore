@@ -37,3 +37,6 @@ src/backend/public/
 
 # AI-generated video component (dynamically generated at runtime)
 src/video-remotion/src/GeneratedLesson.tsx
+
+# CodeGraph index (local code intelligence cache)
+.codegraph/

@@ -1,42 +1,45 @@
 {
-  "last_analysis": "2026-05-25",
-  "analysis_count": 3,
-  "commit_count": 199,
-  "last_commit": "2026-05-17T10:16:05+08:00",
-  "last_commit_hash": "241f392",
-  "commits_behind_remote": 11,
-  "remote_head": "1cd5144",
-  "remote_head_date": "2026-05-17T20:42:59+08:00",
-  "stale_days": 8,
+  "last_analysis": "2026-05-26",
+  "analysis_count": 4,
+  "commit_count": 215,
+  "last_commit": "2026-05-25T23:58:07+08:00",
+  "last_commit_hash": "716dbc0",
+  "commits_behind_remote": 0,
+  "remote_head": "716dbc0",
+  "remote_head_date": "2026-05-25T23:58:07+08:00",
+  "stale_days": 0,
   "capabilities": {
-    "child_experience": 88,
-    "parent_dashboard": 90,
+    "child_experience": 89,
+    "parent_dashboard": 91,
     "content_system": 82,
-    "infrastructure": 72,
-    "code_quality": 70
+    "infrastructure": 75,
+    "code_quality": 75
   },
   "active_plans": [],
   "completed_actions": [
     "Created lingxi-evolution skill for autonomous project management",
     "2026-05-24: Full project analysis — 17 backend modules, 13 entities, 3 frontends, 201 commits",
     "2026-05-25: Cleaned 2.3GB stale Flutter Web build artifact (src/frontend/build/)",
-    "2026-05-25: Updated AGENTS.md — fixed tool references (Codex→Hermes), added missing modules (emergency/assignment/notification/sse), added Flutter section, deployment info, video gen and agent tool patterns"
+    "2026-05-25: Updated AGENTS.md — fixed tool references (Codex→Hermes), added missing modules (emergency/assignment/notification/sse), added Flutter section, deployment info, video gen and agent tool patterns",
+    "2026-05-26: Added .codegraph/ to .gitignore (local code intelligence cache)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
     "Flutter Web build output (src/frontend/build/, 2.3GB) persists on disk despite being gitignored — should be cleaned up or integrated into a build script",
-    "Local repo is 11 commits behind origin/main — stale for 8 days since May 17. Need automated pull or CI sync."
+    "Local repo is 11 commits behind origin/main — stale for 8 days since May 17. Need automated pull or CI sync.",
+    "Full test suite (>120s timeout) may need parallelization or selective test running for CI viability",
+    "Flutter SDK not available in CI/cron environment — Flutter Web deploy must be done manually or on a Flutter-equipped runner"
   ],
   "metrics": {
-    "backend_files": 193,
-    "backend_test_files": 29,
-    "backend_test_ratio": "15.0%",
+    "backend_files": 195,
+    "backend_test_files": 27,
+    "backend_test_ratio": "13.8%",
     "flutter_files": 62,
     "web_files": 97,
     "content_files": 46,
-    "total_lines": 85555,
-    "repo_total_size": "1.8GB",
-    "repo_build_artifacts": "cleaned",
+    "total_lines": 58351,
+    "repo_total_size": "~1.8GB",
+    "repo_build_artifacts": "83MB Flutter build + 37MB deployed",
     "backend_modules": 16,
     "entities": 13
   }

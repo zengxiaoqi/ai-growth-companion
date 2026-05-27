@@ -112,7 +112,12 @@ export class GenerateDraftDto {
   @Min(1)
   childId!: number;
 
-  @ApiPropertyOptional({ description: "Difficulty level (1-5)", example: 3, minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({
+    description: "Difficulty level (1-5)",
+    example: 3,
+    minimum: 1,
+    maximum: 5,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -129,7 +134,10 @@ export class GenerateDraftDto {
   @IsString()
   ageGroup?: "3-4" | "5-6";
 
-  @ApiPropertyOptional({ description: "Focus area", enum: ["literacy", "math", "science", "mixed"] })
+  @ApiPropertyOptional({
+    description: "Focus area",
+    enum: ["literacy", "math", "science", "mixed"],
+  })
   @IsOptional()
   @IsString()
   focus?: "literacy" | "math" | "science" | "mixed";
@@ -178,7 +186,11 @@ export class SaveDraftDto {
   @IsString()
   ageGroup?: "3-4" | "5-6";
 
-  @ApiPropertyOptional({ description: "Difficulty level (1-5)", minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({
+    description: "Difficulty level (1-5)",
+    minimum: 1,
+    maximum: 5,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -229,7 +241,11 @@ export class UpdateDraftDto {
   @IsString()
   ageGroup?: "3-4" | "5-6";
 
-  @ApiPropertyOptional({ description: "Difficulty level (1-5)", minimum: 1, maximum: 5 })
+  @ApiPropertyOptional({
+    description: "Difficulty level (1-5)",
+    minimum: 1,
+    maximum: 5,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -250,7 +266,10 @@ export class UpdateDraftDto {
 
 // ─── PATCH /learning/lessons/:id ─────────────────────────────────────
 export class ModifyDraftDto {
-  @ApiProperty({ description: "Modification instruction for AI", example: "请把难度降低一点" })
+  @ApiProperty({
+    description: "Modification instruction for AI",
+    example: "请把难度降低一点",
+  })
   @IsString()
   @MinLength(1)
   modification!: string;
@@ -299,7 +318,9 @@ export class ApproveVideoDto {
   @IsBoolean()
   approved!: boolean;
 
-  @ApiPropertyOptional({ description: "Rejection feedback (required if rejected)" })
+  @ApiPropertyOptional({
+    description: "Rejection feedback (required if rejected)",
+  })
   @IsOptional()
   @IsString()
   feedback?: string;

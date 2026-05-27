@@ -98,10 +98,7 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "开始学习" })
-  async start(
-    @Request() req: any,
-    @Body() body: StartLearningDto,
-  ) {
+  async start(@Request() req: any, @Body() body: StartLearningDto) {
     await this.assertAccessToChild(req, body.childId);
     return this.learningService.create(body.childId, body.contentId);
   }
@@ -178,10 +175,7 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "记录互动学习活动（AI对话等）" })
-  async recordActivity(
-    @Request() req: any,
-    @Body() body: RecordActivityDto,
-  ) {
+  async recordActivity(@Request() req: any, @Body() body: RecordActivityDto) {
     await this.assertAccessToChild(req, body.childId);
 
     const reviewItems =
@@ -318,10 +312,7 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "一键生成结构化课程（四步学习）" })
-  async generateLesson(
-    @Request() req: any,
-    @Body() body: GenerateDraftDto,
-  ) {
+  async generateLesson(@Request() req: any, @Body() body: GenerateDraftDto) {
     const parentId = req.user?.sub;
     const viewerType = req.user?.type;
     if (viewerType !== "parent") {
@@ -339,10 +330,7 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "直接保存课程草稿（绕过LLM，纯CRUD）" })
-  async createDraft(
-    @Request() req: any,
-    @Body() body: SaveDraftDto,
-  ) {
+  async createDraft(@Request() req: any, @Body() body: SaveDraftDto) {
     const parentId = req.user?.sub;
     if (req.user?.type !== "parent") {
       throw new ForbiddenException("仅家长可创建课程草稿");

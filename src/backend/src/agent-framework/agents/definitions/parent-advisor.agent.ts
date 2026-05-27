@@ -9,29 +9,29 @@
  * - Generate course packs for structured learning
  */
 
-import type { AgentDefinition, AgentContext } from "../../core";
+import type { AgentDefinition, AgentContext } from '../../core';
 
 /** Runtime context hints for parent advisor */
 function buildContextHints(context: AgentContext): string {
   return [
-    "## Runtime Context",
-    context.childId != null ? `- Current childId: ${context.childId}` : "",
-    context.parentId != null ? `- Current parentId: ${context.parentId}` : "",
-    "- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.",
-    "- If childId is NOT known and you need child-specific data, call listChildren first and ask the parent to select one.",
+    '## Runtime Context',
+    context.childId != null ? `- Current childId: ${context.childId}` : '',
+    context.parentId != null ? `- Current parentId: ${context.parentId}` : '',
+    '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
+    '- If childId is NOT known and you need child-specific data, call listChildren first and ask the parent to select one.',
     "- Assignment flow supports batch drafts: you can call assignActivity multiple times (confirmPublish=false) to create multiple drafts in one turn. When the parent says '确认发布', call assignActivity with confirmPublish=true ONCE — it will publish ALL pending drafts.",
-    "- If parent says cancel/redo assignment drafts, call assignActivity with cancelDraft=true to clear all drafts.",
-    "- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.",
-    "- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.",
-    "- If parent asks to generate lesson teaching video, call enqueueTeachingVideo and return taskId for async progress polling.",
+    '- If parent says cancel/redo assignment drafts, call assignActivity with cancelDraft=true to clear all drafts.',
+    '- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.',
+    '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
+    '- If parent asks to generate lesson teaching video, call enqueueTeachingVideo and return taskId for async progress polling.',
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 }
 
 /** Build the system prompt for the parent advisor */
 function buildParentSystemPrompt(context: AgentContext): string {
-  const parentName = context.parentName || "家长";
+  const parentName = context.parentName || '家长';
   return `你是灵犀伴学的AI助手，正在和家长${parentName}交流。
 
 ## 你的身份
@@ -71,40 +71,34 @@ ${buildContextHints(context)}`;
 
 /** The parent advisor agent definition */
 export const parentAdvisorDefinition: AgentDefinition = {
-  type: "parent-advisor",
-  name: "家长顾问",
-  description:
-    "专业教育顾问，帮助家长查看学习报告、管理学习设置、布置作业、生成课程包",
+  type: 'parent-advisor',
+  name: '家长顾问',
+  description: '专业教育顾问，帮助家长查看学习报告、管理学习设置、布置作业、生成课程包',
 
   buildSystemPrompt: buildParentSystemPrompt,
 
   allowedTools: [
-    "listChildren",
-    "getAbilities",
-    "viewReport",
-    "viewAbilities",
-    "assignActivity",
-    "updateParentControl",
-    "getParentControl",
-    "generateCoursePack",
-    "enqueueTeachingVideo",
-    "listAssignments",
-    "loadSkill",
+    'listChildren',
+    'getAbilities',
+    'viewReport',
+    'viewAbilities',
+    'assignActivity',
+    'updateParentControl',
+    'getParentControl',
+    'generateCoursePack',
+    'enqueueTeachingVideo',
+    'listAssignments',
+    'loadSkill',
   ],
 
-  disallowedTools: [
-    "generateActivity",
-    "generateQuiz",
-    "generateVideoData",
-    "recordLearning",
-  ],
+  disallowedTools: ['generateActivity', 'generateQuiz', 'generateVideoData', 'recordLearning'],
 
   allowedSkills: [
-    "course-pack-flow",
-    "remotion-video-creation",
-    "video-generation-orchestrator",
-    "hyperframes",
-    "hyperframes-cli",
+    'course-pack-flow',
+    'remotion-video-creation',
+    'video-generation-orchestrator',
+    'hyperframes',
+    'hyperframes-cli',
   ],
 
   maxIterations: 8,

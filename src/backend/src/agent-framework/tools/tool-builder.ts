@@ -13,19 +13,11 @@
  * ```
  */
 
-import type {
-  ITool,
-  ToolMetadata,
-  ToolResult,
-  ToolExecutionContext,
-} from "../core";
+import type { ITool, ToolMetadata, ToolResult, ToolExecutionContext } from '../core';
 
 export interface ToolDefinition<TInput = any, TOutput = unknown> {
   metadata: ToolMetadata;
-  execute: (
-    args: TInput,
-    context: ToolExecutionContext,
-  ) => Promise<ToolResult<TOutput>>;
+  execute: (args: TInput, context: ToolExecutionContext) => Promise<ToolResult<TOutput>>;
 }
 
 /**

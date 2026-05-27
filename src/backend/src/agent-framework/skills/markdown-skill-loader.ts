@@ -6,20 +6,17 @@
  * - rules/*.md (optional) — supporting rule files
  */
 
-import type { Logger } from "@nestjs/common";
-import matter from "gray-matter";
-import * as fs from "fs";
-import * as path from "path";
-import type { SkillDefinition, SkillRule, SkillVariable } from "../core";
+import type { Logger } from '@nestjs/common';
+import matter from 'gray-matter';
+import * as fs from 'fs';
+import * as path from 'path';
+import type { SkillDefinition, SkillRule, SkillVariable } from '../core';
 
 /**
  * Load all skills from a directory containing skill subdirectories.
  * Each subdirectory with a SKILL.md file is loaded as a skill.
  */
-export function loadSkillsFromDirectory(
-  dirPath: string,
-  logger: Logger,
-): SkillDefinition[] {
+export function loadSkillsFromDirectory(dirPath: string, logger: Logger): SkillDefinition[] {
   if (!fs.existsSync(dirPath)) {
     logger.warn(`Skills directory not found: ${dirPath}`);
     return [];
@@ -32,7 +29,7 @@ export function loadSkillsFromDirectory(
     if (!entry.isDirectory()) continue;
 
     const skillDir = path.join(dirPath, entry.name);
-    const skillMdPath = path.join(skillDir, "SKILL.md");
+    const skillMdPath = path.join(skillDir, 'SKILL.md');
 
     if (!fs.existsSync(skillMdPath)) continue;
 
@@ -56,12 +53,9 @@ export function loadSkillsFromDirectory(
 /**
  * Load a single skill from its directory.
  */
-function loadSkillFromDirectory(
-  skillDir: string,
-  dirName: string,
-): SkillDefinition | null {
-  const skillMdPath = path.join(skillDir, "SKILL.md");
-  const raw = fs.readFileSync(skillMdPath, "utf-8");
+function loadSkillFromDirectory(skillDir: string, dirName: string): SkillDefinition | null {
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  const raw = fs.readFileSync(skillMdPath, 'utf-8');
   const { data: frontmatter } = matter(raw);
 
   if (!frontmatter.name && !frontmatter.description) {
@@ -80,13 +74,13 @@ function loadSkillFromDirectory(
     id,
     sourceDir: skillDir,
     name: frontmatter.name || id,
-    description: frontmatter.description || "",
+    description: frontmatter.description || '',
     triggers,
     body: undefined,
     variables,
     requiredTools,
     chainTo,
-    ageGroups: ageGroups as SkillDefinition["ageGroups"],
+    ageGroups: ageGroups as SkillDefinition['ageGroups'],
     rules: undefined,
   };
 }
@@ -95,15 +89,15 @@ function loadSkillFromDirectory(
  * Load all .md files from the rules/ subdirectory of a skill.
  */
 function loadRulesFromDirectory(skillDir: string): SkillRule[] {
-  const rulesDir = path.join(skillDir, "rules");
+  const rulesDir = path.join(skillDir, 'rules');
   if (!fs.existsSync(rulesDir)) return [];
 
   const rules: SkillRule[] = [];
-  const files = fs.readdirSync(rulesDir).filter((f) => f.endsWith(".md"));
+  const files = fs.readdirSync(rulesDir).filter((f) => f.endsWith('.md'));
 
   for (const file of files) {
     const filePath = path.join(rulesDir, file);
-    const content = fs.readFileSync(filePath, "utf-8");
+    const content = fs.readFileSync(filePath, 'utf-8');
     rules.push({ name: file, content: content.trim() });
   }
 
@@ -117,34 +111,31 @@ function parseVariables(raw: unknown): SkillVariable[] {
   if (!Array.isArray(raw)) return [];
 
   return raw
-    .filter((v: any) => v && typeof v === "object" && v.name)
+    .filter((v: any) => v && typeof v === 'object' && v.name)
     .map((v: any) => ({
       name: String(v.name),
-      type: (["string", "number", "boolean"].includes(v.type)
+      type: (['string', 'number', 'boolean'].includes(v.type)
         ? v.type
-        : "string") as SkillVariable["type"],
+        : 'string') as SkillVariable['type'],
       required: v.required !== false,
       defaultValue: v.defaultValue,
-      description: String(v.description || ""),
+      description: String(v.description || ''),
     }));
 }
 
-function asStringArray(
-  value: unknown,
-  fallback: string[] | undefined,
-): string[] | undefined {
+function asStringArray(value: unknown, fallback: string[] | undefined): string[] | undefined {
   if (!Array.isArray(value)) return fallback;
   return value.map((v: any) => String(v)).filter(Boolean);
 }
 
 function asOptionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 /** Lazily load the Markdown body from a skill directory. */
 export function loadSkillBody(skillDir: string): string {
-  const skillMdPath = path.join(skillDir, "SKILL.md");
-  const raw = fs.readFileSync(skillMdPath, "utf-8");
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
+  const raw = fs.readFileSync(skillMdPath, 'utf-8');
   const { content: body } = matter(raw);
   return body.trim();
 }

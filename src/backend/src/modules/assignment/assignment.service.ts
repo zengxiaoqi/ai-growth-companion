@@ -4,15 +4,15 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { v4 as uuidv4 } from "uuid";
-import { Assignment } from "../../database/entities/assignment.entity";
-import { GenerateActivityTool } from "../ai/agent/tools/generate-activity";
-import { LearningTrackerService } from "../learning/learning-tracker.service";
-import { LearningArchiveService } from "../learning/learning-archive.service";
-import { UsersService } from "../users/users.service";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { Assignment } from '../../database/entities/assignment.entity';
+import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
+import { LearningTrackerService } from '../learning/learning-tracker.service';
+import { LearningArchiveService } from '../learning/learning-archive.service';
+import { UsersService } from '../users/users.service';
 
 const ACTIVITY_GENERATION_TIMEOUT_MS = 45000;
 
@@ -40,13 +40,11 @@ export class AssignmentService {
     dueDate?: string;
   }): Promise<Assignment> {
     const child = await this.usersService.findById(data.childId);
-    if (!child || child.type !== "child") {
-      throw new BadRequestException("Child not found");
+    if (!child || child.type !== 'child') {
+      throw new BadRequestException('Child not found');
     }
     if (child.parentId !== data.parentId) {
-      throw new ForbiddenException(
-        "You can only assign homework to your own child",
-      );
+      throw new ForbiddenException('You can only assign homework to your own child');
     }
 
     let activityData = data.activityData;
@@ -54,7 +52,7 @@ export class AssignmentService {
     if (this.shouldGenerateActivityData(activityData)) {
       const topic = this.resolveTopic(activityData?.topic, data.domain);
       const difficulty = data.difficulty || 1;
-      const ageGroup = difficulty <= 1 ? "3-4" : "5-6";
+      const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
 
       activityData = await this.generateActivityDataByAI(
         {
@@ -78,7 +76,7 @@ export class AssignmentService {
       domain: data.domain,
       difficulty: data.difficulty || 1,
       dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-      status: "pending",
+      status: 'pending',
     });
     const saved = await this.assignmentRepo.save(assignment);
 
@@ -86,7 +84,7 @@ export class AssignmentService {
       await this.learningArchive.createStudyPlanRecord({
         childId: data.childId,
         parentId: data.parentId,
-        sourceType: "parent_assignment",
+        sourceType: 'parent_assignment',
         sourceId: saved.id,
         title: activityData?.topic || `${saved.activityType} assignment`,
         planContent: {
@@ -110,14 +108,14 @@ export class AssignmentService {
   async findByChild(childId: number): Promise<Assignment[]> {
     return this.assignmentRepo.find({
       where: { childId },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
     });
   }
 
   async findByParent(parentId: number): Promise<Assignment[]> {
     return this.assignmentRepo.find({
       where: { parentId },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -148,15 +146,13 @@ export class AssignmentService {
     const nextActivityType = data.activityType || assignment.activityType;
     const nextDomain = data.domain ?? assignment.domain;
     const nextDifficulty = data.difficulty || assignment.difficulty || 1;
-    const nextAgeGroup = nextDifficulty <= 1 ? "3-4" : "5-6";
+    const nextAgeGroup = nextDifficulty <= 1 ? '3-4' : '5-6';
 
     let nextActivityData = data.activityData ?? assignment.activityData;
     if (data.topic !== undefined) {
       const sanitizedTopic = data.topic.trim();
       nextActivityData = {
-        ...(nextActivityData && typeof nextActivityData === "object"
-          ? nextActivityData
-          : {}),
+        ...(nextActivityData && typeof nextActivityData === 'object' ? nextActivityData : {}),
         topic: sanitizedTopic,
       };
     }
@@ -199,17 +195,12 @@ export class AssignmentService {
     return { success: true };
   }
 
-  private assertParentCanManagePendingAssignment(
-    assignment: Assignment,
-    parentId: number,
-  ): void {
+  private assertParentCanManagePendingAssignment(assignment: Assignment, parentId: number): void {
     if (assignment.parentId !== parentId) {
-      throw new ForbiddenException("You can only manage your own assignments");
+      throw new ForbiddenException('You can only manage your own assignments');
     }
-    if (assignment.status !== "pending") {
-      throw new BadRequestException(
-        "Only pending assignments can be edited or deleted",
-      );
+    if (assignment.status !== 'pending') {
+      throw new BadRequestException('Only pending assignments can be edited or deleted');
     }
   }
 
@@ -218,7 +209,7 @@ export class AssignmentService {
     if (this.shouldGenerateActivityData(data)) {
       const topic = this.resolveTopic(data?.topic, assignment.domain);
       const difficulty = assignment.difficulty || 1;
-      const ageGroup = difficulty <= 1 ? "3-4" : "5-6";
+      const ageGroup = difficulty <= 1 ? '3-4' : '5-6';
 
       const generated = await this.generateActivityDataByAI(
         {
@@ -244,15 +235,12 @@ export class AssignmentService {
   }
 
   private hasStructuredActivityData(activityData: any): boolean {
-    if (!activityData || typeof activityData !== "object") return false;
+    if (!activityData || typeof activityData !== 'object') return false;
 
     return (
-      (Array.isArray(activityData.questions) &&
-        activityData.questions.length > 0) ||
-      (Array.isArray(activityData.statements) &&
-        activityData.statements.length > 0) ||
-      (Array.isArray(activityData.sentences) &&
-        activityData.sentences.length > 0) ||
+      (Array.isArray(activityData.questions) && activityData.questions.length > 0) ||
+      (Array.isArray(activityData.statements) && activityData.statements.length > 0) ||
+      (Array.isArray(activityData.sentences) && activityData.sentences.length > 0) ||
       (Array.isArray(activityData.pairs) && activityData.pairs.length > 0) ||
       (Array.isArray(activityData.leftItems) &&
         activityData.leftItems.length > 0 &&
@@ -266,9 +254,9 @@ export class AssignmentService {
   }
 
   private resolveTopic(topic?: string, domain?: string): string {
-    const normalizedTopic = typeof topic === "string" ? topic.trim() : "";
-    const normalizedDomain = typeof domain === "string" ? domain.trim() : "";
-    return normalizedTopic || normalizedDomain || "general";
+    const normalizedTopic = typeof topic === 'string' ? topic.trim() : '';
+    const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+    return normalizedTopic || normalizedDomain || 'general';
   }
 
   private async generateActivityDataByAI(
@@ -282,9 +270,7 @@ export class AssignmentService {
     },
     options: { strict: boolean },
   ): Promise<any | null> {
-    const scope = params.assignmentId
-      ? `assignment ${params.assignmentId}`
-      : "new assignment";
+    const scope = params.assignmentId ? `assignment ${params.assignmentId}` : 'new assignment';
 
     try {
       const jsonStr = await this.withTimeout(
@@ -300,7 +286,7 @@ export class AssignmentService {
 
       const generated = JSON.parse(jsonStr);
       if (!this.hasStructuredActivityData(generated)) {
-        throw new Error("AI returned no playable content");
+        throw new Error('AI returned no playable content');
       }
 
       this.logger.log(
@@ -311,17 +297,14 @@ export class AssignmentService {
       this.logger.warn(`AI generation failed for ${scope}: ${err.message}`);
 
       if (options.strict) {
-        throw new BadRequestException("AI 生成题目失败，请稍后重试");
+        throw new BadRequestException('AI 生成题目失败，请稍后重试');
       }
 
       return null;
     }
   }
 
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number,
-  ): Promise<T> {
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     let timer: NodeJS.Timeout | null = null;
 
     try {
@@ -346,7 +329,7 @@ export class AssignmentService {
     },
   ): Promise<Assignment> {
     const assignment = await this.findById(id);
-    assignment.status = "completed";
+    assignment.status = 'completed';
     assignment.completedAt = new Date();
     assignment.score = result.score;
     assignment.resultData = result.resultData;
@@ -354,10 +337,10 @@ export class AssignmentService {
 
     try {
       await this.learningTracker.recordActivity({
-        type: "assignment_completion",
+        type: 'assignment_completion',
         childId: assignment.childId,
         assignmentId: assignment.id,
-        domain: assignment.domain || "language",
+        domain: assignment.domain || 'language',
         score: result.score,
         activityType: assignment.activityType,
         topic: assignment.activityData?.topic,
@@ -369,9 +352,7 @@ export class AssignmentService {
         },
       });
     } catch (err: any) {
-      this.logger.warn(
-        `Failed to record learning activity for assignment ${id}: ${err.message}`,
-      );
+      this.logger.warn(`Failed to record learning activity for assignment ${id}: ${err.message}`);
     }
 
     return saved;
@@ -379,7 +360,7 @@ export class AssignmentService {
 
   async getPendingCount(childId: number): Promise<number> {
     return this.assignmentRepo.count({
-      where: { childId, status: "pending" },
+      where: { childId, status: 'pending' },
     });
   }
 }

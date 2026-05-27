@@ -1,11 +1,6 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
-@Entity("emergency_calls")
+@Entity('emergency_calls')
 export class EmergencyCall {
   @PrimaryGeneratedColumn()
   id: number;
@@ -19,7 +14,7 @@ export class EmergencyCall {
   @Column({ nullable: true })
   parentPhone: string;
 
-  @Column({ default: "pending" })
+  @Column({ default: 'pending' })
   status: string; // pending | sms_sent | call_initiated | completed | failed
 
   @Column({ nullable: true })

@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { ParentControl } from "../../database/entities/parent-control.entity";
-import { v4 as uuidv4 } from "uuid";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ParentControl } from '../../database/entities/parent-control.entity';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ParentService {
@@ -21,7 +21,7 @@ export class ParentService {
       id: 0,
       parentId,
       dailyLimitMinutes: 30,
-      allowedDomains: ["language", "math", "science", "art", "social"],
+      allowedDomains: ['language', 'math', 'science', 'art', 'social'],
       blockedTopics: [],
       studySchedule: null,
       notifications: null,
@@ -45,8 +45,8 @@ export class ParentService {
       uuid: uuidv4(),
       parentId,
       childId,
-      studySchedule: "{}",
-      notifications: "{}",
+      studySchedule: '{}',
+      notifications: '{}',
     });
     return this.controlRepository.save(control);
   }
@@ -62,8 +62,8 @@ export class ParentService {
       uuid: uuidv4(),
       parentId,
       childId: 0,
-      studySchedule: "{}",
-      notifications: "{}",
+      studySchedule: '{}',
+      notifications: '{}',
     });
     return this.controlRepository.save(control);
   }
@@ -71,7 +71,7 @@ export class ParentService {
   async update(id: number, data: Partial<ParentControl>) {
     await this.controlRepository.update(id, data);
     const control = await this.controlRepository.findOne({ where: { id } });
-    if (!control) throw new NotFoundException("设置不存在");
+    if (!control) throw new NotFoundException('设置不存在');
     return control;
   }
 }

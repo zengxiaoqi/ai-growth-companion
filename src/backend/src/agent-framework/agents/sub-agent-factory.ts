@@ -6,15 +6,10 @@
  * the parent's identity context (childId, parentId, ageGroup).
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import type {
-  IAgent,
-  AgentDefinition,
-  AgentContext,
-  AgentMessage,
-} from "../core";
-import { SubAgentDepthError } from "../core";
-import type { IAgentRegistry } from "../core";
+import { Injectable, Logger } from '@nestjs/common';
+import type { IAgent, AgentDefinition, AgentContext, AgentMessage } from '../core';
+import { SubAgentDepthError } from '../core';
+import type { IAgentRegistry } from '../core';
 
 /** Maximum allowed sub-agent nesting depth across the entire system */
 const SYSTEM_MAX_DEPTH = 4;
@@ -48,10 +43,7 @@ export class SubAgentFactory {
     }
 
     // Enforce agent-specific max depth
-    if (
-      definition.maxSubAgentDepth > 0 &&
-      childDepth > definition.maxSubAgentDepth
-    ) {
+    if (definition.maxSubAgentDepth > 0 && childDepth > definition.maxSubAgentDepth) {
       throw new SubAgentDepthError(childDepth, definition.maxSubAgentDepth);
     }
 
@@ -93,7 +85,7 @@ export class SubAgentFactory {
     const childAbortController = new AbortController();
 
     if (parentContext.abortSignal) {
-      parentContext.abortSignal.addEventListener("abort", () => {
+      parentContext.abortSignal.addEventListener('abort', () => {
         childAbortController.abort();
       });
     }
@@ -123,7 +115,7 @@ export class SubAgentFactory {
   buildInitialMessages(instruction: string): AgentMessage[] {
     return [
       {
-        role: "user",
+        role: 'user',
         content: instruction,
       },
     ];

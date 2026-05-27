@@ -3,15 +3,11 @@
  * Migrated from modules/ai/agent/tools/search-content.ts
  */
 
-import { Injectable } from "@nestjs/common";
-import { ContentsService } from "../../../modules/contents/contents.service";
-import { BaseTool } from "../base-tool";
-import { RegisterTool } from "../decorators/register-tool";
-import type {
-  ToolMetadata,
-  ToolResult,
-  ToolExecutionContext,
-} from "../../core";
+import { Injectable } from '@nestjs/common';
+import { ContentsService } from '../../../modules/contents/contents.service';
+import { BaseTool } from '../base-tool';
+import { RegisterTool } from '../decorators/register-tool';
+import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 
 type SearchContentInput = {
   keyword: string;
@@ -23,16 +19,16 @@ type SearchContentInput = {
 @RegisterTool()
 export class SearchContentTool extends BaseTool<SearchContentInput> {
   readonly metadata: ToolMetadata = {
-    name: "searchContent",
-    description: "搜索学习内容，根据关键词查找适合的学习材料",
+    name: 'searchContent',
+    description: '搜索学习内容，根据关键词查找适合的学习材料',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        keyword: { type: "string", description: "搜索关键词" },
-        ageGroup: { type: "string", description: "年龄段筛选 (3-4 或 5-6)" },
-        limit: { type: "number", description: "返回数量限制，默认10" },
+        keyword: { type: 'string', description: '搜索关键词' },
+        ageGroup: { type: 'string', description: '年龄段筛选 (3-4 或 5-6)' },
+        limit: { type: 'number', description: '返回数量限制，默认10' },
       },
-      required: ["keyword"],
+      required: ['keyword'],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -45,10 +41,7 @@ export class SearchContentTool extends BaseTool<SearchContentInput> {
     super();
   }
 
-  async execute(
-    args: SearchContentInput,
-    _context: ToolExecutionContext,
-  ): Promise<ToolResult> {
+  async execute(args: SearchContentInput, _context: ToolExecutionContext): Promise<ToolResult> {
     try {
       const result = await this.contentsService.findAll();
       const keyword = args.keyword.toLowerCase();

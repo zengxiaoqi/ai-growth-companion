@@ -1,34 +1,23 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from "@nestjs/common";
-import { GameService } from "./game.service";
-import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { GameService } from './game.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller("game")
+@Controller('game')
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
-  @Get("list")
-  getGameList(@Query("ageRange") ageRange: string) {
-    return this.gameService.getGameList(ageRange || "3-4");
+  @Get('list')
+  getGameList(@Query('ageRange') ageRange: string) {
+    return this.gameService.getGameList(ageRange || '3-4');
   }
 
-  @Get(":gameId")
-  generateGame(
-    @Param("gameId") gameId: string,
-    @Query("difficulty") difficulty: string,
-  ) {
+  @Get(':gameId')
+  generateGame(@Param('gameId') gameId: string, @Query('difficulty') difficulty: string) {
     return this.gameService.generateGame(gameId, +(difficulty || 1));
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post("result")
+  @Post('result')
   async saveGameResult(
     @Body()
     body: {
@@ -50,8 +39,8 @@ export class GameController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get("level/:userId")
-  getLevelInfo(@Param("userId") userId: string) {
+  @Get('level/:userId')
+  getLevelInfo(@Param('userId') userId: string) {
     return this.gameService.getLevelInfo(+userId);
   }
 }

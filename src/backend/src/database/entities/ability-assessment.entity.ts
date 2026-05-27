@@ -1,11 +1,6 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
-@Entity("ability_assessments")
+@Entity('ability_assessments')
 export class AbilityAssessment {
   @PrimaryGeneratedColumn()
   id: number;
@@ -25,7 +20,7 @@ export class AbilityAssessment {
   @Column({ nullable: true })
   level: string;
 
-  @Column({ type: "simple-json" })
+  @Column({ type: 'simple-json' })
   evidence: any;
 
   @CreateDateColumn()

@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { v4 as uuidv4 } from "uuid";
-import { Conversation, ConversationMessage } from "./conversation.entity";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { Conversation, ConversationMessage } from './conversation.entity';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
 
 interface ActiveSession {
   conversationId: number;
@@ -25,17 +25,14 @@ export class ConversationManager {
   ) {}
 
   /** Get or create a conversation session */
-  async getOrCreateSession(
-    childId: number,
-    sessionId?: string,
-  ): Promise<ActiveSession> {
+  async getOrCreateSession(childId: number, sessionId?: string): Promise<ActiveSession> {
     // Try to find existing session
     if (sessionId) {
       const cached = this.activeSessions.get(sessionId);
       if (cached) return cached;
 
       const conv = await this.conversationRepo.findOne({
-        where: { uuid: sessionId, status: "active" },
+        where: { uuid: sessionId, status: 'active' },
       });
       if (conv) {
         const session: ActiveSession = {
@@ -51,8 +48,8 @@ export class ConversationManager {
 
     // Try to find an active session for this child
     const existing = await this.conversationRepo.findOne({
-      where: { childId, status: "active" },
-      order: { updatedAt: "DESC" },
+      where: { childId, status: 'active' },
+      order: { updatedAt: 'DESC' },
     });
     if (existing) {
       const session: ActiveSession = {
@@ -70,7 +67,7 @@ export class ConversationManager {
     const conv = this.conversationRepo.create({
       uuid,
       childId,
-      status: "active",
+      status: 'active',
       metadata: {},
     });
     await this.conversationRepo.save(conv);
@@ -120,7 +117,7 @@ export class ConversationManager {
 
     const messages = await this.messageRepo.find({
       where: { conversationId: session.conversationId },
-      order: { createdAt: "ASC" },
+      order: { createdAt: 'ASC' },
     });
 
     // Build valid blocks so we never split assistant(tool_calls) from tool results.
@@ -128,37 +125,37 @@ export class ConversationManager {
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
 
-      if (msg.role === "system") {
-        blocks.push([{ role: "system", content: msg.content }]);
+      if (msg.role === 'system') {
+        blocks.push([{ role: 'system', content: msg.content }]);
         continue;
       }
 
-      if (msg.role === "user") {
-        blocks.push([{ role: "user", content: msg.content }]);
+      if (msg.role === 'user') {
+        blocks.push([{ role: 'user', content: msg.content }]);
         continue;
       }
 
-      if (msg.role === "assistant") {
+      if (msg.role === 'assistant') {
         const toolCalls = Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
         if (toolCalls.length === 0) {
-          blocks.push([{ role: "assistant", content: msg.content }]);
+          blocks.push([{ role: 'assistant', content: msg.content }]);
           continue;
         }
 
         const pendingToolIds = new Set(
           toolCalls
-            .map((call: any) => (typeof call?.id === "string" ? call.id : null))
+            .map((call: any) => (typeof call?.id === 'string' ? call.id : null))
             .filter((id: string | null): id is string => Boolean(id)),
         );
 
         if (pendingToolIds.size === 0) {
-          blocks.push([{ role: "assistant", content: msg.content }]);
+          blocks.push([{ role: 'assistant', content: msg.content }]);
           continue;
         }
 
         const block: ChatCompletionMessageParam[] = [
           {
-            role: "assistant",
+            role: 'assistant',
             content: msg.content || null,
             tool_calls: toolCalls,
           } as ChatCompletionMessageParam,
@@ -167,11 +164,11 @@ export class ConversationManager {
         let j = i + 1;
         while (j < messages.length && pendingToolIds.size > 0) {
           const toolMsg = messages[j];
-          if (toolMsg.role !== "tool") break;
+          if (toolMsg.role !== 'tool') break;
 
           if (toolMsg.toolCallId && pendingToolIds.has(toolMsg.toolCallId)) {
             block.push({
-              role: "tool",
+              role: 'tool',
               content: toolMsg.content,
               tool_call_id: toolMsg.toolCallId,
             } as ChatCompletionMessageParam);
@@ -193,7 +190,7 @@ export class ConversationManager {
       }
 
       // Drop dangling tool messages that don't have a preceding assistant(tool_calls) in this scan.
-      if (msg.role === "tool") {
+      if (msg.role === 'tool') {
         continue;
       }
     }
@@ -236,7 +233,7 @@ export class ConversationManager {
     if (!session) return;
 
     await this.conversationRepo.update(session.conversationId, {
-      status: "ended",
+      status: 'ended',
     });
     this.activeSessions.delete(sessionId);
   }
@@ -247,17 +244,13 @@ export class ConversationManager {
     });
   }
 
-  async listSessions(params: {
-    childId: number;
-    page?: number;
-    limit?: number;
-  }) {
+  async listSessions(params: { childId: number; page?: number; limit?: number }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(50, Math.max(1, params.limit || 20));
 
     const [list, total] = await this.conversationRepo.findAndCount({
       where: { childId: params.childId },
-      order: { updatedAt: "DESC" },
+      order: { updatedAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -267,11 +260,11 @@ export class ConversationManager {
 
     if (sessionIds.length > 0) {
       const rows = await this.messageRepo
-        .createQueryBuilder("m")
-        .select("m.conversationId", "conversationId")
-        .addSelect("COUNT(*)", "count")
-        .where("m.conversationId IN (:...ids)", { ids: sessionIds })
-        .groupBy("m.conversationId")
+        .createQueryBuilder('m')
+        .select('m.conversationId', 'conversationId')
+        .addSelect('COUNT(*)', 'count')
+        .where('m.conversationId IN (:...ids)', { ids: sessionIds })
+        .groupBy('m.conversationId')
         .getRawMany();
 
       for (const row of rows) {
@@ -296,11 +289,7 @@ export class ConversationManager {
     };
   }
 
-  async getSessionMessages(params: {
-    sessionId: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getSessionMessages(params: { sessionId: string; page?: number; limit?: number }) {
     const conversation = await this.getConversationByUuid(params.sessionId);
     if (!conversation) {
       return { conversation: null, list: [], total: 0, page: 1, limit: 20 };
@@ -310,7 +299,7 @@ export class ConversationManager {
     const limit = Math.min(200, Math.max(1, params.limit || 50));
     const [rows, total] = await this.messageRepo.findAndCount({
       where: { conversationId: conversation.id },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -326,19 +315,16 @@ export class ConversationManager {
   }
 
   /** Get conversation history for display */
-  async getHistory(
-    childId: number,
-    limit = 50,
-  ): Promise<ConversationMessage[]> {
+  async getHistory(childId: number, limit = 50): Promise<ConversationMessage[]> {
     const conv = await this.conversationRepo.findOne({
-      where: { childId, status: "active" },
-      order: { updatedAt: "DESC" },
+      where: { childId, status: 'active' },
+      order: { updatedAt: 'DESC' },
     });
     if (!conv) return [];
 
     return this.messageRepo.find({
       where: { conversationId: conv.id },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
       take: limit,
     });
   }

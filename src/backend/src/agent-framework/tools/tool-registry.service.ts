@@ -5,16 +5,11 @@
  * No manual wiring needed — add a new tool class and it appears automatically.
  */
 
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { DiscoveryService, ModuleRef } from "@nestjs/core";
-import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
-import type {
-  ITool,
-  IToolRegistry,
-  ToolResult,
-  ToolExecutionContext,
-} from "../core";
-import { TOOL_REGISTRY_METADATA } from "./decorators/register-tool";
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { DiscoveryService, ModuleRef } from '@nestjs/core';
+import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import type { ITool, IToolRegistry, ToolResult, ToolExecutionContext } from '../core';
+import { TOOL_REGISTRY_METADATA } from './decorators/register-tool';
 
 @Injectable()
 export class ToolRegistryService implements IToolRegistry, OnModuleInit {
@@ -37,7 +32,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
       const instance = this.resolveToolInstance(wrapper, metatype);
       if (!instance) continue;
 
-      if (!("metadata" in instance) || !("execute" in instance)) {
+      if (!('metadata' in instance) || !('execute' in instance)) {
         this.logger.warn(
           `@RegisterTool() on ${metatype.name} but missing metadata/execute — skipping`,
         );
@@ -55,7 +50,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   private resolveToolMetatype(wrapper: InstanceWrapper): any {
     const candidates = [
       wrapper.metatype,
-      typeof wrapper.token === "function" ? wrapper.token : null,
+      typeof wrapper.token === 'function' ? wrapper.token : null,
       wrapper.instance?.constructor,
     ].filter(Boolean);
 
@@ -72,22 +67,19 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
     return Reflect.getMetadata(TOOL_REGISTRY_METADATA, metatype) === true;
   }
 
-  private resolveToolInstance(
-    wrapper: InstanceWrapper,
-    metatype: any,
-  ): Record<string, any> | null {
+  private resolveToolInstance(wrapper: InstanceWrapper, metatype: any): Record<string, any> | null {
     const existing = wrapper.instance;
-    if (existing && typeof existing === "object") {
+    if (existing && typeof existing === 'object') {
       return existing;
     }
 
     try {
       const token = wrapper.token ?? metatype;
       const resolved = this.moduleRef.get(token as any, { strict: false });
-      if (resolved && typeof resolved === "object") return resolved;
+      if (resolved && typeof resolved === 'object') return resolved;
     } catch (error: any) {
       this.logger.warn(
-        `Unable to resolve tool provider ${metatype?.name || String(wrapper.token)}: ${error?.message || "unknown"}`,
+        `Unable to resolve tool provider ${metatype?.name || String(wrapper.token)}: ${error?.message || 'unknown'}`,
       );
     }
 
@@ -96,9 +88,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
 
   register(tool: ITool): void {
     if (this.tools.has(tool.metadata.name)) {
-      this.logger.warn(
-        `Tool "${tool.metadata.name}" already registered — overwriting`,
-      );
+      this.logger.warn(`Tool "${tool.metadata.name}" already registered — overwriting`);
     }
     this.tools.set(tool.metadata.name, tool);
   }
@@ -120,10 +110,10 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   /** Build OpenAI function-calling tool definitions, optionally filtered */
   getToolDefinitions(
     filter?: (tool: ITool) => boolean,
-  ): Array<{ type: "function"; function: any }> {
+  ): Array<{ type: 'function'; function: any }> {
     const tools = filter ? this.getAll().filter(filter) : this.getAll();
     return tools.map((tool) => ({
-      type: "function" as const,
+      type: 'function' as const,
       function: {
         name: tool.metadata.name,
         description: tool.metadata.description,
@@ -133,11 +123,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   }
 
   /** Execute a tool by name with structured error handling */
-  async execute(
-    name: string,
-    args: any,
-    context: ToolExecutionContext,
-  ): Promise<ToolResult> {
+  async execute(name: string, args: any, context: ToolExecutionContext): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       this.logger.warn(`Unknown tool called: ${name}`);
@@ -145,9 +131,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
     }
 
     try {
-      this.logger.log(
-        `Tool called: ${name}(${JSON.stringify(args).slice(0, 100)})`,
-      );
+      this.logger.log(`Tool called: ${name}(${JSON.stringify(args).slice(0, 100)})`);
       const result = await tool.execute(args, context);
       this.logger.log(`Tool ${name} returned: success=${result.success}`);
       return result;
@@ -158,11 +142,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
   }
 
   /** Execute a tool and return the result as a JSON string (backward-compatible) */
-  async executeToString(
-    name: string,
-    args: any,
-    context: ToolExecutionContext,
-  ): Promise<string> {
+  async executeToString(name: string, args: any, context: ToolExecutionContext): Promise<string> {
     const result = await this.execute(name, args, context);
     return JSON.stringify(result.data ?? { error: result.error });
   }

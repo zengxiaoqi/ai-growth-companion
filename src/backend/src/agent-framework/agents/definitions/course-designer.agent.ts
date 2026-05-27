@@ -6,7 +6,7 @@
  * This is a specialized, single-purpose agent with no sub-agent spawning.
  */
 
-import type { AgentDefinition, AgentContext } from "../../core";
+import type { AgentDefinition, AgentContext } from '../../core';
 
 const COURSE_DESIGNER_PROMPT = `你是一位专业的课程设计师，专注于为3-6岁儿童设计家庭学习课程包。
 
@@ -29,57 +29,57 @@ const COURSE_DESIGNER_PROMPT = `你是一位专业的课程设计师，专注于
 /** Build the system prompt for course pack generation */
 function buildCourseDesignerPrompt(context: AgentContext): string {
   const contextHints = [
-    "## Runtime Context",
-    context.childId != null ? `- childId: ${context.childId}` : "",
-    context.ageGroup !== "parent" ? `- ageGroup: ${context.ageGroup}` : "",
-    "- Always specify ageGroup and topic when calling generateCoursePack.",
-    "- Generate age-appropriate content.",
-    "- If the parent asks to create a teaching video task, call enqueueTeachingVideo with lessonId.",
+    '## Runtime Context',
+    context.childId != null ? `- childId: ${context.childId}` : '',
+    context.ageGroup !== 'parent' ? `- ageGroup: ${context.ageGroup}` : '',
+    '- Always specify ageGroup and topic when calling generateCoursePack.',
+    '- Generate age-appropriate content.',
+    '- If the parent asks to create a teaching video task, call enqueueTeachingVideo with lessonId.',
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 
   return `${COURSE_DESIGNER_PROMPT}\n\n${contextHints}`;
 }
 
 /** The course designer agent definition */
 export const courseDesignerDefinition: AgentDefinition = {
-  type: "course-designer",
-  name: "课程设计师",
-  description: "专业课程设计师，生成包含听、说、读、写、游戏的结构化课程包",
+  type: 'course-designer',
+  name: '课程设计师',
+  description: '专业课程设计师，生成包含听、说、读、写、游戏的结构化课程包',
 
   buildSystemPrompt: buildCourseDesignerPrompt,
 
   allowedTools: [
-    "generateCoursePack",
-    "generateActivity",
-    "searchContent",
-    "enqueueTeachingVideo",
-    "generateVideoContent",
-    "executeCommand",
-    "readFile",
-    "writeFile",
-    "renderHyperframes",
-    "renderRemotion",
-    "reviewVideoQuality",
-    "loadSkill",
+    'generateCoursePack',
+    'generateActivity',
+    'searchContent',
+    'enqueueTeachingVideo',
+    'generateVideoContent',
+    'executeCommand',
+    'readFile',
+    'writeFile',
+    'renderHyperframes',
+    'renderRemotion',
+    'reviewVideoQuality',
+    'loadSkill',
   ],
 
   disallowedTools: [],
 
   allowedSkills: [
-    "course-pack-flow",
-    "activity-validation",
-    "remotion-video-creation",
-    "video-generation-orchestrator",
-    "hyperframes",
-    "hyperframes-cli",
-    "gsap",
-    "css-animations",
+    'course-pack-flow',
+    'activity-validation',
+    'remotion-video-creation',
+    'video-generation-orchestrator',
+    'hyperframes',
+    'hyperframes-cli',
+    'gsap',
+    'css-animations',
   ],
 
   maxIterations: 8,
-  defaultAgeGroup: "5-6",
+  defaultAgeGroup: '5-6',
   canSpawnSubAgents: false,
   maxSubAgentDepth: 0,
 };

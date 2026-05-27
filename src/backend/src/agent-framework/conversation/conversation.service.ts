@@ -3,14 +3,14 @@
  * Refactored from ConversationManager with extracted MessageBuilder and SessionCache.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { v4 as uuidv4 } from "uuid";
-import { Conversation, ConversationMessage, MessageRole } from "./entities";
-import { MessageBuilderService } from "./message-builder.service";
-import { SessionCache } from "./session-cache";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions/completions";
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { Conversation, ConversationMessage, MessageRole } from './entities';
+import { MessageBuilderService } from './message-builder.service';
+import { SessionCache } from './session-cache';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
 
 export interface ActiveSession {
   conversationId: number;
@@ -22,10 +22,7 @@ export interface ActiveSession {
 @Injectable()
 export class ConversationService {
   private readonly logger = new Logger(ConversationService.name);
-  private readonly activeSessions = new SessionCache<ActiveSession>(
-    30 * 60 * 1000,
-    1000,
-  );
+  private readonly activeSessions = new SessionCache<ActiveSession>(30 * 60 * 1000, 1000);
 
   constructor(
     @InjectRepository(Conversation)
@@ -36,16 +33,13 @@ export class ConversationService {
   ) {}
 
   /** Get or create a conversation session */
-  async getOrCreateSession(
-    childId: number,
-    sessionId?: string,
-  ): Promise<ActiveSession> {
+  async getOrCreateSession(childId: number, sessionId?: string): Promise<ActiveSession> {
     if (sessionId) {
       const cached = this.activeSessions.get(sessionId);
       if (cached) return cached;
 
       const conv = await this.conversationRepo.findOne({
-        where: { uuid: sessionId, status: "active" },
+        where: { uuid: sessionId, status: 'active' },
       });
       if (conv) {
         const session: ActiveSession = {
@@ -60,8 +54,8 @@ export class ConversationService {
     }
 
     const existing = await this.conversationRepo.findOne({
-      where: { childId, status: "active" },
-      order: { updatedAt: "DESC" },
+      where: { childId, status: 'active' },
+      order: { updatedAt: 'DESC' },
     });
     if (existing) {
       const session: ActiveSession = {
@@ -78,7 +72,7 @@ export class ConversationService {
     const conv = this.conversationRepo.create({
       uuid,
       childId,
-      status: "active",
+      status: 'active',
       metadata: {},
     });
     await this.conversationRepo.save(conv);
@@ -131,17 +125,14 @@ export class ConversationService {
 
     const messages = await this.messageRepo.find({
       where: { conversationId: session.conversationId },
-      order: { createdAt: "ASC" },
+      order: { createdAt: 'ASC' },
     });
 
     return this.messageBuilder.buildMessageArray(messages, maxMessages);
   }
 
   /** Update session metadata */
-  async updateMetadata(
-    sessionId: string,
-    metadata: Record<string, any>,
-  ): Promise<void> {
+  async updateMetadata(sessionId: string, metadata: Record<string, any>): Promise<void> {
     const session = this.activeSessions.get(sessionId);
     if (!session) return;
 
@@ -157,7 +148,7 @@ export class ConversationService {
     if (!session) return;
 
     await this.conversationRepo.update(session.conversationId, {
-      status: "ended",
+      status: 'ended',
     });
     this.activeSessions.delete(sessionId);
   }
@@ -166,17 +157,13 @@ export class ConversationService {
     return this.conversationRepo.findOne({ where: { uuid: sessionId } });
   }
 
-  async listSessions(params: {
-    childId: number;
-    page?: number;
-    limit?: number;
-  }) {
+  async listSessions(params: { childId: number; page?: number; limit?: number }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(50, Math.max(1, params.limit || 20));
 
     const [list, total] = await this.conversationRepo.findAndCount({
       where: { childId: params.childId },
-      order: { updatedAt: "DESC" },
+      order: { updatedAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -186,11 +173,11 @@ export class ConversationService {
 
     if (sessionIds.length > 0) {
       const rows = await this.messageRepo
-        .createQueryBuilder("m")
-        .select("m.conversationId", "conversationId")
-        .addSelect("COUNT(*)", "count")
-        .where("m.conversationId IN (:...ids)", { ids: sessionIds })
-        .groupBy("m.conversationId")
+        .createQueryBuilder('m')
+        .select('m.conversationId', 'conversationId')
+        .addSelect('COUNT(*)', 'count')
+        .where('m.conversationId IN (:...ids)', { ids: sessionIds })
+        .groupBy('m.conversationId')
         .getRawMany();
 
       for (const row of rows) {
@@ -215,11 +202,7 @@ export class ConversationService {
     };
   }
 
-  async getSessionMessages(params: {
-    sessionId: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getSessionMessages(params: { sessionId: string; page?: number; limit?: number }) {
     const conversation = await this.getConversationByUuid(params.sessionId);
     if (!conversation) {
       return { conversation: null, list: [], total: 0, page: 1, limit: 20 };
@@ -229,7 +212,7 @@ export class ConversationService {
     const limit = Math.min(200, Math.max(1, params.limit || 50));
     const [rows, total] = await this.messageRepo.findAndCount({
       where: { conversationId: conversation.id },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
@@ -238,19 +221,16 @@ export class ConversationService {
     return { conversation, list, total, page, limit };
   }
 
-  async getHistory(
-    childId: number,
-    limit = 50,
-  ): Promise<ConversationMessage[]> {
+  async getHistory(childId: number, limit = 50): Promise<ConversationMessage[]> {
     const conv = await this.conversationRepo.findOne({
-      where: { childId, status: "active" },
-      order: { updatedAt: "DESC" },
+      where: { childId, status: 'active' },
+      order: { updatedAt: 'DESC' },
     });
     if (!conv) return [];
 
     return this.messageRepo.find({
       where: { conversationId: conv.id },
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
       take: limit,
     });
   }

@@ -2,8 +2,8 @@
  * Executor interface — the core agent execution loop.
  */
 
-import type { AgentContext, ExecutionResult } from "./agent.interface";
-import type { StreamEvent } from "../types";
+import type { AgentContext, ExecutionResult } from './agent.interface';
+import type { StreamEvent } from '../types';
 
 /** The agent executor interface */
 export interface IAgentExecutor {
@@ -12,11 +12,7 @@ export interface IAgentExecutor {
    * Sends the user message to the LLM, handles tool calls in a loop,
    * and returns the final response.
    */
-  execute(
-    agentType: string,
-    input: string,
-    context: AgentContext,
-  ): Promise<ExecutionResult>;
+  execute(agentType: string, input: string, context: AgentContext): Promise<ExecutionResult>;
 
   /**
    * Run the agent loop with streaming.

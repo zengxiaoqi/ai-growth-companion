@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { ReportService } from "../../../report/report.service";
+import { Injectable } from '@nestjs/common';
+import { ReportService } from '../../../report/report.service';
 
 @Injectable()
 export class ViewReportTool {
@@ -7,10 +7,10 @@ export class ViewReportTool {
 
   async execute(args: {
     childId: number;
-    period?: "daily" | "weekly" | "monthly";
+    period?: 'daily' | 'weekly' | 'monthly';
   }): Promise<string> {
     try {
-      const period = args.period || "weekly";
+      const period = args.period || 'weekly';
       const report = await this.reportService.generateReport({
         userId: args.childId,
         period,

@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { spawn } from "child_process";
-import { promises as fs } from "fs";
-import * as os from "os";
-import * as path from "path";
-import type { VideoGenerationTask } from "../../database/entities/video-generation-task.entity";
+import { Injectable, Logger } from '@nestjs/common';
+import { spawn } from 'child_process';
+import { promises as fs } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 
 type HyperframesShot = {
   title: string;
@@ -18,60 +18,56 @@ const DOMAIN_PALETTES: Record<
   { bg: string; accent: string; bgAlt: string; accentAlt: string }
 > = {
   language: {
-    bg: "#FFF5F5",
-    accent: "#FF6B6B",
-    bgAlt: "#FFF0F6",
-    accentAlt: "#9B59B6",
+    bg: '#FFF5F5',
+    accent: '#FF6B6B',
+    bgAlt: '#FFF0F6',
+    accentAlt: '#9B59B6',
   },
   math: {
-    bg: "#EBF5FF",
-    accent: "#4D96FF",
-    bgAlt: "#E8F8FF",
-    accentAlt: "#00B4D8",
+    bg: '#EBF5FF',
+    accent: '#4D96FF',
+    bgAlt: '#E8F8FF',
+    accentAlt: '#00B4D8',
   },
   science: {
-    bg: "#E8F8FF",
-    accent: "#00B4D8",
-    bgAlt: "#F0FFF4",
-    accentAlt: "#6BCB77",
+    bg: '#E8F8FF',
+    accent: '#00B4D8',
+    bgAlt: '#F0FFF4',
+    accentAlt: '#6BCB77',
   },
   art: {
-    bg: "#FFF0F6",
-    accent: "#FF6B9D",
-    bgAlt: "#FFF5F5",
-    accentAlt: "#FFD93D",
+    bg: '#FFF0F6',
+    accent: '#FF6B9D',
+    bgAlt: '#FFF5F5',
+    accentAlt: '#FFD93D',
   },
   social: {
-    bg: "#FFFBEB",
-    accent: "#FFD93D",
-    bgAlt: "#F0FFF4",
-    accentAlt: "#6BCB77",
+    bg: '#FFFBEB',
+    accent: '#FFD93D',
+    bgAlt: '#F0FFF4',
+    accentAlt: '#6BCB77',
   },
 };
 
 const DEFAULT_PALETTE = DOMAIN_PALETTES.language;
 
 const ENTRANCE_PATTERNS = [
-  { from: "{ opacity: 0, y: 60 }", ease: '"power3.out"' },
-  { from: "{ opacity: 0, x: -80 }", ease: '"expo.out"' },
-  { from: "{ opacity: 0, scale: 0.7 }", ease: '"back.out(1.6)"' },
-  { from: "{ opacity: 0, y: -50, rotation: -5 }", ease: '"power2.out"' },
-  { from: "{ opacity: 0, x: 80, scale: 0.9 }", ease: '"power3.out"' },
-  { from: "{ opacity: 0, y: 40, scale: 0.95 }", ease: '"sine.out"' },
+  { from: '{ opacity: 0, y: 60 }', ease: '"power3.out"' },
+  { from: '{ opacity: 0, x: -80 }', ease: '"expo.out"' },
+  { from: '{ opacity: 0, scale: 0.7 }', ease: '"back.out(1.6)"' },
+  { from: '{ opacity: 0, y: -50, rotation: -5 }', ease: '"power2.out"' },
+  { from: '{ opacity: 0, x: 80, scale: 0.9 }', ease: '"power3.out"' },
+  { from: '{ opacity: 0, y: 40, scale: 0.95 }', ease: '"sine.out"' },
 ];
 
-const DECORATIVE_SHAPES = ["circle", "triangle", "square", "star", "diamond"];
+const DECORATIVE_SHAPES = ['circle', 'triangle', 'square', 'star', 'diamond'];
 
 @Injectable()
 export class HyperframesRenderService {
   private readonly logger = new Logger(HyperframesRenderService.name);
-  private readonly cliCmd = String(
-    process.env.HYPERFRAMES_CLI_COMMAND || "npx",
-  ).trim();
-  private readonly cliArgsPrefix = String(
-    process.env.HYPERFRAMES_CLI_ARGS_PREFIX || "",
-  )
-    .split(" ")
+  private readonly cliCmd = String(process.env.HYPERFRAMES_CLI_COMMAND || 'npx').trim();
+  private readonly cliArgsPrefix = String(process.env.HYPERFRAMES_CLI_ARGS_PREFIX || '')
+    .split(' ')
     .map((part) => part.trim())
     .filter(Boolean);
   private readonly renderTimeoutMs = this.toInt(
@@ -80,10 +76,7 @@ export class HyperframesRenderService {
     15_000,
     30 * 60 * 1000,
   );
-  private readonly enabledByDefault = this.toBool(
-    process.env.HYPERFRAMES_ENABLED,
-    true,
-  );
+  private readonly enabledByDefault = this.toBool(process.env.HYPERFRAMES_ENABLED, true);
 
   async renderLessonVideo(
     task: VideoGenerationTask,
@@ -91,10 +84,8 @@ export class HyperframesRenderService {
     onProgress?: (percent: number) => Promise<void> | void,
   ): Promise<Buffer> {
     if (!this.enabledByDefault) {
-      this.logger.warn(
-        `[renderLessonVideo] HyperFrames disabled by HYPERFRAMES_ENABLED env`,
-      );
-      throw new Error("HYPERFRAMES_DISABLED");
+      this.logger.warn(`[renderLessonVideo] HyperFrames disabled by HYPERFRAMES_ENABLED env`);
+      throw new Error('HYPERFRAMES_DISABLED');
     }
 
     const shots = this.buildShots(payload);
@@ -102,42 +93,34 @@ export class HyperframesRenderService {
       this.logger.warn(
         `[renderLessonVideo] taskId=${task.id} no shots built from payload — videoLesson.shots=${Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots.length : 0}, watchScene.scenes=${Array.isArray(payload?.watchScene?.scenes) ? payload.watchScene.scenes.length : 0}, visualStory.scenes=${Array.isArray(payload?.visualStory?.scenes) ? payload.visualStory.scenes.length : 0}`,
       );
-      throw new Error("HYPERFRAMES_EMPTY_SHOTS");
+      throw new Error('HYPERFRAMES_EMPTY_SHOTS');
     }
 
-    const domain = String(payload?.domain || "language").toLowerCase();
+    const domain = String(payload?.domain || 'language').toLowerCase();
     const palette = DOMAIN_PALETTES[domain] || DEFAULT_PALETTE;
 
     this.logger.log(
       `[renderLessonVideo] taskId=${task.id} building HTML composition: domain=${domain}, shots=${shots.length}, palette.bg=${palette.bg}, palette.accent=${palette.accent}`,
     );
     this.logger.debug(
-      `[renderLessonVideo] taskId=${task.id} shots detail: ${shots.map((s, i) => `#${i + 1} "${s.title}" (${s.durationSec}s)`).join(", ")}`,
+      `[renderLessonVideo] taskId=${task.id} shots detail: ${shots.map((s, i) => `#${i + 1} "${s.title}" (${s.durationSec}s)`).join(', ')}`,
     );
 
-    const projectDir = await fs.mkdtemp(
-      path.join(os.tmpdir(), "lingxi-hyperframes-"),
-    );
-    const outputPath = path.join(
-      projectDir,
-      `${task.cacheKey || `task-${task.id}`}.mp4`,
-    );
+    const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lingxi-hyperframes-'));
+    const outputPath = path.join(projectDir, `${task.cacheKey || `task-${task.id}`}.mp4`);
 
     this.logger.debug(
       `[renderLessonVideo] taskId=${task.id} projectDir=${projectDir}, outputPath=${outputPath}`,
     );
 
     try {
-      const totalDuration = shots.reduce(
-        (sum, shot) => sum + Math.max(1, shot.durationSec),
-        0,
-      );
+      const totalDuration = shots.reduce((sum, shot) => sum + Math.max(1, shot.durationSec), 0);
       const html = this.buildIndexHtml(shots, totalDuration, palette);
-      const htmlSize = Buffer.byteLength(html, "utf-8");
+      const htmlSize = Buffer.byteLength(html, 'utf-8');
       this.logger.log(
         `[renderLessonVideo] taskId=${task.id} HTML generated: ${htmlSize} bytes, totalDuration=${totalDuration}s, shots=${shots.length}`,
       );
-      await fs.writeFile(path.join(projectDir, "index.html"), html, "utf-8");
+      await fs.writeFile(path.join(projectDir, 'index.html'), html, 'utf-8');
       if (onProgress) await onProgress(10);
 
       this.logger.log(
@@ -153,7 +136,7 @@ export class HyperframesRenderService {
       return buffer;
     } catch (error: any) {
       this.logger.error(
-        `[renderLessonVideo] taskId=${task.id} FAILED: ${error?.message || "unknown"}`,
+        `[renderLessonVideo] taskId=${task.id} FAILED: ${error?.message || 'unknown'}`,
       );
       throw error;
     } finally {
@@ -181,10 +164,7 @@ export class HyperframesRenderService {
     )
       .map((item: any, idx: number) => {
         const title = this.toText(item?.title || item?.shot, `场景 ${idx + 1}`);
-        const narration = this.toText(
-          item?.narration,
-          this.toText(item?.caption, ""),
-        );
+        const narration = this.toText(item?.narration, this.toText(item?.caption, ''));
         const caption = this.toText(item?.caption, title).slice(0, 40);
         const durationSec = this.toInt(item?.durationSec, 8, 2, 30);
 
@@ -196,9 +176,7 @@ export class HyperframesRenderService {
           durationSec,
         };
       })
-      .filter(
-        (item: HyperframesShot | null): item is HyperframesShot => !!item,
-      );
+      .filter((item: HyperframesShot | null): item is HyperframesShot => !!item);
 
     return mapped.slice(0, 16);
   }
@@ -226,17 +204,10 @@ export class HyperframesRenderService {
       cursor += shot.durationSec;
 
       const entranceIdx = index % ENTRANCE_PATTERNS.length;
-      const titleEntrance =
-        ENTRANCE_PATTERNS[(entranceIdx + 2) % ENTRANCE_PATTERNS.length];
-      const captionEntrance =
-        ENTRANCE_PATTERNS[(entranceIdx + 4) % ENTRANCE_PATTERNS.length];
+      const titleEntrance = ENTRANCE_PATTERNS[(entranceIdx + 2) % ENTRANCE_PATTERNS.length];
+      const captionEntrance = ENTRANCE_PATTERNS[(entranceIdx + 4) % ENTRANCE_PATTERNS.length];
 
-      const decoratives = this.buildDecoratives(
-        id,
-        index,
-        palette,
-        ambientStatements,
-      );
+      const decoratives = this.buildDecoratives(id, index, palette, ambientStatements);
 
       clipHtml.push(
         `<section id="${id}" class="scene" data-start="${start}" data-duration="${shot.durationSec}" data-track-index="${index * 2 + 1}">`,
@@ -244,9 +215,7 @@ export class HyperframesRenderService {
         ...decoratives,
         `    <h1 class="title">${this.escapeHtml(shot.title)}</h1>`,
         `    <p class="caption">${this.escapeHtml(shot.caption)}</p>`,
-        shot.narration
-          ? `    <p class="narration">${this.escapeHtml(shot.narration)}</p>`
-          : "",
+        shot.narration ? `    <p class="narration">${this.escapeHtml(shot.narration)}</p>` : '',
         `  </div>`,
         `</section>`,
       );
@@ -415,8 +384,8 @@ export class HyperframesRenderService {
       data-width="1920"
       data-height="1080"
     >
-      ${clipHtml.join("\n      ")}
-      ${transitionHtml.join("\n      ")}
+      ${clipHtml.join('\n      ')}
+      ${transitionHtml.join('\n      ')}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
@@ -425,13 +394,13 @@ export class HyperframesRenderService {
       const tl = gsap.timeline({ paused: true });
 
       /* Entrance animations */
-      ${entranceStatements.join("\n      ")}
+      ${entranceStatements.join('\n      ')}
 
       /* Exit animation (final scene only) */
-      ${exitStatements.join("\n      ")}
+      ${exitStatements.join('\n      ')}
 
       /* Ambient decorative animations */
-      ${ambientStatements.join("\n      ")}
+      ${ambientStatements.join('\n      ')}
 
       /* Transitions */
 ${shots
@@ -440,16 +409,16 @@ ${shots
     const transId = `trans-${i + 1}`;
     const type = this.transitionType(i);
     const transStart = sceneCursors[i] + shots[i].durationSec - transitionDur;
-    if (type === "fade") {
+    if (type === 'fade') {
       return `      tl.fromTo("#${transId}", { opacity: 0 }, { opacity: 1, duration: ${transitionDur / 2}, ease: "power1.inOut" }, ${transStart});
       tl.to("#${transId}", { opacity: 0, duration: ${transitionDur / 2}, ease: "power1.inOut" });`;
     }
-    if (type === "slide") {
+    if (type === 'slide') {
       return `      tl.fromTo("#${transId}", { xPercent: 100 }, { xPercent: 0, duration: ${transitionDur}, ease: "power2.inOut" }, ${transStart});`;
     }
     return `      tl.fromTo("#${transId}", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: ${transitionDur}, ease: "power2.inOut" }, ${transStart});`;
   })
-  .join("\n")}
+  .join('\n')}
 
       window.__timelines["lesson-video"] = tl;
     </script>
@@ -466,32 +435,29 @@ ${shots
     const count = 3 + (sceneIndex % 3);
     const html: string[] = [];
 
-    html.push(
-      `<span class="ghost-text">${this.escapeHtml(palette.accent)}</span>`,
-    );
+    html.push(`<span class="ghost-text">${this.escapeHtml(palette.accent)}</span>`);
 
     for (let i = 0; i < count; i++) {
       const decoId = `${sceneId}-deco-${i + 1}`;
-      const shape =
-        DECORATIVE_SHAPES[(sceneIndex + i) % DECORATIVE_SHAPES.length];
+      const shape = DECORATIVE_SHAPES[(sceneIndex + i) % DECORATIVE_SHAPES.length];
       const size = 60 + ((sceneIndex * 37 + i * 53) % 120);
       const left = 5 + ((sceneIndex * 29 + i * 41) % 85);
       const top = 5 + ((sceneIndex * 31 + i * 47) % 80);
       const color = i % 2 === 0 ? palette.accent : palette.accentAlt;
 
-      if (shape === "circle") {
+      if (shape === 'circle') {
         html.push(
           `<div id="${decoId}" class="deco deco-circle" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;background:${color};"></div>`,
         );
-      } else if (shape === "square") {
+      } else if (shape === 'square') {
         html.push(
           `<div id="${decoId}" class="deco deco-square" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;background:${color};transform:rotate(${(sceneIndex * 15 + i * 20) % 45}deg);"></div>`,
         );
-      } else if (shape === "diamond") {
+      } else if (shape === 'diamond') {
         html.push(
           `<div id="${decoId}" class="deco deco-diamond" style="width:${size}px;height:${size}px;left:${left}%;top:${top}%;background:${color};transform:rotate(45deg);"></div>`,
         );
-      } else if (shape === "triangle") {
+      } else if (shape === 'triangle') {
         const half = Math.trunc(size / 2);
         html.push(
           `<div id="${decoId}" class="deco deco-triangle" style="left:${left}%;top:${top}%;border-left:${half}px solid transparent;border-right:${half}px solid transparent;border-bottom:${size}px solid ${color};"></div>`,
@@ -512,33 +478,30 @@ ${shots
     return html;
   }
 
-  private transitionType(index: number): "fade" | "slide" | "wipe" {
-    const types: Array<"fade" | "slide" | "wipe"> = ["fade", "slide", "wipe"];
+  private transitionType(index: number): 'fade' | 'slide' | 'wipe' {
+    const types: Array<'fade' | 'slide' | 'wipe'> = ['fade', 'slide', 'wipe'];
     return types[index % types.length];
   }
 
-  private async runHyperframesRender(
-    projectDir: string,
-    outputPath: string,
-  ): Promise<void> {
+  private async runHyperframesRender(projectDir: string, outputPath: string): Promise<void> {
     const args = [
       ...this.cliArgsPrefix,
-      "hyperframes",
-      "render",
-      "--quality",
-      "draft",
-      "--output",
+      'hyperframes',
+      'render',
+      '--quality',
+      'draft',
+      '--output',
       outputPath,
     ];
     this.logger.log(
-      `[runHyperframesRender] cmd=${this.cliCmd} ${args.join(" ")}, cwd=${projectDir}, timeout=${this.renderTimeoutMs}ms`,
+      `[runHyperframesRender] cmd=${this.cliCmd} ${args.join(' ')}, cwd=${projectDir}, timeout=${this.renderTimeoutMs}ms`,
     );
 
     await new Promise<void>((resolve, reject) => {
       const child = spawn(this.cliCmd, args, {
         cwd: projectDir,
         windowsHide: true,
-        shell: process.platform === "win32",
+        shell: process.platform === 'win32',
       });
 
       const timer = setTimeout(() => {
@@ -546,7 +509,7 @@ ${shots
           `[runHyperframesRender] render timed out after ${this.renderTimeoutMs}ms, sending SIGTERM to pid=${child.pid}`,
         );
         if (child.pid && !child.killed) {
-          child.kill("SIGTERM");
+          child.kill('SIGTERM');
         }
 
         // Force SIGKILL after 2 seconds if process is still alive
@@ -555,21 +518,21 @@ ${shots
             this.logger.error(
               `[runHyperframesRender] SIGTERM ineffective, sending SIGKILL to pid=${child.pid}`,
             );
-            child.kill("SIGKILL");
+            child.kill('SIGKILL');
           }
         }, 2000);
       }, this.renderTimeoutMs);
 
-      let stderr = "";
-      let stdout = "";
-      child.stderr.on("data", (chunk) => {
+      let stderr = '';
+      let stdout = '';
+      child.stderr.on('data', (chunk) => {
         stderr += chunk.toString();
       });
-      child.stdout.on("data", (chunk) => {
+      child.stdout.on('data', (chunk) => {
         stdout += chunk.toString();
       });
 
-      child.on("error", (error) => {
+      child.on('error', (error) => {
         clearTimeout(timer);
         this.logger.error(
           `[runHyperframesRender] spawn error: ${error.message}. Check if "${this.cliCmd}" is installed and accessible in PATH.`,
@@ -577,13 +540,11 @@ ${shots
         reject(error);
       });
 
-      child.on("close", (code) => {
+      child.on('close', (code) => {
         clearTimeout(timer);
         if (code === 0) {
           if (stdout.trim()) {
-            this.logger.debug(
-              `[runHyperframesRender] stdout: ${stdout.trim().slice(0, 500)}`,
-            );
+            this.logger.debug(`[runHyperframesRender] stdout: ${stdout.trim().slice(0, 500)}`);
           }
           resolve();
           return;
@@ -592,9 +553,7 @@ ${shots
           `[runHyperframesRender] exited with code=${code}. stderr: ${stderr.trim().slice(0, 800)}`,
         );
         reject(
-          new Error(
-            `hyperframes render failed (code=${code}): ${stderr.trim().slice(0, 800)}`,
-          ),
+          new Error(`hyperframes render failed (code=${code}): ${stderr.trim().slice(0, 800)}`),
         );
       });
     });
@@ -608,38 +567,33 @@ ${shots
 
   private escapeHtml(value: string): string {
     return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
-  private toText(value: unknown, fallback = ""): string {
-    if (typeof value === "string") {
+  private toText(value: unknown, fallback = ''): string {
+    if (typeof value === 'string') {
       const trimmed = value.trim();
       if (trimmed) return trimmed;
     }
     return fallback;
   }
 
-  private toInt(
-    value: unknown,
-    fallback: number,
-    min: number,
-    max: number,
-  ): number {
+  private toInt(value: unknown, fallback: number, min: number, max: number): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;
     return Math.min(max, Math.max(min, Math.trunc(parsed)));
   }
 
   private toBool(value: unknown, fallback: boolean): boolean {
-    if (typeof value === "boolean") return value;
-    if (typeof value === "string") {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
       const normalized = value.trim().toLowerCase();
-      if (["1", "true", "yes", "on"].includes(normalized)) return true;
-      if (["0", "false", "no", "off"].includes(normalized)) return false;
+      if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
     }
     return fallback;
   }

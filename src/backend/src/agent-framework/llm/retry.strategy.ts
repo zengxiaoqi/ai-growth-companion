@@ -3,7 +3,7 @@
  * Eliminates the duplicated retry logic in llm-client.ts, agent-executor.ts, generate-activity.ts.
  */
 
-import { Logger } from "@nestjs/common";
+import { Logger } from '@nestjs/common';
 
 export interface RetryOptions {
   maxAttempts: number;
@@ -28,10 +28,7 @@ export class RetryStrategy {
    * Execute a function with retry and exponential backoff.
    * Returns the result on success, throws on final failure.
    */
-  async execute<T>(
-    fn: () => Promise<T>,
-    label: string = "operation",
-  ): Promise<T> {
+  async execute<T>(fn: () => Promise<T>, label: string = 'operation'): Promise<T> {
     let lastError: any;
     let delay = this.options.baseDelayMs;
 
@@ -41,9 +38,7 @@ export class RetryStrategy {
       } catch (error: any) {
         lastError = error;
         if (attempt === this.options.maxAttempts) {
-          this.logger.error(
-            `${label} failed after ${attempt} attempts: ${error.message}`,
-          );
+          this.logger.error(`${label} failed after ${attempt} attempts: ${error.message}`);
           break;
         }
 
@@ -51,10 +46,7 @@ export class RetryStrategy {
           `${label} attempt ${attempt} failed: ${error.message}, retrying in ${delay}ms...`,
         );
         await this.sleep(delay);
-        delay = Math.min(
-          delay * this.options.backoffMultiplier,
-          this.options.maxDelayMs,
-        );
+        delay = Math.min(delay * this.options.backoffMultiplier, this.options.maxDelayMs);
       }
     }
 

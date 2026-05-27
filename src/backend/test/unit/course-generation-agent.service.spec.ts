@@ -1,7 +1,7 @@
-import { CourseGenerationAgentService } from "../../src/modules/learning/course-generation-agent.service";
+import { CourseGenerationAgentService } from '../../src/modules/learning/course-generation-agent.service';
 
-describe("CourseGenerationAgentService", () => {
-  it("returns the course pack produced by the generateCoursePack tool call", async () => {
+describe('CourseGenerationAgentService', () => {
+  it('returns the course pack produced by the generateCoursePack tool call', async () => {
     const executorService = {
       runLoop: jest.fn(
         async (
@@ -13,15 +13,15 @@ describe("CourseGenerationAgentService", () => {
           onToolCall,
         ) => {
           await onToolCall({
-            toolName: "generateCoursePack",
-            args: { topic: "认识动物老虎" },
+            toolName: 'generateCoursePack',
+            args: { topic: '认识动物老虎' },
             result: JSON.stringify({
-              type: "course_pack",
-              topic: "认识动物老虎",
+              type: 'course_pack',
+              topic: '认识动物老虎',
               modules: { listening: {} },
             }),
           });
-          return { response: "done", toolCalls: [] };
+          return { response: 'done', toolCalls: [] };
         },
       ),
     };
@@ -29,9 +29,7 @@ describe("CourseGenerationAgentService", () => {
       has: jest.fn().mockReturnValue(true),
       getToolDefinitions: jest
         .fn()
-        .mockReturnValue([
-          { type: "function", function: { name: "generateCoursePack" } },
-        ]),
+        .mockReturnValue([{ type: 'function', function: { name: 'generateCoursePack' } }]),
     };
     const service = new CourseGenerationAgentService(
       executorService as any,
@@ -41,18 +39,18 @@ describe("CourseGenerationAgentService", () => {
     );
 
     const result = await service.generateCoursePack({
-      topic: "认识动物老虎",
-      ageGroup: "5-6",
-      domain: "science",
-      focus: "science",
+      topic: '认识动物老虎',
+      ageGroup: '5-6',
+      domain: 'science',
+      focus: 'science',
       includeGame: false,
       includeAudio: false,
       includeVideo: true,
     });
 
     expect(result).toMatchObject({
-      type: "course_pack",
-      topic: "认识动物老虎",
+      type: 'course_pack',
+      topic: '认识动物老虎',
     });
     expect(toolRegistry.getToolDefinitions).toHaveBeenCalled();
     expect(executorService.runLoop).toHaveBeenCalled();

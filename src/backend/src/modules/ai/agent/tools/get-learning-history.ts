@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { LearningService } from "../../../learning/learning.service";
+import { Injectable } from '@nestjs/common';
+import { LearningService } from '../../../learning/learning.service';
 
 @Injectable()
 export class GetLearningHistoryTool {
@@ -7,18 +7,15 @@ export class GetLearningHistoryTool {
 
   async execute(args: { childId: number; limit?: number }): Promise<string> {
     try {
-      const records = await this.learningService.findByUser(
-        args.childId,
-        args.limit || 10,
-      );
+      const records = await this.learningService.findByUser(args.childId, args.limit || 10);
 
       if (!records || records.length === 0) {
-        return JSON.stringify({ message: "暂无学习记录", records: [] });
+        return JSON.stringify({ message: '暂无学习记录', records: [] });
       }
 
       const history = records.map((r) => ({
         contentId: r.contentId,
-        contentTitle: (r as any).content?.title || "未知内容",
+        contentTitle: (r as any).content?.title || '未知内容',
         score: r.score,
         durationSeconds: r.durationSeconds,
         status: r.status,

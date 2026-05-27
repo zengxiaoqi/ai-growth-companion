@@ -1,10 +1,10 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { LearningRecord } from "../../database/entities/learning-record.entity";
-import { ParentControl } from "../../database/entities/parent-control.entity";
-import { SseService } from "../sse/sse.service";
-import { v4 as uuidv4 } from "uuid";
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { LearningRecord } from '../../database/entities/learning-record.entity';
+import { ParentControl } from '../../database/entities/parent-control.entity';
+import { SseService } from '../sse/sse.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class LearningService {
@@ -24,7 +24,7 @@ export class LearningService {
       uuid: uuidv4(),
       userId,
       contentId,
-      status: "in_progress",
+      status: 'in_progress',
     });
     const saved = await this.recordRepository.save(record);
 
@@ -33,7 +33,7 @@ export class LearningService {
       where: { childId: userId },
     });
     if (parentControl) {
-      this.sseService.sendToUser(parentControl.parentId, "learning_started", {
+      this.sseService.sendToUser(parentControl.parentId, 'learning_started', {
         childId: userId,
         contentId,
         recordId: saved.id,
@@ -48,20 +48,16 @@ export class LearningService {
     const record = await this.findById(id);
 
     // Notify parent via SSE on completion
-    if (record && data.status === "completed") {
+    if (record && data.status === 'completed') {
       const parentControl = await this.controlRepository.findOne({
         where: { childId: record.userId },
       });
       if (parentControl) {
-        this.sseService.sendToUser(
-          parentControl.parentId,
-          "learning_completed",
-          {
-            childId: record.userId,
-            recordId: id,
-            score: record.score,
-          },
-        );
+        this.sseService.sendToUser(parentControl.parentId, 'learning_completed', {
+          childId: record.userId,
+          recordId: id,
+          score: record.score,
+        });
       }
     }
 
@@ -75,9 +71,9 @@ export class LearningService {
   async findByUser(userId: number, limit = 10) {
     return this.recordRepository.find({
       where: { userId },
-      order: { startedAt: "DESC" },
+      order: { startedAt: 'DESC' },
       take: limit,
-      relations: ["content"],
+      relations: ['content'],
     });
   }
 
@@ -86,16 +82,13 @@ export class LearningService {
     today.setHours(0, 0, 0, 0);
 
     const records = await this.recordRepository
-      .createQueryBuilder("record")
-      .where("record.userId = :userId", { userId })
-      .andWhere("record.startedAt >= :today", { today })
+      .createQueryBuilder('record')
+      .where('record.userId = :userId', { userId })
+      .andWhere('record.startedAt >= :today', { today })
       .getMany();
 
-    const totalMinutes =
-      records.reduce((sum, r) => sum + (r.durationSeconds || 0), 0) / 60;
-    const completedCount = records.filter(
-      (r) => r.status === "completed",
-    ).length;
+    const totalMinutes = records.reduce((sum, r) => sum + (r.durationSeconds || 0), 0) / 60;
+    const completedCount = records.filter((r) => r.status === 'completed').length;
 
     return {
       totalMinutes: Math.round(totalMinutes),
@@ -109,16 +102,13 @@ export class LearningService {
     today.setHours(0, 0, 0, 0);
 
     const records = await this.recordRepository
-      .createQueryBuilder("record")
-      .where("record.userId = :userId", { userId })
-      .andWhere("record.startedAt >= :today", { today })
+      .createQueryBuilder('record')
+      .where('record.userId = :userId', { userId })
+      .andWhere('record.startedAt >= :today', { today })
       .getMany();
 
-    const totalMinutes =
-      records.reduce((sum, r) => sum + (r.durationSeconds || 0), 0) / 60;
-    const completedCount = records.filter(
-      (r) => r.status === "completed",
-    ).length;
+    const totalMinutes = records.reduce((sum, r) => sum + (r.durationSeconds || 0), 0) / 60;
+    const completedCount = records.filter((r) => r.status === 'completed').length;
 
     // Breakdown by source
     const sources = {
@@ -130,9 +120,9 @@ export class LearningService {
 
     for (const r of records) {
       const source = r.interactionData?.source;
-      if (source === "content_completion") sources.content++;
-      else if (source === "assignment_completion") sources.assignment++;
-      else if (source === "interactive_activity") sources.activity++;
+      if (source === 'content_completion') sources.content++;
+      else if (source === 'assignment_completion') sources.assignment++;
+      else if (source === 'interactive_activity') sources.activity++;
       else sources.unknown++;
     }
 

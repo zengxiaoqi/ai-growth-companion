@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from "fs";
-import * as path from "path";
+import { readdirSync, readFileSync } from 'fs';
+import * as path from 'path';
 
 export interface CurriculumQuizItem {
   question: string;
@@ -21,8 +21,8 @@ export interface CourseCurriculumSeed {
   quizItems: CurriculumQuizItem[];
 }
 
-type AgeGroup = "3-4" | "5-6";
-type CourseDomain = "language" | "math" | "science" | "art" | "social";
+type AgeGroup = '3-4' | '5-6';
+type CourseDomain = 'language' | 'math' | 'science' | 'art' | 'social';
 
 type CurriculumRecord = {
   name?: string;
@@ -34,36 +34,36 @@ type CurriculumRecord = {
 
 const RECORD_CACHE = new Map<string, CurriculumRecord[]>();
 const GENERIC_TERMS = [
-  "认识",
-  "学习",
-  "课程",
-  "主题",
-  "内容",
-  "朋友",
-  "世界",
-  "变化",
-  "基础",
-  "启蒙",
+  '认识',
+  '学习',
+  '课程',
+  '主题',
+  '内容',
+  '朋友',
+  '世界',
+  '变化',
+  '基础',
+  '启蒙',
 ];
 
 /** Alias mapping: user-input topic terms → curriculum record terms */
 const TOPIC_ALIASES: Record<string, string[]> = {
-  动物: ["小动物", "农场动物", "动物朋友", "宠物", "野生动物"],
-  老虎: ["动物", "野生动物", "猫科", "动物世界", "动物朋友"],
-  狮子: ["动物", "野生动物", "猫科", "动物世界"],
-  兔子: ["兔", "小兔子", "动物", "动物朋友", "宠物"],
-  颜色: ["色彩", "颜色宝宝", "彩色", "赤橙黄绿青蓝紫", "三原色"],
-  数字: ["数数", "计数", "认识数字", "数学启蒙"],
-  形状: ["图形", "几何", "圆形", "三角形", "方形"],
-  四季: ["季节", "春夏秋冬", "天气变化"],
-  植物: ["花草", "树木", "种子", "发芽", "开花"],
-  水果: ["苹果", "香蕉", "西瓜", "葡萄"],
-  家庭: ["家人", "爸爸妈妈", "亲人"],
-  情绪: ["表情", "开心", "生气", "难过", "害怕"],
-  习惯: ["作息", "日常", "时间安排", "好习惯"],
-  身体: ["五官", "手脚", "眼睛耳朵", "身体部位"],
-  礼貌: ["礼仪", "谢谢", "对不起", "打招呼"],
-  安全: ["交通安全", "家庭安全", "自我保护"],
+  动物: ['小动物', '农场动物', '动物朋友', '宠物', '野生动物'],
+  老虎: ['动物', '野生动物', '猫科', '动物世界', '动物朋友'],
+  狮子: ['动物', '野生动物', '猫科', '动物世界'],
+  兔子: ['兔', '小兔子', '动物', '动物朋友', '宠物'],
+  颜色: ['色彩', '颜色宝宝', '彩色', '赤橙黄绿青蓝紫', '三原色'],
+  数字: ['数数', '计数', '认识数字', '数学启蒙'],
+  形状: ['图形', '几何', '圆形', '三角形', '方形'],
+  四季: ['季节', '春夏秋冬', '天气变化'],
+  植物: ['花草', '树木', '种子', '发芽', '开花'],
+  水果: ['苹果', '香蕉', '西瓜', '葡萄'],
+  家庭: ['家人', '爸爸妈妈', '亲人'],
+  情绪: ['表情', '开心', '生气', '难过', '害怕'],
+  习惯: ['作息', '日常', '时间安排', '好习惯'],
+  身体: ['五官', '手脚', '眼睛耳朵', '身体部位'],
+  礼貌: ['礼仪', '谢谢', '对不起', '打招呼'],
+  安全: ['交通安全', '家庭安全', '自我保护'],
 };
 
 export function getCoursePackCurriculumSeed(input: {
@@ -95,16 +95,16 @@ function loadCurriculumRecords(ageGroup: AgeGroup): CurriculumRecord[] {
 
   const dir = path.resolve(
     __dirname,
-    "../../../../content",
-    ageGroup === "3-4" ? "3-4-years" : "5-6-years",
+    '../../../../content',
+    ageGroup === '3-4' ? '3-4-years' : '5-6-years',
   );
 
   try {
     const records = readdirSync(dir)
-      .filter((file) => file.endsWith(".json"))
+      .filter((file) => file.endsWith('.json'))
       .map((file) => {
         try {
-          const raw = readFileSync(path.join(dir, file), "utf-8");
+          const raw = readFileSync(path.join(dir, file), 'utf-8');
           return JSON.parse(raw) as CurriculumRecord;
         } catch {
           return null;
@@ -127,17 +127,13 @@ function buildHaystack(record: CurriculumRecord): string {
     ...toTextArray(record.objectives),
     ...toTextArray(record.content).map((item) => toText(item)),
   ]
-    .join(" ")
+    .join(' ')
     .toLowerCase();
 }
 
-function scoreRecord(
-  record: CurriculumRecord,
-  topic: string,
-  domain?: CourseDomain,
-): number {
+function scoreRecord(record: CurriculumRecord, topic: string, domain?: CourseDomain): number {
   const haystack = buildHaystack(record);
-  const compactTopic = topic.replace(/\s+/g, "");
+  const compactTopic = topic.replace(/\s+/g, '');
   const terms = extractTopicTerms(topic);
 
   // Expand terms with aliases
@@ -170,21 +166,18 @@ function scoreRecord(
   return score;
 }
 
-function buildSeed(
-  record: CurriculumRecord,
-  topic: string,
-): CourseCurriculumSeed {
+function buildSeed(record: CurriculumRecord, topic: string): CourseCurriculumSeed {
   const objectives = toTextArray(record.objectives).slice(0, 4);
   const blocks = Array.isArray(record.content)
     ? (record.content.filter(Boolean) as Record<string, any>[])
     : [];
   const lessonTexts = blocks
-    .filter((block) => ["lesson", "story"].includes(toText(block.type)))
+    .filter((block) => ['lesson', 'story'].includes(toText(block.type)))
     .map((block) => toText(block.text))
     .filter(Boolean);
 
   const exampleFacts = extractExampleFacts(blocks);
-  const textFacts = extractInlineFacts(lessonTexts.join("\n"));
+  const textFacts = extractInlineFacts(lessonTexts.join('\n'));
   const unitFacts = { ...textFacts, ...exampleFacts };
   const teachingUnits = unique([
     ...Object.keys(unitFacts),
@@ -200,26 +193,20 @@ function buildSeed(
   ]).slice(0, 5);
   const practiceTasks = unique([
     ...extractPracticeTasks(blocks),
-    ...matchingPairs
-      .slice(0, 2)
-      .map((pair) => `说一说${pair.left}${pair.right}`),
+    ...matchingPairs.slice(0, 2).map((pair) => `说一说${pair.left}${pair.right}`),
   ]).slice(0, 4);
 
   return {
-    summary: objectives.join("；") || `围绕${topic}进行更具体的启蒙学习。`,
+    summary: objectives.join('；') || `围绕${topic}进行更具体的启蒙学习。`,
     outcomes:
       objectives.length > 0
         ? objectives
         : teachingUnits.slice(0, 3).map((unit) => `认识${unit}的特点`),
     teachingUnits: teachingUnits.slice(0, 4),
     unitFacts,
-    readingText:
-      lessonTexts.join("\n\n").slice(0, 320) || `今天我们一起学习${topic}。`,
+    readingText: lessonTexts.join('\n\n').slice(0, 320) || `今天我们一起学习${topic}。`,
     readingKeywords: readingKeywords.length > 0 ? readingKeywords : [topic],
-    listeningQuestions: unique(quizItems.map((item) => item.question)).slice(
-      0,
-      3,
-    ),
+    listeningQuestions: unique(quizItems.map((item) => item.question)).slice(0, 3),
     tracingItems: teachingUnits.slice(0, 2),
     practiceTasks,
     matchingPairs,
@@ -227,13 +214,11 @@ function buildSeed(
   };
 }
 
-function extractExampleFacts(
-  blocks: Record<string, any>[],
-): Record<string, string> {
+function extractExampleFacts(blocks: Record<string, any>[]): Record<string, string> {
   const pairs = blocks.flatMap((block) => {
     const examples = Array.isArray(block.examples) ? block.examples : [];
     return examples.flatMap((entry: any) => {
-      if (!entry || typeof entry !== "object") return [];
+      if (!entry || typeof entry !== 'object') return [];
       return Object.entries(entry).map(([key, value]) => ({
         unit: normalizeUnit(key),
         fact: simplifyFact(value),
@@ -242,9 +227,7 @@ function extractExampleFacts(
   });
 
   return Object.fromEntries(
-    pairs
-      .filter((entry) => entry.unit && entry.fact)
-      .map((entry) => [entry.unit, entry.fact]),
+    pairs.filter((entry) => entry.unit && entry.fact).map((entry) => [entry.unit, entry.fact]),
   );
 }
 
@@ -284,9 +267,7 @@ function extractQuizItems(blocks: Record<string, any>[]): CurriculumQuizItem[] {
             ? item.options.map((value: any) => toText(value)).filter(Boolean)
             : [];
           const answer =
-            typeof item?.answer === "number"
-              ? options[item.answer] || ""
-              : toText(item?.answer);
+            typeof item?.answer === 'number' ? options[item.answer] || '' : toText(item?.answer);
           if (!question || options.length < 2 || !answer) return null;
           return { question, options: unique(options).slice(0, 4), answer };
         })
@@ -323,25 +304,19 @@ function buildMatchingPairs(
 
   const fromQuiz = quizItems
     .map((item, index) => ({
-      left:
-        normalizeUnit(item.question.replace(/[？?].*$/, "")) ||
-        `知识点${index + 1}`,
+      left: normalizeUnit(item.question.replace(/[？?].*$/, '')) || `知识点${index + 1}`,
       right: simplifyFact(item.answer),
     }))
     .filter((item) => item.left && item.right)
     .slice(0, 4);
 
-  return fromFacts.length > 0
-    ? uniquePairs([...fromFacts, ...fromQuiz]).slice(0, 4)
-    : fromQuiz;
+  return fromFacts.length > 0 ? uniquePairs([...fromFacts, ...fromQuiz]).slice(0, 4) : fromQuiz;
 }
 
 function extractTopicTerms(source: string): string[] {
   const text = toText(source);
   const rawTerms = text.match(/[\u4e00-\u9fff]{1,8}/g) || [];
-  const knownTerms = Object.keys(TOPIC_ALIASES).filter((term) =>
-    text.includes(term),
-  );
+  const knownTerms = Object.keys(TOPIC_ALIASES).filter((term) => text.includes(term));
 
   const filtered = rawTerms
     .map((term) => normalizeUnit(term))
@@ -353,21 +328,21 @@ function extractTopicTerms(source: string): string[] {
 
 function normalizeUnit(value: unknown): string {
   const text = toText(value)
-    .replace(/[🌸☀️🍂❄️🐱🐶🐰🐦🐟🧠📘✨⭐️\s]/g, "")
-    .replace(/^(什么|哪个|谁会|谁住在|说说|现在|这个|关于)/, "")
-    .replace(/(是什么季节|住在哪里|吃什么|怎么叫|有什么特点).*$/, "")
-    .replace(/[：:，,。！？?]/g, "")
+    .replace(/[🌸☀️🍂❄️🐱🐶🐰🐦🐟🧠📘✨⭐️\s]/g, '')
+    .replace(/^(什么|哪个|谁会|谁住在|说说|现在|这个|关于)/, '')
+    .replace(/(是什么季节|住在哪里|吃什么|怎么叫|有什么特点).*$/, '')
+    .replace(/[：:，,。！？?]/g, '')
     .trim();
 
-  if (!text || text.length > 8) return "";
+  if (!text || text.length > 8) return '';
   return text;
 }
 
 function simplifyFact(value: unknown): string {
   return toText(value)
-    .replace(/[\n]/g, "，")
+    .replace(/[\n]/g, '，')
     .split(/[。；;]/)[0]
-    .replace(/^是/, "")
+    .replace(/^是/, '')
     .trim()
     .slice(0, 24);
 }
@@ -389,12 +364,10 @@ function uniquePairs(
 }
 
 function toTextArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.map((item) => toText(item)).filter(Boolean)
-    : [];
+  return Array.isArray(value) ? value.map((item) => toText(item)).filter(Boolean) : [];
 }
 
 function toText(value: unknown): string {
-  if (value == null) return "";
-  return String(value).replace(/\s+/g, " ").trim();
+  if (value == null) return '';
+  return String(value).replace(/\s+/g, ' ').trim();
 }

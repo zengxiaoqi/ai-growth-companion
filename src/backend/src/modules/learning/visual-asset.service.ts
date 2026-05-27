@@ -1,14 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { createHash } from "crypto";
-import { promises as fs } from "fs";
-import * as path from "path";
+import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import {
   type AnimalSubjectConfig,
   ANIMAL_SUBJECTS,
   inferAnimalFromText,
-} from "./animal-subjects.config";
+} from './animal-subjects.config';
 
-export type VisualAssetKind = "character" | "background" | "overlay";
+export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
 export type VisualAssetLicense = {
   license: string;
@@ -23,7 +23,7 @@ export type VisualAsset = VisualAssetLicense & {
   kind: VisualAssetKind;
   role: string;
   staticPath: string;
-  provider: "local" | "openverse" | "wikimedia" | "kenney" | "svgFallback";
+  provider: 'local' | 'openverse' | 'wikimedia' | 'kenney' | 'svgFallback';
   width?: number;
   height?: number;
   qualityScore: number;
@@ -68,21 +68,14 @@ type AnimalSubject = string;
 @Injectable()
 export class VisualAssetService {
   private readonly logger = new Logger(VisualAssetService.name);
-  private readonly publicDir = path.resolve(
-    __dirname,
-    "../../../../video-remotion/public",
-  );
+  private readonly publicDir = path.resolve(__dirname, '../../../../video-remotion/public');
   private readonly localManifestPath = path.join(
     this.publicDir,
-    "assets",
-    "lesson",
-    "manifest.json",
+    'assets',
+    'lesson',
+    'manifest.json',
   );
-  private readonly generatedAssetDir = path.join(
-    this.publicDir,
-    ".generated",
-    "assets",
-  );
+  private readonly generatedAssetDir = path.join(this.publicDir, '.generated', 'assets');
   private localManifestCache: LocalManifest | null | undefined;
 
   async resolveSceneVisualAssets(
@@ -90,27 +83,19 @@ export class VisualAssetService {
     topic: string,
   ): Promise<SceneVisualAssetPlan> {
     const requests = this.buildAssetRequests(scene, topic);
-    const resolved = await Promise.all(
-      requests.map((request) => this.resolveAsset(request)),
-    );
+    const resolved = await Promise.all(requests.map((request) => this.resolveAsset(request)));
     const assets = resolved.filter(Boolean) as VisualAsset[];
-    const mainCharacter = assets.find((asset) => asset.kind === "character");
-    const background = assets.find((asset) => asset.kind === "background");
-    const overlays = assets.filter((asset) => asset.kind === "overlay");
-    const requiresCharacter = requests.some(
-      (request) => request.kind === "character",
-    );
-    const primary =
-      mainCharacter ||
-      (!requiresCharacter ? background : undefined) ||
-      overlays[0];
-    const provider = primary?.provider || "svgFallback";
+    const mainCharacter = assets.find((asset) => asset.kind === 'character');
+    const background = assets.find((asset) => asset.kind === 'background');
+    const overlays = assets.filter((asset) => asset.kind === 'overlay');
+    const requiresCharacter = requests.some((request) => request.kind === 'character');
+    const primary = mainCharacter || (!requiresCharacter ? background : undefined) || overlays[0];
+    const provider = primary?.provider || 'svgFallback';
     const resolvedQualityScore = Math.max(
       ...assets.map((asset) => asset.qualityScore),
-      provider === "svgFallback" ? 35 : 0,
+      provider === 'svgFallback' ? 35 : 0,
     );
-    const qualityScore =
-      requiresCharacter && !mainCharacter ? 35 : resolvedQualityScore;
+    const qualityScore = requiresCharacter && !mainCharacter ? 35 : resolvedQualityScore;
 
     return {
       mainCharacter,
@@ -130,53 +115,50 @@ export class VisualAssetService {
     };
   }
 
-  private buildAssetRequests(
-    scene: ResolveSceneInput,
-    topic: string,
-  ): AssetRequest[] {
-    const source = `${topic} ${scene.title || ""} ${scene.narration || ""} ${
-      scene.visualDescription || ""
-    } ${(scene.assetTags || []).join(" ")}`;
+  private buildAssetRequests(scene: ResolveSceneInput, topic: string): AssetRequest[] {
+    const source = `${topic} ${scene.title || ''} ${scene.narration || ''} ${
+      scene.visualDescription || ''
+    } ${(scene.assetTags || []).join(' ')}`;
     const animal = this.inferAnimalSubject(source, scene.assetKey);
-    const action = scene.action || "explore";
-    const habitat = scene.habitat || "forest";
+    const action = scene.action || 'explore';
+    const habitat = scene.habitat || 'forest';
     const requests: AssetRequest[] = [];
 
     if (animal) {
       const role = this.roleForAnimalAction(animal, action);
       requests.push({
-        kind: "character",
+        kind: 'character',
         role,
         query: this.queryForRole(role),
-        tags: [animal, role, action, "animal"],
+        tags: [animal, role, action, 'animal'],
         minWidth: 256,
         minHeight: 200,
       });
     }
 
     const backgroundRole =
-      habitat === "river" || action === "swim"
-        ? "river"
-        : habitat === "night"
-          ? "forest-night"
-          : habitat === "grassland"
-            ? "grassland"
-            : "forest-day";
+      habitat === 'river' || action === 'swim'
+        ? 'river'
+        : habitat === 'night'
+          ? 'forest-night'
+          : habitat === 'grassland'
+            ? 'grassland'
+            : 'forest-day';
     requests.push({
-      kind: "background",
+      kind: 'background',
       role: backgroundRole,
       query: this.queryForRole(backgroundRole),
-      tags: [backgroundRole, "forest", "nature", habitat],
+      tags: [backgroundRole, 'forest', 'nature', habitat],
       minWidth: 1280,
       minHeight: 720,
     });
 
-    if (action === "swim") {
+    if (action === 'swim') {
       requests.push({
-        kind: "overlay",
-        role: "water-splash",
-        query: "water splash transparent cc0",
-        tags: ["water", "splash", "overlay"],
+        kind: 'overlay',
+        role: 'water-splash',
+        query: 'water splash transparent cc0',
+        tags: ['water', 'splash', 'overlay'],
         minWidth: 256,
         minHeight: 128,
       });
@@ -185,9 +167,7 @@ export class VisualAssetService {
     return requests;
   }
 
-  private async resolveAsset(
-    request: AssetRequest,
-  ): Promise<VisualAsset | null> {
+  private async resolveAsset(request: AssetRequest): Promise<VisualAsset | null> {
     const local = await this.findLocalAsset(request);
     if (local) {
       this.logger.log(
@@ -196,9 +176,7 @@ export class VisualAssetService {
       return local;
     }
 
-    this.logger.debug(
-      `[resolveAsset] role="${request.role}" not found locally, trying Openverse`,
-    );
+    this.logger.debug(`[resolveAsset] role="${request.role}" not found locally, trying Openverse`);
 
     const openverse = await this.resolveOpenverseAsset(request);
     if (openverse) return openverse;
@@ -215,34 +193,29 @@ export class VisualAssetService {
     return null;
   }
 
-  private async findLocalAsset(
-    request: AssetRequest,
-  ): Promise<VisualAsset | null> {
+  private async findLocalAsset(request: AssetRequest): Promise<VisualAsset | null> {
     const manifest = await this.loadLocalManifest();
     const assets = manifest?.assets || [];
 
     const matchCriteria = (asset: VisualAsset) =>
       asset.kind === request.kind &&
-      (!asset.provider || asset.provider === "local") &&
+      (!asset.provider || asset.provider === 'local') &&
       this.isAllowedLicense(asset.license) &&
       this.meetsMinimumSize(asset, request);
 
-    const exactMatch = assets.find(
-      (asset) => matchCriteria(asset) && asset.role === request.role,
-    );
+    const exactMatch = assets.find((asset) => matchCriteria(asset) && asset.role === request.role);
     if (exactMatch) {
       return {
         ...exactMatch,
-        provider: exactMatch.provider || "local",
+        provider: exactMatch.provider || 'local',
         qualityScore: exactMatch.qualityScore || 88,
       };
     }
 
-    const animalPrefix = request.role.split("-")[0];
+    const animalPrefix = request.role.split('-')[0];
     if (animalPrefix && animalPrefix !== request.role) {
       const prefixMatch = assets.find(
-        (asset) =>
-          matchCriteria(asset) && asset.role.startsWith(animalPrefix + "-"),
+        (asset) => matchCriteria(asset) && asset.role.startsWith(animalPrefix + '-'),
       );
       if (prefixMatch) {
         this.logger.log(
@@ -250,7 +223,7 @@ export class VisualAssetService {
         );
         return {
           ...prefixMatch,
-          provider: prefixMatch.provider || "local",
+          provider: prefixMatch.provider || 'local',
           qualityScore: (prefixMatch.qualityScore || 88) - 2,
         };
       }
@@ -259,23 +232,21 @@ export class VisualAssetService {
     return null;
   }
 
-  private async resolveKenneyAsset(
-    request: AssetRequest,
-  ): Promise<VisualAsset | null> {
+  private async resolveKenneyAsset(request: AssetRequest): Promise<VisualAsset | null> {
     const manifest = await this.loadLocalManifest();
     const assets = manifest?.assets || [];
     const match = assets.find(
       (asset) =>
         asset.kind === request.kind &&
         asset.role === request.role &&
-        asset.provider === "kenney" &&
+        asset.provider === 'kenney' &&
         this.isAllowedLicense(asset.license) &&
         this.meetsMinimumSize(asset, request),
     );
     if (!match) return null;
     return {
       ...match,
-      provider: "kenney",
+      provider: 'kenney',
       qualityScore: match.qualityScore || 74,
     };
   }
@@ -283,7 +254,7 @@ export class VisualAssetService {
   private async loadLocalManifest(): Promise<LocalManifest | null> {
     if (this.localManifestCache !== undefined) return this.localManifestCache;
     try {
-      const raw = await fs.readFile(this.localManifestPath, "utf-8");
+      const raw = await fs.readFile(this.localManifestPath, 'utf-8');
       const parsed = JSON.parse(raw) as LocalManifest;
       this.localManifestCache = parsed;
       return parsed;
@@ -293,17 +264,14 @@ export class VisualAssetService {
     }
   }
 
-  private async resolveOpenverseAsset(
-    request: AssetRequest,
-  ): Promise<VisualAsset | null> {
+  private async resolveOpenverseAsset(request: AssetRequest): Promise<VisualAsset | null> {
     const endpoint =
-      process.env.OPENVERSE_IMAGE_API_URL ||
-      "https://api.openverse.engineering/v1/images/";
+      process.env.OPENVERSE_IMAGE_API_URL || 'https://api.openverse.engineering/v1/images/';
     const url = new URL(endpoint);
-    url.searchParams.set("q", request.query);
-    url.searchParams.set("license", "cc0");
-    url.searchParams.set("page_size", "12");
-    url.searchParams.set("mature", "false");
+    url.searchParams.set('q', request.query);
+    url.searchParams.set('license', 'cc0');
+    url.searchParams.set('page_size', '12');
+    url.searchParams.set('mature', 'false');
 
     try {
       const response = await fetch(url);
@@ -317,13 +285,13 @@ export class VisualAssetService {
           item?.mature !== true &&
           width >= request.minWidth &&
           height >= request.minHeight &&
-          typeof item?.url === "string"
+          typeof item?.url === 'string'
         );
       });
       if (!candidate) return null;
 
       return await this.downloadAndCacheAsset(request, {
-        provider: "openverse",
+        provider: 'openverse',
         url: candidate.url,
         landingUrl: candidate.foreign_landing_url,
         sourceUrl: candidate.url,
@@ -336,26 +304,24 @@ export class VisualAssetService {
     } catch (error: any) {
       this.logger.warn(
         `[VisualAssetService] Openverse lookup failed for ${request.role}: ${
-          error?.message || "unknown"
+          error?.message || 'unknown'
         }`,
       );
       return null;
     }
   }
 
-  private async resolveWikimediaAsset(
-    request: AssetRequest,
-  ): Promise<VisualAsset | null> {
-    const url = new URL("https://commons.wikimedia.org/w/api.php");
-    url.searchParams.set("action", "query");
-    url.searchParams.set("format", "json");
-    url.searchParams.set("origin", "*");
-    url.searchParams.set("generator", "search");
-    url.searchParams.set("gsrnamespace", "6");
-    url.searchParams.set("gsrsearch", request.query);
-    url.searchParams.set("gsrlimit", "10");
-    url.searchParams.set("prop", "imageinfo");
-    url.searchParams.set("iiprop", "url|mime|size|extmetadata");
+  private async resolveWikimediaAsset(request: AssetRequest): Promise<VisualAsset | null> {
+    const url = new URL('https://commons.wikimedia.org/w/api.php');
+    url.searchParams.set('action', 'query');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('origin', '*');
+    url.searchParams.set('generator', 'search');
+    url.searchParams.set('gsrnamespace', '6');
+    url.searchParams.set('gsrsearch', request.query);
+    url.searchParams.set('gsrlimit', '10');
+    url.searchParams.set('prop', 'imageinfo');
+    url.searchParams.set('iiprop', 'url|mime|size|extmetadata');
 
     try {
       const response = await fetch(url);
@@ -365,17 +331,15 @@ export class VisualAssetService {
       for (const page of pages) {
         const info = page?.imageinfo?.[0];
         const metadata = info?.extmetadata || {};
-        const license = String(
-          metadata?.LicenseShortName?.value || metadata?.License?.value || "",
-        );
+        const license = String(metadata?.LicenseShortName?.value || metadata?.License?.value || '');
         if (!this.isAllowedLicense(license)) continue;
         const width = Number(info?.width) || 0;
         const height = Number(info?.height) || 0;
         if (width < request.minWidth || height < request.minHeight) continue;
-        if (!String(info?.mime || "").startsWith("image/")) continue;
+        if (!String(info?.mime || '').startsWith('image/')) continue;
 
         return await this.downloadAndCacheAsset(request, {
-          provider: "wikimedia",
+          provider: 'wikimedia',
           url: info.url,
           landingUrl: metadata?.ObjectURL?.value,
           sourceUrl: info.url,
@@ -390,7 +354,7 @@ export class VisualAssetService {
     } catch (error: any) {
       this.logger.warn(
         `[VisualAssetService] Wikimedia lookup failed for ${request.role}: ${
-          error?.message || "unknown"
+          error?.message || 'unknown'
         }`,
       );
       return null;
@@ -400,7 +364,7 @@ export class VisualAssetService {
   private async downloadAndCacheAsset(
     request: AssetRequest,
     source: {
-      provider: "openverse" | "wikimedia";
+      provider: 'openverse' | 'wikimedia';
       url: string;
       landingUrl?: string;
       sourceUrl?: string;
@@ -413,9 +377,9 @@ export class VisualAssetService {
   ): Promise<VisualAsset | null> {
     if (!this.isAllowedLicense(source.license)) return null;
 
-    const key = createHash("sha1")
+    const key = createHash('sha1')
       .update(`${source.provider}:${source.url}:${request.role}`)
-      .digest("hex")
+      .digest('hex')
       .slice(0, 16);
     const extension = this.inferExtension(source.url);
     const relativePath = `.generated/assets/${key}/${request.role}${extension}`;
@@ -433,15 +397,12 @@ export class VisualAssetService {
     try {
       const response = await fetch(source.url);
       if (!response.ok) throw new Error(`download status ${response.status}`);
-      const contentType = response.headers.get("content-type") || "";
-      if (
-        !contentType.startsWith("image/") &&
-        !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)
-      ) {
-        throw new Error(`non-image content type ${contentType || "unknown"}`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.startsWith('image/') && !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)) {
+        throw new Error(`non-image content type ${contentType || 'unknown'}`);
       }
       const buffer = Buffer.from(await response.arrayBuffer());
-      if (buffer.length < 512) throw new Error("image payload too small");
+      if (buffer.length < 512) throw new Error('image payload too small');
 
       await fs.mkdir(outputDir, { recursive: true });
       await fs.writeFile(outputPath, buffer);
@@ -459,7 +420,7 @@ export class VisualAssetService {
         landingUrl: source.landingUrl,
         width: source.width,
         height: source.height,
-        qualityScore: request.kind === "background" ? 78 : 82,
+        qualityScore: request.kind === 'background' ? 78 : 82,
       };
       await this.appendGeneratedManifest(asset);
       this.logger.log(
@@ -469,21 +430,17 @@ export class VisualAssetService {
     } catch (error: any) {
       this.logger.warn(
         `[VisualAssetService] asset download failed for ${request.role}: ${
-          error?.message || "unknown"
+          error?.message || 'unknown'
         }`,
       );
       return null;
     }
   }
 
-  private async readGeneratedManifestEntry(
-    staticPath: string,
-  ): Promise<VisualAsset | null> {
+  private async readGeneratedManifestEntry(staticPath: string): Promise<VisualAsset | null> {
     try {
       const manifest = await this.readGeneratedManifest();
-      return (
-        manifest.assets.find((asset) => asset.staticPath === staticPath) || null
-      );
+      return manifest.assets.find((asset) => asset.staticPath === staticPath) || null;
     } catch {
       return null;
     }
@@ -491,23 +448,21 @@ export class VisualAssetService {
 
   private async appendGeneratedManifest(asset: VisualAsset): Promise<void> {
     const manifest = await this.readGeneratedManifest();
-    const assets = manifest.assets.filter(
-      (item) => item.staticPath !== asset.staticPath,
-    );
+    const assets = manifest.assets.filter((item) => item.staticPath !== asset.staticPath);
     assets.push({ ...asset, downloadedAt: new Date().toISOString() } as any);
     await fs.mkdir(this.generatedAssetDir, { recursive: true });
     await fs.writeFile(
-      path.join(this.generatedAssetDir, "asset-manifest.json"),
+      path.join(this.generatedAssetDir, 'asset-manifest.json'),
       JSON.stringify({ version: 1, assets }, null, 2),
-      "utf-8",
+      'utf-8',
     );
   }
 
   private async readGeneratedManifest(): Promise<{ assets: VisualAsset[] }> {
     try {
       const raw = await fs.readFile(
-        path.join(this.generatedAssetDir, "asset-manifest.json"),
-        "utf-8",
+        path.join(this.generatedAssetDir, 'asset-manifest.json'),
+        'utf-8',
       );
       const parsed = JSON.parse(raw);
       return { assets: Array.isArray(parsed.assets) ? parsed.assets : [] };
@@ -518,19 +473,19 @@ export class VisualAssetService {
 
   private queryForRole(role: string): string {
     const queries: Record<string, string> = {
-      "tiger-standing": "tiger standing",
-      "tiger-running": "tiger running",
-      "tiger-swimming": "tiger swimming",
-      "tiger-roaring": "tiger roaring",
-      "rabbit-standing": "rabbit",
-      "rabbit-eating": "rabbit eating",
-      "rabbit-jumping": "rabbit jumping",
-      "rabbit-listening": "rabbit",
-      "forest-day": "sunlit forest landscape",
-      "forest-night": "night forest",
-      grassland: "grassland meadow",
-      river: "forest river",
-      "water-splash": "water splash",
+      'tiger-standing': 'tiger standing',
+      'tiger-running': 'tiger running',
+      'tiger-swimming': 'tiger swimming',
+      'tiger-roaring': 'tiger roaring',
+      'rabbit-standing': 'rabbit',
+      'rabbit-eating': 'rabbit eating',
+      'rabbit-jumping': 'rabbit jumping',
+      'rabbit-listening': 'rabbit',
+      'forest-day': 'sunlit forest landscape',
+      'forest-night': 'night forest',
+      grassland: 'grassland meadow',
+      river: 'forest river',
+      'water-splash': 'water splash',
     };
     if (queries[role]) return queries[role];
     // For animal roles not in the hardcoded map, build a better query
@@ -539,11 +494,10 @@ export class VisualAssetService {
     );
     if (animalMatch) {
       const animal = animalMatch[1];
-      const verb =
-        animalMatch[2] === "standing" ? "illustration cartoon" : animalMatch[2];
+      const verb = animalMatch[2] === 'standing' ? 'illustration cartoon' : animalMatch[2];
       return `${animal} animal ${verb} educational`;
     }
-    return role.replace(/-/g, " ");
+    return role.replace(/-/g, ' ');
   }
 
   private accentColorForAnimal(animalId: string): string | null {
@@ -551,10 +505,7 @@ export class VisualAssetService {
     return config?.accentColor ?? null;
   }
 
-  private inferAnimalSubject(
-    source: string,
-    assetKey?: string,
-  ): AnimalSubject | null {
+  private inferAnimalSubject(source: string, assetKey?: string): AnimalSubject | null {
     const result = inferAnimalFromText(source, assetKey);
     return result?.id ?? null;
   }
@@ -580,23 +531,23 @@ export class VisualAssetService {
 
   private inferExtension(url: string): string {
     const match = url.match(/\.(svg|png|jpe?g|webp)(?:\?|#|$)/i);
-    if (!match) return ".jpg";
+    if (!match) return '.jpg';
     const ext = match[1].toLowerCase();
-    return ext === "jpeg" ? ".jpg" : `.${ext}`;
+    return ext === 'jpeg' ? '.jpg' : `.${ext}`;
   }
 
   private isAllowedLicense(value: unknown): boolean {
-    const license = String(value || "").toLowerCase();
+    const license = String(value || '').toLowerCase();
     return (
-      license === "cc0" ||
-      license.includes("cc0") ||
-      license.includes("public domain") ||
-      license.includes("pdm") ||
-      license.includes("cc by") ||
-      license.includes("cc-by") ||
-      license.includes("cc by-sa") ||
-      license.includes("cc-by-sa") ||
-      license.includes("attribution")
+      license === 'cc0' ||
+      license.includes('cc0') ||
+      license.includes('public domain') ||
+      license.includes('pdm') ||
+      license.includes('cc by') ||
+      license.includes('cc-by') ||
+      license.includes('cc by-sa') ||
+      license.includes('cc-by-sa') ||
+      license.includes('attribution')
     );
   }
 
@@ -609,7 +560,7 @@ export class VisualAssetService {
     if (!value) return undefined;
     return (
       String(value)
-        .replace(/<[^>]+>/g, "")
+        .replace(/<[^>]+>/g, '')
         .trim() || undefined
     );
   }

@@ -4,9 +4,9 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-} from "typeorm";
+} from 'typeorm';
 
-@Entity("parent_controls")
+@Entity('parent_controls')
 export class ParentControl {
   @PrimaryGeneratedColumn()
   id: number;
@@ -23,16 +23,16 @@ export class ParentControl {
   @Column({ default: 30 })
   dailyLimitMinutes: number;
 
-  @Column({ type: "simple-json", nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   allowedDomains: string[];
 
-  @Column({ type: "simple-json", nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   blockedTopics: string[];
 
-  @Column({ type: "simple-json", nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   studySchedule: any;
 
-  @Column({ type: "simple-json", nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   notifications: any;
 
   @Column({ default: true })

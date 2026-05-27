@@ -1,10 +1,10 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { NotificationService } from "../../src/modules/notification/notification.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Notification } from "../../src/database/entities/notification.entity";
-import { NotFoundException } from "@nestjs/common";
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotificationService } from '../../src/modules/notification/notification.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Notification } from '../../src/database/entities/notification.entity';
+import { NotFoundException } from '@nestjs/common';
 
-describe("NotificationService", () => {
+describe('NotificationService', () => {
   let service: NotificationService;
   let mockRepo: any;
 
@@ -31,37 +31,37 @@ describe("NotificationService", () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  describe("create", () => {
-    it("creates a notification", async () => {
+  describe('create', () => {
+    it('creates a notification', async () => {
       mockRepo.create.mockReturnValue({
         userId: 1,
-        title: "Test",
-        message: "Hello",
-        type: "system",
+        title: 'Test',
+        message: 'Hello',
+        type: 'system',
       });
       mockRepo.save.mockResolvedValue({
         id: 1,
         userId: 1,
-        title: "Test",
-        message: "Hello",
-        type: "system",
+        title: 'Test',
+        message: 'Hello',
+        type: 'system',
       });
 
       const result = await service.create({
         userId: 1,
-        title: "Test",
-        message: "Hello",
-        type: "system",
+        title: 'Test',
+        message: 'Hello',
+        type: 'system',
       });
-      expect(result.title).toBe("Test");
+      expect(result.title).toBe('Test');
     });
   });
 
-  describe("findByUser", () => {
-    it("returns notifications ordered by createdAt DESC", async () => {
+  describe('findByUser', () => {
+    it('returns notifications ordered by createdAt DESC', async () => {
       const mockNotifications = [
-        { id: 2, userId: 1, title: "Second", createdAt: new Date() },
-        { id: 1, userId: 1, title: "First", createdAt: new Date() },
+        { id: 2, userId: 1, title: 'Second', createdAt: new Date() },
+        { id: 1, userId: 1, title: 'First', createdAt: new Date() },
       ];
       mockRepo.find.mockResolvedValue(mockNotifications);
 
@@ -70,16 +70,16 @@ describe("NotificationService", () => {
     });
   });
 
-  describe("getUnreadCount", () => {
-    it("returns unread count", async () => {
+  describe('getUnreadCount', () => {
+    it('returns unread count', async () => {
       mockRepo.count.mockResolvedValue(3);
       const count = await service.getUnreadCount(1);
       expect(count).toBe(3);
     });
   });
 
-  describe("markAsRead", () => {
-    it("marks a notification as read", async () => {
+  describe('markAsRead', () => {
+    it('marks a notification as read', async () => {
       mockRepo.update.mockResolvedValue({ affected: 1 });
       mockRepo.findOne.mockResolvedValue({ id: 1, read: true });
 
@@ -87,37 +87,34 @@ describe("NotificationService", () => {
       expect(result.read).toBe(true);
     });
 
-    it("throws if notification not found", async () => {
+    it('throws if notification not found', async () => {
       mockRepo.update.mockResolvedValue({ affected: 1 });
       mockRepo.findOne.mockResolvedValue(null);
       await expect(service.markAsRead(999)).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe("markAllAsRead", () => {
-    it("marks all unread notifications as read", async () => {
+  describe('markAllAsRead', () => {
+    it('marks all unread notifications as read', async () => {
       mockRepo.update.mockResolvedValue({ affected: 5 });
       await service.markAllAsRead(1);
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        { userId: 1, read: false },
-        { read: true },
-      );
+      expect(mockRepo.update).toHaveBeenCalledWith({ userId: 1, read: false }, { read: true });
     });
   });
 
-  describe("notifyAchievement", () => {
-    it("creates an achievement notification", async () => {
+  describe('notifyAchievement', () => {
+    it('creates an achievement notification', async () => {
       mockRepo.create.mockReturnValue({
         userId: 1,
-        title: "获得新成就！",
-        type: "achievement",
+        title: '获得新成就！',
+        type: 'achievement',
       });
-      mockRepo.save.mockResolvedValue({ id: 1, title: "获得新成就！" });
+      mockRepo.save.mockResolvedValue({ id: 1, title: '获得新成就！' });
 
-      const result = await service.notifyAchievement(1, "语言大师");
-      expect(result.title).toContain("成就");
+      const result = await service.notifyAchievement(1, '语言大师');
+      expect(result.title).toContain('成就');
       expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "achievement" }),
+        expect.objectContaining({ type: 'achievement' }),
       );
     });
   });

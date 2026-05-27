@@ -1,15 +1,11 @@
-import { Injectable } from "@nestjs/common";
-import { ContentsService } from "../../../contents/contents.service";
+import { Injectable } from '@nestjs/common';
+import { ContentsService } from '../../../contents/contents.service';
 
 @Injectable()
 export class SearchContentTool {
   constructor(private readonly contentsService: ContentsService) {}
 
-  async execute(args: {
-    query: string;
-    ageRange: string;
-    domain?: string;
-  }): Promise<string> {
+  async execute(args: { query: string; ageRange: string; domain?: string }): Promise<string> {
     try {
       const result = await this.contentsService.findAll({
         ageRange: args.ageRange,
@@ -19,8 +15,7 @@ export class SearchContentTool {
       const keyword = args.query.toLowerCase();
       const filtered = result.list.filter(
         (c: any) =>
-          c.title?.toLowerCase().includes(keyword) ||
-          c.topic?.toLowerCase().includes(keyword),
+          c.title?.toLowerCase().includes(keyword) || c.topic?.toLowerCase().includes(keyword),
       );
 
       if (filtered.length === 0) {

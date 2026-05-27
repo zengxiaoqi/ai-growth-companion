@@ -1,14 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between } from "typeorm";
-import { LearningRecord } from "../../database/entities/learning-record.entity";
-import { AbilityAssessment } from "../../database/entities/ability-assessment.entity";
-import { Achievement } from "../../database/entities/achievement.entity";
-import { LlmClientService } from "../../agent-framework/llm/llm-client.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between } from 'typeorm';
+import { LearningRecord } from '../../database/entities/learning-record.entity';
+import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
+import { Achievement } from '../../database/entities/achievement.entity';
+import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 
 interface ReportParams {
   userId: number;
-  period: "daily" | "weekly" | "monthly";
+  period: 'daily' | 'weekly' | 'monthly';
 }
 
 @Injectable()
@@ -35,10 +35,7 @@ export class ReportService {
     const dailyStats = await this.getDailyStats(userId, dateRange, period);
     const skillProgress = await this.getSkillProgress(userId);
 
-    const learningSummary = this.generateSummary(
-      learningStats,
-      achievementStats,
-    );
+    const learningSummary = this.generateSummary(learningStats, achievementStats);
 
     return {
       userId,
@@ -66,13 +63,13 @@ export class ReportService {
     let start: Date;
 
     switch (period) {
-      case "daily":
+      case 'daily':
         start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         break;
-      case "weekly":
+      case 'weekly':
         start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
-      case "monthly":
+      case 'monthly':
         start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
       default:
@@ -82,10 +79,7 @@ export class ReportService {
     return { start, end: new Date() };
   }
 
-  private async getLearningStats(
-    userId: number,
-    dateRange: { start: Date; end: Date },
-  ) {
+  private async getLearningStats(userId: number, dateRange: { start: Date; end: Date }) {
     const records = await this.learningRecordRepository.find({
       where: {
         userId,
@@ -93,17 +87,12 @@ export class ReportService {
       },
     });
 
-    const totalTime = records.reduce(
-      (sum, r) => sum + (r.durationSeconds || 0),
-      0,
-    );
-    const completedCount = records.filter(
-      (r) => r.status === "completed",
-    ).length;
+    const totalTime = records.reduce((sum, r) => sum + (r.durationSeconds || 0), 0);
+    const completedCount = records.filter((r) => r.status === 'completed').length;
 
     const domainStats: Record<string, number> = {};
     for (const record of records) {
-      const domain = record.content?.domain || "other";
+      const domain = record.content?.domain || 'other';
       domainStats[domain] = (domainStats[domain] || 0) + 1;
     }
 
@@ -126,14 +115,11 @@ export class ReportService {
         userId,
         startedAt: Between(dateRange.start, dateRange.end),
       },
-      order: { startedAt: "ASC" },
+      order: { startedAt: 'ASC' },
     });
 
     // Group by day
-    const dayMap = new Map<
-      string,
-      { totalTime: number; completed: number; scores: number[] }
-    >();
+    const dayMap = new Map<string, { totalTime: number; completed: number; scores: number[] }>();
 
     for (const record of records) {
       const dayKey = new Date(record.startedAt).toISOString().slice(0, 10);
@@ -143,7 +129,7 @@ export class ReportService {
         scores: [] as number[],
       };
       existing.totalTime += record.durationSeconds || 0;
-      if (record.status === "completed") {
+      if (record.status === 'completed') {
         existing.completed++;
         if (record.score != null) existing.scores.push(record.score);
       }
@@ -151,7 +137,7 @@ export class ReportService {
     }
 
     // Build array for the period
-    const days = period === "daily" ? 1 : period === "weekly" ? 7 : 30;
+    const days = period === 'daily' ? 1 : period === 'weekly' ? 7 : 30;
     const result: {
       date: string;
       totalTime: number;
@@ -170,9 +156,7 @@ export class ReportService {
         completedLessons: data?.completed || 0,
         averageScore:
           data && data.scores.length > 0
-            ? Math.round(
-                data.scores.reduce((s, v) => s + v, 0) / data.scores.length,
-              )
+            ? Math.round(data.scores.reduce((s, v) => s + v, 0) / data.scores.length)
             : 0,
       });
     }
@@ -180,12 +164,10 @@ export class ReportService {
     return result;
   }
 
-  private async getSkillProgress(
-    userId: number,
-  ): Promise<Record<string, number>> {
+  private async getSkillProgress(userId: number): Promise<Record<string, number>> {
     const abilities = await this.abilityRepository.find({
       where: { userId },
-      order: { assessedAt: "DESC" },
+      order: { assessedAt: 'DESC' },
     });
 
     const domainProgress: Record<string, number> = {
@@ -209,15 +191,10 @@ export class ReportService {
     return domainProgress;
   }
 
-  private calculateAverageScore(
-    dailyStats: { averageScore: number }[],
-  ): number {
+  private calculateAverageScore(dailyStats: { averageScore: number }[]): number {
     const daysWithScore = dailyStats.filter((d) => d.averageScore > 0);
     if (daysWithScore.length === 0) return 0;
-    return Math.round(
-      daysWithScore.reduce((s, d) => s + d.averageScore, 0) /
-        daysWithScore.length,
-    );
+    return Math.round(daysWithScore.reduce((s, d) => s + d.averageScore, 0) / daysWithScore.length);
   }
 
   async getAbilityTrend(userId: number, weeks: number) {
@@ -226,10 +203,10 @@ export class ReportService {
     startDate.setHours(0, 0, 0, 0);
 
     const assessments = await this.abilityRepository
-      .createQueryBuilder("a")
-      .where("a.userId = :userId", { userId })
-      .andWhere("a.assessedAt >= :start", { start: startDate })
-      .orderBy("a.assessedAt", "ASC")
+      .createQueryBuilder('a')
+      .where('a.userId = :userId', { userId })
+      .andWhere('a.assessedAt >= :start', { start: startDate })
+      .orderBy('a.assessedAt', 'ASC')
       .getMany();
 
     if (assessments.length === 0) {
@@ -237,13 +214,12 @@ export class ReportService {
     }
 
     const now = new Date();
-    const domains = ["language", "math", "science", "art", "social"] as const;
+    const domains = ['language', 'math', 'science', 'art', 'social'] as const;
     const weekMap = new Map<number, Map<string, number[]>>();
 
     for (const assessment of assessments) {
       const daysDiff = Math.floor(
-        (now.getTime() - assessment.assessedAt.getTime()) /
-          (1000 * 60 * 60 * 24),
+        (now.getTime() - assessment.assessedAt.getTime()) / (1000 * 60 * 60 * 24),
       );
       const weekNum = weeks - Math.floor(daysDiff / 7);
 
@@ -274,18 +250,16 @@ export class ReportService {
       const avg = (domain: string) => {
         const scores = weekData.get(domain) || [];
         return scores.length > 0
-          ? Math.round(
-              (scores.reduce((s, v) => s + v, 0) / scores.length) * 100,
-            ) / 100
+          ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 100) / 100
           : 0;
       };
       result.push({
         week: `第${weekNum}周`,
-        language: avg("language"),
-        math: avg("math"),
-        science: avg("science"),
-        art: avg("art"),
-        social: avg("social"),
+        language: avg('language'),
+        math: avg('math'),
+        science: avg('science'),
+        art: avg('art'),
+        social: avg('social'),
       });
     }
 
@@ -295,16 +269,16 @@ export class ReportService {
   async getRecentMasteredSkills(userId: number, limit: number) {
     const assessments = await this.abilityRepository.find({
       where: { userId },
-      order: { assessedAt: "DESC" },
+      order: { assessedAt: 'DESC' },
       take: limit,
     });
 
     const domainLabels: Record<string, string> = {
-      language: "语言表达",
-      math: "数学逻辑",
-      science: "科学探索",
-      art: "艺术创造",
-      social: "社会交往",
+      language: '语言表达',
+      math: '数学逻辑',
+      science: '科学探索',
+      art: '艺术创造',
+      social: '社会交往',
     };
 
     return assessments.map((a) => ({
@@ -320,10 +294,10 @@ export class ReportService {
     thirtyDaysAgo.setHours(0, 0, 0, 0);
 
     const records = await this.learningRecordRepository
-      .createQueryBuilder("lr")
-      .select("DISTINCT DATE(lr.startedAt)", "day")
-      .where("lr.userId = :userId", { userId })
-      .andWhere("lr.startedAt >= :start", { start: thirtyDaysAgo })
+      .createQueryBuilder('lr')
+      .select('DISTINCT DATE(lr.startedAt)', 'day')
+      .where('lr.userId = :userId', { userId })
+      .andWhere('lr.startedAt >= :start', { start: thirtyDaysAgo })
       .getRawMany();
 
     const activeDays = new Set(records.map((r) => r.day));
@@ -342,13 +316,10 @@ export class ReportService {
     return streak;
   }
 
-  private async getAbilityChange(
-    userId: number,
-    _dateRange: { start: Date; end: Date },
-  ) {
+  private async getAbilityChange(userId: number, _dateRange: { start: Date; end: Date }) {
     const abilities = await this.abilityRepository.find({
       where: { userId },
-      order: { assessedAt: "DESC" },
+      order: { assessedAt: 'DESC' },
       take: 2,
     });
 
@@ -363,12 +334,8 @@ export class ReportService {
     const previous = abilities[1];
 
     // Calculate changes based on domain
-    const currentByDomain = abilities.filter(
-      (a) => a.userId === current.userId,
-    );
-    const previousByDomain = abilities.filter(
-      (a) => a.userId === previous?.userId,
-    );
+    const currentByDomain = abilities.filter((a) => a.userId === current.userId);
+    const previousByDomain = abilities.filter((a) => a.userId === previous?.userId);
 
     const getScore = (domain: string, records: any[]) =>
       records.find((r) => r.domain === domain)?.score || 0;
@@ -376,28 +343,16 @@ export class ReportService {
     return {
       current,
       change: {
-        language:
-          getScore("language", currentByDomain) -
-          getScore("language", previousByDomain),
-        math:
-          getScore("math", currentByDomain) -
-          getScore("math", previousByDomain),
-        science:
-          getScore("science", currentByDomain) -
-          getScore("science", previousByDomain),
-        art:
-          getScore("art", currentByDomain) - getScore("art", previousByDomain),
-        social:
-          getScore("social", currentByDomain) -
-          getScore("social", previousByDomain),
+        language: getScore('language', currentByDomain) - getScore('language', previousByDomain),
+        math: getScore('math', currentByDomain) - getScore('math', previousByDomain),
+        science: getScore('science', currentByDomain) - getScore('science', previousByDomain),
+        art: getScore('art', currentByDomain) - getScore('art', previousByDomain),
+        social: getScore('social', currentByDomain) - getScore('social', previousByDomain),
       },
     };
   }
 
-  private async getAchievementStats(
-    userId: number,
-    dateRange: { start: Date; end: Date },
-  ) {
+  private async getAchievementStats(userId: number, dateRange: { start: Date; end: Date }) {
     const achievements = await this.achievementRepository.find({
       where: {
         userId,
@@ -430,20 +385,14 @@ export class ReportService {
       points.push(`获得 ${achievements.total} 个成就`);
     }
 
-    return points.length > 0 ? points.join("，") : "今天还没有学习记录";
+    return points.length > 0 ? points.join('，') : '今天还没有学习记录';
   }
 
-  private async generateInsights(
-    learning: any,
-    achievements: any,
-  ): Promise<string[]> {
+  private async generateInsights(learning: any, achievements: any): Promise<string[]> {
     // Try LLM-based insights first
     if (this.llmClient?.isConfigured) {
       try {
-        const llmInsights = await this.generateLlmInsights(
-          learning,
-          achievements,
-        );
+        const llmInsights = await this.generateLlmInsights(learning, achievements);
         if (llmInsights.length > 0) return llmInsights;
       } catch (error: any) {
         this.logger.warn(
@@ -456,25 +405,19 @@ export class ReportService {
     return this.generateRuleBasedInsights(learning);
   }
 
-  private async generateLlmInsights(
-    learning: any,
-    achievements: any,
-  ): Promise<string[]> {
+  private async generateLlmInsights(learning: any, achievements: any): Promise<string[]> {
     const domainNames: Record<string, string> = {
-      language: "语言表达",
-      math: "数学逻辑",
-      science: "科学探索",
-      art: "艺术创造",
-      social: "社会交往",
+      language: '语言表达',
+      math: '数学逻辑',
+      science: '科学探索',
+      art: '艺术创造',
+      social: '社会交往',
     };
 
     const domainSummary =
       Object.entries(learning.domainStats || {})
-        .map(
-          ([domain, count]) =>
-            `${domainNames[domain] || domain}: ${count} 次学习`,
-        )
-        .join("；") || "暂无领域数据";
+        .map(([domain, count]) => `${domainNames[domain] || domain}: ${count} 次学习`)
+        .join('；') || '暂无领域数据';
 
     const systemPrompt = `你是一个儿童教育专家，负责根据孩子的学习数据生成个性化、鼓励性的洞察建议。
 要求：
@@ -504,16 +447,14 @@ export class ReportService {
     const parsed = JSON.parse(match[0]);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
-      .filter((item: any) => typeof item === "string" && item.length >= 10)
-      .slice(0, 3);
+    return parsed.filter((item: any) => typeof item === 'string' && item.length >= 10).slice(0, 3);
   }
 
   private generateRuleBasedInsights(learning: any): string[] {
     const insights: string[] = [];
 
     if (learning.totalSessions >= 3) {
-      insights.push("学习很积极！保持这个节奏");
+      insights.push('学习很积极！保持这个节奏');
     }
 
     const domains = learning.domainStats || {};
@@ -521,16 +462,14 @@ export class ReportService {
     if (domainEntries.length > 0) {
       const maxDomain = domainEntries.sort((a, b) => b[1] - a[1])[0];
       const domainNames: Record<string, string> = {
-        language: "语言",
-        math: "数学",
-        science: "科学",
-        art: "艺术",
-        social: "社会",
+        language: '语言',
+        math: '数学',
+        science: '科学',
+        art: '艺术',
+        social: '社会',
       };
       if (maxDomain) {
-        insights.push(
-          `喜欢 ${domainNames[maxDomain[0]] || maxDomain[0]} 领域的内容`,
-        );
+        insights.push(`喜欢 ${domainNames[maxDomain[0]] || maxDomain[0]} 领域的内容`);
       }
     }
 
@@ -539,11 +478,11 @@ export class ReportService {
 
   private generateEncouragement(abilities: any) {
     const messages = [
-      "每天进步一点点！🌟",
-      "你很棒！继续探索新知识！🚀",
-      "学习是一件快乐的事！📚",
-      "坚持就是胜利！💪",
-      "你是最棒的！✨",
+      '每天进步一点点！🌟',
+      '你很棒！继续探索新知识！🚀',
+      '学习是一件快乐的事！📚',
+      '坚持就是胜利！💪',
+      '你是最棒的！✨',
     ];
 
     if (abilities && abilities.change) {
@@ -556,7 +495,7 @@ export class ReportService {
         (change.social || 0);
 
       if (totalChange > 10) {
-        return "进步太大了！为你骄傲！🏆";
+        return '进步太大了！为你骄傲！🏆';
       }
     }
 

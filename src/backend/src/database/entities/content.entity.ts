@@ -4,9 +4,9 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-} from "typeorm";
+} from 'typeorm';
 
-@Entity("contents")
+@Entity('contents')
 export class Content {
   @PrimaryGeneratedColumn()
   id: number;
@@ -38,13 +38,13 @@ export class Content {
   @Column({ length: 50 })
   contentType: string; // story, lesson, game, quiz, video
 
-  @Column({ type: "simple-json" })
+  @Column({ type: 'simple-json' })
   content: any;
 
-  @Column({ type: "simple-json" })
+  @Column({ type: 'simple-json' })
   mediaUrls: any[];
 
-  @Column({ default: "draft" })
+  @Column({ default: 'draft' })
   status: string;
 
   @Column({ nullable: true })

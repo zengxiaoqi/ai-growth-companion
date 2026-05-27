@@ -8,7 +8,7 @@
  * 4. Quality review and retry loop
  */
 
-import type { AgentDefinition, AgentContext } from "../../core";
+import type { AgentDefinition, AgentContext } from '../../core';
 
 const VIDEO_GENERATOR_PROMPT = `你是一位专业的教学视频生成专家，能够自主完成从内容设计到视频渲染的全流程。
 
@@ -112,55 +112,54 @@ import { Audio } from "@remotion/media";
 /** Build the system prompt for video generation */
 function buildVideoGeneratorPrompt(context: AgentContext): string {
   const contextHints = [
-    "## Runtime Context",
-    context.childId != null ? `- childId: ${context.childId}` : "",
-    context.ageGroup !== "parent" ? `- ageGroup: ${context.ageGroup}` : "",
-    "- Always specify topic and ageGroup when calling generateVideoContent.",
+    '## Runtime Context',
+    context.childId != null ? `- childId: ${context.childId}` : '',
+    context.ageGroup !== 'parent' ? `- ageGroup: ${context.ageGroup}` : '',
+    '- Always specify topic and ageGroup when calling generateVideoContent.',
     "- CRITICAL: After generating storyboard, call loadSkill('remotion-video-creation') and then writeFile('GeneratedLesson.tsx', ...) to create a custom visual component.",
-    "- The GeneratedLesson.tsx component MUST contain rich, theme-specific SVG visuals for EVERY scene — not just circles and text.",
-    "- After writing the component, call reviewVideoQuality to validate.",
-    "- If quality score < 70, rewrite GeneratedLesson.tsx with improved visuals and retry.",
+    '- The GeneratedLesson.tsx component MUST contain rich, theme-specific SVG visuals for EVERY scene — not just circles and text.',
+    '- After writing the component, call reviewVideoQuality to validate.',
+    '- If quality score < 70, rewrite GeneratedLesson.tsx with improved visuals and retry.',
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 
   return `${VIDEO_GENERATOR_PROMPT}\n\n${contextHints}`;
 }
 
 /** The video generator agent definition */
 export const videoGeneratorDefinition: AgentDefinition = {
-  type: "video-generator",
-  name: "视频生成专家",
-  description:
-    "专业视频生成专家，自主完成分镜设计、内容生成、组合编写、渲染执行和质量检查的全流程",
+  type: 'video-generator',
+  name: '视频生成专家',
+  description: '专业视频生成专家，自主完成分镜设计、内容生成、组合编写、渲染执行和质量检查的全流程',
 
   buildSystemPrompt: buildVideoGeneratorPrompt,
 
   allowedTools: [
-    "generateVideoContent",
-    "executeCommand",
-    "readFile",
-    "writeFile",
-    "renderHyperframes",
-    "renderRemotion",
-    "reviewVideoQuality",
-    "loadSkill",
+    'generateVideoContent',
+    'executeCommand',
+    'readFile',
+    'writeFile',
+    'renderHyperframes',
+    'renderRemotion',
+    'reviewVideoQuality',
+    'loadSkill',
   ],
 
   disallowedTools: [],
 
   allowedSkills: [
-    "video-generation-orchestrator",
-    "hyperframes",
-    "hyperframes-cli",
-    "remotion-video-creation",
-    "gsap",
-    "css-animations",
-    "three",
+    'video-generation-orchestrator',
+    'hyperframes',
+    'hyperframes-cli',
+    'remotion-video-creation',
+    'gsap',
+    'css-animations',
+    'three',
   ],
 
   maxIterations: 15,
-  defaultAgeGroup: "5-6",
+  defaultAgeGroup: '5-6',
   canSpawnSubAgents: false,
   maxSubAgentDepth: 0,
 };

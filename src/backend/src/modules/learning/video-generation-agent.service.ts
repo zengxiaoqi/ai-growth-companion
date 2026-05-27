@@ -11,41 +11,41 @@
  * the agent framework's tools.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { ToolRegistryService } from "../../agent-framework/tools/tool-registry.service";
-import { AgentRegistryService } from "../../agent-framework/agents/agent-registry.service";
-import { AgentExecutorService } from "../../agent-framework/agents/agent-executor.service";
-import { SkillRegistryService } from "../../agent-framework/skills/skill-registry.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { ToolRegistryService } from '../../agent-framework/tools/tool-registry.service';
+import { AgentRegistryService } from '../../agent-framework/agents/agent-registry.service';
+import { AgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
+import { SkillRegistryService } from '../../agent-framework/skills/skill-registry.service';
 import type {
   AgentContext,
   AgentDefinition,
   LlmMessage,
   ToolExecutionContext,
-} from "../../agent-framework/core";
-import type { VideoStoryboard } from "../../agent-framework/tools/impl/generate-video-content";
-import { videoGeneratorDefinition } from "../../agent-framework/agents/definitions/video-generator.agent";
+} from '../../agent-framework/core';
+import type { VideoStoryboard } from '../../agent-framework/tools/impl/generate-video-content';
+import { videoGeneratorDefinition } from '../../agent-framework/agents/definitions/video-generator.agent';
 import {
   VisualAssetService,
   type VisualAsset,
   type SceneVisualAssetPlan,
-} from "./visual-asset.service";
+} from './visual-asset.service';
 import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
   getInlineSvgAssetKeys,
   inferAnimalFromText,
-} from "./animal-subjects.config";
+} from './animal-subjects.config';
 import {
   ACTION_KEYWORDS,
   HABITAT_KEYWORDS,
   ENVIRONMENT_TAG_KEYWORDS,
   matchKeyword,
-} from "./visual-keywords.config";
+} from './visual-keywords.config';
 
 export interface AgentVideoRequest {
   topic: string;
   domain?: string;
-  ageGroup?: "3-4" | "5-6";
+  ageGroup?: '3-4' | '5-6';
   contentId: number;
   childId?: number;
   payload: Record<string, any>;
@@ -104,13 +104,11 @@ export class VideoGenerationAgentService {
    * This executes the agent's tool-calling loop: the LLM decides which tools
    * to call (generateVideoContent, reviewVideoQuality, etc.) and in what order.
    */
-  async generateViaAgent(
-    request: AgentVideoRequest,
-  ): Promise<AgentVideoResult> {
+  async generateViaAgent(request: AgentVideoRequest): Promise<AgentVideoResult> {
     const { topic, domain, ageGroup, contentId, childId, payload } = request;
 
     this.logger.log(
-      `[generateViaAgent] Starting agent pipeline: topic="${topic}", domain=${domain || "auto"}, ageGroup=${ageGroup || "5-6"}`,
+      `[generateViaAgent] Starting agent pipeline: topic="${topic}", domain=${domain || 'auto'}, ageGroup=${ageGroup || '5-6'}`,
     );
 
     const context = this.buildAgentContext(contentId, childId, ageGroup);
@@ -119,9 +117,9 @@ export class VideoGenerationAgentService {
 
     const userMessage = this.buildUserMessage(topic, domain, ageGroup, payload);
 
-    const messages: LlmMessage[] = [{ role: "user", content: userMessage }];
+    const messages: LlmMessage[] = [{ role: 'user', content: userMessage }];
 
-    const toolCalls: AgentVideoResult["toolCalls"] = [];
+    const toolCalls: AgentVideoResult['toolCalls'] = [];
 
     const result = await this.executorService.runLoop(
       this.buildSystemPrompt(definition, context),
@@ -135,9 +133,7 @@ export class VideoGenerationAgentService {
           args: event.args,
           result: event.result,
         });
-        this.logger.log(
-          `[generateViaAgent] Tool call: ${event.toolName} → ${event.result}`,
-        );
+        this.logger.log(`[generateViaAgent] Tool call: ${event.toolName} → ${event.result}`);
       },
       16384,
     );
@@ -174,7 +170,7 @@ export class VideoGenerationAgentService {
     payload: Record<string, any> = {},
     agentFiles?: Map<string, string>,
   ): Promise<DynamicRemotionManifest> {
-    const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
+    const topic = this.toText(storyboard.topic || payload?.topic, 'lesson');
     const compositionId = `GeneratedLesson-${this.slugForComposition(topic)}`;
     const scenes = await this.buildDynamicSceneProps(storyboard, payload);
     const assets = this.collectManifestAssets(scenes);
@@ -186,14 +182,14 @@ export class VideoGenerationAgentService {
     const props = {
       title: this.toText(storyboard.title || payload?.title, topic),
       topic,
-      domain: this.toText(storyboard.domain || payload?.domain, "science"),
+      domain: this.toText(storyboard.domain || payload?.domain, 'science'),
       durationFrames,
       scenes,
     };
 
-    const agentLessonTsx = agentFiles?.get("GeneratedLesson.tsx");
-    const agentRootTsx = agentFiles?.get("Root.tsx");
-    const agentIndexTs = agentFiles?.get("index.ts");
+    const agentLessonTsx = agentFiles?.get('GeneratedLesson.tsx');
+    const agentRootTsx = agentFiles?.get('Root.tsx');
+    const agentIndexTs = agentFiles?.get('index.ts');
     const usesAgentTsx = !!agentLessonTsx;
 
     if (usesAgentTsx) {
@@ -204,25 +200,23 @@ export class VideoGenerationAgentService {
 
     const files: DynamicRemotionFile[] = [
       {
-        path: "index.ts",
+        path: 'index.ts',
         content:
           agentIndexTs ||
           [
             'import { registerRoot } from "remotion";',
             'import { RemotionRoot } from "./Root";',
-            "",
-            "registerRoot(RemotionRoot);",
-            "",
-          ].join("\n"),
+            '',
+            'registerRoot(RemotionRoot);',
+            '',
+          ].join('\n'),
       },
       {
-        path: "Root.tsx",
-        content:
-          agentRootTsx ||
-          this.buildGeneratedRootTsx(compositionId, durationFrames),
+        path: 'Root.tsx',
+        content: agentRootTsx || this.buildGeneratedRootTsx(compositionId, durationFrames),
       },
       {
-        path: "GeneratedLesson.tsx",
+        path: 'GeneratedLesson.tsx',
         content: agentLessonTsx || this.buildGeneratedLessonTsx(),
       },
     ];
@@ -250,12 +244,12 @@ export class VideoGenerationAgentService {
 
     this.validateGeneratedManifest(manifest, storyboard, usesAgentTsx);
     this.logger.log(
-      `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, remotionSkillGuidance=${this.hasRemotionSkillGuidance() ? "enabled" : "missing"}, visuals=${sceneAssetSummary
+      `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, remotionSkillGuidance=${this.hasRemotionSkillGuidance() ? 'enabled' : 'missing'}, visuals=${sceneAssetSummary
         .map(
           (s) =>
-            `${s.title}:${s.generatedVisual}:assetProvider=${s.assetProvider || "svgFallback"}:characterProvider=${s.characterProvider || ""}:backgroundProvider=${s.backgroundProvider || ""}:license=${s.assetLicense || ""}:assetQuality=${s.assetQuality || 0}`,
+            `${s.title}:${s.generatedVisual}:assetProvider=${s.assetProvider || 'svgFallback'}:characterProvider=${s.characterProvider || ''}:backgroundProvider=${s.backgroundProvider || ''}:license=${s.assetLicense || ''}:assetQuality=${s.assetQuality || 0}`,
         )
-        .join(", ")}`,
+        .join(', ')}`,
     );
     return manifest;
   }
@@ -266,7 +260,7 @@ export class VideoGenerationAgentService {
     currentFiles: Map<string, string>,
     renderError: string,
   ): Promise<DynamicRemotionManifest> {
-    const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
+    const topic = this.toText(storyboard.topic || payload?.topic, 'lesson');
     this.logger.log(
       `[repairGeneratedRemotionComposition] repairing generated Remotion files for topic="${topic}"`,
     );
@@ -280,16 +274,11 @@ export class VideoGenerationAgentService {
     const toolDefs = this.getFilteredToolDefinitions(definition);
     const messages: LlmMessage[] = [
       {
-        role: "user",
-        content: this.buildRepairUserMessage(
-          storyboard,
-          payload,
-          currentFiles,
-          renderError,
-        ),
+        role: 'user',
+        content: this.buildRepairUserMessage(storyboard, payload, currentFiles, renderError),
       },
     ];
-    const toolCalls: AgentVideoResult["toolCalls"] = [];
+    const toolCalls: AgentVideoResult['toolCalls'] = [];
 
     await this.executorService.runLoop(
       this.buildSystemPrompt(definition, context),
@@ -311,8 +300,8 @@ export class VideoGenerationAgentService {
     );
 
     const repairedFiles = this.extractAgentFiles(toolCalls);
-    if (!repairedFiles.has("GeneratedLesson.tsx")) {
-      throw new Error("DYNAMIC_REMOTION_REPAIR_MISSING_GENERATED_LESSON");
+    if (!repairedFiles.has('GeneratedLesson.tsx')) {
+      throw new Error('DYNAMIC_REMOTION_REPAIR_MISSING_GENERATED_LESSON');
     }
 
     const mergedFiles = new Map(currentFiles);
@@ -331,20 +320,20 @@ export class VideoGenerationAgentService {
   async generateStoryboard(
     topic: string,
     domain?: string,
-    ageGroup?: "3-4" | "5-6",
+    ageGroup?: '3-4' | '5-6',
   ): Promise<VideoStoryboard | null> {
     this.logger.log(
-      `[generateStoryboard] topic="${topic}", domain=${domain || "auto"}, ageGroup=${ageGroup || "5-6"}`,
+      `[generateStoryboard] topic="${topic}", domain=${domain || 'auto'}, ageGroup=${ageGroup || '5-6'}`,
     );
 
-    const tool = this.toolRegistry.get("generateVideoContent");
+    const tool = this.toolRegistry.get('generateVideoContent');
     if (!tool) {
-      this.logger.warn("generateVideoContent tool not registered");
+      this.logger.warn('generateVideoContent tool not registered');
       return null;
     }
 
     const execContext: ToolExecutionContext = {
-      ageGroup: ageGroup || "5-6",
+      ageGroup: ageGroup || '5-6',
       conversationId: `video-storyboard-${Date.now()}`,
       extra: {},
     };
@@ -360,9 +349,7 @@ export class VideoGenerationAgentService {
     );
 
     if (!result.success || !result.data) {
-      this.logger.warn(
-        `[generateStoryboard] Tool failed: ${result.error || "no data"}`,
-      );
+      this.logger.warn(`[generateStoryboard] Tool failed: ${result.error || 'no data'}`);
       return null;
     }
 
@@ -375,23 +362,23 @@ export class VideoGenerationAgentService {
   async reviewQuality(
     topic: string,
     scenes: Array<Record<string, any>>,
-    ageGroup?: "3-4" | "5-6",
+    ageGroup?: '3-4' | '5-6',
   ): Promise<{
     passed: boolean;
     score: number;
     issues: string[];
     suggestions: string[];
   } | null> {
-    const tool = this.toolRegistry.get("reviewVideoQuality");
+    const tool = this.toolRegistry.get('reviewVideoQuality');
     if (!tool) {
-      this.logger.warn("reviewVideoQuality tool not registered");
+      this.logger.warn('reviewVideoQuality tool not registered');
       return null;
     }
 
-    const narrations = scenes.map((s) => s.narration || "").filter(Boolean);
+    const narrations = scenes.map((s) => s.narration || '').filter(Boolean);
 
     const execContext: ToolExecutionContext = {
-      ageGroup: ageGroup || "5-6",
+      ageGroup: ageGroup || '5-6',
       conversationId: `video-review-${Date.now()}`,
       extra: {},
     };
@@ -407,9 +394,7 @@ export class VideoGenerationAgentService {
     );
 
     if (!result.success || !result.data) {
-      this.logger.warn(
-        `[reviewQuality] Tool failed: ${result.error || "no data"}`,
-      );
+      this.logger.warn(`[reviewQuality] Tool failed: ${result.error || 'no data'}`);
       return null;
     }
 
@@ -425,12 +410,12 @@ export class VideoGenerationAgentService {
   private buildAgentContext(
     contentId: number,
     childId?: number,
-    ageGroup?: "3-4" | "5-6",
+    ageGroup?: '3-4' | '5-6',
   ): AgentContext {
     return {
       childId: childId ?? undefined,
       parentId: undefined,
-      ageGroup: ageGroup || "5-6",
+      ageGroup: ageGroup || '5-6',
       conversationId: `video-gen-${contentId}-${Date.now()}`,
       messages: [],
       depth: 0,
@@ -439,10 +424,7 @@ export class VideoGenerationAgentService {
     };
   }
 
-  private buildSystemPrompt(
-    definition: AgentDefinition,
-    context: AgentContext,
-  ): string {
+  private buildSystemPrompt(definition: AgentDefinition, context: AgentContext): string {
     let prompt = definition.buildSystemPrompt(context);
     prompt = this.injectSkills(prompt, definition.allowedSkills);
     return prompt;
@@ -451,13 +433,13 @@ export class VideoGenerationAgentService {
   private buildUserMessage(
     topic: string,
     domain?: string,
-    ageGroup?: "3-4" | "5-6",
+    ageGroup?: '3-4' | '5-6',
     payload?: Record<string, any>,
   ): string {
     const parts = [
       `请为以下主题生成教学视频：${topic}`,
-      `领域：${domain || "自动检测"}`,
-      `年龄段：${ageGroup || "5-6"}`,
+      `领域：${domain || '自动检测'}`,
+      `年龄段：${ageGroup || '5-6'}`,
     ];
 
     if (payload?.title) {
@@ -468,28 +450,28 @@ export class VideoGenerationAgentService {
     }
 
     parts.push(
-      "",
-      "请严格按以下步骤执行（必须全部完成后才能停止）：",
+      '',
+      '请严格按以下步骤执行（必须全部完成后才能停止）：',
       '1. 调用 loadSkill("remotion-video-creation") 获取 Remotion 技能指导',
-      "2. 调用 generateVideoContent 生成分镜脚本",
+      '2. 调用 generateVideoContent 生成分镜脚本',
       '3. 根据分镜和技能指导，通过 writeFile("GeneratedLesson.tsx", ...) 生成自定义 React 组件（内容通过内存传递，不写入磁盘源码目录）',
-      "4. 调用 reviewVideoQuality 检查质量",
-      "5. 如果质量不达标（score < 70），修改 TSX 后重试",
-      "6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束",
-      "",
-      "⚠️ 你必须调用 writeFile 生成 GeneratedLesson.tsx。不生成 TSX 组件就停止是不允许的。",
-      "",
-      "⚠️ 音频要求（关键）：每个 scene 的 props 中包含 audioSrc 字段（TTS 音频路径）。",
-      "你必须在每个 <Sequence> 中添加 <Audio> 组件来播放旁白音频。",
+      '4. 调用 reviewVideoQuality 检查质量',
+      '5. 如果质量不达标（score < 70），修改 TSX 后重试',
+      '6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束',
+      '',
+      '⚠️ 你必须调用 writeFile 生成 GeneratedLesson.tsx。不生成 TSX 组件就停止是不允许的。',
+      '',
+      '⚠️ 音频要求（关键）：每个 scene 的 props 中包含 audioSrc 字段（TTS 音频路径）。',
+      '你必须在每个 <Sequence> 中添加 <Audio> 组件来播放旁白音频。',
       '导入方式：import { Audio } from "@remotion/media";',
-      "使用方式：{scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}",
-      "",
-      "⚠️ SVG 语法：path d 属性中所有 JS 表达式必须在 ${} 内，禁止出现裸运算如 340 + headBob。",
-      "⚠️ Hooks 规范：useCurrentFrame() 必须在组件顶部调用存为变量，禁止在 JSX 属性中直接调用。",
-      "⚠️ 图片素材：如果 scene.visualAssets.characterAssetSrc 存在，优先用 <Img> 显示，不要手绘 SVG。",
+      '使用方式：{scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}',
+      '',
+      '⚠️ SVG 语法：path d 属性中所有 JS 表达式必须在 ${} 内，禁止出现裸运算如 340 + headBob。',
+      '⚠️ Hooks 规范：useCurrentFrame() 必须在组件顶部调用存为变量，禁止在 JSX 属性中直接调用。',
+      '⚠️ 图片素材：如果 scene.visualAssets.characterAssetSrc 存在，优先用 <Img> 显示，不要手绘 SVG。',
     );
 
-    return parts.join("\n");
+    return parts.join('\n');
   }
 
   private buildRepairUserMessage(
@@ -503,31 +485,31 @@ export class VideoGenerationAgentService {
         ([name, content]) =>
           `## ${name}\n\`\`\`tsx\n${this.truncateForPrompt(content, 12000)}\n\`\`\``,
       )
-      .join("\n\n");
+      .join('\n\n');
 
     return [
-      "Repair the generated Remotion lesson component. The previous render failed.",
-      "",
-      "Rules:",
-      "- Do not change the lesson topic, storyboard, narration, or educational intent.",
-      "- Fix only generated React/Remotion code problems.",
+      'Repair the generated Remotion lesson component. The previous render failed.',
+      '',
+      'Rules:',
+      '- Do not change the lesson topic, storyboard, narration, or educational intent.',
+      '- Fix only generated React/Remotion code problems.',
       '- Call loadSkill("remotion-video-creation") before writing code.',
       '- Call writeFile("GeneratedLesson.tsx", ...) with the full repaired file content.',
-      "- If Root.tsx or index.ts must change, also write the complete replacement file.",
-      "- Do not use fs, child_process, network APIs, eval, CSS animations, or external URLs.",
-      "",
-      `Topic: ${this.toText(storyboard.topic || payload?.topic, "lesson")}`,
-      `Age group: ${this.toText(payload?.ageGroup, "5-6")}`,
-      "",
-      "Render error:",
+      '- If Root.tsx or index.ts must change, also write the complete replacement file.',
+      '- Do not use fs, child_process, network APIs, eval, CSS animations, or external URLs.',
+      '',
+      `Topic: ${this.toText(storyboard.topic || payload?.topic, 'lesson')}`,
+      `Age group: ${this.toText(payload?.ageGroup, '5-6')}`,
+      '',
+      'Render error:',
       this.truncateForPrompt(renderError, 4000),
-      "",
-      "Storyboard JSON:",
+      '',
+      'Storyboard JSON:',
       this.truncateForPrompt(JSON.stringify(storyboard, null, 2), 6000),
-      "",
-      "Current generated files:",
-      files || "(none)",
-    ].join("\n");
+      '',
+      'Current generated files:',
+      files || '(none)',
+    ].join('\n');
   }
 
   private truncateForPrompt(value: string, maxChars: number): string {
@@ -547,51 +529,37 @@ export class VideoGenerationAgentService {
         const vars = d.variables
           .filter((v) => v.required)
           .map((v) => v.name)
-          .join(", ");
-        return `- **${d.id}**: ${d.description}${vars ? ` (required: ${vars})` : ""}`;
+          .join(', ');
+        return `- **${d.id}**: ${d.description}${vars ? ` (required: ${vars})` : ''}`;
       })
-      .join("\n");
+      .join('\n');
 
     this.logger.log(
       `[injectSkills] Injecting skill index: ${skills
-        .map(
-          (skill) =>
-            `${skill.definition.id}@${skill.definition.sourceDir || "unknown"}`,
-        )
-        .join(", ")}`,
+        .map((skill) => `${skill.definition.id}@${skill.definition.sourceDir || 'unknown'}`)
+        .join(', ')}`,
     );
 
     return `${systemPrompt}\n\n## Available Skills\n\nCall \`loadSkill\` with a skillId to get the full instructions when needed.\n\n${index}`;
   }
 
   private hasRemotionSkillGuidance(): boolean {
-    const skill = this.skillRegistry.get?.("remotion-video-creation");
+    const skill = this.skillRegistry.get?.('remotion-video-creation');
     if (!skill) return false;
     skill.ensureContentLoaded?.();
     const rules = skill.definition.rules || [];
-    const searchable = `${skill.definition.body || ""}\n${rules
+    const searchable = `${skill.definition.body || ''}\n${rules
       .map((rule) => `${rule.name}\n${rule.content}`)
-      .join("\n")}`;
-    return (
-      searchable.includes("<Img") &&
-      searchable.includes("staticFile") &&
-      rules.length > 0
-    );
+      .join('\n')}`;
+    return searchable.includes('<Img') && searchable.includes('staticFile') && rules.length > 0;
   }
 
-  private getFilteredToolDefinitions(
-    definition: AgentDefinition,
-  ): any[] | undefined {
+  private getFilteredToolDefinitions(definition: AgentDefinition): any[] | undefined {
     return this.toolRegistry.getToolDefinitions((tool: any) => {
       const { allowedTools, disallowedTools } = definition;
-      if (
-        allowedTools &&
-        allowedTools.length > 0 &&
-        !allowedTools.includes(tool.metadata.name)
-      )
+      if (allowedTools && allowedTools.length > 0 && !allowedTools.includes(tool.metadata.name))
         return false;
-      if (disallowedTools && disallowedTools.includes(tool.metadata.name))
-        return false;
+      if (disallowedTools && disallowedTools.includes(tool.metadata.name)) return false;
       return true;
     });
   }
@@ -600,7 +568,7 @@ export class VideoGenerationAgentService {
     storyboard: VideoStoryboard,
     payload: Record<string, any>,
   ): Promise<Array<Record<string, any>>> {
-    const topic = this.toText(storyboard.topic || payload?.topic, "lesson");
+    const topic = this.toText(storyboard.topic || payload?.topic, 'lesson');
     const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
     const sourceScenes =
       scenes.length > 0
@@ -614,72 +582,62 @@ export class VideoGenerationAgentService {
             },
           ];
 
-    const builtScenes = sourceScenes
-      .slice(0, 8)
-      .map((scene: any, index: number) => {
-        const title = this.toText(
-          scene?.title || scene?.scene || scene?.shot,
-          `${topic} ${index + 1}`,
-        ).slice(0, 32);
-        const narration = this.toText(scene?.narration, title).slice(0, 260);
-        const visualDescription = this.toText(
-          scene?.visualDescription || scene?.imagePrompt || scene?.visualPrompt,
-          `${topic} animated teaching scene`,
-        );
-        const onScreenText = this.toText(
-          scene?.onScreenText || scene?.caption || scene?.concept,
-          title,
-        ).slice(0, 32);
-        const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
-        const source = `${topic} ${title} ${narration} ${visualDescription} ${onScreenText}`;
-        const tags = this.inferDynamicAssetTags(source);
-        const action = this.inferDynamicAction(source);
-        const habitat = this.inferDynamicHabitat(source);
-        const animalResult = inferAnimalFromText(source);
-        const animalConfig = animalResult?.config ?? null;
-        const assetKey = animalResult?.id || "topic";
-        const template =
-          this.toText(
-            scene?.animationTemplate?.id || scene?.animationTemplate,
-          ) ||
-          (assetKey !== "topic"
-            ? `science.animal-${action === "rest" ? "habitat" : "abilities"}`
-            : "dynamic.story-scene");
+    const builtScenes = sourceScenes.slice(0, 8).map((scene: any, index: number) => {
+      const title = this.toText(
+        scene?.title || scene?.scene || scene?.shot,
+        `${topic} ${index + 1}`,
+      ).slice(0, 32);
+      const narration = this.toText(scene?.narration, title).slice(0, 260);
+      const visualDescription = this.toText(
+        scene?.visualDescription || scene?.imagePrompt || scene?.visualPrompt,
+        `${topic} animated teaching scene`,
+      );
+      const onScreenText = this.toText(
+        scene?.onScreenText || scene?.caption || scene?.concept,
+        title,
+      ).slice(0, 32);
+      const durationSec = this.toInt(scene?.durationSec, 6, 4, 18);
+      const source = `${topic} ${title} ${narration} ${visualDescription} ${onScreenText}`;
+      const tags = this.inferDynamicAssetTags(source);
+      const action = this.inferDynamicAction(source);
+      const habitat = this.inferDynamicHabitat(source);
+      const animalResult = inferAnimalFromText(source);
+      const animalConfig = animalResult?.config ?? null;
+      const assetKey = animalResult?.id || 'topic';
+      const template =
+        this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
+        (assetKey !== 'topic'
+          ? `science.animal-${action === 'rest' ? 'habitat' : 'abilities'}`
+          : 'dynamic.story-scene');
 
-        return {
-          id: `scene-${index + 1}`,
-          title,
-          narration,
-          onScreenText,
-          visualDescription,
-          assetKey,
-          assetTags: tags,
-          action,
-          habitat,
-          template,
-          generatedVisual: animalConfig
-            ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join("-")}`
-            : `dynamic-${habitat}-${tags.slice(0, 4).join("-")}`,
-          durationSec,
-          durationFrames: durationSec * 30,
-          accentColor:
-            animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
-        };
-      });
+      return {
+        id: `scene-${index + 1}`,
+        title,
+        narration,
+        onScreenText,
+        visualDescription,
+        assetKey,
+        assetTags: tags,
+        action,
+        habitat,
+        template,
+        generatedVisual: animalConfig
+          ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join('-')}`
+          : `dynamic-${habitat}-${tags.slice(0, 4).join('-')}`,
+        durationSec,
+        durationFrames: durationSec * 30,
+        accentColor: animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
+      };
+    });
 
     if (!this.visualAssetService) {
-      this.logger.warn(
-        "[buildDynamicSceneProps] visualAssetService 不可用，场景将没有素材解析",
-      );
+      this.logger.warn('[buildDynamicSceneProps] visualAssetService 不可用，场景将没有素材解析');
       return builtScenes;
     }
 
     return Promise.all(
       builtScenes.map(async (scene) => {
-        const plan = await this.visualAssetService!.resolveSceneVisualAssets(
-          scene,
-          topic,
-        );
+        const plan = await this.visualAssetService!.resolveSceneVisualAssets(scene, topic);
         return {
           ...scene,
           visualAssets: this.toSceneVisualAssets(plan),
@@ -710,9 +668,7 @@ export class VideoGenerationAgentService {
     };
   }
 
-  private collectManifestAssets(
-    scenes: Array<Record<string, any>>,
-  ): VisualAsset[] {
+  private collectManifestAssets(scenes: Array<Record<string, any>>): VisualAsset[] {
     const byPath = new Map<string, VisualAsset>();
     for (const scene of scenes) {
       const visualAssets = scene.visualAssets || {};
@@ -728,36 +684,33 @@ export class VideoGenerationAgentService {
     return Array.from(byPath.values());
   }
 
-  private buildGeneratedRootTsx(
-    compositionId: string,
-    fallbackDurationFrames: number,
-  ): string {
+  private buildGeneratedRootTsx(compositionId: string, fallbackDurationFrames: number): string {
     return [
       'import React from "react";',
       'import { Composition } from "remotion";',
       'import { GeneratedLesson } from "./GeneratedLesson";',
-      "",
-      "export const RemotionRoot: React.FC = () => {",
+      '',
+      'export const RemotionRoot: React.FC = () => {',
       '  const defaultProps = { title: "", topic: "", scenes: [], durationFrames: ' +
         fallbackDurationFrames +
-        " };",
-      "  return (",
-      "    <Composition",
+        ' };',
+      '  return (',
+      '    <Composition',
       `      id=${JSON.stringify(compositionId)}`,
-      "      component={GeneratedLesson}",
-      "      fps={30}",
-      "      width={1920}",
-      "      height={1080}",
-      "      defaultProps={defaultProps}",
-      "      calculateMetadata={({ props: currentProps }) => ({",
-      "        durationInFrames: Number((currentProps as any).durationFrames) || defaultProps.durationFrames,",
-      "        props: currentProps,",
-      "      })}",
-      "    />",
-      "  );",
-      "};",
-      "",
-    ].join("\n");
+      '      component={GeneratedLesson}',
+      '      fps={30}',
+      '      width={1920}',
+      '      height={1080}',
+      '      defaultProps={defaultProps}',
+      '      calculateMetadata={({ props: currentProps }) => ({',
+      '        durationInFrames: Number((currentProps as any).durationFrames) || defaultProps.durationFrames,',
+      '        props: currentProps,',
+      '      })}',
+      '    />',
+      '  );',
+      '};',
+      '',
+    ].join('\n');
   }
 
   private buildGeneratedLessonTsx(): string {
@@ -1260,58 +1213,51 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     usesAgentTsx = false,
   ): void {
     if (!/^[A-Za-z][A-Za-z0-9-]{0,80}$/.test(manifest.compositionId)) {
-      throw new Error("DYNAMIC_REMOTION_INVALID_COMPOSITION_ID");
+      throw new Error('DYNAMIC_REMOTION_INVALID_COMPOSITION_ID');
     }
     if (!Array.isArray(manifest.files) || manifest.files.length < 3) {
-      throw new Error("DYNAMIC_REMOTION_MISSING_FILES");
+      throw new Error('DYNAMIC_REMOTION_MISSING_FILES');
     }
 
-    const joined = manifest.files.map((file) => file.content).join("\n");
+    const joined = manifest.files.map((file) => file.content).join('\n');
     const forbidden =
       /\bfrom\s+["'](?:fs|child_process|http|https|net|tls)["']|require\s*\(|fetch\s*\(|XMLHttpRequest|eval\s*\(|new\s+Function|https?:\/\//;
     if (forbidden.test(joined)) {
-      throw new Error("DYNAMIC_REMOTION_FORBIDDEN_CODE");
+      throw new Error('DYNAMIC_REMOTION_FORBIDDEN_CODE');
     }
 
     // SVG template literal sanity check for agent-generated TSX
     if (usesAgentTsx) {
-      const lessonFile = manifest.files.find(
-        (file) => file.path === "GeneratedLesson.tsx",
-      );
+      const lessonFile = manifest.files.find((file) => file.path === 'GeneratedLesson.tsx');
       if (lessonFile) {
         const tsxContent = lessonFile.content;
         const hasBareArithmeticInD =
-          /d=\{`[^}]*\b\d+\s*[+\-]\s*[a-zA-Z_]\w*\b/.test(tsxContent) &&
-          !tsxContent.includes("${");
+          /d=\{`[^}]*\b\d+\s*[+\-]\s*[a-zA-Z_]\w*\b/.test(tsxContent) && !tsxContent.includes('${');
         const hasMissingAudioImport =
-          !tsxContent.includes("@remotion/media") &&
-          tsxContent.includes("audioSrc");
+          !tsxContent.includes('@remotion/media') && tsxContent.includes('audioSrc');
         if (hasBareArithmeticInD) {
           this.logger.warn(
-            "[validateGeneratedManifest] detected bare arithmetic in SVG d attribute — video may render incorrectly",
+            '[validateGeneratedManifest] detected bare arithmetic in SVG d attribute — video may render incorrectly',
           );
         }
         if (hasMissingAudioImport) {
           this.logger.warn(
-            "[validateGeneratedManifest] audioSrc referenced but @remotion/media not imported — video will have no sound",
+            '[validateGeneratedManifest] audioSrc referenced but @remotion/media not imported — video will have no sound',
           );
         }
       }
     }
 
-    const source = `${storyboard.topic || ""} ${storyboard.title || ""} ${JSON.stringify(
+    const source = `${storyboard.topic || ''} ${storyboard.title || ''} ${JSON.stringify(
       storyboard.scenes || [],
     )}`;
     const expected = this.expectedVisualTerms(source);
-    const searchable =
-      `${joined} ${JSON.stringify(manifest.props)} ${JSON.stringify(
-        manifest.sceneAssetSummary,
-      )}`.toLowerCase();
+    const searchable = `${joined} ${JSON.stringify(manifest.props)} ${JSON.stringify(
+      manifest.sceneAssetSummary,
+    )}`.toLowerCase();
     const missing = expected.filter((term) => !searchable.includes(term));
     if (missing.length > 0) {
-      throw new Error(
-        `DYNAMIC_REMOTION_MISSING_VISUAL_TERMS:${missing.join(",")}`,
-      );
+      throw new Error(`DYNAMIC_REMOTION_MISSING_VISUAL_TERMS:${missing.join(',')}`);
     }
 
     // When the agent generated custom TSX, it handles its own visuals — skip the
@@ -1320,33 +1266,33 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
     const inlineSvgKeys = getInlineSvgAssetKeys();
     const animalScenes = ((manifest.props as any)?.scenes || []).filter(
-      (scene: any) => String(scene?.assetKey || "") !== "topic",
+      (scene: any) => String(scene?.assetKey || '') !== 'topic',
     );
     const missingCharacters = animalScenes.filter(
       (scene: any) =>
         !scene?.visualAssets?.characterAssetSrc &&
-        !inlineSvgKeys.has(String(scene?.assetKey || "")),
+        !inlineSvgKeys.has(String(scene?.assetKey || '')),
     );
     if (missingCharacters.length > 0) {
       throw new Error(
         `DYNAMIC_REMOTION_MISSING_CHARACTER_ASSET:${missingCharacters
-          .map((scene: any) => scene.title || scene.id || "scene")
-          .join(",")}`,
+          .map((scene: any) => scene.title || scene.id || 'scene')
+          .join(',')}`,
       );
     }
   }
 
   private expectedVisualTerms(source: string): string[] {
-    const terms = new Set<string>(["dynamic", "visual"]);
+    const terms = new Set<string>(['dynamic', 'visual']);
     const animalResult = inferAnimalFromText(source);
     if (animalResult?.config) {
       animalResult.config.visualTerms.forEach((term) => terms.add(term));
     } else if (animalResult?.id) {
       terms.add(animalResult.id);
     }
-    if (/森林|forest/i.test(source)) terms.add("forest");
+    if (/森林|forest/i.test(source)) terms.add('forest');
     if (/河|溪|游泳|river|swim/i.test(source)) {
-      terms.add("river");
+      terms.add('river');
     }
     return Array.from(terms);
   }
@@ -1361,57 +1307,51 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
         animalResult.config.visualTerms.forEach((term) => tags.add(term));
       } else {
         tags.add(animalResult.id);
-        tags.add("animal");
+        tags.add('animal');
       }
     }
 
     for (const mapping of ENVIRONMENT_TAG_KEYWORDS) {
-      if (
-        mapping.keywords.some((kw) =>
-          source.toLowerCase().includes(kw.toLowerCase()),
-        )
-      ) {
+      if (mapping.keywords.some((kw) => source.toLowerCase().includes(kw.toLowerCase()))) {
         tags.add(mapping.value);
       }
     }
 
     const chineseTerms = source.match(/[一-鿿]{2,5}/g) || [];
     chineseTerms.slice(0, 4).forEach((term) => tags.add(term));
-    if (tags.size === 0) tags.add("topic");
+    if (tags.size === 0) tags.add('topic');
     return Array.from(tags).slice(0, 12);
   }
 
   private inferDynamicAction(source: string): string {
-    return matchKeyword(source, ACTION_KEYWORDS) || "explore";
+    return matchKeyword(source, ACTION_KEYWORDS) || 'explore';
   }
 
   private inferDynamicHabitat(source: string): string {
-    return matchKeyword(source, HABITAT_KEYWORDS) || "forest";
+    return matchKeyword(source, HABITAT_KEYWORDS) || 'forest';
   }
 
   private resolveSceneAccent(tags: string[], index: number): string {
     const animalConfig = ANIMAL_SUBJECTS.find((s) => tags.includes(s.id));
     if (animalConfig) return animalConfig.accentColor;
-    if (tags.includes("water") || tags.includes("river")) return "#00a6c8";
+    if (tags.includes('water') || tags.includes('river')) return '#00a6c8';
     // Generate a stable color from animal id if present
-    const animalId = tags.find(
-      (t) => t !== "animal" && t !== "topic" && /^[a-z]/.test(t),
-    );
+    const animalId = tags.find((t) => t !== 'animal' && t !== 'topic' && /^[a-z]/.test(t));
     if (animalId) {
       let hash = 0;
       for (const ch of animalId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
       const hue = hash % 360;
       return `hsl(${hue}, 65%, 45%)`;
     }
-    const colors = ["#2f9e44", "#4d96ff", "#ff6b6b", "#845ef7"];
+    const colors = ['#2f9e44', '#4d96ff', '#ff6b6b', '#845ef7'];
     return colors[index % colors.length];
   }
 
   private slugForComposition(value: string): string {
     const ascii = value
-      .normalize("NFKD")
-      .replace(/[^A-Za-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
       .slice(0, 36);
     if (ascii) return ascii;
     let hash = 0;
@@ -1427,17 +1367,15 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     return Math.max(min, Math.min(max, Math.trunc(parsed)));
   }
 
-  private toText(value: unknown, fallback = ""): string {
+  private toText(value: unknown, fallback = ''): string {
     if (value == null) return fallback;
     return String(value).trim() || fallback;
   }
 
-  private extractStoryboard(
-    toolCalls: AgentVideoResult["toolCalls"],
-  ): VideoStoryboard | null {
+  private extractStoryboard(toolCalls: AgentVideoResult['toolCalls']): VideoStoryboard | null {
     for (let i = toolCalls.length - 1; i >= 0; i -= 1) {
       const call = toolCalls[i];
-      if (call.tool !== "generateVideoContent") continue;
+      if (call.tool !== 'generateVideoContent') continue;
       try {
         const parsed = this.parseToolResult(call.result);
         const storyboard = this.unwrapToolData(parsed);
@@ -1451,31 +1389,29 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
     return null;
   }
 
-  private extractQuality(toolCalls: AgentVideoResult["toolCalls"]): {
+  private extractQuality(toolCalls: AgentVideoResult['toolCalls']): {
     passed: boolean;
     score: number;
     issues: string[];
   } {
     for (let i = toolCalls.length - 1; i >= 0; i--) {
       const call = toolCalls[i];
-      if (call.tool !== "reviewVideoQuality") continue;
+      if (call.tool !== 'reviewVideoQuality') continue;
       try {
         const parsed = this.parseToolResult(call.result);
         const data = this.unwrapToolData(parsed);
-        if (data && typeof data === "object") {
+        if (data && typeof data === 'object') {
           return {
             passed: Boolean((data as any).passed),
             score: Number((data as any).score) || 0,
-            issues: Array.isArray((data as any).issues)
-              ? (data as any).issues
-              : [],
+            issues: Array.isArray((data as any).issues) ? (data as any).issues : [],
           };
         }
       } catch {
         // continue
       }
     }
-    return { passed: false, score: 0, issues: ["no quality review performed"] };
+    return { passed: false, score: 0, issues: ['no quality review performed'] };
   }
 
   private parseToolResult(result: string): unknown {
@@ -1488,12 +1424,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
    * keep both shapes here for tests and any direct callers that still use wrappers.
    */
   private unwrapToolData(parsed: unknown): unknown {
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      "success" in parsed &&
-      "data" in parsed
-    ) {
+    if (parsed && typeof parsed === 'object' && 'success' in parsed && 'data' in parsed) {
       return (parsed as any).success ? (parsed as any).data : null;
     }
     return parsed;
@@ -1502,8 +1433,8 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private isVideoStoryboard(value: unknown): value is VideoStoryboard {
     return (
       !!value &&
-      typeof value === "object" &&
-      typeof (value as any).topic === "string" &&
+      typeof value === 'object' &&
+      typeof (value as any).topic === 'string' &&
       Array.isArray((value as any).scenes) &&
       (value as any).scenes.length > 0
     );
@@ -1513,17 +1444,15 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
    * Extract files written by the agent via writeFile tool calls.
    * Returns a Map from filename (basename) to file content.
    */
-  private extractAgentFiles(
-    toolCalls: AgentVideoResult["toolCalls"],
-  ): Map<string, string> {
+  private extractAgentFiles(toolCalls: AgentVideoResult['toolCalls']): Map<string, string> {
     const files = new Map<string, string>();
     for (const call of toolCalls) {
-      if (call.tool !== "writeFile") continue;
+      if (call.tool !== 'writeFile') continue;
       try {
-        const filePath = call.args?.path || call.args?.filePath || "";
-        const content = call.args?.content || "";
+        const filePath = call.args?.path || call.args?.filePath || '';
+        const content = call.args?.content || '';
         if (!filePath || !content) continue;
-        const basename = filePath.split("/").pop() || filePath;
+        const basename = filePath.split('/').pop() || filePath;
         files.set(basename, content);
         this.logger.log(
           `[extractAgentFiles] captured agent file: ${basename} (${content.length} chars)`,

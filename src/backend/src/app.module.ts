@@ -1,60 +1,60 @@
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { AuthModule } from "./modules/auth/auth.module";
-import { UsersModule } from "./modules/users/users.module";
-import { ContentsModule } from "./modules/contents/contents.module";
-import { LearningModule } from "./modules/learning/learning.module";
-import { AbilitiesModule } from "./modules/abilities/abilities.module";
-import { AchievementsModule } from "./modules/achievements/achievements.module";
-import { AiModule } from "./modules/ai/ai.module";
-import { ParentModule } from "./modules/parent/parent.module";
-import { RecommendModule } from "./modules/recommend/recommend.module";
-import { ReportModule } from "./modules/report/report.module";
-import { GameModule } from "./modules/game/game.module";
-import { VoiceModule } from "./modules/voice/voice.module";
-import { NotificationModule } from "./modules/notification/notification.module";
-import { SseModule } from "./modules/sse/sse.module";
-import { AssignmentModule } from "./modules/assignment/assignment.module";
-import { EmergencyModule } from "./modules/emergency/emergency.module";
-import { DatabaseSeederModule } from "./database/seeds/seeder.module";
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { ContentsModule } from './modules/contents/contents.module';
+import { LearningModule } from './modules/learning/learning.module';
+import { AbilitiesModule } from './modules/abilities/abilities.module';
+import { AchievementsModule } from './modules/achievements/achievements.module';
+import { AiModule } from './modules/ai/ai.module';
+import { ParentModule } from './modules/parent/parent.module';
+import { RecommendModule } from './modules/recommend/recommend.module';
+import { ReportModule } from './modules/report/report.module';
+import { GameModule } from './modules/game/game.module';
+import { VoiceModule } from './modules/voice/voice.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { SseModule } from './modules/sse/sse.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
+import { EmergencyModule } from './modules/emergency/emergency.module';
+import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 @Module({
   imports: [
     // 配置模块
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
+      envFilePath: '.env',
     }),
 
     // 数据库模块 (SQLite 开发 / PostgreSQL 生产)
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): any => {
-        const databaseUrl = configService.get("DATABASE_URL");
+        const databaseUrl = configService.get('DATABASE_URL');
 
         // PostgreSQL (Railway 生产环境)
         if (databaseUrl) {
           return {
-            type: "postgres",
+            type: 'postgres',
             url: databaseUrl,
-            entities: [__dirname + "/**/*.entity{.ts,.js}"],
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
             ssl:
-              configService.get("NODE_ENV") === "production"
+              configService.get('NODE_ENV') === 'production'
                 ? { rejectUnauthorized: false }
                 : false,
-            logging: configService.get("NODE_ENV") === "development",
+            logging: configService.get('NODE_ENV') === 'development',
           };
         }
 
         // SQLite (本地开发)
         return {
-          type: "better-sqlite3",
-          database: configService.get("DB_PATH", "lingxi.db"),
-          entities: [__dirname + "/**/*.entity{.ts,.js}"],
+          type: 'better-sqlite3',
+          database: configService.get('DB_PATH', 'lingxi.db'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
           synchronize: true,
-          logging: configService.get("NODE_ENV") === "development",
+          logging: configService.get('NODE_ENV') === 'development',
         };
       },
       inject: [ConfigService],

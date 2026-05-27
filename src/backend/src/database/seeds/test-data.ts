@@ -1,6 +1,6 @@
-import { DataSource } from "typeorm";
-import { User } from "../entities/user.entity";
-import { Content } from "../entities/content.entity";
+import { DataSource } from 'typeorm';
+import { User } from '../entities/user.entity';
+import { Content } from '../entities/content.entity';
 
 export async function seedTestData(dataSource: DataSource) {
   const userRepo = dataSource.getRepository(User);
@@ -9,31 +9,30 @@ export async function seedTestData(dataSource: DataSource) {
   // Check if data already exists
   const existingUsers = await userRepo.count();
   if (existingUsers > 0) {
-    console.log("Test data already exists, skipping seed...");
+    console.log('Test data already exists, skipping seed...');
     return;
   }
 
   // bcrypt hash of "password123" (salt rounds: 10)
-  const testPasswordHash =
-    "$2b$10$YpyvqoTPIFAGzcnnNRhNweFJTahEN7XlnlhCIYs83m7D4ZGHkWQCS";
+  const testPasswordHash = '$2b$10$YpyvqoTPIFAGzcnnNRhNweFJTahEN7XlnlhCIYs83m7D4ZGHkWQCS';
 
   // Create test users
   const parent = await userRepo.save({
-    phone: "13800000001",
+    phone: '13800000001',
     password: testPasswordHash,
-    name: "家长用户",
-    type: "parent",
-    settings: { notifications: true, language: "zh-CN" },
+    name: '家长用户',
+    type: 'parent',
+    settings: { notifications: true, language: 'zh-CN' },
   });
 
   const child = await userRepo.save({
-    phone: "13800000002",
+    phone: '13800000002',
     password: testPasswordHash,
-    name: "小明",
-    type: "child",
+    name: '小明',
+    type: 'child',
     age: 5,
     parentId: parent.id,
-    settings: { avatar: "🐶", favoriteTopics: ["animals", "stories"] },
+    settings: { avatar: '🐶', favoriteTopics: ['animals', 'stories'] },
   });
 
   console.log(`Created users: parent=${parent.id}, child=${child.id}`);
@@ -41,46 +40,46 @@ export async function seedTestData(dataSource: DataSource) {
   // Create test contents
   const contents = [
     {
-      uuid: "c001",
-      title: "小熊找蜂蜜",
-      subtitle: "关于友谊的故事",
-      ageRange: "3-4",
-      domain: "language",
-      topic: "stories",
+      uuid: 'c001',
+      title: '小熊找蜂蜜',
+      subtitle: '关于友谊的故事',
+      ageRange: '3-4',
+      domain: 'language',
+      topic: 'stories',
       difficulty: 1,
       durationMinutes: 10,
-      contentType: "story",
-      content: { text: "从前有一只小熊..." },
+      contentType: 'story',
+      content: { text: '从前有一只小熊...' },
       mediaUrls: [],
-      status: "published",
+      status: 'published',
     },
     {
-      uuid: "c002",
-      title: "认识数字 1-10",
-      subtitle: "基础数学启蒙",
-      ageRange: "3-4",
-      domain: "math",
-      topic: "numbers",
+      uuid: 'c002',
+      title: '认识数字 1-10',
+      subtitle: '基础数学启蒙',
+      ageRange: '3-4',
+      domain: 'math',
+      topic: 'numbers',
       difficulty: 1,
       durationMinutes: 15,
-      contentType: "lesson",
+      contentType: 'lesson',
       content: { exercises: [] },
       mediaUrls: [],
-      status: "published",
+      status: 'published',
     },
     {
-      uuid: "c003",
-      title: "动物叫声配对",
-      subtitle: "认识动物",
-      ageRange: "3-4",
-      domain: "science",
-      topic: "animals",
+      uuid: 'c003',
+      title: '动物叫声配对',
+      subtitle: '认识动物',
+      ageRange: '3-4',
+      domain: 'science',
+      topic: 'animals',
       difficulty: 1,
       durationMinutes: 8,
-      contentType: "game",
+      contentType: 'game',
       content: { pairs: [] },
       mediaUrls: [],
-      status: "published",
+      status: 'published',
     },
   ];
 
@@ -89,5 +88,5 @@ export async function seedTestData(dataSource: DataSource) {
   }
 
   console.log(`Created ${contents.length} test contents`);
-  console.log("✅ Seed completed!");
+  console.log('✅ Seed completed!');
 }

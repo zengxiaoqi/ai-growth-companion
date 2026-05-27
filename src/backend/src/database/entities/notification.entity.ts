@@ -1,11 +1,6 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
 
-@Entity("notifications")
+@Entity('notifications')
 export class Notification {
   @PrimaryGeneratedColumn()
   id: number;
@@ -19,7 +14,7 @@ export class Notification {
   @Column({ length: 500 })
   message: string;
 
-  @Column({ default: "system" })
+  @Column({ default: 'system' })
   type: string; // system, achievement, learning, reminder
 
   @Column({ default: false })

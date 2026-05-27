@@ -1,10 +1,10 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { ContentsService } from "../../src/modules/contents/contents.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Content } from "../../src/database/entities/content.entity";
-import { ParentControl } from "../../src/database/entities/parent-control.entity";
+import { Test, TestingModule } from '@nestjs/testing';
+import { ContentsService } from '../../src/modules/contents/contents.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Content } from '../../src/database/entities/content.entity';
+import { ParentControl } from '../../src/database/entities/parent-control.entity';
 
-describe("ContentsService", () => {
+describe('ContentsService', () => {
   let service: ContentsService;
 
   const mockRepository = {
@@ -47,11 +47,11 @@ describe("ContentsService", () => {
     jest.clearAllMocks();
   });
 
-  describe("findAll", () => {
-    it("should return paginated contents", async () => {
+  describe('findAll', () => {
+    it('should return paginated contents', async () => {
       const mockContents = [
-        { id: 1, title: "内容1", ageRange: "3-4", domain: "language" },
-        { id: 2, title: "内容2", ageRange: "3-4", domain: "math" },
+        { id: 1, title: '内容1', ageRange: '3-4', domain: 'language' },
+        { id: 2, title: '内容2', ageRange: '3-4', domain: 'math' },
       ];
 
       // Mock createQueryBuilder chain
@@ -66,12 +66,12 @@ describe("ContentsService", () => {
 
       const result = await service.findAll({ page: 1, limit: 10 });
 
-      expect(result).toHaveProperty("list");
+      expect(result).toHaveProperty('list');
       expect(result.list).toHaveLength(2);
       expect(result.total).toBe(2);
     });
 
-    it("should filter by ageRange", async () => {
+    it('should filter by ageRange', async () => {
       mockRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -81,12 +81,12 @@ describe("ContentsService", () => {
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       });
 
-      await service.findAll({ ageRange: "4-5" });
+      await service.findAll({ ageRange: '4-5' });
 
-      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("content");
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('content');
     });
 
-    it("should filter by domain", async () => {
+    it('should filter by domain', async () => {
       mockRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -96,15 +96,15 @@ describe("ContentsService", () => {
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       });
 
-      await service.findAll({ domain: "science" });
+      await service.findAll({ domain: 'science' });
 
-      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith("content");
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('content');
     });
   });
 
-  describe("findById", () => {
-    it("should return a single content by id", async () => {
-      const mockContent = { id: 1, title: "内容1" };
+  describe('findById', () => {
+    it('should return a single content by id', async () => {
+      const mockContent = { id: 1, title: '内容1' };
       mockRepository.findOne.mockResolvedValue(mockContent);
 
       const result = await service.findById(1);
@@ -115,7 +115,7 @@ describe("ContentsService", () => {
       });
     });
 
-    it("should return null if content not found", async () => {
+    it('should return null if content not found', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       const result = await service.findById(999);
@@ -124,9 +124,9 @@ describe("ContentsService", () => {
     });
   });
 
-  describe("create", () => {
-    it("should create a new content", async () => {
-      const data = { title: "新内容", ageRange: "3-4", domain: "language" };
+  describe('create', () => {
+    it('should create a new content', async () => {
+      const data = { title: '新内容', ageRange: '3-4', domain: 'language' };
       const createdContent = { id: 1, ...data };
 
       mockRepository.create.mockReturnValue(createdContent);

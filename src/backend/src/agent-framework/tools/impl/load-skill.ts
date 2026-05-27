@@ -6,15 +6,11 @@
  * the full instructions for a specific skill.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { BaseTool } from "../base-tool";
-import { RegisterTool } from "../decorators/register-tool";
-import type {
-  ToolMetadata,
-  ToolResult,
-  ToolExecutionContext,
-} from "../../core";
-import { SkillRegistryService } from "../../skills/skill-registry.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { BaseTool } from '../base-tool';
+import { RegisterTool } from '../decorators/register-tool';
+import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { SkillRegistryService } from '../../skills/skill-registry.service';
 
 type LoadSkillArgs = {
   skillId: string;
@@ -26,19 +22,18 @@ export class LoadSkillTool extends BaseTool<LoadSkillArgs, string> {
   private readonly logger = new Logger(LoadSkillTool.name);
 
   readonly metadata: ToolMetadata = {
-    name: "loadSkill",
+    name: 'loadSkill',
     description:
-      "加载指定技能的完整指导内容。当你需要按照某个技能（如 hyperframes、remotion-video-creation、gsap 等）的具体规范来工作时，调用此工具获取完整规则和模板。",
+      '加载指定技能的完整指导内容。当你需要按照某个技能（如 hyperframes、remotion-video-creation、gsap 等）的具体规范来工作时，调用此工具获取完整规则和模板。',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
         skillId: {
-          type: "string",
-          description:
-            "技能 ID（如 'remotion-video-creation', 'hyperframes', 'gsap'）",
+          type: 'string',
+          description: "技能 ID（如 'remotion-video-creation', 'hyperframes', 'gsap'）",
         },
       },
-      required: ["skillId"],
+      required: ['skillId'],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -51,22 +46,17 @@ export class LoadSkillTool extends BaseTool<LoadSkillArgs, string> {
     super();
   }
 
-  async execute(
-    args: LoadSkillArgs,
-    _context: ToolExecutionContext,
-  ): Promise<ToolResult<string>> {
+  async execute(args: LoadSkillArgs, _context: ToolExecutionContext): Promise<ToolResult<string>> {
     const skillId = args?.skillId?.trim();
-    if (!skillId) return this.fail("skillId is required");
+    if (!skillId) return this.fail('skillId is required');
 
     const skill = this.skillRegistry.get(skillId);
     if (!skill) {
       const available = this.skillRegistry
         .getAll()
         .map((s) => s.definition.id)
-        .join(", ");
-      return this.fail(
-        `Skill not found: "${skillId}". Available: ${available}`,
-      );
+        .join(', ');
+      return this.fail(`Skill not found: "${skillId}". Available: ${available}`);
     }
 
     skill.ensureContentLoaded?.();
@@ -87,9 +77,7 @@ export class LoadSkillTool extends BaseTool<LoadSkillArgs, string> {
       return this.fail(`Skill "${skillId}" has no content.`);
     }
 
-    this.logger.log(
-      `Loaded skill content: ${skillId} (${parts.join("").length} chars)`,
-    );
-    return this.ok(parts.join("\n\n"));
+    this.logger.log(`Loaded skill content: ${skillId} (${parts.join('').length} chars)`);
+    return this.ok(parts.join('\n\n'));
   }
 }

@@ -4,24 +4,20 @@
  * Writes composition props and executes `npx remotion render` to produce video output.
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { spawn } from "child_process";
-import { promises as fs, existsSync } from "fs";
-import * as os from "os";
-import * as path from "path";
-import { BaseTool } from "../base-tool";
-import { RegisterTool } from "../decorators/register-tool";
-import type {
-  ToolMetadata,
-  ToolResult,
-  ToolExecutionContext,
-} from "../../core";
+import { Injectable, Logger } from '@nestjs/common';
+import { spawn } from 'child_process';
+import { promises as fs, existsSync } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { BaseTool } from '../base-tool';
+import { RegisterTool } from '../decorators/register-tool';
+import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 
 type RenderRemotionArgs = {
   compositionId: string;
   props?: Record<string, any>;
   outputDir?: string;
-  quality?: "low" | "medium" | "high";
+  quality?: 'low' | 'medium' | 'high';
   width?: number;
   height?: number;
 };
@@ -34,38 +30,38 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
   private readonly logger = new Logger(RenderRemotionTool.name);
 
   readonly metadata: ToolMetadata = {
-    name: "renderRemotion",
-    description: "使用 Remotion CLI 渲染视频，需要提供 composition ID 和 props",
+    name: 'renderRemotion',
+    description: '使用 Remotion CLI 渲染视频，需要提供 composition ID 和 props',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
         compositionId: {
-          type: "string",
-          description: "Remotion composition ID",
+          type: 'string',
+          description: 'Remotion composition ID',
         },
         props: {
-          type: "object",
-          description: "传递给 composition 的 props",
+          type: 'object',
+          description: '传递给 composition 的 props',
         },
         outputDir: {
-          type: "string",
-          description: "输出目录（可选，默认为临时目录）",
+          type: 'string',
+          description: '输出目录（可选，默认为临时目录）',
         },
         quality: {
-          type: "string",
-          enum: ["low", "medium", "high"],
-          description: "渲染质量，默认 low",
+          type: 'string',
+          enum: ['low', 'medium', 'high'],
+          description: '渲染质量，默认 low',
         },
         width: {
-          type: "number",
-          description: "视频宽度，默认 1920",
+          type: 'number',
+          description: '视频宽度，默认 1920',
         },
         height: {
-          type: "number",
-          description: "视频高度，默认 1080",
+          type: 'number',
+          description: '视频高度，默认 1080',
         },
       },
-      required: ["compositionId"],
+      required: ['compositionId'],
     },
     concurrencySafe: false,
     readOnly: false,
@@ -74,33 +70,28 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
     requiresAgeGroup: false,
   };
 
-  async execute(
-    args: RenderRemotionArgs,
-    _context: ToolExecutionContext,
-  ): Promise<ToolResult> {
+  async execute(args: RenderRemotionArgs, _context: ToolExecutionContext): Promise<ToolResult> {
     const compositionId = this.toText(args?.compositionId);
-    if (!compositionId) return this.fail("compositionId is required");
+    if (!compositionId) return this.fail('compositionId is required');
 
     const props = args?.props || {};
     const width = Math.max(320, Math.min(3840, args?.width || 1920));
     const height = Math.max(240, Math.min(2160, args?.height || 1080));
 
     const workDir = path.join(os.tmpdir(), `remotion-${Date.now()}`);
-    const outputDir = args?.outputDir || path.join(workDir, "output");
-    const propsPath = path.join(workDir, "props.json");
+    const outputDir = args?.outputDir || path.join(workDir, 'output');
+    const propsPath = path.join(workDir, 'props.json');
 
     // Find the Remotion project directory
     const remotionRoot = this.findRemotionRoot();
     if (!remotionRoot) {
-      return this.fail(
-        "Remotion project not found. Expected video-remotion/ directory.",
-      );
+      return this.fail('Remotion project not found. Expected video-remotion/ directory.');
     }
 
     try {
       await fs.mkdir(workDir, { recursive: true });
       await fs.mkdir(outputDir, { recursive: true });
-      await fs.writeFile(propsPath, JSON.stringify(props, null, 2), "utf-8");
+      await fs.writeFile(propsPath, JSON.stringify(props, null, 2), 'utf-8');
 
       const outputPath = path.join(outputDir, `${compositionId}.mp4`);
 
@@ -128,9 +119,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         // Try to find any video file in output dir
         const found = await this.findVideoOutput(outputDir);
         if (!found) {
-          return this.fail(
-            `No video output found. stderr: ${result.stderr.slice(0, 300)}`,
-          );
+          return this.fail(`No video output found. stderr: ${result.stderr.slice(0, 300)}`);
         }
         stat = await fs.stat(found);
       }
@@ -145,9 +134,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         duration: result.duration,
       });
     } catch (error: unknown) {
-      return this.fail(
-        `Render failed: ${error instanceof Error ? error.message : "unknown"}`,
-      );
+      return this.fail(`Render failed: ${error instanceof Error ? error.message : 'unknown'}`);
     } finally {
       setTimeout(() => {
         fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
@@ -157,12 +144,12 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
 
   private findRemotionRoot(): string | null {
     const candidates = [
-      path.join(process.cwd(), "video-remotion"),
-      path.join(process.cwd(), "src", "video-remotion"),
-      path.join(process.cwd(), "..", "video-remotion"),
+      path.join(process.cwd(), 'video-remotion'),
+      path.join(process.cwd(), 'src', 'video-remotion'),
+      path.join(process.cwd(), '..', 'video-remotion'),
     ];
     for (const candidate of candidates) {
-      if (existsSync(path.join(candidate, "package.json"))) {
+      if (existsSync(path.join(candidate, 'package.json'))) {
         return candidate;
       }
     }
@@ -184,30 +171,30 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
   }> {
     return new Promise((resolve, reject) => {
       const start = Date.now();
-      let stdout = "";
-      let stderr = "";
+      let stdout = '';
+      let stderr = '';
       let timedOut = false;
       let sigkillTimer: NodeJS.Timeout | null = null;
 
       const proc = spawn(
-        "npx",
+        'npx',
         [
-          "remotion",
-          "render",
+          'remotion',
+          'render',
           compositionId,
           outputPath,
-          "--props",
+          '--props',
           propsPath,
-          "--width",
+          '--width',
           String(width),
-          "--height",
+          '--height',
           String(height),
         ],
         {
           shell: true,
           cwd: remotionRoot,
           env: { ...process.env },
-          stdio: ["pipe", "pipe", "pipe"],
+          stdio: ['pipe', 'pipe', 'pipe'],
         },
       );
 
@@ -218,7 +205,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
           `[runRender] ⏰ RENDER TIMEOUT after ${RENDER_TIMEOUT}ms — sending SIGTERM to pid=${proc.pid}`,
         );
         if (proc.pid && !proc.killed) {
-          proc.kill("SIGTERM");
+          proc.kill('SIGTERM');
         }
 
         sigkillTimer = setTimeout(() => {
@@ -226,20 +213,20 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
             this.logger.error(
               `[runRender] 🔫 SIGTERM ineffective, sending SIGKILL to pid=${proc.pid}`,
             );
-            proc.kill("SIGKILL");
+            proc.kill('SIGKILL');
           }
         }, 2000);
       }, RENDER_TIMEOUT);
 
-      proc.stdout?.on("data", (data: Buffer) => {
+      proc.stdout?.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
-      proc.stderr?.on("data", (data: Buffer) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 
-      proc.on("close", (code, signal) => {
+      proc.on('close', (code, signal) => {
         clearTimeout(timer);
         if (sigkillTimer) clearTimeout(sigkillTimer);
 
@@ -263,7 +250,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
         });
       });
 
-      proc.on("error", (err) => {
+      proc.on('error', (err) => {
         clearTimeout(timer);
         if (sigkillTimer) clearTimeout(sigkillTimer);
         reject(err);
@@ -281,7 +268,7 @@ export class RenderRemotionTool extends BaseTool<RenderRemotionArgs> {
     }
   }
 
-  private toText(value: unknown, fallback = ""): string {
+  private toText(value: unknown, fallback = ''): string {
     if (value == null) return fallback;
     return String(value).trim() || fallback;
   }

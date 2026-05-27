@@ -1,7 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { AssignmentService } from "../../../assignment/assignment.service";
-import { ConversationManager } from "../../conversation/conversation-manager";
-import { GenerateActivityTool } from "./generate-activity";
+import { Injectable, Logger } from '@nestjs/common';
+import { AssignmentService } from '../../../assignment/assignment.service';
+import { ConversationManager } from '../../conversation/conversation-manager';
+import { GenerateActivityTool } from './generate-activity';
 
 type PendingAssignmentDraft = {
   childId: number;
@@ -18,7 +18,7 @@ type PendingAssignmentDraft = {
 };
 
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
-const DRAFTS_METADATA_KEY = "pendingAssignmentDrafts";
+const DRAFTS_METADATA_KEY = 'pendingAssignmentDrafts';
 const MAX_DRAFTS_PER_CONVERSATION = 10;
 
 @Injectable()
@@ -47,14 +47,14 @@ export class AssignActivityTool {
     try {
       const conversationId = args.conversationId;
       if (!conversationId) {
-        return JSON.stringify({ error: "缺少会话信息，无法执行作业发布流程" });
+        return JSON.stringify({ error: '缺少会话信息，无法执行作业发布流程' });
       }
 
       if (args.cancelDraft) {
         await this.saveDrafts(conversationId, []);
         return JSON.stringify({
-          status: "draft_cleared",
-          message: "已取消全部作业草稿",
+          status: 'draft_cleared',
+          message: '已取消全部作业草稿',
         });
       }
 
@@ -62,7 +62,7 @@ export class AssignActivityTool {
         const drafts = await this.loadValidDrafts(conversationId);
         if (!drafts.length) {
           return JSON.stringify({
-            error: "未找到可发布的作业草稿，请先生成草稿",
+            error: '未找到可发布的作业草稿，请先生成草稿',
           });
         }
 
@@ -85,17 +85,17 @@ export class AssignActivityTool {
             dueDate: draft.dueDate,
           });
           results.push({
-            status: "published",
+            status: 'published',
             assignmentId: assignment.id,
             topic: draft.topic,
             activityType: draft.activityType,
-            message: "作业已发布",
+            message: '作业已发布',
           });
         }
 
         await this.saveDrafts(conversationId, []);
         return JSON.stringify({
-          status: "batch_published",
+          status: 'batch_published',
           count: results.length,
           assignments: results,
           message: `已发布${results.length}个作业`,
@@ -105,26 +105,19 @@ export class AssignActivityTool {
       // --- Draft creation mode ---
       if (!Number.isFinite(Number(args.childId))) {
         return JSON.stringify({
-          status: "needs_child_selection",
-          message: "请先选择要布置作业的孩子",
+          status: 'needs_child_selection',
+          message: '请先选择要布置作业的孩子',
         });
       }
       if (!Number.isFinite(Number(args.parentId))) {
-        return JSON.stringify({ error: "缺少家长信息，无法生成作业草稿" });
+        return JSON.stringify({ error: '缺少家长信息，无法生成作业草稿' });
       }
-      if (
-        !args.activityType ||
-        !args.topic ||
-        !Number.isFinite(Number(args.difficulty))
-      ) {
+      if (!args.activityType || !args.topic || !Number.isFinite(Number(args.difficulty))) {
         return JSON.stringify({
-          error: "生成作业草稿需要 activityType/topic/difficulty",
+          error: '生成作业草稿需要 activityType/topic/difficulty',
         });
       }
-      const ageGroup = this.resolveAgeGroup(
-        args.ageGroup,
-        Number(args.difficulty),
-      );
+      const ageGroup = this.resolveAgeGroup(args.ageGroup, Number(args.difficulty));
 
       const activityJson = await this.generateActivityTool.execute({
         type: args.activityType as any,
@@ -153,8 +146,8 @@ export class AssignActivityTool {
       await this.saveDrafts(conversationId, updated);
 
       return JSON.stringify({
-        status: "draft_ready",
-        message: "作业草稿已生成，请确认后发布",
+        status: 'draft_ready',
+        message: '作业草稿已生成，请确认后发布',
         totalDrafts: updated.length,
         draft: {
           childId: draft.childId,
@@ -173,25 +166,18 @@ export class AssignActivityTool {
     }
   }
 
-  private async loadValidDrafts(
-    conversationId: string,
-  ): Promise<PendingAssignmentDraft[]> {
-    const conversation =
-      await this.conversationManager.getConversationByUuid(conversationId);
+  private async loadValidDrafts(conversationId: string): Promise<PendingAssignmentDraft[]> {
+    const conversation = await this.conversationManager.getConversationByUuid(conversationId);
     const raw = conversation?.metadata?.[DRAFTS_METADATA_KEY];
     if (!Array.isArray(raw)) {
       const legacyDraft = conversation?.metadata?.pendingAssignmentDraft;
       if (legacyDraft) {
-        return [legacyDraft as PendingAssignmentDraft].filter((d) =>
-          this.isDraftValid(d),
-        );
+        return [legacyDraft as PendingAssignmentDraft].filter((d) => this.isDraftValid(d));
       }
       return [];
     }
 
-    return (raw as PendingAssignmentDraft[]).filter((d) =>
-      this.isDraftValid(d),
-    );
+    return (raw as PendingAssignmentDraft[]).filter((d) => this.isDraftValid(d));
   }
 
   private isDraftValid(draft: PendingAssignmentDraft): boolean {
@@ -209,11 +195,8 @@ export class AssignActivityTool {
     });
   }
 
-  private resolveAgeGroup(
-    ageGroup: string | undefined,
-    difficulty: number,
-  ): string {
-    if (ageGroup === "3-4" || ageGroup === "5-6") return ageGroup;
-    return difficulty <= 1 ? "3-4" : "5-6";
+  private resolveAgeGroup(ageGroup: string | undefined, difficulty: number): string {
+    if (ageGroup === '3-4' || ageGroup === '5-6') return ageGroup;
+    return difficulty <= 1 ? '3-4' : '5-6';
   }
 }

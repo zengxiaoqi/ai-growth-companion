@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { Subject } from "rxjs";
+import { Injectable } from '@nestjs/common';
+import { Subject } from 'rxjs';
 
 interface SSEEvent {
   type: string;

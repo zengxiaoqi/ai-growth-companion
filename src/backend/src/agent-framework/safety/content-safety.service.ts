@@ -3,12 +3,12 @@
  * Provides DI-friendly access to content filtering.
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import {
   filterContent,
   isContentSafe,
   type SafetyFilterResult,
-} from "../core/utils/content-safety";
+} from '../core/utils/content-safety';
 
 @Injectable()
 export class ContentSafetyService {

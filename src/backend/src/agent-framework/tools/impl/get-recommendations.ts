@@ -3,16 +3,12 @@
  * Migrated from modules/ai/agent/tools/get-recommendations.ts
  */
 
-import { Injectable } from "@nestjs/common";
-import { RecommendService } from "../../../modules/recommend/recommend.service";
-import { UsersService } from "../../../modules/users/users.service";
-import { BaseTool } from "../base-tool";
-import { RegisterTool } from "../decorators/register-tool";
-import type {
-  ToolMetadata,
-  ToolResult,
-  ToolExecutionContext,
-} from "../../core";
+import { Injectable } from '@nestjs/common';
+import { RecommendService } from '../../../modules/recommend/recommend.service';
+import { UsersService } from '../../../modules/users/users.service';
+import { BaseTool } from '../base-tool';
+import { RegisterTool } from '../decorators/register-tool';
+import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 
 type GetRecommendationsInput = { childId: number; limit?: number };
 
@@ -20,16 +16,15 @@ type GetRecommendationsInput = { childId: number; limit?: number };
 @RegisterTool()
 export class GetRecommendationsTool extends BaseTool<GetRecommendationsInput> {
   readonly metadata: ToolMetadata = {
-    name: "getRecommendations",
-    description:
-      "获取个性化学习推荐内容，基于孩子的年龄和能力推荐适合的学习材料",
+    name: 'getRecommendations',
+    description: '获取个性化学习推荐内容，基于孩子的年龄和能力推荐适合的学习材料',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        childId: { type: "number", description: "孩子ID" },
-        limit: { type: "number", description: "返回数量限制，默认5" },
+        childId: { type: 'number', description: '孩子ID' },
+        limit: { type: 'number', description: '返回数量限制，默认5' },
       },
-      required: ["childId"],
+      required: ['childId'],
     },
     concurrencySafe: true,
     readOnly: true,
@@ -67,7 +62,7 @@ export class GetRecommendationsTool extends BaseTool<GetRecommendationsInput> {
           id: r.id,
           title: r.title,
           domain: r.domain,
-          reason: r.reason || "适合当前学习进度",
+          reason: r.reason || '适合当前学习进度',
           ageGroup: r.ageGroup,
         })),
       );

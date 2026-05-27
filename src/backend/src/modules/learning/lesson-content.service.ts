@@ -5,34 +5,34 @@ import {
   ForbiddenException,
   OnModuleInit,
   Optional,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { randomUUID } from "crypto";
-import { Content } from "../../database/entities/content.entity";
-import { LearningRecord } from "../../database/entities/learning-record.entity";
-import { Assignment } from "../../database/entities/assignment.entity";
-import { StudyPlanRecord } from "../../database/entities/study-plan-record.entity";
-import { ContentsService } from "../contents/contents.service";
-import { GenerateCoursePackTool } from "../ai/agent/tools/generate-course-pack";
-import { GenerateActivityTool } from "../ai/agent/tools/generate-activity";
-import { AiService } from "../ai/ai.service";
-import { AssignmentService } from "../assignment/assignment.service";
-import { LearningTrackerService } from "./learning-tracker.service";
-import { LessonVideoQueueService } from "./lesson-video-queue.service";
-import { LlmClientService } from "../../agent-framework/llm/llm-client.service";
-import { CourseGenerationAgentService } from "./course-generation-agent.service";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
+import { Content } from '../../database/entities/content.entity';
+import { LearningRecord } from '../../database/entities/learning-record.entity';
+import { Assignment } from '../../database/entities/assignment.entity';
+import { StudyPlanRecord } from '../../database/entities/study-plan-record.entity';
+import { ContentsService } from '../contents/contents.service';
+import { GenerateCoursePackTool } from '../ai/agent/tools/generate-course-pack';
+import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
+import { AiService } from '../ai/ai.service';
+import { AssignmentService } from '../assignment/assignment.service';
+import { LearningTrackerService } from './learning-tracker.service';
+import { LessonVideoQueueService } from './lesson-video-queue.service';
+import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
+import { CourseGenerationAgentService } from './course-generation-agent.service';
 import {
   derivePracticeSceneDocument,
   deriveWatchSceneDocument,
   deriveWriteSceneDocument,
   sanitizeSceneDocument,
   type LessonSceneDocument,
-} from "./lesson-scene";
-import { getCoursePackCurriculumSeed } from "./course-curriculum-fallback";
+} from './lesson-scene';
+import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
 
-type AgeGroup = "3-4" | "5-6";
-type LessonDomain = "language" | "math" | "science" | "art" | "social";
+type AgeGroup = '3-4' | '5-6';
+type LessonDomain = 'language' | 'math' | 'science' | 'art' | 'social';
 
 export interface SaveDraftDirectlyParams {
   title: string;
@@ -64,7 +64,7 @@ export interface GenerateLessonParams {
   parentId: number;
   ageGroup?: AgeGroup;
   domain?: LessonDomain;
-  focus?: "literacy" | "math" | "science" | "mixed";
+  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   durationMinutes?: number;
   parentPrompt?: string;
@@ -92,7 +92,7 @@ interface LessonStep {
 }
 
 interface StructuredLessonContent {
-  type: "structured_lesson";
+  type: 'structured_lesson';
   version: 1;
   topic: string;
   ageGroup: AgeGroup;
@@ -114,10 +114,10 @@ interface ModifyLessonDraftOptions {
 }
 
 const _STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
-  { id: "watch", label: "看", icon: "eye" },
-  { id: "read", label: "读", icon: "book" },
-  { id: "write", label: "写", icon: "pen" },
-  { id: "practice", label: "练", icon: "gamepad" },
+  { id: 'watch', label: '看', icon: 'eye' },
+  { id: 'read', label: '读', icon: 'book' },
+  { id: 'write', label: '写', icon: 'pen' },
+  { id: 'practice', label: '练', icon: 'gamepad' },
 ];
 
 export interface DraftLessonSummary {
@@ -145,22 +145,20 @@ export class LessonContentService implements OnModuleInit {
         .createQueryBuilder()
         .update(Content)
         .set({
-          status: "generation_failed",
-          subtitle: "生成中断：服务器重启，请重新生成",
+          status: 'generation_failed',
+          subtitle: '生成中断：服务器重启，请重新生成',
         })
         .where(
           "status = :status AND contentType = :contentType AND updatedAt < datetime('now', '-5 minutes')",
           {
-            status: "generating",
-            contentType: "structured_lesson",
+            status: 'generating',
+            contentType: 'structured_lesson',
           },
         )
         .execute();
 
       if (result.affected && result.affected > 0) {
-        this.logger.warn(
-          `Recovered ${result.affected} stuck lesson generation(s) on startup`,
-        );
+        this.logger.warn(`Recovered ${result.affected} stuck lesson generation(s) on startup`);
       }
     } catch (error: any) {
       this.logger.warn(`Stuck generation recovery failed: ${error?.message}`);
@@ -188,30 +186,28 @@ export class LessonContentService implements OnModuleInit {
     private readonly courseGenerationAgent?: CourseGenerationAgentService,
   ) {}
 
-  async listDraftLessonsForChild(
-    childId: number,
-  ): Promise<DraftLessonSummary[]> {
+  async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {
     const drafts = await this.contentRepo
-      .createQueryBuilder("content")
+      .createQueryBuilder('content')
       .select([
-        "content.id AS id",
-        "content.title AS title",
-        "content.subtitle AS subtitle",
-        "content.domain AS domain",
-        "content.status AS status",
-        "content.contentType AS contentType",
-        "content.content AS content",
-        "content.createdAt AS createdAt",
-        "content.updatedAt AS updatedAt",
+        'content.id AS id',
+        'content.title AS title',
+        'content.subtitle AS subtitle',
+        'content.domain AS domain',
+        'content.status AS status',
+        'content.contentType AS contentType',
+        'content.content AS content',
+        'content.createdAt AS createdAt',
+        'content.updatedAt AS updatedAt',
       ])
-      .where("content.childId = :childId", { childId })
-      .andWhere("content.status IN (:...statuses)", {
-        statuses: ["draft", "generating"],
+      .where('content.childId = :childId', { childId })
+      .andWhere('content.status IN (:...statuses)', {
+        statuses: ['draft', 'generating'],
       })
-      .andWhere("content.contentType = :contentType", {
-        contentType: "structured_lesson",
+      .andWhere('content.contentType = :contentType', {
+        contentType: 'structured_lesson',
       })
-      .orderBy("content.createdAt", "DESC")
+      .orderBy('content.createdAt', 'DESC')
       .getRawMany<{
         id: number;
         title: string;
@@ -244,21 +240,21 @@ export class LessonContentService implements OnModuleInit {
     }));
 
     const coursePackDrafts = await this.studyPlanRepo
-      .createQueryBuilder("plan")
+      .createQueryBuilder('plan')
       .select([
-        "plan.id AS id",
-        "plan.title AS title",
-        "plan.sourceType AS sourceType",
-        "plan.status AS status",
-        "plan.planContent AS planContent",
-        "plan.createdAt AS createdAt",
-        "plan.updatedAt AS updatedAt",
+        'plan.id AS id',
+        'plan.title AS title',
+        'plan.sourceType AS sourceType',
+        'plan.status AS status',
+        'plan.planContent AS planContent',
+        'plan.createdAt AS createdAt',
+        'plan.updatedAt AS updatedAt',
       ])
-      .where("plan.childId = :childId", { childId })
-      .andWhere("plan.sourceType = :sourceType", {
-        sourceType: "ai_course_pack",
+      .where('plan.childId = :childId', { childId })
+      .andWhere('plan.sourceType = :sourceType', {
+        sourceType: 'ai_course_pack',
       })
-      .orderBy("plan.createdAt", "DESC")
+      .orderBy('plan.createdAt', 'DESC')
       .getRawMany<{
         id: number;
         title: string;
@@ -269,30 +265,27 @@ export class LessonContentService implements OnModuleInit {
         updatedAt: Date | string;
       }>();
 
-    const mappedCoursePackDrafts: DraftLessonSummary[] = coursePackDrafts.map(
-      (row) => ({
-        id: Number(row.id),
-        title: row.title,
-        subtitle: null,
-        domain: "",
-        status: row.status || "draft",
-        contentType: "course_pack",
-        childId,
-        content: row.planContent,
-        createdAt:
-          row.createdAt instanceof Date
-            ? row.createdAt.toISOString()
-            : new Date(row.createdAt).toISOString(),
-        updatedAt:
-          row.updatedAt instanceof Date
-            ? row.updatedAt.toISOString()
-            : new Date(row.updatedAt).toISOString(),
-      }),
-    );
+    const mappedCoursePackDrafts: DraftLessonSummary[] = coursePackDrafts.map((row) => ({
+      id: Number(row.id),
+      title: row.title,
+      subtitle: null,
+      domain: '',
+      status: row.status || 'draft',
+      contentType: 'course_pack',
+      childId,
+      content: row.planContent,
+      createdAt:
+        row.createdAt instanceof Date
+          ? row.createdAt.toISOString()
+          : new Date(row.createdAt).toISOString(),
+      updatedAt:
+        row.updatedAt instanceof Date
+          ? row.updatedAt.toISOString()
+          : new Date(row.updatedAt).toISOString(),
+    }));
 
     return [...structuredLessonDrafts, ...mappedCoursePackDrafts].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }
 
@@ -303,9 +296,9 @@ export class LessonContentService implements OnModuleInit {
   async startGeneration(params: GenerateLessonParams): Promise<Content> {
     const {
       topic,
-      ageGroup = "5-6",
-      domain = "language",
-      difficulty = ageGroup === "3-4" ? 1 : 2,
+      ageGroup = '5-6',
+      domain = 'language',
+      difficulty = ageGroup === '3-4' ? 1 : 2,
       durationMinutes = 20,
       childId,
       parentId,
@@ -321,15 +314,15 @@ export class LessonContentService implements OnModuleInit {
       topic,
       difficulty,
       durationMinutes,
-      contentType: "structured_lesson",
+      contentType: 'structured_lesson',
       parentId,
       childId,
       content: {
-        type: "structured_lesson",
+        type: 'structured_lesson',
         version: 1,
         topic,
         ageGroup,
-        summary: "",
+        summary: '',
         outcomes: [],
         sourceCoursePackId: null,
         steps: [],
@@ -337,12 +330,10 @@ export class LessonContentService implements OnModuleInit {
         generatedAt: new Date().toISOString(),
       } as any,
       mediaUrls: [] as any,
-      status: "generating",
+      status: 'generating',
     });
 
-    this.logger.log(
-      `Lesson generation started: contentId=${placeholder.id}, topic="${topic}"`,
-    );
+    this.logger.log(`Lesson generation started: contentId=${placeholder.id}, topic="${topic}"`);
 
     // Run generation in background (fire-and-forget)
     this.runGeneration(placeholder.id, params).catch((err: any) => {
@@ -354,18 +345,15 @@ export class LessonContentService implements OnModuleInit {
     return placeholder;
   }
 
-  private async runGeneration(
-    contentId: number,
-    params: GenerateLessonParams,
-  ): Promise<void> {
+  private async runGeneration(contentId: number, params: GenerateLessonParams): Promise<void> {
     const {
       topic,
-      ageGroup = "5-6",
-      domain = "language",
-      focus = "mixed",
-      difficulty = ageGroup === "3-4" ? 1 : 2,
+      ageGroup = '5-6',
+      domain = 'language',
+      focus = 'mixed',
+      difficulty = ageGroup === '3-4' ? 1 : 2,
       durationMinutes = 20,
-      parentPrompt = "",
+      parentPrompt = '',
     } = params;
 
     try {
@@ -375,7 +363,7 @@ export class LessonContentService implements OnModuleInit {
         `[contentId=${contentId}] Step 1/2: Generating course pack + practice game in parallel...`,
       );
       await this.contentRepo.update(contentId, {
-        subtitle: "正在生成课程内容...",
+        subtitle: '正在生成课程内容...',
       } as any);
 
       const [coursePackRaw, practiceRaw] = await Promise.allSettled([
@@ -400,53 +388,40 @@ export class LessonContentService implements OnModuleInit {
             domain,
           })
           .catch((err: any) => {
-            this.logger.warn(
-              `[contentId=${contentId}] Practice game failed: ${err?.message}`,
-            );
+            this.logger.warn(`[contentId=${contentId}] Practice game failed: ${err?.message}`);
             return null;
           }),
       ]);
 
       const coursePack =
-        coursePackRaw.status === "fulfilled"
-          ? this.parseJson(coursePackRaw.value)
-          : null;
+        coursePackRaw.status === 'fulfilled' ? this.parseJson(coursePackRaw.value) : null;
       if (!coursePack) {
         throw new Error(
-          coursePackRaw.status === "rejected"
-            ? `Course pack generation failed: ${coursePackRaw.reason?.message || "unknown"}`
-            : "LLM returned non-JSON for course pack",
+          coursePackRaw.status === 'rejected'
+            ? `Course pack generation failed: ${coursePackRaw.reason?.message || 'unknown'}`
+            : 'LLM returned non-JSON for course pack',
         );
       }
 
       let practiceData: Record<string, any> | null = null;
-      if (practiceRaw.status === "fulfilled" && practiceRaw.value) {
+      if (practiceRaw.status === 'fulfilled' && practiceRaw.value) {
         practiceData = this.parseJson(practiceRaw.value);
       }
       if (!practiceData) {
-        this.logger.log(
-          `[contentId=${contentId}] Using fallback practice activity`,
-        );
-        practiceData = this.buildFallbackActivity(
-          practiceType,
-          topic,
-          ageGroup,
-          domain,
-        );
+        this.logger.log(`[contentId=${contentId}] Using fallback practice activity`);
+        practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup, domain);
       }
 
       // 3. Assemble 4-step lesson
-      this.logger.log(
-        `[contentId=${contentId}] Step 2/2: Assembling lesson...`,
-      );
+      this.logger.log(`[contentId=${contentId}] Step 2/2: Assembling lesson...`);
       await this.contentRepo.update(contentId, {
-        subtitle: "正在组装课程...",
+        subtitle: '正在组装课程...',
       } as any);
       const lessonContent = this.assembleLesson(coursePack, practiceData, {
         topic,
         ageGroup,
         domain,
-        summary: coursePack.summary || "",
+        summary: coursePack.summary || '',
         outcomes: coursePack.outcomes || [],
       });
 
@@ -457,7 +432,7 @@ export class LessonContentService implements OnModuleInit {
         title,
         subtitle,
         content: lessonContent as any,
-        status: "draft",
+        status: 'draft',
       });
 
       this.logger.log(`Lesson generation completed: contentId=${contentId}`);
@@ -480,8 +455,8 @@ export class LessonContentService implements OnModuleInit {
       );
       // Mark as failed so frontend knows
       await this.contentRepo.update(contentId, {
-        status: "generation_failed",
-        subtitle: `生成失败: ${error?.message || "未知错误"}`,
+        status: 'generation_failed',
+        subtitle: `生成失败: ${error?.message || '未知错误'}`,
       });
     }
   }
@@ -497,10 +472,10 @@ export class LessonContentService implements OnModuleInit {
     const {
       title,
       subtitle,
-      domain = "language",
+      domain = 'language',
       topic,
-      ageGroup = "5-6",
-      difficulty = ageGroup === "3-4" ? 1 : 2,
+      ageGroup = '5-6',
+      difficulty = ageGroup === '3-4' ? 1 : 2,
       durationMinutes = 20,
       content,
       childId,
@@ -511,15 +486,15 @@ export class LessonContentService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const lessonContent =
-      content && typeof content === "object"
+      content && typeof content === 'object'
         ? content
         : {
-            type: "structured_lesson",
+            type: 'structured_lesson',
             version: 1,
             topic: topic || title,
             ageGroup,
             domain,
-            summary: subtitle || "",
+            summary: subtitle || '',
             outcomes: [],
             sourceCoursePackId: null,
             steps: [],
@@ -540,17 +515,15 @@ export class LessonContentService implements OnModuleInit {
       topic: topic || null,
       difficulty,
       durationMinutes,
-      contentType: "structured_lesson",
+      contentType: 'structured_lesson',
       parentId,
       childId,
       content: lessonContent,
       mediaUrls: [],
-      status: "draft",
+      status: 'draft',
     });
 
-    this.logger.log(
-      `Draft saved directly: contentId=${draft.id}, title="${title}"`,
-    );
+    this.logger.log(`Draft saved directly: contentId=${draft.id}, title="${title}"`);
 
     return draft;
   }
@@ -567,9 +540,9 @@ export class LessonContentService implements OnModuleInit {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
-    if (content.status !== "draft") {
-      throw new ForbiddenException("Only draft lessons can be deleted");
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.status !== 'draft') {
+      throw new ForbiddenException('Only draft lessons can be deleted');
     }
 
     await this.contentRepo.delete(contentId);
@@ -585,11 +558,9 @@ export class LessonContentService implements OnModuleInit {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
-    if (content.status !== "draft") {
-      throw new ForbiddenException(
-        "Only draft lessons can be updated directly",
-      );
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.status !== 'draft') {
+      throw new ForbiddenException('Only draft lessons can be updated directly');
     }
 
     const updateData: Partial<Content> = {};
@@ -599,10 +570,8 @@ export class LessonContentService implements OnModuleInit {
     if (params.domain !== undefined) updateData.domain = params.domain;
     if (params.topic !== undefined) updateData.topic = params.topic;
     if (params.ageGroup !== undefined) updateData.ageRange = params.ageGroup;
-    if (params.difficulty !== undefined)
-      updateData.difficulty = params.difficulty;
-    if (params.durationMinutes !== undefined)
-      updateData.durationMinutes = params.durationMinutes;
+    if (params.difficulty !== undefined) updateData.difficulty = params.difficulty;
+    if (params.durationMinutes !== undefined) updateData.durationMinutes = params.durationMinutes;
     if (params.content !== undefined) {
       updateData.content = params.content;
     }
@@ -612,10 +581,10 @@ export class LessonContentService implements OnModuleInit {
     const updated = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!updated) throw new NotFoundException("Content not found after update");
+    if (!updated) throw new NotFoundException('Content not found after update');
 
     this.logger.log(
-      `Draft updated directly: contentId=${contentId}, fields=[${Object.keys(updateData).join(", ")}]`,
+      `Draft updated directly: contentId=${contentId}, fields=[${Object.keys(updateData).join(', ')}]`,
     );
 
     return updated;
@@ -631,7 +600,7 @@ export class LessonContentService implements OnModuleInit {
       topic: string;
       ageGroup: AgeGroup;
       domain: LessonDomain;
-      focus: "literacy" | "math" | "science" | "mixed";
+      focus: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty: number;
       durationMinutes: number;
       includeGame: boolean;
@@ -654,7 +623,7 @@ export class LessonContentService implements OnModuleInit {
         }
       } catch (error: any) {
         this.logger.warn(
-          `[contentId=${contentId}] course-designer agent failed, falling back to legacy course pack tool: ${error?.message || "unknown"}`,
+          `[contentId=${contentId}] course-designer agent failed, falling back to legacy course pack tool: ${error?.message || 'unknown'}`,
         );
       }
     } else {
@@ -675,13 +644,13 @@ export class LessonContentService implements OnModuleInit {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
-    if (content.status !== "draft")
-      throw new ForbiddenException("Only draft lessons can be modified");
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.status !== 'draft')
+      throw new ForbiddenException('Only draft lessons can be modified');
 
     const lesson = content.content as unknown as StructuredLessonContent;
-    if (!lesson || lesson.type !== "structured_lesson") {
-      throw new ForbiddenException("Not a structured lesson");
+    if (!lesson || lesson.type !== 'structured_lesson') {
+      throw new ForbiddenException('Not a structured lesson');
     }
 
     const targetStep = options.stepId
@@ -690,24 +659,24 @@ export class LessonContentService implements OnModuleInit {
 
     // Send modification request to LLM
     const prompt = [
-      "You are a curriculum designer. A parent has requested modifications to a lesson plan.",
+      'You are a curriculum designer. A parent has requested modifications to a lesson plan.',
       `Current lesson JSON:\n${JSON.stringify(lesson, null, 2)}`,
       `Parent's modification request: ${modification}`,
       targetStep
         ? `Target step for this edit:\n${JSON.stringify(this.describeStepForPrompt(targetStep), null, 2)}`
-        : "Target step for this edit: all steps (whole-lesson edit).",
-      "Rules:",
-      "- Apply the modification to the relevant parts of the lesson.",
+        : 'Target step for this edit: all steps (whole-lesson edit).',
+      'Rules:',
+      '- Apply the modification to the relevant parts of the lesson.',
       targetStep
         ? `- Focus on step "${targetStep.id}" first and keep other steps unchanged unless a small sync update is necessary.`
-        : "- You may update multiple steps if the parent request is about the whole lesson.",
-      "- Keep all content age-appropriate and in Chinese for learner-facing text.",
-      "- Return the COMPLETE updated lesson JSON (same structure).",
+        : '- You may update multiple steps if the parent request is about the whole lesson.',
+      '- Keep all content age-appropriate and in Chinese for learner-facing text.',
+      '- Return the COMPLETE updated lesson JSON (same structure).',
       '- Do NOT change the "type", "version", or "steps[].id" fields.',
-      "- Preserve steps[].module.scene unless the parent request explicitly changes that step.",
-      "- If watch/write/practice content changes, update the related steps[].module.scene to stay in sync.",
-      "- Return strict JSON only. No markdown. No explanation.",
-    ].join("\n");
+      '- Preserve steps[].module.scene unless the parent request explicitly changes that step.',
+      '- If watch/write/practice content changes, update the related steps[].module.scene to stay in sync.',
+      '- Return strict JSON only. No markdown. No explanation.',
+    ].join('\n');
 
     const llmResponse = await this.llmClient.generate(prompt);
     const updated = this.parseJson(llmResponse);
@@ -720,29 +689,22 @@ export class LessonContentService implements OnModuleInit {
         (updated as any)?.title,
         nextTopic ? `${nextTopic} 鍏ㄦ柟浣嶅涔犺` : content.title,
       );
-      content.subtitle = this.toText(
-        (merged as any)?.summary,
-        content.subtitle || "",
-      );
+      content.subtitle = this.toText((merged as any)?.summary, content.subtitle || '');
       const saved = await this.contentRepo.save(content);
       this.logger.log(`Lesson modified: contentId=${contentId}`);
       return saved;
     }
 
-    throw new Error("Failed to apply modifications. Please try again.");
+    throw new Error('Failed to apply modifications. Please try again.');
   }
 
-  async confirmAndPublish(
-    contentId: number,
-    parentId: number,
-    childId: number,
-  ): Promise<Content> {
+  async confirmAndPublish(contentId: number, parentId: number, childId: number): Promise<Content> {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
-    if (content.status !== "draft")
-      throw new ForbiddenException("Only draft lessons can be confirmed");
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.status !== 'draft')
+      throw new ForbiddenException('Only draft lessons can be confirmed');
 
     const lesson = content.content as unknown as StructuredLessonContent;
 
@@ -751,11 +713,11 @@ export class LessonContentService implements OnModuleInit {
 
     for (let i = 0; i < updatedSteps.length; i++) {
       const step = updatedSteps[i];
-      if (step.id === "practice" && step.module?.game) {
+      if (step.id === 'practice' && step.module?.game) {
         const assignment = await this.assignmentService.create({
           parentId,
           childId,
-          activityType: step.module.game.activityType || "quiz",
+          activityType: step.module.game.activityType || 'quiz',
           activityData: step.module.game.activityData || step.module.game,
           contentId: content.id,
           domain: content.domain,
@@ -767,31 +729,24 @@ export class LessonContentService implements OnModuleInit {
 
     // Check if video is ready and attach videoUrl to watch step
     try {
-      const videoTask = await this.videoQueueService.getLatestTask(
-        contentId,
-        childId,
-      );
-      if (videoTask && videoTask.status === "completed") {
-        const watchStep = updatedSteps.find((s) => s.id === "watch");
+      const videoTask = await this.videoQueueService.getLatestTask(contentId, childId);
+      if (videoTask && videoTask.status === 'completed') {
+        const watchStep = updatedSteps.find((s) => s.id === 'watch');
         if (watchStep) {
           watchStep.module = {
             ...watchStep.module,
             videoUrl: `/api/learning/lessons/${contentId}/teaching-video?childId=${childId}`,
           };
-          this.logger.log(
-            `Video attached to watch step for contentId=${contentId}`,
-          );
+          this.logger.log(`Video attached to watch step for contentId=${contentId}`);
         }
       }
     } catch (error: any) {
       // Video not ready is fine — continue without it
-      this.logger.debug(
-        `Video not ready for contentId=${contentId}: ${error?.message}`,
-      );
+      this.logger.debug(`Video not ready for contentId=${contentId}: ${error?.message}`);
     }
 
     // Update content
-    content.status = "published";
+    content.status = 'published';
     content.content = {
       ...lesson,
       steps: updatedSteps,
@@ -810,19 +765,12 @@ export class LessonContentService implements OnModuleInit {
     abilityUpdated: boolean;
     achievementsAwarded: string[];
   }> {
-    const {
-      contentId,
-      childId,
-      stepId,
-      score = 0,
-      durationSeconds = 0,
-      interactionData,
-    } = params;
+    const { contentId, childId, stepId, score = 0, durationSeconds = 0, interactionData } = params;
 
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
+    if (!content) throw new NotFoundException('Content not found');
 
     const lesson = content.content as unknown as StructuredLessonContent;
     const step = lesson.steps.find((s) => s.id === stepId);
@@ -832,11 +780,11 @@ export class LessonContentService implements OnModuleInit {
     if (step.assignmentId) {
       // Complete via assignment service
       const result = await this.learningTracker.recordActivity({
-        type: "assignment_completion",
+        type: 'assignment_completion',
         childId,
         assignmentId: step.assignmentId,
         contentId,
-        domain: content.domain || "language",
+        domain: content.domain || 'language',
         score,
         durationSeconds,
         interactionData: {
@@ -855,15 +803,15 @@ export class LessonContentService implements OnModuleInit {
 
     // For non-assignment steps, record as a learning activity
     const result = await this.learningTracker.recordActivity({
-      type: "content_completion",
+      type: 'content_completion',
       childId,
       contentId,
-      domain: content.domain || "language",
+      domain: content.domain || 'language',
       score,
       durationSeconds,
       interactionData: {
         stepId,
-        lessonType: "structured_lesson",
+        lessonType: 'structured_lesson',
         ...interactionData,
       },
     });
@@ -887,15 +835,12 @@ export class LessonContentService implements OnModuleInit {
     stepResults: Record<string, { status: string; score: number | null }>;
   }> {
     const records = await this.recordRepo
-      .createQueryBuilder("r")
-      .where("r.userId = :childId", { childId })
-      .andWhere("r.contentId = :contentId", { contentId })
+      .createQueryBuilder('r')
+      .where('r.userId = :childId', { childId })
+      .andWhere('r.contentId = :contentId', { contentId })
       .getMany();
 
-    const stepResults: Record<
-      string,
-      { status: string; score: number | null }
-    > = {};
+    const stepResults: Record<string, { status: string; score: number | null }> = {};
     const completedSteps: string[] = [];
     let totalScore = 0;
     let scoreCount = 0;
@@ -903,10 +848,9 @@ export class LessonContentService implements OnModuleInit {
     for (const record of records) {
       const stepId = record.interactionData?.stepId;
       if (stepId) {
-        const status =
-          record.status === "completed" ? "completed" : "in_progress";
+        const status = record.status === 'completed' ? 'completed' : 'in_progress';
         stepResults[stepId] = { status, score: record.score ?? null };
-        if (status === "completed") {
+        if (status === 'completed') {
           completedSteps.push(stepId);
           if (record.score != null) {
             totalScore += record.score;
@@ -931,24 +875,24 @@ export class LessonContentService implements OnModuleInit {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
-    if (!content) throw new NotFoundException("Content not found");
+    if (!content) throw new NotFoundException('Content not found');
 
     const lesson = content.content as unknown as StructuredLessonContent;
-    if (!lesson || lesson.type !== "structured_lesson") {
-      throw new ForbiddenException("Not a structured lesson");
+    if (!lesson || lesson.type !== 'structured_lesson') {
+      throw new ForbiddenException('Not a structured lesson');
     }
 
     const watchModule: Record<string, any> =
-      lesson.steps.find((step) => step.id === "watch")?.module || {};
+      lesson.steps.find((step) => step.id === 'watch')?.module || {};
     const readModule: Record<string, any> =
-      lesson.steps.find((step) => step.id === "read")?.module || {};
+      lesson.steps.find((step) => step.id === 'read')?.module || {};
     const writeModule: Record<string, any> =
-      lesson.steps.find((step) => step.id === "write")?.module || {};
+      lesson.steps.find((step) => step.id === 'write')?.module || {};
 
     const packLike: Record<string, any> = {
       title: content.title || `${lesson.topic} 全方位学习课`,
-      summary: lesson.summary || content.subtitle || "",
-      topic: lesson.topic || content.topic || "",
+      summary: lesson.summary || content.subtitle || '',
+      topic: lesson.topic || content.topic || '',
       visualStory: watchModule.visualStory || {},
       videoLesson: watchModule.videoLesson || {},
       modules: {
@@ -959,18 +903,16 @@ export class LessonContentService implements OnModuleInit {
 
     const body = await this.aiService.renderTeachingVideoFromPack(packLike);
     if (!body) {
-      throw new Error("TEACHING_VIDEO_UNAVAILABLE");
+      throw new Error('TEACHING_VIDEO_UNAVAILABLE');
     }
 
-    const safeTitle = String(
-      content.title || lesson.topic || `lesson-${contentId}`,
-    )
-      .replace(/[\\/:*?"<>|]+/g, "-")
+    const safeTitle = String(content.title || lesson.topic || `lesson-${contentId}`)
+      .replace(/[\\/:*?"<>|]+/g, '-')
       .trim();
 
     return {
       filename: `${safeTitle || `lesson-${contentId}`}-teaching-video.mp4`,
-      mimeType: "video/mp4",
+      mimeType: 'video/mp4',
       body,
     };
   }
@@ -988,13 +930,9 @@ export class LessonContentService implements OnModuleInit {
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
     const parentGuide = coursePack.parentGuide || {};
-    const watchScene = this.resolveWatchScene(
-      coursePack,
-      meta.topic,
-      coursePack.domain as string,
-    );
+    const watchScene = this.resolveWatchScene(coursePack, meta.topic, coursePack.domain as string);
     const writeScene = this.resolveWriteScene(coursePack, meta.topic);
-    const practiceType = this.resolveGameType(coursePack.focus || "mixed");
+    const practiceType = this.resolveGameType(coursePack.focus || 'mixed');
     const practiceScene = this.resolvePracticeScene(
       coursePack,
       practiceData,
@@ -1004,45 +942,45 @@ export class LessonContentService implements OnModuleInit {
 
     const steps: LessonStep[] = [
       {
-        id: "watch",
-        label: "看",
-        icon: "eye",
+        id: 'watch',
+        label: '看',
+        icon: 'eye',
         order: 1,
         module: {
-          type: "video",
+          type: 'video',
           scene: watchScene,
           visualStory: coursePack.visualStory || {},
           videoLesson: coursePack.videoLesson || {},
         },
       },
       {
-        id: "read",
-        label: "读",
-        icon: "book",
+        id: 'read',
+        label: '读',
+        icon: 'book',
         order: 2,
         module: {
-          type: "reading",
+          type: 'reading',
           reading: modules.reading || {},
         },
       },
       {
-        id: "write",
-        label: "写",
-        icon: "pen",
+        id: 'write',
+        label: '写',
+        icon: 'pen',
         order: 3,
         module: {
-          type: "writing",
+          type: 'writing',
           scene: writeScene,
           writing: modules.writing || {},
         },
       },
       {
-        id: "practice",
-        label: "练",
-        icon: "gamepad",
+        id: 'practice',
+        label: '练',
+        icon: 'gamepad',
         order: 4,
         module: {
-          type: "game",
+          type: 'game',
           scene: practiceScene,
           game: {
             activityType: practiceType,
@@ -1053,7 +991,7 @@ export class LessonContentService implements OnModuleInit {
     ];
 
     return {
-      type: "structured_lesson",
+      type: 'structured_lesson',
       version: 1,
       topic: meta.topic,
       ageGroup: meta.ageGroup,
@@ -1073,30 +1011,17 @@ export class LessonContentService implements OnModuleInit {
 
   private resolveGameType(
     focus: string,
-  ):
-    | "quiz"
-    | "true_false"
-    | "fill_blank"
-    | "matching"
-    | "connection"
-    | "sequencing"
-    | "puzzle" {
+  ): 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle' {
     const map: Record<
       string,
-      | "quiz"
-      | "true_false"
-      | "fill_blank"
-      | "matching"
-      | "connection"
-      | "sequencing"
-      | "puzzle"
+      'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle'
     > = {
-      literacy: "fill_blank",
-      math: "quiz",
-      science: "connection",
-      mixed: "matching",
+      literacy: 'fill_blank',
+      math: 'quiz',
+      science: 'connection',
+      mixed: 'matching',
     };
-    return map[focus] || "matching";
+    return map[focus] || 'matching';
   }
 
   private buildFallbackActivity(
@@ -1106,17 +1031,17 @@ export class LessonContentService implements OnModuleInit {
     domain?: LessonDomain,
   ): Record<string, any> {
     const curriculumSeed =
-      ageGroup === "3-4" || ageGroup === "5-6"
+      ageGroup === '3-4' || ageGroup === '5-6'
         ? getCoursePackCurriculumSeed({ topic, ageGroup, domain })
         : null;
 
-    if (type === "quiz") {
+    if (type === 'quiz') {
       const quizItems = curriculumSeed?.quizItems?.length
         ? curriculumSeed.quizItems.slice(0, 3)
         : [];
 
       return {
-        type: "quiz",
+        type: 'quiz',
         title: `${topic} 测评`,
         topic,
         ageGroup,
@@ -1129,34 +1054,32 @@ export class LessonContentService implements OnModuleInit {
                   0,
                   item.options.findIndex((option) => option === item.answer),
                 ),
-                explanation:
-                  curriculumSeed?.outcomes?.[index] ||
-                  `${topic}包含很多有趣的内容`,
+                explanation: curriculumSeed?.outcomes?.[index] || `${topic}包含很多有趣的内容`,
               }))
             : [
                 {
                   question: `关于${topic}，你学到了什么？`,
-                  options: ["新知识", "新技能", "新发现", "全部都是"],
+                  options: ['新知识', '新技能', '新发现', '全部都是'],
                   correctIndex: 3,
                   explanation: `${topic}包含很多有趣的内容`,
                 },
                 {
                   question: `你觉得${topic}最有趣的地方是？`,
-                  options: ["观察", "动手", "思考", "分享"],
+                  options: ['观察', '动手', '思考', '分享'],
                   correctIndex: 0,
-                  explanation: "每个人都可以有自己的发现",
+                  explanation: '每个人都可以有自己的发现',
                 },
                 {
                   question: `今天学习${topic}后，你记住了什么？`,
-                  options: ["一个关键词", "一个故事", "一个游戏", "以上都有"],
+                  options: ['一个关键词', '一个故事', '一个游戏', '以上都有'],
                   correctIndex: 3,
-                  explanation: "学习可以有很多收获",
+                  explanation: '学习可以有很多收获',
                 },
               ],
       };
     }
 
-    if (type === "matching") {
+    if (type === 'matching') {
       const pairs = curriculumSeed?.matchingPairs?.length
         ? curriculumSeed.matchingPairs.slice(0, 4).map((pair, index) => ({
             id: `p${index + 1}`,
@@ -1166,7 +1089,7 @@ export class LessonContentService implements OnModuleInit {
         : [];
 
       return {
-        type: "matching",
+        type: 'matching',
         title: `${topic} 配对游戏`,
         topic,
         ageGroup,
@@ -1174,14 +1097,14 @@ export class LessonContentService implements OnModuleInit {
           pairs.length > 0
             ? pairs
             : [
-                { id: "p1", left: `${topic} 概念1`, right: "对应内容1" },
-                { id: "p2", left: `${topic} 概念2`, right: "对应内容2" },
-                { id: "p3", left: `${topic} 概念3`, right: "对应内容3" },
+                { id: 'p1', left: `${topic} 概念1`, right: '对应内容1' },
+                { id: 'p2', left: `${topic} 概念2`, right: '对应内容2' },
+                { id: 'p3', left: `${topic} 概念3`, right: '对应内容3' },
               ],
       };
     }
 
-    if (type === "connection") {
+    if (type === 'connection') {
       const pairs = curriculumSeed?.matchingPairs?.length
         ? curriculumSeed.matchingPairs.slice(0, 4)
         : [];
@@ -1200,7 +1123,7 @@ export class LessonContentService implements OnModuleInit {
 
       if (pairs.length > 0) {
         return {
-          type: "connection",
+          type: 'connection',
           title: `${topic} 连线练习`,
           topic,
           ageGroup,
@@ -1211,7 +1134,7 @@ export class LessonContentService implements OnModuleInit {
       }
     }
 
-    if (type === "fill_blank") {
+    if (type === 'fill_blank') {
       const quizItems = curriculumSeed?.quizItems?.length
         ? curriculumSeed.quizItems.slice(0, 3)
         : [];
@@ -1221,7 +1144,7 @@ export class LessonContentService implements OnModuleInit {
           if (!answer || !item.question.includes(answer)) return null;
           return {
             id: `s${index + 1}`,
-            text: item.question.replace(answer, "___"),
+            text: item.question.replace(answer, '___'),
             answer,
             options: item.options,
             hint: curriculumSeed?.outcomes?.[index] || `${topic}小提示`,
@@ -1231,7 +1154,7 @@ export class LessonContentService implements OnModuleInit {
 
       if (sentences.length > 0) {
         return {
-          type: "fill_blank",
+          type: 'fill_blank',
           title: `${topic} 填空练习`,
           topic,
           ageGroup,
@@ -1241,14 +1164,14 @@ export class LessonContentService implements OnModuleInit {
     }
 
     return {
-      type: type || "quiz",
+      type: type || 'quiz',
       title: `${topic} 练习`,
       topic,
       ageGroup,
       questions: [
         {
           question: `关于${topic}，下面哪个是对的？`,
-          options: ["A", "B", "C"],
+          options: ['A', 'B', 'C'],
           correctIndex: 0,
           explanation: `${topic}的知识点`,
         },
@@ -1261,25 +1184,23 @@ export class LessonContentService implements OnModuleInit {
 
     try {
       const parsed = JSON.parse(text);
-      return parsed && typeof parsed === "object" ? parsed : null;
+      return parsed && typeof parsed === 'object' ? parsed : null;
     } catch {}
 
-    const codeBlock =
-      text.match(/```json\s*([\s\S]*?)```/i) ||
-      text.match(/```\s*([\s\S]*?)```/i);
+    const codeBlock = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/i);
     if (codeBlock?.[1]) {
       try {
         const parsed = JSON.parse(codeBlock[1].trim());
-        return parsed && typeof parsed === "object" ? parsed : null;
+        return parsed && typeof parsed === 'object' ? parsed : null;
       } catch {}
     }
 
-    const firstBrace = text.indexOf("{");
-    const lastBrace = text.lastIndexOf("}");
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       try {
         const parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
-        return parsed && typeof parsed === "object" ? parsed : null;
+        return parsed && typeof parsed === 'object' ? parsed : null;
       } catch {}
     }
 
@@ -1292,7 +1213,7 @@ export class LessonContentService implements OnModuleInit {
     domain?: string,
   ): LessonSceneDocument {
     return (
-      sanitizeSceneDocument(coursePack?.watch?.scene, "watch", "playback") ||
+      sanitizeSceneDocument(coursePack?.watch?.scene, 'watch', 'playback') ||
       deriveWatchSceneDocument(
         {
           visualStory: coursePack.visualStory || {},
@@ -1304,15 +1225,12 @@ export class LessonContentService implements OnModuleInit {
     );
   }
 
-  private resolveWriteScene(
-    coursePack: Record<string, any>,
-    topic: string,
-  ): LessonSceneDocument {
+  private resolveWriteScene(coursePack: Record<string, any>, topic: string): LessonSceneDocument {
     return (
       sanitizeSceneDocument(
         coursePack?.write?.scene || coursePack?.modules?.writing?.scene,
-        "write",
-        "guided_trace",
+        'write',
+        'guided_trace',
       ) || deriveWriteSceneDocument(coursePack?.modules?.writing || {}, topic)
     );
   }
@@ -1321,21 +1239,17 @@ export class LessonContentService implements OnModuleInit {
     coursePack: Record<string, any>,
     practiceData: Record<string, any> | null,
     activityType:
-      | "quiz"
-      | "true_false"
-      | "fill_blank"
-      | "matching"
-      | "connection"
-      | "sequencing"
-      | "puzzle",
+      | 'quiz'
+      | 'true_false'
+      | 'fill_blank'
+      | 'matching'
+      | 'connection'
+      | 'sequencing'
+      | 'puzzle',
     topic: string,
   ): LessonSceneDocument {
     return (
-      sanitizeSceneDocument(
-        coursePack?.practice?.scene,
-        "practice",
-        "activity_shell",
-      ) ||
+      sanitizeSceneDocument(coursePack?.practice?.scene, 'practice', 'activity_shell') ||
       derivePracticeSceneDocument(
         activityType,
         (practiceData || {
@@ -1354,14 +1268,14 @@ export class LessonContentService implements OnModuleInit {
     const merged = {
       ...originalLesson,
       ...updatedLesson,
-      type: "structured_lesson" as const,
+      type: 'structured_lesson' as const,
       version: 1 as const,
     };
 
     const topic = this.toText(merged.topic, originalLesson.topic);
     const stepsById = new Map<string, Record<string, any>>(
       (Array.isArray(updatedLesson?.steps) ? updatedLesson.steps : [])
-        .filter((step: any) => step && typeof step === "object" && step.id)
+        .filter((step: any) => step && typeof step === 'object' && step.id)
         .map((step: any) => [String(step.id), step] as const),
     );
 
@@ -1383,13 +1297,11 @@ export class LessonContentService implements OnModuleInit {
       ...merged,
       topic,
       ageGroup:
-        merged.ageGroup === "3-4" || merged.ageGroup === "5-6"
+        merged.ageGroup === '3-4' || merged.ageGroup === '5-6'
           ? merged.ageGroup
           : originalLesson.ageGroup,
       summary: this.toText(merged.summary, originalLesson.summary),
-      outcomes: Array.isArray(merged.outcomes)
-        ? merged.outcomes
-        : originalLesson.outcomes,
+      outcomes: Array.isArray(merged.outcomes) ? merged.outcomes : originalLesson.outcomes,
       steps,
       parentGuide: {
         beforeClass: Array.isArray(merged.parentGuide?.beforeClass)
@@ -1413,37 +1325,33 @@ export class LessonContentService implements OnModuleInit {
     const module: Record<string, any> = step.module || {};
     const originalModule: Record<string, any> = originalStep?.module || {};
 
-    if (step.id === "watch" || module.type === "video") {
+    if (step.id === 'watch' || module.type === 'video') {
       return {
         ...step,
         module: {
           ...module,
           scene: this.resolveModifiedWatchScene(module, originalModule, topic),
-        } as unknown as LessonStep["module"],
+        } as unknown as LessonStep['module'],
       };
     }
 
-    if (step.id === "write" || module.type === "writing") {
+    if (step.id === 'write' || module.type === 'writing') {
       return {
         ...step,
         module: {
           ...module,
           scene: this.resolveModifiedWriteScene(module, originalModule, topic),
-        } as unknown as LessonStep["module"],
+        } as unknown as LessonStep['module'],
       };
     }
 
-    if (step.id === "practice" || module.type === "game") {
+    if (step.id === 'practice' || module.type === 'game') {
       return {
         ...step,
         module: {
           ...module,
-          scene: this.resolveModifiedPracticeScene(
-            module,
-            originalModule,
-            topic,
-          ),
-        } as unknown as LessonStep["module"],
+          scene: this.resolveModifiedPracticeScene(module, originalModule, topic),
+        } as unknown as LessonStep['module'],
       };
     }
 
@@ -1456,7 +1364,7 @@ export class LessonContentService implements OnModuleInit {
     topic: string,
   ): LessonSceneDocument {
     const domain = module?.domain || originalModule?.domain;
-    const nextScene = sanitizeSceneDocument(module?.scene, "watch", "playback");
+    const nextScene = sanitizeSceneDocument(module?.scene, 'watch', 'playback');
     const sourceChanged = this.didSceneSourceChange(
       {
         visualStory: originalModule?.visualStory,
@@ -1465,10 +1373,7 @@ export class LessonContentService implements OnModuleInit {
       { visualStory: module?.visualStory, videoLesson: module?.videoLesson },
     );
 
-    if (
-      nextScene &&
-      this.didSceneDocChange(originalModule?.scene, module?.scene)
-    ) {
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
       return nextScene;
     }
 
@@ -1485,7 +1390,7 @@ export class LessonContentService implements OnModuleInit {
 
     return (
       nextScene ||
-      sanitizeSceneDocument(originalModule?.scene, "watch", "playback") ||
+      sanitizeSceneDocument(originalModule?.scene, 'watch', 'playback') ||
       deriveWatchSceneDocument(
         {
           visualStory: module?.visualStory || {},
@@ -1502,20 +1407,10 @@ export class LessonContentService implements OnModuleInit {
     originalModule: Record<string, any>,
     topic: string,
   ): LessonSceneDocument {
-    const nextScene = sanitizeSceneDocument(
-      module?.scene,
-      "write",
-      "guided_trace",
-    );
-    const sourceChanged = this.didSceneSourceChange(
-      originalModule?.writing,
-      module?.writing,
-    );
+    const nextScene = sanitizeSceneDocument(module?.scene, 'write', 'guided_trace');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.writing, module?.writing);
 
-    if (
-      nextScene &&
-      this.didSceneDocChange(originalModule?.scene, module?.scene)
-    ) {
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
       return nextScene;
     }
 
@@ -1525,7 +1420,7 @@ export class LessonContentService implements OnModuleInit {
 
     return (
       nextScene ||
-      sanitizeSceneDocument(originalModule?.scene, "write", "guided_trace") ||
+      sanitizeSceneDocument(originalModule?.scene, 'write', 'guided_trace') ||
       deriveWriteSceneDocument(module?.writing || {}, topic)
     );
   }
@@ -1535,18 +1430,11 @@ export class LessonContentService implements OnModuleInit {
     originalModule: Record<string, any>,
     topic: string,
   ): LessonSceneDocument {
-    const nextScene = sanitizeSceneDocument(
-      module?.scene,
-      "practice",
-      "activity_shell",
-    );
-    const sourceChanged = this.didSceneSourceChange(
-      originalModule?.game,
-      module?.game,
-    );
+    const nextScene = sanitizeSceneDocument(module?.scene, 'practice', 'activity_shell');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.game, module?.game);
     const activityType = this.toText(
       module?.game?.activityType || originalModule?.game?.activityType,
-      "quiz",
+      'quiz',
     ) as any;
     const activityData = (module?.game?.activityData ||
       module?.game ||
@@ -1555,10 +1443,7 @@ export class LessonContentService implements OnModuleInit {
         title: `${topic} 浜掑姩缁冧範`,
       }) as Record<string, any>;
 
-    if (
-      nextScene &&
-      this.didSceneDocChange(originalModule?.scene, module?.scene)
-    ) {
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
       return nextScene;
     }
 
@@ -1568,46 +1453,30 @@ export class LessonContentService implements OnModuleInit {
 
     return (
       nextScene ||
-      sanitizeSceneDocument(
-        originalModule?.scene,
-        "practice",
-        "activity_shell",
-      ) ||
+      sanitizeSceneDocument(originalModule?.scene, 'practice', 'activity_shell') ||
       derivePracticeSceneDocument(activityType, activityData, topic)
     );
   }
 
-  private didSceneDocChange(
-    previousScene: unknown,
-    nextScene: unknown,
-  ): boolean {
-    return (
-      this.safeStableStringify(previousScene) !==
-      this.safeStableStringify(nextScene)
-    );
+  private didSceneDocChange(previousScene: unknown, nextScene: unknown): boolean {
+    return this.safeStableStringify(previousScene) !== this.safeStableStringify(nextScene);
   }
 
-  private didSceneSourceChange(
-    previousSource: unknown,
-    nextSource: unknown,
-  ): boolean {
-    return (
-      this.safeStableStringify(previousSource) !==
-      this.safeStableStringify(nextSource)
-    );
+  private didSceneSourceChange(previousSource: unknown, nextSource: unknown): boolean {
+    return this.safeStableStringify(previousSource) !== this.safeStableStringify(nextSource);
   }
 
   private safeStableStringify(value: unknown): string {
     try {
-      return JSON.stringify(value ?? null) || "null";
+      return JSON.stringify(value ?? null) || 'null';
     } catch {
-      return String(value ?? "null");
+      return String(value ?? 'null');
     }
   }
 
-  private toText(value: unknown, fallback = ""): string {
+  private toText(value: unknown, fallback = ''): string {
     if (value == null) return fallback;
-    const text = String(value).replace(/\s+/g, " ").trim();
+    const text = String(value).replace(/\s+/g, ' ').trim();
     return text || fallback;
   }
 
@@ -1623,18 +1492,16 @@ export class LessonContentService implements OnModuleInit {
 
   private describeStepTitle(step: LessonStep): string {
     const module: Record<string, any> = step.module || {};
-    if (module.type === "video") return "观看动画讲解";
-    if (module.type === "reading")
-      return this.toText(module.reading?.goal, "阅读理解");
-    if (module.type === "writing")
-      return this.toText(module.writing?.goal, "书写练习");
-    if (module.type === "game") return "互动练习";
+    if (module.type === 'video') return '观看动画讲解';
+    if (module.type === 'reading') return this.toText(module.reading?.goal, '阅读理解');
+    if (module.type === 'writing') return this.toText(module.writing?.goal, '书写练习');
+    if (module.type === 'game') return '互动练习';
     return step.label;
   }
 
   private describeStepSummary(step: LessonStep): string {
     const module: Record<string, any> = step.module || {};
-    if (module.type === "video") {
+    if (module.type === 'video') {
       const scenes = Array.isArray(module.visualStory?.scenes)
         ? module.visualStory.scenes
         : Array.isArray(module.videoLesson?.shots)
@@ -1652,28 +1519,23 @@ export class LessonContentService implements OnModuleInit {
           ),
         )
         .filter(Boolean)
-        .join(" | ");
+        .join(' | ');
     }
-    if (module.type === "reading") {
+    if (module.type === 'reading') {
       return this.toText(module.reading?.text).slice(0, 120);
     }
-    if (module.type === "writing") {
+    if (module.type === 'writing') {
       return [
         this.toText(module.writing?.goal),
-        Array.isArray(module.writing?.tracingItems)
-          ? module.writing.tracingItems.join(", ")
-          : "",
+        Array.isArray(module.writing?.tracingItems) ? module.writing.tracingItems.join(', ') : '',
       ]
         .filter(Boolean)
-        .join(" | ");
+        .join(' | ');
     }
-    if (module.type === "game") {
-      return [
-        this.toText(module.game?.activityType),
-        this.toText(module.game?.activityData?.title),
-      ]
+    if (module.type === 'game') {
+      return [this.toText(module.game?.activityType), this.toText(module.game?.activityData?.title)]
         .filter(Boolean)
-        .join(" | ");
+        .join(' | ');
     }
     return this.toText(JSON.stringify(module)).slice(0, 120);
   }

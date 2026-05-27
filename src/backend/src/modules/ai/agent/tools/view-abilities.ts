@@ -1,6 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { AbilitiesService } from "../../../abilities/abilities.service";
-import { ReportService } from "../../../report/report.service";
+import { Injectable } from '@nestjs/common';
+import { AbilitiesService } from '../../../abilities/abilities.service';
+import { ReportService } from '../../../report/report.service';
 
 @Injectable()
 export class ViewAbilitiesTool {
@@ -17,11 +17,11 @@ export class ViewAbilitiesTool {
       ]);
 
       const domainLabels: Record<string, string> = {
-        language: "语言表达",
-        math: "数学逻辑",
-        science: "科学探索",
-        art: "艺术创造",
-        social: "社会交往",
+        language: '语言表达',
+        math: '数学逻辑',
+        science: '科学探索',
+        art: '艺术创造',
+        social: '社会交往',
       };
 
       return JSON.stringify({

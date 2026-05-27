@@ -144,5 +144,121 @@ describe('LearningService', () => {
       expect(stats.completedCount).toBe(1);
       expect(stats.totalMinutes).toBe(15);
     });
+
+    it('returns zero stats when no records', async () => {
+      recordRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const stats = await service.getTodayStats(1);
+      expect(stats.recordsCount).toBe(0);
+      expect(stats.completedCount).toBe(0);
+      expect(stats.totalMinutes).toBe(0);
+    });
+  });
+
+  describe('getTodayStatsWithSources', () => {
+    it('breaks down records by source', async () => {
+      recordRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          { durationSeconds: 300, status: 'completed', interactionData: { source: 'content_completion' } },
+          { durationSeconds: 120, status: 'completed', interactionData: { source: 'assignment_completion' } },
+          { durationSeconds: 180, status: 'in_progress', interactionData: { source: 'interactive_activity' } },
+          { durationSeconds: 60, status: 'completed', interactionData: null },
+        ]),
+      });
+
+      const stats = await service.getTodayStatsWithSources(1);
+      expect(stats.recordsCount).toBe(4);
+      expect(stats.completedCount).toBe(3);
+      expect(stats.totalMinutes).toBe(11);
+      expect(stats.sources).toEqual({
+        content: 1,
+        assignment: 1,
+        activity: 1,
+        unknown: 1,
+      });
+    });
+
+    it('returns all zero sources when no records', async () => {
+      recordRepo.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const stats = await service.getTodayStatsWithSources(1);
+      expect(stats.sources).toEqual({
+        content: 0,
+        assignment: 0,
+        activity: 0,
+        unknown: 0,
+      });
+    });
+  });
+
+  describe('findById', () => {
+    it('returns a record by id', async () => {
+      const mockRecord = { id: 1, userId: 1, contentId: 1, status: 'completed' };
+      recordRepo.findOne.mockResolvedValue(mockRecord);
+
+      const result = await service.findById(1);
+      expect(result).toEqual(mockRecord);
+      expect(recordRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it('returns null if record not found', async () => {
+      recordRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.findById(999);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByUser', () => {
+    it('returns records with content relation ordered by startedAt desc', async () => {
+      const mockRecords = [
+        { id: 2, userId: 1, contentId: 5, content: { title: 'Math' } },
+        { id: 1, userId: 1, contentId: 3, content: { title: 'Art' } },
+      ];
+      recordRepo.find.mockResolvedValue(mockRecords);
+
+      const result = await service.findByUser(1);
+      expect(result).toEqual(mockRecords);
+      expect(recordRepo.find).toHaveBeenCalledWith({
+        where: { userId: 1 },
+        order: { startedAt: 'DESC' },
+        take: 10,
+        relations: ['content'],
+      });
+    });
+
+    it('respects custom limit', async () => {
+      recordRepo.find.mockResolvedValue([]);
+
+      await service.findByUser(1, 5);
+      expect(recordRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 5 }),
+      );
+    });
+  });
+
+  describe('update — edge cases', () => {
+    it('does not send SSE when status is not completed', async () => {
+      recordRepo.update.mockResolvedValue({ affected: 1 });
+      recordRepo.findOne.mockResolvedValue({
+        id: 1,
+        userId: 2,
+        status: 'in_progress',
+      });
+      controlRepo.findOne.mockResolvedValue({ parentId: 10, childId: 2 });
+
+      await service.update(1, { durationSeconds: 120 });
+      expect(sseService.sendToUser).not.toHaveBeenCalled();
+    });
   });
 });

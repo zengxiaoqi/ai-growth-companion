@@ -139,4 +139,124 @@ describe('ContentsService', () => {
       expect(mockRepository.save).toHaveBeenCalledWith(createdContent);
     });
   });
+
+  describe('findAll — parent control filters', () => {
+    it('applies allowedDomains filter when childId has parent control', async () => {
+      mockControlRepository.findOne.mockResolvedValue({
+        childId: 1,
+        allowedDomains: ['language', 'math'],
+        blockedTopics: [],
+      });
+
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      const skip = jest.fn().mockReturnThis();
+      const take = jest.fn().mockReturnThis();
+      const orderBy = jest.fn().mockReturnThis();
+      const andWhere = jest.fn().mockReturnThis();
+
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere,
+        skip,
+        take,
+        orderBy,
+        getManyAndCount,
+      });
+
+      await service.findAll({ childId: 1 });
+      expect(mockControlRepository.findOne).toHaveBeenCalledWith({
+        where: { childId: 1 },
+      });
+    });
+
+    it('applies blockedTopics filter when childId has blocked topics', async () => {
+      mockControlRepository.findOne.mockResolvedValue({
+        childId: 1,
+        allowedDomains: [],
+        blockedTopics: ['violence', 'horror'],
+      });
+
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      const andWhere = jest.fn().mockReturnThis();
+
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere,
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount,
+      });
+
+      await service.findAll({ childId: 1 });
+      expect(mockControlRepository.findOne).toHaveBeenCalledWith({
+        where: { childId: 1 },
+      });
+    });
+
+    it('does not crash when childId has no parent control record', async () => {
+      mockControlRepository.findOne.mockResolvedValue(null);
+
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount,
+      });
+
+      await service.findAll({ childId: 999 });
+      // Should not throw
+    });
+
+    it('combines ageRange and childId filters', async () => {
+      mockControlRepository.findOne.mockResolvedValue({
+        childId: 1,
+        allowedDomains: ['science'],
+        blockedTopics: [],
+      });
+
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount,
+      });
+
+      await service.findAll({ ageRange: '3-4', childId: 1 });
+      expect(mockControlRepository.findOne).toHaveBeenCalledWith({
+        where: { childId: 1 },
+      });
+    });
+  });
+
+  describe('findAll — default pagination', () => {
+    it('uses default page=1 and limit=20 when not provided', async () => {
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      const skip = jest.fn().mockReturnThis();
+      const take = jest.fn().mockReturnThis();
+      const orderBy = jest.fn().mockReturnThis();
+
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip,
+        take,
+        orderBy,
+        getManyAndCount,
+      });
+
+      const result = await service.findAll({});
+      expect(skip).toHaveBeenCalledWith(0);
+      expect(take).toHaveBeenCalledWith(20);
+      expect(result).toEqual({ list: [], total: 0, page: 1, limit: 20 });
+    });
+  });
 });

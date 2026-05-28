@@ -165,9 +165,21 @@ describe('LearningService', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([
-          { durationSeconds: 300, status: 'completed', interactionData: { source: 'content_completion' } },
-          { durationSeconds: 120, status: 'completed', interactionData: { source: 'assignment_completion' } },
-          { durationSeconds: 180, status: 'in_progress', interactionData: { source: 'interactive_activity' } },
+          {
+            durationSeconds: 300,
+            status: 'completed',
+            interactionData: { source: 'content_completion' },
+          },
+          {
+            durationSeconds: 120,
+            status: 'completed',
+            interactionData: { source: 'assignment_completion' },
+          },
+          {
+            durationSeconds: 180,
+            status: 'in_progress',
+            interactionData: { source: 'interactive_activity' },
+          },
           { durationSeconds: 60, status: 'completed', interactionData: null },
         ]),
       });
@@ -241,9 +253,7 @@ describe('LearningService', () => {
       recordRepo.find.mockResolvedValue([]);
 
       await service.findByUser(1, 5);
-      expect(recordRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ take: 5 }),
-      );
+      expect(recordRepo.find).toHaveBeenCalledWith(expect.objectContaining({ take: 5 }));
     });
   });
 

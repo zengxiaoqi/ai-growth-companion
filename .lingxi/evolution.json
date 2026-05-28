@@ -1,28 +1,32 @@
 {
-  "last_analysis": "2026-05-27",
-  "analysis_count": 5,
-  "commit_count": 217,
-  "last_commit": "2026-05-27T09:03:17+08:00",
-  "last_commit_hash": "834c869",
+  "last_analysis": "2026-05-28",
+  "analysis_count": 6,
+  "commit_count": 220,
+  "last_commit": "2026-05-28T01:00:02+08:00",
+  "last_commit_hash": "b30d310",
   "commits_behind_remote": 0,
-  "remote_head": "b168916",
-  "remote_head_date": "2026-05-26T09:07:01+08:00",
-  "stale_days": 1,
+  "remote_head": "b30d310",
+  "remote_head_date": "2026-05-28T01:00:02+08:00",
+  "stale_days": 0,
   "capabilities": {
     "child_experience": 89,
     "parent_dashboard": 91,
     "content_system": 82,
     "infrastructure": 76,
-    "code_quality": 76
+    "code_quality": 80
   },
-  "active_plans": [],
+  "active_plans": [
+    "unit-test-coverage-learning-contents"
+  ],
   "completed_actions": [
     "Created lingxi-evolution skill for autonomous project management",
     "2026-05-24: Full project analysis — 17 backend modules, 13 entities, 3 frontends, 201 commits",
     "2026-05-25: Cleaned 2.3GB stale Flutter Web build artifact (src/frontend/build/)",
     "2026-05-25: Updated AGENTS.md — fixed tool references (Codex→Hermes), added missing modules (emergency/assignment/notification/sse), added Flutter section, deployment info, video gen and agent tool patterns",
     "2026-05-26: Added .codegraph/ to .gitignore (local code intelligence cache)",
-    "2026-05-27: Committed formatting improvements — backend controllers import/decorator formatting, function signature compacting (3 files, +42/-25 lines)"
+    "2026-05-27: Committed formatting improvements — backend controllers import/decorator formatting, function signature compacting (3 files, +42/-25 lines)",
+    "2026-05-27: Added .prettierrc and applied unified Prettier formatting across 218 backend files (10K+ insertions, 13K+ deletions) — resolved ESLint/Prettier inconsistency",
+    "2026-05-28: Expanded unit test coverage — learning.service.spec.ts (+116 lines, 7→14 tests), contents.service.spec.ts (+120 lines, 4→10 tests), total test cohort now 27 files / 5281 lines"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -30,21 +34,22 @@
     "Local repo is 11 commits behind origin/main — stale for 8 days since May 17. Need automated pull or CI sync.",
     "Full test suite (>120s timeout) may need parallelization or selective test running for CI viability",
     "Flutter SDK not available in CI/cron environment — Flutter Web deploy must be done manually or on a Flutter-equipped runner",
-    "ESLint autofix produces mixed formatting choices (imports expanded, function signatures compacted) — need a unified .prettierrc to enforce consistency"
+    "ESLint autofix produces mixed formatting choices (imports expanded, function signatures compacted) — RESOLVED with unified .prettierrc (2026-05-27)",
+    "Cron environment cannot reach external HTTPS (curl to lingxi.chataifree.eu.org times out) — health check must use localhost ports (18789/3001) in cron context"
   ],
   "metrics": {
     "backend_files": 195,
     "backend_test_files": 27,
-    "backend_test_ratio": "13.8%",
-    "backend_src_lines": 39632,
-    "backend_test_lines": 5291,
+    "backend_test_ratio": "14.5%",
+    "backend_src_lines": 36535,
+    "backend_test_lines": 5281,
     "flutter_files": 62,
     "flutter_lines": 31759,
     "web_files": 97,
     "web_lines": 23614,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 107918,
+    "total_lines": 104811,
     "repo_build_artifacts": "83MB Flutter build + 37MB deployed",
     "backend_modules": 16,
     "entities": 13

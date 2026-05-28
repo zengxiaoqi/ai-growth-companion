@@ -360,3 +360,32 @@ export class CompleteStepDto {
   @IsObject()
   interactionData?: Record<string, any>;
 }
+
+// ─── POST /learning/video/quick-generate ──────────────────────────────
+export class QuickVideoGenerateDto {
+  @ApiProperty({ description: '课程主题', example: '海洋动物' })
+  @IsString()
+  topic!: string;
+
+  @ApiProperty({ description: '年龄段', example: '4-5' })
+  @IsString()
+  ageGroup!: string;
+
+  @ApiPropertyOptional({ description: '目标视频时长（秒）', example: 60 })
+  @IsOptional()
+  @IsNumber()
+  @Min(10)
+  @Max(300)
+  durationSec?: number;
+
+  @ApiPropertyOptional({ description: '风格', enum: ['story', 'science', 'song'] })
+  @IsOptional()
+  @IsString()
+  style?: string;
+
+  @ApiPropertyOptional({ description: '孩子ID（parent必传）', example: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  childId?: number;
+}

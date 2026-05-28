@@ -25,6 +25,7 @@ import { UsersService } from '../users/users.service';
 import { LearningArchiveService, WrongQuestionReviewItem } from './learning-archive.service';
 import { LessonContentService } from './lesson-content.service';
 import { LessonVideoQueueService } from './lesson-video-queue.service';
+import { QuickVideoService } from './quick-video.service';
 import { LearningService } from './learning.service';
 import { LearningTrackerService } from './learning-tracker.service';
 import type { VideoRenderEngine } from '../../database/entities/video-generation-task.entity';
@@ -32,6 +33,7 @@ import {
   StartLearningDto,
   CompleteLearningDto,
   RecordActivityDto,
+  QuickVideoGenerateDto,
   GenerateDraftDto,
   SaveDraftDto,
   UpdateDraftDto,
@@ -56,6 +58,7 @@ export class LearningController {
     private readonly contentRepo: Repository<Content>,
     @InjectRepository(VideoGenerationTask)
     private readonly videoTaskRepo: Repository<VideoGenerationTask>,
+    private readonly quickVideoService: QuickVideoService,
   ) {}
 
   private async assertAccessToChild(req: any, childId: number): Promise<void> {
@@ -667,6 +670,28 @@ export class LearningController {
       sourceType,
       page: page ? +page : undefined,
       limit: limit ? +limit : undefined,
+    });
+  }
+
+  // ─── POST /learning/video/quick-generate ────────────────
+
+  @Post('video/quick-generate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '一键生成教学视频 — AI自动生成内容并入队渲染' })
+  async quickGenerateVideo(
+    @Request() req: any,
+    @Body() dto: QuickVideoGenerateDto,
+  ) {
+    await this.assertAccessToChild(req, dto.childId);
+    return this.quickVideoService.createContentAndEnqueue({
+      topic: dto.topic,
+      ageGroup: dto.ageGroup,
+      childId: dto.childId,
+      durationSec: dto.durationSec,
+      style: dto.style,
+      force: dto.force,
+      renderEngine: dto.renderEngine,
     });
   }
 }

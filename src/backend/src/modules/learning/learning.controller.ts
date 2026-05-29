@@ -691,7 +691,7 @@ export class LearningController {
       durationSec: dto.durationSec,
       style: dto.style,
       force: dto.force,
-      renderEngine: dto.renderEngine,
+      renderEngine: dto.renderEngine as VideoRenderEngine,
     });
   }
 }

@@ -42,6 +42,7 @@ import AIInsightsPanel from './AIInsightsPanel';
 import AssignmentManager from './AssignmentManager';
 import CoursePackManager from './CoursePackManager';
 import LessonGenerator from './LessonGenerator';
+import QuickVideoGenerator from './QuickVideoGenerator';
 import ChildSelector from './ChildSelector';
 import { DOMAIN_CONFIG, fallbackAbilities, fallbackTrendData } from './constants';
 import GrowthReportSection from './GrowthReportSection';
@@ -628,6 +629,10 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   draftLessonId={draftLessonToEdit?.id ?? null}
                   onDraftLessonLoaded={() => setDraftLessonToEdit(null)}
                   onDraftLessonUpdated={handleDraftLessonUpdated}
+                />
+                <QuickVideoGenerator
+                  selectedChildId={selectedChildId}
+                  childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined}
                 />
                 <CoursePackManager selectedChildId={selectedChildId} onCoursePackGenerated={handleDraftLessonUpdated} />
                 <AssignmentManager

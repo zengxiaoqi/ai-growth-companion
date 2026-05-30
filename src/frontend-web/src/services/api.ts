@@ -37,6 +37,8 @@ import type {
   DraftLessonSummary,
   ConversationSession,
   ConversationMessageHistory,
+  QuickVideoGenerateRequest,
+  QuickVideoGenerateResponse,
 } from '@/types';
 
 const API_BASE_URL = (() => {
@@ -861,6 +863,16 @@ class ApiService {
         taskId: taskId || undefined,
       }),
     });
+  }
+
+  // ─── Quick Video Generation ─────────────────────────────────
+
+  /** 快速生成教学视频：输入主题+年龄组，AI 自动生成内容并创建视频任务 */
+  async quickGenerateVideo(params: QuickVideoGenerateRequest): Promise<QuickVideoGenerateResponse> {
+    return this.request<QuickVideoGenerateResponse>('/learning/video/quick-generate', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }, 120000);
   }
 }
 

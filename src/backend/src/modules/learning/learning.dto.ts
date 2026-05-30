@@ -388,4 +388,14 @@ export class QuickVideoGenerateDto {
   @IsInt()
   @Min(1)
   childId?: number;
+
+  @ApiPropertyOptional({ description: '强制重新生成（绕过缓存）', example: false })
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+
+  @ApiPropertyOptional({ description: '渲染引擎', enum: ['auto', 'hyperframes', 'remotion'] })
+  @IsOptional()
+  @IsString()
+  renderEngine?: string;
 }

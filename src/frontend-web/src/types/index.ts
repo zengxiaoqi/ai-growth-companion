@@ -615,3 +615,21 @@ export interface StepResult {
   durationSeconds?: number;
   interactionData?: Record<string, any>;
 }
+
+// ─── Quick Video Generation ─────────────────────────────────
+
+export interface QuickVideoGenerateRequest {
+  topic: string;
+  ageGroup: '3-4' | '5-6';
+  childId?: number;
+  durationSec?: number;
+  style?: 'story' | 'science' | 'song';
+  force?: boolean;
+  renderEngine?: 'auto' | 'hyperframes' | 'remotion';
+}
+
+export interface QuickVideoGenerateResponse {
+  taskId: number;
+  contentId: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+}

@@ -630,6 +630,56 @@ class ApiService {
     }
   }
 
+  // ═══ 快速视频生成 ═══
+
+  /// 一键生成教学视频（AI 自动生成内容并入队渲染）
+  Future<Map<String, dynamic>?> quickGenerateVideo({
+    required String topic,
+    required String ageGroup,
+    required int childId,
+    int? durationSec,
+    String? style,
+    bool force = false,
+    String? renderEngine,
+  }) async {
+    try {
+      final response = await _dio.post('/learning/video/quick-generate', data: {
+        'topic': topic,
+        'ageGroup': ageGroup,
+        'childId': childId,
+        if (durationSec != null) 'durationSec': durationSec,
+        if (style != null) 'style': style,
+        'force': force,
+        if (renderEngine != null) 'renderEngine': renderEngine,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Quick generate video error: $e');
+      return null;
+    }
+  }
+
+  /// 查询快速视频生成任务状态
+  Future<Map<String, dynamic>?> getQuickVideoTaskStatus(int contentId, int taskId, int childId) async {
+    try {
+      final response = await _dio.get(
+        '/learning/lessons/$contentId/teaching-video/tasks/$taskId',
+        queryParameters: {'childId': childId},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      print('Get quick video task status error: $e');
+      return null;
+    }
+  }
+
+  /// 获取快速生成视频的播放 URL
+  String getQuickVideoPlaybackUrl(int contentId, int childId, {int? taskId}) {
+    final params = 'childId=$childId';
+    final withTask = taskId != null ? '$params&taskId=$taskId' : params;
+    return '$baseUrl/learning/lessons/$contentId/teaching-video?$withTask';
+  }
+
   // ==================== 游戏 API ====================
 
   Future<List<dynamic>> getGameList({String ageRange = '3-4'}) async {

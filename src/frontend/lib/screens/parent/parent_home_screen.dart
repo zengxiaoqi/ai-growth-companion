@@ -300,6 +300,13 @@ class ParentHomeContent extends StatelessWidget {
           color: AppTheme.softPurple,
           onTap: () => Navigator.pushNamed(context, '/parent/abilityTrend'),
         ),
+        _MenuTile(
+          icon: Icons.video_library_rounded,
+          title: '快速视频生成',
+          subtitle: 'AI 一键生成教学动画视频',
+          color: AppTheme.softPink,
+          onTap: () => Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
+        ),
       ],
     );
   }

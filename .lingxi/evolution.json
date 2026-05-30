@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-05-29",
-  "analysis_count": 7,
+  "last_analysis": "2026-05-30",
+  "analysis_count": 8,
   "commit_count": 228,
-  "last_commit": "2026-05-29T00:00:00+08:00",
-  "last_commit_hash": "b4a9e06",
-  "commits_behind_remote": 1,
-  "remote_head": "d8a1077",
-  "remote_head_date": "2026-05-28T16:34:40+08:00",
+  "last_commit": "2026-05-30T09:05:00+08:00",
+  "last_commit_hash": "533f124",
+  "commits_ahead_remote": 1,
+  "remote_head": "2afbcf4",
+  "remote_head_date": "2026-05-29T09:07:08+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 90,
-    "parent_dashboard": 92,
-    "content_system": 83,
-    "infrastructure": 76,
+    "parent_dashboard": 93,
+    "content_system": 85,
+    "infrastructure": 77,
     "code_quality": 82
   },
   "active_plans": [],
@@ -27,7 +27,8 @@
     "2026-05-28: Expanded unit test coverage — learning.service.spec.ts (+116 lines, 7→14 tests), contents.service.spec.ts (+120 lines, 4→10 tests), total test cohort now 27 files / 5281 lines",
     "2026-05-28: Added 7 new unit test files (controllers + services) — 78 new tests, total 36 test files / 6941 lines",
     "2026-05-28: Quick-video-generate API endpoint — QuickVideoGenerateDto, QuickVideoService (LLM content + caching + enqueue), POST /learning/video/quick-generate, 10 tests passing",
-    "2026-05-29: Fixed TS2322 type error — renderEngine cast to VideoRenderEngine in quick-generate controller"
+    "2026-05-29: Fixed TS2322 type error — renderEngine cast to VideoRenderEngine in quick-generate controller",
+    "2026-05-30: Completed frontend-web Quick Video Generator UI — component (state machine: idle→generating→enqueued→polling), types, API integration, ParentDashboard integration, DTO enhancements (force/renderEngine fields)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -37,21 +38,22 @@
     "Flutter SDK not available in CI/cron environment — Flutter Web deploy must be done manually or on a Flutter-equipped runner",
     "ESLint autofix produces mixed formatting choices (imports expanded, function signatures compacted) — RESOLVED with unified .prettierrc (2026-05-27)",
     "Cron environment cannot reach external HTTPS (curl to lingxi.chataifree.eu.org times out) — health check must use localhost ports (18789/3001) in cron context",
-    "QuickVideoGenerateDto renderEngine field typed as 'string' causes TS2322 when passed to service expecting VideoRenderEngine union — use 'as VideoRenderEngine' cast or @IsIn() validator"
+    "QuickVideoGenerateDto renderEngine field typed as 'string' causes TS2322 when passed to service expecting VideoRenderEngine union — use 'as VideoRenderEngine' cast or @IsIn() validator",
+    "Frontend-web integration follows a clean pattern: types → API service → component → dashboard. QuickVideoGenerator reuses existing polling infrastructure from LessonGenerator."
   ],
   "metrics": {
     "backend_files": 196,
     "backend_test_files": 36,
-    "backend_test_ratio": "18.4%",
+    "backend_test_ratio": "18.9%",
     "backend_src_lines": 36813,
     "backend_test_lines": 6941,
     "flutter_files": 62,
     "flutter_lines": 31759,
-    "web_files": 98,
-    "web_lines": 23661,
+    "web_files": 99,
+    "web_lines": 24030,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 106796,
+    "total_lines": 107165,
     "repo_build_artifacts": "95MB Flutter build + 37MB deployed",
     "backend_modules": 16,
     "entities": 13

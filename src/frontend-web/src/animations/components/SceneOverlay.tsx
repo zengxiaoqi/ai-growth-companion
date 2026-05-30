@@ -10,7 +10,11 @@ interface SceneOverlayProps {
   showNarration: boolean;
 }
 
-export default function SceneOverlay({ onScreenText, narration, showNarration }: SceneOverlayProps) {
+export default function SceneOverlay({
+  onScreenText,
+  narration,
+  showNarration,
+}: SceneOverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3">
       {/* Top: on-screen text */}

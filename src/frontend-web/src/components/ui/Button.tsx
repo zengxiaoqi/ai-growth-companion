@@ -11,8 +11,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClass: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-on-primary hover:brightness-95 active:translate-y-0.5',
-  secondary: 'bg-secondary-container text-on-secondary-container hover:brightness-95 active:translate-y-0.5',
-  ghost: 'bg-transparent text-on-surface hover:bg-surface-container active:bg-surface-container-high',
+  secondary:
+    'bg-secondary-container text-on-secondary-container hover:brightness-95 active:translate-y-0.5',
+  ghost:
+    'bg-transparent text-on-surface hover:bg-surface-container active:bg-surface-container-high',
   danger: 'bg-error text-white hover:brightness-95 active:translate-y-0.5',
 };
 
@@ -38,5 +40,7 @@ export function Button({ className, variant = 'primary', size = 'md', ...props }
 }
 
 export function IconButton({ className, size = 'icon', ...props }: ButtonProps) {
-  return <Button size={size} variant="ghost" className={cn('rounded-full', className)} {...props} />;
+  return (
+    <Button size={size} variant="ghost" className={cn('rounded-full', className)} {...props} />
+  );
 }

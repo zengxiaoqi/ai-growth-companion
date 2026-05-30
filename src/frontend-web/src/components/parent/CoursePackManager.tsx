@@ -26,7 +26,10 @@ type ExportFormat =
   | 'subtitle_srt'
   | 'subtitle_srt_bilingual';
 
-export default function CoursePackManager({ selectedChildId, onCoursePackGenerated }: CoursePackManagerProps) {
+export default function CoursePackManager({
+  selectedChildId,
+  onCoursePackGenerated,
+}: CoursePackManagerProps) {
   const [topic, setTopic] = useState('');
   const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
   const [durationMinutes, setDurationMinutes] = useState(20);
@@ -46,7 +49,9 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
   const [isEnrichingBilingual, setIsEnrichingBilingual] = useState(false);
   const [isGeneratingWeekly, setIsGeneratingWeekly] = useState(false);
   const [weeklyDays, setWeeklyDays] = useState(7);
-  const [weeklyStartDate, setWeeklyStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [weeklyStartDate, setWeeklyStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
 
   const loadPacks = useCallback(async () => {
     if (!selectedChildId) {
@@ -60,7 +65,9 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
       const result = await api.getCoursePacks(selectedChildId, { limit: 20 });
       const nextList = result.list || [];
       setPacks(nextList);
-      setSelectedRecordIds((previous) => previous.filter((id) => nextList.some((item) => item.id === id)));
+      setSelectedRecordIds((previous) =>
+        previous.filter((id) => nextList.some((item) => item.id === id)),
+      );
     } catch (fetchError: any) {
       setError(fetchError?.message || '获取课程包失败，请稍后重试');
     } finally {
@@ -119,19 +126,30 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
     } finally {
       setIsGenerating(false);
     }
-  }, [durationMinutes, focus, loadPacks, loadVersionHistory, onCoursePackGenerated, selectedChildId, topic]);
+  }, [
+    durationMinutes,
+    focus,
+    loadPacks,
+    loadVersionHistory,
+    onCoursePackGenerated,
+    selectedChildId,
+    topic,
+  ]);
 
-  const handleViewPack = useCallback(async (record: CoursePackRecord) => {
-    setPreviewRecordId(record.id);
-    setError(null);
-    try {
-      const row = await api.getCoursePackById(record.id);
-      setPreview(row?.planContent || null);
-      await loadVersionHistory(record.id);
-    } catch (viewError: any) {
-      setError(viewError?.message || '获取课程包详情失败');
-    }
-  }, [loadVersionHistory]);
+  const handleViewPack = useCallback(
+    async (record: CoursePackRecord) => {
+      setPreviewRecordId(record.id);
+      setError(null);
+      try {
+        const row = await api.getCoursePackById(record.id);
+        setPreview(row?.planContent || null);
+        await loadVersionHistory(record.id);
+      } catch (viewError: any) {
+        setError(viewError?.message || '获取课程包详情失败');
+      }
+    },
+    [loadVersionHistory],
+  );
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
@@ -267,10 +285,20 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
     } finally {
       setIsGeneratingWeekly(false);
     }
-  }, [durationMinutes, focus, loadPacks, onCoursePackGenerated, selectedChildId, topic, weeklyDays, weeklyStartDate]);
+  }, [
+    durationMinutes,
+    focus,
+    loadPacks,
+    onCoursePackGenerated,
+    selectedChildId,
+    topic,
+    weeklyDays,
+    weeklyStartDate,
+  ]);
 
   const sortedPacks = useMemo(
-    () => [...packs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    () =>
+      [...packs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [packs],
   );
 
@@ -283,7 +311,10 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
         </div>
 
         <div>
-          <label htmlFor="course-pack-topic" className="mb-1 block text-xs font-bold text-on-surface-variant">
+          <label
+            htmlFor="course-pack-topic"
+            className="mb-1 block text-xs font-bold text-on-surface-variant"
+          >
             家长需求
           </label>
           <input
@@ -312,7 +343,9 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-bold text-on-surface-variant">课程时长（分钟）</label>
+            <label className="mb-1 block text-xs font-bold text-on-surface-variant">
+              课程时长（分钟）
+            </label>
             <select
               value={durationMinutes}
               onChange={(event) => setDurationMinutes(Number(event.target.value))}
@@ -329,7 +362,9 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-bold text-on-surface-variant">周计划开始日期</label>
+            <label className="mb-1 block text-xs font-bold text-on-surface-variant">
+              周计划开始日期
+            </label>
             <input
               type="date"
               value={weeklyStartDate}
@@ -353,7 +388,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
           </div>
         </div>
 
-        <Button className="w-full" onClick={handleGenerate} disabled={!selectedChildId || !topic.trim() || isGenerating || isGeneratingWeekly}>
+        <Button
+          className="w-full"
+          onClick={handleGenerate}
+          disabled={!selectedChildId || !topic.trim() || isGenerating || isGeneratingWeekly}
+        >
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -367,7 +406,12 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
           )}
         </Button>
 
-        <Button className="w-full" variant="ghost" onClick={handleGenerateWeekly} disabled={!selectedChildId || !topic.trim() || isGenerating || isGeneratingWeekly}>
+        <Button
+          className="w-full"
+          variant="ghost"
+          onClick={handleGenerateWeekly}
+          disabled={!selectedChildId || !topic.trim() || isGenerating || isGeneratingWeekly}
+        >
           {isGeneratingWeekly ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -392,8 +436,15 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-black text-on-surface">历史课程包</h3>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-on-surface-variant">已选 {selectedRecordIds.length}</span>
-            <Button size="sm" variant="ghost" onClick={handleToggleSelectAll} disabled={packs.length === 0 || isBatchExporting}>
+            <span className="text-[11px] font-semibold text-on-surface-variant">
+              已选 {selectedRecordIds.length}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleToggleSelectAll}
+              disabled={packs.length === 0 || isBatchExporting}
+            >
               {selectedRecordIds.length === packs.length && packs.length > 0 ? '取消全选' : '全选'}
             </Button>
             <Button
@@ -402,7 +453,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
               onClick={() => handleBatchExport(['bundle_zip'])}
               disabled={selectedRecordIds.length === 0 || isBatchExporting}
             >
-              {isBatchExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+              {isBatchExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowDownTray className="h-4 w-4" />
+              )}
               批量导出 ZIP
             </Button>
             <Button
@@ -421,7 +476,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
               }
               disabled={selectedRecordIds.length === 0 || isBatchExporting}
             >
-              {isBatchExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+              {isBatchExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowDownTray className="h-4 w-4" />
+              )}
               批量导出制作文件
             </Button>
             <Button size="sm" variant="ghost" onClick={() => loadPacks()}>
@@ -472,7 +531,9 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                       {new Date(record.createdAt).toLocaleString('zh-CN')}
                     </p>
                   </button>
-                  <span className="text-[10px] font-semibold text-on-surface-variant">#{record.id}</span>
+                  <span className="text-[10px] font-semibold text-on-surface-variant">
+                    #{record.id}
+                  </span>
                 </div>
               </div>
             ))}
@@ -491,7 +552,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={handleEnrichBilingual}
                 disabled={!previewRecordId || isEnrichingBilingual || isSavingVersion}
               >
-                {isEnrichingBilingual ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isEnrichingBilingual ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
                 自动补全双语
               </Button>
               <Button
@@ -500,7 +565,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('bundle_zip')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'bundle_zip' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'bundle_zip' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出素材包 ZIP
               </Button>
               <Button
@@ -509,7 +578,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('capcut_json')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'capcut_json' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'capcut_json' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出 CapCut JSON
               </Button>
               <Button
@@ -518,7 +591,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('narration_txt')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'narration_txt' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'narration_txt' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出配音 TXT
               </Button>
               <Button
@@ -527,7 +604,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('narration_mp3')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'narration_mp3' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'narration_mp3' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出配音 MP3
               </Button>
               <Button
@@ -536,7 +617,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('teaching_video_mp4')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'teaching_video_mp4' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'teaching_video_mp4' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出教学视频 MP4
               </Button>
               <Button
@@ -545,7 +630,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('storyboard_csv')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'storyboard_csv' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'storyboard_csv' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出分镜 CSV
               </Button>
               <Button
@@ -554,7 +643,11 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('subtitle_srt')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'subtitle_srt' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'subtitle_srt' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出字幕 SRT
               </Button>
               <Button
@@ -563,14 +656,20 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                 onClick={() => handleExport('subtitle_srt_bilingual')}
                 disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
               >
-                {exportingFormat === 'subtitle_srt_bilingual' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownTray className="h-4 w-4" />}
+                {exportingFormat === 'subtitle_srt_bilingual' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowDownTray className="h-4 w-4" />
+                )}
                 导出双语字幕 SRT
               </Button>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px]">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">可编辑 JSON（保存将生成新版本）</label>
+              <label className="text-xs font-bold text-on-surface-variant">
+                可编辑 JSON（保存将生成新版本）
+              </label>
               <textarea
                 value={editableJson}
                 onChange={(event) => setEditableJson(event.target.value)}
@@ -584,8 +683,16 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                   placeholder="版本备注，例如：补充双语旁白"
                   className="h-10 min-w-[220px] flex-1 rounded-xl border border-outline-variant/30 bg-surface px-3 text-xs outline-none transition focus:border-primary"
                 />
-                <Button size="sm" onClick={handleSaveVersion} disabled={!previewRecordId || isSavingVersion || isEnrichingBilingual}>
-                  {isSavingVersion ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                <Button
+                  size="sm"
+                  onClick={handleSaveVersion}
+                  disabled={!previewRecordId || isSavingVersion || isEnrichingBilingual}
+                >
+                  {isSavingVersion ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
                   保存为新版本
                 </Button>
               </div>
@@ -607,8 +714,12 @@ export default function CoursePackManager({ selectedChildId, onCoursePackGenerat
                           : 'border-outline-variant/25 bg-surface hover:border-primary/30'
                       }`}
                     >
-                      <p className="truncate text-[11px] font-semibold text-on-surface">#{row.id} {row.title}</p>
-                      <p className="text-[10px] text-on-surface-variant">{new Date(row.createdAt).toLocaleString('zh-CN')}</p>
+                      <p className="truncate text-[11px] font-semibold text-on-surface">
+                        #{row.id} {row.title}
+                      </p>
+                      <p className="text-[10px] text-on-surface-variant">
+                        {new Date(row.createdAt).toLocaleString('zh-CN')}
+                      </p>
                     </button>
                   ))}
                 </div>

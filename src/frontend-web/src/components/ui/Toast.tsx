@@ -48,7 +48,9 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
           >
             <ToastPrimitive.Title className="text-sm font-bold">{item.title}</ToastPrimitive.Title>
             {item.description ? (
-              <ToastPrimitive.Description className="mt-1 text-xs opacity-85">{item.description}</ToastPrimitive.Description>
+              <ToastPrimitive.Description className="mt-1 text-xs opacity-85">
+                {item.description}
+              </ToastPrimitive.Description>
             ) : null}
           </ToastPrimitive.Root>
         ))}

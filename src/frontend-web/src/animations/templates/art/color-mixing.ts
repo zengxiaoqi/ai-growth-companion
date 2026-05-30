@@ -275,11 +275,7 @@ registerP5Sketch('art.color-mixing', (p: p5, params: Record<string, unknown>) =>
       p.textSize(14);
       p.textStyle(p.NORMAL);
       p.fill(120, 120, 140, labelAlpha);
-      p.text(
-        `${color1Hex} + ${color2Hex} = ?`,
-        p.width * 0.5,
-        centerY + size / 2 + 60,
-      );
+      p.text(`${color1Hex} + ${color2Hex} = ?`, p.width * 0.5, centerY + size / 2 + 60);
     }
   }
 

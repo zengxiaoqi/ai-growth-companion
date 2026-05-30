@@ -53,7 +53,18 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   'trending-up': TrendingUp,
 };
 
-const fallbackIcons = [Trophy, Star, BookOpen, Calculator, Microscope, Palette, Users, Sparkles, Award, Target];
+const fallbackIcons = [
+  Trophy,
+  Star,
+  BookOpen,
+  Calculator,
+  Microscope,
+  Palette,
+  Users,
+  Sparkles,
+  Award,
+  Target,
+];
 
 const badgeColors = [
   'bg-primary-container text-on-primary-container',
@@ -89,11 +100,11 @@ function LoadingView({ onBack }: { onBack: () => void }) {
       <TopBar
         title="我的成就"
         subtitle="正在加载成长数据..."
-        leftSlot={(
+        leftSlot={
           <IconButton aria-label="返回" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </IconButton>
-        )}
+        }
       />
       <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6 md:px-6">
         <div className="grid grid-cols-3 gap-3">
@@ -120,7 +131,8 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   const normalizeAchievement = useCallback((item: AchievementItem): NormalizedAchievement => {
     const unlockedAt = item.unlockedAt ?? item.earnedAt;
     const totalRequired = item.totalRequired && item.totalRequired > 0 ? item.totalRequired : 1;
-    const progress = typeof item.progress === 'number' ? item.progress : unlockedAt ? totalRequired : 0;
+    const progress =
+      typeof item.progress === 'number' ? item.progress : unlockedAt ? totalRequired : 0;
 
     return {
       id: item.id,
@@ -177,7 +189,8 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
   const totalStars = unlockedCount * 3;
   const level = Math.floor(totalPoints / 100) + 1;
 
-  const currentMilestone = [...levelMilestones].reverse().find((item) => unlockedCount >= item.min) || levelMilestones[0];
+  const currentMilestone =
+    [...levelMilestones].reverse().find((item) => unlockedCount >= item.min) || levelMilestones[0];
   const nextMilestone = levelMilestones.find((item) => unlockedCount < item.min);
 
   if (isLoading) {
@@ -189,11 +202,11 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
       <TopBar
         title="我的成就"
         subtitle={`已解锁 ${unlockedCount}/${totalCount} 项`}
-        leftSlot={(
+        leftSlot={
           <IconButton aria-label="返回" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </IconButton>
-        )}
+        }
       />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 md:px-6">
@@ -250,8 +263,8 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
                     current
                       ? 'border-primary bg-primary-container text-on-primary-container'
                       : active
-                      ? 'border-secondary-container bg-secondary-container/25 text-on-surface'
-                      : 'border-outline-variant/25 bg-surface text-on-surface-variant',
+                        ? 'border-secondary-container bg-secondary-container/25 text-on-surface'
+                        : 'border-outline-variant/25 bg-surface text-on-surface-variant',
                   )}
                 >
                   {item.label}
@@ -262,11 +275,15 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
 
           {nextMilestone ? (
             <p className="mt-3 text-sm text-on-surface-variant">
-              再解锁 <span className="font-black text-primary">{nextMilestone.min - unlockedCount}</span> 项成就，即可升级为
+              再解锁{' '}
+              <span className="font-black text-primary">{nextMilestone.min - unlockedCount}</span>{' '}
+              项成就，即可升级为
               <span className="font-black text-primary"> {nextMilestone.label}</span>。
             </p>
           ) : (
-            <p className="mt-3 text-sm font-semibold text-success">你已经达到最高里程碑，继续保持！</p>
+            <p className="mt-3 text-sm font-semibold text-success">
+              你已经达到最高里程碑，继续保持！
+            </p>
           )}
         </Card>
 
@@ -300,20 +317,27 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
                       <div
                         className={cn(
                           'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
-                          unlocked ? badgeColors[index % badgeColors.length] : 'bg-surface-container text-on-surface-variant',
+                          unlocked
+                            ? badgeColors[index % badgeColors.length]
+                            : 'bg-surface-container text-on-surface-variant',
                         )}
                       >
                         {unlocked ? <Icon className="h-6 w-6" /> : <Lock className="h-5 w-5" />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 text-sm font-black text-on-surface">{achievement.name}</h3>
-                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-on-surface-variant">{achievement.description}</p>
+                        <h3 className="line-clamp-1 text-sm font-black text-on-surface">
+                          {achievement.name}
+                        </h3>
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-on-surface-variant">
+                          {achievement.description}
+                        </p>
                       </div>
                     </div>
 
                     {unlocked ? (
                       <p className="text-xs font-semibold text-primary">
-                        解锁时间：{new Date(achievement.unlockedAt || '').toLocaleDateString('zh-CN')}
+                        解锁时间：
+                        {new Date(achievement.unlockedAt || '').toLocaleDateString('zh-CN')}
                       </p>
                     ) : (
                       <div>

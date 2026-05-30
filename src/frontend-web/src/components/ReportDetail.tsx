@@ -110,7 +110,9 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
     social: 0,
   };
 
-  const totalTime = reportData?.totalLearningTime ? Math.round(reportData.totalLearningTime / 60) : 0;
+  const totalTime = reportData?.totalLearningTime
+    ? Math.round(reportData.totalLearningTime / 60)
+    : 0;
   const totalLessons = reportData?.totalLessonsCompleted ?? 0;
   const avgScore = reportData?.averageScore ?? 0;
 
@@ -121,12 +123,18 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
     <div className="pb-[calc(10rem+var(--safe-area-bottom))]">
       <header className="sticky top-0 z-40 w-full rounded-b-[1.5rem] bg-background">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-6 py-5 pt-safe md:px-8">
-          <IconButton onClick={onBack} className="rounded-xl hover:bg-surface-container-low" aria-label="返回">
+          <IconButton
+            onClick={onBack}
+            className="rounded-xl hover:bg-surface-container-low"
+            aria-label="返回"
+          >
             <ChevronLeft className="h-6 w-6 text-on-secondary-container" />
           </IconButton>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-on-surface">学习报告详情</h1>
-            <p className="text-sm font-medium text-on-surface-variant">全面了解孩子在不同能力维度的成长情况</p>
+            <p className="text-sm font-medium text-on-surface-variant">
+              全面了解孩子在不同能力维度的成长情况
+            </p>
           </div>
         </div>
       </header>
@@ -143,7 +151,9 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
           <Tabs value={period} onValueChange={(value) => setPeriod(value as Period)}>
             <TabsList>
               {PERIOD_TABS.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
+                <TabsTrigger key={tab.key} value={tab.key}>
+                  {tab.label}
+                </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
@@ -160,7 +170,10 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">总学习时长</p>
-                <p className="text-2xl font-black text-on-secondary-container">{totalTime}<span className="ml-1 text-sm font-bold">分钟</span></p>
+                <p className="text-2xl font-black text-on-secondary-container">
+                  {totalTime}
+                  <span className="ml-1 text-sm font-bold">分钟</span>
+                </p>
               </div>
             </Card>
 
@@ -170,7 +183,10 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">完成课程</p>
-                <p className="text-2xl font-black text-on-tertiary-container">{totalLessons}<span className="ml-1 text-sm font-bold">节</span></p>
+                <p className="text-2xl font-black text-on-tertiary-container">
+                  {totalLessons}
+                  <span className="ml-1 text-sm font-bold">节</span>
+                </p>
               </div>
             </Card>
 
@@ -180,7 +196,10 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">平均得分</p>
-                <p className="text-2xl font-black text-on-primary-container">{avgScore}<span className="ml-1 text-sm font-bold">分</span></p>
+                <p className="text-2xl font-black text-on-primary-container">
+                  {avgScore}
+                  <span className="ml-1 text-sm font-bold">分</span>
+                </p>
               </div>
             </Card>
           </motion.section>
@@ -202,17 +221,50 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                 {barChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-outline)', fontSize: 11, fontWeight: 600 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--color-outline)', fontSize: 11 }} />
-                      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--color-outline-variant)"
+                        strokeOpacity={0.2}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'var(--color-outline)', fontSize: 11, fontWeight: 600 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'var(--color-outline)', fontSize: 11 }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'transparent' }}
+                        contentStyle={{
+                          borderRadius: '1rem',
+                          border: 'none',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        }}
+                      />
                       <Legend wrapperStyle={{ fontSize: 12, fontWeight: 600 }} />
-                      <Bar dataKey="minutes" name="学习时长(分钟)" radius={[6, 6, 0, 0]} fill="var(--color-secondary)" />
-                      <Bar dataKey="lessons" name="课程数" radius={[6, 6, 0, 0]} fill="var(--color-tertiary)" />
+                      <Bar
+                        dataKey="minutes"
+                        name="学习时长(分钟)"
+                        radius={[6, 6, 0, 0]}
+                        fill="var(--color-secondary)"
+                      />
+                      <Bar
+                        dataKey="lessons"
+                        name="课程数"
+                        radius={[6, 6, 0, 0]}
+                        fill="var(--color-tertiary)"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyState title="暂无学习数据" description="完成学习任务后，这里会显示趋势图。" />
+                  <EmptyState
+                    title="暂无学习数据"
+                    description="完成学习任务后，这里会显示趋势图。"
+                  />
                 )}
               </div>
             </Card>
@@ -234,7 +286,12 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                     <div key={domain} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black text-white', config.color)}>
+                          <span
+                            className={cn(
+                              'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black text-white',
+                              config.color,
+                            )}
+                          >
                             {config.label[0]}
                           </span>
                           <span className="text-sm font-bold text-on-surface">{config.label}</span>
@@ -277,26 +334,47 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                       transition={{ duration: 0.25, delay: i * 0.08 }}
                       className={cn(
                         'flex items-start gap-4 rounded-xl border p-4',
-                        ach.unlockedAt ? 'border-primary/20 bg-primary-container/20' : 'border-outline-variant/10 bg-surface-container-low',
+                        ach.unlockedAt
+                          ? 'border-primary/20 bg-primary-container/20'
+                          : 'border-outline-variant/10 bg-surface-container-low',
                       )}
                     >
-                      <span className="text-3xl" aria-hidden="true">🏅</span>
+                      <span className="text-3xl" aria-hidden="true">
+                        🏅
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="truncate text-sm font-bold text-on-surface">{ach.name}</h4>
-                          {ach.unlockedAt && <span className="rounded-full bg-primary-container/40 px-2 py-0.5 text-[10px] font-bold text-primary">已解锁</span>}
+                          {ach.unlockedAt && (
+                            <span className="rounded-full bg-primary-container/40 px-2 py-0.5 text-[10px] font-bold text-primary">
+                              已解锁
+                            </span>
+                          )}
                         </div>
-                        <p className="mt-1 text-xs text-on-surface-variant line-clamp-2">{ach.description}</p>
+                        <p className="mt-1 text-xs text-on-surface-variant line-clamp-2">
+                          {ach.description}
+                        </p>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container">
-                          <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min((ach.progress / ach.totalRequired) * 100, 100)}%` }} />
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{
+                              width: `${Math.min((ach.progress / ach.totalRequired) * 100, 100)}%`,
+                            }}
+                          />
                         </div>
-                        <p className="mt-1 text-[10px] text-on-surface-variant">{ach.progress}/{ach.totalRequired}</p>
+                        <p className="mt-1 text-[10px] text-on-surface-variant">
+                          {ach.progress}/{ach.totalRequired}
+                        </p>
                       </div>
                     </motion.div>
                   ))}
                 </div>
               ) : (
-                <EmptyState title="暂无成就" description="继续学习即可解锁更多成长徽章。" icon={<Trophy className="h-10 w-10 text-primary/70" />} />
+                <EmptyState
+                  title="暂无成就"
+                  description="继续学习即可解锁更多成长徽章。"
+                  icon={<Trophy className="h-10 w-10 text-primary/70" />}
+                />
               )}
             </Card>
           </motion.section>
@@ -330,7 +408,9 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               ) : (
                 <div className="flex items-start gap-2 rounded-xl bg-white/10 p-4">
                   <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary-container" />
-                  <p className="text-sm leading-relaxed">继续学习后，AI 会根据最新表现给出更个性化的建议。</p>
+                  <p className="text-sm leading-relaxed">
+                    继续学习后，AI 会根据最新表现给出更个性化的建议。
+                  </p>
                 </div>
               )}
             </div>

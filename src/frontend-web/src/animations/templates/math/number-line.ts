@@ -127,9 +127,12 @@ registerP5Sketch('math.number-line', (p: p5, params: Record<string, unknown>) =>
 
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth > 800 ? 800 : p.windowWidth, 450);
-    const target = currentHopIndex < validHops.length
-      ? validHops[currentHopIndex]
-      : (validHops.length > 0 ? validHops[validHops.length - 1] : startNum);
+    const target =
+      currentHopIndex < validHops.length
+        ? validHops[currentHopIndex]
+        : validHops.length > 0
+          ? validHops[validHops.length - 1]
+          : startNum;
     characterX = numToX(target);
     characterBaseY = lineY() - 25;
   };

@@ -26,7 +26,9 @@ export function TopBar({ title, subtitle, leftSlot, actions = [], className }: T
           {leftSlot}
           <div className="min-w-0">
             <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">{title}</h1>
-            {subtitle ? <p className="text-xs font-semibold text-on-surface-variant">{subtitle}</p> : null}
+            {subtitle ? (
+              <p className="text-xs font-semibold text-on-surface-variant">{subtitle}</p>
+            ) : null}
           </div>
         </div>
         {actions.length > 0 ? (
@@ -36,7 +38,11 @@ export function TopBar({ title, subtitle, leftSlot, actions = [], className }: T
                 key={action.key}
                 aria-label={action.label}
                 onClick={action.onClick}
-                className={cn(action.danger ? 'text-error hover:bg-error-container/20' : 'text-on-surface-variant hover:bg-surface-container')}
+                className={cn(
+                  action.danger
+                    ? 'text-error hover:bg-error-container/20'
+                    : 'text-on-surface-variant hover:bg-surface-container',
+                )}
               >
                 {action.icon}
               </IconButton>

@@ -26,7 +26,7 @@ interface AbilityTrendProps {
 }
 
 function getTrendValue(point: TrendDataPoint, domain: string): number {
-  return Number(((point as unknown as Record<string, unknown>)[domain] ?? 0));
+  return Number((point as unknown as Record<string, unknown>)[domain] ?? 0);
 }
 
 function formatPercent(value: unknown): string {
@@ -57,7 +57,11 @@ export default function AbilityTrend({ trendData }: AbilityTrendProps) {
         {trendData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--color-outline-variant)"
+                strokeOpacity={0.2}
+              />
               <XAxis
                 dataKey="week"
                 axisLine={false}

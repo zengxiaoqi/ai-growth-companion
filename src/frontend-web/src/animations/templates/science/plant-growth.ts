@@ -195,8 +195,14 @@ registerP5Sketch('science.plant-growth', (p: p5, params: Record<string, unknown>
     p.noFill();
     p.beginShape();
     p.vertex(plantX, baseY);
-    // @ts-ignore - p5 types incorrect, accepts 6 args for 2D cubic bezier
-    p.bezierVertex(plantX + 2, baseY - sproutHeight * 0.25, plantX + 1, baseY - sproutHeight * 0.75, tipX, tipY);
+    (p as any).bezierVertex(
+      plantX + 2,
+      baseY - sproutHeight * 0.25,
+      plantX + 1,
+      baseY - sproutHeight * 0.75,
+      tipX,
+      tipY,
+    );
     p.endShape();
 
     // Tiny leaf at tip

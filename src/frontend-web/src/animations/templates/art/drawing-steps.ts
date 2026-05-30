@@ -155,11 +155,7 @@ registerP5Sketch('art.drawing-steps', (p: p5, params: Record<string, unknown>) =
       p.fill(120, 120, 140);
       p.textSize(12);
       p.textStyle(p.NORMAL);
-      p.text(
-        `第 ${currentStep + 1} 步 / 共 ${steps.length} 步`,
-        p.width / 2,
-        p.height - 10,
-      );
+      p.text(`第 ${currentStep + 1} 步 / 共 ${steps.length} 步`, p.width / 2, p.height - 10);
     }
   }
 
@@ -199,12 +195,7 @@ registerP5Sketch('art.drawing-steps', (p: p5, params: Record<string, unknown>) =
       }
       case 'line': {
         const len = 80 * progress;
-        p.line(
-          cx + offsets.x - 40,
-          cy + offsets.y,
-          cx + offsets.x - 40 + len,
-          cy + offsets.y,
-        );
+        p.line(cx + offsets.x - 40, cy + offsets.y, cx + offsets.x - 40 + len, cy + offsets.y);
         break;
       }
       case 'triangle': {
@@ -269,10 +260,7 @@ registerP5Sketch('art.drawing-steps', (p: p5, params: Record<string, unknown>) =
     }
   }
 
-  function getShapeOffsets(
-    totalSteps: number,
-    stepIdx: number,
-  ): { x: number; y: number } {
+  function getShapeOffsets(totalSteps: number, stepIdx: number): { x: number; y: number } {
     if (totalSteps === 1) return { x: 0, y: 0 };
 
     // Spread shapes out in a grid-like arrangement
@@ -291,11 +279,7 @@ registerP5Sketch('art.drawing-steps', (p: p5, params: Record<string, unknown>) =
     };
   }
 
-  function drawPartialPolyline(
-    pts: { x: number; y: number }[],
-    progress: number,
-    closed: boolean,
-  ) {
+  function drawPartialPolyline(pts: { x: number; y: number }[], progress: number, closed: boolean) {
     const totalPts = closed ? pts.length + 1 : pts.length;
     const segmentsToDraw = progress * totalPts;
 

@@ -62,7 +62,9 @@ export default function ChildSelector({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">当前孩子</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+            当前孩子
+          </p>
           <p className="truncate text-sm font-bold text-on-surface">
             {selectedChild
               ? `${selectedChild.name}${selectedChild.age ? ` · ${selectedChild.age}岁` : ''}`
@@ -70,7 +72,12 @@ export default function ChildSelector({
           </p>
         </div>
 
-        <ChevronDown className={cn('h-4 w-4 text-on-surface-variant transition-transform', showPanel && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-on-surface-variant transition-transform',
+            showPanel && 'rotate-180',
+          )}
+        />
       </button>
 
       {showPanel ? (
@@ -93,7 +100,9 @@ export default function ChildSelector({
                   )}
                 >
                   {child.name}
-                  <span className="ml-2 text-xs opacity-80">{child.age ? `${child.age}岁` : '未设置年龄'}</span>
+                  <span className="ml-2 text-xs opacity-80">
+                    {child.age ? `${child.age}岁` : '未设置年龄'}
+                  </span>
                 </button>
               ))}
             </div>
@@ -116,14 +125,23 @@ export default function ChildSelector({
                 className="h-11 flex-1 rounded-xl border border-outline-variant/35 bg-surface px-3 text-sm outline-none transition focus:border-primary"
                 aria-label="输入孩子手机号"
               />
-              <Button size="sm" className="h-11" onClick={handleLink} disabled={isLinking || !linkPhone.trim()}>
+              <Button
+                size="sm"
+                className="h-11"
+                onClick={handleLink}
+                disabled={isLinking || !linkPhone.trim()}
+              >
                 <Link2 className="h-4 w-4" />
                 关联
               </Button>
             </div>
 
-            {linkError ? <p className="mt-1.5 text-xs font-semibold text-error">{linkError}</p> : null}
-            {linkSuccess ? <p className="mt-1.5 text-xs font-semibold text-success">关联成功</p> : null}
+            {linkError ? (
+              <p className="mt-1.5 text-xs font-semibold text-error">{linkError}</p>
+            ) : null}
+            {linkSuccess ? (
+              <p className="mt-1.5 text-xs font-semibold text-success">关联成功</p>
+            ) : null}
           </div>
         </Card>
       ) : null}

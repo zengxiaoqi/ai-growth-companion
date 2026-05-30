@@ -19,7 +19,12 @@ function validatePassword(password: string): string | null {
   return null;
 }
 
-export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoading }: LoginScreenProps) {
+export default function LoginScreen({
+  onLogin,
+  onSwitchToRegister,
+  error,
+  isLoading,
+}: LoginScreenProps) {
   const [phone, setPhone] = useState('13800000001');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,9 +51,9 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
           {/* Title */}
           <div className="text-center mb-10">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary-container flex items-center justify-center shadow-inner border-b-8 border-primary/20">
-              <img 
-                alt="Mascot" 
-                className="w-16 h-16" 
+              <img
+                alt="Mascot"
+                className="w-16 h-16"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcJOU_G2u01vuHUYluCZTjtWD4VhAzEtBxbPsOrSC-7zMwek86PYCQeGBRl2ZXSOFDGcbxmFeCbL7JfKhvPeodVjaqpELlu8SN5HeeS4n-mXbX5RXtEpO31539ATVu2GAi4qNYbYpuRG9nEVURqEZLqCqxFRGhVvrilL3XneAJY00kny1l1RaS2eFhdY040n61ZzvlCvLGLAnL-2Tdupnf3ULMkVbu3W7p4MlJiC2zASO8dOINAnwlrkn7sy1OBz-JiCfKjIW7ets"
                 referrerPolicy="no-referrer"
               />
@@ -71,7 +76,10 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    setPhoneError(null);
+                  }}
                   onBlur={() => setPhoneError(validatePhone(phone))}
                   placeholder="请输入手机号"
                   className={`w-full bg-surface-container-lowest border-2 rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
@@ -82,16 +90,12 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                   maxLength={11}
                 />
               </div>
-              {phoneError && (
-                <p className="text-error text-xs font-medium px-1">{phoneError}</p>
-              )}
+              {phoneError && <p className="text-error text-xs font-medium px-1">{phoneError}</p>}
             </div>
 
             {/* Password Input */}
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-on-surface-variant px-1">
-                密码
-              </label>
+              <label className="block text-sm font-bold text-on-surface-variant px-1">密码</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                   <Lock className="w-5 h-5" />
@@ -99,7 +103,10 @@ export default function LoginScreen({ onLogin, onSwitchToRegister, error, isLoad
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError(null);
+                  }}
                   onBlur={() => setPasswordError(validatePassword(password))}
                   placeholder="请输入密码"
                   className={`w-full bg-surface-container-lowest border-2 rounded-xl py-4 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${

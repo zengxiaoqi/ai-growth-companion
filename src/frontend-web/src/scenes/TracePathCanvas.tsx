@@ -20,7 +20,13 @@ function distanceToSegment(point: Point, segment: Segment): number {
   if (dx === 0 && dy === 0) {
     return Math.hypot(point.x - segment.a.x, point.y - segment.a.y);
   }
-  const t = Math.max(0, Math.min(1, ((point.x - segment.a.x) * dx + (point.y - segment.a.y) * dy) / (dx * dx + dy * dy)));
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - segment.a.x) * dx + (point.y - segment.a.y) * dy) / (dx * dx + dy * dy),
+    ),
+  );
   const px = segment.a.x + t * dx;
   const py = segment.a.y + t * dy;
   return Math.hypot(point.x - px, point.y - py);
@@ -108,7 +114,11 @@ function usePolylineTarget(target: Extract<TracePathSpec, { kind: 'polyline' }>)
   }, [target]);
 }
 
-export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }: TracePathCanvasProps) {
+export default function TracePathCanvas({
+  target,
+  minCoverage = 0.9,
+  onSolved,
+}: TracePathCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const segmentsRef = useRef<Segment[]>([]);
@@ -169,18 +179,22 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
     });
   }, [glyphGuide, polylineGuide]);
 
-  const updateCoverage = useCallback((segment: Segment) => {
-    const tolerance = CANVAS_SIZE * 0.045;
-    samplePoints.forEach((point, index) => {
-      if (coveredRef.current.has(index)) return;
-      if (distanceToSegment(point, segment) <= tolerance) {
-        coveredRef.current.add(index);
-      }
-    });
+  const updateCoverage = useCallback(
+    (segment: Segment) => {
+      const tolerance = CANVAS_SIZE * 0.045;
+      samplePoints.forEach((point, index) => {
+        if (coveredRef.current.has(index)) return;
+        if (distanceToSegment(point, segment) <= tolerance) {
+          coveredRef.current.add(index);
+        }
+      });
 
-    const nextCoverage = samplePoints.length > 0 ? coveredRef.current.size / samplePoints.length : 0;
-    setCoverage(nextCoverage);
-  }, [samplePoints]);
+      const nextCoverage =
+        samplePoints.length > 0 ? coveredRef.current.size / samplePoints.length : 0;
+      setCoverage(nextCoverage);
+    },
+    [samplePoints],
+  );
 
   useEffect(() => {
     redraw();
@@ -194,21 +208,27 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
     };
   }, []);
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setWarning(null);
-    activePointRef.current = pointerPosition(event);
-  }, [pointerPosition]);
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setWarning(null);
+      activePointRef.current = pointerPosition(event);
+    },
+    [pointerPosition],
+  );
 
-  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!activePointRef.current || solvedRef.current) return;
-    const nextPoint = pointerPosition(event);
-    const segment = { a: activePointRef.current, b: nextPoint };
-    activePointRef.current = nextPoint;
-    segmentsRef.current.push(segment);
-    updateCoverage(segment);
-    redraw();
-  }, [pointerPosition, redraw, updateCoverage]);
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!activePointRef.current || solvedRef.current) return;
+      const nextPoint = pointerPosition(event);
+      const segment = { a: activePointRef.current, b: nextPoint };
+      activePointRef.current = nextPoint;
+      segmentsRef.current.push(segment);
+      updateCoverage(segment);
+      redraw();
+    },
+    [pointerPosition, redraw, updateCoverage],
+  );
 
   const handlePointerUp = useCallback(() => {
     activePointRef.current = null;
@@ -246,7 +266,12 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
       </div>
 
       <div className="relative mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-2xl border border-outline-variant/30 bg-white">
-        <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} className="absolute inset-0 h-full w-full" />
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          className="absolute inset-0 h-full w-full"
+        />
         <canvas
           ref={overlayRef}
           width={CANVAS_SIZE}
@@ -267,18 +292,27 @@ export default function TracePathCanvas({ target, minCoverage = 0.9, onSolved }:
       ) : (
         <div className="space-y-3">
           <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.round(coverage * 100)}%` }} />
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.round(coverage * 100)}%` }}
+            />
           </div>
           {warning && <p className="text-xs text-on-surface-variant">{warning}</p>}
           <div className="flex items-center justify-between text-xs text-on-surface-variant">
             <span>覆盖率 {Math.round(coverage * 100)}%</span>
             <span>尝试次数: {attempts}</span>
           </div>
-          <Button className="w-full" onClick={() => {
-            solvedRef.current = true;
-            const score = Math.max(70, Math.min(100, Math.round(coverage * 100 - (attemptsRef.current - 1) * 4)));
-            onSolved({ coverage, attempts: attemptsRef.current, score });
-          }}>
+          <Button
+            className="w-full"
+            onClick={() => {
+              solvedRef.current = true;
+              const score = Math.max(
+                70,
+                Math.min(100, Math.round(coverage * 100 - (attemptsRef.current - 1) * 4)),
+              );
+              onSolved({ coverage, attempts: attemptsRef.current, score });
+            }}
+          >
             <CheckCircle className="mr-2 h-4 w-4" />
             写好了，进入下一项
           </Button>

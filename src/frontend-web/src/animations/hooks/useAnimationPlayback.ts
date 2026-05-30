@@ -59,17 +59,20 @@ export function useAnimationPlayback({
     setPlaybackState('paused');
   }, []);
 
-  const advanceToScene = useCallback((index: number) => {
-    if (index >= scenes.length) {
-      setPlaybackState('done');
-      onAllScenesComplete?.();
-      return;
-    }
-    setCurrentSceneIndex(index);
-    setPlaybackState('playing');
-    setSceneProgress(0);
-    sceneCompleteRef.current = false;
-  }, [scenes.length, onAllScenesComplete]);
+  const advanceToScene = useCallback(
+    (index: number) => {
+      if (index >= scenes.length) {
+        setPlaybackState('done');
+        onAllScenesComplete?.();
+        return;
+      }
+      setCurrentSceneIndex(index);
+      setPlaybackState('playing');
+      setSceneProgress(0);
+      sceneCompleteRef.current = false;
+    },
+    [scenes.length, onAllScenesComplete],
+  );
 
   const onSceneComplete = useCallback(() => {
     if (sceneCompleteRef.current) return;
@@ -108,11 +111,14 @@ export function useAnimationPlayback({
     advanceToScene(Math.max(currentSceneIndex - 1, 0));
   }, [currentSceneIndex, advanceToScene]);
 
-  const goToScene = useCallback((index: number) => {
-    if (index >= 0 && index < scenes.length) {
-      advanceToScene(index);
-    }
-  }, [scenes.length, advanceToScene]);
+  const goToScene = useCallback(
+    (index: number) => {
+      if (index >= 0 && index < scenes.length) {
+        advanceToScene(index);
+      }
+    },
+    [scenes.length, advanceToScene],
+  );
 
   return {
     currentSceneIndex,

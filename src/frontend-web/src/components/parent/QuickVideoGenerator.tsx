@@ -11,13 +11,7 @@ interface QuickVideoGeneratorProps {
   childAgeGroup?: '3-4' | '5-6';
 }
 
-type GeneratorState =
-  | 'idle'
-  | 'generating'
-  | 'enqueued'
-  | 'polling'
-  | 'completed'
-  | 'failed';
+type GeneratorState = 'idle' | 'generating' | 'enqueued' | 'polling' | 'completed' | 'failed';
 
 const STYLE_OPTIONS = [
   { value: '', label: '自动选择' },
@@ -168,16 +162,11 @@ export default function QuickVideoGenerator({
         <Play className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-bold text-on-surface">快速生成教学视频</h3>
       </div>
-      <p className="text-sm text-on-surface-variant">
-        输入学习主题，AI 自动生成教学内容并制作视频
-      </p>
+      <p className="text-sm text-on-surface-variant">输入学习主题，AI 自动生成教学内容并制作视频</p>
 
       {/* Input Form */}
       {(state === 'idle' || state === 'failed') && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="space-y-4 p-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-on-surface">课程主题</label>
@@ -192,7 +181,9 @@ export default function QuickVideoGenerator({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-on-surface-variant">年龄组</label>
+                <label className="mb-1 block text-xs font-medium text-on-surface-variant">
+                  年龄组
+                </label>
                 <select
                   value={ageGroup}
                   onChange={(e) => setAgeGroup(e.target.value as '3-4' | '5-6')}
@@ -203,14 +194,18 @@ export default function QuickVideoGenerator({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-on-surface-variant">风格</label>
+                <label className="mb-1 block text-xs font-medium text-on-surface-variant">
+                  风格
+                </label>
                 <select
                   value={style}
                   onChange={(e) => setStyle(e.target.value as 'story' | 'science' | 'song' | '')}
                   className="w-full rounded-lg border border-outline-variant/30 bg-surface-container px-2 py-2 text-sm text-on-surface"
                 >
                   {STYLE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -230,17 +225,12 @@ export default function QuickVideoGenerator({
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg bg-error-container/10 px-4 py-3 text-sm text-error">
-          {error}
-        </div>
+        <div className="rounded-lg bg-error-container/10 px-4 py-3 text-sm text-error">{error}</div>
       )}
 
       {/* Progress — generating / polling */}
       {(state === 'generating' || state === 'polling') && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="space-y-3 p-4">
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -270,10 +260,7 @@ export default function QuickVideoGenerator({
 
       {/* Completed */}
       {state === 'completed' && result && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="space-y-3 p-4">
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5 text-success" />
@@ -283,12 +270,7 @@ export default function QuickVideoGenerator({
             {/* Video preview */}
             {videoUrl && (
               <div className="overflow-hidden rounded-lg bg-black">
-                <video
-                  src={videoUrl}
-                  controls
-                  className="w-full"
-                  style={{ maxHeight: 320 }}
-                >
+                <video src={videoUrl} controls className="w-full" style={{ maxHeight: 320 }}>
                   您的浏览器不支持视频播放
                 </video>
               </div>
@@ -306,10 +288,7 @@ export default function QuickVideoGenerator({
 
       {/* Failed */}
       {state === 'failed' && !result && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex items-center gap-2 rounded-lg bg-error-container/10 px-4 py-3">
             <XCircle className="h-4 w-4 text-error" />
             <span className="text-sm text-error">{error || '生成失败，请重试'}</span>
@@ -319,10 +298,7 @@ export default function QuickVideoGenerator({
 
       {/* Failed with retry */}
       {state === 'failed' && result && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="space-y-3 p-4">
             <div className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-error" />

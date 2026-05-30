@@ -41,16 +41,30 @@ export default function AbilityRadar({ abilities, radarData }: AbilityRadarProps
     >
       <div className="mb-5">
         <h2 className="text-xl font-black text-on-surface">五维能力评估</h2>
-        <p className="mt-1 text-sm text-on-surface-variant">从语言、数学、科学、艺术、社会五个方向看成长情况</p>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          从语言、数学、科学、艺术、社会五个方向看成长情况
+        </p>
       </div>
 
-      <div className="h-72" role="img" aria-label={`五维能力雷达图：${chartDescription || '暂无数据'}`}>
+      <div
+        className="h-72"
+        role="img"
+        aria-label={`五维能力雷达图：${chartDescription || '暂无数据'}`}
+      >
         {radarData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
               <PolarGrid stroke="var(--color-outline)" strokeOpacity={0.25} />
-              <PolarAngleAxis dataKey="domain" tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 13, fontWeight: 700 }} />
-              <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: 'var(--color-outline)', fontSize: 10 }} axisLine={false} />
+              <PolarAngleAxis
+                dataKey="domain"
+                tick={{ fill: 'var(--color-on-surface-variant)', fontSize: 13, fontWeight: 700 }}
+              />
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, 100]}
+                tick={{ fill: 'var(--color-outline)', fontSize: 10 }}
+                axisLine={false}
+              />
               <Radar
                 name="能力值"
                 dataKey="progress"
@@ -83,7 +97,9 @@ export default function AbilityRadar({ abilities, radarData }: AbilityRadarProps
             <div key={ability.domain} className="space-y-1">
               <div className="flex items-center justify-between">
                 <span className={cn('text-sm font-bold', config.textColor)}>{config.label}</span>
-                <span className="text-xs font-bold text-on-surface-variant">Lv.{ability.level} · {ability.progress}%</span>
+                <span className="text-xs font-bold text-on-surface-variant">
+                  Lv.{ability.level} · {ability.progress}%
+                </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-surface-container">
                 <motion.div

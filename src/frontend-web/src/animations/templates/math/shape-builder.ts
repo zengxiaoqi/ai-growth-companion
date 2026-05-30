@@ -143,10 +143,14 @@ registerP5Sketch('math.shape-builder', (p: p5, params: Record<string, unknown>) 
   function edgeStart(index: number): { x: number; y: number } {
     const edge = index % 4;
     switch (edge) {
-      case 0: return { x: -80, y: p.height / 2 };
-      case 1: return { x: p.width + 80, y: p.height / 2 };
-      case 2: return { x: p.width / 2, y: -80 };
-      default: return { x: p.width / 2, y: p.height + 80 };
+      case 0:
+        return { x: -80, y: p.height / 2 };
+      case 1:
+        return { x: p.width + 80, y: p.height / 2 };
+      case 2:
+        return { x: p.width / 2, y: -80 };
+      default:
+        return { x: p.width / 2, y: p.height + 80 };
     }
   }
 

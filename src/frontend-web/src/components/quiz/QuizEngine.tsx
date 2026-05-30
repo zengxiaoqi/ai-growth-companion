@@ -114,7 +114,10 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
     return Math.round((correctCount / totalQuestions) * 100);
   }, [correctCount, totalQuestions]);
 
-  const stars = useMemo(() => getStars(correctCount, totalQuestions), [correctCount, totalQuestions]);
+  const stars = useMemo(
+    () => getStars(correctCount, totalQuestions),
+    [correctCount, totalQuestions],
+  );
 
   const finishQuiz = useCallback(() => {
     onComplete(correctCount, totalQuestions);
@@ -149,14 +152,19 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
             <PartyPopper className="h-6 w-6 text-tertiary" />
             挑战完成
           </h3>
-          <p className="mt-1 text-sm text-on-surface-variant">你答对了 {correctCount} / {totalQuestions} 题</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            你答对了 {correctCount} / {totalQuestions} 题
+          </p>
         </div>
 
         <div className="flex items-center justify-center gap-3" aria-label={`获得 ${stars} 颗星`}>
           {Array.from({ length: 3 }).map((_, index) => (
             <Star
               key={index}
-              className={cn('h-10 w-10', index < stars ? 'fill-current text-tertiary' : 'text-outline-variant/35')}
+              className={cn(
+                'h-10 w-10',
+                index < stars ? 'fill-current text-tertiary' : 'text-outline-variant/35',
+              )}
             />
           ))}
         </div>
@@ -181,9 +189,17 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="font-bold text-on-surface-variant">{currentQuestion.sectionTitle}</span>
-          <span className="font-black text-primary">{currentIndex + 1} / {totalQuestions}</span>
+          <span className="font-black text-primary">
+            {currentIndex + 1} / {totalQuestions}
+          </span>
         </div>
-        <div className="h-2.5 overflow-hidden rounded-full bg-surface-container" role="progressbar" aria-valuenow={currentIndex + 1} aria-valuemin={1} aria-valuemax={totalQuestions}>
+        <div
+          className="h-2.5 overflow-hidden rounded-full bg-surface-container"
+          role="progressbar"
+          aria-valuenow={currentIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={totalQuestions}
+        >
           <motion.div
             className="h-full rounded-full bg-primary"
             initial={{ width: 0 }}
@@ -202,7 +218,9 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           transition={{ duration: 0.22 }}
         >
           <Card className="space-y-4 p-5 md:p-6">
-            <h4 className="text-xl font-black leading-relaxed text-on-surface">{currentQuestion.q}</h4>
+            <h4 className="text-xl font-black leading-relaxed text-on-surface">
+              {currentQuestion.q}
+            </h4>
 
             <fieldset className="space-y-2.5">
               <legend className="sr-only">选择答案</legend>
@@ -222,10 +240,17 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                     disabled={isRevealed}
                     className={cn(
                       'touch-target w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-bold transition-all',
-                      showCorrect && 'border-success bg-success-container text-on-success-container',
+                      showCorrect &&
+                        'border-success bg-success-container text-on-success-container',
                       showWrong && 'border-error bg-error-container/20 text-error',
-                      !showCorrect && !showWrong && !isRevealed && 'border-outline-variant/30 bg-surface hover:border-primary/45',
-                      !showCorrect && !showWrong && isRevealed && 'border-outline-variant/20 bg-surface-container text-on-surface-variant opacity-70',
+                      !showCorrect &&
+                        !showWrong &&
+                        !isRevealed &&
+                        'border-outline-variant/30 bg-surface hover:border-primary/45',
+                      !showCorrect &&
+                        !showWrong &&
+                        isRevealed &&
+                        'border-outline-variant/20 bg-surface-container text-on-surface-variant opacity-70',
                     )}
                   >
                     <span className="flex items-center gap-3">
@@ -234,10 +259,18 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                           'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black',
                           showCorrect && 'bg-success text-white',
                           showWrong && 'bg-error text-white',
-                          !showCorrect && !showWrong && 'bg-primary-container text-on-primary-container',
+                          !showCorrect &&
+                            !showWrong &&
+                            'bg-primary-container text-on-primary-container',
                         )}
                       >
-                        {showCorrect ? <CheckCircle className="h-4 w-4" /> : showWrong ? <XCircle className="h-4 w-4" /> : String.fromCharCode(65 + index)}
+                        {showCorrect ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : showWrong ? (
+                          <XCircle className="h-4 w-4" />
+                        ) : (
+                          String.fromCharCode(65 + index)
+                        )}
                       </span>
                       <span className="flex-1">{option}</span>
                     </span>
@@ -250,7 +283,9 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
               <div
                 className={cn(
                   'rounded-xl px-4 py-3 text-sm font-black',
-                  selectedOption === answerIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container',
+                  selectedOption === answerIndex
+                    ? 'bg-success-container text-on-success-container'
+                    : 'bg-warning-container text-on-warning-container',
                 )}
               >
                 {selectedOption === answerIndex ? (

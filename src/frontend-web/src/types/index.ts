@@ -216,7 +216,14 @@ export interface Notification {
 }
 
 // Activity Types
-export type ActivityType = 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle';
+export type ActivityType =
+  | 'quiz'
+  | 'true_false'
+  | 'fill_blank'
+  | 'matching'
+  | 'connection'
+  | 'sequencing'
+  | 'puzzle';
 
 export interface ActivityData {
   type: ActivityType;

@@ -28,7 +28,13 @@ import {
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import type { Content, Recommendation, Assignment, AchievementDisplay, GrowthReport } from '@/types';
+import type {
+  Content,
+  Recommendation,
+  Assignment,
+  AchievementDisplay,
+  GrowthReport,
+} from '@/types';
 import EmergencyCallDialog from './EmergencyCallDialog';
 import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -163,14 +169,14 @@ export default function StudentDashboard({
   const { data: contentsData, isLoading } = useSWR(
     ['contents', ageRange],
     ([, ar]) => api.getContents({ ageRange: ar }),
-    { fallbackData: [] as Content[] }
+    { fallbackData: [] as Content[] },
   );
   const contents = contentsData || [];
 
   const { data: recommendationsData, isLoading: isLoadingRecs } = useSWR(
     user?.id ? ['recommendations', user.id, ageRange] : null,
     ([, userId, ar]) => api.getRecommendations({ userId, ageRange: ar }),
-    { fallbackData: [] as Recommendation[] }
+    { fallbackData: [] as Recommendation[] },
   );
   const recommendations = recommendationsData || [];
 
@@ -193,19 +199,34 @@ export default function StudentDashboard({
     // Resolve the child ID: child users load their own, parent users need to pick a child
     const targetChildId = user.type === 'child' ? user.id : undefined;
     if (targetChildId == null) return;
-    api.getChildAssignments(targetChildId).then((assignments) => {
-      console.log('[StudentDashboard] Loaded assignments:', assignments.length, 'pending:', assignments.filter((a) => a.status === 'pending').length, 'userId:', user.id, 'userType:', user.type);
-      setPendingAssignments(assignments.filter((a) => a.status === 'pending'));
-    }).catch((err) => {
-      console.error('[StudentDashboard] Failed to load assignments:', err);
-    });
+    api
+      .getChildAssignments(targetChildId)
+      .then((assignments) => {
+        console.log(
+          '[StudentDashboard] Loaded assignments:',
+          assignments.length,
+          'pending:',
+          assignments.filter((a) => a.status === 'pending').length,
+          'userId:',
+          user.id,
+          'userType:',
+          user.type,
+        );
+        setPendingAssignments(assignments.filter((a) => a.status === 'pending'));
+      })
+      .catch((err) => {
+        console.error('[StudentDashboard] Failed to load assignments:', err);
+      });
   }, [user?.id, user?.type]);
 
   const refreshAchievements = useCallback(() => {
     if (!user?.id) return;
-    api.getAchievementDisplays(user.id).then((data) => {
-      setAchievements(data);
-    }).catch(() => {});
+    api
+      .getAchievementDisplays(user.id)
+      .then((data) => {
+        setAchievements(data);
+      })
+      .catch(() => {});
   }, [user?.id]);
 
   useEffect(() => {
@@ -220,17 +241,23 @@ export default function StudentDashboard({
 
   useEffect(() => {
     if (!user?.id) return;
-    api.getReport({ userId: user.id, period: 'weekly' }).then((report: GrowthReport) => {
-      if (report.skillProgress) setRadarData(report.skillProgress);
-    }).catch(() => {});
+    api
+      .getReport({ userId: user.id, period: 'weekly' })
+      .then((report: GrowthReport) => {
+        if (report.skillProgress) setRadarData(report.skillProgress);
+      })
+      .catch(() => {});
   }, [user?.id]);
 
   const safeContents = useMemo(() => (Array.isArray(contents) ? contents : []), [contents]);
 
-  const curriculumData = useMemo(() => ({
-    '3-4': safeContents.filter((c) => c.ageRange === '3-4').map(toCurriculumItem),
-    '5-6': safeContents.filter((c) => c.ageRange === '5-6').map(toCurriculumItem),
-  }), [safeContents]);
+  const curriculumData = useMemo(
+    () => ({
+      '3-4': safeContents.filter((c) => c.ageRange === '3-4').map(toCurriculumItem),
+      '5-6': safeContents.filter((c) => c.ageRange === '5-6').map(toCurriculumItem),
+    }),
+    [safeContents],
+  );
 
   const contentById = useMemo(() => {
     const map = new Map<number, Content>();
@@ -238,11 +265,14 @@ export default function StudentDashboard({
     return map;
   }, [safeContents]);
 
-  const isStructuredLessonAssignment = useCallback((assignment: Assignment) => {
-    if (!assignment.contentId) return false;
-    const linkedContent = contentById.get(assignment.contentId);
-    return !linkedContent || linkedContent.contentType === 'structured_lesson';
-  }, [contentById]);
+  const isStructuredLessonAssignment = useCallback(
+    (assignment: Assignment) => {
+      if (!assignment.contentId) return false;
+      const linkedContent = contentById.get(assignment.contentId);
+      return !linkedContent || linkedContent.contentType === 'structured_lesson';
+    },
+    [contentById],
+  );
 
   const lessonTodoEntries = useMemo(() => {
     const seen = new Set<number>();
@@ -254,12 +284,11 @@ export default function StudentDashboard({
 
       const linkedContent = contentById.get(assignment.contentId);
       const topic =
-        (typeof assignment.activityData?.topic === 'string' && assignment.activityData.topic.trim()) ||
+        (typeof assignment.activityData?.topic === 'string' &&
+          assignment.activityData.topic.trim()) ||
         (typeof linkedContent?.topic === 'string' && linkedContent.topic.trim()) ||
         undefined;
-      const title =
-        linkedContent?.title ||
-        (topic ? `${topic} 六步课程` : '六步学习课程');
+      const title = linkedContent?.title || (topic ? `${topic} 六步课程` : '六步学习课程');
 
       seen.add(assignment.contentId);
       list.push({
@@ -279,11 +308,22 @@ export default function StudentDashboard({
 
   // Debug: log rendering state
   useEffect(() => {
-    console.log('[StudentDashboard] pendingAssignments:', pendingAssignments.length,
-      'lessonTodoEntries:', lessonTodoEntries.length,
-      'standaloneAssignments:', standaloneAssignments.length,
-      'standaloneIds:', standaloneAssignments.map(a => a.id));
-  }, [pendingAssignments.length, lessonTodoEntries.length, standaloneAssignments.length, standaloneAssignments]);
+    console.log(
+      '[StudentDashboard] pendingAssignments:',
+      pendingAssignments.length,
+      'lessonTodoEntries:',
+      lessonTodoEntries.length,
+      'standaloneAssignments:',
+      standaloneAssignments.length,
+      'standaloneIds:',
+      standaloneAssignments.map((a) => a.id),
+    );
+  }, [
+    pendingAssignments.length,
+    lessonTodoEntries.length,
+    standaloneAssignments.length,
+    standaloneAssignments,
+  ]);
 
   const domainContentId = useMemo(() => {
     const next: Partial<Record<DomainKey, number>> = {};
@@ -320,36 +360,60 @@ export default function StudentDashboard({
     };
   }, [contentById, lessonTodoEntries, pendingAssignments.length, safeContents]);
 
-  const quickStats = useMemo(() => ([
-    { label: '待完成', value: pendingAssignments.length, icon: ClipboardCheck, tone: 'bg-error-container/20 text-error' },
-    { label: '推荐内容', value: recommendations.length, icon: Wand2, tone: 'bg-secondary-container/40 text-on-secondary-container' },
-    { label: '已解锁成就', value: achievements.length, icon: Trophy, tone: 'bg-tertiary-container/35 text-on-tertiary-container' },
-  ]), [pendingAssignments.length, recommendations.length, achievements.length]);
+  const quickStats = useMemo(
+    () => [
+      {
+        label: '待完成',
+        value: pendingAssignments.length,
+        icon: ClipboardCheck,
+        tone: 'bg-error-container/20 text-error',
+      },
+      {
+        label: '推荐内容',
+        value: recommendations.length,
+        icon: Wand2,
+        tone: 'bg-secondary-container/40 text-on-secondary-container',
+      },
+      {
+        label: '已解锁成就',
+        value: achievements.length,
+        icon: Trophy,
+        tone: 'bg-tertiary-container/35 text-on-tertiary-container',
+      },
+    ],
+    [pendingAssignments.length, recommendations.length, achievements.length],
+  );
 
-  const handlePlayContent = useCallback(async (contentId: number) => {
-    if (!user?.id) {
-      setLearningError('请先登录');
-      return;
-    }
-    try {
-      setLearningError(null);
-      await api.startLearning({ childId: user.id, contentId });
-      onOpenContent(contentId);
-    } catch (err) {
-      console.error('Failed to start learning:', err);
-      onOpenContent(contentId);
-    }
-  }, [user?.id, onOpenContent]);
+  const handlePlayContent = useCallback(
+    async (contentId: number) => {
+      if (!user?.id) {
+        setLearningError('请先登录');
+        return;
+      }
+      try {
+        setLearningError(null);
+        await api.startLearning({ childId: user.id, contentId });
+        onOpenContent(contentId);
+      } catch (err) {
+        console.error('Failed to start learning:', err);
+        onOpenContent(contentId);
+      }
+    },
+    [user?.id, onOpenContent],
+  );
 
-  const scrollRecommendations = useCallback((left: number) => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    container.scrollBy({ left, behavior: 'smooth' });
-    // Update active index based on scroll direction
-    const cardWidth = 272; // w-64 (256px) + gap-4 (16px)
-    const newIndex = Math.round((container.scrollLeft + left) / cardWidth);
-    setActiveRecIndex(Math.max(0, Math.min(newIndex, recommendations.length - 1)));
-  }, [recommendations.length]);
+  const scrollRecommendations = useCallback(
+    (left: number) => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      container.scrollBy({ left, behavior: 'smooth' });
+      // Update active index based on scroll direction
+      const cardWidth = 272; // w-64 (256px) + gap-4 (16px)
+      const newIndex = Math.round((container.scrollLeft + left) / cardWidth);
+      setActiveRecIndex(Math.max(0, Math.min(newIndex, recommendations.length - 1)));
+    },
+    [recommendations.length],
+  );
 
   const handleRecScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -388,14 +452,21 @@ export default function StudentDashboard({
             <div className="h-10 w-10 overflow-hidden rounded-2xl border border-primary-container/60 bg-surface-container-lowest">
               <img
                 className="h-full w-full object-cover"
-                src={user?.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCH84Uq0GW6Qmul4GmAsWrEgJqdNE5jjMcIbBe7kwfQ2hYAHKPmiFWbl3aNTwuFyiGlShFEi5MFOD1p0-oX98nOamNY7ksdaX71sx7TFqaAdXNQ38NvDGjE3Fkb-0oVPa-H513VLwzALu0Q1nm7nvM7epfqKThrc0fEvaiADvzEG7MpR2CqK8fUkFBEWXLoU1gIe68QgYeIqK_W2C2HmCcVRvtl7lBc_oRFXgONUbLf0QhmZreiC5aQ8Ow2zjaOwudcC6RVVyls1Kg'}
+                src={
+                  user?.avatar ||
+                  'https://lh3.googleusercontent.com/aida-public/AB6AXuCH84Uq0GW6Qmul4GmAsWrEgJqdNE5jjMcIbBe7kwfQ2hYAHKPmiFWbl3aNTwuFyiGlShFEi5MFOD1p0-oX98nOamNY7ksdaX71sx7TFqaAdXNQ38NvDGjE3Fkb-0oVPa-H513VLwzALu0Q1nm7nvM7epfqKThrc0fEvaiADvzEG7MpR2CqK8fUkFBEWXLoU1gIe68QgYeIqK_W2C2HmCcVRvtl7lBc_oRFXgONUbLf0QhmZreiC5aQ8Ow2zjaOwudcC6RVVyls1Kg'
+                }
                 referrerPolicy="no-referrer"
               />
             </div>
             <h1 className="text-lg font-black tracking-tight md:text-xl">灵犀伴学</h1>
           </div>
 
-          <button onClick={onOpenSettings} aria-label="打开设置" className="touch-target rounded-xl p-2 transition-colors hover:bg-surface-container">
+          <button
+            onClick={onOpenSettings}
+            aria-label="打开设置"
+            className="touch-target rounded-xl p-2 transition-colors hover:bg-surface-container"
+          >
             <Settings className="h-5 w-5 text-on-secondary-container" />
           </button>
         </div>
@@ -407,7 +478,9 @@ export default function StudentDashboard({
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="space-y-3">
               <p className="text-lg font-bold text-on-surface-variant">早上好，{userName}</p>
-              <h2 className="text-3xl font-black leading-tight text-primary md:text-4xl">今天也来一次有趣的学习冒险吧</h2>
+              <h2 className="text-3xl font-black leading-tight text-primary md:text-4xl">
+                今天也来一次有趣的学习冒险吧
+              </h2>
               <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container px-4 py-2 text-sm font-black text-on-tertiary-container">
                 <Star className="h-4 w-4 fill-current" />
                 当前状态: 准备就绪
@@ -426,7 +499,9 @@ export default function StudentDashboard({
         <section className="content-visibility-auto mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {quickStats.map((item) => (
             <div key={item.label} className="panel-card flex items-center gap-3 px-4 py-3">
-              <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', item.tone)}>
+              <div
+                className={cn('flex h-10 w-10 items-center justify-center rounded-xl', item.tone)}
+              >
                 <item.icon className="h-5 w-5" />
               </div>
               <div>
@@ -445,12 +520,17 @@ export default function StudentDashboard({
             </h3>
             <div className="space-y-3">
               {standaloneAssignments.map((assignment) => {
-                const normalizedType = normalizeActivityType(assignment.activityType, assignment.activityData);
+                const normalizedType = normalizeActivityType(
+                  assignment.activityType,
+                  assignment.activityData,
+                );
                 const normalizedData = normalizeActivityData(
                   normalizedType,
                   assignment.activityData ?? { type: normalizedType, title: '练习' },
                 );
-                const linkedContent = assignment.contentId ? contentById.get(assignment.contentId) : undefined;
+                const linkedContent = assignment.contentId
+                  ? contentById.get(assignment.contentId)
+                  : undefined;
                 const title =
                   (typeof normalizedData.title === 'string' && normalizedData.title.trim()) ||
                   (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
@@ -464,11 +544,13 @@ export default function StudentDashboard({
                 return (
                   <button
                     key={assignment.id}
-                    onClick={() => onOpenAssignment?.({
-                      ...assignment,
-                      activityType: normalizedType,
-                      activityData: normalizedData,
-                    })}
+                    onClick={() =>
+                      onOpenAssignment?.({
+                        ...assignment,
+                        activityType: normalizedType,
+                        activityData: normalizedData,
+                      })
+                    }
                     className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
                   >
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-tertiary-container">
@@ -478,7 +560,9 @@ export default function StudentDashboard({
                       <h4 className="truncate text-sm font-bold text-on-surface">{title}</h4>
                       <p className="text-xs text-on-surface-variant">
                         {topic ? `${topic} · ` : ''}
-                        {ACTIVITY_LABELS[normalizedType] || normalizedType} · 难度 {assignment.difficulty} · {assignment.domain || linkedContent?.domain || '综合'}
+                        {ACTIVITY_LABELS[normalizedType] || normalizedType} · 难度{' '}
+                        {assignment.difficulty} ·{' '}
+                        {assignment.domain || linkedContent?.domain || '综合'}
                       </p>
                     </div>
                     <Play className="h-5 w-5 flex-shrink-0 text-primary" />
@@ -496,7 +580,9 @@ export default function StudentDashboard({
                     <BookOpen className="h-6 w-6 text-on-primary-container" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-bold text-on-surface">{lessonEntry.title}</h4>
+                    <h4 className="truncate text-sm font-bold text-on-surface">
+                      {lessonEntry.title}
+                    </h4>
                     <p className="text-xs text-on-surface-variant">
                       看 · 听 · 读 · 写 · 练 · 评
                       {lessonEntry.topic ? ` · ${lessonEntry.topic}` : ''}
@@ -518,7 +604,10 @@ export default function StudentDashboard({
             <div className="relative h-48">
               <img
                 className="h-full w-full object-cover"
-                src={dailyMission.thumbnail || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCIdmL6u7oUYyGelx43ITfb4-YfM0Sdvwf_h7l3Rq9N230FUNbfD3lJ9pk4RekEIHhFhMpsFlLxuoNSbYm2sXAT4OcGyvaKw8XtlAXrBRkbu2ekvYiNZIBb9Waoa2xSpR4jv3Rr6Z7bMgio4wExvRDLzTeaHKj2p7s4MtsfoIw4emdVsgRAFCY5Za1mtiLU12vnJZZrJH2mH8-QVx2AbR8x1zgudJNoFuu678YkirEW4mTQHKfhipQXH8sU3aUugDCKD4MnvOcboG4'}
+                src={
+                  dailyMission.thumbnail ||
+                  'https://lh3.googleusercontent.com/aida-public/AB6AXuCIdmL6u7oUYyGelx43ITfb4-YfM0Sdvwf_h7l3Rq9N230FUNbfD3lJ9pk4RekEIHhFhMpsFlLxuoNSbYm2sXAT4OcGyvaKw8XtlAXrBRkbu2ekvYiNZIBb9Waoa2xSpR4jv3Rr6Z7bMgio4wExvRDLzTeaHKj2p7s4MtsfoIw4emdVsgRAFCY5Za1mtiLU12vnJZZrJH2mH8-QVx2AbR8x1zgudJNoFuu678YkirEW4mTQHKfhipQXH8sU3aUugDCKD4MnvOcboG4'
+                }
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -534,7 +623,10 @@ export default function StudentDashboard({
                 <span className="text-base text-primary">{dailyMission.progress}%</span>
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-surface-container p-0.5">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${dailyMission.progress}%` }} />
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${dailyMission.progress}%` }}
+                />
               </div>
               <button
                 onClick={() => {
@@ -553,13 +645,39 @@ export default function StudentDashboard({
 
         <section className="content-visibility-auto mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: '课程地图', icon: BookOpen, onClick: () => scrollToSection('curriculum'), style: 'bg-secondary-container text-on-secondary-container' },
-            { label: '推荐内容', icon: Wand2, onClick: () => scrollToSection('recommendations'), style: 'bg-primary-container text-on-primary-container' },
-            { label: '我的成就', icon: Trophy, onClick: onOpenAchievements, style: 'bg-tertiary-container text-on-tertiary-container' },
-            { label: '学习伙伴', icon: Sparkles, onClick: onOpenCompanion, style: 'bg-surface-container-highest text-on-surface' },
+            {
+              label: '课程地图',
+              icon: BookOpen,
+              onClick: () => scrollToSection('curriculum'),
+              style: 'bg-secondary-container text-on-secondary-container',
+            },
+            {
+              label: '推荐内容',
+              icon: Wand2,
+              onClick: () => scrollToSection('recommendations'),
+              style: 'bg-primary-container text-on-primary-container',
+            },
+            {
+              label: '我的成就',
+              icon: Trophy,
+              onClick: onOpenAchievements,
+              style: 'bg-tertiary-container text-on-tertiary-container',
+            },
+            {
+              label: '学习伙伴',
+              icon: Sparkles,
+              onClick: onOpenCompanion,
+              style: 'bg-surface-container-highest text-on-surface',
+            },
           ].map((item) => (
-            <button key={item.label} onClick={item.onClick} className="panel-card flex flex-col items-center gap-2 p-4 tactile-press">
-              <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', item.style)}>
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className="panel-card flex flex-col items-center gap-2 p-4 tactile-press"
+            >
+              <div
+                className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', item.style)}
+              >
                 <item.icon className="h-6 w-6" />
               </div>
               <span className="text-sm font-bold text-on-surface">{item.label}</span>
@@ -583,18 +701,30 @@ export default function StudentDashboard({
                   <motion.div
                     key={ach.id}
                     layout
-                    {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10, scale: 0.96 }, exit: { opacity: 0, y: -10, scale: 0.96 } })}
+                    {...(reducedMotion
+                      ? {}
+                      : {
+                          initial: { opacity: 0, y: 10, scale: 0.96 },
+                          exit: { opacity: 0, y: -10, scale: 0.96 },
+                        })}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={reducedMotion ? { duration: 0 } : { delay: idx * 0.04, duration: 0.28 }}
+                    transition={
+                      reducedMotion ? { duration: 0 } : { delay: idx * 0.04, duration: 0.28 }
+                    }
                     className="panel-card flex items-center gap-4 p-4"
                   >
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-container text-2xl">
                       {ACHIEVEMENT_ICONS[ach.achievementType] || ach.icon || '\u{1F3C6}'}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-bold text-on-surface">{ach.achievementName}</h4>
+                      <h4 className="truncate text-sm font-bold text-on-surface">
+                        {ach.achievementName}
+                      </h4>
                       <p className="mt-0.5 text-xs text-on-surface-variant">
-                        {new Date(ach.earnedAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                        {new Date(ach.earnedAt).toLocaleDateString('zh-CN', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </p>
                     </div>
                     <Star className="h-5 w-5 flex-shrink-0 fill-primary text-primary" />
@@ -607,9 +737,13 @@ export default function StudentDashboard({
                   className="flex w-full items-center justify-center gap-1 rounded-xl py-3 text-sm font-bold text-primary transition-colors hover:bg-primary-container/20"
                 >
                   {showAllAchievements ? (
-                    <>收起 <ChevronUp className="h-4 w-4" /></>
+                    <>
+                      收起 <ChevronUp className="h-4 w-4" />
+                    </>
                   ) : (
-                    <>查看全部 ({achievements.length}) <ChevronDown className="h-4 w-4" /></>
+                    <>
+                      查看全部 ({achievements.length}) <ChevronDown className="h-4 w-4" />
+                    </>
                   )}
                 </button>
               ) : null}
@@ -629,7 +763,9 @@ export default function StudentDashboard({
                 const cy = 130;
                 const maxR = 100;
                 const levels = [0.2, 0.4, 0.6, 0.8, 1];
-                const angles = DOMAIN_ORDER.map((_, i) => (Math.PI * 2 * i) / DOMAIN_ORDER.length - Math.PI / 2);
+                const angles = DOMAIN_ORDER.map(
+                  (_, i) => (Math.PI * 2 * i) / DOMAIN_ORDER.length - Math.PI / 2,
+                );
 
                 const getPoint = (idx: number, ratio: number) => ({
                   x: cx + maxR * ratio * Math.cos(angles[idx]),
@@ -648,12 +784,28 @@ export default function StudentDashboard({
                 return (
                   <>
                     {levels.map((level, index) => (
-                      <polygon key={index} points={ringPoints(level)} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1" />
+                      <polygon
+                        key={index}
+                        points={ringPoints(level)}
+                        fill="none"
+                        stroke="rgba(0,0,0,0.08)"
+                        strokeWidth="1"
+                      />
                     ))}
 
                     {DOMAIN_ORDER.map((_, i) => {
                       const p = getPoint(i, 1);
-                      return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(0,0,0,0.06)" strokeWidth="1" />;
+                      return (
+                        <line
+                          key={i}
+                          x1={cx}
+                          y1={cy}
+                          x2={p.x}
+                          y2={p.y}
+                          stroke="rgba(0,0,0,0.06)"
+                          strokeWidth="1"
+                        />
+                      );
                     })}
 
                     <polygon
@@ -670,14 +822,25 @@ export default function StudentDashboard({
 
                       return (
                         <g key={key}>
-                          <circle cx={point.x} cy={point.y} r="4" fill={DOMAIN_META[key].radarColor} stroke="white" strokeWidth="2" />
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r="4"
+                            fill={DOMAIN_META[key].radarColor}
+                            stroke="white"
+                            strokeWidth="2"
+                          />
                           <text
                             x={labelPoint.x}
                             y={labelPoint.y}
                             textAnchor="middle"
                             dominantBaseline="middle"
                             className="cursor-pointer text-[11px] font-bold"
-                            fill={isSelected ? DOMAIN_META[key].radarColor : 'var(--color-on-surface-variant)'}
+                            fill={
+                              isSelected
+                                ? DOMAIN_META[key].radarColor
+                                : 'var(--color-on-surface-variant)'
+                            }
                             onClick={() => setSelectedDomain((prev) => (prev === key ? null : key))}
                           >
                             {DOMAIN_META[key].label}
@@ -701,7 +864,11 @@ export default function StudentDashboard({
                       ? 'text-white shadow-sm'
                       : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high',
                   )}
-                  style={selectedDomain === key ? { backgroundColor: DOMAIN_META[key].radarColor } : undefined}
+                  style={
+                    selectedDomain === key
+                      ? { backgroundColor: DOMAIN_META[key].radarColor }
+                      : undefined
+                  }
                 >
                   {DOMAIN_META[key].label} {radarData[key] ? Math.round(radarData[key]) : 0}
                 </button>
@@ -744,44 +911,57 @@ export default function StudentDashboard({
               </button>
 
               <AnimatePresence>
-              <div
-                ref={scrollContainerRef}
-                onScroll={handleRecScroll}
-                className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {recommendations.map((rec, idx) => {
-                  const meta = DOMAIN_META[rec.content.domain];
-                  return (
-                    <motion.div
-                      key={rec.contentId}
-                      {...(reducedMotion ? {} : { initial: { opacity: 0, y: 16 }, exit: { opacity: 0, scale: 0.95 } })}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={reducedMotion ? { duration: 0 } : { delay: idx * 0.05, duration: 0.25 }}
-                      className="w-64 flex-shrink-0 snap-start"
-                    >
-                      <div className="panel-card flex h-full flex-col p-5">
-                        <div className="mb-3 flex items-start gap-3">
-                          <div className={cn('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl', meta.color)}>
-                            <meta.icon className={cn('h-5 w-5', meta.iconColor)} />
+                <div
+                  ref={scrollContainerRef}
+                  onScroll={handleRecScroll}
+                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {recommendations.map((rec, idx) => {
+                    const meta = DOMAIN_META[rec.content.domain];
+                    return (
+                      <motion.div
+                        key={rec.contentId}
+                        {...(reducedMotion
+                          ? {}
+                          : { initial: { opacity: 0, y: 16 }, exit: { opacity: 0, scale: 0.95 } })}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={
+                          reducedMotion ? { duration: 0 } : { delay: idx * 0.05, duration: 0.25 }
+                        }
+                        className="w-64 flex-shrink-0 snap-start"
+                      >
+                        <div className="panel-card flex h-full flex-col p-5">
+                          <div className="mb-3 flex items-start gap-3">
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl',
+                                meta.color,
+                              )}
+                            >
+                              <meta.icon className={cn('h-5 w-5', meta.iconColor)} />
+                            </div>
+                            <h4 className="line-clamp-2 text-sm font-bold leading-tight text-on-surface">
+                              {rec.content.title}
+                            </h4>
                           </div>
-                          <h4 className="line-clamp-2 text-sm font-bold leading-tight text-on-surface">{rec.content.title}</h4>
+
+                          <p className="mb-4 line-clamp-2 flex-1 text-xs leading-relaxed text-on-surface-variant">
+                            {rec.reason}
+                          </p>
+
+                          <button
+                            onClick={() => handlePlayContent(rec.contentId)}
+                            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-bold text-on-primary transition-colors hover:brightness-95"
+                          >
+                            <Play className="h-4 w-4 fill-current" />
+                            开始学习
+                          </button>
                         </div>
-
-                        <p className="mb-4 line-clamp-2 flex-1 text-xs leading-relaxed text-on-surface-variant">{rec.reason}</p>
-
-                        <button
-                          onClick={() => handlePlayContent(rec.contentId)}
-                          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 text-sm font-bold text-on-primary transition-colors hover:brightness-95"
-                        >
-                          <Play className="h-4 w-4 fill-current" />
-                          开始学习
-                        </button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </AnimatePresence>
 
               <button
@@ -838,7 +1018,12 @@ export default function StudentDashboard({
                 <div key={`${item.domain}-${idx}`} className="panel-card p-5 md:p-6">
                   <div className="mb-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5">
-                      <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', item.color)}>
+                      <div
+                        className={cn(
+                          'flex h-12 w-12 items-center justify-center rounded-2xl',
+                          item.color,
+                        )}
+                      >
                         <item.icon className={cn('h-6 w-6', item.iconColor)} />
                       </div>
                       <div>
@@ -881,7 +1066,9 @@ export default function StudentDashboard({
                         </span>
                       ))
                     ) : (
-                      <span className="text-sm text-on-surface-variant">该领域内容正在持续更新</span>
+                      <span className="text-sm text-on-surface-variant">
+                        该领域内容正在持续更新
+                      </span>
                     )}
                   </div>
                 </div>
@@ -893,15 +1080,24 @@ export default function StudentDashboard({
 
       <nav className="fixed bottom-safe left-0 right-0 z-50 px-3 md:px-6">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low/90 px-4 py-2.5 backdrop-blur-lg">
-          <button onClick={() => scrollToSection('curriculum')} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
+          <button
+            onClick={() => scrollToSection('curriculum')}
+            className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary"
+          >
             <BookOpen className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">课程</span>
           </button>
-          <button onClick={onOpenCompanion} className="touch-target flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner">
+          <button
+            onClick={onOpenCompanion}
+            className="touch-target flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner"
+          >
             <Sparkles className="h-7 w-7" />
             <span className="mt-0.5 text-[10px] font-black">AI伙伴</span>
           </button>
-          <button onClick={onOpenSettings} className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary">
+          <button
+            onClick={onOpenSettings}
+            className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary"
+          >
             <Settings className="h-6 w-6" />
             <span className="mt-1 text-xs font-bold">设置</span>
           </button>

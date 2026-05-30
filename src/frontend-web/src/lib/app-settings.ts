@@ -69,10 +69,7 @@ export function getUserAppUISettings(userSettings?: Record<string, unknown>): Ap
   const nested = settings.uiSettings;
   if (nested && typeof nested === 'object') return normalizeAppUISettings(nested);
 
-  const hasTopLevel =
-    'volume' in settings ||
-    'fontSize' in settings ||
-    'darkMode' in settings;
+  const hasTopLevel = 'volume' in settings || 'fontSize' in settings || 'darkMode' in settings;
   if (hasTopLevel) return normalizeAppUISettings(settings);
 
   return DEFAULT_APP_UI_SETTINGS;
@@ -102,7 +99,9 @@ export function normalizeChatAvatarSettings(value: unknown): ChatAvatarSettings 
   return { userAvatar, aiAvatar };
 }
 
-export function resolveChatAvatarSettings(userSettings?: Record<string, unknown>): ChatAvatarSettings {
+export function resolveChatAvatarSettings(
+  userSettings?: Record<string, unknown>,
+): ChatAvatarSettings {
   const settings = toRecord(userSettings);
   const nested = settings.chatAvatars;
   if (nested && typeof nested === 'object') return normalizeChatAvatarSettings(nested);
@@ -142,6 +141,8 @@ export function mergeUserSettings(
   return {
     ...toRecord(current),
     ...(payload.uiSettings ? { uiSettings: normalizeAppUISettings(payload.uiSettings) } : {}),
-    ...(payload.chatAvatars ? { chatAvatars: normalizeChatAvatarSettings(payload.chatAvatars) } : {}),
+    ...(payload.chatAvatars
+      ? { chatAvatars: normalizeChatAvatarSettings(payload.chatAvatars) }
+      : {}),
   };
 }

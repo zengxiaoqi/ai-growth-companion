@@ -1,6 +1,14 @@
 import type { ActivityData, ActivityType } from '@/types';
 
-const ACTIVITY_TYPES: ActivityType[] = ['quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'];
+const ACTIVITY_TYPES: ActivityType[] = [
+  'quiz',
+  'true_false',
+  'fill_blank',
+  'matching',
+  'connection',
+  'sequencing',
+  'puzzle',
+];
 
 function toSafeInt(value: any, fallback: number): number {
   const n = Number(value);
@@ -20,20 +28,27 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   if (Array.isArray(rawData?.statements)) return 'true_false';
   if (Array.isArray(rawData?.sentences)) return 'fill_blank';
   if (Array.isArray(rawData?.pairs)) return 'matching';
-  if (Array.isArray(rawData?.connections) || (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))) return 'connection';
+  if (
+    Array.isArray(rawData?.connections) ||
+    (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))
+  )
+    return 'connection';
   if (Array.isArray(rawData?.items)) return 'sequencing';
   if (Array.isArray(rawData?.pieces)) return 'puzzle';
 
   return 'quiz';
 }
 
-export function normalizeActivityData(activityType: ActivityType | string | undefined, rawData: any): ActivityData {
+export function normalizeActivityData(
+  activityType: ActivityType | string | undefined,
+  rawData: any,
+): ActivityData {
   const resolvedType = normalizeActivityType(activityType, rawData);
 
   const base: ActivityData = {
     ...(rawData && typeof rawData === 'object' ? rawData : {}),
     type: resolvedType,
-    title: typeof rawData?.title === 'string' ? rawData.title : '»¥¶¯Á·Ï°',
+    title: typeof rawData?.title === 'string' ? rawData.title : 'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï°',
   };
 
   if (resolvedType === 'quiz') {

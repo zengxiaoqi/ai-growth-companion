@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react';
-import {
-  BookOpen,
-  CheckCircle2,
-  Eye,
-  Loader2,
-  Save,
-  ShieldCheck,
-  Timer,
-} from '@/icons';
+import { BookOpen, CheckCircle2, Eye, Loader2, Save, ShieldCheck, Timer } from '@/icons';
 import { cn } from '../../lib/utils';
 import { ALL_DOMAINS, DOMAIN_CONFIG } from './constants';
 import type { ParentControl } from '@/types';
@@ -190,7 +182,9 @@ export default function ParentalControls({
           </div>
           <div>
             <h3 className="text-lg font-black text-on-surface">允许学习领域</h3>
-            <p className="text-sm text-on-surface-variant">可以开启多个领域，关闭后该领域内容会被限制访问</p>
+            <p className="text-sm text-on-surface-variant">
+              可以开启多个领域，关闭后该领域内容会被限制访问
+            </p>
           </div>
         </div>
 
@@ -228,7 +222,9 @@ export default function ParentalControls({
             <div>
               <h3 className="text-lg font-black text-on-surface">护眼模式</h3>
               <p className="text-sm text-on-surface-variant">
-                {controls?.restReminderMinutes ? `${controls.restReminderMinutes} 分钟提醒休息` : '默认每 20 分钟提醒休息'}
+                {controls?.restReminderMinutes
+                  ? `${controls.restReminderMinutes} 分钟提醒休息`
+                  : '默认每 20 分钟提醒休息'}
               </p>
             </div>
           </div>
@@ -255,7 +251,10 @@ export default function ParentalControls({
 
         <div className="space-y-2">
           {Object.entries(studySchedule).map(([day, schedule]) => (
-            <div key={day} className="rounded-xl border border-outline-variant/15 bg-surface px-3 py-2.5">
+            <div
+              key={day}
+              className="rounded-xl border border-outline-variant/15 bg-surface px-3 py-2.5"
+            >
               <div className="flex items-center gap-3">
                 <Switch
                   checked={schedule.enabled}
@@ -268,7 +267,12 @@ export default function ParentalControls({
                   ariaLabel={`${day} 学习开关`}
                 />
 
-                <span className={cn('w-12 text-sm font-bold', schedule.enabled ? 'text-on-surface' : 'text-on-surface-variant')}>
+                <span
+                  className={cn(
+                    'w-12 text-sm font-bold',
+                    schedule.enabled ? 'text-on-surface' : 'text-on-surface-variant',
+                  )}
+                >
                   {day}
                 </span>
 
@@ -301,7 +305,9 @@ export default function ParentalControls({
                     />
                   </div>
                 ) : (
-                  <span className="ml-auto text-xs font-semibold text-on-surface-variant">休息日</span>
+                  <span className="ml-auto text-xs font-semibold text-on-surface-variant">
+                    休息日
+                  </span>
                 )}
               </div>
             </div>
@@ -311,7 +317,13 @@ export default function ParentalControls({
 
       {saveError ? <p className="text-sm font-semibold text-error">{saveError}</p> : null}
 
-      <Button size="lg" className="w-full" onClick={handleSave} disabled={isSaving} variant={saveSuccess ? 'secondary' : 'primary'}>
+      <Button
+        size="lg"
+        className="w-full"
+        onClick={handleSave}
+        disabled={isSaving}
+        variant={saveSuccess ? 'secondary' : 'primary'}
+      >
         {isSaving ? (
           <>
             <Loader2 className="h-5 w-5 animate-spin" />

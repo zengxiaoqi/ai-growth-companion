@@ -93,7 +93,7 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
     drawWater();
 
     // Evaporation phase
-    if (cycleT < 0.30) {
+    if (cycleT < 0.3) {
       spawnVapour(dt);
     }
     updateVapour(dt);
@@ -110,7 +110,7 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
     drawRain();
 
     // Collection splashes at water surface
-    if (cycleT > 0.60) {
+    if (cycleT > 0.6) {
       drawSplashes();
     }
 
@@ -241,8 +241,8 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
     }
 
     // Darken cloud when about to rain
-    if (cycleT > 0.40 && cycleT < 0.75) {
-      const dark = p.map(cycleT, 0.40, 0.55, 0, 1);
+    if (cycleT > 0.4 && cycleT < 0.75) {
+      const dark = p.map(cycleT, 0.4, 0.55, 0, 1);
       for (const puff of puffs) {
         const r = puff.r * cloudSize;
         p.fill(160, 170, 180, dark * 120);
@@ -282,7 +282,7 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
   }
 
   function drawSplashes() {
-    const splashAlpha = p.map(cycleT, 0.60, 0.80, 0, 200);
+    const splashAlpha = p.map(cycleT, 0.6, 0.8, 0, 200);
     if (splashAlpha <= 0) return;
 
     p.noFill();
@@ -302,11 +302,11 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
     p.textSize(13);
     p.textStyle(p.BOLD);
 
-    if (cycleT < 0.30) {
+    if (cycleT < 0.3) {
       p.text('蒸发', p.width * 0.35, waterY - 35);
       // Arrow pointing up
       drawArrow(p.width * 0.35, waterY - 20, p.width * 0.35, waterY - 55, 50);
-    } else if (cycleT < 0.50) {
+    } else if (cycleT < 0.5) {
       p.text('凝结', cloudX, cloudBaseY - 45);
     } else if (cycleT < 0.75) {
       p.text('降水', cloudX + 70, cloudBaseY + 60);
@@ -327,18 +327,8 @@ registerP5Sketch('science.water-cycle', (p: p5, params: Record<string, unknown>)
     p.line(x1, y1, x2, y2);
     const angle = p.atan2(y2 - y1, x2 - x1);
     const headLen = 8;
-    p.line(
-      x2,
-      y2,
-      x2 - headLen * p.cos(angle - p.PI / 6),
-      y2 - headLen * p.sin(angle - p.PI / 6),
-    );
-    p.line(
-      x2,
-      y2,
-      x2 - headLen * p.cos(angle + p.PI / 6),
-      y2 - headLen * p.sin(angle + p.PI / 6),
-    );
+    p.line(x2, y2, x2 - headLen * p.cos(angle - p.PI / 6), y2 - headLen * p.sin(angle - p.PI / 6));
+    p.line(x2, y2, x2 - headLen * p.cos(angle + p.PI / 6), y2 - headLen * p.sin(angle + p.PI / 6));
     p.noStroke();
   }
 });

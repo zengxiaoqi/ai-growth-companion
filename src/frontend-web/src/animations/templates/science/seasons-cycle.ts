@@ -120,7 +120,7 @@ registerP5Sketch(TEMPLATE_ID, (p: p5, rawParams: Record<string, unknown>) => {
   p.draw = () => {
     const seasonIndex = resolveSeasonIndex(p.frameCount, focusSeason);
     const nextSeason = (seasonIndex + 1) % 4;
-    const transition = focusSeason >= 0 ? 0 : ((p.frameCount / 180) % 1);
+    const transition = focusSeason >= 0 ? 0 : (p.frameCount / 180) % 1;
     const current = SEASON_PALETTES[seasonIndex];
     const upcoming = SEASON_PALETTES[nextSeason];
 
@@ -250,7 +250,7 @@ registerP5Sketch(TEMPLATE_ID, (p: p5, rawParams: Record<string, unknown>) => {
   function drawPetals() {
     p.noStroke();
     for (let i = 0; i < 12; i++) {
-      const x = ((i * 67) + p.frameCount * 1.2) % (canvasW + 30) - 15;
+      const x = ((i * 67 + p.frameCount * 1.2) % (canvasW + 30)) - 15;
       const y = 120 + ((i * 37) % 170) + p.sin((p.frameCount + i * 30) * 0.04) * 8;
       p.fill('#F9A8D4');
       p.ellipse(x, y, 10, 6);

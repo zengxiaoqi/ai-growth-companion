@@ -111,8 +111,12 @@ registerP5Sketch('math.counting-objects', (p: p5, params: Record<string, unknown
       case 'heart':
         p.beginShape();
         for (let a = 0; a < p.TWO_PI; a += 0.1) {
-          const hx = s * 0.25 * 16 * Math.pow(Math.sin(a), 3) / 16;
-          const hy = -s * 0.25 * (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16;
+          const hx = (s * 0.25 * 16 * Math.pow(Math.sin(a), 3)) / 16;
+          const hy =
+            (-s *
+              0.25 *
+              (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a))) /
+            16;
           p.vertex(hx, hy);
         }
         p.endShape(p.CLOSE);
@@ -226,9 +230,7 @@ registerP5Sketch('math.counting-objects', (p: p5, params: Record<string, unknown
       const t = Math.min(1, elapsed / bounceDuration);
 
       // Elastic ease-out approximation
-      const ease = t < 1
-        ? 1 - Math.pow(2, -10 * t) * Math.cos((t * 10 * Math.PI) / 3)
-        : 1;
+      const ease = t < 1 ? 1 - Math.pow(2, -10 * t) * Math.cos((t * 10 * Math.PI) / 3) : 1;
 
       obj.scale = ease * obj.targetScale;
       obj.y = p.lerp(obj.targetY - 60, obj.targetY, ease);

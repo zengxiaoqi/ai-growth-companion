@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Star, Sparkles, PartyPopper, ChevronDown, ChevronRight, CheckCircle, XCircle } from '@/icons';
+import {
+  Trophy,
+  Star,
+  Sparkles,
+  PartyPopper,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle,
+  XCircle,
+} from '@/icons';
 import { cn } from '@/lib/utils';
 
 export interface ReviewItem {
@@ -18,7 +27,12 @@ interface GameCompletionScreenProps {
   onDismiss?: () => void;
 }
 
-export default function GameCompletionScreen({ score, total, reviewData, onDismiss }: GameCompletionScreenProps) {
+export default function GameCompletionScreen({
+  score,
+  total,
+  reviewData,
+  onDismiss,
+}: GameCompletionScreenProps) {
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
   const stars = pct >= 100 ? 3 : pct > 50 ? 2 : 1;
   const [showReview, setShowReview] = useState(false);
@@ -78,7 +92,7 @@ export default function GameCompletionScreen({ score, total, reviewData, onDismi
             <Star
               className={cn(
                 'w-8 h-8 sm:w-10 sm:h-10 transition-colors',
-                i < stars ? 'text-tertiary fill-current drop-shadow-lg' : 'text-outline-variant/30'
+                i < stars ? 'text-tertiary fill-current drop-shadow-lg' : 'text-outline-variant/30',
               )}
             />
           </motion.div>
@@ -110,7 +124,11 @@ export default function GameCompletionScreen({ score, total, reviewData, onDismi
             <span className="font-bold text-on-surface text-sm flex items-center gap-2">
               查看答案解析
             </span>
-            {showReview ? <ChevronDown className="w-4 h-4 text-on-surface-variant" /> : <ChevronRight className="w-4 h-4 text-on-surface-variant" />}
+            {showReview ? (
+              <ChevronDown className="w-4 h-4 text-on-surface-variant" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-on-surface-variant" />
+            )}
           </button>
 
           {showReview ? (
@@ -121,10 +139,15 @@ export default function GameCompletionScreen({ score, total, reviewData, onDismi
               className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-1"
             >
               {reviewData.map((item, i) => (
-                <div key={i} className={cn(
-                  'rounded-xl p-3 border-2',
-                  item.isCorrect ? 'bg-success-container/50 border-success/30' : 'bg-danger-container/50 border-danger/30',
-                )}>
+                <div
+                  key={i}
+                  className={cn(
+                    'rounded-xl p-3 border-2',
+                    item.isCorrect
+                      ? 'bg-success-container/50 border-success/30'
+                      : 'bg-danger-container/50 border-danger/30',
+                  )}
+                >
                   <div className="flex items-start gap-2">
                     {item.isCorrect ? (
                       <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
@@ -132,11 +155,22 @@ export default function GameCompletionScreen({ score, total, reviewData, onDismi
                       <XCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-on-surface leading-tight">{i + 1}. {item.question}</p>
+                      <p className="text-sm font-bold text-on-surface leading-tight">
+                        {i + 1}. {item.question}
+                      </p>
                       {!item.isCorrect ? (
-                        <p className="text-xs text-on-danger-container mt-1">你的答案：{item.userAnswer}</p>
+                        <p className="text-xs text-on-danger-container mt-1">
+                          你的答案：{item.userAnswer}
+                        </p>
                       ) : null}
-                      <p className={cn('text-xs mt-0.5', item.isCorrect ? 'text-on-success-container' : 'text-on-success-container' )}>
+                      <p
+                        className={cn(
+                          'text-xs mt-0.5',
+                          item.isCorrect
+                            ? 'text-on-success-container'
+                            : 'text-on-success-container',
+                        )}
+                      >
                         正确答案：{item.correctAnswer}
                       </p>
                       {item.explanation ? (

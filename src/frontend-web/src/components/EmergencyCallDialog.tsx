@@ -11,7 +11,11 @@ interface EmergencyCallDialogProps {
 
 type DialogState = 'idle' | 'countdown' | 'calling' | 'success' | 'error';
 
-export default function EmergencyCallDialog({ isOpen, onClose, childId }: EmergencyCallDialogProps) {
+export default function EmergencyCallDialog({
+  isOpen,
+  onClose,
+  childId,
+}: EmergencyCallDialogProps) {
   const [state, setState] = useState<DialogState>('idle');
   const [countdown, setCountdown] = useState(5);
   const [errorMsg, setErrorMsg] = useState('');
@@ -49,7 +53,7 @@ export default function EmergencyCallDialog({ isOpen, onClose, childId }: Emerge
     setCountdown(5);
 
     timerRef.current = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
           handleTrigger();
@@ -118,9 +122,7 @@ export default function EmergencyCallDialog({ isOpen, onClose, childId }: Emerge
                   </motion.div>
                 </div>
                 <h2 className="text-2xl font-bold text-on-surface mb-2">即将呼叫</h2>
-                <p className="text-on-surface-variant mb-8 text-lg">
-                  {countdown} 秒后通知爸爸妈妈
-                </p>
+                <p className="text-on-surface-variant mb-8 text-lg">{countdown} 秒后通知爸爸妈妈</p>
                 <button
                   onClick={cancelCountdown}
                   className="w-full py-5 rounded-2xl bg-surface-container-high text-on-surface text-xl font-bold active:scale-95 transition-transform"

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ActivityResult, LaunchActivityInteraction, LessonSceneDocument, TracePathInteraction } from '@/types';
+import type {
+  ActivityResult,
+  LaunchActivityInteraction,
+  LessonSceneDocument,
+  TracePathInteraction,
+} from '@/types';
 import { Button, Card } from '@/components/ui';
 import GameRenderer from '@/components/games/GameRenderer';
 import { Check, CheckCircle, ChevronLeft, ChevronRight, Pause, Play, Volume2 } from '@/icons';
@@ -23,7 +28,9 @@ export default function LessonScenePlayer({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [traceResults, setTraceResults] = useState<Record<string, { coverage: number; attempts: number; score: number }>>({});
+  const [traceResults, setTraceResults] = useState<
+    Record<string, { coverage: number; attempts: number; score: number }>
+  >({});
   const [activityResult, setActivityResult] = useState<ActivityResult | null>(null);
   const [shellReady, setShellReady] = useState(false);
   const { speak: voiceSpeak, stop: voiceStop, isPlaying: voiceIsPlaying } = useGameVoice();
@@ -47,9 +54,10 @@ export default function LessonScenePlayer({
     return Math.round(values.reduce((sum, item) => sum + item.score, 0) / values.length);
   }, [traceResults]);
 
-  const canFinishGuidedTrace = document.mode === 'guided_trace'
-    && Object.keys(traceResults).length >= scenes.length
-    && averageTraceScore > 0;
+  const canFinishGuidedTrace =
+    document.mode === 'guided_trace' &&
+    Object.keys(traceResults).length >= scenes.length &&
+    averageTraceScore > 0;
 
   const canFinishPractice = document.mode === 'activity_shell' && !!activityResult && isLastScene;
   const canFinishPlayback = document.mode === 'playback' && hasStarted && isLastScene;
@@ -82,9 +90,18 @@ export default function LessonScenePlayer({
 
   // Cleanup helpers
   const clearAllTimers = useCallback(() => {
-    if (advanceTimerRef.current) { clearTimeout(advanceTimerRef.current); advanceTimerRef.current = null; }
-    if (voicePollRef.current) { clearInterval(voicePollRef.current); voicePollRef.current = null; }
-    if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    if (voicePollRef.current) {
+      clearInterval(voicePollRef.current);
+      voicePollRef.current = null;
+    }
+    if (safetyTimerRef.current) {
+      clearTimeout(safetyTimerRef.current);
+      safetyTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -133,20 +150,26 @@ export default function LessonScenePlayer({
     }
   }, [currentIndex, document.mode]);
 
-  const handleTraceSolved = useCallback((result: { coverage: number; attempts: number; score: number }) => {
-    if (!currentScene) return;
-    setTraceResults((prev) => ({ ...prev, [currentScene.id]: result }));
-  }, [currentScene]);
+  const handleTraceSolved = useCallback(
+    (result: { coverage: number; attempts: number; score: number }) => {
+      if (!currentScene) return;
+      setTraceResults((prev) => ({ ...prev, [currentScene.id]: result }));
+    },
+    [currentScene],
+  );
 
-  const handleActivityComplete = useCallback((result: ActivityResult) => {
-    setActivityResult(result);
-    setShellReady(true);
-    if (!isLastScene) {
-      window.setTimeout(() => {
-        setCurrentIndex((prev) => Math.min(prev + 1, scenes.length - 1));
-      }, 500);
-    }
-  }, [isLastScene, scenes.length]);
+  const handleActivityComplete = useCallback(
+    (result: ActivityResult) => {
+      setActivityResult(result);
+      setShellReady(true);
+      if (!isLastScene) {
+        window.setTimeout(() => {
+          setCurrentIndex((prev) => Math.min(prev + 1, scenes.length - 1));
+        }, 500);
+      }
+    },
+    [isLastScene, scenes.length],
+  );
 
   const handleFinish = useCallback(() => {
     if (document.mode === 'guided_trace') {
@@ -169,7 +192,15 @@ export default function LessonScenePlayer({
       sceneMode: 'playback',
       viewedScenes: scenes.map((scene) => scene.id),
     });
-  }, [activityResult, averageTraceScore, completionPolicy?.passingScore, document.mode, onComplete, scenes, traceResults]);
+  }, [
+    activityResult,
+    averageTraceScore,
+    completionPolicy?.passingScore,
+    document.mode,
+    onComplete,
+    scenes,
+    traceResults,
+  ]);
 
   if (!currentScene) {
     return (
@@ -184,12 +215,14 @@ export default function LessonScenePlayer({
     );
   }
 
-  const traceInteraction = currentScene.interaction?.type === 'trace_path'
-    ? currentScene.interaction as TracePathInteraction
-    : null;
-  const activityInteraction = currentScene.interaction?.type === 'launch_activity'
-    ? currentScene.interaction as LaunchActivityInteraction
-    : null;
+  const traceInteraction =
+    currentScene.interaction?.type === 'trace_path'
+      ? (currentScene.interaction as TracePathInteraction)
+      : null;
+  const activityInteraction =
+    currentScene.interaction?.type === 'launch_activity'
+      ? (currentScene.interaction as LaunchActivityInteraction)
+      : null;
 
   return (
     <div className="space-y-4">
@@ -203,12 +236,17 @@ export default function LessonScenePlayer({
               <Play className="h-8 w-8 text-primary" />
             </div>
             <p className="text-sm font-semibold text-on-surface">点击开始播放场景</p>
-            <p className="text-xl font-black text-on-surface">{currentScene.onScreenText || currentScene.title}</p>
+            <p className="text-xl font-black text-on-surface">
+              {currentScene.onScreenText || currentScene.title}
+            </p>
           </div>
         </Card>
       ) : (
         <>
-          <SceneRenderer scene={currentScene} isPlaying={document.mode === 'playback' ? isPlaying : true} />
+          <SceneRenderer
+            scene={currentScene}
+            isPlaying={document.mode === 'playback' ? isPlaying : true}
+          />
 
           {traceInteraction?.targets?.[0] && (
             <TracePathCanvas
@@ -222,7 +260,9 @@ export default function LessonScenePlayer({
             <Card className="space-y-4 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-on-surface">{activityInteraction.prompt || '互动练习'}</p>
+                  <p className="text-sm font-semibold text-on-surface">
+                    {activityInteraction.prompt || '互动练习'}
+                  </p>
                   <p className="text-xs text-on-surface-variant">完成小游戏后会自动进入反馈场景</p>
                 </div>
                 <button
@@ -303,13 +343,14 @@ export default function LessonScenePlayer({
             <ChevronLeft className="h-4 w-4" />
             上一步
           </button>
-          <span className="text-xs text-on-surface-variant">{currentIndex + 1} / {scenes.length}</span>
+          <span className="text-xs text-on-surface-variant">
+            {currentIndex + 1} / {scenes.length}
+          </span>
           <button
             type="button"
             onClick={nextScene}
             disabled={
-              isLastScene
-              || (document.mode === 'guided_trace' && !traceResults[currentScene.id])
+              isLastScene || (document.mode === 'guided_trace' && !traceResults[currentScene.id])
             }
             className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:opacity-40"
           >
@@ -330,12 +371,14 @@ export default function LessonScenePlayer({
         ))}
       </div>
 
-      {!previewMode && !isCompleted && (canFinishPlayback || canFinishGuidedTrace || canFinishPractice) && (
-        <Button className="w-full" onClick={handleFinish}>
-          <Check className="mr-2 h-4 w-4" />
-          完成此步骤
-        </Button>
-      )}
+      {!previewMode &&
+        !isCompleted &&
+        (canFinishPlayback || canFinishGuidedTrace || canFinishPractice) && (
+          <Button className="w-full" onClick={handleFinish}>
+            <Check className="mr-2 h-4 w-4" />
+            完成此步骤
+          </Button>
+        )}
 
       {!previewMode && isCompleted && (
         <div className="flex items-center justify-center gap-2 text-sm text-primary">

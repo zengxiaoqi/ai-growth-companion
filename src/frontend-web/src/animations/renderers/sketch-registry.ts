@@ -7,13 +7,20 @@
  */
 import type p5Module from 'p5';
 
-export const p5Sketches: Record<string, (p: p5Module, params: Record<string, unknown>) => void> = {};
+export const p5Sketches: Record<string, (p: p5Module, params: Record<string, unknown>) => void> =
+  {};
 export const threeScenes: Record<string, import('./ThreeCanvas').ThreeSceneSetup> = {};
 
-export function registerP5Sketch(templateId: string, sketch: (p: p5Module, params: Record<string, unknown>) => void) {
+export function registerP5Sketch(
+  templateId: string,
+  sketch: (p: p5Module, params: Record<string, unknown>) => void,
+) {
   p5Sketches[templateId] = sketch;
 }
 
-export function registerThreeScene(templateId: string, setup: import('./ThreeCanvas').ThreeSceneSetup) {
+export function registerThreeScene(
+  templateId: string,
+  setup: import('./ThreeCanvas').ThreeSceneSetup,
+) {
   threeScenes[templateId] = setup;
 }

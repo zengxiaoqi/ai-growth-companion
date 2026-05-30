@@ -41,7 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
-    
+
     if (storedToken && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser) as User;
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = useCallback(async (data: LoginRequest) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await api.login(data);
       setToken(response.token);
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = useCallback(async (data: RegisterRequest) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await api.register(data);
       setToken(response.token);
@@ -120,11 +120,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearError,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextType {

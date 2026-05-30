@@ -1,13 +1,4 @@
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowRight, Trophy } from '@/icons';
 import { Button, Card, EmptyState } from '../ui';
 
@@ -68,10 +59,16 @@ export default function GrowthReportSection({
             <h2 className="text-2xl font-black text-on-surface">成长报告</h2>
             <p className="text-sm text-on-surface-variant">近 7 天学习时长变化</p>
           </div>
-          <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-black text-on-secondary-container">近 7 天</span>
+          <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-black text-on-secondary-container">
+            近 7 天
+          </span>
         </div>
 
-        <div className="h-64" role="img" aria-label={`近7天学习时长图，共 ${chartData.length} 天数据`}>
+        <div
+          className="h-64"
+          role="img"
+          aria-label={`近7天学习时长图，共 ${chartData.length} 天数据`}
+        >
           {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -146,7 +143,9 @@ export default function GrowthReportSection({
               recentMastered.map((item, index) => (
                 <div key={index} className="flex items-center gap-2.5 min-w-0">
                   <div className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${item.color}`} />
-                  <span className="text-sm font-semibold text-on-surface truncate">{item.label}</span>
+                  <span className="text-sm font-semibold text-on-surface truncate">
+                    {item.label}
+                  </span>
                 </div>
               ))
             ) : (

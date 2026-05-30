@@ -24,7 +24,11 @@ function backgroundClass(type?: string): string {
   }
 }
 
-export default function SceneRenderer({ scene, isPlaying = true, onSceneComplete }: SceneRendererProps) {
+export default function SceneRenderer({
+  scene,
+  isPlaying = true,
+  onSceneComplete,
+}: SceneRendererProps) {
   const templateId = scene.visual?.templateId;
   if (templateId) {
     return (
@@ -64,7 +68,9 @@ export default function SceneRenderer({ scene, isPlaying = true, onSceneComplete
       <div className="relative flex h-full flex-col justify-between gap-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">{scene.title}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-70">
+              {scene.title}
+            </p>
             {(scene.onScreenText || scene.visual?.caption) && (
               <h3 className="mt-2 text-2xl font-black">
                 {scene.onScreenText || scene.visual?.caption}
@@ -74,7 +80,10 @@ export default function SceneRenderer({ scene, isPlaying = true, onSceneComplete
           {effects.length > 0 && (
             <div className="flex flex-wrap justify-end gap-2">
               {effects.slice(0, 3).map((effect, index) => (
-                <span key={`${effect}-${index}`} className="rounded-full bg-white/35 px-3 py-1 text-xs font-semibold backdrop-blur">
+                <span
+                  key={`${effect}-${index}`}
+                  className="rounded-full bg-white/35 px-3 py-1 text-xs font-semibold backdrop-blur"
+                >
                   {effect}
                 </span>
               ))}
@@ -99,7 +108,9 @@ export default function SceneRenderer({ scene, isPlaying = true, onSceneComplete
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{character.label}</p>
                   {(character.pose || character.mood) && (
-                    <p className="truncate text-xs opacity-70">{character.pose || character.mood}</p>
+                    <p className="truncate text-xs opacity-70">
+                      {character.pose || character.mood}
+                    </p>
                   )}
                 </div>
               </div>

@@ -28,8 +28,20 @@ function TestConsumer() {
       <span data-testid="user-name">{auth.user?.name || 'none'}</span>
       <span data-testid="loading">{String(auth.isLoading)}</span>
       <span data-testid="error">{auth.error || 'none'}</span>
-      <button onClick={() => auth.login({ phone: '13800000001', password: 'pass' }).catch(() => {})}>login</button>
-      <button onClick={() => auth.register({ phone: '13800000001', password: 'pass', name: 'Test', type: 'child' }).catch(() => {})}>register</button>
+      <button
+        onClick={() => auth.login({ phone: '13800000001', password: 'pass' }).catch(() => {})}
+      >
+        login
+      </button>
+      <button
+        onClick={() =>
+          auth
+            .register({ phone: '13800000001', password: 'pass', name: 'Test', type: 'child' })
+            .catch(() => {})
+        }
+      >
+        register
+      </button>
       <button onClick={auth.logout}>logout</button>
     </div>
   );
@@ -105,9 +117,15 @@ describe('AuthContext', () => {
 
   it('restores session from localStorage', () => {
     localStorage.setItem('auth_token', 'stored-token');
-    localStorage.setItem('auth_user', JSON.stringify({
-      id: 1, phone: '13800000001', name: 'Stored', type: 'child',
-    }));
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({
+        id: 1,
+        phone: '13800000001',
+        name: 'Stored',
+        type: 'child',
+      }),
+    );
 
     renderWithProvider(<TestConsumer />);
     expect(screen.getByTestId('authenticated')).toHaveTextContent('true');

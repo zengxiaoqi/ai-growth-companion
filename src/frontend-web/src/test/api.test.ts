@@ -44,7 +44,7 @@ describe('ApiService', () => {
         'http://localhost:3000/api/auth/login',
         expect.objectContaining({
           method: 'POST',
-        })
+        }),
       );
       expect(result.token).toBe('jwt-token');
       expect(api.getToken()).toBe('jwt-token');
@@ -57,9 +57,9 @@ describe('ApiService', () => {
         json: () => Promise.resolve({ message: '手机号或密码错误' }),
       });
 
-      await expect(
-        api.login({ phone: '13800000001', password: 'wrong' })
-      ).rejects.toThrow('手机号或密码错误');
+      await expect(api.login({ phone: '13800000001', password: 'wrong' })).rejects.toThrow(
+        '手机号或密码错误',
+      );
     });
   });
 
@@ -74,7 +74,7 @@ describe('ApiService', () => {
       expect(result.valid).toBe(true);
       expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:3000/api/auth/verify-pin',
-        expect.objectContaining({ method: 'POST' })
+        expect.objectContaining({ method: 'POST' }),
       );
     });
   });
@@ -112,7 +112,7 @@ describe('ApiService', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ childPhone: '13800000002' }),
-        })
+        }),
       );
     });
   });
@@ -144,7 +144,7 @@ describe('ApiService', () => {
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',
           }),
-        })
+        }),
       );
     });
   });

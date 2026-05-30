@@ -27,7 +27,12 @@ function validateConfirmPassword(password: string, confirm: string): string | nu
   return null;
 }
 
-export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isLoading }: RegisterScreenProps) {
+export default function RegisterScreen({
+  onRegister,
+  onSwitchToLogin,
+  error,
+  isLoading,
+}: RegisterScreenProps) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -91,7 +96,10 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    setPhoneError(null);
+                  }}
                   onBlur={() => setPhoneError(validatePhone(phone))}
                   placeholder="请输入手机号"
                   className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
@@ -102,16 +110,12 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                   maxLength={11}
                 />
               </div>
-              {phoneError && (
-                <p className="text-error text-xs font-medium px-1">{phoneError}</p>
-              )}
+              {phoneError && <p className="text-error text-xs font-medium px-1">{phoneError}</p>}
             </div>
 
             {/* Name Input */}
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-on-surface-variant px-1">
-                姓名
-              </label>
+              <label className="block text-sm font-bold text-on-surface-variant px-1">姓名</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                   <User className="w-5 h-5" />
@@ -129,9 +133,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
 
             {/* Password Input */}
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-on-surface-variant px-1">
-                密码
-              </label>
+              <label className="block text-sm font-bold text-on-surface-variant px-1">密码</label>
               <div className="relative">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                   <Lock className="w-5 h-5" />
@@ -139,7 +141,11 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); setConfirmError(null); }}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError(null);
+                    setConfirmError(null);
+                  }}
                   onBlur={() => setPasswordError(validatePassword(password))}
                   placeholder="请设置密码（至少6位）"
                   className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
@@ -174,7 +180,10 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError(null); }}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setConfirmError(null);
+                  }}
                   onBlur={() => setConfirmError(validateConfirmPassword(password, confirmPassword))}
                   placeholder="请再次输入密码"
                   className={`w-full bg-surface-container-lowest border-2 rounded-xl py-3 pl-12 pr-12 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors ${
@@ -220,9 +229,7 @@ export default function RegisterScreen({ onRegister, onSwitchToLogin, error, isL
             {/* Age (only for child) */}
             {type === 'child' && (
               <div className="space-y-2">
-                <label className="block text-sm font-bold text-on-surface-variant px-1">
-                  年龄
-                </label>
+                <label className="block text-sm font-bold text-on-surface-variant px-1">年龄</label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
                     <Calendar className="w-5 h-5" />

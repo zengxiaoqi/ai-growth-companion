@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type ReactNode } from 'react';
 import useSWR from 'swr';
 import { motion } from 'motion/react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import { Shield, Loader2, ArrowLeft } from '@/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
@@ -12,7 +20,10 @@ import type { ActivityResult, Assignment } from './types';
 import api from './services/api';
 import { applyAppUISettings, resolveAppUISettings } from './lib/app-settings';
 import { AppToastProvider } from './components/ui';
-import { normalizeActivityData, normalizeActivityType } from './components/ai-chat/activity-normalizer';
+import {
+  normalizeActivityData,
+  normalizeActivityType,
+} from './components/ai-chat/activity-normalizer';
 
 const ParentDashboard = lazy(() => import('./components/parent'));
 const StudentDashboard = lazy(() => import('./components/StudentDashboard'));
@@ -109,7 +120,10 @@ function StudentHomeRoute() {
   const [isAssignmentCompleted, setIsAssignmentCompleted] = useState(false);
 
   if (selectedAssignment) {
-    const resolvedType = normalizeActivityType(selectedAssignment.activityType, selectedAssignment.activityData);
+    const resolvedType = normalizeActivityType(
+      selectedAssignment.activityType,
+      selectedAssignment.activityData,
+    );
     const resolvedData = normalizeActivityData(
       resolvedType,
       selectedAssignment.activityData ?? { type: resolvedType, title: '练习' },
@@ -201,23 +215,27 @@ function StudentContentRoute() {
   );
 }
 
-function ContentDetailRouter({ contentId, childId, onBack, onComplete }: {
+function ContentDetailRouter({
+  contentId,
+  childId,
+  onBack,
+  onComplete,
+}: {
   contentId: number;
   childId?: number;
   onBack: () => void;
   onComplete: (record: any) => void;
 }) {
-  const { data: content, error } = useSWR(
-    ['content', contentId],
-    ([, id]) => api.getContent(id),
-    { revalidateOnFocus: false }
-  );
+  const { data: content, error } = useSWR(['content', contentId], ([, id]) => api.getContent(id), {
+    revalidateOnFocus: false,
+  });
 
   const isStructured = useMemo(() => {
     if (error) return false;
     if (!content) return null;
     try {
-      const data = typeof content.content === 'string' ? JSON.parse(content.content) : content.content;
+      const data =
+        typeof content.content === 'string' ? JSON.parse(content.content) : content.content;
       return data?.type === 'structured_lesson';
     } catch {
       return false;
@@ -227,13 +245,7 @@ function ContentDetailRouter({ contentId, childId, onBack, onComplete }: {
   if (isStructured === null) return <PageLoader />;
 
   if (isStructured) {
-    return (
-      <StructuredLessonView
-        contentId={contentId}
-        childId={childId}
-        onBack={onBack}
-      />
-    );
+    return <StructuredLessonView contentId={contentId} childId={childId} onBack={onBack} />;
   }
 
   return (
@@ -329,7 +341,11 @@ function ProtectedShell() {
 
   const hideSecurityBadge = useMemo(() => {
     const path = location.pathname;
-    return path.startsWith('/parent') || path.startsWith('/student/achievements') || path.startsWith('/student/companion');
+    return (
+      path.startsWith('/parent') ||
+      path.startsWith('/student/achievements') ||
+      path.startsWith('/student/companion')
+    );
   }, [location.pathname]);
 
   const showFloatingChat = useMemo(() => {
@@ -362,7 +378,9 @@ function ProtectedShell() {
         >
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-on-surface-variant">由灵犀安全卫士实时守护您的孩子</span>
+            <span className="text-xs font-medium text-on-surface-variant">
+              由灵犀安全卫士实时守护您的孩子
+            </span>
           </div>
         </motion.div>
       ) : null}
@@ -381,27 +399,27 @@ function AppRouter() {
     <Routes>
       <Route
         path="/login"
-        element={(
+        element={
           <GuestOnly>
             <LoginRoute />
           </GuestOnly>
-        )}
+        }
       />
       <Route
         path="/register"
-        element={(
+        element={
           <GuestOnly>
             <RegisterRoute />
           </GuestOnly>
-        )}
+        }
       />
       <Route
         path="*"
-        element={(
+        element={
           <RequireAuth>
             <ProtectedShell />
           </RequireAuth>
-        )}
+        }
       />
     </Routes>
   );
@@ -418,4 +436,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

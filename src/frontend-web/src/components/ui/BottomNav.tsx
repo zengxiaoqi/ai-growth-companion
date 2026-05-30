@@ -25,7 +25,11 @@ export function BottomNav({ items, className }: BottomNavProps) {
             onClick={item.onClick}
             className={cn(
               'touch-target flex min-w-[72px] flex-col items-center rounded-full px-4 py-2 transition-all',
-              item.accent ? 'bg-tertiary-container text-on-tertiary-container shadow-inner' : item.active ? 'bg-primary-container/35 text-primary' : 'text-on-surface-variant hover:text-on-surface',
+              item.accent
+                ? 'bg-tertiary-container text-on-tertiary-container shadow-inner'
+                : item.active
+                  ? 'bg-primary-container/35 text-primary'
+                  : 'text-on-surface-variant hover:text-on-surface',
             )}
             aria-label={item.label}
           >

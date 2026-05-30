@@ -103,7 +103,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [trendData, setTrendData] = useState<
     { week: string; language: number; math: number; science: number; art: number; social: number }[]
   >([]);
-  const [recentSkills, setRecentSkills] = useState<{ domain: string; level: number; label: string }[]>([]);
+  const [recentSkills, setRecentSkills] = useState<
+    { domain: string; level: number; label: string }[]
+  >([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [draftLessons, setDraftLessons] = useState<DraftLessonSummary[]>([]);
   const [draftLessonToEdit, setDraftLessonToEdit] = useState<DraftLessonSummary | null>(null);
@@ -255,7 +257,10 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const recentMastered = useMemo(
     () =>
       recentSkills.length > 0
-        ? recentSkills.map((skill) => ({ label: skill.label, color: DOMAIN_CONFIG[skill.domain]?.color || 'bg-primary' }))
+        ? recentSkills.map((skill) => ({
+            label: skill.label,
+            color: DOMAIN_CONFIG[skill.domain]?.color || 'bg-primary',
+          }))
         : [],
     [recentSkills],
   );
@@ -263,30 +268,40 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const completedAssignments = useMemo(
     () =>
       assignments
-        .filter((assignment) => assignment.status === 'completed' && assignment.score != null && assignment.completedAt)
-        .sort((a, b) => new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime()),
+        .filter(
+          (assignment) =>
+            assignment.status === 'completed' && assignment.score != null && assignment.completedAt,
+        )
+        .sort(
+          (a, b) => new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime(),
+        ),
     [assignments],
   );
 
   const scoreStats = useMemo(() => {
     if (completedAssignments.length === 0) return null;
     return {
-      avg: Math.round(completedAssignments.reduce((sum, item) => sum + (item.score || 0), 0) / completedAssignments.length),
+      avg: Math.round(
+        completedAssignments.reduce((sum, item) => sum + (item.score || 0), 0) /
+          completedAssignments.length,
+      ),
       highest: Math.max(...completedAssignments.map((item) => item.score || 0)),
-      completionRate: assignments.length > 0 ? Math.round((completedAssignments.length / assignments.length) * 100) : 0,
+      completionRate:
+        assignments.length > 0
+          ? Math.round((completedAssignments.length / assignments.length) * 100)
+          : 0,
     };
   }, [assignments.length, completedAssignments]);
 
   const assignmentTrendData = useMemo(
     () =>
       completedAssignments.map((assignment) => ({
-        date:
-          assignment.completedAt
-            ? new Date(assignment.completedAt).toLocaleDateString('zh-CN', {
-                month: 'numeric',
-                day: 'numeric',
-              })
-            : '--',
+        date: assignment.completedAt
+          ? new Date(assignment.completedAt).toLocaleDateString('zh-CN', {
+              month: 'numeric',
+              day: 'numeric',
+            })
+          : '--',
         score: assignment.score || 0,
       })),
     [completedAssignments],
@@ -337,23 +352,15 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     [user?.id],
   );
 
-  const handleLinkChild = useCallback(
-    async (phone: string): Promise<User> => {
-      const newChild = await api.linkChild(phone);
-      setChildren((prev) => [...prev, newChild]);
-      setSelectedChildId((prev) => prev ?? newChild.id);
-      return newChild;
-    },
-    [],
-  );
+  const handleLinkChild = useCallback(async (phone: string): Promise<User> => {
+    const newChild = await api.linkChild(phone);
+    setChildren((prev) => [...prev, newChild]);
+    setSelectedChildId((prev) => prev ?? newChild.id);
+    return newChild;
+  }, []);
 
   const handleCreateAssignment = useCallback(
-    async (data: {
-      activityType: string;
-      domain: string;
-      difficulty: number;
-      topic: string;
-    }) => {
+    async (data: { activityType: string; domain: string; difficulty: number; topic: string }) => {
       if (!user?.id || !selectedChildId) return;
       const assignment = await api.createAssignment({
         parentId: user.id,
@@ -384,7 +391,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         difficulty: data.difficulty,
         topic: data.topic,
       });
-      setAssignments((prev) => prev.map((assignment) => (assignment.id === assignmentId ? updated : assignment)));
+      setAssignments((prev) =>
+        prev.map((assignment) => (assignment.id === assignmentId ? updated : assignment)),
+      );
     },
     [],
   );
@@ -394,9 +403,12 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     setAssignments((prev) => prev.filter((assignment) => assignment.id !== assignmentId));
   }, []);
 
-  const handleViewDraftLesson = useCallback((draftLesson: DraftLessonSummary) => {
-    navigate(`/parent/content/${draftLesson.id}`);
-  }, [navigate]);
+  const handleViewDraftLesson = useCallback(
+    (draftLesson: DraftLessonSummary) => {
+      navigate(`/parent/content/${draftLesson.id}`);
+    },
+    [navigate],
+  );
 
   const handleViewCoursePack = useCallback((_coursePackId: number) => {
     setActiveTab('assignments');
@@ -426,14 +438,26 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
             {user?.avatar ? (
-              <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" loading="lazy" width="80" height="80" />
+              <img
+                alt="家长头像"
+                className="h-full w-full object-cover"
+                src={user.avatar}
+                referrerPolicy="no-referrer"
+                loading="lazy"
+                width="80"
+                height="80"
+              />
             ) : (
-              <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
+              <span className="text-lg font-bold text-on-secondary-container">
+                {(user?.name || '?')[0]}
+              </span>
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">灵犀伴学 · 家长端</h1>
+            <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">
+              灵犀伴学 · 家长端
+            </h1>
           </div>
 
           <ChildSelector
@@ -467,7 +491,9 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
           <section className="content-visibility-auto mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {quickOverview.map((item) => (
               <Card key={item.label} className="flex items-center gap-3 px-4 py-3">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.style}`}>
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.style}`}
+                >
                   <item.Icon className="h-5 w-5" />
                 </div>
                 <div>
@@ -522,24 +548,38 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                     {scoreStats ? (
                       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="rounded-xl bg-secondary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-secondary-container">{scoreStats.avg}</p>
+                          <p className="text-2xl font-black text-on-secondary-container">
+                            {scoreStats.avg}
+                          </p>
                           <p className="mt-1 text-xs text-on-secondary-container/70">平均分</p>
                         </div>
                         <div className="rounded-xl bg-tertiary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-tertiary-container">{scoreStats.highest}</p>
+                          <p className="text-2xl font-black text-on-tertiary-container">
+                            {scoreStats.highest}
+                          </p>
                           <p className="mt-1 text-xs text-on-tertiary-container/70">最高分</p>
                         </div>
                         <div className="rounded-xl bg-primary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-primary-container">{scoreStats.completionRate}%</p>
+                          <p className="text-2xl font-black text-on-primary-container">
+                            {scoreStats.completionRate}%
+                          </p>
                           <p className="mt-1 text-xs text-on-primary-container/70">完成率</p>
                         </div>
                       </div>
                     ) : null}
 
-                    <div className="h-64 w-full" role="img" aria-label={`作业成绩趋势图，共 ${assignmentTrendData.length} 次作业`}>
+                    <div
+                      className="h-64 w-full"
+                      role="img"
+                      aria-label={`作业成绩趋势图，共 ${assignmentTrendData.length} 次作业`}
+                    >
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={assignmentTrendData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="var(--color-outline-variant)"
+                            strokeOpacity={0.2}
+                          />
                           <XAxis
                             dataKey="date"
                             axisLine={false}
@@ -587,9 +627,19 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/15 bg-surface p-4">
                   <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
                     {user?.avatar ? (
-                      <img alt="家长头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" loading="lazy" width="80" height="80" />
+                      <img
+                        alt="家长头像"
+                        className="h-full w-full object-cover"
+                        src={user.avatar}
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        width="80"
+                        height="80"
+                      />
                     ) : (
-                      <span className="text-lg font-bold text-on-secondary-container">{(user?.name || '?')[0]}</span>
+                      <span className="text-lg font-bold text-on-secondary-container">
+                        {(user?.name || '?')[0]}
+                      </span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -625,16 +675,23 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               <div className="space-y-6">
                 <LessonGenerator
                   selectedChildId={selectedChildId}
-                  childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined}
+                  childAgeGroup={
+                    selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined
+                  }
                   draftLessonId={draftLessonToEdit?.id ?? null}
                   onDraftLessonLoaded={() => setDraftLessonToEdit(null)}
                   onDraftLessonUpdated={handleDraftLessonUpdated}
                 />
                 <QuickVideoGenerator
                   selectedChildId={selectedChildId}
-                  childAgeGroup={selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined}
+                  childAgeGroup={
+                    selectedChild?.age ? (selectedChild.age <= 4 ? '3-4' : '5-6') : undefined
+                  }
                 />
-                <CoursePackManager selectedChildId={selectedChildId} onCoursePackGenerated={handleDraftLessonUpdated} />
+                <CoursePackManager
+                  selectedChildId={selectedChildId}
+                  onCoursePackGenerated={handleDraftLessonUpdated}
+                />
                 <AssignmentManager
                   assignments={assignments}
                   draftLessons={draftLessons}

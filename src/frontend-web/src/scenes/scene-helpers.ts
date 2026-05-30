@@ -56,16 +56,25 @@ function normalizeSceneDocument(
     stepType,
     mode,
     scenes,
-    completionPolicy: raw.completionPolicy && typeof raw.completionPolicy === 'object'
-      ? raw.completionPolicy
-      : undefined,
+    completionPolicy:
+      raw.completionPolicy && typeof raw.completionPolicy === 'object'
+        ? raw.completionPolicy
+        : undefined,
   };
 }
 
-function normalizeScene(scene: any, stepType: LessonSceneStepType, index: number): LessonScene | null {
-  const title = toText(scene?.title || scene?.scene || scene?.caption, `${stepType} 场景 ${index + 1}`);
+function normalizeScene(
+  scene: any,
+  stepType: LessonSceneStepType,
+  index: number,
+): LessonScene | null {
+  const title = toText(
+    scene?.title || scene?.scene || scene?.caption,
+    `${stepType} 场景 ${index + 1}`,
+  );
   const narration = toText(scene?.narration);
-  const interaction = scene?.interaction && typeof scene.interaction === 'object' ? scene.interaction : undefined;
+  const interaction =
+    scene?.interaction && typeof scene.interaction === 'object' ? scene.interaction : undefined;
   if (!title && !narration && !interaction) return null;
 
   return {
@@ -77,9 +86,10 @@ function normalizeScene(scene: any, stepType: LessonSceneStepType, index: number
     visual: scene?.visual && typeof scene.visual === 'object' ? scene.visual : undefined,
     timeline: Array.isArray(scene?.timeline) ? scene.timeline : undefined,
     interaction,
-    fallbackActivity: scene?.fallbackActivity && typeof scene.fallbackActivity === 'object'
-      ? scene.fallbackActivity
-      : undefined,
+    fallbackActivity:
+      scene?.fallbackActivity && typeof scene.fallbackActivity === 'object'
+        ? scene.fallbackActivity
+        : undefined,
   };
 }
 
@@ -129,7 +139,10 @@ function extractRevealWords(source: string): string[] {
 }
 
 function extractSceneItems(source: string): string[] {
-  return Array.from(new Set((source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || []))).slice(0, 4);
+  return Array.from(new Set(source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || [])).slice(
+    0,
+    4,
+  );
 }
 
 function inferSeasonIndex(source: string): number {
@@ -140,7 +153,9 @@ function inferSeasonIndex(source: string): number {
   return -1;
 }
 
-function inferWatchTemplate(scene: any): { templateId: string; templateParams: Record<string, any> } | null {
+function inferWatchTemplate(
+  scene: any,
+): { templateId: string; templateParams: Record<string, any> } | null {
   const headline = [scene?.onScreenText, scene?.title, scene?.scene, scene?.caption, scene?.shot]
     .map((value) => toText(value))
     .join(' ')
@@ -154,7 +169,9 @@ function inferWatchTemplate(scene: any): { templateId: string; templateParams: R
     toText(visual?.caption),
     ...(Array.isArray(visual?.characters) ? visual.characters.map((c: any) => toText(c)) : []),
     ...(Array.isArray(visual?.items) ? visual.items.map((i: any) => toText(i)) : []),
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
   const combinedSource = `${source} ${visualSource}`.trim();
 
   const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
@@ -269,7 +286,9 @@ function normalizeWordRevealWords(scene: any): string[] {
 function isLowInformationWordReveal(scenes: any[]): boolean {
   if (scenes.length < 2) return false;
   if (!scenes.every((scene) => scene?.animationTemplate === 'language.word-reveal')) return false;
-  const uniqueWords = new Set(scenes.map((scene) => normalizeWordRevealWords(scene).join('|')).filter(Boolean));
+  const uniqueWords = new Set(
+    scenes.map((scene) => normalizeWordRevealWords(scene).join('|')).filter(Boolean),
+  );
   if (uniqueWords.size !== 1) return false;
   const [value = ''] = Array.from(uniqueWords);
   return value.split('|').filter(Boolean).length <= 1;
@@ -278,7 +297,9 @@ function isLowInformationWordReveal(scenes: any[]): boolean {
 function repairLegacyWatchScenes(scenes: any[]): any[] {
   if (!isLowInformationWordReveal(scenes)) return scenes;
   const source = scenes
-    .map((scene) => [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' '))
+    .map((scene) =>
+      [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' '),
+    )
     .join(' ');
   const isSeasonTopic = /(四季|季节|春夏秋冬)/.test(source);
 
@@ -298,7 +319,8 @@ function repairLegacyWatchScenes(scenes: any[]): any[] {
 function deriveWatchScene(module: any): LessonSceneDocument | null {
   const rawScenes = toArray(module?.visualStory?.scenes);
   const repairedScenes = repairLegacyWatchScenes(rawScenes);
-  const watchScenes = repairedScenes.length > 0 ? repairedScenes : toArray(module?.videoLesson?.shots);
+  const watchScenes =
+    repairedScenes.length > 0 ? repairedScenes : toArray(module?.videoLesson?.shots);
 
   if (watchScenes.length === 0) return null;
 
@@ -317,31 +339,44 @@ function deriveWatchScene(module: any): LessonSceneDocument | null {
       const inferredTemplate = scene?.animationTemplate
         ? {
             templateId: toText(scene.animationTemplate),
-            templateParams: scene?.animationParams && typeof scene.animationParams === 'object'
-              ? scene.animationParams
-              : undefined,
+            templateParams:
+              scene?.animationParams && typeof scene.animationParams === 'object'
+                ? scene.animationParams
+                : undefined,
           }
         : inferWatchTemplate(scene);
 
-      return enrichWatchScene({
-        id: `watch-scene-${index + 1}`,
-        title: toText(scene?.scene || scene?.shot, `场景 ${index + 1}`),
-        narration: toText(scene?.narration, '请跟着老师一起观察。'),
-        onScreenText: toText(scene?.onScreenText || scene?.caption) || undefined,
-        durationSec: toSafeInt(scene?.durationSec, 12, 3, 120),
-        visual: {
-          background: { type: inferBackgroundType(source) },
-          caption: toText(scene?.onScreenText || scene?.caption),
-          characters: [{ id: 'teacher', label: '老师' }, { id: 'child', label: '小朋友' }],
-          items: Array.from(new Set((source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || []))).slice(0, 4).map((label, itemIndex) => ({
-            id: `watch-item-${itemIndex + 1}`,
-            label,
-          })),
-          templateId: inferredTemplate?.templateId,
-          templateParams: inferredTemplate?.templateParams,
+      return enrichWatchScene(
+        {
+          id: `watch-scene-${index + 1}`,
+          title: toText(scene?.scene || scene?.shot, `场景 ${index + 1}`),
+          narration: toText(scene?.narration, '请跟着老师一起观察。'),
+          onScreenText: toText(scene?.onScreenText || scene?.caption) || undefined,
+          durationSec: toSafeInt(scene?.durationSec, 12, 3, 120),
+          visual: {
+            background: { type: inferBackgroundType(source) },
+            caption: toText(scene?.onScreenText || scene?.caption),
+            characters: [
+              { id: 'teacher', label: '老师' },
+              { id: 'child', label: '小朋友' },
+            ],
+            items: Array.from(
+              new Set(source.match(/春|夏|秋|冬|花|太阳|树叶|雪花|观察|发现/g) || []),
+            )
+              .slice(0, 4)
+              .map((label, itemIndex) => ({
+                id: `watch-item-${itemIndex + 1}`,
+                label,
+              })),
+            templateId: inferredTemplate?.templateId,
+            templateParams: inferredTemplate?.templateParams,
+          },
+          timeline: [
+            { type: 'caption', value: toText(scene?.onScreenText || scene?.caption), atSec: 0 },
+          ],
         },
-        timeline: [{ type: 'caption', value: toText(scene?.onScreenText || scene?.caption), atSec: 0 }],
-      }, scene);
+        scene,
+      );
     }),
   };
 }
@@ -390,7 +425,8 @@ function deriveWriteScene(module: any): LessonSceneDocument | null {
 function derivePracticeScene(module: any): LessonSceneDocument | null {
   const game = module?.game || {};
   const activityType = toText(game?.activityType || game?.type || 'quiz') as ActivityType;
-  const activityData = (game?.activityData || game || { type: activityType, title: '互动练习' }) as ActivityData;
+  const activityData = (game?.activityData ||
+    game || { type: activityType, title: '互动练习' }) as ActivityData;
   if (!activityType) return null;
 
   return {
@@ -408,8 +444,15 @@ function derivePracticeScene(module: any): LessonSceneDocument | null {
         visual: {
           background: { type: 'indoor' },
           caption: toText(activityData?.title, '互动练习'),
-          characters: [{ id: 'teacher', label: '老师' }, { id: 'child', label: '小朋友' }],
-          items: [{ id: 'rule-1', label: '看提示' }, { id: 'rule-2', label: '动动手' }, { id: 'rule-3', label: '试一试' }],
+          characters: [
+            { id: 'teacher', label: '老师' },
+            { id: 'child', label: '小朋友' },
+          ],
+          items: [
+            { id: 'rule-1', label: '看提示' },
+            { id: 'rule-2', label: '动动手' },
+            { id: 'rule-3', label: '试一试' },
+          ],
         },
       },
       {
@@ -447,12 +490,15 @@ function derivePracticeScene(module: any): LessonSceneDocument | null {
   };
 }
 
-export function resolveLessonSceneDocument(stepType: LessonSceneStepType, module: any): LessonSceneDocument | null {
-  const directScene = normalizeSceneDocument(module?.scene, stepType, stepType === 'watch'
-    ? 'playback'
-    : stepType === 'write'
-      ? 'guided_trace'
-      : 'activity_shell');
+export function resolveLessonSceneDocument(
+  stepType: LessonSceneStepType,
+  module: any,
+): LessonSceneDocument | null {
+  const directScene = normalizeSceneDocument(
+    module?.scene,
+    stepType,
+    stepType === 'watch' ? 'playback' : stepType === 'write' ? 'guided_trace' : 'activity_shell',
+  );
 
   if (stepType === 'watch') {
     const derivedWatchScene = deriveWatchScene(module);
@@ -461,7 +507,9 @@ export function resolveLessonSceneDocument(stepType: LessonSceneStepType, module
     return mergeWatchSceneDocuments(
       {
         ...directScene,
-        scenes: directScene.scenes.map((scene, index) => enrichWatchScene(scene, derivedWatchScene?.scenes[index])),
+        scenes: directScene.scenes.map((scene, index) =>
+          enrichWatchScene(scene, derivedWatchScene?.scenes[index]),
+        ),
       },
       derivedWatchScene,
     );

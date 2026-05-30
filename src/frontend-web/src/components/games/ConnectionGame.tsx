@@ -15,7 +15,10 @@ interface ConnectionGameProps {
 export default function ConnectionGame({ data, onComplete }: ConnectionGameProps) {
   const leftItems = useMemo(() => data.leftItems || [], [data.leftItems]);
   const rightItems = useMemo(() => data.rightItems || [], [data.rightItems]);
-  const connections: { left: string; right: string }[] = useMemo(() => data.connections || [], [data.connections]);
+  const connections: { left: string; right: string }[] = useMemo(
+    () => data.connections || [],
+    [data.connections],
+  );
 
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [userConnections, setUserConnections] = useState<Map<string, string>>(new Map());
@@ -27,30 +30,38 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
   useEffect(() => {
     const leftLabels = leftItems.map((item: any) => item.label).join('、');
     const rightLabels = rightItems.map((item: any) => item.label).join('、');
-    speak(`请把左边和右边的内容连起来。左边有：${leftLabels}。右边有：${rightLabels}。先点左边，再点右边。`);
+    speak(
+      `请把左边和右边的内容连起来。左边有：${leftLabels}。右边有：${rightLabels}。先点左边，再点右边。`,
+    );
   }, []);
 
-  const handleLeftClick = useCallback((id: string) => {
-    setSelectedLeft((prev) => prev === id ? null : id);
-    const item = leftItems.find((i: any) => i.id === id);
-    if (item) speak((item as any).label);
-  }, [leftItems, speak]);
+  const handleLeftClick = useCallback(
+    (id: string) => {
+      setSelectedLeft((prev) => (prev === id ? null : id));
+      const item = leftItems.find((i: any) => i.id === id);
+      if (item) speak((item as any).label);
+    },
+    [leftItems, speak],
+  );
 
-  const handleRightClick = useCallback((id: string) => {
-    if (!selectedLeft) return;
-    setUserConnections((prev) => {
-      const next = new Map(prev);
-      for (const [k, v] of next) {
-        if (k === selectedLeft || v === id) next.delete(k);
-      }
-      next.set(selectedLeft, id);
-      return next;
-    });
-    const leftItem = leftItems.find((i: any) => i.id === selectedLeft);
-    const rightItem = rightItems.find((i: any) => i.id === id);
-    if (leftItem && rightItem) speak(`${(leftItem as any).label}配${(rightItem as any).label}`);
-    setSelectedLeft(null);
-  }, [selectedLeft, leftItems, rightItems, speak]);
+  const handleRightClick = useCallback(
+    (id: string) => {
+      if (!selectedLeft) return;
+      setUserConnections((prev) => {
+        const next = new Map(prev);
+        for (const [k, v] of next) {
+          if (k === selectedLeft || v === id) next.delete(k);
+        }
+        next.set(selectedLeft, id);
+        return next;
+      });
+      const leftItem = leftItems.find((i: any) => i.id === selectedLeft);
+      const rightItem = rightItems.find((i: any) => i.id === id);
+      if (leftItem && rightItem) speak(`${(leftItem as any).label}配${(rightItem as any).label}`);
+      setSelectedLeft(null);
+    },
+    [selectedLeft, leftItems, rightItems, speak],
+  );
 
   const handleCheck = useCallback(() => {
     let correct = 0;
@@ -92,13 +103,15 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
       <div className="text-center">
         <div className="flex items-center justify-center gap-2">
           <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
-          <button onClick={() => {
-            const leftLabels = leftItems.map((item: any) => item.label).join('、');
-            const rightLabels = rightItems.map((item: any) => item.label).join('、');
-            speak(`请把左边和右边的内容连起来。左边有：${leftLabels}。右边有：${rightLabels}。`);
-          }}
+          <button
+            onClick={() => {
+              const leftLabels = leftItems.map((item: any) => item.label).join('、');
+              const rightLabels = rightItems.map((item: any) => item.label).join('、');
+              speak(`请把左边和右边的内容连起来。左边有：${leftLabels}。右边有：${rightLabels}。`);
+            }}
             className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary-container hover:bg-primary-container/80 transition-colors"
-            aria-label="朗读题目">
+            aria-label="朗读题目"
+          >
             <Volume2 className="w-4 h-4" />
           </button>
         </div>
@@ -115,16 +128,23 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
             const isSelected = selectedLeft === item.id;
             const connected = getConnectedRight(item.id);
             return (
-              <motion.button key={item.id}
+              <motion.button
+                key={item.id}
                 onClick={() => handleLeftClick(item.id)}
                 whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                 aria-label={`左侧: ${item.label}${connected ? '（已配对）' : isSelected ? '（已选中）' : ''}`}
                 className={cn(
                   'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all flex items-center gap-2 justify-center min-h-[48px] sm:min-h-[52px]',
-                  isSelected && 'border-primary bg-primary-container text-on-primary-container ring-2 ring-primary ring-offset-2',
-                  connected && !isSelected && 'border-success bg-success-container/50 text-on-surface',
-                  !isSelected && !connected && 'border-outline-variant/30 bg-surface-container-lowest text-on-surface hover:border-primary/50',
-                )}>
+                  isSelected &&
+                    'border-primary bg-primary-container text-on-primary-container ring-2 ring-primary ring-offset-2',
+                  connected &&
+                    !isSelected &&
+                    'border-success bg-success-container/50 text-on-surface',
+                  !isSelected &&
+                    !connected &&
+                    'border-outline-variant/30 bg-surface-container-lowest text-on-surface hover:border-primary/50',
+                )}
+              >
                 {item.emoji ? <span className="text-lg sm:text-xl">{item.emoji}</span> : null}
                 <span>{item.label}</span>
                 {connected ? <Link2 className="w-4 h-4 text-success ml-auto" /> : null}
@@ -143,7 +163,8 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
           {rightItems.map((item: any) => {
             const connected = isRightConnected(item.id);
             return (
-              <motion.button key={item.id}
+              <motion.button
+                key={item.id}
                 onClick={() => handleRightClick(item.id)}
                 whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                 disabled={!selectedLeft && !connected}
@@ -151,9 +172,14 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 className={cn(
                   'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all min-h-[48px] sm:min-h-[52px]',
                   connected && 'border-success bg-success-container/50 text-on-surface',
-                  !connected && selectedLeft && 'border-primary/30 bg-surface-container-lowest text-on-surface hover:border-primary/50 hover:bg-primary-container/10',
-                  !connected && !selectedLeft && 'border-outline-variant/30 bg-surface-container text-on-surface-variant',
-                )}>
+                  !connected &&
+                    selectedLeft &&
+                    'border-primary/30 bg-surface-container-lowest text-on-surface hover:border-primary/50 hover:bg-primary-container/10',
+                  !connected &&
+                    !selectedLeft &&
+                    'border-outline-variant/30 bg-surface-container text-on-surface-variant',
+                )}
+              >
                 {item.label}
               </motion.button>
             );
@@ -164,9 +190,15 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
       {/* Submit */}
       <AnimatePresence>
         {userConnections.size >= connections.length ? (
-          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
-            <button onClick={handleCheck}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+          <motion.div
+            {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reducedMotion ? { duration: 0 } : undefined}
+          >
+            <button
+              onClick={handleCheck}
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+            >
               提交答案 <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>

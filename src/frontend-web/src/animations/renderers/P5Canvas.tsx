@@ -86,7 +86,7 @@ export default function P5Canvas({
       stopPlayback();
       p.noLoop();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying]);
 
   function startPlayback(p: p5) {

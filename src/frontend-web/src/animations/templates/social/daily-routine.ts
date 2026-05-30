@@ -38,7 +38,10 @@ registerTemplate({
 
 registerP5Sketch('social.daily-routine', (p: p5, params: Record<string, unknown>) => {
   const activities = (params.activities as string[]) || ['起床', '上学', '午餐', '放学', '睡觉'];
-  const highlightIdx = Math.max(0, Math.min(activities.length - 1, (params.highlightIndex as number) || 0));
+  const highlightIdx = Math.max(
+    0,
+    Math.min(activities.length - 1, (params.highlightIndex as number) || 0),
+  );
 
   // Animation state
   let indicatorT = 0; // 0 to activities.length - 1, smoothly animated
@@ -47,16 +50,16 @@ registerP5Sketch('social.daily-routine', (p: p5, params: Record<string, unknown>
 
   // Icon definitions per activity keyword
   const iconMap: Record<string, string> = {
-    '起床': 'sunrise',
-    '上学': 'school',
-    '午餐': 'lunch',
-    '放学': 'home',
-    '睡觉': 'moon',
-    '早餐': 'food',
-    '晚餐': 'food',
-    '运动': 'sport',
-    '游戏': 'play',
-    '阅读': 'book',
+    起床: 'sunrise',
+    上学: 'school',
+    午餐: 'lunch',
+    放学: 'home',
+    睡觉: 'moon',
+    早餐: 'food',
+    晚餐: 'food',
+    运动: 'sport',
+    游戏: 'play',
+    阅读: 'book',
   };
 
   // Layout
@@ -64,9 +67,8 @@ registerP5Sketch('social.daily-routine', (p: p5, params: Record<string, unknown>
   const timelineStartX = 80;
   const timelineEndX = 560;
   const iconSize = 50;
-  const spacing = activities.length > 1
-    ? (timelineEndX - timelineStartX) / (activities.length - 1)
-    : 0;
+  const spacing =
+    activities.length > 1 ? (timelineEndX - timelineStartX) / (activities.length - 1) : 0;
 
   // Time labels (fake but plausible)
   const timeLabels = ['7:00', '8:00', '12:00', '16:00', '21:00'];
@@ -283,8 +285,14 @@ registerP5Sketch('social.daily-routine', (p: p5, params: Record<string, unknown>
         p.vertex(x - s * 0.5, y - s * 0.3);
         // @ts-ignore - quadraticVertexTo doesn't exist, convert to bezierVertex
         p.bezierVertex(x - s * 0.5, y + s * 0.3, x, y + s * 0.4 * 0.67, x, y + s * 0.4);
-        // @ts-ignore
-        p.bezierVertex(x + s * 0.5, y - s * 0.3 * 0.67, x + s * 0.5, y + s * 0.3, x + s * 0.5, y - s * 0.3);
+        (p as any).bezierVertex(
+          x + s * 0.5,
+          y - s * 0.3 * 0.67,
+          x + s * 0.5,
+          y + s * 0.3,
+          x + s * 0.5,
+          y - s * 0.3,
+        );
         p.endShape();
         p.line(x, y - s * 0.3, x, y + s * 0.4);
         break;

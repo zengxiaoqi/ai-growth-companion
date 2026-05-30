@@ -7,7 +7,11 @@ interface AIInsightsPanelProps {
   onAdjustPlan: () => void;
 }
 
-export default function AIInsightsPanel({ insights, childName, onAdjustPlan }: AIInsightsPanelProps) {
+export default function AIInsightsPanel({
+  insights,
+  childName,
+  onAdjustPlan,
+}: AIInsightsPanelProps) {
   const primaryInsight = insights[0] || `${childName}本周保持了稳定的学习节奏。`;
   const extraInsights = insights.slice(1, 3);
 
@@ -20,7 +24,9 @@ export default function AIInsightsPanel({ insights, childName, onAdjustPlan }: A
           AI 洞察
         </span>
 
-        <h3 className="mt-4 text-xl font-black leading-tight text-on-surface line-clamp-2">{primaryInsight}</h3>
+        <h3 className="mt-4 text-xl font-black leading-tight text-on-surface line-clamp-2">
+          {primaryInsight}
+        </h3>
 
         {extraInsights.length > 0 ? (
           <ul className="mt-3 space-y-1.5 text-sm text-on-surface-variant">

@@ -26,7 +26,11 @@ function LoadingFallback() {
   );
 }
 
-export default function AnimationRenderer({ config, isPlaying, onSceneComplete }: AnimationRendererProps) {
+export default function AnimationRenderer({
+  config,
+  isPlaying,
+  onSceneComplete,
+}: AnimationRendererProps) {
   const template = getTemplate(config.templateId);
 
   if (!template) {

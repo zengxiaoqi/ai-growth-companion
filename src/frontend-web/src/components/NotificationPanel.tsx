@@ -1,14 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  Bell,
-  BookOpen,
-  CheckCheck,
-  Clock,
-  Loader2,
-  Megaphone,
-  Trophy,
-  X,
-} from '@/icons';
+import { Bell, BookOpen, CheckCheck, Clock, Loader2, Megaphone, Trophy, X } from '@/icons';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import api from '../services/api';
@@ -84,7 +75,9 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
   const handleMarkRead = async (id: number) => {
     try {
       await api.markNotificationRead(id);
-      setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, read: true } : item)),
+      );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
       // 静默失败，避免影响用户阅读
@@ -177,13 +170,24 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={cn('text-sm leading-snug text-on-surface line-clamp-2', !notification.read && 'font-black')}>
+                          <p
+                            className={cn(
+                              'text-sm leading-snug text-on-surface line-clamp-2',
+                              !notification.read && 'font-black',
+                            )}
+                          >
                             {notification.title}
                           </p>
-                          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant line-clamp-2">{notification.message}</p>
-                          <p className="mt-1.5 text-[11px] font-medium text-outline">{formatTime(notification.createdAt)}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-on-surface-variant line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="mt-1.5 text-[11px] font-medium text-outline">
+                            {formatTime(notification.createdAt)}
+                          </p>
                         </div>
-                        {!notification.read ? <span className="mt-2 h-2 w-2 rounded-full bg-primary" /> : null}
+                        {!notification.read ? (
+                          <span className="mt-2 h-2 w-2 rounded-full bg-primary" />
+                        ) : null}
                       </div>
                     </button>
                   );

@@ -107,7 +107,14 @@ const ITEM_SHAPES: Record<string, SceneItem['shape']> = {
   triangle: 'triangle',
 };
 
-function drawStarShape(p: p5, cx: number, cy: number, r1: number, r2: number, npoints: number): void {
+function drawStarShape(
+  p: p5,
+  cx: number,
+  cy: number,
+  r1: number,
+  r2: number,
+  npoints: number,
+): void {
   const angle = p.TWO_PI / npoints;
   const halfAngle = angle / 2.0;
   p.beginShape();

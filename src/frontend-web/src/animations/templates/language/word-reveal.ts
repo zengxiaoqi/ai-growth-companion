@@ -127,7 +127,10 @@ registerP5Sketch(TEMPLATE_ID, (p: p5, rawParams: Record<string, unknown>) => {
         if (elapsed < charStart) {
           isWordComplete = false;
         }
-        if (elapsed >= charStart && elapsed < charStart + params.revealSpeed + CHAR_ANIM_DURATION_MS) {
+        if (
+          elapsed >= charStart &&
+          elapsed < charStart + params.revealSpeed + CHAR_ANIM_DURATION_MS
+        ) {
           isWordActive = true;
         }
       }

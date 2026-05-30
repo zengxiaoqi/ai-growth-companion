@@ -29,9 +29,11 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   const getCorrectIndex = useCallback((question: any) => {
     const optionsLen = Array.isArray(question?.options) ? question.options.length : 0;
     const rawIndex = Number(question?.correctIndex);
-    if (Number.isFinite(rawIndex) && rawIndex >= 0 && rawIndex < optionsLen) return Math.trunc(rawIndex);
+    if (Number.isFinite(rawIndex) && rawIndex >= 0 && rawIndex < optionsLen)
+      return Math.trunc(rawIndex);
     const oneBasedIndex = Math.trunc(rawIndex) - 1;
-    if (Number.isFinite(oneBasedIndex) && oneBasedIndex >= 0 && oneBasedIndex < optionsLen) return oneBasedIndex;
+    if (Number.isFinite(oneBasedIndex) && oneBasedIndex >= 0 && oneBasedIndex < optionsLen)
+      return oneBasedIndex;
     return 0;
   }, []);
   const currentCorrectIndex = current ? getCorrectIndex(current) : 0;
@@ -39,19 +41,24 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   // Read question aloud when it appears
   useEffect(() => {
     if (current?.question && !isFinished) {
-      const opts = (current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。');
+      const opts = (current.options || [])
+        .map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`)
+        .join('。');
       speak(`${current.question}。选项有：${opts}`);
     }
   }, [currentIndex, isFinished]);
 
-  const handleSelect = useCallback((idx: number) => {
-    if (isRevealed) return;
-    setSelectedOption(idx);
-    // Read the selected option
-    if (current?.options?.[idx]) {
-      speak(current.options[idx]);
-    }
-  }, [isRevealed, current, speak]);
+  const handleSelect = useCallback(
+    (idx: number) => {
+      if (isRevealed) return;
+      setSelectedOption(idx);
+      // Read the selected option
+      if (current?.options?.[idx]) {
+        speak(current.options[idx]);
+      }
+    },
+    [isRevealed, current, speak],
+  );
 
   const handleSubmit = useCallback(() => {
     if (selectedOption === null || !current) return;
@@ -96,7 +103,11 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
   }, [correctCount, total, onComplete, questions, userAnswers, getCorrectIndex]);
 
   if (questions.length === 0) {
-    return <div className="p-4 text-on-surface-variant" role="status">暂无题目</div>;
+    return (
+      <div className="p-4 text-on-surface-variant" role="status">
+        暂无题目
+      </div>
+    );
   }
 
   if (isFinished) {
@@ -110,7 +121,14 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
         explanation: q.explanation,
       };
     });
-    return <GameCompletionScreen score={correctCount} total={total} reviewData={reviewData} onDismiss={handleDismiss} />;
+    return (
+      <GameCompletionScreen
+        score={correctCount}
+        total={total}
+        reviewData={reviewData}
+        onDismiss={handleDismiss}
+      />
+    );
   }
 
   return (
@@ -118,29 +136,41 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
       {/* Progress */}
       <div className="flex justify-between items-center">
         <span className="text-sm font-bold text-on-surface-variant">{data.title}</span>
-        <span className="text-sm font-bold text-primary">{currentIndex + 1} / {total}</span>
+        <span className="text-sm font-bold text-primary">
+          {currentIndex + 1} / {total}
+        </span>
       </div>
       <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-        <motion.div 
-          className="h-full bg-primary rounded-full" 
-          animate={{ width: `${((currentIndex + 1) / total) * 100}%` }} 
+        <motion.div
+          className="h-full bg-primary rounded-full"
+          animate={{ width: `${((currentIndex + 1) / total) * 100}%` }}
           transition={reducedMotion ? { duration: 0 } : undefined}
         />
       </div>
 
       {/* Question */}
       <AnimatePresence mode="wait">
-        <motion.div 
-          key={currentIndex} 
-          {...(reducedMotion ? {} : { initial: { opacity: 0, x: 30 }, exit: { opacity: 0, x: -30 } })}
-          animate={{ opacity: 1, x: 0 }} 
+        <motion.div
+          key={currentIndex}
+          {...(reducedMotion
+            ? {}
+            : { initial: { opacity: 0, x: 30 }, exit: { opacity: 0, x: -30 } })}
+          animate={{ opacity: 1, x: 0 }}
           transition={reducedMotion ? { duration: 0 } : undefined}
-          className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4">
+          className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4"
+        >
           <div className="flex items-start gap-2">
             <h4 className="text-lg font-black text-on-surface flex-1">{current.question}</h4>
-            <button onClick={() => current.question && speak(`${current.question}。${(current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。')}`)}
+            <button
+              onClick={() =>
+                current.question &&
+                speak(
+                  `${current.question}。${(current.options || []).map((o: string, i: number) => `${String.fromCharCode(65 + i)}、${o}`).join('。')}`,
+                )
+              }
               className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary-container hover:bg-primary-container/80 transition-colors"
-              aria-label="朗读题目">
+              aria-label="朗读题目"
+            >
               <Volume2 className="w-4 h-4" />
             </button>
           </div>
@@ -151,18 +181,30 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
               const isSelected = idx === selectedOption;
               const optionId = `quiz-q${currentIndex}-opt${idx}`;
               return (
-                <motion.label key={idx} htmlFor={optionId}
-                  whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.02, y: -2 }} 
+                <motion.label
+                  key={idx}
+                  htmlFor={optionId}
+                  whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.02, y: -2 }}
                   whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.98 }}
                   className={cn(
                     'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px] cursor-pointer',
-                    isRevealed && isCorrect && 'bg-success-container border-success text-on-success-container',
-                    isRevealed && isSelected && !isCorrect && 'bg-danger-container border-danger text-on-danger-container',
-                    !isRevealed && isSelected && 'bg-primary-container/30 border-primary text-on-surface',
-                    !isRevealed && !isSelected && 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
+                    isRevealed &&
+                      isCorrect &&
+                      'bg-success-container border-success text-on-success-container',
+                    isRevealed &&
+                      isSelected &&
+                      !isCorrect &&
+                      'bg-danger-container border-danger text-on-danger-container',
+                    !isRevealed &&
+                      isSelected &&
+                      'bg-primary-container/30 border-primary text-on-surface',
+                    !isRevealed &&
+                      !isSelected &&
+                      'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/50',
                     isRevealed && !isCorrect && !isSelected && 'opacity-50',
                     isRevealed && 'pointer-events-none',
-                  )}>
+                  )}
+                >
                   <input
                     id={optionId}
                     type="radio"
@@ -174,16 +216,24 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
                     className="sr-only"
                     aria-label={`选项 ${String.fromCharCode(65 + idx)}: ${opt}`}
                   />
-                  <span className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
-                    isRevealed && isCorrect && 'bg-success text-on-success',
-                    isRevealed && isSelected && 'bg-danger text-on-danger',
-                    !isRevealed && isSelected && 'bg-primary text-on-primary',
-                    !isRevealed && !isSelected && 'bg-primary-container text-on-primary-container',
-                  )}>
-                    {isRevealed && isCorrect ? <CheckCircle className="w-5 h-5" /> :
-                     isRevealed && isSelected ? <XCircle className="w-5 h-5" /> :
-                     String.fromCharCode(65 + idx)}
+                  <span
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
+                      isRevealed && isCorrect && 'bg-success text-on-success',
+                      isRevealed && isSelected && 'bg-danger text-on-danger',
+                      !isRevealed && isSelected && 'bg-primary text-on-primary',
+                      !isRevealed &&
+                        !isSelected &&
+                        'bg-primary-container text-on-primary-container',
+                    )}
+                  >
+                    {isRevealed && isCorrect ? (
+                      <CheckCircle className="w-5 h-5" />
+                    ) : isRevealed && isSelected ? (
+                      <XCircle className="w-5 h-5" />
+                    ) : (
+                      String.fromCharCode(65 + idx)
+                    )}
                   </span>
                   <span className="flex-1">{opt}</span>
                 </motion.label>
@@ -191,13 +241,28 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
             })}
           </fieldset>
           {isRevealed ? (
-            <motion.div 
+            <motion.div
               {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })}
               animate={{ opacity: 1, y: 0 }}
               transition={reducedMotion ? { duration: 0 } : undefined}
-              className={cn('rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
-                selectedOption === currentCorrectIndex ? 'bg-success-container text-on-success-container' : 'bg-warning-container text-on-warning-container')}>
-              {selectedOption === currentCorrectIndex ? <><Sparkles className="w-4 h-4" />太棒了！</> : <><Flame className="w-4 h-4" />加油哦！</>}
+              className={cn(
+                'rounded-xl p-3 text-center font-bold flex items-center justify-center gap-2',
+                selectedOption === currentCorrectIndex
+                  ? 'bg-success-container text-on-success-container'
+                  : 'bg-warning-container text-on-warning-container',
+              )}
+            >
+              {selectedOption === currentCorrectIndex ? (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  太棒了！
+                </>
+              ) : (
+                <>
+                  <Flame className="w-4 h-4" />
+                  加油哦！
+                </>
+              )}
             </motion.div>
           ) : null}
         </motion.div>
@@ -206,20 +271,38 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
       {/* Submit or Next */}
       <AnimatePresence>
         {!isRevealed && selectedOption !== null ? (
-          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 }, exit: { opacity: 0 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
-            <button onClick={handleSubmit}
+          <motion.div
+            {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 }, exit: { opacity: 0 } })}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reducedMotion ? { duration: 0 } : undefined}
+          >
+            <button
+              onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+            >
               确认答案
             </button>
           </motion.div>
         ) : null}
         {isRevealed ? (
-          <motion.div {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })} animate={{ opacity: 1, y: 0 }} transition={reducedMotion ? { duration: 0 } : undefined}>
-            <button onClick={handleNext}
+          <motion.div
+            {...(reducedMotion ? {} : { initial: { opacity: 0, y: 10 } })}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reducedMotion ? { duration: 0 } : undefined}
+          >
+            <button
+              onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]">
-              {currentIndex >= total - 1 ? '查看结果' : <>下一题 <ArrowRight className="w-4 h-4" /></>}
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+            >
+              {currentIndex >= total - 1 ? (
+                '查看结果'
+              ) : (
+                <>
+                  下一题 <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </motion.div>
         ) : null}

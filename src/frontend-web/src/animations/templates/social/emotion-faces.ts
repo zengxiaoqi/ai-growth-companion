@@ -203,12 +203,7 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
     }
   }
 
-  function lerpState(
-    out: EmotionState,
-    from: EmotionState,
-    to: EmotionState,
-    t: number,
-  ): void {
+  function lerpState(out: EmotionState, from: EmotionState, to: EmotionState, t: number): void {
     out.eyebrowAngle = p.lerp(from.eyebrowAngle, to.eyebrowAngle, t);
     out.eyebrowHeight = p.lerp(from.eyebrowHeight, to.eyebrowHeight, t);
     out.eyeOpenness = p.lerp(from.eyeOpenness, to.eyeOpenness, t);
@@ -293,8 +288,18 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
 
     // Highlight
     p.fill(255, 255, 255, 200);
-    p.ellipse(x - eyeOffsetX + pupilSize * 0.2, eyeY - pupilSize * 0.2, pupilSize * 0.3, pupilSize * 0.3);
-    p.ellipse(x + eyeOffsetX + pupilSize * 0.2, eyeY - pupilSize * 0.2, pupilSize * 0.3, pupilSize * 0.3);
+    p.ellipse(
+      x - eyeOffsetX + pupilSize * 0.2,
+      eyeY - pupilSize * 0.2,
+      pupilSize * 0.3,
+      pupilSize * 0.3,
+    );
+    p.ellipse(
+      x + eyeOffsetX + pupilSize * 0.2,
+      eyeY - pupilSize * 0.2,
+      pupilSize * 0.3,
+      pupilSize * 0.3,
+    );
   }
 
   function drawEyebrows(x: number, y: number, r: number) {
@@ -363,12 +368,7 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
       p.beginShape();
       p.vertex(x - mouthW / 2, mouthY);
       // @ts-ignore
-      p.quadraticVertexTo(
-        x,
-        mouthY + currentState.mouthCurve * 30,
-        x + mouthW / 2,
-        mouthY,
-      );
+      p.quadraticVertexTo(x, mouthY + currentState.mouthCurve * 30, x + mouthW / 2, mouthY);
       p.endShape();
     }
     p.noStroke();

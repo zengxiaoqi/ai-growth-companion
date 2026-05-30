@@ -98,7 +98,15 @@ async function compressAvatarFile(file: File): Promise<string> {
   return readAsDataUrl(blob);
 }
 
-function Switch({ checked, onChange, ariaLabel }: { checked: boolean; onChange: () => void; ariaLabel: string }) {
+function Switch({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  ariaLabel: string;
+}) {
   return (
     <button
       type="button"
@@ -155,7 +163,11 @@ function SettingsRow({
   );
 }
 
-export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievements }: SettingsScreenProps) {
+export default function SettingsScreen({
+  onBack,
+  onOpenProfile,
+  onOpenAchievements,
+}: SettingsScreenProps) {
   const { user, logout } = useAuth();
   const [settings, setSettings] = useState<AppUISettings>(() => resolveAppUISettings(undefined));
   const [chatAvatars, setChatAvatars] = useState<ChatAvatarSettings>({});
@@ -195,8 +207,7 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
   };
 
   const onPickAvatarFile =
-    (target: 'userAvatar' | 'aiAvatar') =>
-    async (event: ChangeEvent<HTMLInputElement>) => {
+    (target: 'userAvatar' | 'aiAvatar') => async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       await updateAvatarFromFile(target, file);
       event.target.value = '';
@@ -249,30 +260,41 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
     <div className="min-h-app pb-safe">
       <TopBar
         title="设置"
-        leftSlot={(
+        leftSlot={
           <IconButton aria-label="返回" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </IconButton>
-        )}
+        }
       />
 
       <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-6">
         <div className="flex items-center gap-4 rounded-2xl border border-outline-variant/15 bg-surface p-4">
           <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary-container">
             {user?.avatar ? (
-              <img alt="用户头像" className="h-full w-full object-cover" src={user.avatar} referrerPolicy="no-referrer" />
+              <img
+                alt="用户头像"
+                className="h-full w-full object-cover"
+                src={user.avatar}
+                referrerPolicy="no-referrer"
+              />
             ) : (
-              <span className="text-lg font-bold text-on-primary-container">{(user?.name || '?')[0]}</span>
+              <span className="text-lg font-bold text-on-primary-container">
+                {(user?.name || '?')[0]}
+              </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-black text-on-surface">{user?.name || '用户'}</h3>
-            <p className="text-sm text-on-surface-variant">{user?.type === 'parent' ? '家长端' : '学生端'} · {user?.phone || ''}</p>
+            <p className="text-sm text-on-surface-variant">
+              {user?.type === 'parent' ? '家长端' : '学生端'} · {user?.phone || ''}
+            </p>
           </div>
         </div>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">快捷入口</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            快捷入口
+          </h2>
 
           <div className="grid grid-cols-2 gap-3">
             {onOpenProfile ? (
@@ -310,7 +332,9 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
         </Card>
 
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">对话头像</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            对话头像
+          </h2>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Card className="space-y-3 p-3">
@@ -324,10 +348,18 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => userAlbumInputRef.current?.click()}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => userAlbumInputRef.current?.click()}
+                >
                   选自相册
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => userCameraInputRef.current?.click()}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => userCameraInputRef.current?.click()}
+                >
                   <Camera className="h-4 w-4" />
                   拍照
                 </Button>
@@ -353,7 +385,11 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => aiAlbumInputRef.current?.click()}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => aiAlbumInputRef.current?.click()}
+                >
                   选自相册
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => aiCameraInputRef.current?.click()}>
@@ -405,13 +441,15 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
         </Card>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">显示与声音</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            显示与声音
+          </h2>
 
           <SettingsRow
             icon={<Type className="h-5 w-5 text-primary" />}
             title="字体大小"
             description={settings.fontSize === 'normal' ? '标准字号' : '放大字号'}
-            action={(
+            action={
               <Switch
                 checked={settings.fontSize === 'large'}
                 onChange={() =>
@@ -422,27 +460,27 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
                 }
                 ariaLabel="切换字体大小"
               />
-            )}
+            }
           />
 
           <SettingsRow
             icon={<Moon className="h-5 w-5 text-primary" />}
             title="深色模式"
             description={settings.darkMode ? '已开启' : '已关闭'}
-            action={(
+            action={
               <Switch
                 checked={settings.darkMode}
                 onChange={() => setSettings((prev) => ({ ...prev, darkMode: !prev.darkMode }))}
                 ariaLabel="切换深色模式"
               />
-            )}
+            }
           />
 
           <SettingsRow
             icon={<Volume2 className="h-5 w-5 text-primary" />}
             title="音量"
             description={`当前 ${settings.volume}%`}
-            action={(
+            action={
               <input
                 type="range"
                 min={0}
@@ -457,12 +495,14 @@ export default function SettingsScreen({ onBack, onOpenProfile, onOpenAchievemen
                 className="h-2 w-28 cursor-pointer rounded-full accent-primary"
                 aria-label="设置应用音量"
               />
-            )}
+            }
           />
         </Card>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">关于</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            关于
+          </h2>
 
           <SettingsRow
             icon={<Shield className="h-5 w-5 text-primary" />}

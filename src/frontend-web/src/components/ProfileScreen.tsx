@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  Camera,
-  CheckCircle2,
-  Loader2,
-  Save,
-  UserCircle,
-} from '@/icons';
+import { ArrowLeft, Camera, CheckCircle2, Loader2, Save, UserCircle } from '@/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { Button, Card, IconButton, TopBar } from './ui';
@@ -86,16 +79,18 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
       <TopBar
         title="个人资料"
         subtitle="维护孩子账号的基础信息"
-        leftSlot={(
+        leftSlot={
           <IconButton aria-label="返回" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
           </IconButton>
-        )}
+        }
       />
 
       <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-6">
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">头像</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            头像
+          </h2>
 
           <div className="flex items-center gap-4">
             <div className="relative h-20 w-20 overflow-hidden rounded-full border border-outline-variant/25 bg-primary-container">
@@ -130,7 +125,9 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
         </Card>
 
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">基础信息</h2>
+          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            基础信息
+          </h2>
 
           <div>
             <label className="mb-1.5 block text-sm font-bold text-on-surface">昵称</label>

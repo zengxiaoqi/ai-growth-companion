@@ -1,6 +1,9 @@
 import type { Ability } from '@/types';
 
-export const DOMAIN_CONFIG: Record<string, { label: string; color: string; containerColor: string; textColor: string; chartColor: string }> = {
+export const DOMAIN_CONFIG: Record<
+  string,
+  { label: string; color: string; containerColor: string; textColor: string; chartColor: string }
+> = {
   language: {
     label: '语言',
     color: 'bg-secondary',
@@ -61,7 +64,14 @@ export const fallbackAbilities: Ability[] = ALL_DOMAINS.map((domain, index) => (
   updatedAt: new Date().toISOString(),
 }));
 
-export const fallbackTrendData: { week: string; language: number; math: number; science: number; art: number; social: number }[] = [];
+export const fallbackTrendData: {
+  week: string;
+  language: number;
+  math: number;
+  science: number;
+  art: number;
+  social: number;
+}[] = [];
 
 export function getGreeting(): string {
   const hour = new Date().getHours();

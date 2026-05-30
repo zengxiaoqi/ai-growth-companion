@@ -105,7 +105,15 @@ export default function AssignmentManager({
     } finally {
       setIsAssigning(false);
     }
-  }, [assignDifficulty, assignDomain, assignTopic, assignType, onCreateAssignment, parentId, selectedChildId]);
+  }, [
+    assignDifficulty,
+    assignDomain,
+    assignTopic,
+    assignType,
+    onCreateAssignment,
+    parentId,
+    selectedChildId,
+  ]);
 
   const handleStartEdit = useCallback((assignment: Assignment) => {
     setEditingId(assignment.id);
@@ -141,22 +149,25 @@ export default function AssignmentManager({
     }
   }, [editDifficulty, editDomain, editTopic, editType, editingId, onUpdateAssignment]);
 
-  const handleDelete = useCallback(async (assignmentId: number) => {
-    if (!window.confirm('确认删除这条待完成作业吗？')) return;
+  const handleDelete = useCallback(
+    async (assignmentId: number) => {
+      if (!window.confirm('确认删除这条待完成作业吗？')) return;
 
-    setIsMutatingId(assignmentId);
-    setError(null);
-    try {
-      await onDeleteAssignment(assignmentId);
-      if (editingId === assignmentId) {
-        setEditingId(null);
+      setIsMutatingId(assignmentId);
+      setError(null);
+      try {
+        await onDeleteAssignment(assignmentId);
+        if (editingId === assignmentId) {
+          setEditingId(null);
+        }
+      } catch (deleteError: any) {
+        setError(deleteError?.message || '删除作业失败，请稍后重试');
+      } finally {
+        setIsMutatingId(null);
       }
-    } catch (deleteError: any) {
-      setError(deleteError?.message || '删除作业失败，请稍后重试');
-    } finally {
-      setIsMutatingId(null);
-    }
-  }, [editingId, onDeleteAssignment]);
+    },
+    [editingId, onDeleteAssignment],
+  );
 
   return (
     <section className="space-y-5" aria-label="作业管理">
@@ -193,7 +204,12 @@ export default function AssignmentManager({
           <h3 className="text-lg font-black text-on-surface">创建新作业</h3>
 
           <div>
-            <label htmlFor="assign-topic" className="mb-1.5 block text-sm font-bold text-on-surface">作业主题</label>
+            <label
+              htmlFor="assign-topic"
+              className="mb-1.5 block text-sm font-bold text-on-surface"
+            >
+              作业主题
+            </label>
             <input
               id="assign-topic"
               type="text"
@@ -300,7 +316,9 @@ export default function AssignmentManager({
 
       {sortedDraftLessons.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">草稿作业</h3>
+          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            草稿作业
+          </h3>
 
           {sortedDraftLessons.map((draftLesson) => {
             const domainConfig = DOMAIN_CONFIG[draftLesson.domain || ''];
@@ -309,15 +327,29 @@ export default function AssignmentManager({
             return (
               <Card key={`${draftLesson.contentType}-${draftLesson.id}`} className="space-y-4 p-4">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isCoursePack ? 'bg-primary-container/30' : 'bg-secondary-container/30'}`}>
-                    {isCoursePack ? <BookOpen className="h-5 w-5 text-on-primary-container" /> : <ClipboardList className="h-5 w-5 text-on-secondary-container" />}
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isCoursePack ? 'bg-primary-container/30' : 'bg-secondary-container/30'}`}
+                  >
+                    {isCoursePack ? (
+                      <BookOpen className="h-5 w-5 text-on-primary-container" />
+                    ) : (
+                      <ClipboardList className="h-5 w-5 text-on-secondary-container" />
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-black text-on-surface">{draftLesson.title}</span>
+                      <span className="truncate text-sm font-black text-on-surface">
+                        {draftLesson.title}
+                      </span>
                       {domainConfig ? (
-                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black', domainConfig.containerColor, domainConfig.textColor)}>
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-black',
+                            domainConfig.containerColor,
+                            domainConfig.textColor,
+                          )}
+                        >
                           {domainConfig.label}
                         </span>
                       ) : null}
@@ -329,22 +361,36 @@ export default function AssignmentManager({
                     </div>
                   </div>
 
-                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${isCoursePack ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'}`}>
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${isCoursePack ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'}`}
+                  >
                     {isCoursePack ? '课程包' : '草稿'}
                   </span>
                 </div>
 
                 <div className="flex justify-end gap-2">
                   {isCoursePack ? (
-                    <Button variant="ghost" size="sm" onClick={() => onViewCoursePack(draftLesson.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onViewCoursePack(draftLesson.id)}
+                    >
                       查看
                     </Button>
                   ) : (
                     <>
-                      <Button variant="ghost" size="sm" onClick={() => onViewDraftLesson(draftLesson)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewDraftLesson(draftLesson)}
+                      >
                         查看
                       </Button>
-                      <Button variant="secondary" size="sm" onClick={() => onEditDraftLesson(draftLesson)}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onEditDraftLesson(draftLesson)}
+                      >
                         <Wrench className="h-4 w-4" />
                         编辑
                       </Button>
@@ -365,7 +411,9 @@ export default function AssignmentManager({
 
       {sortedAssignments.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">已布置作业</h3>
+          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+            已布置作业
+          </h3>
 
           {sortedAssignments.map((assignment) => {
             const domainConfig = DOMAIN_CONFIG[assignment.domain || ''];
@@ -383,8 +431,8 @@ export default function AssignmentManager({
                       isCompleted
                         ? 'bg-success-container'
                         : isPending
-                        ? 'bg-primary-container/30'
-                        : 'bg-tertiary-container/30',
+                          ? 'bg-primary-container/30'
+                          : 'bg-tertiary-container/30',
                     )}
                   >
                     {isCompleted ? (
@@ -402,16 +450,29 @@ export default function AssignmentManager({
                         {assignment.activityData?.topic || assignment.activityType}
                       </span>
                       {domainConfig ? (
-                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-black', domainConfig.containerColor, domainConfig.textColor)}>
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-black',
+                            domainConfig.containerColor,
+                            domainConfig.textColor,
+                          )}
+                        >
                           {domainConfig.label}
                         </span>
                       ) : null}
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant">
-                      <span>{ACTIVITY_TYPES.find((item) => item.value === assignment.activityType)?.label || assignment.activityType}</span>
-                      {isCompleted && assignment.score != null ? <span className="font-semibold text-success">得分 {assignment.score}</span> : null}
-                      {assignment.createdAt ? <span>{new Date(assignment.createdAt).toLocaleDateString('zh-CN')}</span> : null}
+                      <span>
+                        {ACTIVITY_TYPES.find((item) => item.value === assignment.activityType)
+                          ?.label || assignment.activityType}
+                      </span>
+                      {isCompleted && assignment.score != null ? (
+                        <span className="font-semibold text-success">得分 {assignment.score}</span>
+                      ) : null}
+                      {assignment.createdAt ? (
+                        <span>{new Date(assignment.createdAt).toLocaleDateString('zh-CN')}</span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -444,7 +505,11 @@ export default function AssignmentManager({
                       onClick={() => handleDelete(assignment.id)}
                       disabled={isBusy}
                     >
-                      {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                       删除
                     </Button>
                   </div>
@@ -453,7 +518,12 @@ export default function AssignmentManager({
                 {isPending && isEditing ? (
                   <div className="space-y-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-4">
                     <div>
-                      <label htmlFor={`edit-topic-${assignment.id}`} className="mb-1.5 block text-sm font-bold text-on-surface">作业主题</label>
+                      <label
+                        htmlFor={`edit-topic-${assignment.id}`}
+                        className="mb-1.5 block text-sm font-bold text-on-surface"
+                      >
+                        作业主题
+                      </label>
                       <input
                         id={`edit-topic-${assignment.id}`}
                         type="text"
@@ -537,10 +607,19 @@ export default function AssignmentManager({
                     </div>
 
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={isBusy}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCancelEdit}
+                        disabled={isBusy}
+                      >
                         取消
                       </Button>
-                      <Button size="sm" onClick={handleSaveEdit} disabled={isBusy || !editTopic.trim()}>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={isBusy || !editTopic.trim()}
+                      >
                         {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         保存
                       </Button>

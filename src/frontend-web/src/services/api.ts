@@ -203,9 +203,11 @@ class ApiService {
     if (params?.domain) searchParams.set('domain', params.domain);
     if (params?.page) searchParams.set('page', String(params.page));
     if (params?.limit) searchParams.set('limit', String(params.limit));
-    
+
     const query = searchParams.toString();
-    const response = await this.request<{ list: Content[]; total: number }>(`/contents${query ? `?${query}` : ''}`);
+    const response = await this.request<{ list: Content[]; total: number }>(
+      `/contents${query ? `?${query}` : ''}`,
+    );
     return response.list;
   }
 
@@ -248,10 +250,14 @@ class ApiService {
   }
 
   async generateCoursePack(data: GenerateCoursePackRequest): Promise<Record<string, any>> {
-    return this.request('/ai/course-pack', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, 120000);
+    return this.request(
+      '/ai/course-pack',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+      120000,
+    );
   }
 
   async getCoursePacks(
@@ -272,7 +278,13 @@ class ApiService {
   async getCoursePackVersions(
     id: number,
     params?: { page?: number; limit?: number },
-  ): Promise<{ list: CoursePackRecord[]; total: number; page: number; limit: number; rootSourceId: number }> {
+  ): Promise<{
+    list: CoursePackRecord[];
+    total: number;
+    page: number;
+    limit: number;
+    rootSourceId: number;
+  }> {
     const search = new URLSearchParams();
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
@@ -280,7 +292,10 @@ class ApiService {
     return this.request(`/ai/course-packs/${id}/versions${qs ? `?${qs}` : ''}`);
   }
 
-  async saveCoursePackVersion(id: number, data: SaveCoursePackVersionRequest): Promise<Record<string, any>> {
+  async saveCoursePackVersion(
+    id: number,
+    data: SaveCoursePackVersionRequest,
+  ): Promise<Record<string, any>> {
     return this.request(`/ai/course-packs/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -297,11 +312,17 @@ class ApiService {
     });
   }
 
-  async generateWeeklyCoursePacks(data: GenerateWeeklyCoursePackRequest): Promise<Record<string, any>> {
-    return this.request('/ai/course-packs/generate-weekly', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, 300000);
+  async generateWeeklyCoursePacks(
+    data: GenerateWeeklyCoursePackRequest,
+  ): Promise<Record<string, any>> {
+    return this.request(
+      '/ai/course-packs/generate-weekly',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+      300000,
+    );
   }
 
   async downloadCoursePackExport(
@@ -312,11 +333,14 @@ class ApiService {
     const params = new URLSearchParams();
     params.set('format', format);
 
-    const response = await fetch(`${API_BASE_URL}/ai/course-packs/${id}/export?${params.toString()}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    const response = await fetch(
+      `${API_BASE_URL}/ai/course-packs/${id}/export?${params.toString()}`,
+      {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       let message = `Download failed: ${response.status}`;
@@ -329,7 +353,10 @@ class ApiService {
 
     const blob = await response.blob();
     const disposition = response.headers.get('Content-Disposition') || '';
-    const fileName = this.resolveDownloadFilename(disposition, `course-pack-${id}.${this.extByFormat(format)}`);
+    const fileName = this.resolveDownloadFilename(
+      disposition,
+      `course-pack-${id}.${this.extByFormat(format)}`,
+    );
 
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -420,11 +447,14 @@ class ApiService {
   }
 
   // AI Suggestion
-  async getAISuggestion(params: { userId: number; ageRange?: '3-4' | '5-6' }): Promise<{ suggestion: string }> {
+  async getAISuggestion(params: {
+    userId: number;
+    ageRange?: '3-4' | '5-6';
+  }): Promise<{ suggestion: string }> {
     const searchParams = new URLSearchParams();
     searchParams.set('userId', String(params.userId));
     if (params.ageRange) searchParams.set('ageRange', params.ageRange);
-    
+
     return this.request<{ suggestion: string }>(`/ai/suggest?${searchParams.toString()}`);
   }
 
@@ -433,8 +463,12 @@ class ApiService {
     const searchParams = new URLSearchParams();
     searchParams.set('userId', String(params.userId));
     if (params.ageRange) searchParams.set('ageRange', params.ageRange);
-    
-    const response = await this.request<{ recommended: Recommendation[]; reason: string; nextLevel: unknown }>(`/recommend?${searchParams.toString()}`);
+
+    const response = await this.request<{
+      recommended: Recommendation[];
+      reason: string;
+      nextLevel: unknown;
+    }>(`/recommend?${searchParams.toString()}`);
     return response.recommended;
   }
 
@@ -448,12 +482,20 @@ class ApiService {
   }
 
   // Report - Ability Trend
-  async getAbilityTrend(userId: number, weeks: number = 6): Promise<{ week: string; language: number; math: number; science: number; art: number; social: number }[]> {
+  async getAbilityTrend(
+    userId: number,
+    weeks: number = 6,
+  ): Promise<
+    { week: string; language: number; math: number; science: number; art: number; social: number }[]
+  > {
     return this.request(`/report/trend?userId=${userId}&weeks=${weeks}`);
   }
 
   // Report - Recent Mastered Skills
-  async getRecentSkills(userId: number, limit: number = 3): Promise<{ domain: string; level: number; label: string }[]> {
+  async getRecentSkills(
+    userId: number,
+    limit: number = 3,
+  ): Promise<{ domain: string; level: number; label: string }[]> {
     return this.request(`/report/recent-skills?userId=${userId}&limit=${limit}`);
   }
 
@@ -475,8 +517,12 @@ class ApiService {
   }
 
   // Notifications
-  async getNotifications(userId: number): Promise<{ notifications: Notification[]; unreadCount: number }> {
-    return this.request<{ notifications: Notification[]; unreadCount: number }>(`/notifications/${userId}`);
+  async getNotifications(
+    userId: number,
+  ): Promise<{ notifications: Notification[]; unreadCount: number }> {
+    return this.request<{ notifications: Notification[]; unreadCount: number }>(
+      `/notifications/${userId}`,
+    );
   }
 
   async markNotificationRead(id: number): Promise<Notification> {
@@ -617,7 +663,9 @@ class ApiService {
     if (params?.to) search.set('to', params.to);
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
-    return this.request(`/learning/points/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+    return this.request(
+      `/learning/points/${childId}${search.toString() ? `?${search.toString()}` : ''}`,
+    );
   }
 
   async getWrongQuestions(
@@ -629,7 +677,9 @@ class ApiService {
     if (params?.status) search.set('status', params.status);
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
-    return this.request(`/learning/wrong-questions/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+    return this.request(
+      `/learning/wrong-questions/${childId}${search.toString() ? `?${search.toString()}` : ''}`,
+    );
   }
 
   async getStudyPlans(
@@ -640,7 +690,9 @@ class ApiService {
     if (params?.sourceType) search.set('sourceType', params.sourceType);
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
-    return this.request(`/learning/plans/${childId}${search.toString() ? `?${search.toString()}` : ''}`);
+    return this.request(
+      `/learning/plans/${childId}${search.toString() ? `?${search.toString()}` : ''}`,
+    );
   }
 
   async getConversationSessions(
@@ -668,7 +720,9 @@ class ApiService {
     const search = new URLSearchParams();
     if (params?.page) search.set('page', String(params.page));
     if (params?.limit) search.set('limit', String(params.limit));
-    return this.request(`/ai/history/sessions/${encodeURIComponent(sessionId)}/messages${search.toString() ? `?${search.toString()}` : ''}`);
+    return this.request(
+      `/ai/history/sessions/${encodeURIComponent(sessionId)}/messages${search.toString() ? `?${search.toString()}` : ''}`,
+    );
   }
 
   async getAchievementDisplays(userId: number): Promise<AchievementDisplay[]> {
@@ -677,10 +731,14 @@ class ApiService {
 
   // Structured Lessons
   async generateLesson(params: GenerateCoursePackRequest & { childId: number }): Promise<Content> {
-    return this.request<Content>('/learning/lessons/generate', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    }, 120000);
+    return this.request<Content>(
+      '/learning/lessons/generate',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      },
+      120000,
+    );
   }
 
   /** Direct draft save — bypasses LLM, pure CRUD */
@@ -721,11 +779,19 @@ class ApiService {
     });
   }
 
-  async modifyLesson(id: number, modification: string, options?: { stepId?: string }): Promise<Content> {
-    return this.request<Content>(`/learning/lessons/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ modification, stepId: options?.stepId }),
-    }, 60000);
+  async modifyLesson(
+    id: number,
+    modification: string,
+    options?: { stepId?: string },
+  ): Promise<Content> {
+    return this.request<Content>(
+      `/learning/lessons/${id}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ modification, stepId: options?.stepId }),
+      },
+      60000,
+    );
   }
 
   async confirmLesson(id: number, childId: number): Promise<Content> {
@@ -736,7 +802,9 @@ class ApiService {
   }
 
   async getLessonProgress(id: number, childId: number): Promise<import('@/types').LessonProgress> {
-    return this.request<import('@/types').LessonProgress>(`/learning/lessons/${id}/progress?childId=${childId}`);
+    return this.request<import('@/types').LessonProgress>(
+      `/learning/lessons/${id}/progress?childId=${childId}`,
+    );
   }
 
   async completeLessonStep(
@@ -804,11 +872,14 @@ class ApiService {
       search.set('taskId', String(taskId));
     }
     const query = search.toString();
-    const response = await fetch(`${API_BASE_URL}/learning/lessons/${id}/teaching-video${query ? `?${query}` : ''}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    const response = await fetch(
+      `${API_BASE_URL}/learning/lessons/${id}/teaching-video${query ? `?${query}` : ''}`,
+      {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       let message = `Video request failed: ${response.status}`;
@@ -869,10 +940,14 @@ class ApiService {
 
   /** 快速生成教学视频：输入主题+年龄组，AI 自动生成内容并创建视频任务 */
   async quickGenerateVideo(params: QuickVideoGenerateRequest): Promise<QuickVideoGenerateResponse> {
-    return this.request<QuickVideoGenerateResponse>('/learning/video/quick-generate', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    }, 120000);
+    return this.request<QuickVideoGenerateResponse>(
+      '/learning/video/quick-generate',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      },
+      120000,
+    );
   }
 }
 

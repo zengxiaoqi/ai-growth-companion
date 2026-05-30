@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  CheckCircle,
-  Clock,
-  Loader2,
-  Star,
-} from '@/icons';
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Loader2, Star } from '@/icons';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
-import type { Content, StructuredLessonContent, StructuredLessonStep, LessonProgress, ActivityResult } from '@/types';
+import type {
+  Content,
+  StructuredLessonContent,
+  StructuredLessonStep,
+  LessonProgress,
+  ActivityResult,
+} from '@/types';
 import GameRenderer from './games/GameRenderer';
 import { Button, Card } from './ui';
 import { normalizeActivityType, normalizeActivityData } from './ai-chat/activity-normalizer';
@@ -31,7 +29,11 @@ const STEP_META: Record<string, { emoji: string; label: string; color: string }>
   practice: { emoji: '\u{1F3AE}', label: '练', color: 'bg-orange-100 text-orange-700' },
 };
 
-export default function StructuredLessonView({ contentId, childId, onBack }: StructuredLessonViewProps) {
+export default function StructuredLessonView({
+  contentId,
+  childId,
+  onBack,
+}: StructuredLessonViewProps) {
   const [content, setContent] = useState<Content | null>(null);
   const [lesson, setLesson] = useState<StructuredLessonContent | null>(null);
   const [progress, setProgress] = useState<LessonProgress | null>(null);
@@ -57,7 +59,7 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
             // Find first incomplete step
             if (p.completedSteps.length > 0 && lessonData.steps) {
               const firstIncomplete = lessonData.steps.findIndex(
-                (s: StructuredLessonStep) => !p.completedSteps.includes(s.id)
+                (s: StructuredLessonStep) => !p.completedSteps.includes(s.id),
               );
               if (firstIncomplete >= 0) setCurrentStepIndex(firstIncomplete);
             }
@@ -83,51 +85,54 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
     stepStartTime.current = Date.now();
   }, [currentStepIndex]);
 
-  const handleCompleteStep = useCallback(async (score: number = 100, interactionData?: Record<string, any>) => {
-    if (!childId || !currentStep) return;
+  const handleCompleteStep = useCallback(
+    async (score: number = 100, interactionData?: Record<string, any>) => {
+      if (!childId || !currentStep) return;
 
-    setIsCompleting(true);
-    const durationSeconds = Math.max(1, Math.floor((Date.now() - stepStartTime.current) / 1000));
+      setIsCompleting(true);
+      const durationSeconds = Math.max(1, Math.floor((Date.now() - stepStartTime.current) / 1000));
 
-    try {
-      await api.completeLessonStep(contentId, currentStep.id, childId, {
-        score,
-        durationSeconds,
-        interactionData,
-      });
+      try {
+        await api.completeLessonStep(contentId, currentStep.id, childId, {
+          score,
+          durationSeconds,
+          interactionData,
+        });
 
-      setProgress((prev) => {
-        const newCompleted = [...(prev?.completedSteps || []), currentStep.id];
-        const newStepResults = {
-          ...(prev?.stepResults || {}),
-          [currentStep.id]: { status: 'completed', score },
-        };
-        return {
-          contentId,
-          childId,
-          completedSteps: newCompleted,
-          overallScore: prev?.overallScore || 0,
-          stepResults: newStepResults,
-        };
-      });
+        setProgress((prev) => {
+          const newCompleted = [...(prev?.completedSteps || []), currentStep.id];
+          const newStepResults = {
+            ...(prev?.stepResults || {}),
+            [currentStep.id]: { status: 'completed', score },
+          };
+          return {
+            contentId,
+            childId,
+            completedSteps: newCompleted,
+            overallScore: prev?.overallScore || 0,
+            stepResults: newStepResults,
+          };
+        });
 
-      // Check if all steps completed
-      const updatedCompleted = new Set([...completedSteps, currentStep.id]);
-      if (steps.every((s) => updatedCompleted.has(s.id))) {
-        setShowCompleteScreen(true);
-      } else {
-        // Move to next step
-        const nextIndex = currentStepIndex + 1;
-        if (nextIndex < steps.length) {
-          setCurrentStepIndex(nextIndex);
+        // Check if all steps completed
+        const updatedCompleted = new Set([...completedSteps, currentStep.id]);
+        if (steps.every((s) => updatedCompleted.has(s.id))) {
+          setShowCompleteScreen(true);
+        } else {
+          // Move to next step
+          const nextIndex = currentStepIndex + 1;
+          if (nextIndex < steps.length) {
+            setCurrentStepIndex(nextIndex);
+          }
         }
+      } catch (err: any) {
+        setError(err?.message || '记录步骤失败');
+      } finally {
+        setIsCompleting(false);
       }
-    } catch (err: any) {
-      setError(err?.message || '记录步骤失败');
-    } finally {
-      setIsCompleting(false);
-    }
-  }, [childId, contentId, currentStep, currentStepIndex, steps, completedSteps]);
+    },
+    [childId, contentId, currentStep, currentStepIndex, steps, completedSteps],
+  );
 
   if (isLoading) {
     return (
@@ -157,7 +162,11 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       <div className="min-h-app bg-background">
         <div className="sticky top-0 z-10 border-b border-outline-variant/15 bg-surface/95 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <button onClick={onBack} className="touch-target rounded-full p-2 hover:bg-surface-container-high" aria-label="返回">
+            <button
+              onClick={onBack}
+              className="touch-target rounded-full p-2 hover:bg-surface-container-high"
+              aria-label="返回"
+            >
               <ArrowLeft className="h-5 w-5 text-on-surface" />
             </button>
             <h2 className="text-sm font-bold text-on-surface">课程完成</h2>
@@ -179,7 +188,9 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
           {progress && (
             <div className="mt-4 flex items-center gap-2 rounded-full bg-primary-container/20 px-4 py-2">
               <Star className="h-5 w-5 text-primary" />
-              <span className="text-sm font-bold text-primary">总分: {progress.overallScore || 0} 分</span>
+              <span className="text-sm font-bold text-primary">
+                总分: {progress.overallScore || 0} 分
+              </span>
             </div>
           )}
           <div className="mt-6 flex gap-3">
@@ -208,7 +219,9 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-bold text-on-surface">{content?.title}</h2>
             <div className="flex items-center gap-2 text-xs text-on-surface-variant">
-              <span>{completedSteps.size}/{steps.length} 步骤完成</span>
+              <span>
+                {completedSteps.size}/{steps.length} 步骤完成
+              </span>
               <span className="text-on-surface-variant/30">|</span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
@@ -241,7 +254,11 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       {/* Step Navigation */}
       <div className="flex gap-1 overflow-x-auto px-4 py-3 scrollbar-hide">
         {steps.map((step, i) => {
-          const meta = STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: 'bg-surface-container text-on-surface-variant' };
+          const meta = STEP_META[step.id] || {
+            emoji: '\u{1F4DD}',
+            label: step.label,
+            color: 'bg-surface-container text-on-surface-variant',
+          };
           const isDone = completedSteps.has(step.id);
           const isCurrent = i === currentStepIndex;
           return (
@@ -253,9 +270,11 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
               }}
               className={cn(
                 'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
-                isCurrent ? 'bg-primary text-on-primary shadow-tactile' :
-                isDone ? 'bg-primary-container/30 text-primary' :
-                'bg-surface-container text-on-surface-variant',
+                isCurrent
+                  ? 'bg-primary text-on-primary shadow-tactile'
+                  : isDone
+                    ? 'bg-primary-container/30 text-primary'
+                    : 'bg-surface-container text-on-surface-variant',
               )}
             >
               <span>{meta.emoji}</span>
@@ -270,7 +289,9 @@ export default function StructuredLessonView({ contentId, childId, onBack }: Str
       {error && (
         <div className="mx-4 mb-2 rounded-lg bg-error-container/10 px-4 py-2 text-sm text-error">
           {error}
-          <button className="ml-2 underline" onClick={() => setError(null)}>关闭</button>
+          <button className="ml-2 underline" onClick={() => setError(null)}>
+            关闭
+          </button>
         </div>
       )}
 
@@ -349,7 +370,14 @@ interface StepContentProps {
   isCompleted: boolean;
 }
 
-function StepContent({ step, contentId, childId, isCompleting, onComplete, isCompleted }: StepContentProps) {
+function StepContent({
+  step,
+  contentId,
+  childId,
+  isCompleting,
+  onComplete,
+  isCompleted,
+}: StepContentProps) {
   const m = step.module;
   const meta = STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: '' };
 
@@ -365,7 +393,9 @@ function StepContent({ step, contentId, childId, isCompleting, onComplete, isCom
       >
         <div className="flex items-center gap-2">
           <span className="text-2xl">{meta.emoji}</span>
-          <h3 className="text-lg font-bold text-on-surface">{step.label} - {getStepTitle(step)}</h3>
+          <h3 className="text-lg font-bold text-on-surface">
+            {step.label} - {getStepTitle(step)}
+          </h3>
         </div>
 
         {m.type === 'video' && (
@@ -377,9 +407,15 @@ function StepContent({ step, contentId, childId, isCompleting, onComplete, isCom
             isCompleted={isCompleted}
           />
         )}
-        {m.type === 'reading' && <ReadStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
-        {m.type === 'writing' && <WriteStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
-        {m.type === 'game' && <PracticeStep module={m} onComplete={onComplete} isCompleted={isCompleted} />}
+        {m.type === 'reading' && (
+          <ReadStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
+        {m.type === 'writing' && (
+          <WriteStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
+        {m.type === 'game' && (
+          <PracticeStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
 
         {isCompleting && (
           <div className="flex items-center justify-center gap-2 py-4">
@@ -412,9 +448,7 @@ function normalizeWordRevealWords(scene: any): string[] {
   const rawWords = scene?.animationParams?.words;
   if (!Array.isArray(rawWords)) return [];
 
-  return rawWords
-    .map((word) => (typeof word === 'string' ? word.trim() : ''))
-    .filter(Boolean);
+  return rawWords.map((word) => (typeof word === 'string' ? word.trim() : '')).filter(Boolean);
 }
 
 function shouldFallbackToLegacyWatch(scenes: any[]): boolean {
@@ -422,9 +456,7 @@ function shouldFallbackToLegacyWatch(scenes: any[]): boolean {
   if (!scenes.every((scene) => scene?.animationTemplate === 'language.word-reveal')) return false;
 
   const uniqueWordSets = new Set(
-    scenes
-      .map((scene) => normalizeWordRevealWords(scene).join('|'))
-      .filter(Boolean),
+    scenes.map((scene) => normalizeWordRevealWords(scene).join('|')).filter(Boolean),
   );
 
   if (uniqueWordSets.size !== 1) return false;
@@ -433,15 +465,22 @@ function shouldFallbackToLegacyWatch(scenes: any[]): boolean {
 }
 
 function inferStorySceneBgType(scene: any): 'day' | 'night' | 'indoor' {
-  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' ');
+  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(
+    ' ',
+  );
   if (/(夜|晚上|星星|月亮|黑夜)/.test(source)) return 'night';
   if (/(教室|课堂|室内|老师)/.test(source)) return 'indoor';
   return 'day';
 }
 
 function createStorySceneParams(scene: any): Record<string, unknown> {
-  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' ');
-  const items = Array.from(new Set((source.match(/春|夏|秋|冬|花|太阳|树叶|雪花/g) || []))).slice(0, 4);
+  const source = [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(
+    ' ',
+  );
+  const items = Array.from(new Set(source.match(/春|夏|秋|冬|花|太阳|树叶|雪花/g) || [])).slice(
+    0,
+    4,
+  );
 
   return {
     bgType: inferStorySceneBgType(scene),
@@ -454,7 +493,9 @@ function repairLowInformationAnimationScenes(scenes: any[]): any[] {
   if (!shouldFallbackToLegacyWatch(scenes)) return scenes;
 
   const source = scenes
-    .map((scene) => [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' '))
+    .map((scene) =>
+      [scene?.scene, scene?.imagePrompt, scene?.narration, scene?.onScreenText].join(' '),
+    )
     .join(' ');
   const isSeasonTopic = /(四季|季节|春夏秋冬)/.test(source);
 
@@ -586,7 +627,9 @@ function VideoFirstWatchStep({
           setVideoProgress(100);
         } else {
           // Video generation failed or timed out, fallback to animation
-          console.warn(`[VideoFirstWatchStep] Video failed: ${errorMessage || status}, falling back to animation`);
+          console.warn(
+            `[VideoFirstWatchStep] Video failed: ${errorMessage || status}, falling back to animation`,
+          );
           setFallbackMode('animation');
         }
       } catch (err: any) {
@@ -649,7 +692,8 @@ function VideoFirstWatchStep({
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="text-sm">正在生成教学视频...</span>
           <span className="text-xs text-on-surface-variant">
-            {videoTaskId ? `任务 #${videoTaskId}` : '任务创建中'} · {Math.max(0, Math.min(99, videoProgress))}%
+            {videoTaskId ? `任务 #${videoTaskId}` : '任务创建中'} ·{' '}
+            {Math.max(0, Math.min(99, videoProgress))}%
           </span>
         </div>
       </Card>
@@ -729,16 +773,20 @@ function AnimationWatchStep({
 
   useEffect(() => {
     let cancelled = false;
-    import('@/animations/components/AnimationScenePlayer').then((mod) => {
-      if (!cancelled) setPlayer(() => mod.default);
-    }).catch((err) => {
-      console.error('[AnimationWatchStep] Failed to load AnimationScenePlayer:', err);
-      if (!cancelled) {
-        setLoadError(err instanceof Error ? err.message : String(err));
-        setPlayer(() => () => null);
-      }
-    });
-    return () => { cancelled = true; };
+    import('@/animations/components/AnimationScenePlayer')
+      .then((mod) => {
+        if (!cancelled) setPlayer(() => mod.default);
+      })
+      .catch((err) => {
+        console.error('[AnimationWatchStep] Failed to load AnimationScenePlayer:', err);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : String(err));
+          setPlayer(() => () => null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loadError) {
@@ -763,7 +811,9 @@ function AnimationWatchStep({
     );
   }
 
-  return <AnimationScenePlayer scenes={mappedScenes} isCompleted={isCompleted} onComplete={onComplete} />;
+  return (
+    <AnimationScenePlayer scenes={mappedScenes} isCompleted={isCompleted} onComplete={onComplete} />
+  );
 }
 
 // ─── Text-based Fallback Cards ───────────────────────────────────────
@@ -810,7 +860,9 @@ function LegacyFallbackCards({
         <Card className="relative overflow-hidden">
           <div className="flex min-h-[200px] items-center justify-center bg-gradient-to-br from-primary-container/20 to-tertiary-container/20 p-6">
             <div className="text-center">
-              <p className="text-lg font-medium text-on-surface">{scene?.caption || scene?.scene || `场景 ${currentScene + 1}`}</p>
+              <p className="text-lg font-medium text-on-surface">
+                {scene?.caption || scene?.scene || `场景 ${currentScene + 1}`}
+              </p>
               <p className="mt-2 text-sm text-on-surface-variant">{scene?.narration || ''}</p>
             </div>
           </div>
@@ -821,7 +873,9 @@ function LegacyFallbackCards({
             >
               🔊 朗读
             </button>
-            <span className="text-xs text-on-surface-variant">{currentScene + 1} / {scenes.length}</span>
+            <span className="text-xs text-on-surface-variant">
+              {currentScene + 1} / {scenes.length}
+            </span>
           </div>
           {scenes.length > 1 && (
             <div className="flex gap-2 p-3">
@@ -862,15 +916,21 @@ function LegacyFallbackCards({
 
 // ─── Read Step ──────────────────────────────────────────────────────────
 
-function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score?: number) => void; isCompleted: boolean }) {
+function ReadStep({
+  module: m,
+  onComplete,
+  isCompleted,
+}: {
+  module: any;
+  onComplete: (score?: number) => void;
+  isCompleted: boolean;
+}) {
   const reading = m.reading || {};
   const keywords: string[] = reading.keywords || [];
 
   return (
     <div className="space-y-3">
-      {reading.goal && (
-        <p className="text-sm text-on-surface-variant">目标: {reading.goal}</p>
-      )}
+      {reading.goal && <p className="text-sm text-on-surface-variant">目标: {reading.goal}</p>}
 
       <Card className="p-4">
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">
@@ -882,7 +942,10 @@ function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onCompl
         <div className="flex flex-wrap gap-2">
           <span className="text-xs text-on-surface-variant">关键词:</span>
           {keywords.map((kw, i) => (
-            <span key={i} className="rounded-full bg-secondary-container/20 px-2 py-0.5 text-xs font-medium text-secondary">
+            <span
+              key={i}
+              className="rounded-full bg-secondary-container/20 px-2 py-0.5 text-xs font-medium text-secondary"
+            >
               {kw}
             </span>
           ))}
@@ -894,7 +957,9 @@ function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onCompl
           <p className="mb-2 text-sm font-medium text-on-surface">理解问题:</p>
           <ul className="space-y-1">
             {reading.questions.map((q: string, i: number) => (
-              <li key={i} className="text-sm text-on-surface-variant">{i + 1}. {q}</li>
+              <li key={i} className="text-sm text-on-surface-variant">
+                {i + 1}. {q}
+              </li>
             ))}
           </ul>
         </Card>
@@ -917,7 +982,15 @@ function ReadStep({ module: m, onComplete, isCompleted }: { module: any; onCompl
 
 // ─── Write Step ─────────────────────────────────────────────────────────
 
-function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score?: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
+function WriteStep({
+  module: m,
+  onComplete,
+  isCompleted,
+}: {
+  module: any;
+  onComplete: (score?: number, data?: Record<string, any>) => void;
+  isCompleted: boolean;
+}) {
   const sceneDocument = useMemo(() => resolveLessonSceneDocument('write', m), [m]);
   if (sceneDocument) {
     return (
@@ -937,16 +1010,17 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
 
   return (
     <div className="space-y-3">
-      {writing.goal && (
-        <p className="text-sm text-on-surface-variant">目标: {writing.goal}</p>
-      )}
+      {writing.goal && <p className="text-sm text-on-surface-variant">目标: {writing.goal}</p>}
 
       {tracingItems.length > 0 && (
         <Card className="p-4">
           <p className="mb-2 text-sm font-medium text-on-surface">描红练习</p>
           <div className="flex flex-wrap gap-3">
             {tracingItems.map((item, i) => (
-              <div key={i} className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-dashed border-outline-variant/30 text-lg font-bold text-on-surface">
+              <div
+                key={i}
+                className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-dashed border-outline-variant/30 text-lg font-bold text-on-surface"
+              >
                 {item}
               </div>
             ))}
@@ -959,7 +1033,9 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
           <p className="mb-2 text-sm font-medium text-on-surface">书写任务</p>
           <ul className="space-y-1">
             {tasks.map((task, i) => (
-              <li key={i} className="text-sm text-on-surface-variant">{i + 1}. {task}</li>
+              <li key={i} className="text-sm text-on-surface-variant">
+                {i + 1}. {task}
+              </li>
             ))}
           </ul>
         </Card>
@@ -977,7 +1053,8 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
                   onChange={() => {
                     setCheckedItems((prev) => {
                       const next = new Set(prev);
-                      if (next.has(i)) next.delete(i); else next.add(i);
+                      if (next.has(i)) next.delete(i);
+                      else next.add(i);
                       return next;
                     });
                   }}
@@ -991,7 +1068,10 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
       )}
 
       {!isCompleted && (
-        <Button className="w-full" onClick={() => onComplete(80, { checkedItems: Array.from(checkedItems) })}>
+        <Button
+          className="w-full"
+          onClick={() => onComplete(80, { checkedItems: Array.from(checkedItems) })}
+        >
           <Check className="mr-2 h-4 w-4" />
           写完了，进入下一步
         </Button>
@@ -1007,7 +1087,15 @@ function WriteStep({ module: m, onComplete, isCompleted }: { module: any; onComp
 
 // ─── Practice Step (Game) ───────────────────────────────────────────────
 
-function PracticeStep({ module: m, onComplete, isCompleted }: { module: any; onComplete: (score: number, data?: Record<string, any>) => void; isCompleted: boolean }) {
+function PracticeStep({
+  module: m,
+  onComplete,
+  isCompleted,
+}: {
+  module: any;
+  onComplete: (score: number, data?: Record<string, any>) => void;
+  isCompleted: boolean;
+}) {
   const sceneDocument = useMemo(() => resolveLessonSceneDocument('practice', m), [m]);
   if (sceneDocument) {
     return (

@@ -55,4 +55,3 @@ describe('QuizGame scoring guardrails', () => {
     expect(result.interactionData.reviewData?.[0]?.correctAnswer).toBe('opt-c');
   });
 });
-

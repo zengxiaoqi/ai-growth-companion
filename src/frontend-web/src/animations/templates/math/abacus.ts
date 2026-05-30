@@ -206,9 +206,7 @@ registerP5Sketch('math.abacus', (p: p5, params: Record<string, unknown>) => {
       // Ease-out back (slight overshoot for bounce feel)
       const c1 = 1.3;
       const c3 = c1 + 1;
-      const ease = t < 1
-        ? 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
-        : 1;
+      const ease = t < 1 ? 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2) : 1;
 
       bead.x = p.lerp(fl - 40, bead.targetX, Math.min(1, ease));
       bead.y = bead.startY;
@@ -237,7 +235,12 @@ registerP5Sketch('math.abacus', (p: p5, params: Record<string, unknown>) => {
 
       // Highlight
       p.fill(255, 255, 255, 70);
-      p.ellipse(bead.x - beadSize * 0.15, bead.y - beadSize * 0.15, beadSize * 0.35, beadSize * 0.28);
+      p.ellipse(
+        bead.x - beadSize * 0.15,
+        bead.y - beadSize * 0.15,
+        beadSize * 0.35,
+        beadSize * 0.28,
+      );
       p.pop();
 
       // Center dot

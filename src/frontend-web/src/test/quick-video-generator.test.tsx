@@ -37,12 +37,20 @@ vi.mock('motion/react', () => ({
 
 vi.mock('../ui', () => ({
   Button: ({ children, disabled, onClick, className, variant, ...props }: any) => (
-    <button disabled={disabled} onClick={onClick} className={className} data-variant={variant} {...props}>
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={className}
+      data-variant={variant}
+      {...props}
+    >
       {children}
     </button>
   ),
   Card: ({ children, className, ...props }: any) => (
-    <div className={className} {...props}>{children}</div>
+    <div className={className} {...props}>
+      {children}
+    </div>
   ),
 }));
 
@@ -51,12 +59,14 @@ vi.mock('@/lib/utils', () => ({
 }));
 
 // ── Helpers ──
-function renderComponent(overrides: { selectedChildId?: number | null; childAgeGroup?: '3-4' | '5-6' } = {}) {
+function renderComponent(
+  overrides: { selectedChildId?: number | null; childAgeGroup?: '3-4' | '5-6' } = {},
+) {
   return render(
     <QuickVideoGenerator
       selectedChildId={overrides.selectedChildId ?? 1}
       childAgeGroup={overrides.childAgeGroup}
-    />
+    />,
   );
 }
 
@@ -65,9 +75,16 @@ function getSelectByLabel(labelText: string): HTMLSelectElement {
   return label.closest('div')!.querySelector('select')!;
 }
 
-function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void; reject: (e: Error) => void } {
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (v: T) => void;
+  reject: (e: Error) => void;
+} {
   let resolve!: (v: T) => void, reject!: (e: Error) => void;
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
   return { promise, resolve, reject };
 }
 
@@ -84,7 +101,11 @@ async function submitTopic(topic: string) {
 describe('QuickVideoGenerator state machine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockApi.quickGenerateVideo.mockResolvedValue({ taskId: 100, contentId: 200, status: 'pending' });
+    mockApi.quickGenerateVideo.mockResolvedValue({
+      taskId: 100,
+      contentId: 200,
+      status: 'pending',
+    });
     mockApi.getLessonTeachingVideoTask.mockResolvedValue({ status: 'processing', progress: 0 });
     mockApi.downloadLessonTeachingVideo.mockResolvedValue(new Blob());
   });
@@ -111,7 +132,9 @@ describe('QuickVideoGenerator state machine', () => {
 
   it('enables submit when topic entered and child selected', () => {
     renderComponent();
-    fireEvent.change(screen.getByPlaceholderText('例如：海洋动物、认识数字、四季变化'), { target: { value: '海洋动物' } });
+    fireEvent.change(screen.getByPlaceholderText('例如：海洋动物、认识数字、四季变化'), {
+      target: { value: '海洋动物' },
+    });
     expect(screen.getByRole('button', { name: /生成教学视频/ })).not.toBeDisabled();
   });
 
@@ -151,7 +174,11 @@ describe('QuickVideoGenerator state machine', () => {
 
   // ═══════════ Completed (cache) ═══════════
   it('transitions generating → completed when API returns completed (cache)', async () => {
-    mockApi.quickGenerateVideo.mockResolvedValue({ taskId: 100, contentId: 200, status: 'completed' });
+    mockApi.quickGenerateVideo.mockResolvedValue({
+      taskId: 100,
+      contentId: 200,
+      status: 'completed',
+    });
 
     renderComponent();
     await submitTopic('海洋动物');
@@ -172,12 +199,14 @@ describe('QuickVideoGenerator state machine', () => {
       return Promise.resolve(
         pollCount === 1
           ? { status: 'processing', progress: 50 }
-          : { status: 'completed', progress: 100 }
+          : { status: 'completed', progress: 100 },
       );
     });
 
     renderComponent();
-    await act(async () => { await submitTopic('海洋动物'); });
+    await act(async () => {
+      await submitTopic('海洋动物');
+    });
 
     // Advance past 2 poll intervals (6s)
     await act(() => vi.advanceTimersByTimeAsync(6500));
@@ -209,12 +238,14 @@ describe('QuickVideoGenerator state machine', () => {
       return Promise.resolve(
         pollCount === 1
           ? { status: 'processing', progress: 30 }
-          : { status: 'failed', progress: 30, errorMessage: '渲染失败' }
+          : { status: 'failed', progress: 30, errorMessage: '渲染失败' },
       );
     });
 
     renderComponent();
-    await act(async () => { await submitTopic('海洋动物'); });
+    await act(async () => {
+      await submitTopic('海洋动物');
+    });
 
     await act(() => vi.advanceTimersByTimeAsync(6500));
 
@@ -233,12 +264,14 @@ describe('QuickVideoGenerator state machine', () => {
       return Promise.resolve(
         pollCount === 1
           ? { status: 'processing', progress: 30 }
-          : { status: 'failed', progress: 30, errorMessage: '渲染失败' }
+          : { status: 'failed', progress: 30, errorMessage: '渲染失败' },
       );
     });
 
     renderComponent();
-    await act(async () => { await submitTopic('海洋动物'); });
+    await act(async () => {
+      await submitTopic('海洋动物');
+    });
     await act(() => vi.advanceTimersByTimeAsync(6500));
 
     // Polling → failed with result set — retry button visible
@@ -253,7 +286,11 @@ describe('QuickVideoGenerator state machine', () => {
   });
 
   it('retry from completed returns to idle', async () => {
-    mockApi.quickGenerateVideo.mockResolvedValue({ taskId: 100, contentId: 200, status: 'completed' });
+    mockApi.quickGenerateVideo.mockResolvedValue({
+      taskId: 100,
+      contentId: 200,
+      status: 'completed',
+    });
 
     renderComponent();
     await submitTopic('海洋动物');
@@ -275,7 +312,9 @@ describe('QuickVideoGenerator state machine', () => {
     mockApi.getLessonTeachingVideoTask.mockResolvedValue({ status: 'processing', progress: 50 });
 
     renderComponent();
-    await act(async () => { await submitTopic('海洋动物'); });
+    await act(async () => {
+      await submitTopic('海洋动物');
+    });
 
     // Flush microtasks so polling starts
     await act(() => vi.advanceTimersByTimeAsync(0));

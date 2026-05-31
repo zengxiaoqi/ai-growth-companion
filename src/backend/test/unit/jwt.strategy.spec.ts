@@ -43,9 +43,7 @@ describe('JwtStrategy', () => {
     it('throws UnauthorizedException when user not found', async () => {
       authService.validateUser.mockResolvedValue(null);
 
-      await expect(strategy.validate(payload)).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(strategy.validate(payload)).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
     it('does not catch unexpected errors from validateUser', async () => {

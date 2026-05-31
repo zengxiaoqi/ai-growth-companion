@@ -53,7 +53,10 @@ describe('ReportController', () => {
 
   describe('GET /report/trend', () => {
     it('returns ability trend with default 6 weeks', async () => {
-      const trend = [{ week: 1, score: 70 }, { week: 2, score: 75 }];
+      const trend = [
+        { week: 1, score: 70 },
+        { week: 2, score: 75 },
+      ];
       reportService.getAbilityTrend.mockResolvedValue(trend);
 
       const result = await controller.getAbilityTrend('2');

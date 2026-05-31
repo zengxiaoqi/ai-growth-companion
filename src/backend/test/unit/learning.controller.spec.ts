@@ -1,14 +1,5 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { LearningController } from '../../src/modules/learning/learning.controller';
-import { LearningService } from '../../src/modules/learning/learning.service';
-import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
-import { LearningArchiveService } from '../../src/modules/learning/learning-archive.service';
-import { LessonContentService } from '../../src/modules/learning/lesson-content.service';
-import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
-import { UsersService } from '../../src/modules/users/users.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Content } from '../../src/database/entities/content.entity';
-import { VideoGenerationTask } from '../../src/database/entities/video-generation-task.entity';
 
 describe('LearningController', () => {
   let controller: LearningController;
@@ -63,6 +54,11 @@ describe('LearningController', () => {
     save: jest.fn(),
   };
 
+  const quickVideoService = {
+    quickGenerate: jest.fn(),
+    getTask: jest.fn(),
+  };
+
   const createChildReq = (id = 2) => ({ user: { sub: id, type: 'child' } });
   const createParentReq = (id = 1) => ({ user: { sub: id, type: 'parent' } });
 
@@ -78,6 +74,7 @@ describe('LearningController', () => {
       usersService as any,
       contentRepo as any,
       videoTaskRepo as any,
+      quickVideoService as any,
     );
   });
 
@@ -399,9 +396,9 @@ describe('LearningController', () => {
     it('blocks parent from viewing non-linked child history', async () => {
       usersService.findById.mockResolvedValue(null);
 
-      await expect(
-        controller.history(createParentReq(1), '99'),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(controller.history(createParentReq(1), '99')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
     });
   });
 
@@ -474,10 +471,7 @@ describe('LearningController', () => {
       learningArchive.getWrongQuestions.mockResolvedValue(questions);
       usersService.findById.mockResolvedValue({ id: 2, parentId: 1 });
 
-      const result = await controller.getWrongQuestions(
-        createParentReq(1),
-        '2',
-      );
+      const result = await controller.getWrongQuestions(createParentReq(1), '2');
 
       expect(result).toEqual(questions);
       expect(learningArchive.getWrongQuestions).toHaveBeenCalledWith({
@@ -493,14 +487,7 @@ describe('LearningController', () => {
       learningArchive.getWrongQuestions.mockResolvedValue({ list: [], total: 0 });
       usersService.findById.mockResolvedValue({ id: 2, parentId: 1 });
 
-      await controller.getWrongQuestions(
-        createParentReq(1),
-        '2',
-        'math',
-        'unresolved',
-        '1',
-        '20',
-      );
+      await controller.getWrongQuestions(createParentReq(1), '2', 'math', 'unresolved', '1', '20');
 
       expect(learningArchive.getWrongQuestions).toHaveBeenCalledWith({
         childId: 2,
@@ -516,9 +503,9 @@ describe('LearningController', () => {
 
   describe('lesson access control (parent-only)', () => {
     it('blocks child from viewing draft lessons', async () => {
-      await expect(
-        controller.getDraftLessons(createChildReq(2), '2'),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(controller.getDraftLessons(createChildReq(2), '2')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
     });
 
     it('blocks child from generating lessons', async () => {
@@ -544,19 +531,16 @@ describe('LearningController', () => {
       lessonContent.listDraftLessonsForChild.mockResolvedValue(drafts);
       usersService.findById.mockResolvedValue({ id: 2, parentId: 1 });
 
-      const result = await controller.getDraftLessons(
-        createParentReq(1),
-        '2',
-      );
+      const result = await controller.getDraftLessons(createParentReq(1), '2');
 
       expect(result).toEqual(drafts);
       expect(lessonContent.listDraftLessonsForChild).toHaveBeenCalledWith(2);
     });
 
     it('rejects draft lessons without valid childId', async () => {
-      await expect(
-        controller.getDraftLessons(createParentReq(1), '0'),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(controller.getDraftLessons(createParentReq(1), '0')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 
@@ -626,15 +610,11 @@ describe('LearningController', () => {
       lessonContent.completeStep.mockResolvedValue(result);
       usersService.findById.mockResolvedValue({ id: 2, parentId: 1 });
 
-      const response = await controller.completeLessonStep(
-        createParentReq(1),
-        '5',
-        {
-          childId: 2,
-          stepId: 'step-1',
-          score: 90,
-        },
-      );
+      const response = await controller.completeLessonStep(createParentReq(1), '5', {
+        childId: 2,
+        stepId: 'step-1',
+        score: 90,
+      });
 
       expect(response).toEqual(result);
       expect(lessonContent.completeStep).toHaveBeenCalledWith({
@@ -656,10 +636,7 @@ describe('LearningController', () => {
       learningArchive.getStudyPlans.mockResolvedValue(plans);
       usersService.findById.mockResolvedValue({ id: 2, parentId: 1 });
 
-      const result = await controller.getStudyPlans(
-        createParentReq(1),
-        '2',
-      );
+      const result = await controller.getStudyPlans(createParentReq(1), '2');
 
       expect(result).toEqual(plans);
       expect(learningArchive.getStudyPlans).toHaveBeenCalledWith({

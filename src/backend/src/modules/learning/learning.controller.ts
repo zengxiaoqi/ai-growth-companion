@@ -679,10 +679,7 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '一键生成教学视频 — AI自动生成内容并入队渲染' })
-  async quickGenerateVideo(
-    @Request() req: any,
-    @Body() dto: QuickVideoGenerateDto,
-  ) {
+  async quickGenerateVideo(@Request() req: any, @Body() dto: QuickVideoGenerateDto) {
     await this.assertAccessToChild(req, dto.childId);
     return this.quickVideoService.createContentAndEnqueue({
       topic: dto.topic,

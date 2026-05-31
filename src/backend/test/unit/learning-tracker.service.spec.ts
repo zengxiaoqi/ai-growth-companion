@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LearningTrackerService, RecordActivityParams } from '../../src/modules/learning/learning-tracker.service';
+import {
+  LearningTrackerService,
+  RecordActivityParams,
+} from '../../src/modules/learning/learning-tracker.service';
 import { LearningService } from '../../src/modules/learning/learning.service';
 import { AbilitiesService } from '../../src/modules/abilities/abilities.service';
 import { AchievementsService } from '../../src/modules/achievements/achievements.service';
@@ -17,7 +20,13 @@ describe('LearningTrackerService', () => {
   let recordRepo: any;
   let achievementRepo: any;
 
-  const mockRecord = { id: 99, uuid: 'test-uuid', userId: 2, contentId: null, status: 'in_progress' };
+  const mockRecord = {
+    id: 99,
+    uuid: 'test-uuid',
+    userId: 2,
+    contentId: null,
+    status: 'in_progress',
+  };
 
   beforeEach(async () => {
     recordRepo = {
@@ -131,12 +140,7 @@ describe('LearningTrackerService', () => {
 
       await service.recordActivity(baseParams);
 
-      expect(abilitiesService.create).toHaveBeenCalledWith(
-        2,
-        'language',
-        85,
-        expect.any(Object),
-      );
+      expect(abilitiesService.create).toHaveBeenCalledWith(2, 'language', 85, expect.any(Object));
     });
 
     it('blends 70/30 when previous ability exists', async () => {
@@ -146,17 +150,15 @@ describe('LearningTrackerService', () => {
       await service.recordActivity(baseParams);
 
       // 0.7 * 70 + 0.3 * 85 = 49 + 26 = 75 (rounded from 74.5)
-      expect(abilitiesService.create).toHaveBeenCalledWith(
-        2,
-        'language',
-        75,
-        expect.any(Object),
-      );
+      expect(abilitiesService.create).toHaveBeenCalledWith(2, 'language', 75, expect.any(Object));
     });
 
     it('checks achievements after recording', async () => {
       learningService.update.mockResolvedValue({ ...mockRecord, score: 85, status: 'completed' });
-      achievementsService.checkAchievements.mockResolvedValue(['first_learning', 'language_master']);
+      achievementsService.checkAchievements.mockResolvedValue([
+        'first_learning',
+        'language_master',
+      ]);
 
       const result = await service.recordActivity(baseParams);
 

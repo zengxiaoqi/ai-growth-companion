@@ -30,7 +30,12 @@ export class QuickVideoService {
     const duration = params.durationSec || 60;
     const targetScenes = Math.max(3, Math.min(8, Math.floor(duration / 8)));
 
-    const prompt = this.buildContentPrompt(params.topic, params.ageGroup, targetScenes, params.style);
+    const prompt = this.buildContentPrompt(
+      params.topic,
+      params.ageGroup,
+      targetScenes,
+      params.style,
+    );
 
     const result = await this.llmClient.chatCompletion(
       [{ role: 'user', content: prompt }],
@@ -48,7 +53,8 @@ export class QuickVideoService {
     style?: string,
   ): string {
     // 提示词引导 AI 输出结构化的 videoLesson + visualStory
-    const styleText = style === 'science' ? '科学探索' : style === 'song' ? '音乐儿歌' : '活泼有趣的卡通风格';
+    const styleText =
+      style === 'science' ? '科学探索' : style === 'song' ? '音乐儿歌' : '活泼有趣的卡通风格';
 
     return `你是一个儿童教育内容创作专家。请为 ${ageGroup} 岁的孩子创作一个关于「${topic}」的教学视频内容。
 
@@ -190,9 +196,11 @@ export class QuickVideoService {
         childId: params.childId,
       } as any);
 
-const saved = await this.contentRepo.save(content);
+      const saved = await this.contentRepo.save(content);
       contentId = (saved as any).id;
-      this.logger.log(`Created quick_generate content: id=${contentId}, title="${(saved as any).title}"`);
+      this.logger.log(
+        `Created quick_generate content: id=${contentId}, title="${(saved as any).title}"`,
+      );
     }
 
     // 4. 入队视频任务（复用现有队列）

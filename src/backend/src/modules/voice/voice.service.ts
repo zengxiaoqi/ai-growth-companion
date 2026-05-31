@@ -1,8 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EdgeTTS } from '@andresaya/edge-tts';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class VoiceService {
+  private readonly logger = new Logger(VoiceService.name);
+
+  constructor(@Optional() private readonly aiService?: AiService) {}
   /**
    * 文字转语音 - 使用 Edge-TTS
    * 返回 MP3 音频 Buffer
@@ -23,6 +27,32 @@ export class VoiceService {
 
   async voiceChat(userId: number, audioUrl: string) {
     const text = await this.speechToText(audioUrl);
+
+    // Use AI service when available for smarter responses
+    if (this.aiService) {
+      try {
+        const aiResponse = await this.aiService.chat({
+          message: text,
+          viewerId: userId,
+          viewerType: 'student',
+          targetChildId: userId,
+        });
+        const replyText = aiResponse.reply || '和你聊天真开心！';
+        const audioBuffer = await this.textToSpeech(replyText);
+        return {
+          query: text,
+          intent: 'ai',
+          reply: replyText,
+          suggestions: aiResponse.suggestions || [],
+          audioBuffer: audioBuffer.toString('base64'),
+          duration: Math.ceil(replyText.length / 3),
+        };
+      } catch (error) {
+        this.logger.warn('AI voice chat failed, falling back to rule-based:', error);
+      }
+    }
+
+    // Fallback to rule-based intent matching
     const intent = this.parseIntent(text);
     const reply = this.generateReply(intent, text);
     const audioBuffer = await this.textToSpeech(reply.text);

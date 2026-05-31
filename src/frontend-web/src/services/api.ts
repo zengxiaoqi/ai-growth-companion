@@ -47,12 +47,9 @@ const API_BASE_URL = (() => {
     return fromEnv.replace(/\/$/, '');
   }
 
-  if (typeof window !== 'undefined') {
-    const backendProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    return `${backendProtocol}//${window.location.hostname}:3000/api`;
-  }
-
-  return 'http://localhost:3000/api';
+  // Use relative path so Vite proxy handles /api -> backend:3001
+  // This works both locally and through Cloudflare Tunnel
+  return '/api';
 })();
 
 class ApiService {

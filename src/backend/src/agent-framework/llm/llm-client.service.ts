@@ -7,12 +7,18 @@
  * - No TLS rejection hack
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai/index';
-import type { ILlmClient, LlmMessage, LlmResponse, LlmToolDefinition, LlmConfig } from '../core';
-import { stripThinking } from '../core';
-import { RetryStrategy } from './retry.strategy';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import OpenAI from "openai/index";
+import type {
+  ILlmClient,
+  LlmMessage,
+  LlmResponse,
+  LlmToolDefinition,
+  LlmConfig,
+} from "../core";
+import { stripThinking } from "../core";
+import { RetryStrategy } from "./retry.strategy";
 
 @Injectable()
 export class LlmClientService implements ILlmClient, OnModuleInit {
@@ -23,11 +29,14 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {
     this.config = {
-      baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
-      apiKey: this.configService.get<string>('LLM_API_KEY', 'unused'),
-      model: this.configService.get<string>('LLM_MODEL', 'qwen2.5:7b'),
-      maxTokens: Number(this.configService.get('LLM_MAX_TOKENS', 4096)),
-      temperature: Number(this.configService.get('LLM_TEMPERATURE', 0.7)),
+      baseUrl: this.configService.get<string>(
+        "LLM_BASE_URL",
+        "http://localhost:11434/v1",
+      ),
+      apiKey: this.configService.get<string>("LLM_API_KEY", "unused"),
+      model: this.configService.get<string>("LLM_MODEL", "qwen2.5:7b"),
+      maxTokens: Number(this.configService.get<string>("LLM_MAX_TOKENS", "4096")),
+      temperature: Number(this.configService.get<string>("LLM_TEMPERATURE", "0.7")),
     };
 
     this.retryStrategy = new RetryStrategy({
@@ -41,7 +50,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   onModuleInit() {
     this.client = new OpenAI({
       baseURL: this.config.baseUrl,
-      apiKey: this.config.apiKey || 'unused',
+      apiKey: this.config.apiKey || "unused",
     });
     this.logger.log(
       `LLM client initialized: model=${this.config.model}, baseUrl=${this.config.baseUrl}`,
@@ -53,18 +62,20 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   }
 
   /** Convert framework messages to OpenAI format */
-  private toOpenAIMessages(messages: LlmMessage[]): OpenAI.ChatCompletionMessageParam[] {
+  private toOpenAIMessages(
+    messages: LlmMessage[],
+  ): OpenAI.ChatCompletionMessageParam[] {
     return messages.map((msg) => {
-      if (msg.role === 'tool') {
+      if (msg.role === "tool") {
         return {
-          role: 'tool' as const,
+          role: "tool" as const,
           content: msg.content,
           tool_call_id: msg.toolCallId,
         } as any;
       }
-      if (msg.role === 'assistant' && msg.toolCalls) {
+      if (msg.role === "assistant" && msg.toolCalls) {
         return {
-          role: 'assistant' as const,
+          role: "assistant" as const,
           content: msg.content,
           tool_calls: msg.toolCalls,
         } as any;
@@ -77,7 +88,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   }
 
   /** Convert framework tool definitions to OpenAI format */
-  private toOpenAITools(tools?: LlmToolDefinition[]): OpenAI.ChatCompletionTool[] | undefined {
+  private toOpenAITools(
+    tools?: LlmToolDefinition[],
+  ): OpenAI.ChatCompletionTool[] | undefined {
     if (!tools || tools.length === 0) return undefined;
     return tools as any;
   }
@@ -85,35 +98,23 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   async chatCompletion(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
-    maxTokensOverride?: number,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
-      const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
-      this.logger.debug(
-        `[LLM REQUEST] model=${this.config.model} temp=${this.config.temperature} maxTokens=${effectiveMaxTokens} messages=${messages.length} tools=${tools?.length ?? 0}`,
-      );
-      this.logger.verbose(`[LLM REQUEST] messages=${JSON.stringify(messages)}`);
-      if (tools && tools.length > 0) {
-        this.logger.verbose(
-          `[LLM REQUEST] tools=${JSON.stringify(tools.map((t: any) => t.function?.name || t.name))}`,
-        );
-      }
-
       const response = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
-        tool_choice: tools ? 'auto' : undefined,
-        max_tokens: effectiveMaxTokens,
+        tool_choice: tools ? "auto" : undefined,
+        max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
       });
 
       const choice = response.choices[0];
-      const result: LlmResponse = {
+      return {
         content: choice?.message?.content ?? null,
         toolCalls: choice?.message?.tool_calls?.map((tc) => ({
           id: tc.id,
-          type: 'function' as const,
+          type: "function" as const,
           function: {
             name: (tc as any).function?.name,
             arguments: (tc as any).function?.arguments,
@@ -127,23 +128,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
           : undefined,
         finishReason: choice?.finish_reason ?? undefined,
       };
-
-      this.logger.debug(
-        `[LLM RESPONSE] finishReason=${result.finishReason} contentLen=${result.content?.length ?? 0} toolCalls=${result.toolCalls?.length ?? 0} usage(prompt=${result.usage?.promptTokens} completion=${result.usage?.completionTokens})`,
-      );
-      this.logger.verbose(
-        `[LLM RESPONSE] content=${JSON.stringify(result.content?.slice(0, 500))}`,
-      );
-      if (result.toolCalls && result.toolCalls.length > 0) {
-        for (const tc of result.toolCalls) {
-          this.logger.verbose(
-            `[LLM RESPONSE] toolCall: ${tc.function?.name}(${tc.function?.arguments?.slice(0, 300)})`,
-          );
-        }
-      }
-
-      return result;
-    }, 'chatCompletion');
+    }, "chatCompletion");
   }
 
   async *chatCompletionStream(
@@ -151,31 +136,22 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
   ): AsyncGenerator<string> {
     try {
-      this.logger.debug(
-        `[LLM STREAM REQUEST] model=${this.config.model} messages=${messages.length} tools=${tools?.length ?? 0}`,
-      );
       const stream = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
-        tool_choice: tools ? 'auto' : undefined,
+        tool_choice: tools ? "auto" : undefined,
         max_tokens: this.config.maxTokens,
         temperature: this.config.temperature,
         stream: true,
       });
 
-      let totalContent = '';
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
-          totalContent += content;
           yield content;
         }
       }
-      this.logger.debug(`[LLM STREAM RESPONSE] contentLen=${totalContent.length}`);
-      this.logger.verbose(
-        `[LLM STREAM RESPONSE] content=${JSON.stringify(totalContent.slice(0, 500))}`,
-      );
     } catch (error: any) {
       this.logger.error(`LLM stream failed: ${error.message}`);
       throw error;
@@ -184,122 +160,41 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   private readonly ESCALATING_TOKEN_LIMITS = [4096, 8192, 16384];
 
-  /**
-   * Generate with per-call config overrides for model routing.
-   * Falls back to defaults from this.config for any unspecified field.
-   */
-  async generateWithConfig(
-    prompt: string,
-    systemPrompt?: string,
-    config?: { model?: string; maxTokens?: number; temperature?: number },
-  ): Promise<string> {
-    const overrideConfig = config || {};
-    const originalConfig = { ...this.config };
-
-    if (overrideConfig.model) this.config.model = overrideConfig.model;
-    if (overrideConfig.maxTokens) this.config.maxTokens = overrideConfig.maxTokens;
-    if (overrideConfig.temperature !== undefined)
-      this.config.temperature = overrideConfig.temperature;
-
-    try {
-      return await this.generate(prompt, systemPrompt);
-    } finally {
-      this.config = originalConfig;
-    }
-  }
-
-  async generateJson(
-    prompt: string,
-    systemPrompt?: string,
-    config?: { model?: string; maxTokens?: number; temperature?: number },
-  ): Promise<string> {
-    const overrideConfig = config || {};
-    const originalConfig = { ...this.config };
-
-    if (overrideConfig.model) this.config.model = overrideConfig.model;
-    if (overrideConfig.maxTokens) this.config.maxTokens = overrideConfig.maxTokens;
-    if (overrideConfig.temperature !== undefined)
-      this.config.temperature = overrideConfig.temperature;
-
-    const messages: LlmMessage[] = [];
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
-    }
-    messages.push({ role: 'user', content: prompt });
-
-    try {
-      const tokenLimits = Array.from(
-        new Set([this.config.maxTokens, ...this.ESCALATING_TOKEN_LIMITS, 20000]),
-      )
-        .filter((limit) => Number.isFinite(limit) && limit > 0)
-        .sort((a, b) => a - b)
-        .filter((limit) => limit >= this.config.maxTokens);
-
-      let lastContent = '';
-      for (const maxTokens of tokenLimits) {
-        const response = await this.client.chat.completions.create({
-          model: this.config.model,
-          messages: this.toOpenAIMessages(messages),
-          max_tokens: maxTokens,
-          temperature: this.config.temperature,
-          response_format: { type: 'json_object' } as any,
-        });
-        const choice = response.choices[0];
-        lastContent = stripThinking(choice?.message?.content ?? '');
-        this.logger.debug(
-          `[LLM JSON RESPONSE] finishReason=${choice?.finish_reason ?? 'unknown'} contentLen=${lastContent.length} maxTokens=${maxTokens}`,
-        );
-        if (choice?.finish_reason === 'length' && maxTokens < tokenLimits[tokenLimits.length - 1]) {
-          this.logger.debug(
-            `generateJson() hit token limit (${maxTokens}), escalating to next tier...`,
-          );
-          continue;
-        }
-        return lastContent;
-      }
-
-      return lastContent;
-    } catch (error: any) {
-      this.logger.warn(
-        `generateJson() JSON mode unavailable, falling back to text generation: ${error?.message || 'unknown'}`,
-      );
-      try {
-        return await this.generate(prompt, systemPrompt);
-      } finally {
-        this.config = originalConfig;
-      }
-    } finally {
-      this.config = originalConfig;
-    }
-  }
-
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
     const messages: LlmMessage[] = [];
     if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
+      messages.push({ role: "system", content: systemPrompt });
     }
-    messages.push({ role: 'user', content: prompt });
+    messages.push({ role: "user", content: prompt });
 
     // Try with escalating max_tokens when finish_reason === 'length' (Claude Code pattern)
     for (const tokenLimit of this.ESCALATING_TOKEN_LIMITS) {
-      const response = await this.chatCompletionWithTokenLimit(messages, tokenLimit);
-      const raw = response.content ?? '';
+      const response = await this.chatCompletionWithTokenLimit(
+        messages,
+        tokenLimit,
+      );
+      const raw = response.content ?? "";
       const result = stripThinking(raw);
 
       // finish_reason === 'length' means output was truncated — retry with higher limit
       if (
-        response.finishReason === 'length' &&
-        tokenLimit < this.ESCALATING_TOKEN_LIMITS[this.ESCALATING_TOKEN_LIMITS.length - 1]
+        response.finishReason === "length" &&
+        tokenLimit <
+          this.ESCALATING_TOKEN_LIMITS[this.ESCALATING_TOKEN_LIMITS.length - 1]
       ) {
-        this.logger.debug(`generate() hit token limit (${tokenLimit}), escalating to next tier...`);
+        this.logger.debug(
+          `generate() hit token limit (${tokenLimit}), escalating to next tier...`,
+        );
         continue;
       }
 
       // Attempt partial JSON salvage for truncated responses
-      if (response.finishReason === 'length' && result) {
+      if (response.finishReason === "length" && result) {
         const salvaged = this.tryPartialJsonSalvage(result);
         if (salvaged) {
-          this.logger.debug('generate() salvaged partial JSON from truncated response');
+          this.logger.debug(
+            "generate() salvaged partial JSON from truncated response",
+          );
           return salvaged;
         }
       }
@@ -310,20 +205,20 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       // Empty after stripThinking — model produced only thinking blocks
       if (raw) {
         this.logger.debug(
-          'generate() produced empty content after stripThinking, retrying with anti-thinking prompt...',
+          "generate() produced empty content after stripThinking, retrying with anti-thinking prompt...",
         );
         try {
           const retryMessages: LlmMessage[] = [
             ...messages,
-            { role: 'assistant', content: raw.slice(0, 200) },
+            { role: "assistant", content: raw.slice(0, 200) },
             {
-              role: 'user',
+              role: "user",
               content:
-                'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.',
+                "Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.",
             },
           ];
           const retry = await this.chatCompletion(retryMessages);
-          const retryResult = stripThinking(retry.content ?? '');
+          const retryResult = stripThinking(retry.content ?? "");
           return retryResult;
         } catch (err: any) {
           this.logger.debug(`generate() retry failed: ${err.message}`);
@@ -335,7 +230,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
     // Fallback: return whatever we got at the highest token limit
     const finalResponse = await this.chatCompletion(messages);
-    return stripThinking(finalResponse.content ?? '');
+    return stripThinking(finalResponse.content ?? "");
   }
 
   /** chatCompletion with a specific max_tokens override */
@@ -362,7 +257,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             }
           : undefined,
       };
-    }, 'chatCompletion');
+    }, "chatCompletion");
   }
 
   /**
@@ -370,7 +265,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
    * Tries progressive brace-matching from the end of the string.
    */
   private tryPartialJsonSalvage(text: string): string | null {
-    const firstBrace = text.indexOf('{');
+    const firstBrace = text.indexOf("{");
     if (firstBrace === -1) return null;
 
     // Try parsing the full text first
@@ -384,19 +279,19 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     // Progressive salvage: close open structures and try parsing
     const sliced = text.slice(firstBrace);
     const attempts = [
-      () => sliced + '}', // close outermost object
-      () => sliced.replace(/,\s*$/, '') + '}', // remove trailing comma + close
-      () => sliced.replace(/"[^"]*$/, '"') + '}', // close truncated string value
-      () => sliced.replace(/,\s*"[^"]*$/, '') + '}', // remove truncated key-value pair
-      () => sliced.replace(/,\s*\{[^}]*$/, '') + '}', // remove truncated inner object
-      () => sliced.replace(/,\s*\[[^\]]*$/, '') + '}', // remove truncated inner array
+      () => sliced + "}", // close outermost object
+      () => sliced.replace(/,\s*$/, "") + "}", // remove trailing comma + close
+      () => sliced.replace(/"[^"]*$/, '"') + "}", // close truncated string value
+      () => sliced.replace(/,\s*"[^"]*$/, "") + "}", // remove truncated key-value pair
+      () => sliced.replace(/,\s*\{[^}]*$/, "") + "}", // remove truncated inner object
+      () => sliced.replace(/,\s*\[[^\]]*$/, "") + "}", // remove truncated inner array
     ];
 
     for (const attempt of attempts) {
       try {
         const candidate = attempt();
         const parsed = JSON.parse(candidate);
-        if (parsed && typeof parsed === 'object') {
+        if (parsed && typeof parsed === "object") {
           return candidate;
         }
       } catch {

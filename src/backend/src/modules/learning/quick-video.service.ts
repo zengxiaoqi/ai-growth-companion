@@ -39,8 +39,6 @@ export class QuickVideoService {
 
     const result = await this.llmClient.chatCompletion(
       [{ role: 'user', content: prompt }],
-      undefined,
-      2000,
     );
 
     return this.parseAiResult(result);

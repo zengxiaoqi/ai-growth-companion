@@ -118,4 +118,25 @@ describe('NotificationService', () => {
       );
     });
   });
+
+  describe('delete', () => {
+    it('deletes a notification', async () => {
+      mockRepo.delete.mockResolvedValue({ affected: 1 });
+      await service.delete(1);
+      expect(mockRepo.delete).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('notifyLearningReminder', () => {
+    it('creates a reminder notification', async () => {
+      mockRepo.create.mockReturnValue({ userId: 1, title: '学习提醒', type: 'reminder' });
+      mockRepo.save.mockResolvedValue({ id: 2, title: '学习提醒' });
+
+      const result = await service.notifyLearningReminder(1);
+      expect(result.title).toBe('学习提醒');
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'reminder' }),
+      );
+    });
+  });
 });

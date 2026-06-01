@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook: auto-fix ESLint errors before commit
+# Prevents formatting inconsistencies from accumulating
+
+# Only run if TypeScript backend files are staged
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^src/backend/(src|test)/.*\.ts$' || true)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+echo "🔧 Running ESLint --fix on staged backend files..."
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Strip src/backend/ prefix so paths are relative to src/backend/
+ESLINT_FILES=$(echo "$STAGED" | sed 's|^src/backend/||')
+
+cd "$REPO_ROOT/src/backend"
+if npx eslint --fix --cache --cache-location .eslintcache $ESLINT_FILES --quiet 2>/dev/null; then
+  cd "$REPO_ROOT"
+  git add $STAGED
+  echo "✅ ESLint check passed"
+else
+  echo "⚠️  ESLint found errors that couldn't be auto-fixed"
+  echo "   Review: cd src/backend && npx eslint --fix"
+  exit 1
+fi

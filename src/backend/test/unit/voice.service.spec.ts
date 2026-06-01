@@ -83,6 +83,49 @@ describe('VoiceService', () => {
       // Default intent should be 'chat' since '你好' doesn't match intent keywords
       expect(result.intent).toBe('chat');
     });
+
+    describe('AI integration path', () => {
+      let mockAiService: any;
+
+      beforeEach(() => {
+        jest.clearAllMocks();
+        mockAiService = {
+          chat: jest.fn().mockResolvedValue({
+            reply: '你好小朋友！今天想学什么呀？',
+            suggestions: ['学数学', '听故事', '唱歌谣'],
+          }),
+        };
+      });
+
+      it('should use AI chat when aiService is available', async () => {
+        const aiService = new VoiceService(mockAiService);
+        const result = await aiService.voiceChat(1, 'http://example.com/voice.wav');
+
+        expect(mockAiService.chat).toHaveBeenCalledWith({
+          message: '模拟识别结果：你好',
+          viewerId: 1,
+          viewerType: 'student',
+          targetChildId: 1,
+        });
+        expect(result.intent).toBe('ai');
+        expect(result.reply).toBe('你好小朋友！今天想学什么呀？');
+        expect(result.suggestions).toEqual(['学数学', '听故事', '唱歌谣']);
+        expect(result.audioBuffer).toBeTruthy();
+        expect(typeof result.audioBuffer).toBe('string');
+      });
+
+      it('should fallback to rule-based when AI call fails', async () => {
+        mockAiService.chat.mockRejectedValue(new Error('AI service down'));
+        const aiService = new VoiceService(mockAiService);
+
+        const result = await aiService.voiceChat(1, 'http://example.com/voice.wav');
+
+        // Should have fallen back to rule-based, so intent is NOT 'ai'
+        expect(result.intent).not.toBe('ai');
+        expect(result.reply).toBe('和你聊天真开心！');
+        expect(result.audioBuffer).toBeTruthy();
+      });
+    });
   });
 
   describe('generateStory', () => {

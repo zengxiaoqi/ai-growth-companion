@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -10,21 +8,15 @@ const String _defaultApiUrl = 'https://lingxi.chataifree.eu.org/api';
 
 /// 动态获取 API base URL
 /// - Web: 使用当前页面同源 + /api
-/// - Android: 使用 10.0.2.2:3000/api（模拟器特殊地址）
-/// - 其他平台: 使用默认生产地址
+/// - 真机 / iOS / 桌面: 统一走 Cloudflare Tunnel 生产地址
+/// - Android 模拟器本地开发时，可临时改为 http://10.0.2.2:3001/api
 String getApiBaseUrl() {
   if (kIsWeb) {
     // Web 环境：从当前页面 URL 自动构建（同源 API）
     return '/api';
   }
 
-  // 非 Web 环境
-  if (Platform.isAndroid) {
-    // Android 模拟器使用特殊地址；需要局域网开发时改为实际 IP
-    return 'http://10.0.2.2:3000/api';
-  }
-
-  // iOS 模拟器、物理设备、桌面等使用默认生产地址
+  // 所有非 Web 平台统一走生产域名（真机、模拟器均可访问外网）
   return _defaultApiUrl;
 }
 

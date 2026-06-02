@@ -68,9 +68,7 @@ describe('SseService', () => {
     });
 
     it('should do nothing for non-existent user', () => {
-      expect(() =>
-        service.sendToUser(999, 'test', {}),
-      ).not.toThrow();
+      expect(() => service.sendToUser(999, 'test', {})).not.toThrow();
     });
   });
 

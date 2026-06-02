@@ -52,11 +52,14 @@ describe('EmergencyService', () => {
   });
 
   beforeEach(() => {
-    mockRepo.create.mockImplementation((data: Partial<EmergencyCall>) => ({
-      ...data,
-      id: 1,
-      createdAt: new Date(),
-    } as EmergencyCall));
+    mockRepo.create.mockImplementation(
+      (data: Partial<EmergencyCall>) =>
+        ({
+          ...data,
+          id: 1,
+          createdAt: new Date(),
+        }) as EmergencyCall,
+    );
     mockRepo.save.mockImplementation((entity: any) => Promise.resolve(entity));
     mockRepo.createQueryBuilder.mockReturnValue(createMockQueryBuilder(0));
     mockUsersService.findById.mockImplementation((id: number) => {

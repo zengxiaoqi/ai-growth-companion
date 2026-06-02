@@ -134,9 +134,7 @@ describe('NotificationService', () => {
 
       const result = await service.notifyLearningReminder(1);
       expect(result.title).toBe('学习提醒');
-      expect(mockRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'reminder' }),
-      );
+      expect(mockRepo.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'reminder' }));
     });
   });
 });

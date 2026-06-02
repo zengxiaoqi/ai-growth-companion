@@ -68,7 +68,10 @@ describe('VoiceController', () => {
       };
       voiceService.voiceChat.mockResolvedValue(mockResponse);
 
-      const result = await controller.voiceChat({ userId: 1, audioUrl: 'http://example.com/audio' });
+      const result = await controller.voiceChat({
+        userId: 1,
+        audioUrl: 'http://example.com/audio',
+      });
 
       expect(voiceService.voiceChat).toHaveBeenCalledWith(1, 'http://example.com/audio');
       expect(result).toEqual(mockResponse);
@@ -77,7 +80,13 @@ describe('VoiceController', () => {
 
   describe('generateStory', () => {
     it('should call voiceService.generateStory with correct params', async () => {
-      const mockStory = { title: '测试故事', content: '...', duration: 5, audioBuffer: 'base64', keywords: ['故事'] };
+      const mockStory = {
+        title: '测试故事',
+        content: '...',
+        duration: 5,
+        audioBuffer: 'base64',
+        keywords: ['故事'],
+      };
       voiceService.generateStory.mockResolvedValue(mockStory);
 
       const result = await controller.generateStory('1', '动物', '3-4');
@@ -88,7 +97,11 @@ describe('VoiceController', () => {
 
     it('should use default params when not provided', async () => {
       voiceService.generateStory.mockResolvedValue({
-        title: '默认故事', content: '...', duration: 5, audioBuffer: 'base64', keywords: ['故事'],
+        title: '默认故事',
+        content: '...',
+        duration: 5,
+        audioBuffer: 'base64',
+        keywords: ['故事'],
       });
 
       await controller.generateStory('2', undefined as any, undefined as any);
@@ -99,7 +112,9 @@ describe('VoiceController', () => {
 
   describe('getNurseryRhyme', () => {
     it('should call voiceService.getNurseryRhyme without id', async () => {
-      const mockRhymes = [{ id: '1', title: '小星星', content: '...', emoji: '⭐', audioBuffer: 'abc', duration: 3 }] as any;
+      const mockRhymes = [
+        { id: '1', title: '小星星', content: '...', emoji: '⭐', audioBuffer: 'abc', duration: 3 },
+      ] as any;
       voiceService.getNurseryRhyme.mockResolvedValue(mockRhymes);
 
       const result = await controller.getNurseryRhyme();
@@ -109,7 +124,14 @@ describe('VoiceController', () => {
     });
 
     it('should call voiceService.getNurseryRhyme with specific id', async () => {
-      const mockRhyme = { id: '2', title: '小白船', content: '...', emoji: '🌙', audioBuffer: 'abc', duration: 3 } as any;
+      const mockRhyme = {
+        id: '2',
+        title: '小白船',
+        content: '...',
+        emoji: '🌙',
+        audioBuffer: 'abc',
+        duration: 3,
+      } as any;
       voiceService.getNurseryRhyme.mockResolvedValue(mockRhyme);
 
       const result = await controller.getNurseryRhyme('2');
@@ -121,7 +143,12 @@ describe('VoiceController', () => {
 
   describe('voiceQuiz', () => {
     it('should call voiceService.voiceQuiz with correct params', async () => {
-      const mockAnswer = { question: '小狗怎么叫？', answer: '汪汪', audioBuffer: 'base64', duration: 2 };
+      const mockAnswer = {
+        question: '小狗怎么叫？',
+        answer: '汪汪',
+        audioBuffer: 'base64',
+        duration: 2,
+      };
       voiceService.voiceQuiz.mockResolvedValue(mockAnswer);
 
       const result = await controller.voiceQuiz('1', '小狗怎么叫');

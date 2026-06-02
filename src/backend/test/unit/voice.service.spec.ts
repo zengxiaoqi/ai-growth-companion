@@ -1,4 +1,5 @@
 import { VoiceService } from '../../src/modules/voice/voice.service';
+import { EdgeTTS } from '@andresaya/edge-tts';
 
 // Mock EdgeTTS
 jest.mock('@andresaya/edge-tts', () => ({
@@ -25,7 +26,6 @@ describe('VoiceService', () => {
     });
 
     it('should use default voice when not specified', async () => {
-      const { EdgeTTS } = require('@andresaya/edge-tts');
       await service.textToSpeech('测试');
       const instance = EdgeTTS.mock.results[0].value;
 
@@ -37,7 +37,6 @@ describe('VoiceService', () => {
     });
 
     it('should accept custom voice parameter', async () => {
-      const { EdgeTTS } = require('@andresaya/edge-tts');
       await service.textToSpeech('你好', 'zh-CN-YunxiNeural');
       const instance = EdgeTTS.mock.results[0].value;
 

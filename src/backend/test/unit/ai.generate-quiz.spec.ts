@@ -79,9 +79,9 @@ describe('AiService generateQuiz', () => {
     it('should throw when user does not exist', async () => {
       usersService.findById.mockResolvedValue(null);
 
-      await expect(
-        service.generateQuiz({ childId: 999, topic: '数学' }),
-      ).rejects.toThrow('用户不存在');
+      await expect(service.generateQuiz({ childId: 999, topic: '数学' })).rejects.toThrow(
+        '用户不存在',
+      );
     });
 
     it('should use fallback quiz when LLM returns invalid JSON', async () => {

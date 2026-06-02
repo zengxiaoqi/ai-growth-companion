@@ -1,19 +1,19 @@
 {
-  "last_analysis": "2026-06-01",
-  "analysis_count": 10,
-  "commit_count": 241,
-  "last_commit": "2026-06-01T00:00:00+08:00",
-  "last_commit_hash": "263e77a",
-  "commits_ahead_remote": 1,
-  "remote_head": "baf5243",
-  "remote_head_date": "2026-05-31T11:44:56+08:00",
+  "last_analysis": "2026-06-02",
+  "analysis_count": 11,
+  "commit_count": 242,
+  "last_commit": "2026-06-02T00:00:00+08:00",
+  "last_commit_hash": "1707448",
+  "commits_ahead_remote": 0,
+  "remote_head": "1707448",
+  "remote_head_date": "2026-06-02T00:00:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 92,
     "parent_dashboard": 94,
     "content_system": 85,
-    "infrastructure": 82,
-    "code_quality": 88
+    "infrastructure": 84,
+    "code_quality": 90
   },
   "active_plans": [],
   "completed_actions": [
@@ -34,7 +34,9 @@
     "2026-05-31: Voice interaction enhancement — P2② AI-powered voiceChat (AiService with rule-based fallback) + P2① 45 new tests (voice.service 16, voice.controller 10, emergency.service 15, emergency.controller 4)",
     "2026-05-31: Fixed broken learning controller tests — removed 9 unused imports, added missing QuickVideoService mock (DI chain was broken), all 37 tests now pass",
     "2026-05-31: Fixed chatCompletion signature mismatch (3→2 args) after upstream merge — prevents build failure",
-    "2026-06-01: Auto-fixed 48 ESLint prettier formatting errors in llm-client.service.ts + quick-video.service.ts"
+    "2026-06-01: Auto-fixed 48 ESLint prettier formatting errors in llm-client.service.ts + quick-video.service.ts",
+    "2026-06-01: Pre-commit hook installed (.githooks/pre-commit) — ESLint --fix on staged backend TS files, with --cache for incremental runs",
+    "2026-06-02: Fixed prettier formatting drift in 7 test files (52 insertions, 28 deletions) + removed 2 require() eslint errors in voice.service.spec.ts (converted to import)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -48,22 +50,23 @@
     "Frontend-web integration follows a clean pattern: types → API service → component → dashboard. QuickVideoGenerator reuses existing polling infrastructure from LessonGenerator.",
     "Cron auto-push is critical — 7 commits accumulated locally on 2026-05-30 without reaching remote. Evolution analysis #8 committed but didn't push. Now resolved.",
     "Android INTERNET permission was missing from release AndroidManifest.xml — only RECORD_AUDIO was declared. This would cause release APK network failures. Fixed + documented in apk-build-report.md.",
-    "ESLint formatting issues accumulate gradually — each analysis should run eslint --fix to catch pre-existing drift before it becomes a large diff."
+    "ESLint formatting issues accumulate gradually — each analysis should run eslint --fix to catch pre-existing drift before it becomes a large diff.",
+    "Pre-commit hook (.githooks/pre-commit) catches ESLint issues at commit time — runs --fix + --cache for fast incremental checks. Requires git config core.hooksPath .githooks."
   ],
   "metrics": {
     "backend_files": 196,
-    "backend_test_files": 40,
-    "backend_test_ratio": "20.4%",
-    "backend_src_lines": 36743,
-    "backend_test_lines": 7529,
+    "backend_test_files": 42,
+    "backend_test_ratio": "21.4%",
+    "backend_src_lines": 36717,
+    "backend_test_lines": 7878,
     "flutter_files": 63,
     "flutter_lines": 32531,
     "web_files": 101,
-    "web_lines": 26892,
+    "web_lines": 26526,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 111317,
-    "repo_build_artifacts": "37MB deployed (Flutter build cleaned 2026-05-31)",
+    "total_lines": 111274,
+    "repo_build_artifacts": "53MB Flutter build (clean) + 37MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13
   }

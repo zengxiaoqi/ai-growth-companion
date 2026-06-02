@@ -24,7 +24,7 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 32),
               
               // 设置列表
-              _buildSettingsSection(),
+              _buildSettingsSection(context),
               const SizedBox(height: 24),
               
               // 退出登录
@@ -130,14 +130,25 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsSection() {
-    final settings = [
-      {'icon': Icons.person_rounded, 'title': '个人资料', 'emoji': '👤', 'color': AppTheme.primaryColor},
-      {'icon': Icons.notifications_rounded, 'title': '通知设置', 'emoji': '🔔', 'color': AppTheme.secondaryColor},
-      {'icon': Icons.lock_rounded, 'title': '隐私设置', 'emoji': '🔒', 'color': AppTheme.accentColor},
-      {'icon': Icons.help_rounded, 'title': '帮助与反馈', 'emoji': '💬', 'color': AppTheme.softYellow},
-      {'icon': Icons.info_rounded, 'title': '关于我们', 'emoji': 'ℹ️', 'color': AppTheme.softPurple},
-    ];
+  Widget _buildSettingsSection(BuildContext context) {
+      final settings = [
+        {'icon': Icons.person_rounded, 'title': '个人资料', 'emoji': '👤', 'color': AppTheme.primaryColor},
+        {'icon': Icons.notifications_rounded, 'title': '通知设置', 'emoji': '🔔', 'color': AppTheme.secondaryColor},
+        {'icon': Icons.lock_rounded, 'title': '隐私设置', 'emoji': '🔒', 'color': AppTheme.accentColor},
+        {'icon': Icons.help_rounded, 'title': '帮助与反馈', 'emoji': '💬', 'color': AppTheme.softYellow},
+        {'icon': Icons.info_rounded, 'title': '关于我们', 'emoji': 'ℹ️', 'color': AppTheme.softPurple},
+      ];
+
+      void onSettingTap(String title) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$title — 功能开发中，敬请期待 ✨'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,7 +191,7 @@ class ProfileScreen extends StatelessWidget {
                 emoji: item['emoji'] as String,
                 color: item['color'] as Color,
                 isLast: isLast,
-                onTap: () {},
+                                onTap: () => onSettingTap(item['title'] as String),
               );
             }).toList(),
           ),
@@ -214,9 +225,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context);
-                    userProvider.logout();
-                  },
+                                      Navigator.pop(context); // close dialog
+                                      userProvider.logout();
+                                      // 显式导航回登录页（清除所有路由栈）
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pushNamedAndRemoveUntil('/login', (_) => false);
+                                    },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],
                     shape: RoundedRectangleBorder(

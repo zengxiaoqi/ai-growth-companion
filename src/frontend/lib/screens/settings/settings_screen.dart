@@ -494,6 +494,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: () {
                     Navigator.pop(ctx);
                     userProvider.logout();
+                    Navigator.of(context, rootNavigator: true)
+                        .pushNamedAndRemoveUntil('/login', (_) => false);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],

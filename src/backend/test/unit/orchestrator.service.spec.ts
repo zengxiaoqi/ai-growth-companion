@@ -120,7 +120,6 @@ describe('OrchestratorService', () => {
       executorService as any,
       conversationStore as any,
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
-      { renderSkillForPrompt: jest.fn() } as any,
     );
   });
 

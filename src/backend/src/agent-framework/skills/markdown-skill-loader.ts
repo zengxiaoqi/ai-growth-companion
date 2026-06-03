@@ -81,7 +81,7 @@ function loadSkillFromDirectory(skillDir: string, dirName: string): SkillDefinit
     requiredTools,
     chainTo,
     ageGroups: ageGroups as SkillDefinition['ageGroups'],
-    rules: undefined,
+    rules: loadRulesFromDirectory(skillDir),
   };
 }
 

@@ -12,6 +12,7 @@ import { AiService } from '../../src/modules/ai/ai.service';
 import { AssignmentService } from '../../src/modules/assignment/assignment.service';
 import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
 import { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
+import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
 
 describe('LessonContentService modifyDraft scene sync', () => {
   let service: LessonContentService;
@@ -60,6 +61,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
         { provide: AssignmentService, useValue: {} },
         { provide: LearningTrackerService, useValue: {} },
         { provide: LlmClientService, useValue: llmClient },
+        { provide: LessonVideoQueueService, useValue: { enqueue: jest.fn(), processQueue: jest.fn() } },
       ],
     }).compile();
 
@@ -479,3 +481,4 @@ describe('LessonContentService modifyDraft scene sync', () => {
     expect(prompt).toContain('Focus on step "write" first');
   });
 });
+

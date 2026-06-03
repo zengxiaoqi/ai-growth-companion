@@ -224,12 +224,14 @@ class ProfileScreen extends StatelessWidget {
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                                       Navigator.pop(context); // close dialog
-                                      userProvider.logout();
-                                      // 显式导航回登录页（清除所有路由栈）
-                                      Navigator.of(context, rootNavigator: true)
-                                          .pushNamedAndRemoveUntil('/login', (_) => false);
+                                      await userProvider.logout();
+                                      // 使用 addPostFrameCallback 确保在 dialog 关闭后再导航
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        Navigator.of(context, rootNavigator: true)
+                                            .pushNamedAndRemoveUntil('/login', (_) => false);
+                                      });
                                     },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],

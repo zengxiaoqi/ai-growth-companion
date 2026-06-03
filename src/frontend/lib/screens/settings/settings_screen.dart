@@ -491,11 +491,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     Navigator.pop(ctx);
-                    userProvider.logout();
-                    Navigator.of(context, rootNavigator: true)
-                        .pushNamedAndRemoveUntil('/login', (_) => false);
+                    await userProvider.logout();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.of(context, rootNavigator: true)
+                          .pushNamedAndRemoveUntil('/login', (_) => false);
+                    });
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],

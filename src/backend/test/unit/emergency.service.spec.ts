@@ -36,8 +36,10 @@ describe('EmergencyService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) => {
-      if (key === 'ALIBABA_CLOUD_ACCESS_KEY_ID') return 'mock-key';
-      if (key === 'ALIBABA_CLOUD_ACCESS_KEY_SECRET') return 'mock-secret';
+      // Return empty strings for API credentials so EmergencyService uses mock mode
+      // instead of attempting real Alicloud API calls that would timeout
+      if (key === 'ALIBABA_CLOUD_ACCESS_KEY_ID') return '';
+      if (key === 'ALIBABA_CLOUD_ACCESS_KEY_SECRET') return '';
       if (key === 'ALIBABA_CLOUD_SMS_SIGN_NAME') return '灵犀伴学';
       if (key === 'ALIBABA_CLOUD_SMS_TEMPLATE_CODE') return 'SMS_123456';
       if (key === 'ALIBABA_CLOUD_VOICE_TTS_CODE') return 'TTS_123456';

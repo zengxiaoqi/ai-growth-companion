@@ -64,7 +64,6 @@ class SceneRenderer extends StatelessWidget {
           end: Alignment.bottomRight,
         );
       case BackgroundType.day:
-      default:
         return const LinearGradient(
           colors: [
             Color(0xFFE0F2FE),

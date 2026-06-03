@@ -14,6 +14,9 @@ import { AppModule } from '../src/app.module';
 describe('App bootstrap smoke test', () => {
   let app: INestApplication;
 
+  // Allow extra time for NestJS module compilation + DB connection setup
+  jest.setTimeout(30000);
+
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],

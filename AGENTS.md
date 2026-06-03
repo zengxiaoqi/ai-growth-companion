@@ -97,7 +97,7 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 ## Deployment
 
 - **Production URL:** https://lingxi.chataifree.eu.org/
-- **Infrastructure:** Cloudflare Tunnel (HTTP2) → OpenClaw Gateway (port 18789) → NestJS backend (port 3001)
+- **Infrastructure:** Cloudflare Tunnel (HTTP2) → NestJS backend (port 3001) directly. Note: OpenClaw Gateway on port 18789 is for bot channels (Telegram/Feishu) only — it is NOT in the API routing path.
 - **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:3001/`.
 - **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken
 - **Before deploy:** Stash local changes (`git stash`), then `git pull`

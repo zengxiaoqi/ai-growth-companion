@@ -14,6 +14,12 @@ describe('ReportController', () => {
     controller = new ReportController(reportService as any);
   });
 
+  afterAll(() => {
+    // Clear all mocks and references to prevent memory leaks
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+  });
+
   describe('GET /report', () => {
     it('generates weekly report by default', async () => {
       const report = { period: 'weekly', summary: 'Great progress' };

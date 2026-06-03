@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-06-02",
-  "analysis_count": 11,
-  "commit_count": 242,
-  "last_commit": "2026-06-02T00:00:00+08:00",
-  "last_commit_hash": "1707448",
+  "last_analysis": "2026-06-03",
+  "analysis_count": 12,
+  "commit_count": 246,
+  "last_commit": "2026-06-03T00:00:00+08:00",
+  "last_commit_hash": "12e386a",
   "commits_ahead_remote": 0,
-  "remote_head": "1707448",
-  "remote_head_date": "2026-06-02T00:00:00+08:00",
+  "remote_head": "12e386a",
+  "remote_head_date": "2026-06-03T00:00:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 92,
     "parent_dashboard": 94,
     "content_system": 85,
-    "infrastructure": 84,
+    "infrastructure": 85,
     "code_quality": 90
   },
   "active_plans": [],
@@ -36,7 +36,11 @@
     "2026-05-31: Fixed chatCompletion signature mismatch (3→2 args) after upstream merge — prevents build failure",
     "2026-06-01: Auto-fixed 48 ESLint prettier formatting errors in llm-client.service.ts + quick-video.service.ts",
     "2026-06-01: Pre-commit hook installed (.githooks/pre-commit) — ESLint --fix on staged backend TS files, with --cache for incremental runs",
-    "2026-06-02: Fixed prettier formatting drift in 7 test files (52 insertions, 28 deletions) + removed 2 require() eslint errors in voice.service.spec.ts (converted to import)"
+    "2026-06-02: Fixed prettier formatting drift in 7 test files (52 insertions, 28 deletions) + removed 2 require() eslint errors in voice.service.spec.ts (converted to import)",
+    "2026-06-02: Flutter fixes — profile_screen设置项SnackBar提示、退出登录导航回login、login_screen预填测试账号",
+    "2026-06-02: Flutter fix — 移除硬编码Android模拟器URL (pitfall #1)，所有非web平台使用生产URL",
+    "2026-06-03: Fixed AGENTS.md infrastructure description — cloudflared points directly to backend:3001 (not via port 18789 gateway)",
+    "2026-06-03: Cleaned 964MB stale Flutter build artifact (src/frontend/build/)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -51,7 +55,8 @@
     "Cron auto-push is critical — 7 commits accumulated locally on 2026-05-30 without reaching remote. Evolution analysis #8 committed but didn't push. Now resolved.",
     "Android INTERNET permission was missing from release AndroidManifest.xml — only RECORD_AUDIO was declared. This would cause release APK network failures. Fixed + documented in apk-build-report.md.",
     "ESLint formatting issues accumulate gradually — each analysis should run eslint --fix to catch pre-existing drift before it becomes a large diff.",
-    "Pre-commit hook (.githooks/pre-commit) catches ESLint issues at commit time — runs --fix + --cache for fast incremental checks. Requires git config core.hooksPath .githooks."
+    "Pre-commit hook (.githooks/pre-commit) catches ESLint issues at commit time — runs --fix + --cache for fast incremental checks. Requires git config core.hooksPath .githooks.",
+    "AGENTS.md infrastructure description incorrectly listed OpenClaw Gateway (port 18789) in API path — actually only used for bot channels, not backend routing"
   ],
   "metrics": {
     "backend_files": 196,
@@ -66,7 +71,7 @@
     "content_files": 46,
     "content_lines": 7622,
     "total_lines": 111274,
-    "repo_build_artifacts": "53MB Flutter build (clean) + 37MB deployed (public/)",
+    "repo_build_artifacts": "0 (cleaned) + 37MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13
   }

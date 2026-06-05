@@ -20,27 +20,66 @@ class LearningHomeScreen extends StatefulWidget {
 class _LearningHomeScreenState extends State<LearningHomeScreen> {
   List<dynamic> _courses = [];
   bool _loadingCourses = true;
+  int? _lastLoadedChildId;
+  VoidCallback? _userProviderListener;
 
   @override
   void initState() {
     super.initState();
-    _loadCourses();
+    // 监听 UserProvider 变化，切换孩子时自动刷新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _attachUserProviderListener();
+      _loadCourses();
+    });
+  }
+
+  @override
+  void dispose() {
+    _detachUserProviderListener();
+    super.dispose();
+  }
+
+  void _attachUserProviderListener() {
+    final userProvider = context.read<UserProvider>();
+    _detachUserProviderListener();
+    _userProviderListener = () {
+      final newChildId = userProvider.activeChildId;
+      if (newChildId != _lastLoadedChildId) {
+        if (mounted) {
+          setState(() => _loadingCourses = true);
+          _loadCoursesForChild(newChildId);
+        }
+      }
+    };
+    userProvider.addListener(_userProviderListener!);
+  }
+
+  void _detachUserProviderListener() {
+    if (_userProviderListener != null) {
+      final userProvider = context.read<UserProvider>();
+      userProvider.removeListener(_userProviderListener!);
+      _userProviderListener = null;
+    }
   }
 
   Future<void> _loadCourses() async {
+    final userProvider = context.read<UserProvider>();
+    _loadCoursesForChild(userProvider.activeChildId);
+  }
+
+  Future<void> _loadCoursesForChild(int? childId) async {
+    if (childId == null) {
+      if (mounted) setState(() => _loadingCourses = false);
+      return;
+    }
     try {
-      final userProvider = context.read<UserProvider>();
-      final childId = userProvider.activeChildId;
-      if (childId != null) {
-        final courses = await context.read<ApiService>().getContents(childId: childId);
-        if (mounted) {
-          setState(() {
-            _courses = courses;
-            _loadingCourses = false;
-          });
-        }
-      } else {
-        if (mounted) setState(() => _loadingCourses = false);
+      _lastLoadedChildId = childId;
+      final courses = await context.read<ApiService>().getContents(childId: childId);
+      if (mounted) {
+        setState(() {
+          _courses = courses;
+          _loadingCourses = false;
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _loadingCourses = false);

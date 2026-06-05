@@ -9,6 +9,7 @@ import 'services/ai_service.dart';
 import 'providers/user_provider.dart';
 import 'providers/learning_provider.dart';
 import 'providers/content_provider.dart';
+import 'providers/chat_session_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => ContentProvider(apiService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ChatSessionProvider(apiService),
         ),
       ],
       child: const LingxiApp(),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/top_bar.dart';
@@ -8,6 +9,7 @@ import '../../providers/user_provider.dart';
 import '../learning/learning_home_screen.dart';
 import '../profile/profile_screen.dart';
 import 'growth_report_screen.dart';
+import 'child_selector.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -54,48 +56,183 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   }
 }
 
-/// 家长端首页内容
-class ParentHomeContent extends StatelessWidget {
+/// 家长端首页内容 — 使用 StatefulWidget 以加载孩子列表并与 ChildSelector 交互
+class ParentHomeContent extends StatefulWidget {
   const ParentHomeContent({super.key});
+
+  @override
+  State<ParentHomeContent> createState() => _ParentHomeContentState();
+}
+
+class _ParentHomeContentState extends State<ParentHomeContent> {
+  bool _isLoading = true;
+  bool _loaded = false;
+  String? _error;
+  List<Map<String, dynamic>> _children = [];
+  // 本地选中的孩子 ID（优先于 Provider，反映实时 UI）
+  int? _localSelectedChildId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_loaded) _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final userProvider = context.read<UserProvider>();
+    if (!mounted) return;
+
+    // 先从 Provider 恢复已保存的 activeChildId
+    _localSelectedChildId = userProvider.activeChildId;
+    setState(() => _isLoading = true);
+
+    final currentUser = userProvider.currentUser;
+    final parentId = currentUser?['parentId'] is int
+        ? currentUser!['parentId'] as int
+        : currentUser?['id'] is int
+            ? currentUser!['id'] as int
+            : null;
+
+    if (parentId == null || parentId <= 0) {
+      setState(() {
+        _isLoading = false;
+        _error = '无法获取家长信息';
+      });
+      return;
+    }
+
+    try {
+      final api = context.read<ApiService>();
+      final children = await api.getChildrenByParent(parentId);
+      final childList = children
+          .whereType<Map>()
+          .map((c) => c.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+
+      // 如果本地尚未选择且 API 有数据，默认选中第一个
+      if (_localSelectedChildId == null && childList.isNotEmpty) {
+        final firstId = _toInt(childList.first['id']);
+        if (firstId != null) {
+          _localSelectedChildId = firstId;
+          userProvider.setActiveChildId(firstId);
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _children = childList;
+        _isLoading = false;
+        _error = null;
+        _loaded = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = '加载失败: $e';
+        _loaded = true;
+      });
+    }
+  }
+
+  /// 切换孩子：更新本地状态 & 同步到 Provider（持久化）
+  void _onChildChanged(Map<String, dynamic> child) {
+    final childId = _toInt(child['id']);
+    if (childId == null) return;
+    setState(() {
+      _localSelectedChildId = childId;
+    });
+    context.read<UserProvider>().setActiveChildId(childId);
+    // 弹出可能的底部弹窗遮罩
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+    // Toast 提示
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已切换到 ${child['name']}'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final userName = userProvider.currentUser?['name'] ?? '家长';
+    final displayChildId = _localSelectedChildId ?? userProvider.activeChildId;
 
-    return Column(
+    return Stack(
       children: [
-        TopBar(
-          title: '灵犀伴学',
-          subtitle: '$userName 家长',
-          actions: [
-            TopBarAction(
-              key: 'notification',
-              label: '通知',
-              icon: Icons.notifications_none_rounded,
-              onTap: () => _showNotificationPanel(context),
+        Column(
+          children: [
+            TopBar(
+              title: '灵犀伴学',
+              subtitle: '$userName 家长',
+              leftSlot: _buildChildSelector(displayChildId),
+              actions: [
+                TopBarAction(
+                  key: 'notification',
+                  label: '通知',
+                  icon: Icons.notifications_none_rounded,
+                  onTap: () => _showNotificationPanel(context),
+                ),
+              ],
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWelcomeCard(userName),
+                    const SizedBox(height: 20),
+                    _buildTodayStudyCard(),
+                    const SizedBox(height: 20),
+                    _buildAbilityCard(),
+                    const SizedBox(height: 20),
+                    _buildMenuSection(context),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildWelcomeCard(userName),
-                const SizedBox(height: 20),
-                _buildTodayStudyCard(),
-                const SizedBox(height: 20),
-                _buildAbilityCard(),
-                const SizedBox(height: 20),
-                _buildMenuSection(context),
-                const SizedBox(height: 100),
-              ],
+        // 加载中遮罩
+        if (_isLoading)
+          Container(
+            color: Colors.white.withValues(alpha: 0.7),
+            child: const Center(
+              child: CircularProgressIndicator(),
             ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildChildSelector(int? selectedId) {
+    if (_children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: SizedBox(
+        width: 180,
+        child: ChildSelector(
+          children: _children,
+          selectedChildId: selectedId,
+          onChildChanged: _onChildChanged,
+          mode: ChildSelectorMode.dropdown,
+          title: '',
+        ),
+      ),
     );
   }
 

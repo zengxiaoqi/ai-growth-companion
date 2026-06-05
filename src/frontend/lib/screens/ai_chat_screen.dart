@@ -732,7 +732,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               ),
               child: SafeArea(
                 child: Column(children: [
-                  _buildTopBar(),
+                  // _buildTopBar(),  // 顶部栏已隐藏，让对话占满屏幕
                   Expanded(child: _buildMessageList()),
                   _buildInputArea(),
                 ]),

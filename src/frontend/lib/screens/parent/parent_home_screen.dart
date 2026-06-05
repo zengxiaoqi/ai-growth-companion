@@ -46,10 +46,13 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNav(
-        items: _navItems,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: BottomNav(
+          items: _navItems,
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+        ),
       ),
       extendBody: true,
     );

@@ -66,10 +66,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           Expanded(child: _screens[_currentIndex]),
         ],
       ),
-      bottomNavigationBar: BottomNav(
-        items: _navItems,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: BottomNav(
+          items: _navItems,
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+        ),
       ),
     );
   }

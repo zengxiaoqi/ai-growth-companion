@@ -24,6 +24,12 @@ export class Conversation {
   @Column({ type: 'simple-json', nullable: true })
   metadata: any; // { ageGroup, childName }
 
+  @Column({ type: 'text', nullable: true })
+  summary: string; // 上下文摘要 - 当对话过长时自动生成摘要
+
+  @Column({ default: 0 })
+  messageCount: number; // 消息总数
+
   @CreateDateColumn()
   createdAt: Date;
 

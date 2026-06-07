@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# Git post-commit hook - 自动部署 Flutter Web
+# 安装方法: cp .githooks/post-commit-flutter .git/hooks/post-commit && chmod +x .git/hooks/post-commit
+#
+
+FLUTTER_DIR="src/frontend"
+
+# 检查是否有 Flutter 代码变更
+CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- "$FLUTTER_DIR" 2>/dev/null)
+
+if [ -n "$CHANGED_FILES" ]; then
+  echo ""
+  echo "========================================"
+  echo "检测到 Flutter 代码变更"
+  echo "========================================"
+  echo "变更的文件:"
+  echo "$CHANGED_FILES" | head -10
+  if [ $(echo "$CHANGED_FILES" | wc -l) -gt 10 ]; then
+    echo "... 还有更多文件"
+  fi
+  echo ""
+  
+  # 自动运行部署脚本
+  echo "运行 Flutter 部署..."
+  ./scripts/flutter-deploy.sh
+  
+  echo ""
+  echo "Flutter 部署完成!"
+else
+  echo "无 Flutter 代码变更，跳过部署"
+fi

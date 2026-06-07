@@ -4,18 +4,22 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Conversation, ConversationMessage } from './conversation.entity';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
+import { LlmClientService } from '../../../agent-framework/llm/llm-client.service';
 
 interface ActiveSession {
   conversationId: number;
   uuid: string;
   childId: number;
   metadata: any;
+  summary?: string;
 }
 
 @Injectable()
 export class ConversationManager {
   private readonly logger = new Logger(ConversationManager.name);
   private readonly activeSessions = new Map<string, ActiveSession>();
+  private readonly SUMMARY_THRESHOLD = 50; // 生成摘要的消息数阈值
+  private llmClient: LlmClientService;
 
   constructor(
     @InjectRepository(Conversation)
@@ -23,6 +27,10 @@ export class ConversationManager {
     @InjectRepository(ConversationMessage)
     private readonly messageRepo: Repository<ConversationMessage>,
   ) {}
+
+  setLlmClient(llmClient: LlmClientService) {
+    this.llmClient = llmClient;
+  }
 
   /** Get or create a conversation session */
   async getOrCreateSession(childId: number, sessionId?: string): Promise<ActiveSession> {
@@ -105,6 +113,68 @@ export class ConversationManager {
         ...extra,
       }),
     );
+
+    // 检查是否需要生成摘要
+    await this.checkAndGenerateSummary(session, sessionId);
+  }
+
+  /** 检查并生成摘要 */
+  private async checkAndGenerateSummary(session: ActiveSession, sessionId: string): Promise<void> {
+    const count = await this.messageRepo.count({
+      where: { conversationId: session.conversationId },
+    });
+
+    // 如果消息数超过阈值且还没有摘要，则生成摘要
+    if (count >= this.SUMMARY_THRESHOLD && (!session.summary || session.summary === '')) {
+      await this.generateSummary(session, sessionId);
+    }
+  }
+
+  /** 使用 LLM 生成对话摘要 */
+  private async generateSummary(session: ActiveSession, sessionId: string): Promise<void> {
+    if (!this.llmClient || !this.llmClient.isConfigured) {
+      this.logger.warn(`Cannot generate summary: LLM not configured`);
+      return;
+    }
+
+    try {
+      // 获取最近的 50 条消息用于生成摘要
+      const recentMessages = await this.messageRepo.find({
+        where: { conversationId: session.conversationId },
+        order: { createdAt: 'ASC' },
+        take: this.SUMMARY_THRESHOLD,
+      });
+
+      if (recentMessages.length < this.SUMMARY_THRESHOLD) return;
+
+      // 构建摘要提示
+      const messageText = recentMessages
+        .map((m) => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`)
+        .join('\n');
+
+      const summaryPrompt = `请用50字以内概括以下对话的主要内容（用中文）:\n\n${messageText}`;
+
+      const response = await this.llmClient.chatCompletion([
+        { role: 'user', content: summaryPrompt },
+      ]);
+
+      const summary = response.content?.trim() || '';
+
+      if (summary) {
+        // 更新数据库中的摘要
+        await this.conversationRepo.update(session.conversationId, {
+          summary,
+          messageCount: recentMessages.length,
+        });
+
+        // 更新内存中的摘要
+        session.summary = summary;
+
+        this.logger.log(`Generated summary for session ${sessionId}: ${summary}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to generate summary: ${error.message}`);
+    }
   }
 
   /** Build the message array for LLM from conversation history */

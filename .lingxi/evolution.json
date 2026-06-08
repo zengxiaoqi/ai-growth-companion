@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-06-07",
-  "analysis_count": 16,
-  "commit_count": 250,
-  "last_commit": "2026-06-07T11:37:00+08:00",
-  "last_commit_hash": "2e7cc6c",
+  "last_analysis": "2026-06-08",
+  "analysis_count": 17,
+  "commit_count": 251,
+  "last_commit": "2026-06-08T11:45:00+08:00",
+  "last_commit_hash": "fa8d426",
   "commits_ahead_remote": 0,
-  "remote_head": "2e7cc6c",
-  "remote_head_date": "2026-06-07T11:37:00+08:00",
+  "remote_head": "fa8d426",
+  "remote_head_date": "2026-06-08T11:45:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
@@ -46,7 +46,9 @@
     "2026-06-05: Flutter fixes — 多孩子选择器 + AI聊天会话管理 + 退出登录导航修复",
     "2026-06-05: Flutter fix — 底部导航栏遮挡问题修复 + AI对话顶部栏移除",
     "2026-06-06: Cleaned 2.3GB stale Flutter build (src/frontend/build/) + discarded uncommitted build artifacts (service worker version drift)",
-    "2026-06-07: Fixed conversation-manager.ts type errors (chat→chatCompletion, response.choices→response.content) + added conversation summary generation (50+ messages) + added Flutter deploy automation (post-commit hook + flutter-deploy.sh)"
+    "2026-06-07: Fixed conversation-manager.ts type errors (chat→chatCompletion, response.choices→response.content) + added conversation summary generation (50+ messages) + added Flutter deploy automation (post-commit hook + flutter-deploy.sh)",
+    "2026-06-08: Verified all systems — backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin",
+    "2026-06-08: Updated AGENTS.md Flutter Web deploy command to use rsync --delete instead of cp -r (prevents stale file issues)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -66,7 +68,8 @@
     "Frontend-web lacks ESLint config (no eslint.config.js) — prettier is configured but ESLint 9+ requires flat config. Low priority since npm run lint works via package.json scripts.",
     "Flutter logout navigation unreliable on Flutter Web — use async/await + addPostFrameCallback to ensure reliable navigation back to login screen after logout",
     "Flutter Web build service worker version regenerates on each build — minor diffs in public/ are normal and don't require commit unless code actually changed",
-    "LlmClientService.chatCompletion() returns LlmResponse with direct .content field, NOT .choices[].message.content — the older OpenAI SDK format was different"
+    "LlmClientService.chatCompletion() returns LlmResponse with direct .content field, NOT .choices[].message.content — the older OpenAI SDK format was different",
+    "Use rsync --delete instead of cp -r when deploying Flutter Web builds — cp leaves orphaned files (old service workers, unused assets) that cause 404s and cache issues"
   ],
   "metrics": {
     "backend_files": 196,

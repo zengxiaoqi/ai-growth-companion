@@ -86,7 +86,7 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **Database resets:** Delete `lingxi.db` and restart backend to reset. The seeder runs automatically when the DB is empty.
 - **API prefix:** All backend routes are under `/api/`.
 - **Video generation:** Uses Remotion (Node.js video rendering framework). Chrome/Chromium auto-discovery. Scene components are modular (NumberScene, etc.). Generated assets cached in `public/.generated/`.
-- **Flutter Web deploy:** Build output goes to `src/frontend/build/web/`, then copied to `src/backend/public/` where NestJS serves it as static files.
+- **Flutter Web deploy:** Build output goes to `src/frontend/build/web/`, then copied to `src/backend/public/` where NestJS serves it as static files. Use `rsync -av --delete build/web/ ../backend/public/` instead of `cp -r` to remove stale files.
 - **Agent tools:** AI agent tools are in `src/backend/src/modules/ai/agent/tools/` — each tool is a standalone module with Zod schemas for parameter validation.
 
 ## Task Closure
@@ -101,4 +101,4 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:3001/`.
 - **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken
 - **Before deploy:** Stash local changes (`git stash`), then `git pull`
-- **Flutter Web deploy:** `cd src/frontend && flutter build web && cp -r build/web/* ../backend/public/`
+- **Flutter Web deploy:** `cd src/frontend && flutter build web && rsync -av --delete build/web/ ../backend/public/`

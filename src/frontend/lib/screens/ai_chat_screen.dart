@@ -6,9 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../components/section_header.dart';
 import '../components/shimmer_loading.dart';
-import '../services/api_service.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
@@ -772,85 +770,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-      child: Row(children: [
-        // 会话菜单按钮
-        _buildSessionMenuButton(),
-        const SizedBox(width: 12),
-        const SectionHeader(title: '小犀聊天', emoji: '🦄'),
-        const Spacer(),
-        // 上下文摘要指示器
-        Consumer<ChatSessionProvider>(
-          builder: (ctx, provider, _) {
-            final needsSummary = provider.localMessages.length >= 16;
-            if (!needsSummary) return const SizedBox.shrink();
-            return Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.softOrange.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.auto_awesome_mosaic_rounded, size: 14, color: AppTheme.textSecondary),
-                SizedBox(width: 4),
-                Text('摘要', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-              ]),
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-        // 自动朗读开关
-        InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-          onTap: () => setState(() => _autoPlay = !_autoPlay),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _autoPlay ? AppTheme.primaryColor.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(_autoPlay ? Icons.volume_up_rounded : Icons.volume_off_rounded, size: 18,
-                  color: _autoPlay ? AppTheme.primaryColor : AppTheme.textSecondary),
-              const SizedBox(width: 4),
-              Text(_autoPlay ? '自动朗读' : '静音',
-                  style: TextStyle(fontSize: 12, color: _autoPlay ? AppTheme.primaryColor : AppTheme.textSecondary)),
-            ]),
-          ),
-        ),
-      ]),
-    );
-  }
-
-  Widget _buildSessionMenuButton() {
-    return Consumer<ChatSessionProvider>(
-      builder: (ctx, provider, _) {
-        final hasSessions = provider.sessions.isNotEmpty;
-        final sessionCount = provider.sessions.length;
-        return InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-          onTap: () => setState(() => _showSessionDrawer = !_showSessionDrawer),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppTheme.primaryColor),
-              if (hasSessions) ...[
-                const SizedBox(width: 4),
-                Text('$sessionCount', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
-              ],
-            ]),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildMessageList() {
     return Consumer<ChatSessionProvider>(
@@ -879,7 +798,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   Widget _buildMessageBubble(ChatMessageEntry message, bool isUser, int index) {
     final isSpeaking = _speakingMessageIndex == index;
     final quizQuestions = message.quizQuestions;
-    final displayText = message.displayText?.toString() ?? message.content?.toString() ?? '';
+    final displayText = message.displayText ?? message.content;
     final hasQuiz = quizQuestions != null && quizQuestions.isNotEmpty;
 
     return TweenAnimationBuilder<double>(

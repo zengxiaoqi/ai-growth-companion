@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
@@ -18,6 +18,32 @@ import { SseModule } from './modules/sse/sse.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
+
+/**
+ * Detect whether better-sqlite3 native bindings are available.
+ * Falls back to sql.js (pure JS) when the native module fails to load
+ * (e.g. Node.js version mismatch, missing native build, CI environments).
+ */
+function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
+  try {
+    // Attempt to instantiate a throwaway in-memory database to verify the
+    // native addon loads correctly.  A plain `require()` is not enough
+    // because the module object always exists – the failure happens when
+    // the constructor tries to dlopen the `.node` binary.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Database = require('better-sqlite3');
+    const probe = new Database(':memory:');
+    probe.close();
+    return 'better-sqlite3';
+  } catch (err) {
+    Logger.warn(
+      `better-sqlite3 native bindings unavailable (${(err as Error).message}). ` +
+        'Falling back to sql.js (pure JS SQLite).',
+      'AppModule',
+    );
+    return 'sqljs';
+  }
+}
 
 @Module({
   imports: [
@@ -48,7 +74,21 @@ import { DatabaseSeederModule } from './database/seeds/seeder.module';
           };
         }
 
-        // SQLite (本地开发)
+        // SQLite (本地开发 / 测试)
+        // Prefer the faster native better-sqlite3 driver, but gracefully
+        // fall back to sql.js when native bindings cannot be loaded
+        // (see https://github.com/zengxiaoqi/ai-growth-companion/issues/19).
+        const driver = resolveSqliteDriver();
+
+        if (driver === 'sqljs') {
+          return {
+            type: 'sqljs',
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: true,
+            logging: configService.get('NODE_ENV') === 'development',
+          };
+        }
+
         return {
           type: 'better-sqlite3',
           database: configService.get('DB_PATH', 'lingxi.db'),

@@ -13,7 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "jest --forceExit --detectOpenHandles",
     "test:smoke": "jest test/smoke.spec.ts --no-coverage --forceExit",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -54,6 +54,7 @@
     "redis": "^4.6.12",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "sql.js": "^1.14.1",
     "typeorm": "^0.3.28",
     "uuid": "^9.0.1",
     "winston": "^3.19.0"

@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../components/section_header.dart';
 import '../components/shimmer_loading.dart';
-import '../services/api_service.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
@@ -879,7 +878,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   Widget _buildMessageBubble(ChatMessageEntry message, bool isUser, int index) {
     final isSpeaking = _speakingMessageIndex == index;
     final quizQuestions = message.quizQuestions;
-    final displayText = message.displayText?.toString() ?? message.content?.toString() ?? '';
+    final displayText = message.displayText?.toString() ?? message.content.toString();
     final hasQuiz = quizQuestions != null && quizQuestions.isNotEmpty;
 
     return TweenAnimationBuilder<double>(

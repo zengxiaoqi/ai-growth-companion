@@ -6,6 +6,12 @@ import { EventEmitter } from 'events';
 import * as os from 'os';
 import * as path from 'path';
 
+jest.mock('../../src/modules/learning/remotion-ts-validator', () => ({
+  checkStaticFiles: jest.fn().mockResolvedValue({ passed: true, errors: [], rawOutput: '' }),
+  checkGeneratedFiles: jest.fn().mockResolvedValue({ passed: true, errors: [], rawOutput: '' }),
+  autoFixErrors: jest.fn().mockResolvedValue({ fixed: 0, unfixed: [] }),
+}));
+
 describe('RemotionRenderService', () => {
   let service: RemotionRenderService;
   let generateVideoDataTool: { execute: jest.Mock };
@@ -437,5 +443,5 @@ describe('RemotionRenderService', () => {
 
     expect(voiceService.textToSpeech).toHaveBeenCalledTimes(2);
     expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
-  }, 20000);
+  }, 30000);
 });

@@ -109,7 +109,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   int? _editingSceneIndex;
   int _previewSceneIndex = 0;
   bool _isSavingDraft = false;
-  bool _scenesExpanded = false;
 
   @override
   void initState() { super.initState(); _loadChildren().then((_) { if (widget.draftContentId != null) _loadDraft(widget.draftContentId!); }); }
@@ -680,25 +679,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     ]);
   }
 
-  Widget _buildLessonHeader(String title, String summary, dynamic outcomes) {
-    return Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(padding: const EdgeInsets.all(16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-            if (summary.isNotEmpty) ...[const SizedBox(height: 4), Text(summary, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary))],
-            if (outcomes is List && outcomes.isNotEmpty) ...[const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: outcomes.map<Widget>((o) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                child: Text(o.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
-              )).toList()),
-            ],
-          ])),
-          IconButton(onPressed: _handleReset, tooltip: '重新生成', icon: const Icon(Icons.refresh_rounded, size: 22, color: AppTheme.textSecondary)),
-        ]),
-      ),
-    );
   }
 
   Widget _buildStepCard(Map<String, dynamic> step) {

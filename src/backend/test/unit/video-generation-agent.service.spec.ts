@@ -8,7 +8,6 @@ describe('VideoGenerationAgentService', () => {
       {} as any,
       { runLoop: jest.fn() } as any,
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
-      { renderSkillForPrompt: jest.fn() } as any,
       visualAssetService,
     );
 
@@ -98,7 +97,6 @@ describe('VideoGenerationAgentService', () => {
       {} as any,
       executorService as any,
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
-      { renderSkillForPrompt: jest.fn() } as any,
       undefined as any,
     );
 

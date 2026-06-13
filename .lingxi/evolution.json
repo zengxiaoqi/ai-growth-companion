@@ -1,19 +1,19 @@
 {
-  "last_analysis": "2026-06-11",
-  "analysis_count": 20,
-  "commit_count": 255,
-  "last_commit": "2026-06-11T09:05:30+08:00",
-  "last_commit_hash": "348fc71",
+  "last_analysis": "2026-06-13",
+  "analysis_count": 21,
+  "commit_count": 259,
+  "last_commit": "2026-06-13T09:05:00+08:00",
+  "last_commit_hash": "636bc87",
   "commits_ahead_remote": 0,
-  "remote_head": "348fc71",
-  "remote_head_date": "2026-06-10T20:20:07+08:00",
+  "remote_head": "636bc87",
+  "remote_head_date": "2026-06-13T09:05:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
     "content_system": 85,
-    "infrastructure": 85,
-    "code_quality": 90
+    "infrastructure": 87,
+    "code_quality": 91
   },
   "active_plans": [],
   "completed_actions": [
@@ -42,7 +42,7 @@
     "2026-06-03: Fixed AGENTS.md infrastructure description — cloudflared points directly to backend:3001 (not via port 18789 gateway)",
     "2026-06-03: Cleaned 964MB stale Flutter build artifact (src/frontend/build/)",
     "2026-06-04: Verified all systems operational — backend builds clean, ESLint passes, deploy 200 OK, git synced with origin",
-    "2026-06-05: Daily evolution — backend builds clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK",
+    "2026-06-05: Daily evolution — backend builds clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin",
     "2026-06-05: Flutter fixes — 多孩子选择器 + AI聊天会话管理 + 退出登录导航修复",
     "2026-06-05: Flutter fix — 底部导航栏遮挡问题修复 + AI对话顶部栏移除",
     "2026-06-06: Cleaned 2.3GB stale Flutter build (src/frontend/build/) + discarded uncommitted build artifacts (service worker version drift)",
@@ -51,7 +51,8 @@
     "2026-06-08: Updated AGENTS.md Flutter Web deploy command to use rsync --delete instead of cp -r (prevents stale file issues)",
     "2026-06-09: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK",
     "2026-06-10: Daily evolution — backend builds clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin",
-    "2026-06-11: Daily evolution — pulled PR #24 (EdgeTTS mock type fix), all systems operational, backend build clean, ESLint passes, voice.service tests pass (21/21), frontend-web typecheck passes, deploy 200 OK"
+    "2026-06-11: Daily evolution — pulled PR #24 (EdgeTTS mock type fix), all systems operational, backend build clean, ESLint passes, voice.service tests pass (21/21), frontend-web typecheck passes, deploy 200 OK",
+    "2026-06-13: Merged symphony/fix-19 (better-sqlite3 → sql.js fallback for CI resilience) + fix/issue-23 (remotion test timeout fix), all tests pass (127/127), pushed to origin"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -72,21 +73,23 @@
     "Flutter logout navigation unreliable on Flutter Web — use async/await + addPostFrameCallback to ensure reliable navigation back to login screen after logout",
     "Flutter Web build service worker version regenerates on each build — minor diffs in public/ are normal and don't require commit unless code actually changed",
     "LlmClientService.chatCompletion() returns LlmResponse with direct .content field, NOT .choices[].message.content — the older OpenAI SDK format was different",
-    "Use rsync --delete instead of cp -r when deploying Flutter Web builds — cp leaves orphaned files (old service workers, unused assets) that cause 404s and cache issues"
+    "Use rsync --delete instead of cp -r when deploying Flutter Web builds — cp leaves orphaned files (old service workers, unused assets) that cause 404s and cache issues",
+    "better-sqlite3 native bindings can fail on Node.js version mismatch or CI environments — app.module.ts now probes at startup and falls back to sql.js (pure JS) transparently (symphony/fix-19)",
+    "remotion-render.service.spec.ts zero-byte buffer test can timeout at 20s — mock the remotion-ts-validator module to prevent real filesystem operations (fix/issue-23)"
   ],
   "metrics": {
     "backend_files": 196,
     "backend_test_files": 42,
     "backend_test_ratio": "21.4%",
-    "backend_src_lines": 36717,
-    "backend_test_lines": 7878,
-    "flutter_files": 63,
-    "flutter_lines": 32531,
+    "backend_src_lines": 36833,
+    "backend_test_lines": 7884,
+    "flutter_files": 64,
+    "flutter_lines": 33102,
     "web_files": 101,
-    "web_lines": 26526,
+    "web_lines": 26892,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 111274,
+    "total_lines": 112333,
     "repo_build_artifacts": "0 (cleaned) + 37MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13

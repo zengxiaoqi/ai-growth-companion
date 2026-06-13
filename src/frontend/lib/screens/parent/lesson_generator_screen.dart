@@ -679,8 +679,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     ]);
   }
 
-  }
-
   Widget _buildStepCard(Map<String, dynamic> step) {
     final stepId = step['id']?.toString() ?? '';
     final label = step['label']?.toString() ?? '';

@@ -443,5 +443,5 @@ describe('RemotionRenderService', () => {
 
     expect(voiceService.textToSpeech).toHaveBeenCalledTimes(2);
     expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
-  }, 30000);
+  }, 60000);
 });

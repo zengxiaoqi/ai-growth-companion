@@ -516,7 +516,7 @@ export class AiController {
     },
   ) {
     try {
-      return this.aiService.generateCoursePack({
+      return await this.aiService.generateCoursePack({
         ...body,
         viewerId: req.user.sub,
         viewerType: req.user.type,

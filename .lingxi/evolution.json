@@ -1,19 +1,19 @@
 {
-  "last_analysis": "2026-06-15",
-  "analysis_count": 23,
-  "commit_count": 283,
-  "last_commit": "2026-06-15T00:00:00+08:00",
-  "last_commit_hash": "a9cfeb5",
+  "last_analysis": "2026-06-16",
+  "analysis_count": 24,
+  "commit_count": 286,
+  "last_commit": "2026-06-16T00:00:00+08:00",
+  "last_commit_hash": "pending",
   "commits_ahead_remote": 0,
-  "remote_head": "a9cfeb5",
-  "remote_head_date": "2026-06-15T00:00:00+08:00",
+  "remote_head": "72d0e55",
+  "remote_head_date": "2026-06-15T16:52:28+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
     "content_system": 85,
     "infrastructure": 87,
-    "code_quality": 93
+    "code_quality": 94
   },
   "active_plans": [],
   "completed_actions": [
@@ -54,7 +54,8 @@
     "2026-06-11: Daily evolution — pulled PR #24 (EdgeTTS mock type fix), all systems operational, backend build clean, ESLint passes, voice.service tests pass (21/21), frontend-web typecheck passes, deploy 200 OK",
     "2026-06-13: Merged symphony/fix-19 (better-sqlite3 → sql.js fallback for CI resilience) + fix/issue-23 (remotion test timeout fix), all tests pass (127/127), pushed to origin",
     "2026-06-14: Daily evolution — 9 bug fix commits since last analysis (Flutter compile errors, test timeouts, OOM fixes, DI mock fixes), all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, 135/135 tests passing, deploy 200 OK, git synced with origin",
-    "2026-06-15: Added 8 new unit test files (56 tests) — parent.service (13), abilities.controller (5), achievements.controller (7), notification.controller (7), users.controller (8), recommend.controller (4), auth.controller (5), sse.controller (7). Test files: 47→53, test lines: 7908→9974"
+    "2026-06-15: Added 8 new unit test files (56 tests) — parent.service (13), abilities.controller (5), achievements.controller (7), notification.controller (7), users.controller (8), recommend.controller (4), auth.controller (5), sse.controller (7). Test files: 47→53, test lines: 7908→9974",
+    "2026-06-16: Added ai.controller.spec.ts (50 tests) — covers all 19 endpoints: chat, chatStream SSE, history, course-packs CRUD, export, batch export, quiz, story, evaluate, suggestion. Also fixed missing await bug in generateCoursePack (try/catch was dead code). Test files: 53->58, test lines: 9974->12255"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -79,21 +80,22 @@
     "better-sqlite3 native bindings can fail on Node.js version mismatch or CI environments — app.module.ts now probes at startup and falls back to sql.js (pure JS) transparently (symphony/fix-19)",
     "remotion-render.service.spec.ts zero-byte buffer test can timeout at 20s — mock the remotion-ts-validator module to prevent real filesystem operations (fix/issue-23)",
     "Full unit test suite (npx jest --testPathPattern='unit/') can hang beyond 300s — likely caused by remotion-render or orchestrator tests with lingering handles. Run individual test files for reliability.",
-    "Controller tests follow a simple pattern: mock the service, instantiate the controller directly, verify delegation and argument conversion (string→number). No NestJS testing module needed for pure unit tests."
+    "Controller tests follow a simple pattern: mock the service, instantiate the controller directly, verify delegation and argument conversion (string→number). No NestJS testing module needed for pure unit tests.",
+    "ai.controller.generateCoursePack() was missing 'await' before this.aiService.generateCoursePack() — the try/catch block was dead code because the returned promise rejection was not caught. Fixed by adding 'await'. Always check that async service calls inside try/catch blocks are properly awaited."
   ],
   "metrics": {
     "backend_files": 196,
-    "backend_test_files": 53,
-    "backend_test_ratio": "27.0%",
+    "backend_test_files": 58,
+    "backend_test_ratio": "29.6%",
     "backend_src_lines": 36833,
-    "backend_test_lines": 9974,
+    "backend_test_lines": 12255,
     "flutter_files": 64,
     "flutter_lines": 32998,
     "web_files": 101,
-    "web_lines": 26526,
+    "web_lines": 26892,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 125077,
+    "total_lines": 116600,
     "repo_build_artifacts": "90MB build + 37MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13

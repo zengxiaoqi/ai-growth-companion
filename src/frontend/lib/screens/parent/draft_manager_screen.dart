@@ -151,6 +151,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final api = context.read<ApiService>();
     final success = await api.deleteLessonDraft(contentId);
@@ -381,6 +382,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final api = context.read<ApiService>();
     final result = await api.confirmLesson(contentId, childId);

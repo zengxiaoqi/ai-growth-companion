@@ -1,4 +1,7 @@
+import '../utils/app_logger.dart';
 import 'api_service.dart';
+
+final _log = AppLogger('AiService');
 
 class AiService {
   final ApiService _apiService;
@@ -52,7 +55,7 @@ class AiService {
       
       return aiResponse;
     } catch (e) {
-      print('AI chat error: $e');
+      _log.warning('AI chat error: $e');
       return '抱歉，我现在有点累了，让我们休息一下再来聊天吧~';
     }
   }
@@ -66,7 +69,7 @@ class AiService {
       });
       return response.data['suggestion'] as String;
     } catch (e) {
-      print('Generate suggestion error: $e');
+      _log.warning('Generate suggestion error: $e');
       return '今天表现很棒！明天我们继续加油~';
     }
   }
@@ -83,7 +86,7 @@ class AiService {
       });
       return response.data;
     } catch (e) {
-      print('Generate story error: $e');
+      _log.warning('Generate story error: $e');
       return null;
     }
   }
@@ -101,7 +104,7 @@ class AiService {
       });
       return response.data;
     } catch (e) {
-      print('Evaluate learning error: $e');
+      _log.warning('Evaluate learning error: $e');
       return {
         'score': 80,
         'feedback': '你做得很好！',

@@ -10,9 +10,13 @@ import 'providers/user_provider.dart';
 import 'providers/learning_provider.dart';
 import 'providers/content_provider.dart';
 import 'providers/chat_session_provider.dart';
+import 'utils/app_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化日志系统
+  initLogger();
 
   // 初始化本地存储
   final prefs = await SharedPreferences.getInstance();

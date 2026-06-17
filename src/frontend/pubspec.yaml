@@ -46,6 +46,9 @@ dependencies:
   intl: ^0.18.1
   json_annotation: ^4.8.1
   
+  # 日志
+  logging: ^1.2.0
+  
   # AI 对话
   dialog_flowtter: ^0.3.3
 

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/app_logger.dart';
+
+final _log = AppLogger('ContentProvider');
 
 class ContentProvider extends ChangeNotifier {
   final ApiService _apiService;
@@ -28,7 +31,7 @@ class ContentProvider extends ChangeNotifier {
       );
       _contents = list.cast<Map<String, dynamic>>();
     } catch (e) {
-      print('Load contents error: $e');
+      _log.warning('Load contents error: $e');
     }
     
     _isLoading = false;
@@ -45,7 +48,7 @@ class ContentProvider extends ChangeNotifier {
       final list = await _apiService.getContents(limit: 10);
       _recommendations = list.cast<Map<String, dynamic>>();
     } catch (e) {
-      print('Load recommendations error: $e');
+      _log.warning('Load recommendations error: $e');
     }
     
     _isLoading = false;
@@ -60,7 +63,7 @@ class ContentProvider extends ChangeNotifier {
     try {
       _currentContent = await _apiService.getContentDetail(contentId);
     } catch (e) {
-      print('Load content detail error: $e');
+      _log.warning('Load content detail error: $e');
     }
     
     _isLoading = false;

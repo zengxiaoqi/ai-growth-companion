@@ -1,6 +1,7 @@
 // UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
 
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';
@@ -313,7 +314,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
-        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
+        transform: Matrix4.identity()..scaleByVector3(Vector3.all(_isPressed ? 0.95 : 1.0)),
         child: AppCard(
           gradient: LinearGradient(
             colors: [

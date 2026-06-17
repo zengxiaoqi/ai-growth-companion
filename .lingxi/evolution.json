@@ -1,11 +1,11 @@
 {
-  "last_analysis": "2026-06-16",
-  "analysis_count": 24,
-  "commit_count": 286,
-  "last_commit": "2026-06-16T00:00:00+08:00",
+  "last_analysis": "2026-06-17",
+  "analysis_count": 25,
+  "commit_count": 287,
+  "last_commit": "2026-06-17T00:00:00+08:00",
   "last_commit_hash": "pending",
   "commits_ahead_remote": 0,
-  "remote_head": "72d0e55",
+  "remote_head": "534e7b2",
   "remote_head_date": "2026-06-15T16:52:28+08:00",
   "stale_days": 0,
   "capabilities": {
@@ -13,7 +13,7 @@
     "parent_dashboard": 95,
     "content_system": 85,
     "infrastructure": 87,
-    "code_quality": 94
+    "code_quality": 96
   },
   "active_plans": [],
   "completed_actions": [
@@ -55,7 +55,8 @@
     "2026-06-13: Merged symphony/fix-19 (better-sqlite3 → sql.js fallback for CI resilience) + fix/issue-23 (remotion test timeout fix), all tests pass (127/127), pushed to origin",
     "2026-06-14: Daily evolution — 9 bug fix commits since last analysis (Flutter compile errors, test timeouts, OOM fixes, DI mock fixes), all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, 135/135 tests passing, deploy 200 OK, git synced with origin",
     "2026-06-15: Added 8 new unit test files (56 tests) — parent.service (13), abilities.controller (5), achievements.controller (7), notification.controller (7), users.controller (8), recommend.controller (4), auth.controller (5), sse.controller (7). Test files: 47→53, test lines: 7908→9974",
-    "2026-06-16: Added ai.controller.spec.ts (50 tests) — covers all 19 endpoints: chat, chatStream SSE, history, course-packs CRUD, export, batch export, quiz, story, evaluate, suggestion. Also fixed missing await bug in generateCoursePack (try/catch was dead code). Test files: 53->58, test lines: 9974->12255"
+    "2026-06-16: Added ai.controller.spec.ts (50 tests) — covers all 19 endpoints: chat, chatStream SSE, history, course-packs CRUD, export, batch export, quiz, story, evaluate, suggestion. Also fixed missing await bug in generateCoursePack (try/catch was dead code). Test files: 53->58, test lines: 9974->12255",
+    "2026-06-17: Added 13 AI agent tool unit test files (61 tests, 943 lines) — covers get-user-profile, list-children, get-abilities, get-recommendations, search-content, list-assignments, view-abilities, view-report, record-learning, get-learning-history, get-parent-control, update-parent-control, generate-quiz. All 18 agent tools now have test coverage. Test files: 58->69 (+13), test lines: 12255->13085 (+830)"
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -85,10 +86,10 @@
   ],
   "metrics": {
     "backend_files": 196,
-    "backend_test_files": 58,
-    "backend_test_ratio": "29.6%",
+    "backend_test_files": 69,
+    "backend_test_ratio": "35.4%",
     "backend_src_lines": 36833,
-    "backend_test_lines": 12255,
+    "backend_test_lines": 13085,
     "flutter_files": 64,
     "flutter_lines": 32998,
     "web_files": 101,

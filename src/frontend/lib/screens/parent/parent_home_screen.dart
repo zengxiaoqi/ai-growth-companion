@@ -70,7 +70,6 @@ class ParentHomeContent extends StatefulWidget {
 class _ParentHomeContentState extends State<ParentHomeContent> {
   bool _isLoading = true;
   bool _loaded = false;
-  String? _error;
   List<Map<String, dynamic>> _children = [];
   // 本地选中的孩子 ID（优先于 Provider，反映实时 UI）
   int? _localSelectedChildId;
@@ -99,7 +98,6 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
     if (parentId == null || parentId <= 0) {
       setState(() {
         _isLoading = false;
-        _error = '无法获取家长信息';
       });
       return;
     }
@@ -125,14 +123,12 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
       setState(() {
         _children = childList;
         _isLoading = false;
-        _error = null;
         _loaded = true;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = '加载失败: $e';
         _loaded = true;
       });
     }

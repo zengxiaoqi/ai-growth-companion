@@ -88,73 +88,6 @@ class ChatMessageEntry {
   }
 }
 
-// ─── 上下文摘要服务 ───────────────────────────────────────────────────────
-
-/// 上下文摘要阈值配置
-class SummarizationConfig {
-  /// 消息数超过此值时触发自动摘要
-  final int maxMessagesBeforeSummarize;
-  /// 保留最近的消息数（摘要 + 原始消息）
-  final int recentMessagesKeep;
-
-  const SummarizationConfig({
-    this.maxMessagesBeforeSummarize = 16, // 8轮对话 ≈ 16条
-    this.recentMessagesKeep = 10,        // 保留最近 5 轮对话原文
-  });
-}
-
-/// 管理对话上下文摘要的工具类
-class ContextSummarizer {
-  final SummarizationConfig config;
-
-  ContextSummarizer({this.config = const SummarizationConfig()});
-
-  /// 判断是否需要触发摘要
-  bool needsSummarization(List<ChatMessageEntry> messages) {
-    return messages.length >= config.maxMessagesBeforeSummarize;
-  }
-
-  /// 返回需要发送的上下文消息（摘要 + 最近的原始消息）
-  ({String? summary, List<ChatMessageEntry> recent}) buildContextWindow(
-    List<ChatMessageEntry> messages,
-  ) {
-    if (!needsSummarization(messages)) {
-      return (summary: null, recent: messages.toList());
-    }
-
-    final cutoff = messages.length - config.recentMessagesKeep;
-    if (cutoff <= 0) {
-      return (summary: null, recent: messages.toList());
-    }
-
-    final truncatedMsgs = messages.sublist(cutoff);
-    final summary = _generateSummaryText(truncatedMsgs);
-    final recentMessages = messages.sublist(cutoff);
-    return (summary: summary, recent: recentMessages);
-  }
-
-  /// 根据截断的消息生成摘要文本
-  String _generateSummaryText(List<ChatMessageEntry> truncated) {
-    final userMessages = truncated.where((m) => m.role == 'user').toList();
-    final topics = <String>{};
-
-    for (final msg in userMessages) {
-      final text = msg.content.trim();
-      if (text.isNotEmpty) {
-        final topic = text.length > 20
-            ? '${text.substring(0, 20)}...'
-            : text;
-        topics.add(topic);
-      }
-    }
-
-    if (topics.isEmpty) return '';
-
-    final topicList = topics.take(5).join('、');
-    return '[对话摘要]\n之前的对话围绕以下话题展开：$topicList\n\n请保持连贯性继续对话。';
-  }
-}
-
 // ─── 测验解析工具（与 ai_chat_screen.dart 保持一致） ─────────────────────────
 
 /// 从消息文本中提取测验数据
@@ -287,9 +220,6 @@ class ChatSessionProvider extends ChangeNotifier {
   bool get isLoadingMessages => _isLoadingMessages;
   List<ChatMessageEntry> get localMessages => _localMessages;
   int? get childId => _childId;
-
-  // 上下文摘要器
-  final ContextSummarizer _summarizer = ContextSummarizer();
 
   ChatSessionProvider(this._apiService);
 
@@ -454,7 +384,6 @@ class ChatSessionProvider extends ChangeNotifier {
 
       // 更新会话信息
       final sessionId = response?['sessionId'] as String?;
-      final suggestions = response?['suggestions'] as List<dynamic>?;
       if (sessionId != null && targetSession == null) {
         // 后端创建了新的会话
         _activeSession = ChatSessionSummary(

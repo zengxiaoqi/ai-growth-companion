@@ -1,19 +1,19 @@
 {
-  "last_analysis": "2026-06-17",
-  "analysis_count": 25,
-  "commit_count": 287,
-  "last_commit": "2026-06-17T00:00:00+08:00",
-  "last_commit_hash": "pending",
+  "last_analysis": "2026-06-18",
+  "analysis_count": 26,
+  "commit_count": 295,
+  "last_commit": "2026-06-18T09:00:00+08:00",
+  "last_commit_hash": "7647172",
   "commits_ahead_remote": 0,
-  "remote_head": "534e7b2",
-  "remote_head_date": "2026-06-15T16:52:28+08:00",
+  "remote_head": "7647172",
+  "remote_head_date": "2026-06-18T09:00:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
-    "content_system": 85,
-    "infrastructure": 87,
-    "code_quality": 96
+    "content_system": 87,
+    "infrastructure": 88,
+    "code_quality": 97
   },
   "active_plans": [],
   "completed_actions": [
@@ -56,7 +56,8 @@
     "2026-06-14: Daily evolution — 9 bug fix commits since last analysis (Flutter compile errors, test timeouts, OOM fixes, DI mock fixes), all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, 135/135 tests passing, deploy 200 OK, git synced with origin",
     "2026-06-15: Added 8 new unit test files (56 tests) — parent.service (13), abilities.controller (5), achievements.controller (7), notification.controller (7), users.controller (8), recommend.controller (4), auth.controller (5), sse.controller (7). Test files: 47→53, test lines: 7908→9974",
     "2026-06-16: Added ai.controller.spec.ts (50 tests) — covers all 19 endpoints: chat, chatStream SSE, history, course-packs CRUD, export, batch export, quiz, story, evaluate, suggestion. Also fixed missing await bug in generateCoursePack (try/catch was dead code). Test files: 53->58, test lines: 9974->12255",
-    "2026-06-17: Added 13 AI agent tool unit test files (61 tests, 943 lines) — covers get-user-profile, list-children, get-abilities, get-recommendations, search-content, list-assignments, view-abilities, view-report, record-learning, get-learning-history, get-parent-control, update-parent-control, generate-quiz. All 18 agent tools now have test coverage. Test files: 58->69 (+13), test lines: 12255->13085 (+830)"
+    "2026-06-17: Added 13 AI agent tool unit test files (61 tests, 943 lines) — covers get-user-profile, list-children, get-abilities, get-recommendations, search-content, list-assignments, view-abilities, view-report, record-learning, get-learning-history, get-parent-control, update-parent-control, generate-quiz. All 18 agent tools now have test coverage. Test files: 58->69 (+13), test lines: 12255->13085 (+830)",
+    "2026-06-18: Merged 5 PR branches (fix/issue-30~34) — removed unused code (chat_session_provider dead classes), added mounted checks (6 Flutter files), replaced print() with logging framework (AppLogger + initLogger), fixed deprecated model-viewer API, adjusted auth guards (contents GET public, TTS public). Backend builds clean, ESLint passes, contents tests 23/23, voice tests 30/30, frontend-web typecheck passes. Pushed to origin."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -82,21 +83,24 @@
     "remotion-render.service.spec.ts zero-byte buffer test can timeout at 20s — mock the remotion-ts-validator module to prevent real filesystem operations (fix/issue-23)",
     "Full unit test suite (npx jest --testPathPattern='unit/') can hang beyond 300s — likely caused by remotion-render or orchestrator tests with lingering handles. Run individual test files for reliability.",
     "Controller tests follow a simple pattern: mock the service, instantiate the controller directly, verify delegation and argument conversion (string→number). No NestJS testing module needed for pure unit tests.",
-    "ai.controller.generateCoursePack() was missing 'await' before this.aiService.generateCoursePack() — the try/catch block was dead code because the returned promise rejection was not caught. Fixed by adding 'await'. Always check that async service calls inside try/catch blocks are properly awaited."
+    "ai.controller.generateCoursePack() was missing 'await' before this.aiService.generateCoursePack() — the try/catch block was dead code because the returned promise rejection was not caught. Fixed by adding 'await'. Always check that async service calls inside try/catch blocks are properly awaited.",
+    "Flutter 'BuildContext used across async gap' warnings are fixed by adding 'if (!mounted) return;' (or 'if (!context.mounted) return;' in newer Flutter) after every await before using context. fix/issue-31 applied this to 6 files.",
+    "Contents controller auth guard was at class level (all endpoints required JWT). fix/issue-34 moved it to method level — GET endpoints (findAll, findById) are now public, POST (create) still requires auth. This is correct for an education app where content browsing should be open.",
+    "Voice TTS endpoint was behind JWT guard — fix/issue-34 removed it, making /voice/tts public. This is reasonable since TTS is used by unauthenticated contexts (e.g., preview audio before login)."
   ],
   "metrics": {
     "backend_files": 196,
-    "backend_test_files": 69,
-    "backend_test_ratio": "35.4%",
-    "backend_src_lines": 36833,
-    "backend_test_lines": 13085,
-    "flutter_files": 64,
+    "backend_test_files": 71,
+    "backend_test_ratio": "36.2%",
+    "backend_src_lines": 36832,
+    "backend_test_lines": 13206,
+    "flutter_files": 65,
     "flutter_lines": 32998,
     "web_files": 101,
     "web_lines": 26892,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 116600,
+    "total_lines": 117550,
     "repo_build_artifacts": "90MB build + 37MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13

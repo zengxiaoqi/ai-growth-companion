@@ -61,7 +61,7 @@ class LingxiApp extends StatelessWidget {
         final childId = _resolveChildId(context, args);
 
         // Helper — wraps a builder with the chosen transition factory.
-        Route<T> _page<T>(
+        Route<T> page<T>(
           WidgetBuilder builder,
           Route<T> Function(WidgetBuilder, {RouteSettings? settings}) transition,
         ) {
@@ -71,82 +71,82 @@ class LingxiApp extends StatelessWidget {
         switch (settings.name) {
           // ── Authentication → fadeThrough ──
           case '/login':
-            return _page((_) => const LoginScreen(), fadeThrough);
+            return page((_) => const LoginScreen(), fadeThrough);
           case '/register':
-            return _page((_) => const RegisterScreen(), fadeThrough);
+            return page((_) => const RegisterScreen(), fadeThrough);
           case '/modeSelection':
-            return _page((_) => const ModeSelectionScreen(), fadeThrough);
+            return page((_) => const ModeSelectionScreen(), fadeThrough);
 
           // ── Settings → slideFromRight ──
           case '/settings':
-            return _page((_) => const SettingsScreen(), slideFromRight);
+            return page((_) => const SettingsScreen(), slideFromRight);
 
           // ── Child shell → slideFromRight ──
           case '/child':
-            return _page((_) => const ChildHomeScreen(), slideFromRight);
+            return page((_) => const ChildHomeScreen(), slideFromRight);
 
           // ── Child emergency → slideFromRight ──
           case '/child/emergencyCall':
-            return _page(
+            return page(
               (_) => EmergencyCallScreen(childId: childId ?? 0),
               slideFromRight,
             );
 
           // ── Parent shell & management → slideFromRight ──
           case '/parent':
-            return _page((_) => const ParentHomeScreen(), slideFromRight);
+            return page((_) => const ParentHomeScreen(), slideFromRight);
           case '/parent/abilityRadar':
-            return _page((_) => const AbilityRadarScreen(), slideFromRight);
+            return page((_) => const AbilityRadarScreen(), slideFromRight);
           case '/parent/abilityTrend':
-            return _page((_) => const AbilityTrendScreen(), slideFromRight);
+            return page((_) => const AbilityTrendScreen(), slideFromRight);
           case '/parent/parentalControls':
-            return _page(
+            return page(
               (_) => const ParentalControlsScreen(),
               slideFromRight,
             );
           case '/parent/assignmentManager':
-            return _page(
+            return page(
               (_) => const AssignmentManagerScreen(),
               slideFromRight,
             );
           case '/parent/coursePackManager':
-            return _page(
+            return page(
               (_) => const CoursePackManagerScreen(),
               slideFromRight,
             );
           case '/parent/growthReport':
-            return _page(
+            return page(
               (_) => const GrowthReportScreen(),
               slideFromRight,
             );
           case '/parent/aiInsights':
-            return _page((_) => const AIInsightsPanel(), slideFromRight);
+            return page((_) => const AIInsightsPanel(), slideFromRight);
           case '/parent/reportDetail':
-            return _page(
+            return page(
               (_) => const ReportDetailScreen(),
               slideFromRight,
             );
           case '/parent/lessonGenerator':
-            return _page(
+            return page(
               (_) => LessonGeneratorScreen(
                 draftContentId: args?['draftContentId'] as int?,
               ),
               slideFromRight,
             );
           case '/parent/draftManager':
-            return _page(
+            return page(
               (_) => const DraftManagerScreen(),
               slideFromRight,
             );
           case '/parent/quickVideoGenerator':
-            return _page(
+            return page(
               (_) => const QuickVideoGeneratorScreen(),
               slideFromRight,
             );
 
           // ── Learning content → slideFromRight ──
           case '/learning/subjectContentList':
-            return _page(
+            return page(
               (_) => SubjectContentListScreen(
                 subject: args?['subject'] as String? ?? '',
                 childId: childId,
@@ -154,7 +154,7 @@ class LingxiApp extends StatelessWidget {
               slideFromRight,
             );
           case '/learning/contentDetail':
-            return _page(
+            return page(
               (_) => ContentDetailScreen(
                 contentId: args?['contentId'] as int? ?? 0,
                 childId: childId,
@@ -162,7 +162,7 @@ class LingxiApp extends StatelessWidget {
               slideFromRight,
             );
           case '/learning/structuredLesson':
-            return _page(
+            return page(
               (_) => StructuredLessonScreen(
                 contentId: args?['contentId'] as int? ?? 0,
                 childId: childId,
@@ -172,14 +172,14 @@ class LingxiApp extends StatelessWidget {
 
           // ── Games / interactive play → childFriendly ──
           case '/learning/animationPlayer':
-            return _page(
+            return page(
               (_) => AnimationScenePlayer(
                 scenes: args?['scenes'] as List<AnimationScene>? ?? [],
               ),
               childFriendly,
             );
           case '/learning/lessonScenePlayer':
-            return _page(
+            return page(
               (_) => LessonScenePlayer(
                 document: args?['document'] as LessonSceneDocument? ??
                     const LessonSceneDocument(scenes: []),

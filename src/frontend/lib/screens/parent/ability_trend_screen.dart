@@ -218,7 +218,7 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '最近 ${_rangeDays} 天的能力变化',
+              '最近 $_rangeDays 天的能力变化',
               style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),

@@ -307,17 +307,17 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.softShadow(),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '今日学习',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -340,17 +340,17 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.softShadow(),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '能力雷达',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _AbilityBar(label: '语言', value: 0.8),
           _AbilityBar(label: '数学', value: 0.6),
           _AbilityBar(label: '科学', value: 0.75),

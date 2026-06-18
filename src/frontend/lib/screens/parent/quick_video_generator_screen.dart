@@ -320,7 +320,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
         if (_loadingChildren)
           const Center(child: CircularProgressIndicator())
         else if (_children.isEmpty)
-          Text(
+          const Text(
             '暂无关联孩子',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           )
@@ -418,7 +418,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
             ),
             Text(
               '${_durationSec.toInt()} 秒',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppTheme.primaryColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -434,7 +434,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
           label: '${_durationSec.toInt()} 秒',
           onChanged: (v) => setState(() => _durationSec = v),
         ),
-        Row(
+        const Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('10s', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -597,7 +597,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
       ),
       child: Column(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 60,
             height: 60,
             child: CircularProgressIndicator(
@@ -623,7 +623,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
               value: progress,
               minHeight: 6,
               backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation(AppTheme.secondaryColor),
+              valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
             ),
           ),
           const SizedBox(height: 16),

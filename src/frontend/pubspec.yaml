@@ -52,6 +52,7 @@ dependencies:
   # AI 对话
   dialog_flowtter: ^0.3.3
 
+  vector_math: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

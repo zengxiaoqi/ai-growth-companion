@@ -683,7 +683,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
+                  child: const Text(
                     '含互动练习',
                     style: TextStyle(
                       fontSize: 11,
@@ -824,11 +824,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primaryColor),
-                const SizedBox(width: 4),
+                Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primaryColor),
+                SizedBox(width: 4),
                 Text(
                   'AI 评估',
                   style: TextStyle(
@@ -947,11 +947,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.warningColor),
+                  const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.warningColor),
                   const SizedBox(width: 6),
                   Text(
                     _startError ?? '请使用孩子账号开始学习。',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.warningColor,
@@ -965,7 +965,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             child: FilledButton.icon(
               onPressed: (_isStarting || widget.childId == null) ? null : _handleStartLearning,
               icon: _isStarting
-                  ? SizedBox(
+                  ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
@@ -1074,7 +1074,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           child: FilledButton.icon(
             onPressed: (_isCompleting || !_canCompleteReading) ? null : _handleCompleteReading,
             icon: _isCompleting
-                ? SizedBox(
+                ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(

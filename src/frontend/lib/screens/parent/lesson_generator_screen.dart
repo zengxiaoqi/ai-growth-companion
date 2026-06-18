@@ -486,16 +486,20 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       }
       setState(() { _editingSceneIndex = null; });
       HapticFeedback.lightImpact();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: const Text('已退出场景编辑模式'), backgroundColor: AppTheme.textSecondary, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
       );
+      }
     } else {
       // 其他场景 → 打开编辑态
       setState(() { _editingSceneIndex = index; });
       HapticFeedback.lightImpact();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('正在编辑场景 ${index + 1}，修改后请记得保存草稿'), backgroundColor: AppTheme.primaryColor, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), duration: const Duration(seconds: 2)),
       );
+      }
     }
   }
 
@@ -519,7 +523,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoadingChildren || _isLoadingDraft) return const Padding(
+    if (_isLoadingChildren || _isLoadingDraft) {
+      return const Padding(
       padding: EdgeInsets.all(16),
       child: Column(children: [
         ShimmerCard(height: 90),
@@ -529,6 +534,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
         ShimmerCard(height: 70),
       ]),
     );
+    }
     if (_children.isEmpty) return const EmptyState(emoji: '👨‍👧', title: '选择孩子并输入主题', subtitle: 'AI 将为你生成个性化学习课程');
     return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
       ChildSelector(children: _children, selectedChildId: _selectedChildId, onChildChanged: _onChildChanged, mode: ChildSelectorMode.bottomSheet),
@@ -588,8 +594,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     return Card(elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const Icon(Icons.auto_awesome_rounded, size: 22, color: AppTheme.primaryColor), const SizedBox(width: 8),
-            const Text('一键生成学习课程', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+          const Row(children: [Icon(Icons.auto_awesome_rounded, size: 22, color: AppTheme.primaryColor), SizedBox(width: 8),
+            Text('一键生成学习课程', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
           ]),
           const SizedBox(height: 6),
           const Text('输入学习主题，AI 自动生成包含"看、读、写、练"四步的完整课程', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
@@ -646,7 +652,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
                 Wrap(spacing: 6, runSpacing: 6, children: outcomes.map<Widget>((o) => Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                  child: Text(o.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+                  child: Text(o.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
                 )).toList()),
               ],
             ])),
@@ -773,7 +779,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
                 child: Row(children: [
-                  Icon(Icons.record_voice_over_rounded, size: 14, color: AppTheme.primaryColor),
+                  const Icon(Icons.record_voice_over_rounded, size: 14, color: AppTheme.primaryColor),
                   const SizedBox(width: 6),
                   Expanded(child: Text(scene.narration,
                     style: const TextStyle(fontSize: 12, color: AppTheme.textColor),
@@ -821,7 +827,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     final hasEditsSet = _sceneEdits.isNotEmpty;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: const Text('场景内容编辑', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor))),
+        const Expanded(child: Text('场景内容编辑', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor))),
         if (hasEditsSet)
           GestureDetector(
             onTap: _handleSaveDraft,
@@ -1048,7 +1054,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                side: BorderSide(color: AppTheme.accentColor),
+                side: const BorderSide(color: AppTheme.accentColor),
                 foregroundColor: AppTheme.accentColor,
               ),
             ),
@@ -1067,8 +1073,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     }
     return Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(color: AppTheme.primaryColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.check_circle_rounded, size: 20, color: AppTheme.primaryColor), const SizedBox(width: 8),
+      child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.check_circle_rounded, size: 20, color: AppTheme.primaryColor), SizedBox(width: 8),
         Text('课程已发布，学生可以在学习页面看到此课程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
       ]),
     );

@@ -110,8 +110,8 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       child: Row(
         children: [
           CloudDecoration(size: 32, color: AppTheme.softBlue),
-          const SizedBox(width: 12),
-          const Expanded(
+          SizedBox(width: 12),
+          Expanded(
             child: SectionHeader(
               title: '学习中心',
               emoji: '📚',

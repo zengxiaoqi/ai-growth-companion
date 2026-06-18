@@ -145,13 +145,13 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
+              const Row(
                 children: [
-                  const Text('✨', style: TextStyle(fontSize: 16)),
-                  const SizedBox(width: 4),
+                  Text('✨', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 4),
                   Text(
                     '今天也要努力学习哦~',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       color: AppTheme.textSecondary,
                     ),
@@ -193,10 +193,10 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               color: Colors.white.withValues(alpha: 0.15),
             ),
           ),
-          Positioned(
+          const Positioned(
             right: 30,
             bottom: -10,
-            child: const Text('📚', style: TextStyle(fontSize: 50)),
+            child: Text('📚', style: TextStyle(fontSize: 50)),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

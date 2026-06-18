@@ -65,7 +65,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
 
     try {
       final api = context.read<ApiService>();
-      final parentId = 1; // TODO: 从 UserProvider 获取
+      const parentId = 1; // TODO: 从 UserProvider 获取
 
       // 加载孩子列表
       final children = await api.getChildrenByParent(parentId);

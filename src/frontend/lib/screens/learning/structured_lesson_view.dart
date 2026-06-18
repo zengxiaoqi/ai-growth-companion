@@ -663,10 +663,10 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
   }
 
   Widget _buildCompletedState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(
             Icons.check_circle_rounded,
             size: 56,
@@ -849,20 +849,20 @@ class _LessonStepStatusUI {
 _LessonStepStatusUI _statusUI(_LessonStepStatus status, ColorScheme scheme) {
   switch (status) {
     case _LessonStepStatus.completed:
-      return _LessonStepStatusUI(
+      return const _LessonStepStatusUI(
         label: '已完成',
         icon: Icons.check_circle_rounded,
-        text: const Color(0xFF2E7D32),
-        badgeBg: const Color(0xFFE8F5E9),
-        badgeText: const Color(0xFF2E7D32),
+        text: Color(0xFF2E7D32),
+        badgeBg: Color(0xFFE8F5E9),
+        badgeText: Color(0xFF2E7D32),
       );
     case _LessonStepStatus.inProgress:
-      return _LessonStepStatusUI(
+      return const _LessonStepStatusUI(
         label: '进行中',
         icon: Icons.play_circle_rounded,
-        text: const Color(0xFFEF6C00),
-        badgeBg: const Color(0xFFFFF3E0),
-        badgeText: const Color(0xFFEF6C00),
+        text: Color(0xFFEF6C00),
+        badgeBg: Color(0xFFFFF3E0),
+        badgeText: Color(0xFFEF6C00),
       );
     case _LessonStepStatus.notStarted:
       return _LessonStepStatusUI(

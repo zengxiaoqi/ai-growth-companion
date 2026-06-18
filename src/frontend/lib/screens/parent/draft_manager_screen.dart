@@ -794,7 +794,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                 Row(
                   children: [
                     if (createdAt.isNotEmpty) ...[
-                      Icon(Icons.add_circle_outline_rounded,
+                      const Icon(Icons.add_circle_outline_rounded,
                           size: 14, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(
@@ -809,7 +809,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                       const SizedBox(width: 12),
                     ],
                     if (updatedAt.isNotEmpty) ...[
-                      Icon(Icons.update_rounded,
+                      const Icon(Icons.update_rounded,
                           size: 14, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(

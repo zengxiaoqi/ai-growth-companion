@@ -13,6 +13,7 @@
 ///     // 根据 type 显示不同错误提示
 /// }
 /// ```
+library;
 
 sealed class ApiResult<T> {
   const ApiResult();

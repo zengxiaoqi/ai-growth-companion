@@ -321,7 +321,7 @@ class _StructuredLessonViewState extends State<StructuredLessonView> {
                           ),
                         );
 
-                        if (!mounted) return;
+                        if (!context.mounted) return;
                         if (changed == true) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -571,7 +571,7 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
                               'stepType': 'default',
                             },
                           );
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           setState(() => _isCompleting = false);
 
                           if (ok) {
@@ -636,7 +636,7 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
                         'gameResult': result,
                       },
                     );
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     setState(() => _isCompleting = false);
 
                     if (ok) {

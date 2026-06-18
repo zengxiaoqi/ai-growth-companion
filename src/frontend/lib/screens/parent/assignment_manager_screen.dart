@@ -394,6 +394,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     setState(() {
       _mutatingId = id;

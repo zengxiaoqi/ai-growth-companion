@@ -68,6 +68,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // 保存 token
       final token = result['access_token'] ?? result['token'];
       if (token != null) {
+        if (!mounted) return;
         final storage = context.read<StorageService>();
         await storage.saveToken(token.toString());
       }

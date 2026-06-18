@@ -686,6 +686,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       return;
     }
     if (_speakingMessageIndex != null) await tts.stop();
+    if (!mounted) return;
 
     final provider = context.read<ChatSessionProvider>();
     if (index >= provider.localMessages.length) return;

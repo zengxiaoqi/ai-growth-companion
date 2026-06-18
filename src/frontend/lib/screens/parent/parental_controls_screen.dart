@@ -526,7 +526,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: AppTheme.primaryColor,
+          activeThumbColor: AppTheme.primaryColor,
         ),
       ],
     );

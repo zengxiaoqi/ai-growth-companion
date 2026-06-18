@@ -299,7 +299,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
                 color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.play_arrow_rounded,
                 size: 40,
                 color: AppTheme.primaryColor,
@@ -452,7 +452,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             errorBuilder: (_, __, ___) => _buildCharacterEmoji(scene),
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
-              return SizedBox(
+              return const SizedBox(
                 width: 40,
                 height: 40,
                 child: CircularProgressIndicator(
@@ -491,7 +491,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             ? Text(scene.character, style: const TextStyle(fontSize: 52))
             : Text(
                 scene.character.isNotEmpty ? scene.character[0].toUpperCase() : '?',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -528,7 +528,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
               color: AppTheme.primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.record_voice_over_rounded,
               size: 18,
               color: AppTheme.primaryColor,
@@ -661,11 +661,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
   Widget _buildCompleteSection() {
     // 已完成（外部状态）
     if (widget.isCompleted) {
-      return Row(
+      return const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             '已完成',
             style: TextStyle(

@@ -1333,11 +1333,11 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              const Row(
                 children: [
                   Icon(Icons.movie_creation_outlined,
                       size: 18, color: AppTheme.primaryColor),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Text(
                     '视频/动画作业',
                     style: TextStyle(
@@ -1437,7 +1437,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
             alignment: Alignment.center,
             child: Text(
               '${index + 1}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.accentColor,
@@ -1711,7 +1711,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  Icon(Icons.movie_creation_outlined,
+                  const Icon(Icons.movie_creation_outlined,
                       color: AppTheme.primaryColor, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1984,12 +1984,12 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(Icons.record_voice_over_rounded,
                             size: 16, color: AppTheme.textSecondary),
-                        const SizedBox(width: 6),
-                        const Text(
+                        SizedBox(width: 6),
+                        Text(
                           '旁白',
                           style: TextStyle(
                             fontSize: 12,

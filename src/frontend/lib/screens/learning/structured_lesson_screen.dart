@@ -649,11 +649,17 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         // 从 module 类型推断
         final module = map['module'];
         final moduleType = module is Map ? module['type']?.toString() : null;
-        if (moduleType == 'video') type = 'watch';
-        else if (moduleType == 'reading') type = 'read';
-        else if (moduleType == 'writing') type = 'write';
-        else if (moduleType == 'game') type = 'practice';
-        else type = 'read'; // 默认阅读
+        if (moduleType == 'video') {
+          type = 'watch';
+        } else if (moduleType == 'reading') {
+          type = 'read';
+        } else if (moduleType == 'writing') {
+          type = 'write';
+        } else if (moduleType == 'game') {
+          type = 'practice';
+        } else {
+          type = 'read'; // 默认阅读
+        }
       }
 
       final module = map['module'];
@@ -778,8 +784,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         children: [
           TopBar(
             title: _lessonTitle + (widget.previewMode ? ' [预览]' : ''),
-            subtitle: '$completedCount/$totalCount 步骤完成' +
-                (_ageGroup.isNotEmpty ? ' · $_ageGroup 岁' : ''),
+            subtitle: '$completedCount/$totalCount 步骤完成${_ageGroup.isNotEmpty ? ' · $_ageGroup 岁' : ''}',
             leftSlot: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).pop(),
@@ -1224,9 +1229,9 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(
                       Icons.volume_up_rounded,
                       size: 18,
@@ -1500,7 +1505,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.flag_rounded,
+                const Icon(Icons.flag_rounded,
                     size: 18, color: AppTheme.secondaryColor),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1757,13 +1762,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   Widget _buildCompleteButton(bool isCompleted, {int defaultScore = 100}) {
     if (isCompleted) {
-      return Row(
+      return const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle_rounded,
+          Icon(Icons.check_circle_rounded,
               size: 20, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
-          const Text(
+          SizedBox(width: 6),
+          Text(
             '已完成',
             style: TextStyle(
               fontSize: 15,
@@ -1807,17 +1812,17 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   // ─── 已完成状态 ─────────────────────────────────────────────────────
 
   Widget _buildCompletedState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle_rounded,
             size: 64,
             color: AppTheme.accentColor,
           ),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 12),
+          Text(
             '练习已完成',
             style: TextStyle(
               fontSize: 18,
@@ -2496,7 +2501,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
         padding: const EdgeInsets.only(bottom: 8),
         child: TracePathCanvas(
           target: TraceGlyphTarget(
-            id: 'trace_${index}',
+            id: 'trace_$index',
             label: '描红: $item',
             text: item,
             fontSize: 160,
@@ -2828,7 +2833,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             ),
             // Play/pause
             Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),

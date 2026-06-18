@@ -27,7 +27,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
       {'name': '探索者', 'icon': '🌟', 'desc': '尝试所有学科', 'color': const Color(0xFFFFCE4E)},
     ];
 
-    final stars = 25;
+    const stars = 25;
 
     return BubbleBackground(
       child: SafeArea(
@@ -274,7 +274,7 @@ class _AchievementBadge extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 desc,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
                 ),

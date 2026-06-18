@@ -314,7 +314,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.play_arrow_rounded,
                 size: 40,
                 color: AppTheme.primaryColor,
@@ -443,7 +443,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                           color: AppTheme.textColor,
                         ),
                       ),
-                      Text(
+                      const Text(
                         '完成小游戏后会自动进入反馈场景',
                         style: TextStyle(
                           fontSize: 12,
@@ -454,7 +454,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.volume_up_rounded,
+                  icon: const Icon(Icons.volume_up_rounded,
                       size: 20, color: AppTheme.primaryColor),
                   onPressed: () => _speakScene(scene),
                 ),
@@ -490,7 +490,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
+                child: const Text(
                   '练习完成，正在进入反馈场景',
                   style: TextStyle(
                     fontSize: 13,
@@ -541,7 +541,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.volume_up_rounded,
+                  icon: const Icon(Icons.volume_up_rounded,
                       size: 20, color: AppTheme.primaryColor),
                   onPressed: () => _speakScene(scene),
                 ),
@@ -594,12 +594,12 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.volume_up_rounded,
                   size: 14, color: AppTheme.primaryColor),
-              const SizedBox(width: 4),
+              SizedBox(width: 4),
               Text(
                 '朗读提示',
                 style: TextStyle(
@@ -739,7 +739,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
         ),
         Text(
           '${_currentIndex + 1} / ${_scenes.length}',
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
             color: AppTheme.textSecondary,
           ),
@@ -780,12 +780,12 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
 
   Widget _buildCompleteSection() {
     if (widget.isCompleted) {
-      return Row(
+      return const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,
               size: 18, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             '已完成',
             style: TextStyle(

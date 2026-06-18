@@ -257,9 +257,9 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                 ),
               ),
             const SizedBox(height: 8),
-            Wrap(
+            const Wrap(
               spacing: 18,
-              children: const [
+              children: [
                 _LegendDot(color: AppTheme.primaryColor, text: '当前'),
                 _LegendDot(color: AppTheme.secondaryColor, text: '上月'),
               ],

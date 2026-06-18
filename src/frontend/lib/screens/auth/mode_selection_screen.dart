@@ -138,11 +138,11 @@ class ModeSelectionScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '学生模式',
                         style: TextStyle(
                           fontSize: 22,
@@ -150,7 +150,7 @@ class ModeSelectionScreen extends StatelessWidget {
                           color: AppTheme.primaryColor,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '课程、挑战与 AI 伙伴',
                         style: TextStyle(
@@ -251,11 +251,11 @@ class ModeSelectionScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '家长模式',
                         style: TextStyle(
                           fontSize: 22,
@@ -263,7 +263,7 @@ class ModeSelectionScreen extends StatelessWidget {
                           color: AppTheme.textColor,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '报告、管控与作业管理',
                         style: TextStyle(

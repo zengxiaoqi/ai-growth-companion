@@ -220,7 +220,7 @@ class ChildSelector extends StatelessWidget {
     final name = child['name']?.toString() ?? '未命名';
     final age = _toInt(child['age']);
     if (age == null) return name;
-    return '$name · ${age}岁';
+    return '$name · $age岁';
   }
 
   String _buildChildSubtitle(Map<String, dynamic> child) {
@@ -228,6 +228,6 @@ class ChildSelector extends StatelessWidget {
     if (age == null) {
       return '未设置年龄';
     }
-    return '${age}岁';
+    return '$age岁';
   }
 }

@@ -315,12 +315,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        _SettingsRow(
+        const _SettingsRow(
           icon: Icons.info_outline_rounded,
           title: '应用版本',
           description: '灵犀伴学 Flutter 端',
           color: AppTheme.primaryColor,
-          trailing: const Text(
+          trailing: Text(
             'v1.0.0',
             style: TextStyle(
               fontSize: 12,
@@ -394,7 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: AppTheme.warningColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
+              child: const Text(
                 '清除',
                 style: TextStyle(
                   fontSize: 12,

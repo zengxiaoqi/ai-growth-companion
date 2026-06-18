@@ -466,7 +466,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
           onSelected: (selected) {
             if (selected) setState(() => _dailyLimitMinutes = minutes);
           },
-          label: Text('${minutes}分钟'),
+          label: Text('$minutes分钟'),
           selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.primaryColor,
         );
@@ -485,7 +485,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
           onSelected: (selected) {
             if (selected) setState(() => _restReminderMinutes = minutes);
           },
-          label: Text('每${minutes}分钟'),
+          label: Text('每$minutes分钟'),
           selectedColor: AppTheme.secondaryColor.withValues(alpha: 0.15),
           checkmarkColor: AppTheme.secondaryColor,
         );

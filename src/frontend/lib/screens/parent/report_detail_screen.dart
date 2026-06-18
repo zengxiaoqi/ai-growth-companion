@@ -838,7 +838,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                       AppTheme.primaryColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   '已解锁',
                                   style: TextStyle(
                                     fontSize: 9,

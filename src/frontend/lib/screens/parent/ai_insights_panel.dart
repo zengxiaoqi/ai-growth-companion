@@ -263,16 +263,16 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                         color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.auto_awesome_rounded,
                             size: 14,
                             color: AppTheme.secondaryColor,
                           ),
-                          const SizedBox(width: 6),
-                          const Text(
+                          SizedBox(width: 6),
+                          Text(
                             'AI 洞察',
                             style: TextStyle(
                               fontSize: 12,

@@ -464,9 +464,9 @@ class _SessionDrawer extends StatelessWidget {
           // 头部
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.backgroundColor,
-              borderRadius: const BorderRadius.only(topRight: Radius.circular(20)),
+              borderRadius: BorderRadius.only(topRight: Radius.circular(20)),
             ),
             child: Row(children: [
               IconButton(icon: const Icon(Icons.close_rounded), onPressed: onClose,
@@ -545,10 +545,10 @@ class _SessionDrawer extends StatelessWidget {
                 Expanded(child: Text(session.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 14, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? AppTheme.primaryColor : AppTheme.textColor))),
                 const SizedBox(width: 8),
-                Text(session.formattedDate, style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text(session.formattedDate, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               ]),
               if (session.messageCount > 0)
-                Text('${session.messageCount} 条消息', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text('${session.messageCount} 条消息', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ]),
           ),
           if (isActive) const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor, size: 18),
@@ -573,8 +573,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  bool _isLoading = false;
-  bool _autoPlay = true;
+  final bool _isLoading = false;
+  final bool _autoPlay = true;
   bool _isListening = false;
   int? _speakingMessageIndex;
   bool _showSessionDrawer = false;
@@ -717,7 +717,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [],
+      providers: const [],
       child: Scaffold(
         body: Stack(
           children: [

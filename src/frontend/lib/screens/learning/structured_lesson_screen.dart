@@ -11,10 +11,13 @@ import '../../services/api_result.dart';
 import '../../services/api_service.dart';
 import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/app_logger.dart';
 import '../games/game_renderer.dart';
 import 'animation_scene_player.dart';
 import 'trace_path_canvas.dart';
 import 'lesson_scene_models.dart';
+
+final _log = AppLogger('StructuredLessonScreen');
 
 // ─── 步骤类型元数据 ─────────────────────────────────────────────────────
 
@@ -221,7 +224,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     if (result is! ApiSuccess<Map<String, dynamic>>) {
       final err = result as ApiError;
       // 进度加载失败不应该阻断课程加载，静默处理
-      print('Load progress error: ${err.message} (${err.type.name})');
+      _log.warning('Load progress error: ${err.message} (${err.type.name})');
       return const _LessonProgress(completedSteps: {});
     }
 

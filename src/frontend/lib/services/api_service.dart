@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../utils/app_logger.dart';
 import 'api_result.dart';
+
+final _log = AppLogger('ApiService');
 
 /// 默认生产环境 API 地址
 const String _defaultApiUrl = 'https://lingxi.chataifree.eu.org/api';
@@ -40,7 +43,7 @@ class ApiService {
         return handler.next(options);
       },
       onError: (error, handler) {
-        print('API Error: ${error.message}');
+        _log.warning('API Error: ${error.message}');
         return handler.next(error);
       },
     ));
@@ -124,7 +127,7 @@ class ApiService {
       final response = await _dio.get('/auth/profile');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get profile error: $e');
+      _log.warning('Get profile error: $e');
       return null;
     }
   }
@@ -135,7 +138,7 @@ class ApiService {
       final response = await _dio.post('/auth/verify-pin', data: {'pin': pin});
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Verify pin error: $e');
+      _log.warning('Verify pin error: $e');
       return null;
     }
   }
@@ -146,7 +149,7 @@ class ApiService {
       final response = await _dio.post('/auth/set-pin', data: {'pin': pin});
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Set pin error: $e');
+      _log.warning('Set pin error: $e');
       return null;
     }
   }
@@ -161,7 +164,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Get parent children error: $e');
+      _log.warning('Get parent children error: $e');
       return [];
     }
   }
@@ -171,7 +174,7 @@ class ApiService {
       final response = await _dio.put('/users/$userId', data: data);
       return response.data;
     } catch (e) {
-      print('Update user error: $e');
+      _log.warning('Update user error: $e');
       return {'error': e.toString()};
     }
   }
@@ -181,7 +184,7 @@ class ApiService {
       final response = await _dio.get('/users/$userId');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get user error: $e');
+      _log.warning('Get user error: $e');
       return null;
     }
   }
@@ -193,7 +196,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Link child error: $e');
+      _log.warning('Link child error: $e');
       return null;
     }
   }
@@ -217,7 +220,7 @@ class ApiService {
       });
       return response.data['list'] ?? [];
     } catch (e) {
-      print('Get contents error: $e');
+      _log.warning('Get contents error: $e');
       return [];
     }
   }
@@ -232,7 +235,7 @@ class ApiService {
   Future<Map<String, dynamic>?> getContentDetail(int contentId) async {
     final result = await getContentDetailResult(contentId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
-    print('Get content detail error: ${(result as ApiError).message}');
+    _log.warning('Get content detail error: ${(result as ApiError).message}');
     return null;
   }
 
@@ -258,7 +261,7 @@ class ApiService {
   }) async {
     final result = await startLearningResult(childId: childId, contentId: contentId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
-    print('Start learning error: ${(result as ApiError).message}');
+    _log.warning('Start learning error: ${(result as ApiError).message}');
     return null;
   }
 
@@ -289,7 +292,7 @@ class ApiService {
       recordId: recordId, score: score, durationSeconds: durationSeconds, feedback: feedback,
     );
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
-    print('Complete learning error: ${(result as ApiError).message}');
+    _log.warning('Complete learning error: ${(result as ApiError).message}');
     return null;
   }
 
@@ -308,7 +311,7 @@ class ApiService {
   Future<List<dynamic>> getLearningHistory(int userId, {int limit = 10}) async {
     final result = await getLearningHistoryResult(userId, limit: limit);
     if (result is ApiSuccess<List<dynamic>>) return result.data;
-    print('Get learning history error: ${(result as ApiError).message}');
+    _log.warning('Get learning history error: ${(result as ApiError).message}');
     return [];
   }
 
@@ -336,7 +339,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Record activity error: $e');
+      _log.warning('Record activity error: $e');
       return null;
     }
   }
@@ -347,7 +350,7 @@ class ApiService {
       final response = await _dio.get('/learning/today/$userId');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get today stats error: $e');
+      _log.warning('Get today stats error: $e');
       return null;
     }
   }
@@ -358,7 +361,7 @@ class ApiService {
       final response = await _dio.get('/learning/today-detail/$userId');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get today detail error: $e');
+      _log.warning('Get today detail error: $e');
       return null;
     }
   }
@@ -379,7 +382,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get learning points error: $e');
+      _log.warning('Get learning points error: $e');
       return null;
     }
   }
@@ -398,7 +401,7 @@ class ApiService {
           });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get wrong questions error: $e');
+      _log.warning('Get wrong questions error: $e');
       return null;
     }
   }
@@ -424,7 +427,7 @@ class ApiService {
   }) async {
     final result = await getLessonProgressResult(contentId: contentId, childId: childId);
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
-    print('Get lesson progress error: ${(result as ApiError).message}');
+    _log.warning('Get lesson progress error: ${(result as ApiError).message}');
     return null;
   }
 
@@ -464,7 +467,7 @@ class ApiService {
       score: score, durationSeconds: durationSeconds, interactionData: interactionData,
     );
     if (result is ApiSuccess<Map<String, dynamic>>) return result.data;
-    print('Complete lesson step error: ${(result as ApiError).message}');
+    _log.warning('Complete lesson step error: ${(result as ApiError).message}');
     return null;
   }
 
@@ -477,7 +480,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get draft lessons error: $e');
+      _log.warning('Get draft lessons error: $e');
       return [];
     }
   }
@@ -508,7 +511,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Generate lesson error: $e');
+      _log.warning('Generate lesson error: $e');
       return null;
     }
   }
@@ -524,7 +527,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Modify lesson error: $e');
+      _log.warning('Modify lesson error: $e');
       return null;
     }
   }
@@ -539,7 +542,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Confirm lesson error: $e');
+      _log.warning('Confirm lesson error: $e');
       return null;
     }
   }
@@ -556,7 +559,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get study plans error: $e');
+      _log.warning('Get study plans error: $e');
       return null;
     }
   }
@@ -571,7 +574,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Create video task error: $e');
+      _log.warning('Create video task error: $e');
       return null;
     }
   }
@@ -584,7 +587,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get video task error: $e');
+      _log.warning('Get video task error: $e');
       return null;
     }
   }
@@ -597,7 +600,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get video status error: $e');
+      _log.warning('Get video status error: $e');
       return null;
     }
   }
@@ -617,7 +620,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Approve video error: $e');
+      _log.warning('Approve video error: $e');
       return null;
     }
   }
@@ -646,7 +649,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Quick generate video error: $e');
+      _log.warning('Quick generate video error: $e');
       return null;
     }
   }
@@ -660,7 +663,7 @@ class ApiService {
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get quick video task status error: $e');
+      _log.warning('Get quick video task status error: $e');
       return null;
     }
   }
@@ -680,7 +683,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get game list error: $e');
+      _log.warning('Get game list error: $e');
       return [];
     }
   }
@@ -692,7 +695,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Get game data error: $e');
+      _log.warning('Get game data error: $e');
       return null;
     }
   }
@@ -718,7 +721,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Save game result error: $e');
+      _log.warning('Save game result error: $e');
       return null;
     }
   }
@@ -728,7 +731,7 @@ class ApiService {
       final response = await _dio.get('/game/level/$userId');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get game level error: $e');
+      _log.warning('Get game level error: $e');
       return null;
     }
   }
@@ -741,7 +744,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get ability assessment error: $e');
+      _log.warning('Get ability assessment error: $e');
       return [];
     }
   }
@@ -759,7 +762,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Create ability error: $e');
+      _log.warning('Create ability error: $e');
       return null;
     }
   }
@@ -777,7 +780,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Get growth report error: $e');
+      _log.warning('Get growth report error: $e');
       return null;
     }
   }
@@ -788,7 +791,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get ability trend error: $e');
+      _log.warning('Get ability trend error: $e');
       return [];
     }
   }
@@ -800,7 +803,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get recent skills error: $e');
+      _log.warning('Get recent skills error: $e');
       return [];
     }
   }
@@ -814,7 +817,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get achievements error: $e');
+      _log.warning('Get achievements error: $e');
       return [];
     }
   }
@@ -828,7 +831,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Get parent controls error: $e');
+      _log.warning('Get parent controls error: $e');
       return null;
     }
   }
@@ -837,7 +840,7 @@ class ApiService {
     try {
       await _dio.patch('/parent/controls/$parentId', data: controls);
     } catch (e) {
-      print('Update parent controls error: $e');
+      _log.warning('Update parent controls error: $e');
     }
   }
 
@@ -852,7 +855,7 @@ class ApiService {
       if (data is Map) return data.map((k, v) => MapEntry(k.toString(), v));
       return {};
     } catch (e) {
-      print('Get notifications error: $e');
+      _log.warning('Get notifications error: $e');
       return {};
     }
   }
@@ -862,7 +865,7 @@ class ApiService {
       final response = await _dio.get('/notifications/$userId/unread-count');
       return response.data['count'] as int? ?? 0;
     } catch (e) {
-      print('Get unread count error: $e');
+      _log.warning('Get unread count error: $e');
       return 0;
     }
   }
@@ -872,7 +875,7 @@ class ApiService {
     try {
       await _dio.post('/notifications/$id/read');
     } catch (e) {
-      print('Mark notification read error: $e');
+      _log.warning('Mark notification read error: $e');
     }
   }
 
@@ -881,7 +884,7 @@ class ApiService {
     try {
       await _dio.post('/notifications/user/$userId/read-all');
     } catch (e) {
-      print('Mark all notifications read error: $e');
+      _log.warning('Mark all notifications read error: $e');
     }
   }
 
@@ -893,7 +896,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get assignments error: $e');
+      _log.warning('Get assignments error: $e');
       return [];
     }
   }
@@ -904,7 +907,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get child assignments error: $e');
+      _log.warning('Get child assignments error: $e');
       return [];
     }
   }
@@ -914,7 +917,7 @@ class ApiService {
       final response = await _dio.get('/assignments/$id');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get assignment error: $e');
+      _log.warning('Get assignment error: $e');
       return null;
     }
   }
@@ -926,7 +929,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Create assignment error: $e');
+      _log.warning('Create assignment error: $e');
       return null;
     }
   }
@@ -938,7 +941,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Update assignment error: $e');
+      _log.warning('Update assignment error: $e');
       return null;
     }
   }
@@ -948,7 +951,7 @@ class ApiService {
       await _dio.delete('/assignments/$id');
       return true;
     } catch (e) {
-      print('Delete assignment error: $e');
+      _log.warning('Delete assignment error: $e');
       return false;
     }
   }
@@ -962,7 +965,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Complete assignment error: $e');
+      _log.warning('Complete assignment error: $e');
       return null;
     }
   }
@@ -994,7 +997,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Generate course pack error: $e');
+      _log.warning('Generate course pack error: $e');
       return null;
     }
   }
@@ -1008,7 +1011,7 @@ class ApiService {
       if (data is List) return data;
       return [];
     } catch (e) {
-      print('Get course packs error: $e');
+      _log.warning('Get course packs error: $e');
       return [];
     }
   }
@@ -1020,7 +1023,7 @@ class ApiService {
       if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
       return null;
     } catch (e) {
-      print('Get course pack by id error: $e');
+      _log.warning('Get course pack by id error: $e');
       return null;
     }
   }
@@ -1030,7 +1033,7 @@ class ApiService {
       final response = await _dio.get('/ai/course-packs/$id/export', queryParameters: {'format': format});
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Export course pack error: $e');
+      _log.warning('Export course pack error: $e');
       return null;
     }
   }
@@ -1044,7 +1047,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Batch export error: $e');
+      _log.warning('Batch export error: $e');
       return null;
     }
   }
@@ -1057,7 +1060,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get versions error: $e');
+      _log.warning('Get versions error: $e');
       return [];
     }
   }
@@ -1078,7 +1081,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Save version error: $e');
+      _log.warning('Save version error: $e');
       return null;
     }
   }
@@ -1089,7 +1092,7 @@ class ApiService {
       final response = await _dio.post('/ai/course-packs/$id/enrich-bilingual');
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Enrich bilingual error: $e');
+      _log.warning('Enrich bilingual error: $e');
       return null;
     }
   }
@@ -1108,7 +1111,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Generate weekly plan error: $e');
+      _log.warning('Generate weekly plan error: $e');
       return null;
     }
   }
@@ -1127,7 +1130,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Evaluate error: $e');
+      _log.warning('Evaluate error: $e');
       return null;
     }
   }
@@ -1146,7 +1149,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Generate quiz error: $e');
+      _log.warning('Generate quiz error: $e');
       return null;
     }
   }
@@ -1165,7 +1168,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Generate story error: $e');
+      _log.warning('Generate story error: $e');
       return null;
     }
   }
@@ -1178,7 +1181,7 @@ class ApiService {
       final response = await _dio.get('/ai/suggest', queryParameters: {'ageRange': ageRange});
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Get AI suggestion error: $e');
+      _log.warning('Get AI suggestion error: $e');
       return null;
     }
   }
@@ -1196,7 +1199,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Get recommendations error: $e');
+      _log.warning('Get recommendations error: $e');
       return [];
     }
   }
@@ -1212,7 +1215,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('AI chat error: $e');
+      _log.warning('AI chat error: $e');
       return null;
     }
   }
@@ -1223,7 +1226,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get chat sessions error: $e');
+      _log.warning('Get chat sessions error: $e');
       return [];
     }
   }
@@ -1234,7 +1237,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get chat messages error: $e');
+      _log.warning('Get chat messages error: $e');
       return [];
     }
   }
@@ -1248,7 +1251,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('Emergency call error: $e');
+      _log.warning('Emergency call error: $e');
       return null;
     }
   }
@@ -1259,7 +1262,7 @@ class ApiService {
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
-      print('Get emergency history error: $e');
+      _log.warning('Get emergency history error: $e');
       return [];
     }
   }
@@ -1272,7 +1275,7 @@ class ApiService {
       await _dio.delete('/learning/lessons/$contentId');
       return true;
     } catch (e) {
-      print('Delete lesson draft error: $e');
+      _log.warning('Delete lesson draft error: $e');
       return false;
     }
   }
@@ -1285,7 +1288,7 @@ class ApiService {
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
-      print('TTS error: $e');
+      _log.warning('TTS error: $e');
       return null;
     }
   }
@@ -1312,7 +1315,7 @@ class _AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode == 401) {
       // Token expired — you can emit to a stream here or rely on ApiResult error
-      print('Auth token expired or invalid');
+      _log.warning('Auth token expired or invalid');
     }
     handler.next(err);
   }

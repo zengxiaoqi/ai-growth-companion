@@ -8,7 +8,10 @@ import '../../theme/app_theme.dart';
 import '../../services/api_service.dart';
 import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
+import '../../utils/app_logger.dart';
 import '../games/quiz_game.dart';
+
+final _log = AppLogger('ContentDetailScreen');
 
 /// 领域元数据
 class DomainMeta {
@@ -169,7 +172,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             .toList();
       }
     } catch (e) {
-      print('Parse quiz sections error: $e');
+      _log.warning('Parse quiz sections error: $e');
       _quizSections = [];
     }
   }
@@ -337,7 +340,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         }
       }
     } catch (e) {
-      print('Complete learning error: $e');
+      _log.warning('Complete learning error: $e');
       if (mounted) {
         setState(() => _isCompleting = false);
       }

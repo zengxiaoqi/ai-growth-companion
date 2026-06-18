@@ -2,7 +2,6 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/co
 import { ContentsService } from './contents.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
 @Controller('contents')
 export class ContentsController {
   constructor(private readonly contentsService: ContentsService) {}
@@ -17,6 +16,7 @@ export class ContentsController {
     return this.contentsService.findById(+id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() data: any) {
     return this.contentsService.create(data);

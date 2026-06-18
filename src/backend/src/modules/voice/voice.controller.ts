@@ -10,7 +10,6 @@ export class VoiceController {
   /**
    * 文字转语音 - 返回 MP3 音频流
    */
-  @UseGuards(JwtAuthGuard)
   @Get('tts')
   async textToSpeech(
     @Query('text') text: string,

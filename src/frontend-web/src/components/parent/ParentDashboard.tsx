@@ -121,8 +121,11 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
           setSelectedChildId((prev) => prev ?? childrenData[0].id);
         } else {
           setSelectedChildId(null);
+          // 提示用户需要关联孩子
+          console.info('当前账号未关联孩子，请在顶部孩子选择器中关联');
         }
-      } catch {
+      } catch (error) {
+        console.error('获取孩子列表失败:', error);
         setChildren([]);
         setSelectedChildId(null);
       }

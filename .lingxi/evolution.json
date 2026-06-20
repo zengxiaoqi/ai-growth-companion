@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-06-19",
-  "analysis_count": 27,
-  "commit_count": 298,
-  "last_commit": "2026-06-19T09:15:00+08:00",
-  "last_commit_hash": "1df9db3",
+  "last_analysis": "2026-06-20",
+  "analysis_count": 28,
+  "commit_count": 299,
+  "last_commit": "2026-06-19T11:09:14+08:00",
+  "last_commit_hash": "eab7713",
   "commits_ahead_remote": 0,
-  "remote_head": "1df9db3",
-  "remote_head_date": "2026-06-19T09:15:00+08:00",
+  "remote_head": "eab7713",
+  "remote_head_date": "2026-06-19T11:09:14+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
     "content_system": 87,
-    "infrastructure": 88,
+    "infrastructure": 89,
     "code_quality": 98
   },
   "active_plans": [],
@@ -59,7 +59,8 @@
     "2026-06-17: Added 13 AI agent tool unit test files (61 tests, 943 lines) — covers get-user-profile, list-children, get-abilities, get-recommendations, search-content, list-assignments, view-abilities, view-report, record-learning, get-learning-history, get-parent-control, update-parent-control, generate-quiz. All 18 agent tools now have test coverage. Test files: 58->69 (+13), test lines: 12255->13085 (+830)",
     "2026-06-18: Merged 5 PR branches (fix/issue-30~34) — removed unused code (chat_session_provider dead classes), added mounted checks (6 Flutter files), replaced print() with logging framework (AppLogger + initLogger), fixed deprecated model-viewer API, adjusted auth guards (contents GET public, TTS public). Backend builds clean, ESLint passes, contents tests 23/23, voice tests 30/30, frontend-web typecheck passes. Pushed to origin.",
     "2026-06-19: Pulled 2 upstream commits — PR #42 (replace deprecated activeColor with activeThumbColor, fixes #40) + PR #43 (batch-clean 171 Flutter lint warnings via dart fix --apply, fixes #41). All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK.",
-    "2026-06-19: Expanded learning-archive.service tests from 2→42 tests (+475 lines) — covers all 14 public methods including normalizePointKey, upsertLearningPoint, recordChatTurnSummary, recordWrongQuestions, createStudyPlanRecord, getStudyPlanVersions, pagination/filtering edge cases, error handling. All 42 tests pass."
+    "2026-06-19: Expanded learning-archive.service tests from 2→42 tests (+475 lines) — covers all 14 public methods including normalizePointKey, upsertLearningPoint, recordChatTurnSummary, recordWrongQuestions, createStudyPlanRecord, getStudyPlanVersions, pagination/filtering edge cases, error handling. All 42 tests pass.",
+    "2026-06-19: Cleaned Flutter remnants from src/backend/public/ (canvaskit/, flutter.js, main.dart.js, icons/, etc. — 227K lines deleted) + improved ParentDashboard child list error logging. Pushed to origin."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -88,22 +89,23 @@
     "ai.controller.generateCoursePack() was missing 'await' before this.aiService.generateCoursePack() — the try/catch block was dead code because the returned promise rejection was not caught. Fixed by adding 'await'. Always check that async service calls inside try/catch blocks are properly awaited.",
     "Flutter 'BuildContext used across async gap' warnings are fixed by adding 'if (!mounted) return;' (or 'if (!context.mounted) return;' in newer Flutter) after every await before using context. fix/issue-31 applied this to 6 files.",
     "Contents controller auth guard was at class level (all endpoints required JWT). fix/issue-34 moved it to method level — GET endpoints (findAll, findById) are now public, POST (create) still requires auth. This is correct for an education app where content browsing should be open.",
-    "Voice TTS endpoint was behind JWT guard — fix/issue-34 removed it, making /voice/tts public. This is reasonable since TTS is used by unauthenticated contexts (e.g., preview audio before login)."
+    "Voice TTS endpoint was behind JWT guard — fix/issue-34 removed it, making /voice/tts public. This is reasonable since TTS is used by unauthenticated contexts (e.g., preview audio before login).",
+    "src/backend/public/ is gitignored but Flutter remnants can accumulate there after Flutter Web builds. Always clean with explicit rm after rsync deploy: rm -f flutter.js flutter_bootstrap.js main.dart.js etc."
   ],
   "metrics": {
     "backend_files": 196,
     "backend_test_files": 71,
     "backend_test_ratio": "36.2%",
     "backend_src_lines": 36832,
-    "backend_test_lines": 13568,
+    "backend_test_lines": 13681,
     "flutter_files": 65,
     "flutter_lines": 33007,
-    "web_files": 101,
-    "web_lines": 26892,
+    "web_files": 100,
+    "web_lines": 18430,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 117921,
-    "repo_build_artifacts": "90MB build + 37MB deployed (public/)",
+    "total_lines": 109572,
+    "repo_build_artifacts": "90MB build + 3.3MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13
   }

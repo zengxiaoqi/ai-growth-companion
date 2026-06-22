@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-06-21",
-  "analysis_count": 29,
-  "commit_count": 299,
-  "last_commit": "2026-06-19T11:09:14+08:00",
-  "last_commit_hash": "eab7713",
+  "last_analysis": "2026-06-22",
+  "analysis_count": 30,
+  "commit_count": 304,
+  "last_commit": "2026-06-21T09:04:23+08:00",
+  "last_commit_hash": "e1a3a87",
   "commits_ahead_remote": 0,
-  "remote_head": "eab7713",
-  "remote_head_date": "2026-06-19T11:09:14+08:00",
+  "remote_head": "e1a3a87",
+  "remote_head_date": "2026-06-21T09:04:23+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
     "content_system": 87,
-    "infrastructure": 89,
+    "infrastructure": 90,
     "code_quality": 98
   },
   "active_plans": [],
@@ -61,7 +61,8 @@
     "2026-06-19: Pulled 2 upstream commits — PR #42 (replace deprecated activeColor with activeThumbColor, fixes #40) + PR #43 (batch-clean 171 Flutter lint warnings via dart fix --apply, fixes #41). All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK.",
     "2026-06-19: Expanded learning-archive.service tests from 2→42 tests (+475 lines) — covers all 14 public methods including normalizePointKey, upsertLearningPoint, recordChatTurnSummary, recordWrongQuestions, createStudyPlanRecord, getStudyPlanVersions, pagination/filtering edge cases, error handling. All 42 tests pass.",
     "2026-06-19: Cleaned Flutter remnants from src/backend/public/ (canvaskit/, flutter.js, main.dart.js, icons/, etc. — 227K lines deleted) + improved ParentDashboard child list error logging. Pushed to origin.",
-    "2026-06-21: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin. No new commits since 2026-06-20."
+    "2026-06-21: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin. No new commits since 2026-06-20.",
+    "2026-06-22: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK (transient 530 at first check, resolved on retry), git synced with origin. No new commits since 2026-06-21."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -105,7 +106,7 @@
     "web_lines": 18430,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 109572,
+    "total_lines": 117194,
     "repo_build_artifacts": "90MB build + 3.3MB deployed (public/)",
     "backend_modules": 16,
     "entities": 13

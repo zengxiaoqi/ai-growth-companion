@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-06-22",
-  "analysis_count": 30,
-  "commit_count": 304,
-  "last_commit": "2026-06-21T09:04:23+08:00",
-  "last_commit_hash": "e1a3a87",
+  "last_analysis": "2026-06-23",
+  "analysis_count": 31,
+  "commit_count": 305,
+  "last_commit": "2026-06-22T09:03:45+08:00",
+  "last_commit_hash": "47066db",
   "commits_ahead_remote": 0,
-  "remote_head": "e1a3a87",
-  "remote_head_date": "2026-06-21T09:04:23+08:00",
+  "remote_head": "47066db",
+  "remote_head_date": "2026-06-22T09:03:45+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
@@ -62,7 +62,8 @@
     "2026-06-19: Expanded learning-archive.service tests from 2→42 tests (+475 lines) — covers all 14 public methods including normalizePointKey, upsertLearningPoint, recordChatTurnSummary, recordWrongQuestions, createStudyPlanRecord, getStudyPlanVersions, pagination/filtering edge cases, error handling. All 42 tests pass.",
     "2026-06-19: Cleaned Flutter remnants from src/backend/public/ (canvaskit/, flutter.js, main.dart.js, icons/, etc. — 227K lines deleted) + improved ParentDashboard child list error logging. Pushed to origin.",
     "2026-06-21: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin. No new commits since 2026-06-20.",
-    "2026-06-22: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK (transient 530 at first check, resolved on retry), git synced with origin. No new commits since 2026-06-21."
+    "2026-06-22: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK (transient 530 at first check, resolved on retry), git synced with origin. No new commits since 2026-06-21.",
+    "2026-06-23: Killed zombie Jest process (PID 170434, running since Jun 22, consuming 92.8% CPU + 814MB RAM from /home/zxq/workspace-product-agent/projects/ai-growth-companion/). System memory freed from 1.4GB to 2.6GB available. All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, key tests passing (ai.controller 50/50, learning-archive 42/42, contents 23/23, voice 30/30, hyperframes 82/82)."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -92,12 +93,13 @@
     "Flutter 'BuildContext used across async gap' warnings are fixed by adding 'if (!mounted) return;' (or 'if (!context.mounted) return;' in newer Flutter) after every await before using context. fix/issue-31 applied this to 6 files.",
     "Contents controller auth guard was at class level (all endpoints required JWT). fix/issue-34 moved it to method level — GET endpoints (findAll, findById) are now public, POST (create) still requires auth. This is correct for an education app where content browsing should be open.",
     "Voice TTS endpoint was behind JWT guard — fix/issue-34 removed it, making /voice/tts public. This is reasonable since TTS is used by unauthenticated contexts (e.g., preview audio before login).",
-    "src/backend/public/ is gitignored but Flutter remnants can accumulate there after Flutter Web builds. Always clean with explicit rm after rsync deploy: rm -f flutter.js flutter_bootstrap.js main.dart.js etc."
+    "src/backend/public/ is gitignored but Flutter remnants can accumulate there after Flutter Web builds. Always clean with explicit rm after rsync deploy: rm -f flutter.js flutter_bootstrap.js main.dart.js etc.",
+    "Zombie Jest processes from other workspaces can consume excessive CPU/RAM and cause test timeouts in the main project. Check for stale processes with 'ps aux | grep jest' and kill them. The workspace-product-agent project had a Jest process running for 24+ hours consuming 92.8% CPU and 814MB RAM."
   ],
   "metrics": {
     "backend_files": 196,
-    "backend_test_files": 71,
-    "backend_test_ratio": "36.2%",
+    "backend_test_files": 69,
+    "backend_test_ratio": "35.2%",
     "backend_src_lines": 36832,
     "backend_test_lines": 13681,
     "flutter_files": 65,

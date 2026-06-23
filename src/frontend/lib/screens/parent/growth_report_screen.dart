@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'child_selector.dart';
@@ -65,7 +66,15 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
 
     try {
       final api = context.read<ApiService>();
-      const parentId = 1; // TODO: 从 UserProvider 获取
+      final parentId = _currentParentId;
+      if (parentId == null) {
+        if (!mounted) return;
+        setState(() {
+          _error = '未找到当前用户信息';
+          _isLoading = false;
+        });
+        return;
+      }
 
       // 加载孩子列表
       final children = await api.getChildrenByParent(parentId);
@@ -185,6 +194,11 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
   int? _toInt(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  int? get _currentParentId {
+    final user = context.read<UserProvider>().currentUser;
+    return _toInt(user?['id']);
   }
 
   @override

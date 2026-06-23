@@ -12,7 +12,7 @@ dependencies:
   
   # 状态管理
   provider: ^6.1.1
-  riverpod: ^2.4.9
+  riverpod: ^2.6.1
   
   # 网络
   dio: ^5.3.3
@@ -27,10 +27,10 @@ dependencies:
   cached_network_image: ^3.3.0
   flutter_svg: ^2.0.9
   lottie: ^3.0.0
-  fl_chart: ^0.68.0
+  fl_chart: ^1.2.0
   
   # 音频
-  audioplayers: ^5.2.1
+  audioplayers: ^6.7.1
 
   # 视频播放
   video_player: ^2.9.2
@@ -39,12 +39,12 @@ dependencies:
   speech_to_text: ^7.3.0
 
   # 权限处理
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.3
   
   # 工具
   uuid: ^4.2.1
-  intl: ^0.18.1
-  json_annotation: ^4.8.1
+  intl: ^0.20.2
+  json_annotation: ^4.9.0
   
   # 日志
   logging: ^1.2.0
@@ -56,9 +56,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.1
-  build_runner: ^2.4.7
-  json_serializable: ^6.7.1
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  json_serializable: ^6.8.0
   hive_generator: ^2.0.1
 
 flutter:

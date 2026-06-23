@@ -212,12 +212,12 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
       await _speech.listen(
         onResult: _onSpeechResult,
-        localeId: widget.localeId,
         listenOptions: stt.SpeechListenOptions(
           partialResults: true,
           onDevice: false,
           listenMode: stt.ListenMode.dictation,
           cancelOnError: false,
+          localeId: widget.localeId,
         ),
       );
 

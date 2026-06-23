@@ -253,7 +253,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                     borderData: FlBorderData(show: false),
                     radarBackgroundColor: Colors.transparent,
                   ),
-                  swapAnimationDuration: const Duration(milliseconds: 400),
+                  duration: const Duration(milliseconds: 400),
                 ),
               ),
             const SizedBox(height: 8),

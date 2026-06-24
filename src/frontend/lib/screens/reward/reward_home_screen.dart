@@ -233,14 +233,14 @@ class _CheckInPanel extends StatelessWidget {
           children: [
             // 今日打卡记录
             if (todayRecords.isNotEmpty) ...[
-              const SectionHeader(title: '今日打卡', emoji: '✅'),
+              const _SectionHeader(title: '今日打卡', emoji: '✅'),
               const SizedBox(height: 12),
               ...todayRecords.map((r) => _buildTodayRecordCard(r)),
               const SizedBox(height: 20),
             ],
             // 按分类显示行为模板
             ...categories.entries.expand((entry) => [
-                  SectionHeader(title: entry.key, emoji: _getCategoryEmoji(entry.key)),
+                  _SectionHeader(title: entry.key, emoji: _getCategoryEmoji(entry.key)),
                   const SizedBox(height: 12),
                   ...entry.value.map((t) => _buildBehaviorCard(context, t, reward)),
                   const SizedBox(height: 12),
@@ -470,12 +470,12 @@ class AnimatedContainer extends StatelessWidget {
   }
 }
 
-// 简化的 SectionHeader
-class SectionHeader extends StatelessWidget {
+// 简化的 _SectionHeader
+class _SectionHeader extends StatelessWidget {
   final String title;
   final String emoji;
 
-  const SectionHeader({
+  const _SectionHeader({
     super.key,
     required this.title,
     this.emoji = '',

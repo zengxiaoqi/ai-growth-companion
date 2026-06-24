@@ -14,6 +14,7 @@ import '../ai_chat_screen.dart';
 import '../learning/learning_home_screen.dart';
 import '../achievement/achievement_screen.dart';
 import '../profile/profile_screen.dart';
+import '../reward/reward_home_screen.dart';
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
 
@@ -404,6 +405,68 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+        // 积分奖惩入口
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const RewardHomeScreen(),
+              ),
+            );
+          },
+          child: AppCard(
+            padding: const EdgeInsets.all(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFCE4E), Color(0xFFFFB347)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: AppTheme.softShadow(const Color(0xFFFFCE4E)),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('⭐', style: TextStyle(fontSize: 32)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '积分奖惩',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '打卡好习惯，兑换好礼',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );

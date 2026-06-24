@@ -17,6 +17,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { SseModule } from './modules/sse/sse.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
+import { RewardModule } from './modules/reward/reward.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 /**
@@ -117,6 +118,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     SseModule,
     AssignmentModule,
     EmergencyModule,
+    RewardModule,
     DatabaseSeederModule,
   ],
 })

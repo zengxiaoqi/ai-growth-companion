@@ -139,6 +139,25 @@ export class RewardService {
     recordedBy: number;
     recordedAt?: Date;
   }) {
+    // 检查今日是否已打卡该行为（防止重复打卡）
+    const now = data.recordedAt || new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const existingRecord = await this.pointRecordRepo.findOne({
+      where: {
+        childId: data.childId,
+        behaviorName: data.behaviorName,
+        recordedAt: Between(todayStart, now),
+      },
+    });
+
+    if (existingRecord) {
+      this.logger.warn(
+        `Duplicate check-in blocked: child=${data.childId}, behavior="${data.behaviorName}" already checked in today`,
+      );
+      return null; // 返回 null 表示重复打卡被拒绝
+    }
+
     const record = this.pointRecordRepo.create({
       childId: data.childId,
       templateId: data.templateId || null,

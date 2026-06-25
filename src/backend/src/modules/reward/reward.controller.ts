@@ -10,6 +10,7 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  ConflictException,
 } from '@nestjs/common';
 import { RewardService } from './reward.service';
 
@@ -78,10 +79,16 @@ export class RewardController {
       recordedAt?: string;
     },
   ) {
-    return this.rewardService.recordPoints({
+    const result = await this.rewardService.recordPoints({
       ...data,
       recordedAt: data.recordedAt ? new Date(data.recordedAt) : undefined,
     });
+
+    if (!result) {
+      throw new ConflictException('今日已打卡该行为，不能重复打卡');
+    }
+
+    return result;
   }
 
   @Delete('points/:id')

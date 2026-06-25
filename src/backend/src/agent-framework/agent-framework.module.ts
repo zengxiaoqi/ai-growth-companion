@@ -41,6 +41,7 @@ import { parentAdvisorDefinition } from './agents/definitions/parent-advisor.age
 import { courseDesignerDefinition } from './agents/definitions/course-designer.agent';
 import { activityGeneratorDefinition } from './agents/definitions/activity-generator.agent';
 import { videoGeneratorDefinition } from './agents/definitions/video-generator.agent';
+import { rewardAdvisorDefinition } from './agents/definitions/reward-advisor.agent';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ export class AgentFrameworkModule implements OnModuleInit {
       courseDesignerDefinition,
       activityGeneratorDefinition,
       videoGeneratorDefinition,
+      rewardAdvisorDefinition,
     ];
 
     for (const definition of agentDefinitions) {

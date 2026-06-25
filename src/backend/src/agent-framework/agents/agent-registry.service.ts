@@ -99,6 +99,10 @@ export class AgentRegistryService implements IAgentRegistry {
 
   private extractKeywords(definition: AgentDefinition): string[] {
     const words: string[] = [];
+    // Explicit keywords (highest priority, supports Chinese)
+    if (definition.keywords && definition.keywords.length > 0) {
+      words.push(...definition.keywords);
+    }
     // Type-based keywords
     words.push(definition.type.replace(/-/g, ' '));
     // Description words (simple tokenization)

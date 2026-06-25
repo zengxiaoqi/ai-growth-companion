@@ -443,6 +443,13 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           color: AppTheme.softPink,
           onTap: () => Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
         ),
+        _MenuTile(
+          icon: Icons.emoji_events_rounded,
+          title: '积分管理',
+          subtitle: '查看孩子积分与兑换礼品',
+          color: const Color(0xFFFFB74D),
+          onTap: () => Navigator.pushNamed(context, '/reward/home'),
+        ),
       ],
     );
   }

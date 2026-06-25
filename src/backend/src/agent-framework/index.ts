@@ -112,6 +112,7 @@ export { childCompanionDefinition } from './agents/definitions/child-companion.a
 export { parentAdvisorDefinition } from './agents/definitions/parent-advisor.agent';
 export { courseDesignerDefinition } from './agents/definitions/course-designer.agent';
 export { activityGeneratorDefinition } from './agents/definitions/activity-generator.agent';
+export { rewardAdvisorDefinition } from './agents/definitions/reward-advisor.agent';
 
 // Skill system
 export { SkillRegistryService } from './skills/skill-registry.service';

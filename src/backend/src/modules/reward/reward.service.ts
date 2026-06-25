@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, MoreThan } from 'typeorm';
 import { BehaviorTemplate } from '../../database/entities/behavior-template.entity';
 import { PointRecord } from '../../database/entities/point-record.entity';
 import { Gift } from '../../database/entities/gift.entity';
@@ -77,6 +77,57 @@ export class RewardService {
       take: limit,
     });
     return { records, total, page, limit };
+  }
+
+  async getTodayRecords(childId: number) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const records = await this.pointRecordRepo.find({
+      where: { childId, recordedAt: Between(todayStart, todayEnd) },
+      order: { recordedAt: 'DESC' },
+    });
+    return records;
+  }
+
+  async getBehaviorAnalysis(childId: number, days = 7) {
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - days);
+
+    const records = await this.pointRecordRepo.find({
+      where: { childId, recordedAt: MoreThan(startDate) },
+      order: { recordedAt: 'DESC' },
+    });
+
+    // 统计各行为频率
+    const behaviorStats: Record<string, { count: number; totalPoints: number }> = {};
+    for (const record of records) {
+      if (!behaviorStats[record.behaviorName]) {
+        behaviorStats[record.behaviorName] = { count: 0, totalPoints: 0 };
+      }
+      behaviorStats[record.behaviorName].count++;
+      behaviorStats[record.behaviorName].totalPoints += record.points;
+    }
+
+    const totalPoints = records.reduce((sum, r) => sum + r.points, 0);
+    const positiveRecords = records.filter((r) => r.points > 0);
+    const negativeRecords = records.filter((r) => r.points < 0);
+
+    return {
+      days,
+      totalRecords: records.length,
+      totalPoints,
+      positiveCount: positiveRecords.length,
+      negativeCount: negativeRecords.length,
+      behaviorStats: Object.entries(behaviorStats).map(([name, stats]) => ({
+        name,
+        count: stats.count,
+        totalPoints: stats.totalPoints,
+      })),
+    };
   }
 
   async recordPoints(data: {

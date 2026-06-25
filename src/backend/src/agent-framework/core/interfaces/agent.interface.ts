@@ -19,6 +19,8 @@ export interface AgentDefinition {
   name: string;
   /** Description used for agent selection/routing */
   description: string;
+  /** Explicit keywords for routing (supports Chinese and other languages) */
+  keywords?: string[];
   /** Build the system prompt for this agent given the current context */
   buildSystemPrompt: (context: AgentContext) => string;
   /** Whitelist of tool names this agent can use (empty = all registered) */

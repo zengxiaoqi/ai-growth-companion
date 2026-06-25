@@ -35,6 +35,19 @@ import { GenerateCoursePackTool as LegacyGenerateCoursePackTool } from './agent/
 import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
 import { ReportModule } from '../report/report.module';
 import { VoiceModule } from '../voice/voice.module';
+import { RewardModule } from '../reward/reward.module';
+
+// Reward tools
+import { GetPointsSummaryTool } from './agent/tools/get-points-summary';
+import { GetPointRecordsTool } from './agent/tools/get-point-records';
+import { GetTodayRecordsTool } from './agent/tools/get-today-records';
+import { GetWeeklyStatsTool } from './agent/tools/get-weekly-stats';
+import { GetBehaviorAnalysisTool } from './agent/tools/get-behavior-analysis';
+import { GetAvailableGiftsTool } from './agent/tools/get-available-gifts';
+import { RecordPointsTool } from './agent/tools/record-points';
+import { RedeemGiftTool } from './agent/tools/redeem-gift';
+import { CreateBehaviorTemplateTool } from './agent/tools/create-behavior-template';
+import { CreateGiftTool } from './agent/tools/create-gift';
 
 // Agent Framework — new multi-agent system
 import { AgentFrameworkModule } from '../../agent-framework';
@@ -69,6 +82,7 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     forwardRef(() => AssignmentModule),
     ReportModule,
     VoiceModule,
+    RewardModule,
     ConfigModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
     // New agent framework
@@ -101,6 +115,17 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     EnqueueTeachingVideoTool,
     LegacyGenerateCoursePackTool,
     GenerateVideoDataTool,
+    // Reward tools
+    GetPointsSummaryTool,
+    GetPointRecordsTool,
+    GetTodayRecordsTool,
+    GetWeeklyStatsTool,
+    GetBehaviorAnalysisTool,
+    GetAvailableGiftsTool,
+    RecordPointsTool,
+    RedeemGiftTool,
+    CreateBehaviorTemplateTool,
+    CreateGiftTool,
     // Framework tools — providers declared here so their service dependencies resolve
     FwGetUserProfile,
     FwGetAbilities,

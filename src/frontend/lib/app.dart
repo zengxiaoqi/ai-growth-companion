@@ -22,6 +22,7 @@ import 'screens/parent/report_detail_screen.dart';
 import 'screens/parent/lesson_generator_screen.dart';
 import 'screens/parent/draft_manager_screen.dart';
 import 'screens/parent/quick_video_generator_screen.dart';
+import 'screens/reward/reward_home_screen.dart';
 import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
 import 'screens/learning/content_detail_screen.dart';
@@ -143,6 +144,10 @@ class LingxiApp extends StatelessWidget {
               (_) => const QuickVideoGeneratorScreen(),
               slideFromRight,
             );
+
+          // ── Reward system → slideFromRight ──
+          case '/reward/home':
+            return page((_) => const RewardHomeScreen(), slideFromRight);
 
           // ── Learning content → slideFromRight ──
           case '/learning/subjectContentList':

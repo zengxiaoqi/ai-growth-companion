@@ -309,6 +309,12 @@ class _CheckInPanel extends StatelessWidget {
   Widget _buildBehaviorCard(
       BuildContext context, BehaviorTemplate template, RewardProvider reward) {
     final isPositive = template.points >= 0;
+    
+    // 检查今日是否已打卡该行为
+    final alreadyCheckedIn = reward.todayRecords.any(
+      (r) => r.behaviorName == template.name,
+    );
+    
     return AppCard(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
@@ -349,18 +355,20 @@ class _CheckInPanel extends StatelessWidget {
               ],
             ),
           ),
-          // 打卡按钮
+          // 打卡按钮（已打卡则禁用）
           ElevatedButton(
-            onPressed: () => _handleCheckIn(context, template, reward),
+            onPressed: alreadyCheckedIn ? null : () => _handleCheckIn(context, template, reward),
             style: ElevatedButton.styleFrom(
-              backgroundColor: isPositive ? AppTheme.accentColor : AppTheme.warningColor,
-              foregroundColor: Colors.white,
+              backgroundColor: alreadyCheckedIn
+                  ? Colors.grey.shade300
+                  : (isPositive ? AppTheme.accentColor : AppTheme.warningColor),
+              foregroundColor: alreadyCheckedIn ? Colors.grey.shade500 : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            child: Text(isPositive ? '打卡' : '扣分'),
+            child: Text(alreadyCheckedIn ? '已打卡' : (isPositive ? '打卡' : '扣分')),
           ),
         ],
       ),

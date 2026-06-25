@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Between } from 'typeorm';
 import { RewardService } from '../../src/modules/reward/reward.service';
 import { BehaviorTemplate } from '../../src/database/entities/behavior-template.entity';
 import { PointRecord } from '../../src/database/entities/point-record.entity';
@@ -93,7 +92,14 @@ describe('RewardService', () => {
   describe('createBehavior', () => {
     it('should create a behavior with defaults', async () => {
       const data = { userId: 1, name: '测试行为', points: 5 };
-      const created = { id: 1, ...data, emoji: '⭐', category: 'daily', isDefault: false, sortOrder: 0 };
+      const created = {
+        id: 1,
+        ...data,
+        emoji: '⭐',
+        category: 'daily',
+        isDefault: false,
+        sortOrder: 0,
+      };
 
       behaviorRepo.create.mockReturnValue(created);
       behaviorRepo.save.mockResolvedValue(created);
@@ -115,7 +121,14 @@ describe('RewardService', () => {
     });
 
     it('should use provided emoji and category', async () => {
-      const data = { userId: 1, name: '阅读', emoji: '📖', points: 3, category: 'extra', sortOrder: 10 };
+      const data = {
+        userId: 1,
+        name: '阅读',
+        emoji: '📖',
+        points: 3,
+        category: 'extra',
+        sortOrder: 10,
+      };
       const created = { id: 2, ...data, isDefault: false };
 
       behaviorRepo.create.mockReturnValue(created);
@@ -189,7 +202,10 @@ describe('RewardService', () => {
 
   describe('getPointRecords', () => {
     it('should return paginated records', async () => {
-      const records = [{ id: 1, points: 5 }, { id: 2, points: 3 }];
+      const records = [
+        { id: 1, points: 5 },
+        { id: 2, points: 3 },
+      ];
       pointRecordRepo.findAndCount.mockResolvedValue([records, 2]);
 
       const result = await service.getPointRecords(1, 1, 20);
@@ -262,11 +278,9 @@ describe('RewardService', () => {
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({ id: 1, ...data });
 
-      const result = await service.recordPoints(data);
+      await service.recordPoints(data);
 
-      expect(pointRecordRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ points: -2 }),
-      );
+      expect(pointRecordRepo.create).toHaveBeenCalledWith(expect.objectContaining({ points: -2 }));
     });
 
     it('should use provided recordedAt when given', async () => {
@@ -418,7 +432,15 @@ describe('RewardService', () => {
   describe('createGift', () => {
     it('should create a gift with defaults', async () => {
       const data = { userId: 1, name: '零食', pointsCost: 15 };
-      const created = { id: 1, ...data, emoji: '🎁', description: null, category: 'other', stock: -1, sortOrder: 0 };
+      const created = {
+        id: 1,
+        ...data,
+        emoji: '🎁',
+        description: null,
+        category: 'other',
+        stock: -1,
+        sortOrder: 0,
+      };
 
       giftRepo.create.mockReturnValue(created);
       giftRepo.save.mockResolvedValue(created);
@@ -655,7 +677,6 @@ describe('RewardService', () => {
     });
 
     it('should sum points for each day', async () => {
-      const now = new Date();
       const todayRecords = [{ points: 5 }, { points: 3 }];
       // First call is for the oldest day (6 days ago), last call is today
       pointRecordRepo.find
@@ -705,9 +726,7 @@ describe('RewardService', () => {
       await service.seedDefaultBehaviors(1);
 
       // Check that at least one call included negative points
-      const negativeCalls = behaviorRepo.create.mock.calls.filter(
-        (call) => call[0].points < 0,
-      );
+      const negativeCalls = behaviorRepo.create.mock.calls.filter((call) => call[0].points < 0);
       expect(negativeCalls.length).toBeGreaterThan(0);
     });
   });

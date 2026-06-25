@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../models/reward_models.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
@@ -170,7 +171,26 @@ class RewardProvider extends ChangeNotifier {
       await loadSummary(childId);
       return record;
     } catch (e) {
-      _error = '记录积分失败: $e';
+      // 处理 Dio 异常，提取后端返回的友好消息
+      if (e.toString().contains('DioException') && e.toString().contains('409')) {
+        // 尝试从响应中提取后端的 message
+        try {
+          if (e is DioException && e.response?.data != null) {
+            final data = e.response!.data;
+            if (data is Map && data.containsKey('message')) {
+              _error = data['message'].toString();
+            } else {
+              _error = '今日已打卡该行为，不能重复打卡';
+            }
+          } else {
+            _error = '今日已打卡该行为，不能重复打卡';
+          }
+        } catch (_) {
+          _error = '今日已打卡该行为，不能重复打卡';
+        }
+      } else {
+        _error = '记录积分失败: $e';
+      }
       _log.warning('recordPoints error: $e');
       return null;
     }

@@ -216,7 +216,7 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
                             ),
                           ),
                         const SizedBox(height: 4),
-                        AnimatedContainer(
+                        _AnimatedBar(
                           height: height.clamp(4.0, 120.0),
                           decoration: BoxDecoration(
                             gradient: isToday
@@ -444,11 +444,11 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
   }
 }
 
-class AnimatedContainer extends StatelessWidget {
+class _AnimatedBar extends StatelessWidget {
   final double height;
   final BoxDecoration decoration;
 
-  const AnimatedContainer({
+  const _AnimatedBar({
     super.key,
     required this.height,
     required this.decoration,

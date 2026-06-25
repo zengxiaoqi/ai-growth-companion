@@ -444,32 +444,6 @@ class _GrowthReportPanel extends StatelessWidget {
   }
 }
 
-// AnimatedContainer 包装器
-class AnimatedContainer extends StatelessWidget {
-  final Duration duration;
-  final EdgeInsetsGeometry? padding;
-  final BoxDecoration? decoration;
-  final Widget? child;
-
-  const AnimatedContainer({
-    super.key,
-    required this.duration,
-    this.padding,
-    this.decoration,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: duration,
-      padding: padding,
-      decoration: decoration,
-      child: child,
-    );
-  }
-}
-
 // 简化的 SectionHeader (renamed to avoid conflict with components/section_header.dart)
 class _RewardSectionHeader extends StatelessWidget {
   final String title;

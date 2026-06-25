@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-06-24",
-  "analysis_count": 32,
+  "last_analysis": "2026-06-25",
+  "analysis_count": 33,
   "commit_count": 309,
-  "last_commit": "2026-06-23T20:14:51+08:00",
-  "last_commit_hash": "487d367",
+  "last_commit": "2026-06-24T20:14:51+08:00",
+  "last_commit_hash": "e24b934",
   "commits_ahead_remote": 0,
-  "remote_head": "487d367",
-  "remote_head_date": "2026-06-23T20:14:51+08:00",
+  "remote_head": "e24b934",
+  "remote_head_date": "2026-06-24T20:14:51+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
     "parent_dashboard": 95,
     "content_system": 87,
-    "infrastructure": 90,
+    "infrastructure": 92,
     "code_quality": 98
   },
   "active_plans": [],
@@ -64,7 +64,8 @@
     "2026-06-21: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, git synced with origin. No new commits since 2026-06-20.",
     "2026-06-22: Daily evolution — all systems operational, backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK (transient 530 at first check, resolved on retry), git synced with origin. No new commits since 2026-06-21.",
     "2026-06-23: Killed zombie Jest process (PID 170434, running since Jun 22, consuming 92.8% CPU + 814MB RAM from /home/zxq/workspace-product-agent/projects/ai-growth-companion/). System memory freed from 1.4GB to 2.6GB available. All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, key tests passing (ai.controller 50/50, learning-archive 42/42, contents 23/23, voice 30/30, hyperframes 82/82).",
-    "2026-06-24: Pulled 4 upstream commits — PR #46 (fix/issue-45: GrowthReportScreen dynamic parentId from UserProvider) + PR #47 (fix/issue-44: upgrade 9 Flutter dependencies including fl_chart 0.68→1.2, audioplayers 5→6, permission_handler 11→12). All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, contents tests 11/11. Killed zombie Jest process (PID 179682, running since Jun 23, 93% CPU + 266MB RAM from workspace-product-agent)."
+    "2026-06-24: Pulled 4 upstream commits — PR #46 (fix/issue-45: GrowthReportScreen dynamic parentId from UserProvider) + PR #47 (fix/issue-44: upgrade 9 Flutter dependencies including fl_chart 0.68→1.2, audioplayers 5→6, permission_handler 11→12). All systems verified: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK, contents tests 11/11. Killed zombie Jest process (PID 179682, running since Jun 23, 93% CPU + 266MB RAM from workspace-product-agent).",
+    "2026-06-25: Fixed CRITICAL 502 error — cloudflared config.yml pointed to port 8080 instead of 3001. Restarted tunnel service, verified external URL returns 200 OK. Auto-fixed ESLint/Prettier formatting errors in 10 new reward AI tool files. Verified backend build clean, 65/65 reward tests passing, frontend-web typecheck passes."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -96,23 +97,24 @@
     "Voice TTS endpoint was behind JWT guard — fix/issue-34 removed it, making /voice/tts public. This is reasonable since TTS is used by unauthenticated contexts (e.g., preview audio before login).",
     "src/backend/public/ is gitignored but Flutter remnants can accumulate there after Flutter Web builds. Always clean with explicit rm after rsync deploy: rm -f flutter.js flutter_bootstrap.js main.dart.js etc.",
     "Zombie Jest processes from other workspaces can consume excessive CPU/RAM and cause test timeouts in the main project. Check for stale processes with 'ps aux | grep jest' and kill them. The workspace-product-agent project had a Jest process running for 24+ hours consuming 92.8% CPU and 814MB RAM.",
-    "Zombie Jest processes recur — PID 179682 from workspace-product-agent was found running for 24+ hours (93% CPU, 266MB RAM) on Jun 24, same pattern as Jun 23's PID 170434. Both from /home/zxq/workspace-product-agent/projects/ai-growth-companion/. Consider adding a cron job to kill stale Jest processes or investigating why that workspace leaves them running."
+    "Zombie Jest processes recur — PID 179682 from workspace-product-agent was found running for 24+ hours (93% CPU, 266MB RAM) on Jun 24, same pattern as Jun 23's PID 170434. Both from /home/zxq/workspace-product-agent/projects/ai-growth-companion/. Consider adding a cron job to kill stale Jest processes or investigating why that workspace leaves them running.",
+    "Cloudflare tunnel config.yml ingress rules must match actual backend port — config had localhost:8080 but backend runs on 3001, causing 502 errors. Always verify tunnel config after port changes or infrastructure updates."
   ],
   "metrics": {
-    "backend_files": 196,
-    "backend_test_files": 71,
-    "backend_test_ratio": "36.2%",
+    "backend_files": 214,
+    "backend_test_files": 73,
+    "backend_test_ratio": "34.1%",
     "backend_src_lines": 36832,
-    "backend_test_lines": 13681,
-    "flutter_files": 65,
+    "backend_test_lines": 14783,
+    "flutter_files": 71,
     "flutter_lines": 33007,
     "web_files": 100,
     "web_lines": 18430,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 117194,
-    "repo_build_artifacts": "90MB build + 3.3MB deployed (public/)",
-    "backend_modules": 16,
-    "entities": 13
+    "total_lines": 108574,
+    "repo_build_artifacts": "90MB build + 37MB deployed (public/)",
+    "backend_modules": 17,
+    "entities": 17
   }
 }

@@ -51,8 +51,8 @@ Three separate applications under `src/` with no monorepo tooling — each has i
 
 ### Backend — `src/backend/` (NestJS + TypeORM + SQLite)
 
-- **Database:** SQLite via `better-sqlite3`, stored as `lingxi.db`. TypeORM entities in `src/database/entities/` (13 entities). Auto-seeds on first run.
-- **Modules** in `src/modules/`: auth (JWT), users, contents, learning, abilities, achievements, ai, parent, recommend, report, game, voice, emergency, assignment, notification, sse
+- **Database:** SQLite via `better-sqlite3`, stored as `lingxi.db`. TypeORM entities in `src/database/entities/` (17 entities). Auto-seeds on first run.
+- **Modules** in `src/modules/`: auth (JWT), users, contents, learning, abilities, achievements, ai, parent, recommend, report, game, voice, emergency, assignment, notification, sse, reward (积分奖惩)
 - **AI module** has a full agent framework (`agent/`) with tools, prompts, and conversation management. Supports AI chat, quiz generation, course pack creation, video generation, and learning recommendations.
 - **Learning module** includes video generation pipeline (Remotion), scene-based rendering, course generation agents, and lesson content management.
 - **Config:** `src/config/` — TypeORM, Swagger, and module configuration. `ConfigModule` loads `.env`.
@@ -99,6 +99,6 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **Production URL:** https://lingxi.chataifree.eu.org/
 - **Infrastructure:** Cloudflare Tunnel (HTTP2) → NestJS backend (port 3001) directly. Note: OpenClaw Gateway on port 18789 is for bot channels (Telegram/Feishu) only — it is NOT in the API routing path.
 - **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:3001/`.
-- **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken
+- **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken. Config at `~/.cloudflared/config.yml` — ingress rules must point to `localhost:3001` (backend) and `localhost:8081` (web). If external URL returns 502, check config.yml port matches actual backend port.
 - **Before deploy:** Stash local changes (`git stash`), then `git pull`
 - **Flutter Web deploy:** `cd src/frontend && flutter build web && rsync -av --delete build/web/ ../backend/public/`

@@ -115,12 +115,7 @@ describe('RewardController', () => {
     });
 
     it('should use default pagination values', async () => {
-      rewardService.getPointRecords.mockResolvedValue({
-        records: [],
-        total: 0,
-        page: 1,
-        limit: 20,
-      });
+      rewardService.getPointRecords.mockResolvedValue({ records: [], total: 0, page: 1, limit: 20 });
 
       await controller.getPointRecords('1');
 

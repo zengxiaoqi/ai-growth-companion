@@ -281,7 +281,7 @@ describe('RewardService', () => {
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({ id: 1, ...data });
 
-      const _result = await service.recordPoints(data);
+      await service.recordPoints(data);
 
       expect(pointRecordRepo.create).toHaveBeenCalledWith(expect.objectContaining({ points: -2 }));
     });
@@ -700,7 +700,6 @@ describe('RewardService', () => {
     });
 
     it('should sum points for each day', async () => {
-      const _now = new Date();
       const todayRecords = [{ points: 5 }, { points: 3 }];
       // First call is for the oldest day (6 days ago), last call is today
       pointRecordRepo.find

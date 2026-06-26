@@ -458,6 +458,7 @@ class _RewardSectionHeader extends StatelessWidget {
   final String emoji;
 
   const _RewardSectionHeader({
+    // ignore: unused_element_parameter
     super.key,
     required this.title,
     this.emoji = '',

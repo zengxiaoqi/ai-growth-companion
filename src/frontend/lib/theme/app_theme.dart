@@ -10,6 +10,12 @@ class AppTheme {
   static const Color textColor = Color(0xFF4A4A4A);      // 深灰
   static const Color textSecondary = Color(0xFF9E9E9E);  // 中灰
   
+  // 语义化颜色 - 用于状态反馈
+  static const Color successColor = Color(0xFF4CAF50);   // 成功绿
+  static const Color errorColor = Color(0xFFE57373);     // 错误红
+  static const Color infoColor = Color(0xFF64B5F6);      // 信息蓝
+  static const Color disabledColor = Color(0xFFBDBDBD);  // 禁用灰
+  
   // 童趣可爱风额外颜色
   static const Color softPink = Color(0xFFFFB6C1);      // 浅粉
   static const Color softPurple = Color(0xFFDDA0DD);    // 浅紫
@@ -47,10 +53,47 @@ class AppTheme {
     end: Alignment.bottomRight,
   );
   
+  // 节日主题渐变
+  static const LinearGradient festivalGradient = LinearGradient(
+    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53), Color(0xFFFFD93D)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  // 成功状态渐变
+  static const LinearGradient successGradient = LinearGradient(
+    colors: [successColor, Color(0xFF81C784)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  // 温暖渐变（用于奖励/成就）
+  static const LinearGradient warmGradient = LinearGradient(
+    colors: [Color(0xFFFF9A8B), Color(0xFFFF6B6B)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
   // 圆角配置
   static const double cardRadius = 20.0;
   static const double buttonRadius = 24.0;
   static const double smallRadius = 12.0;
+  
+  // 间距系统 - 统一间距规范
+  static const double spacingXxs = 4.0;
+  static const double spacingXs = 8.0;
+  static const double spacingSm = 12.0;
+  static const double spacingMd = 16.0;
+  static const double spacingLg = 20.0;
+  static const double spacingXl = 24.0;
+  static const double spacingXxl = 32.0;
+  
+  // 图标尺寸系统
+  static const double iconXs = 16.0;
+  static const double iconSm = 20.0;
+  static const double iconMd = 24.0;
+  static const double iconLg = 32.0;
+  static const double iconXl = 48.0;
   
   // 阴影配置 - 柔和发光效果
   static List<BoxShadow> softShadow([Color? color]) {
@@ -70,6 +113,33 @@ class AppTheme {
         blurRadius: 30,
         spreadRadius: 2,
         offset: const Offset(0, 5),
+      ),
+    ];
+  }
+  
+  // 增强阴影系统 - 多层阴影实现更真实的效果
+  static List<BoxShadow> elevatedShadow([Color? color]) {
+    return [
+      BoxShadow(
+        color: (color ?? Colors.black).withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 12),
+      ),
+      BoxShadow(
+        color: (color ?? Colors.black).withValues(alpha: 0.03),
+        blurRadius: 8,
+        offset: const Offset(0, 4),
+      ),
+    ];
+  }
+  
+  // 轻微阴影 - 用于卡片悬浮效果
+  static List<BoxShadow> subtleShadow([Color? color]) {
+    return [
+      BoxShadow(
+        color: (color ?? Colors.black).withValues(alpha: 0.05),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
       ),
     ];
   }
@@ -161,31 +231,77 @@ titleTextStyle: TextStyle(
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           color: textColor,
+          height: 1.3,
+          letterSpacing: -0.5,
         ),
         headlineMedium: TextStyle(
           fontSize: 24,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
           color: textColor,
+          height: 1.3,
+          letterSpacing: -0.3,
+        ),
+        headlineSmall: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+          height: 1.4,
         ),
         titleLarge: TextStyle(
           fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           color: textColor,
+          height: 1.4,
         ),
         titleMedium: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: textColor,
+          height: 1.4,
+        ),
+        titleSmall: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+          height: 1.5,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
+          fontWeight: FontWeight.w400,
           color: textColor,
+          height: 1.5,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
+          fontWeight: FontWeight.w400,
           color: textColor,
+          height: 1.5,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: textSecondary,
+          height: 1.5,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+          height: 1.4,
+        ),
+        labelMedium: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: textSecondary,
+          height: 1.4,
+        ),
+        labelSmall: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: textSecondary,
+          height: 1.4,
         ),
       ),
     );

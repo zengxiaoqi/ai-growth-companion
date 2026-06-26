@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';
+import '../../components/stat_card.dart';
+import '../../components/task_card.dart';
+import '../../components/points_badge.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
 import '../../models/reward_models.dart';
@@ -87,84 +90,49 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   Widget _buildPointsOverview(PointsSummary? summary) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
         gradient: AppTheme.primaryGradient,
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                icon: Icons.stars_rounded,
-                label: '总积分',
-                value: '${summary?.totalPoints ?? 0}',
-              ),
-              _buildStatItem(
-                icon: Icons.today_rounded,
-                label: '今日',
-                value: '+${summary?.todayPoints ?? 0}',
-              ),
-              _buildStatItem(
-                icon: Icons.local_fire_department_rounded,
-                label: '连续',
-                value: '${summary?.streak ?? 0}天',
-              ),
-            ],
+          AnimatedStatCard(
+            label: '总积分',
+            value: '${summary?.totalPoints ?? 0}',
+            icon: Icons.star_rounded,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 12),
+          AnimatedStatCard(
+            label: '今日',
+            value: '+${summary?.todayPoints ?? 0}',
+            icon: Icons.today_rounded,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 12),
+          AnimatedStatCard(
+            label: '连续',
+            value: '${summary?.streak ?? 0}天',
+            icon: Icons.local_fire_department_rounded,
+            color: Colors.white,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 28),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 12,
-          ),
-        ),
-      ],
     );
   }
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppTheme.subtleShadow(),
       ),
       child: Row(
         children: [
@@ -183,28 +151,34 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
       child: GestureDetector(
         onTap: () => setState(() => _currentTab = index),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             gradient: isSelected ? AppTheme.primaryGradient : null,
             color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isSelected ? AppTheme.softShadow(AppTheme.primaryColor) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? Colors.white : AppTheme.textSecondary,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  icon,
+                  key: ValueKey('$index-$isSelected'),
+                  size: 18,
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   color: isSelected ? Colors.white : AppTheme.textSecondary,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -323,64 +297,47 @@ class _CheckInPanel extends StatelessWidget {
       (r) => r.behaviorName == template.name,
     );
     
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          // Emoji 图标
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: (isPositive ? AppTheme.secondaryColor : AppTheme.warningColor)
-                  .withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(template.emoji, style: const TextStyle(fontSize: 24)),
-          ),
-          const SizedBox(width: 12),
-          // 行为信息
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  template.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${isPositive ? '+' : ''}${template.points} 积分',
-                  style: TextStyle(
-                    color: isPositive ? AppTheme.accentColor : AppTheme.warningColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // 打卡按钮（已打卡则禁用）
-          ElevatedButton(
-            onPressed: alreadyCheckedIn ? null : () => _handleCheckIn(context, template, reward),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: alreadyCheckedIn
-                  ? Colors.grey.shade300
-                  : (isPositive ? AppTheme.accentColor : AppTheme.warningColor),
-              foregroundColor: alreadyCheckedIn ? Colors.grey.shade500 : Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            child: Text(alreadyCheckedIn ? '已打卡' : (isPositive ? '打卡' : '扣分')),
-          ),
-        ],
-      ),
+    // 根据分类选择合适的图标
+    final iconData = _getIconForCategory(template.category);
+    
+    return AnimatedTaskCard(
+      title: template.name,
+      subtitle: '${isPositive ? '+' : ''}${template.points} 积分',
+      icon: iconData.icon,
+      iconColor: isPositive ? iconData.color : AppTheme.warningColor,
+      isCompleted: alreadyCheckedIn,
+      onTap: alreadyCheckedIn ? null : () => _handleCheckIn(context, template, reward),
     );
+  }
+  
+  _IconData _getIconForCategory(String category) {
+    switch (category) {
+      case '日常习惯':
+        return _IconData(Icons.wb_sunny_rounded, AppTheme.secondaryColor);
+      case '学习活动':
+        return _IconData(Icons.menu_book_rounded, AppTheme.primaryColor);
+      case '额外加分':
+        return _IconData(Icons.star_rounded, AppTheme.accentColor);
+      case '扣分行为':
+        return _IconData(Icons.warning_amber_rounded, AppTheme.warningColor);
+      default:
+        return _IconData(Icons.check_circle_outline, AppTheme.textSecondary);
+    }
+  }
+
+  String _getCategoryEmoji(String category) {
+    switch (category) {
+      case '日常习惯':
+        return '🌅';
+      case '学习活动':
+        return '📚';
+      case '额外加分':
+        return '⭐';
+      case '扣分行为':
+        return '⚠️';
+      default:
+        return '📋';
+    }
   }
 
   Future<void> _handleCheckIn(
@@ -423,21 +380,12 @@ class _CheckInPanel extends StatelessWidget {
       }
     }
   }
+}
 
-  String _getCategoryEmoji(String category) {
-    switch (category) {
-      case '日常习惯':
-        return '🌅';
-      case '学习活动':
-        return '📚';
-      case '额外加分':
-        return '⭐';
-      case '扣分行为':
-        return '⚠️';
-      default:
-        return '📋';
-    }
-  }
+class _IconData {
+  final IconData icon;
+  final Color color;
+  _IconData(this.icon, this.color);
 }
 
 // 商城面板

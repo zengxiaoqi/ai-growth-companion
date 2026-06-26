@@ -42,12 +42,14 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
       rewardProvider.loadGifts(userId),
       rewardProvider.loadPointRecords(childId),
       rewardProvider.loadRedemptions(childId),
-      rewardProvider.loadSummary(childId),
     ]);
     
     // 确保今日记录在积分记录加载完成后单独加载
     // 避免并发导致的竞态条件（loadTodayRecords 会修改 _pointRecords）
     await rewardProvider.loadTodayRecords(childId);
+    
+    // 今日记录加载完成后，刷新汇总数据（确保积分显示正确）
+    await rewardProvider.loadSummary(childId);
   }
 
   @override

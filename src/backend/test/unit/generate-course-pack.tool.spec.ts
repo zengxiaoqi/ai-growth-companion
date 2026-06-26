@@ -1,9 +1,14 @@
 import { GenerateCoursePackTool } from '../../src/modules/ai/agent/tools/generate-course-pack';
 import { getCoursePackCurriculumSeed } from '../../src/modules/learning/course-curriculum-fallback';
+import { Logger } from '@nestjs/common';
 
 jest.mock('../../src/modules/learning/course-curriculum-fallback', () => ({
   getCoursePackCurriculumSeed: jest.fn(),
 }));
+
+// Suppress Logger WARN logs in tests to reduce noise
+jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
 
 describe('GenerateCoursePackTool', () => {
   let tool: GenerateCoursePackTool;
@@ -212,6 +217,8 @@ describe('GenerateCoursePackTool', () => {
         ],
       }),
     );
+    // Intentionally return invalid JSON to test the fallback path.
+    // This triggers MAX_ATTEMPTS retries and falls back to template-based generation.
     llmClient.generate.mockResolvedValue('not-json');
 
     const result = JSON.parse(
@@ -257,6 +264,7 @@ describe('GenerateCoursePackTool', () => {
         ],
       }),
     );
+    // Intentionally return invalid JSON to test the fallback path with literacy unit expansion.
     llmClient.generate.mockResolvedValue('not-json');
 
     const result = JSON.parse(
@@ -296,6 +304,7 @@ describe('GenerateCoursePackTool', () => {
         ],
       }),
     );
+    // Intentionally return invalid JSON to test the fallback path with curriculum seed.
     llmClient.generate.mockResolvedValue('not-json');
 
     mockedGetCoursePackCurriculumSeed.mockReturnValue({
@@ -376,6 +385,7 @@ describe('GenerateCoursePackTool', () => {
         ],
       }),
     );
+    // Intentionally return invalid JSON to test the fallback path with curriculum seed.
     llmClient.generate.mockResolvedValue('not-json');
 
     mockedGetCoursePackCurriculumSeed.mockReturnValue({

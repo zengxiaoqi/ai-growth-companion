@@ -87,29 +87,66 @@ class _CalendarScreenState extends State<CalendarScreen> {
       '七月', '八月', '九月', '十月', '十一月', '十二月'
     ];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           IconButton(
             onPressed: _prevMonth,
-            icon: const Icon(Icons.chevron_left_rounded),
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.chevron_left_rounded, size: 20),
+            ),
             color: AppTheme.primaryColor,
           ),
           Expanded(
             child: Center(
-              child: Text(
-                '${_currentMonth.year}年 ${monthNames[_currentMonth.month]}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_currentMonth.year}年 ${monthNames[_currentMonth.month]}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textColor,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           IconButton(
             onPressed: _nextMonth,
-            icon: const Icon(Icons.chevron_right_rounded),
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.chevron_right_rounded, size: 20),
+            ),
             color: AppTheme.primaryColor,
           ),
         ],
@@ -122,16 +159,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final totalRecords = data['totalRecords'] as int? ?? 0;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppTheme.softShadow(AppTheme.primaryColor),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildSummaryItem('本月积分', '+$totalPoints', Icons.star_rounded),
-          Container(width: 1, height: 30, color: Colors.white.withValues(alpha: 0.3)),
+          Container(
+            width: 1,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0),
+                  Colors.white.withValues(alpha: 0.4),
+                  Colors.white.withValues(alpha: 0),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
           _buildSummaryItem('打卡次数', '$totalRecords', Icons.check_circle_rounded),
         ],
       ),
@@ -141,21 +193,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildSummaryItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white, size: 22),
-        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+        const SizedBox(height: 8),
         Text(
           value,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
           ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.8),
+            color: Colors.white.withValues(alpha: 0.85),
             fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],

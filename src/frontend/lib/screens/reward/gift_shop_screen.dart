@@ -58,6 +58,9 @@ class _GiftShopScreenState extends State<GiftShopScreen>
       builder: (context, reward, _) {
         final gifts = _filterGifts(reward.enabledGifts);
         final totalPoints = reward.summary?.totalPoints ?? 0;
+        final screenWidth = MediaQuery.of(context).size.width;
+        // 响应式列数：手机2列，平板3-4列
+        final crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 3 : 2);
 
         return Column(
           children: [
@@ -72,8 +75,8 @@ class _GiftShopScreenState extends State<GiftShopScreen>
                   : GridView.builder(
                       padding: const EdgeInsets.all(16),
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
                         childAspectRatio: 0.85,
@@ -84,6 +87,7 @@ class _GiftShopScreenState extends State<GiftShopScreen>
                           gifts[index],
                           totalPoints,
                           reward,
+                          index,
                         );
                       },
                     ),
@@ -215,125 +219,174 @@ class _GiftShopScreenState extends State<GiftShopScreen>
     Gift gift,
     int totalPoints,
     RewardProvider reward,
+    int index,
   ) {
     final canAfford = totalPoints >= gift.pointsCost;
     final progress = totalPoints / gift.pointsCost;
+    final categoryColor = _getCategoryColor(gift.category);
 
-    return GestureDetector(
-      onTap: () => _onGiftTap(gift, totalPoints, reward),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 顶部 emoji 区域
-            Expanded(
-              flex: 3,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _getCategoryColor(gift.category).withValues(alpha: 0.1),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Center(
-                  child: Text(
-                    gift.emoji,
-                    style: const TextStyle(fontSize: 48),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + index * 80),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: Opacity(opacity: value, child: child),
+        );
+      },
+      child: GestureDetector(
+        onTap: () => _onGiftTap(gift, totalPoints, reward),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: categoryColor.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 顶部 emoji 区域
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        categoryColor.withValues(alpha: 0.08),
+                        categoryColor.withValues(alpha: 0.18),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        gift.emoji,
+                        style: const TextStyle(fontSize: 48),
+                      ),
+                      if (canAfford)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              '可兑换',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
-            ),
-            // 底部信息区域
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      gift.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    if (gift.description != null &&
-                        gift.description!.isNotEmpty)
+              // 底部信息区域
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        gift.description!,
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 11,
+                        gift.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    const Spacer(),
-                    // 积分进度
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          size: 14,
-                          color: canAfford
-                              ? AppTheme.accentColor
-                              : AppTheme.warningColor,
-                        ),
-                        const SizedBox(width: 2),
+                      const SizedBox(height: 4),
+                      if (gift.description != null &&
+                          gift.description!.isNotEmpty)
                         Text(
-                          '${gift.pointsCost}',
+                          gift.description!,
                           style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      const Spacer(),
+                      // 积分进度
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star_rounded,
+                            size: 14,
                             color: canAfford
                                 ? AppTheme.accentColor
                                 : AppTheme.warningColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                        const Spacer(),
-                        if (!canAfford)
+                          const SizedBox(width: 2),
                           Text(
-                            '差${gift.pointsCost - totalPoints}',
+                            '${gift.pointsCost}',
                             style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 10,
+                              color: canAfford
+                                  ? AppTheme.accentColor
+                                  : AppTheme.warningColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                      ],
-                    ),
-                    if (!canAfford) ...[
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: AlwaysStoppedAnimation(
-                            AppTheme.warningColor.withValues(alpha: 0.6),
-                          ),
-                          minHeight: 4,
-                        ),
+                          const Spacer(),
+                          if (!canAfford)
+                            Text(
+                              '差${gift.pointsCost - totalPoints}',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 10,
+                              ),
+                            ),
+                        ],
                       ),
+                      if (!canAfford) ...[
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: progress.clamp(0.0, 1.0)),
+                            duration: const Duration(milliseconds: 800),
+                            builder: (context, value, _) {
+                              return LinearProgressIndicator(
+                                value: value,
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppTheme.warningColor.withValues(alpha: 0.6),
+                                ),
+                                minHeight: 4,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

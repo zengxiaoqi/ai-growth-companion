@@ -340,14 +340,17 @@ export class RewardService {
     });
     const saved = await this.redemptionRepo.save(record);
 
-    // 同时记录积分扣减
-    await this.recordPoints({
+    // 直接记录积分扣减（绕过重复打卡检查，兑换不受每日一次限制）
+    const pointRecord = this.pointRecordRepo.create({
       childId: data.childId,
+      templateId: null,
       behaviorName: `兑换: ${data.giftName}`,
       points: -data.pointsCost,
       note: `兑换礼品 #${data.giftId}`,
-      recordedBy: data.childId, // 系统自动记录
+      recordedBy: data.childId,
+      recordedAt: new Date(),
     });
+    await this.pointRecordRepo.save(pointRecord);
 
     this.logger.log(
       `Redemption created: child=${data.childId}, gift="${data.giftName}", cost=${data.pointsCost}`,
@@ -388,6 +391,51 @@ export class RewardService {
     }
 
     return stats;
+  }
+
+  // ==================== 日历 ====================
+
+  async getCalendarData(childId: number, year: number, month: number) {
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59);
+
+    const records = await this.pointRecordRepo.find({
+      where: { childId, recordedAt: Between(monthStart, monthEnd) },
+      order: { recordedAt: 'ASC' },
+    });
+
+    // 按日分组
+    const dailyMap: Record<string, { points: number; count: number; behaviors: string[] }> = {};
+    for (const r of records) {
+      const d = new Date(r.recordedAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!dailyMap[key]) {
+        dailyMap[key] = { points: 0, count: 0, behaviors: [] };
+      }
+      dailyMap[key].points += r.points;
+      dailyMap[key].count += 1;
+      dailyMap[key].behaviors.push(r.behaviorName);
+    }
+
+    return {
+      year,
+      month,
+      totalPoints: records.reduce((sum, r) => sum + r.points, 0),
+      totalRecords: records.length,
+      dailyData: dailyMap,
+    };
+  }
+
+  async getDayRecords(childId: number, date: string) {
+    const d = new Date(date);
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    return this.pointRecordRepo.find({
+      where: { childId, recordedAt: Between(dayStart, dayEnd) },
+      order: { recordedAt: 'DESC' },
+    });
   }
 
   // ==================== 种子数据 ====================

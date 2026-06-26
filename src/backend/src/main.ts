@@ -23,8 +23,12 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/',
     setHeaders: (res, filePath) => {
-      // 带哈希的静态资源（.js/.wasm/字体/图片）：长期缓存
-      if (filePath.match(/\.(js|wasm|woff2?|ttf|otf)$/)) {
+      // main.dart.js 不使用长期缓存（Flutter Web 构建不生成哈希）
+      if (filePath.endsWith('main.dart.js')) {
+        res.setHeader('Cache-Control', 'public, max-age=300');
+      }
+      // 带哈希的静态资源（.wasm/字体/图片）：长期缓存
+      else if (filePath.match(/\.(wasm|woff2?|ttf|otf)$/)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico)$/)) {
         res.setHeader('Cache-Control', 'public, max-age=86400');

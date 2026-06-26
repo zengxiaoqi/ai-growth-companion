@@ -174,6 +174,27 @@ export class RewardController {
     return this.rewardService.getWeeklyStats(+childId);
   }
 
+  // ==================== 日历 ====================
+
+  @Get('calendar/:childId')
+  async getCalendarData(
+    @Param('childId') childId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+  ) {
+    const y = year ? +year : new Date().getFullYear();
+    const m = month ? +month : new Date().getMonth() + 1;
+    return this.rewardService.getCalendarData(+childId, y, m);
+  }
+
+  @Get('calendar/:childId/day')
+  async getDayRecords(@Param('childId') childId: string, @Query('date') date: string) {
+    if (!date) {
+      throw new HttpException('date 参数必填', HttpStatus.BAD_REQUEST);
+    }
+    return this.rewardService.getDayRecords(+childId, date);
+  }
+
   // ==================== 种子数据 ====================
 
   @Post('seed/behaviors/:userId')

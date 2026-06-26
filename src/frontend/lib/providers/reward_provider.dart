@@ -22,6 +22,8 @@ class RewardProvider extends ChangeNotifier {
   List<Gift> _gifts = [];
   List<RedemptionRecord> _redemptions = [];
   List<WeeklyStat> _weeklyStats = [];
+  Map<String, dynamic>? _calendarData;
+  Map<String, List<PointRecord>> _dayRecordsCache = {};
 
   // Getters
   bool get isLoading => _isLoading;
@@ -32,6 +34,7 @@ class RewardProvider extends ChangeNotifier {
   List<Gift> get gifts => _gifts;
   List<RedemptionRecord> get redemptions => _redemptions;
   List<WeeklyStat> get weeklyStats => _weeklyStats;
+  Map<String, dynamic>? get calendarData => _calendarData;
 
   /// 今日积分记录
   List<PointRecord> get todayRecords {
@@ -41,6 +44,37 @@ class RewardProvider extends ChangeNotifier {
       final recordDate = DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
       return recordDate == today;
     }).toList();
+  }
+
+  /// 专门加载今日记录（确保打卡面板数据准确）
+  Future<void> loadTodayRecords(int childId) async {
+    try {
+      final now = DateTime.now();
+      final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final response = await _apiService.dio.get(
+        '/reward/calendar/$childId/day',
+        queryParameters: {'date': today},
+      );
+      final List<dynamic> data = response.data;
+      final todayRecs = data.map((json) => PointRecord.fromJson(json)).toList();
+      
+      // 从 _pointRecords 中移除今日记录（避免重复）
+      final todayDate = DateTime(now.year, now.month, now.day);
+      _pointRecords.removeWhere((r) {
+        final recordDate = DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
+        return recordDate == todayDate;
+      });
+      
+      // 将今日记录插入到开头
+      _pointRecords.insertAll(0, todayRecs);
+      
+      // 立即通知 UI 更新
+      notifyListeners();
+      
+      _log.info('loadTodayRecords: loaded ${todayRecs.length} records for $today');
+    } catch (e) {
+      _log.warning('loadTodayRecords error: $e');
+    }
   }
 
   // 分类后的行为
@@ -128,7 +162,7 @@ class RewardProvider extends ChangeNotifier {
 
   // ==================== 积分记录 ====================
 
-  Future<void> loadPointRecords(int childId, {int page = 1, int limit = 20}) async {
+  Future<void> loadPointRecords(int childId, {int page = 1, int limit = 20, bool append = false}) async {
     _setLoading(true);
     try {
       final response = await _apiService.dio.get(
@@ -137,7 +171,18 @@ class RewardProvider extends ChangeNotifier {
       );
       final data = response.data;
       final List<dynamic> records = data['records'];
-      _pointRecords = records.map((json) => PointRecord.fromJson(json)).toList();
+      final newRecords = records.map((json) => PointRecord.fromJson(json)).toList();
+      if (append) {
+        // 追加模式：用于加载更多，去重后追加
+        final existingIds = _pointRecords.map((r) => r.id).toSet();
+        for (final r in newRecords) {
+          if (!existingIds.contains(r.id)) {
+            _pointRecords.add(r);
+          }
+        }
+      } else {
+        _pointRecords = newRecords;
+      }
       _error = null;
     } catch (e) {
       _error = '加载积分记录失败: $e';
@@ -166,6 +211,7 @@ class RewardProvider extends ChangeNotifier {
       });
       final record = PointRecord.fromJson(response.data);
       _pointRecords.insert(0, record);
+      _dayRecordsCache.clear(); // 清除日历缓存
       notifyListeners();
       // 同时刷新汇总
       await loadSummary(childId);
@@ -305,8 +351,11 @@ class RewardProvider extends ChangeNotifier {
       final record = RedemptionRecord.fromJson(response.data);
       _redemptions.insert(0, record);
       notifyListeners();
-      // 刷新汇总
-      await loadSummary(childId);
+      // 刷新汇总和积分记录（确保积分扣减反映到界面）
+      await Future.wait([
+        loadSummary(childId),
+        loadPointRecords(childId),
+      ]);
       return record;
     } catch (e) {
       _error = '兑换失败: $e';
@@ -347,6 +396,48 @@ class RewardProvider extends ChangeNotifier {
     } catch (e) {
       _log.warning('loadWeeklyStats error: $e');
     }
+  }
+
+  // ==================== 日历 ====================
+
+  Future<void> loadCalendarData(int childId, {int? year, int? month}) async {
+    try {
+      final now = DateTime.now();
+      final y = year ?? now.year;
+      final m = month ?? now.month;
+      final response = await _apiService.dio.get(
+        '/reward/calendar/$childId',
+        queryParameters: {'year': y, 'month': m},
+      );
+      _calendarData = response.data;
+      notifyListeners();
+    } catch (e) {
+      _log.warning('loadCalendarData error: $e');
+    }
+  }
+
+  Future<List<PointRecord>> loadDayRecords(int childId, String date) async {
+    try {
+      // 先查缓存
+      if (_dayRecordsCache.containsKey(date)) {
+        return _dayRecordsCache[date]!;
+      }
+      final response = await _apiService.dio.get(
+        '/reward/calendar/$childId/day',
+        queryParameters: {'date': date},
+      );
+      final List<dynamic> data = response.data;
+      final records = data.map((json) => PointRecord.fromJson(json)).toList();
+      _dayRecordsCache[date] = records;
+      return records;
+    } catch (e) {
+      _log.warning('loadDayRecords error: $e');
+      return [];
+    }
+  }
+
+  void clearDayRecordsCache() {
+    _dayRecordsCache.clear();
   }
 
   // ==================== 种子数据 ====================

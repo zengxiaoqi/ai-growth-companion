@@ -41,7 +41,9 @@ class RewardProvider extends ChangeNotifier {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return _pointRecords.where((r) {
-      final recordDate = DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
+      // 将 UTC 时间转换为本地时间
+      final localRecordedAt = r.recordedAt.toLocal();
+      final recordDate = DateTime(localRecordedAt.year, localRecordedAt.month, localRecordedAt.day);
       return recordDate == today;
     }).toList();
   }
@@ -61,7 +63,9 @@ class RewardProvider extends ChangeNotifier {
       // 从 _pointRecords 中移除今日记录（避免重复）
       final todayDate = DateTime(now.year, now.month, now.day);
       _pointRecords.removeWhere((r) {
-        final recordDate = DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
+        // 将 UTC 时间转换为本地时间
+        final localRecordedAt = r.recordedAt.toLocal();
+        final recordDate = DateTime(localRecordedAt.year, localRecordedAt.month, localRecordedAt.day);
         return recordDate == todayDate;
       });
       

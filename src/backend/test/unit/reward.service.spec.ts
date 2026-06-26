@@ -25,6 +25,7 @@ describe('RewardService', () => {
     };
     pointRecordRepo = {
       find: jest.fn(),
+      findOne: jest.fn(),
       findAndCount: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
@@ -250,6 +251,7 @@ describe('RewardService', () => {
       };
       const saved = { id: 1, ...data, recordedAt: expect.any(Date) };
 
+      pointRecordRepo.findOne.mockResolvedValue(null);
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue(saved);
 
@@ -275,6 +277,7 @@ describe('RewardService', () => {
         points: -2,
         recordedBy: 10,
       };
+      pointRecordRepo.findOne.mockResolvedValue(null);
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({ id: 1, ...data });
 
@@ -292,6 +295,7 @@ describe('RewardService', () => {
         recordedBy: 10,
         recordedAt: customDate,
       };
+      pointRecordRepo.findOne.mockResolvedValue(null);
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({});
 
@@ -311,6 +315,7 @@ describe('RewardService', () => {
         note: '读了30分钟',
         recordedBy: 10,
       };
+      pointRecordRepo.findOne.mockResolvedValue(null);
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({});
 
@@ -319,6 +324,23 @@ describe('RewardService', () => {
       expect(pointRecordRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ templateId: 5, note: '读了30分钟' }),
       );
+    });
+
+    it('should return null when same-day duplicate check-in is detected', async () => {
+      const data = {
+        childId: 1,
+        behaviorName: '起床洗漱',
+        points: 2,
+        recordedBy: 10,
+      };
+      const existingRecord = { id: 99, childId: 1, behaviorName: '起床洗漱', points: 2 };
+      pointRecordRepo.findOne.mockResolvedValue(existingRecord);
+
+      const result = await service.recordPoints(data);
+
+      expect(result).toBeNull();
+      expect(pointRecordRepo.create).not.toHaveBeenCalled();
+      expect(pointRecordRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -553,6 +575,7 @@ describe('RewardService', () => {
       redemptionRepo.save.mockResolvedValue(savedRedemption);
 
       // recordPoints mock
+      pointRecordRepo.findOne.mockResolvedValue(null);
       pointRecordRepo.create.mockImplementation((d) => d);
       pointRecordRepo.save.mockResolvedValue({ id: 1, points: -10 });
 

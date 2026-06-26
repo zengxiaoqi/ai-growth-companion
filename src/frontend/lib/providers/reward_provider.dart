@@ -214,17 +214,18 @@ class RewardProvider extends ChangeNotifier {
         'recordedBy': recordedBy,
       });
       final record = PointRecord.fromJson(response.data);
-      _pointRecords.insert(0, record);
       _dayRecordsCache.clear(); // 清除日历缓存
       _error = null;
-      notifyListeners();
-      // 同时刷新汇总、今日记录和日历数据
+      
+      // 刷新汇总、今日记录和日历数据（让 loadTodayRecords 处理 _pointRecords 的更新）
       final now = DateTime.now();
       await Future.wait([
         loadSummary(childId),
         loadTodayRecords(childId),
         loadCalendarData(childId, year: now.year, month: now.month),
       ]);
+      
+      notifyListeners(); // 所有数据刷新完成后再通知 UI
       return record;
     } catch (e) {
       // 处理 Dio 异常，提取后端返回的友好消息

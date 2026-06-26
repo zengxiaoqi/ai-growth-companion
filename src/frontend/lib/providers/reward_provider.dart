@@ -212,9 +212,15 @@ class RewardProvider extends ChangeNotifier {
       final record = PointRecord.fromJson(response.data);
       _pointRecords.insert(0, record);
       _dayRecordsCache.clear(); // 清除日历缓存
+      _error = null;
       notifyListeners();
-      // 同时刷新汇总
-      await loadSummary(childId);
+      // 同时刷新汇总、今日记录和日历数据
+      final now = DateTime.now();
+      await Future.wait([
+        loadSummary(childId),
+        loadTodayRecords(childId),
+        loadCalendarData(childId, year: now.year, month: now.month),
+      ]);
       return record;
     } catch (e) {
       // 处理 Dio 异常，提取后端返回的友好消息

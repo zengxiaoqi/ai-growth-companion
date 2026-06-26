@@ -9,6 +9,7 @@ import '../../providers/reward_provider.dart';
 import '../../models/reward_models.dart';
 import 'gift_shop_screen.dart';
 import 'growth_report_screen.dart';
+import 'calendar_screen.dart';
 
 class RewardHomeScreen extends StatefulWidget {
   const RewardHomeScreen({super.key});
@@ -32,6 +33,7 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
     final userId = userProvider.currentUser?['id'] as int? ?? 1;
     final childId = userProvider.activeChildId ?? userId;
 
+    // 先并行加载基础数据
     await Future.wait([
       rewardProvider.loadBehaviors(userId),
       rewardProvider.loadGifts(userId),
@@ -39,6 +41,10 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
       rewardProvider.loadRedemptions(childId),
       rewardProvider.loadSummary(childId),
     ]);
+    
+    // 确保今日记录在积分记录加载完成后单独加载
+    // 避免并发导致的竞态条件（loadTodayRecords 会修改 _pointRecords）
+    await rewardProvider.loadTodayRecords(childId);
   }
 
   @override
@@ -66,6 +72,7 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
                   children: const [
                     _CheckInPanel(),
                     _GiftShopPanel(),
+                    _CalendarPanel(),
                     _GrowthReportPanel(),
                   ],
                 ),
@@ -163,7 +170,8 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
         children: [
           _buildTab(0, '打卡', Icons.check_circle_outline),
           _buildTab(1, '商城', Icons.card_giftcard),
-          _buildTab(2, '报告', Icons.insights),
+          _buildTab(2, '日历', Icons.calendar_today),
+          _buildTab(3, '报告', Icons.insights),
         ],
       ),
     );
@@ -176,7 +184,7 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
         onTap: () => setState(() => _currentTab = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             gradient: isSelected ? AppTheme.primaryGradient : null,
             color: isSelected ? null : Colors.transparent,
@@ -187,16 +195,16 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
             children: [
               Icon(
                 icon,
-                size: 18,
+                size: 16,
                 color: isSelected ? Colors.white : AppTheme.textSecondary,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Text(
                 label,
                 style: TextStyle(
                   color: isSelected ? Colors.white : AppTheme.textSecondary,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
               ),
             ],
@@ -439,6 +447,16 @@ class _GiftShopPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const GiftShopPanel();
+  }
+}
+
+// 日历面板
+class _CalendarPanel extends StatelessWidget {
+  const _CalendarPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CalendarScreen();
   }
 }
 

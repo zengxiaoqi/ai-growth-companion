@@ -72,6 +72,10 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
 
               // 兑换记录
               _buildRedemptionHistory(reward),
+              const SizedBox(height: 20),
+
+              // 积分明细
+              _buildPointHistory(reward),
             ],
           ),
         );
@@ -434,6 +438,183 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
       default:
         return AppTheme.textSecondary;
     }
+  }
+
+  Widget _buildPointHistory(RewardProvider reward) {
+    final records = reward.pointRecords;
+
+    // 按日期分组
+    final groupedRecords = <String, List<PointRecord>>{};
+    for (final r in records) {
+      final key =
+          '${r.recordedAt.year}-${r.recordedAt.month.toString().padLeft(2, '0')}-${r.recordedAt.day.toString().padLeft(2, '0')}';
+      groupedRecords.putIfAbsent(key, () => []).add(r);
+    }
+
+    if (records.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '积分明细',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              Text(
+                '共 ${records.length} 条记录',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 显示最近 10 条记录
+          ...groupedRecords.entries.take(3).expand((entry) => [
+                _buildDateHeader(entry.key, entry.value),
+                const SizedBox(height: 8),
+                ...entry.value.take(5).map((r) => _buildRecordCard(r)),
+                const SizedBox(height: 12),
+              ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateHeader(String dateKey, List<PointRecord> dayRecords) {
+    final date = DateTime.parse(dateKey);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    String label;
+    if (dateOnly == today) {
+      label = '今天';
+    } else if (dateOnly == yesterday) {
+      label = '昨天';
+    } else {
+      final weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      label = '${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
+    }
+
+    // 计算当天积分
+    final dayPoints = dayRecords.fold<int>(0, (sum, r) => sum + r.points);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textColor,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '${dayPoints >= 0 ? '+' : ''}$dayPoints 积分',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: dayPoints >= 0 ? AppTheme.accentColor : AppTheme.warningColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecordCard(PointRecord record) {
+    final isPositive = record.points >= 0;
+    final isRedemption = record.behaviorName.startsWith('兑换:');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isRedemption
+                  ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                  : (isPositive
+                      ? AppTheme.accentColor.withValues(alpha: 0.1)
+                      : AppTheme.warningColor.withValues(alpha: 0.1)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isRedemption
+                  ? Icons.card_giftcard_rounded
+                  : (isPositive
+                      ? Icons.check_circle_rounded
+                      : Icons.remove_circle_rounded),
+              color: isRedemption
+                  ? AppTheme.secondaryColor
+                  : (isPositive ? AppTheme.accentColor : AppTheme.warningColor),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.behaviorName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${record.recordedAt.hour}:${record.recordedAt.minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${isPositive ? '+' : ''}${record.points}',
+            style: TextStyle(
+              color: isRedemption
+                  ? AppTheme.secondaryColor
+                  : (isPositive ? AppTheme.accentColor : AppTheme.warningColor),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   bool _isToday(String dateStr) {

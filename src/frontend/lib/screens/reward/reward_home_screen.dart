@@ -9,6 +9,7 @@ import '../../components/task_card.dart';
 import '../../components/points_badge.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
+import '../../services/api_service.dart';
 import '../../models/reward_models.dart';
 import 'gift_shop_screen.dart';
 import 'growth_report_screen.dart';
@@ -33,14 +34,36 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   Future<void> _loadData() async {
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final userId = userProvider.currentUser?['id'] as int? ?? 1;
-    final childId = userProvider.activeChildId ?? userId;
+    final currentUser = userProvider.currentUser;
+    final userId = currentUser?['id'] as int? ?? 1;
+    final userType = currentUser?['type']?.toString() ?? 'child';
+    
+    // 解析 childId：activeChildId 优先，家长未设置时自动获取第一个孩子
+    int? childId = userProvider.activeChildId;
+    if (childId == null && userType == 'parent') {
+      try {
+        final api = context.read<ApiService>();
+        final children = await api.getChildrenByParent(userId);
+        if (children.isNotEmpty) {
+          final firstChild = children.first;
+          childId = firstChild['id'] is int 
+              ? firstChild['id'] as int 
+              : int.tryParse(firstChild['id']?.toString() ?? '');
+          if (childId != null) {
+            await userProvider.setActiveChildId(childId);
+          }
+        }
+      } catch (e) {
+        // 获取孩子列表失败，使用默认值
+      }
+    }
+    childId ??= userId;
 
     // 先并行加载基础数据
     await Future.wait([
       rewardProvider.loadBehaviors(userId),
       rewardProvider.loadGifts(userId),
-      rewardProvider.loadPointRecords(childId),
+      rewardProvider.loadPointRecords(childId!),
       rewardProvider.loadRedemptions(childId),
     ]);
     

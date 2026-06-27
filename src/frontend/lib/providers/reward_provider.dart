@@ -40,12 +40,18 @@ class RewardProvider extends ChangeNotifier {
   List<PointRecord> get todayRecords {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return _pointRecords.where((r) {
+    final records = _pointRecords.where((r) {
       // 将 UTC 时间转换为本地时间
       final localRecordedAt = r.recordedAt.toLocal();
       final recordDate = DateTime(localRecordedAt.year, localRecordedAt.month, localRecordedAt.day);
       return recordDate == today;
     }).toList();
+    _log.info('todayRecords: now=$now, today=$today, total records=${_pointRecords.length}, today records=${records.length}');
+    for (var r in _pointRecords) {
+      final local = r.recordedAt.toLocal();
+      _log.info('  record: ${r.behaviorName}, recordedAt=${r.recordedAt}, local=$local');
+    }
+    return records;
   }
 
   /// 专门加载今日记录（确保打卡面板数据准确）

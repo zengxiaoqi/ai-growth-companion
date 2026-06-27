@@ -161,12 +161,10 @@ class _AnimatedPointsBadgeState extends State<AnimatedPointsBadge>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  int _previousPoints = 0;
 
   @override
   void initState() {
     super.initState();
-    _previousPoints = widget.points;
     _controller = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -189,7 +187,6 @@ class _AnimatedPointsBadgeState extends State<AnimatedPointsBadge>
   void didUpdateWidget(AnimatedPointsBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.points != widget.points) {
-      _previousPoints = oldWidget.points;
       _controller.forward(from: 0.0);
     }
   }

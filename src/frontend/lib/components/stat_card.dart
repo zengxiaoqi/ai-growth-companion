@@ -148,12 +148,10 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  String _previousValue = '';
 
   @override
   void initState() {
     super.initState();
-    _previousValue = widget.value;
     _controller = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -167,7 +165,6 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
   void didUpdateWidget(AnimatedStatCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
-      _previousValue = oldWidget.value;
       _controller.forward(from: 0.0);
     }
   }

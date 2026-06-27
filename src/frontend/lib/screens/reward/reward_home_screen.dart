@@ -528,18 +528,9 @@ class _BehaviorTemplateManagementSheetState
                   '行为模板管理',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add_circle, color: Colors.green),
-                      tooltip: '新增模板',
-                      onPressed: () => _showEditDialog(context),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
@@ -554,7 +545,7 @@ class _BehaviorTemplateManagementSheetState
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('暂无模板', style: TextStyle(color: Colors.grey)),
+                        const Text('暂无模板，点击下方按钮添加', style: TextStyle(color: Colors.grey)),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
                           onPressed: () => _showEditDialog(context),
@@ -576,6 +567,25 @@ class _BehaviorTemplateManagementSheetState
                 return ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
+                    // 醒目的新增按钮
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showEditDialog(context),
+                        icon: const Icon(Icons.add_circle_outline, size: 20),
+                        label: const Text('新增行为模板', style: TextStyle(fontSize: 15)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     ...categories.entries.expand((entry) => [
                           Padding(
                             padding: const EdgeInsets.only(top: 12, bottom: 8),
@@ -616,32 +626,55 @@ class _BehaviorTemplateManagementSheetState
             fontSize: 12,
           ),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 启用/禁用开关
-            IconButton(
-              icon: Icon(
-                template.isEnabled ? Icons.visibility : Icons.visibility_off,
-                size: 20,
-                color: template.isEnabled ? Colors.blue : Colors.grey,
-              ),
-              tooltip: template.isEnabled ? '已启用' : '已禁用',
-              onPressed: () async {
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: Colors.grey, size: 22),
+          onSelected: (value) async {
+            switch (value) {
+              case 'toggle':
                 await reward.toggleBehavior(template.id);
-              },
+                break;
+              case 'edit':
+                _showEditDialog(context, template: template);
+                break;
+              case 'delete':
+                _confirmDelete(context, template, reward);
+                break;
+            }
+          },
+          itemBuilder: (ctx) => [
+            PopupMenuItem(
+              value: 'toggle',
+              child: Row(
+                children: [
+                  Icon(
+                    template.isEnabled ? Icons.visibility_off : Icons.visibility,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(template.isEnabled ? '禁用' : '启用'),
+                ],
+              ),
             ),
-            // 编辑
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20, color: Colors.orange),
-              tooltip: '编辑',
-              onPressed: () => _showEditDialog(context, template: template),
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 18, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('编辑'),
+                ],
+              ),
             ),
-            // 删除
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-              tooltip: '删除',
-              onPressed: () => _confirmDelete(context, template, reward),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('删除', style: TextStyle(color: Colors.red)),
+                ],
+              ),
             ),
           ],
         ),

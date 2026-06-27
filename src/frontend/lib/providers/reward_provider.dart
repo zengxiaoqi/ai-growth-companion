@@ -336,6 +336,7 @@ class RewardProvider extends ChangeNotifier {
     String? emoji,
     String? description,
     String? category,
+    int stock = -1,
   }) async {
     try {
       final response = await _apiService.dio.post('/reward/gifts', data: {
@@ -344,6 +345,7 @@ class RewardProvider extends ChangeNotifier {
         'emoji': emoji ?? '🎁',
         'description': description,
         'category': category ?? 'other',
+        'stock': stock,
       });
       final gift = Gift.fromJson(response.data);
       _gifts.add(gift);
@@ -365,6 +367,60 @@ class RewardProvider extends ChangeNotifier {
     } catch (e) {
       _error = '删除礼品失败: $e';
       return false;
+    }
+  }
+
+  Future<Gift?> updateGift({
+    required int id,
+    required String name,
+    required String emoji,
+    String? description,
+    required int pointsCost,
+    required String category,
+    int stock = -1,
+  }) async {
+    try {
+      final response = await _apiService.dio.put('/reward/gifts/$id', data: {
+        'name': name,
+        'emoji': emoji,
+        'description': description ?? '',
+        'pointsCost': pointsCost,
+        'category': category,
+        'stock': stock,
+      });
+      final updated = Gift.fromJson(response.data);
+      final idx = _gifts.indexWhere((g) => g.id == id);
+      if (idx >= 0) _gifts[idx] = updated;
+      notifyListeners();
+      return updated;
+    } catch (e) {
+      _error = '更新礼品失败: $e';
+      return null;
+    }
+  }
+
+  Future<void> toggleGift(int id) async {
+    final gift = _gifts.firstWhere((g) => g.id == id);
+    await updateGift(
+      id: id,
+      name: gift.name,
+      emoji: gift.emoji,
+      description: gift.description,
+      pointsCost: gift.pointsCost,
+      category: gift.category,
+      stock: gift.stock,
+    );
+    // updateGift 不传 isEnabled，需要单独发请求
+    try {
+      final response = await _apiService.dio.put('/reward/gifts/$id', data: {
+        'isEnabled': !gift.isEnabled,
+      });
+      final updated = Gift.fromJson(response.data);
+      final idx = _gifts.indexWhere((g) => g.id == id);
+      if (idx >= 0) _gifts[idx] = updated;
+      notifyListeners();
+    } catch (e) {
+      _log.warning('toggleGift error: $e');
     }
   }
 

@@ -54,7 +54,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           onTap: (index) => setState(() => _currentIndex = index),
         ),
       ),
-      extendBody: true,
+      extendBody: false,
     );
   }
 }

@@ -67,27 +67,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         _passwordController.text,
       );
 
+      debugPrint('[LOGIN] API response keys: ${result.keys.toList()}');
+
       if (result.containsKey('error')) {
         final errMsg = result['error']?.toString() ?? '未知错误';
+        debugPrint('[LOGIN] Error: $errMsg');
         setState(() => _error = '登录失败: $errMsg');
         return;
       }
 
       // 保存 token
       final token = result['access_token'] ?? result['token'];
+      debugPrint('[LOGIN] Token found: ${token != null}');
       if (token != null) {
-        if (!mounted) return;
+        if (!mounted) {
+          debugPrint('[LOGIN] Widget not mounted after token save');
+          return;
+        }
         final storage = context.read<StorageService>();
         await storage.saveToken(token.toString());
+        debugPrint('[LOGIN] Token saved');
       }
 
       // 保存用户信息并跳转模式选择
       final user = result['user'] as Map<String, dynamic>? ?? result;
+      debugPrint('[LOGIN] User data: id=${user['id']}, type=${user['type']}, name=${user['name']}');
       if (mounted) {
         final userProvider = context.read<UserProvider>();
+        // 先注入 token 到 ApiService（不等 userProvider.login 内部处理）
+        if (token != null) {
+          context.read<ApiService>().setToken(token.toString());
+        }
         await userProvider.login(Map<String, dynamic>.from(user));
+        debugPrint('[LOGIN] userProvider.login() done, isLoggedIn=${userProvider.isLoggedIn}');
+      } else {
+        debugPrint('[LOGIN] Widget not mounted before userProvider.login()');
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[LOGIN] Exception: $e');
+      debugPrint('[LOGIN] Stack: $stack');
       setState(() => _error = '网络错误，请稍后重试');
     } finally {
       if (mounted) setState(() => _isLoading = false);

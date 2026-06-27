@@ -55,33 +55,39 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> login(Map<String, dynamic> userData) async {
+    // 先设置用户并通知 UI，确保护航立即生效
     _currentUser = userData;
-    await _storage.saveUser(
-      userId: userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0,
-      userType: userData['type']?.toString() ?? 'child',
-      name: userData['name']?.toString() ?? '',
-      age: userData['age'] is int ? userData['age'] : int.tryParse(userData['age'].toString()),
-      phone: userData['phone']?.toString(),
-      parentId: userData['parentId'] is int ? userData['parentId'] : int.tryParse(userData['parentId'].toString()),
-    );
-
-    // 孩子登录时自动设为 activeChildId
-    final userType = userData['type']?.toString() ?? 'child';
-    if (userType == 'child') {
-      final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
-      _activeChildId = userId;
-      await _storage.saveActiveChildId(userId);
-    }
-
-    // 注入 token
-    if (_apiService != null) {
-      final token = _storage.getToken();
-      if (token != null) {
-        _apiService!.setToken(token);
-      }
-    }
-
     notifyListeners();
+
+    // 然后异步持久化（不阻塞 UI 导航）
+    try {
+      await _storage.saveUser(
+        userId: userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0,
+        userType: userData['type']?.toString() ?? 'child',
+        name: userData['name']?.toString() ?? '',
+        age: userData['age'] is int ? userData['age'] : int.tryParse(userData['age'].toString()),
+        phone: userData['phone']?.toString(),
+        parentId: userData['parentId'] is int ? userData['parentId'] : int.tryParse(userData['parentId'].toString()),
+      );
+
+      // 孩子登录时自动设为 activeChildId
+      final userType = userData['type']?.toString() ?? 'child';
+      if (userType == 'child') {
+        final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
+        _activeChildId = userId;
+        await _storage.saveActiveChildId(userId);
+      }
+
+      // 注入 token
+      if (_apiService != null) {
+        final token = _storage.getToken();
+        if (token != null) {
+          _apiService!.setToken(token);
+        }
+      }
+    } catch (e) {
+      debugPrint('[UserProvider] login persist error: $e');
+    }
   }
 
   Future<void> logout() async {

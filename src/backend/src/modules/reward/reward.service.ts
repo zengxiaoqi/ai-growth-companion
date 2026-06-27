@@ -427,10 +427,13 @@ export class RewardService {
   }
 
   async getDayRecords(childId: number, date: string) {
-    const d = new Date(date);
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
+    // date 格式: "2026-06-27" (本地日期字符串)
+    // 需要将其视为本地时间，而不是 UTC
+    const [year, month, day] = date.split('-').map(Number);
+
+    // 创建本地时间的起止点
+    const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0, 0);
 
     return this.pointRecordRepo.find({
       where: { childId, recordedAt: Between(dayStart, dayEnd) },

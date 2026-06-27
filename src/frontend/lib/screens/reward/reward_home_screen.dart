@@ -24,6 +24,7 @@ class RewardHomeScreen extends StatefulWidget {
 
 class _RewardHomeScreenState extends State<RewardHomeScreen> {
   int _currentTab = 0;
+  int? _resolvedChildId; // 缓存解析后的 childId
 
   @override
   void initState() {
@@ -31,14 +32,15 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  /// 获取正确的 childId（家长自动获取第一个孩子）
+  Future<int> _resolveChildId() async {
+    if (_resolvedChildId != null) return _resolvedChildId!;
+    
     final userProvider = context.read<UserProvider>();
-    final rewardProvider = context.read<RewardProvider>();
     final currentUser = userProvider.currentUser;
     final userId = currentUser?['id'] as int? ?? 1;
     final userType = currentUser?['type']?.toString() ?? 'child';
     
-    // 解析 childId：activeChildId 优先，家长未设置时自动获取第一个孩子
     int? childId = userProvider.activeChildId;
     if (childId == null && userType == 'parent') {
       try {
@@ -57,13 +59,24 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
         // 获取孩子列表失败，使用默认值
       }
     }
-    childId ??= userId;
+    
+    _resolvedChildId = childId ?? userId;
+    return _resolvedChildId!;
+  }
+
+  Future<void> _loadData() async {
+    final userProvider = context.read<UserProvider>();
+    final rewardProvider = context.read<RewardProvider>();
+    final userId = userProvider.currentUser?['id'] as int? ?? 1;
+    
+    // 解析 childId
+    final childId = await _resolveChildId();
 
     // 先并行加载基础数据
     await Future.wait([
       rewardProvider.loadBehaviors(userId),
       rewardProvider.loadGifts(userId),
-      rewardProvider.loadPointRecords(childId!),
+      rewardProvider.loadPointRecords(childId),
       rewardProvider.loadRedemptions(childId),
     ]);
     
@@ -371,8 +384,30 @@ class _CheckInPanel extends StatelessWidget {
     RewardProvider reward,
   ) async {
     final userProvider = context.read<UserProvider>();
-    final userId = userProvider.currentUser?['id'] as int? ?? 1;
-    final childId = userProvider.activeChildId ?? userId;
+    final currentUser = userProvider.currentUser;
+    final userId = currentUser?['id'] as int? ?? 1;
+    final userType = currentUser?['type']?.toString() ?? 'child';
+    
+    // 获取正确的 childId
+    int? childId = userProvider.activeChildId;
+    if (childId == null && userType == 'parent') {
+      try {
+        final api = context.read<ApiService>();
+        final children = await api.getChildrenByParent(userId);
+        if (children.isNotEmpty) {
+          final firstChild = children.first;
+          childId = firstChild['id'] is int 
+              ? firstChild['id'] as int 
+              : int.tryParse(firstChild['id']?.toString() ?? '');
+          if (childId != null) {
+            await userProvider.setActiveChildId(childId);
+          }
+        }
+      } catch (e) {
+        // 获取孩子列表失败，使用默认值
+      }
+    }
+    childId ??= userId;
 
     final record = await reward.recordPoints(
       childId: childId,

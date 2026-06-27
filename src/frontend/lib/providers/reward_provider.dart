@@ -61,12 +61,21 @@ class RewardProvider extends ChangeNotifier {
     try {
       final now = DateTime.now();
       final today = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      _log.info('loadTodayRecords: fetching for childId=$childId, date=$today, now=$now');
+      
       final response = await _apiService.dio.get(
         '/reward/calendar/$childId/day',
         queryParameters: {'date': today},
       );
       final List<dynamic> data = response.data;
-      final todayRecs = data.map((json) => PointRecord.fromJson(json)).toList();
+      _log.info('loadTodayRecords: API returned ${data.length} records');
+      
+      final todayRecs = data.map((json) {
+        final record = PointRecord.fromJson(json);
+        _log.info('  Parsed record: id=${record.id}, name=${record.behaviorName}, recordedAt=${record.recordedAt}, local=${record.recordedAt.toLocal()}');
+        return record;
+      }).toList();
+      
       final todayIds = todayRecs.map((r) => r.id).toSet();
       
       // 从 _pointRecords 中移除今日记录（使用 ID 去重，避免重复）
@@ -78,7 +87,7 @@ class RewardProvider extends ChangeNotifier {
       // 立即通知 UI 更新
       notifyListeners();
       
-      _log.info('loadTodayRecords: loaded ${todayRecs.length} records for $today');
+      _log.info('loadTodayRecords: final _pointRecords.length=${_pointRecords.length}, todayRecords.length=${todayRecords.length}');
     } catch (e) {
       _log.warning('loadTodayRecords error: $e');
     }

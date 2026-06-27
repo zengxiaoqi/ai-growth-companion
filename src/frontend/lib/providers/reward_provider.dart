@@ -39,19 +39,20 @@ class RewardProvider extends ChangeNotifier {
   /// 今日积分记录
   List<PointRecord> get todayRecords {
     final now = DateTime.now();
-    final records = _pointRecords.where((r) {
-      // 将 UTC 时间转换为本地时间
+    // 使用 ID 去重，避免重复记录
+    final seenIds = <int>{};
+    final records = <PointRecord>[];
+    for (var r in _pointRecords) {
       final localRecordedAt = r.recordedAt.toLocal();
-      // 直接比较年月日，避免 DateTime 比较的时区问题
-      return localRecordedAt.year == now.year &&
+      final isToday = localRecordedAt.year == now.year &&
              localRecordedAt.month == now.month &&
              localRecordedAt.day == now.day;
-    }).toList();
-    _log.info('todayRecords: now=$now, total records=${_pointRecords.length}, today records=${records.length}');
-    for (var r in _pointRecords) {
-      final local = r.recordedAt.toLocal();
-      _log.info('  record: ${r.behaviorName}, recordedAt=${r.recordedAt}, local=$local, isToday=${local.year == now.year && local.month == now.month && local.day == now.day}');
+      if (isToday && !seenIds.contains(r.id)) {
+        seenIds.add(r.id);
+        records.add(r);
+      }
     }
+    _log.info('todayRecords: now=$now, total records=${_pointRecords.length}, today records=${records.length}');
     return records;
   }
 
@@ -66,16 +67,10 @@ class RewardProvider extends ChangeNotifier {
       );
       final List<dynamic> data = response.data;
       final todayRecs = data.map((json) => PointRecord.fromJson(json)).toList();
+      final todayIds = todayRecs.map((r) => r.id).toSet();
       
-      // 从 _pointRecords 中移除今日记录（避免重复）
-      _pointRecords.removeWhere((r) {
-        // 将 UTC 时间转换为本地时间
-        final localRecordedAt = r.recordedAt.toLocal();
-        // 直接比较年月日，避免 DateTime 比较的时区问题
-        return localRecordedAt.year == now.year &&
-               localRecordedAt.month == now.month &&
-               localRecordedAt.day == now.day;
-      });
+      // 从 _pointRecords 中移除今日记录（使用 ID 去重，避免重复）
+      _pointRecords.removeWhere((r) => todayIds.contains(r.id));
       
       // 将今日记录插入到开头
       _pointRecords.insertAll(0, todayRecs);

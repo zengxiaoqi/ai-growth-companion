@@ -444,6 +444,13 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           onTap: () => Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
         ),
         _MenuTile(
+          icon: Icons.family_restroom_rounded,
+          title: '孩子管理',
+          subtitle: '添加、编辑或删除孩子账号',
+          color: const Color(0xFF81C784),
+          onTap: () => Navigator.pushNamed(context, '/parent/childManager'),
+        ),
+        _MenuTile(
           icon: Icons.emoji_events_rounded,
           title: '积分管理',
           subtitle: '查看孩子积分与兑换礼品',

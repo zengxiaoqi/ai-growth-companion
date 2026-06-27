@@ -109,4 +109,87 @@ export class UsersService {
     }
     return false;
   }
+
+  /** 添加孩子账号 */
+  async addChild(
+    parentId: number,
+    childData: { name: string; phone?: string; age?: number; gender?: string },
+  ): Promise<User> {
+    const parent = await this.findById(parentId);
+    if (!parent || parent.type !== 'parent') {
+      throw new BadRequestException('仅家长账号可添加孩子');
+    }
+
+    // 检查手机号是否已存在
+    if (childData.phone) {
+      const existing = await this.findByPhone(childData.phone);
+      if (existing) {
+        throw new BadRequestException('该手机号已被使用');
+      }
+    }
+
+    const child = this.usersRepository.create({
+      name: childData.name,
+      phone: childData.phone,
+      age: childData.age,
+      gender: childData.gender,
+      type: 'child',
+      parentId: parentId,
+      password: '', // 孩子账号不需要密码（由家长管理）
+    });
+
+    const saved = await this.usersRepository.save(child);
+    return this.findSafeById(saved.id) as Promise<User>;
+  }
+
+  /** 更新孩子信息（仅家长可操作自己的孩子） */
+  async updateChild(
+    parentId: number,
+    childId: number,
+    childData: { name?: string; phone?: string; age?: number; gender?: string },
+  ): Promise<User> {
+    const child = await this.findById(childId);
+    if (!child) {
+      throw new NotFoundException('孩子不存在');
+    }
+    if (child.parentId !== parentId) {
+      throw new BadRequestException('只能修改自己的孩子信息');
+    }
+    if (child.type !== 'child') {
+      throw new BadRequestException('只能修改孩子类型的账号');
+    }
+
+    // 检查手机号是否已被其他用户使用
+    if (childData.phone && childData.phone !== child.phone) {
+      const existing = await this.findByPhone(childData.phone);
+      if (existing) {
+        throw new BadRequestException('该手机号已被使用');
+      }
+    }
+
+    const updateData: Partial<User> = {};
+    if (childData.name !== undefined) updateData.name = childData.name;
+    if (childData.phone !== undefined) updateData.phone = childData.phone;
+    if (childData.age !== undefined) updateData.age = childData.age;
+    if (childData.gender !== undefined) updateData.gender = childData.gender;
+
+    await this.usersRepository.update(childId, updateData);
+    return this.findSafeById(childId) as Promise<User>;
+  }
+
+  /** 删除孩子账号（仅家长可操作自己的孩子） */
+  async deleteChild(parentId: number, childId: number): Promise<void> {
+    const child = await this.findById(childId);
+    if (!child) {
+      throw new NotFoundException('孩子不存在');
+    }
+    if (child.parentId !== parentId) {
+      throw new BadRequestException('只能删除自己的孩子');
+    }
+    if (child.type !== 'child') {
+      throw new BadRequestException('只能删除孩子类型的账号');
+    }
+
+    await this.usersRepository.delete(childId);
+  }
 }

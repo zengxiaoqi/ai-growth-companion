@@ -1,43 +1,72 @@
-import { Controller, Get, Put, Body, Param, Post, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Put,
+  Delete,
+  Post,
+  Body,
+  Param,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@ApiTags('用户管理')
 @Controller('users')
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) {}
 
-  // ⚠️ 具体路由必须在参数路由之前定义，否则 /users/children/1 会被 :id 拦截
-  @Get('children/:parentId')
+  // 获取当前家长的孩子列表
+  @Get('children')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '获取家长的孩子列表' })
-  async findChildren(@Param('parentId') parentId: string) {
-    return this.usersService.findByParentId(+parentId);
+  async getChildren(@Request() req) {
+    const parentId = req.user.sub;
+    return this.usersService.findByParentId(parentId);
   }
 
-  @Get(':id')
+  // 添加孩子
+  @Post('child')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '获取用户信息' })
-  async findOne(@Param('id') id: string) {
-    return this.usersService.findSafeById(+id);
+  async addChild(
+    @Request() req,
+    @Body() body: { name: string; phone?: string; age?: number; gender?: string },
+  ) {
+    const parentId = req.user.sub;
+    return this.usersService.addChild(parentId, body);
   }
 
-  @Put(':id')
+  // 更新孩子信息
+  @Put('child/:id')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '更新用户信息' })
-  async update(@Param('id') id: string, @Body() userData: any) {
-    return this.usersService.update(+id, userData);
+  async updateChild(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { name?: string; phone?: string; age?: number; gender?: string },
+  ) {
+    const parentId = req.user.sub;
+    return this.usersService.updateChild(parentId, parseInt(id), body);
   }
 
+  // 删除孩子
+  @Delete('child/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteChild(@Request() req, @Param('id') id: string) {
+    const parentId = req.user.sub;
+    await this.usersService.deleteChild(parentId, parseInt(id));
+    return { success: true };
+  }
+
+  // 获取当前用户信息
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Request() req) {
+    return this.usersService.findSafeById(req.user.sub);
+  }
+
+  // 通过手机号关联孩子账号（保留原有功能）
   @Post('link-child')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '通过手机号关联孩子账号' })
-  async linkChild(@Request() req: any, @Body() body: { childPhone: string }) {
+  async linkChild(@Request() req, @Body() body: { childPhone: string }) {
     const parentId = req.user.sub;
     return this.usersService.linkChild(parentId, body.childPhone);
   }

@@ -156,16 +156,76 @@ class ApiService {
 
   // ==================== 用户 API ====================
 
-  Future<List<dynamic>> getChildrenByParent(int parentId) async {
+  // 获取当前家长的孩子列表（从 token 获取 parentId）
+  Future<List<dynamic>> getChildren() async {
     try {
-      final response = await _dio.get('/users/children/$parentId');
+      final response = await _dio.get('/users/children');
       if (response.data is List) {
         return response.data as List<dynamic>;
       }
       return [];
     } catch (e) {
-      _log.warning('Get parent children error: $e');
+      _log.warning('Get children error: $e');
       return [];
+    }
+  }
+
+  // 兼容旧接口：通过 parentId 获取孩子列表（内部调用 getChildren）
+  Future<List<dynamic>> getChildrenByParent(int parentId) async {
+    return getChildren();
+  }
+
+  // 添加孩子
+  Future<Map<String, dynamic>?> addChild({
+    required String name,
+    String? phone,
+    int? age,
+    String? gender,
+  }) async {
+    try {
+      final data = <String, dynamic>{'name': name};
+      if (phone != null) data['phone'] = phone;
+      if (age != null) data['age'] = age;
+      if (gender != null) data['gender'] = gender;
+      
+      final response = await _dio.post('/users/child', data: data);
+      return response.data as Map<String, dynamic>?;
+    } catch (e) {
+      _log.warning('Add child error: $e');
+      return null;
+    }
+  }
+
+  // 更新孩子信息
+  Future<Map<String, dynamic>?> updateChild(int childId, {
+    String? name,
+    String? phone,
+    int? age,
+    String? gender,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (phone != null) data['phone'] = phone;
+      if (age != null) data['age'] = age;
+      if (gender != null) data['gender'] = gender;
+      
+      final response = await _dio.put('/users/child/$childId', data: data);
+      return response.data as Map<String, dynamic>?;
+    } catch (e) {
+      _log.warning('Update child error: $e');
+      return null;
+    }
+  }
+
+  // 删除孩子
+  Future<bool> deleteChild(int childId) async {
+    try {
+      final response = await _dio.delete('/users/child/$childId');
+      return response.statusCode == 200;
+    } catch (e) {
+      _log.warning('Delete child error: $e');
+      return false;
     }
   }
 

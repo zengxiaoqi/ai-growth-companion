@@ -116,6 +116,7 @@ class _PressAnimationState extends State<PressAnimation>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: widget.onTap != null ? _onTapDown : null,
       onTapUp: widget.onTap != null ? _onTapUp : null,
       onTapCancel: widget.onTap != null ? _onTapCancel : null,

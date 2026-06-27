@@ -312,19 +312,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // 登录按钮
   Widget _buildLoginButton() {
-    return PressAnimation(
-      onTap: _isLoading ? null : _handleLogin,
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: null, // PressAnimation handles tap
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-            ),
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+          ),
           elevation: _isLoading ? 0 : 4,
           shadowColor: AppTheme.primaryColor.withValues(alpha: 0.4),
         ),
@@ -345,7 +343,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   color: Colors.white,
                 ),
               ),
-        ),
       ),
     );
   }

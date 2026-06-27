@@ -366,30 +366,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildRegisterButton() {
-    return PressAnimation(
-      onTap: _isLoading ? null : _handleRegister,
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: null, // PressAnimation handles tap
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
-            elevation: _isLoading ? 0 : 4,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                )
-              : const Text(
-                  '注册',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleRegister,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
+          elevation: _isLoading ? 0 : 4,
         ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+              )
+            : const Text(
+                '注册',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
       ),
     );
   }

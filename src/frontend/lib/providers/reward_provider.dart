@@ -107,10 +107,10 @@ class RewardProvider extends ChangeNotifier {
 
   // ==================== 行为管理 ====================
 
-  Future<void> loadBehaviors(int userId) async {
+  Future<void> loadBehaviors() async {
     _setLoading(true);
     try {
-      final response = await _apiService.dio.get('/reward/behaviors/$userId');
+      final response = await _apiService.dio.get('/reward/behaviors');
       final List<dynamic> data = response.data;
       _behaviors = data.map((json) => BehaviorTemplate.fromJson(json)).toList();
       _error = null;
@@ -123,7 +123,6 @@ class RewardProvider extends ChangeNotifier {
   }
 
   Future<BehaviorTemplate?> createBehavior({
-    required int userId,
     required String name,
     required int points,
     String? emoji,
@@ -131,7 +130,6 @@ class RewardProvider extends ChangeNotifier {
   }) async {
     try {
       final response = await _apiService.dio.post('/reward/behaviors', data: {
-        'userId': userId,
         'name': name,
         'points': points,
         'emoji': emoji ?? '⭐',
@@ -145,6 +143,34 @@ class RewardProvider extends ChangeNotifier {
       _error = '创建行为失败: $e';
       _log.warning('createBehavior error: $e');
       return null;
+    }
+  }
+
+  Future<bool> updateBehavior({
+    required int id,
+    String? name,
+    int? points,
+    String? emoji,
+    String? category,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (points != null) data['points'] = points;
+      if (emoji != null) data['emoji'] = emoji;
+      if (category != null) data['category'] = category;
+      final response = await _apiService.dio.put('/reward/behaviors/$id', data: data);
+      final updated = BehaviorTemplate.fromJson(response.data);
+      final index = _behaviors.indexWhere((b) => b.id == id);
+      if (index != -1) {
+        _behaviors[index] = updated;
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      _error = '修改行为失败: $e';
+      _log.warning('updateBehavior error: $e');
+      return false;
     }
   }
 
@@ -214,7 +240,6 @@ class RewardProvider extends ChangeNotifier {
     required int points,
     int? templateId,
     String? note,
-    required int recordedBy,
   }) async {
     try {
       final response = await _apiService.dio.post('/reward/points', data: {
@@ -223,7 +248,6 @@ class RewardProvider extends ChangeNotifier {
         'behaviorName': behaviorName,
         'points': points,
         'note': note,
-        'recordedBy': recordedBy,
       });
       final record = PointRecord.fromJson(response.data);
       _dayRecordsCache.clear(); // 清除日历缓存
@@ -291,10 +315,10 @@ class RewardProvider extends ChangeNotifier {
 
   // ==================== 礼品管理 ====================
 
-  Future<void> loadGifts(int userId) async {
+  Future<void> loadGifts() async {
     _setLoading(true);
     try {
-      final response = await _apiService.dio.get('/reward/gifts/$userId');
+      final response = await _apiService.dio.get('/reward/gifts');
       final List<dynamic> data = response.data;
       _gifts = data.map((json) => Gift.fromJson(json)).toList();
       _error = null;
@@ -307,7 +331,6 @@ class RewardProvider extends ChangeNotifier {
   }
 
   Future<Gift?> createGift({
-    required int userId,
     required String name,
     required int pointsCost,
     String? emoji,
@@ -316,7 +339,6 @@ class RewardProvider extends ChangeNotifier {
   }) async {
     try {
       final response = await _apiService.dio.post('/reward/gifts', data: {
-        'userId': userId,
         'name': name,
         'pointsCost': pointsCost,
         'emoji': emoji ?? '🎁',
@@ -465,10 +487,10 @@ class RewardProvider extends ChangeNotifier {
 
   // ==================== 种子数据 ====================
 
-  Future<bool> seedDefaultBehaviors(int userId) async {
+  Future<bool> seedDefaultBehaviors() async {
     try {
-      await _apiService.dio.post('/reward/seed/behaviors/$userId');
-      await loadBehaviors(userId);
+      await _apiService.dio.post('/reward/seed/behaviors');
+      await loadBehaviors();
       return true;
     } catch (e) {
       _error = '初始化默认行为失败: $e';
@@ -476,10 +498,10 @@ class RewardProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> seedDefaultGifts(int userId) async {
+  Future<bool> seedDefaultGifts() async {
     try {
-      await _apiService.dio.post('/reward/seed/gifts/$userId');
-      await loadGifts(userId);
+      await _apiService.dio.post('/reward/seed/gifts');
+      await loadGifts();
       return true;
     } catch (e) {
       _error = '初始化默认礼品失败: $e';
@@ -500,14 +522,14 @@ class RewardProvider extends ChangeNotifier {
   }
 
   /// 加载所有数据
-  Future<void> loadAll({required int userId, required int childId}) async {
+  Future<void> loadAll({required int childId}) async {
     _setLoading(true);
     try {
       await Future.wait([
-        loadBehaviors(userId),
+        loadBehaviors(),
         loadPointRecords(childId),
         loadSummary(childId),
-        loadGifts(userId),
+        loadGifts(),
         loadRedemptions(childId),
         loadWeeklyStats(childId),
       ]);

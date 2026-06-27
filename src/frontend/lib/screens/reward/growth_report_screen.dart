@@ -34,8 +34,8 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
   Future<void> _loadData() async {
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final childId =
-        userProvider.activeChildId ?? userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) return;
     await rewardProvider.loadWeeklyStats(childId);
   }
 

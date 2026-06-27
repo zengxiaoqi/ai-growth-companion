@@ -29,8 +29,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _loadCalendar() async {
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final childId = userProvider.activeChildId ??
-        userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) return;
 
     setState(() => _isLoading = true);
     await rewardProvider.loadCalendarData(
@@ -366,8 +366,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _showDayDetail(String dateKey, DateTime date) async {
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final childId = userProvider.activeChildId ??
-        userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) return;
 
     final records = await rewardProvider.loadDayRecords(childId, dateKey);
 

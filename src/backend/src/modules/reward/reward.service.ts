@@ -30,6 +30,22 @@ export class RewardService {
     });
   }
 
+  /** 获取行为模板，空时自动种子默认模板 */
+  async getBehaviorsWithAutoSeed(userId: number) {
+    const behaviors = await this.getBehaviors(userId);
+    if (behaviors.length === 0) {
+      this.logger.log(`No behaviors found for user ${userId}, auto-seeding defaults...`);
+      await this.seedDefaultBehaviors(userId);
+      return this.getBehaviors(userId);
+    }
+    return behaviors;
+  }
+
+  /** 按 ID 查询单个行为模板（用于归属校验） */
+  async getBehaviorById(id: number) {
+    return this.behaviorRepo.findOne({ where: { id } });
+  }
+
   async createBehavior(data: {
     userId: number;
     name: string;
@@ -178,6 +194,11 @@ export class RewardService {
     return this.pointRecordRepo.delete(id);
   }
 
+  /** 按 ID 查询单条积分记录（用于归属校验） */
+  async getPointRecordById(id: number) {
+    return this.pointRecordRepo.findOne({ where: { id } });
+  }
+
   async getPointsSummary(childId: number) {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -278,6 +299,22 @@ export class RewardService {
     });
   }
 
+  /** 获取礼品列表，空时自动种子默认礼品 */
+  async getGiftsWithAutoSeed(userId: number) {
+    const gifts = await this.getGifts(userId);
+    if (gifts.length === 0) {
+      this.logger.log(`No gifts found for user ${userId}, auto-seeding defaults...`);
+      await this.seedDefaultGifts(userId);
+      return this.getGifts(userId);
+    }
+    return gifts;
+  }
+
+  /** 按 ID 查询单个礼品（用于归属校验） */
+  async getGiftById(id: number) {
+    return this.giftRepo.findOne({ where: { id } });
+  }
+
   async createGift(data: {
     userId: number;
     name: string;
@@ -317,6 +354,11 @@ export class RewardService {
       where: { childId },
       order: { redeemedAt: 'DESC' },
     });
+  }
+
+  /** 按 ID 查询单条兑换记录（用于归属校验） */
+  async getRedemptionById(id: number) {
+    return this.redemptionRepo.findOne({ where: { id } });
   }
 
   async redeemGift(data: {

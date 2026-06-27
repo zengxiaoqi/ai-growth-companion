@@ -26,8 +26,11 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
 
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final childId = userProvider.activeChildId ??
-        userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) {
+      if (mounted) setState(() => _isLoadingMore = false);
+      return;
+    }
 
     _currentPage++;
     await rewardProvider.loadPointRecords(childId, page: _currentPage, limit: 30, append: true);

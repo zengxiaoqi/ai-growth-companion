@@ -33,59 +33,46 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   }
 
   /// 获取正确的 childId（家长自动获取第一个孩子）
-  Future<int> _resolveChildId() async {
+  Future<int?> _resolveChildId() async {
     if (_resolvedChildId != null) return _resolvedChildId!;
-    
     final userProvider = context.read<UserProvider>();
-    final currentUser = userProvider.currentUser;
-    final userId = currentUser?['id'] as int? ?? 1;
-    final userType = currentUser?['type']?.toString() ?? 'child';
-    
-    int? childId = userProvider.activeChildId;
-    if (childId == null && userType == 'parent') {
-      try {
-        final api = context.read<ApiService>();
-        final children = await api.getChildrenByParent(userId);
-        if (children.isNotEmpty) {
-          final firstChild = children.first;
-          childId = firstChild['id'] is int 
-              ? firstChild['id'] as int 
-              : int.tryParse(firstChild['id']?.toString() ?? '');
-          if (childId != null) {
-            await userProvider.setActiveChildId(childId);
-          }
-        }
-      } catch (e) {
-        // 获取孩子列表失败，使用默认值
-      }
-    }
-    
-    _resolvedChildId = childId ?? userId;
-    return _resolvedChildId!;
+    _resolvedChildId = await userProvider.resolveChildId();
+    return _resolvedChildId;
   }
 
   Future<void> _loadData() async {
-    final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final userId = userProvider.currentUser?['id'] as int? ?? 1;
-    
+
     // 解析 childId
     final childId = await _resolveChildId();
 
-    // 先并行加载基础数据
+    // 行为模板和礼品不需要 childId（后端从 JWT 取 userId）
     await Future.wait([
-      rewardProvider.loadBehaviors(userId),
-      rewardProvider.loadGifts(userId),
-      rewardProvider.loadPointRecords(childId),
-      rewardProvider.loadRedemptions(childId),
+      rewardProvider.loadBehaviors(),
+      rewardProvider.loadGifts(),
     ]);
-    
-    // 确保今日记录在积分记录加载完成后单独加载
-    // 避免并发导致的竞态条件（loadTodayRecords 会修改 _pointRecords）
-    await rewardProvider.loadTodayRecords(childId);
-    
-    // 今日记录加载完成后，刷新汇总数据（确保积分显示正确）
-    await rewardProvider.loadSummary(childId);
+
+    // 只有解析到 childId 才加载孩子相关数据
+    if (childId != null) {
+      await Future.wait([
+        rewardProvider.loadPointRecords(childId),
+        rewardProvider.loadRedemptions(childId),
+      ]);
+      await rewardProvider.loadTodayRecords(childId);
+      await rewardProvider.loadSummary(childId);
+    }
+  }
+
+  /// 切换孩子后重新加载数据
+  void _onChildChanged(int newChildId) {
+    setState(() {
+      _resolvedChildId = newChildId;
+    });
+    final rewardProvider = context.read<RewardProvider>();
+    rewardProvider.loadPointRecords(newChildId);
+    rewardProvider.loadTodayRecords(newChildId);
+    rewardProvider.loadSummary(newChildId);
+    rewardProvider.loadRedemptions(newChildId);
   }
 
   @override
@@ -110,11 +97,11 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
               Expanded(
                 child: IndexedStack(
                   index: _currentTab,
-                  children: const [
-                    _CheckInPanel(),
-                    _GiftShopPanel(),
-                    _CalendarPanel(),
-                    _GrowthReportPanel(),
+                  children: [
+                    _CheckInPanel(onManageTemplates: () => _showTemplateManagement()),
+                    const _GiftShopPanel(),
+                    const _CalendarPanel(),
+                    const _GrowthReportPanel(),
                   ],
                 ),
               ),
@@ -122,6 +109,16 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
           );
         },
       ),
+    );
+  }
+
+  /// 打开行为模板管理底部弹窗
+  void _showTemplateManagement() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _BehaviorTemplateManagementSheet(),
     );
   }
 
@@ -229,7 +226,9 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
 
 // 打卡面板
 class _CheckInPanel extends StatelessWidget {
-  const _CheckInPanel();
+  final VoidCallback onManageTemplates;
+
+  const _CheckInPanel({required this.onManageTemplates});
 
   @override
   Widget build(BuildContext context) {
@@ -238,8 +237,25 @@ class _CheckInPanel extends StatelessWidget {
         final templates = reward.behaviors;
         final todayRecords = reward.todayRecords;
 
+        if (reward.isLoading && templates.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         if (templates.isEmpty) {
-          return const Center(child: Text('暂无行为模板'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('暂无行为模板，点击设置添加', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: onManageTemplates,
+                  icon: const Icon(Icons.settings),
+                  label: const Text('管理模板'),
+                ),
+              ],
+            ),
+          );
         }
 
         // 按分类分组
@@ -251,6 +267,21 @@ class _CheckInPanel extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
+            // 管理模板按钮
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onManageTemplates,
+                  icon: const Icon(Icons.settings, size: 18),
+                  label: const Text('管理模板', style: TextStyle(fontSize: 13)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ),
             // 今日打卡记录
             if (todayRecords.isNotEmpty) ...[
               const _RewardSectionHeader(title: '今日打卡', emoji: '✅'),
@@ -260,7 +291,8 @@ class _CheckInPanel extends StatelessWidget {
             ],
             // 按分类显示行为模板
             ...categories.entries.expand((entry) => [
-                  _RewardSectionHeader(title: entry.key, emoji: _getCategoryEmoji(entry.key)),
+                  _RewardSectionHeader(
+                      title: _getCategoryLabel(entry.key), emoji: _getCategoryEmoji(entry.key)),
                   const SizedBox(height: 12),
                   ...entry.value.map((t) => _buildBehaviorCard(context, t, reward)),
                   const SizedBox(height: 12),
@@ -329,15 +361,15 @@ class _CheckInPanel extends StatelessWidget {
   Widget _buildBehaviorCard(
       BuildContext context, BehaviorTemplate template, RewardProvider reward) {
     final isPositive = template.points >= 0;
-    
+
     // 检查今日是否已打卡该行为
     final alreadyCheckedIn = reward.todayRecords.any(
       (r) => r.behaviorName == template.name,
     );
-    
+
     // 根据分类选择合适的图标
     final iconData = _getIconForCategory(template.category);
-    
+
     return AnimatedTaskCard(
       title: template.name,
       subtitle: '${isPositive ? '+' : ''}${template.points} 积分',
@@ -347,15 +379,16 @@ class _CheckInPanel extends StatelessWidget {
       onTap: alreadyCheckedIn ? null : () => _handleCheckIn(context, template, reward),
     );
   }
-  
+
   _IconData _getIconForCategory(String category) {
     switch (category) {
+      case 'daily':
       case '日常习惯':
         return _IconData(Icons.wb_sunny_rounded, AppTheme.secondaryColor);
+      case 'extra':
       case '学习活动':
         return _IconData(Icons.menu_book_rounded, AppTheme.primaryColor);
-      case '额外加分':
-        return _IconData(Icons.star_rounded, AppTheme.accentColor);
+      case 'negative':
       case '扣分行为':
         return _IconData(Icons.warning_amber_rounded, AppTheme.warningColor);
       default:
@@ -365,16 +398,30 @@ class _CheckInPanel extends StatelessWidget {
 
   String _getCategoryEmoji(String category) {
     switch (category) {
+      case 'daily':
       case '日常习惯':
         return '🌅';
+      case 'extra':
       case '学习活动':
         return '📚';
-      case '额外加分':
-        return '⭐';
+      case 'negative':
       case '扣分行为':
         return '⚠️';
       default:
         return '📋';
+    }
+  }
+
+  String _getCategoryLabel(String category) {
+    switch (category) {
+      case 'daily':
+        return '日常习惯';
+      case 'extra':
+        return '额外加分';
+      case 'negative':
+        return '扣分行为';
+      default:
+        return category;
     }
   }
 
@@ -384,37 +431,25 @@ class _CheckInPanel extends StatelessWidget {
     RewardProvider reward,
   ) async {
     final userProvider = context.read<UserProvider>();
-    final currentUser = userProvider.currentUser;
-    final userId = currentUser?['id'] as int? ?? 1;
-    final userType = currentUser?['type']?.toString() ?? 'child';
-    
-    // 获取正确的 childId
-    int? childId = userProvider.activeChildId;
-    if (childId == null && userType == 'parent') {
-      try {
-        final api = context.read<ApiService>();
-        final children = await api.getChildrenByParent(userId);
-        if (children.isNotEmpty) {
-          final firstChild = children.first;
-          childId = firstChild['id'] is int 
-              ? firstChild['id'] as int 
-              : int.tryParse(firstChild['id']?.toString() ?? '');
-          if (childId != null) {
-            await userProvider.setActiveChildId(childId);
-          }
-        }
-      } catch (e) {
-        // 获取孩子列表失败，使用默认值
+    final childId = await userProvider.resolveChildId();
+
+    if (childId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('未找到孩子信息，请先绑定孩子'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+      return;
     }
-    childId ??= userId;
 
     final record = await reward.recordPoints(
       childId: childId,
       behaviorName: template.name,
       points: template.points,
       templateId: template.id,
-      recordedBy: userId,
     );
 
     if (context.mounted) {
@@ -446,6 +481,321 @@ class _IconData {
   final IconData icon;
   final Color color;
   _IconData(this.icon, this.color);
+}
+
+// ==================== 行为模板管理底部弹窗 ====================
+
+class _BehaviorTemplateManagementSheet extends StatefulWidget {
+  const _BehaviorTemplateManagementSheet();
+
+  @override
+  State<_BehaviorTemplateManagementSheet> createState() =>
+      _BehaviorTemplateManagementSheetState();
+}
+
+class _BehaviorTemplateManagementSheetState
+    extends State<_BehaviorTemplateManagementSheet> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 顶部拖拽指示器
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // 标题栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '行为模板管理',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Colors.green),
+                      tooltip: '新增模板',
+                      onPressed: () => _showEditDialog(context),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          // 模板列表
+          Expanded(
+            child: Consumer<RewardProvider>(
+              builder: (context, reward, _) {
+                if (reward.behaviors.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('暂无模板', style: TextStyle(color: Colors.grey)),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: () => _showEditDialog(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('添加第一个模板'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final templates = reward.behaviors;
+                // 按分类分组
+                final categories = <String, List<BehaviorTemplate>>{};
+                for (final t in templates) {
+                  categories.putIfAbsent(t.category, () => []).add(t);
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    ...categories.entries.expand((entry) => [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 8),
+                            child: Text(
+                              _categoryLabel(entry.key),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                          ...entry.value.map((t) => _buildTemplateTile(context, t, reward)),
+                        ]),
+                    const SizedBox(height: 20),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTemplateTile(
+      BuildContext context, BehaviorTemplate template, RewardProvider reward) {
+    final isPositive = template.points >= 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        leading: Text(template.emoji, style: const TextStyle(fontSize: 24)),
+        title: Text(template.name),
+        subtitle: Text(
+          '${isPositive ? '+' : ''}${template.points} 积分',
+          style: TextStyle(
+            color: isPositive ? Colors.green : Colors.red,
+            fontSize: 12,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 启用/禁用开关
+            IconButton(
+              icon: Icon(
+                template.isEnabled ? Icons.visibility : Icons.visibility_off,
+                size: 20,
+                color: template.isEnabled ? Colors.blue : Colors.grey,
+              ),
+              tooltip: template.isEnabled ? '已启用' : '已禁用',
+              onPressed: () async {
+                await reward.toggleBehavior(template.id);
+              },
+            ),
+            // 编辑
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20, color: Colors.orange),
+              tooltip: '编辑',
+              onPressed: () => _showEditDialog(context, template: template),
+            ),
+            // 删除
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              tooltip: '删除',
+              onPressed: () => _confirmDelete(context, template, reward),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _categoryLabel(String category) {
+    switch (category) {
+      case 'daily':
+        return '🌅 日常习惯';
+      case 'extra':
+        return '📚 额外加分';
+      case 'negative':
+        return '⚠️ 扣分行为';
+      default:
+        return '📋 $category';
+    }
+  }
+
+  /// 新增/编辑模板对话框
+  void _showEditDialog(BuildContext context, {BehaviorTemplate? template}) {
+    final isEdit = template != null;
+    final nameController = TextEditingController(text: template?.name ?? '');
+    final emojiController = TextEditingController(text: template?.emoji ?? '⭐');
+    final pointsController =
+        TextEditingController(text: template?.points.toString() ?? '1');
+    String selectedCategory = template?.category ?? 'daily';
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(isEdit ? '编辑行为模板' : '新增行为模板'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: '行为名称',
+                    hintText: '如：起床洗漱',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emojiController,
+                  decoration: const InputDecoration(
+                    labelText: 'Emoji 图标',
+                    hintText: '如：🌅',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: pointsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '积分值（正数加分，负数扣分）',
+                    hintText: '如：2 或 -3',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: '分类',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'daily', child: Text('🌅 日常习惯')),
+                    DropdownMenuItem(value: 'extra', child: Text('📚 额外加分')),
+                    DropdownMenuItem(value: 'negative', child: Text('⚠️ 扣分行为')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      setDialogState(() => selectedCategory = v);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final emoji = emojiController.text.trim();
+                final points = int.tryParse(pointsController.text.trim());
+                if (name.isEmpty || points == null) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('请填写名称和有效积分值'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                final reward = context.read<RewardProvider>();
+                if (isEdit) {
+                  await reward.updateBehavior(
+                    id: template.id,
+                    name: name,
+                    points: points,
+                    emoji: emoji.isNotEmpty ? emoji : '⭐',
+                    category: selectedCategory,
+                  );
+                } else {
+                  await reward.createBehavior(
+                    name: name,
+                    points: points,
+                    emoji: emoji.isNotEmpty ? emoji : '⭐',
+                    category: selectedCategory,
+                  );
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: Text(isEdit ? '保存' : '添加'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 确认删除
+  void _confirmDelete(
+      BuildContext context, BehaviorTemplate template, RewardProvider reward) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定要删除「${template.name}」吗？\n已打卡的记录不受影响。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await reward.deleteBehavior(template.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // 商城面板

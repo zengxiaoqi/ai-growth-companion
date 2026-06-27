@@ -40,10 +40,8 @@ class _GiftShopScreenState extends State<GiftShopScreen>
   }
 
   Future<void> _loadData() async {
-    final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final userId = userProvider.currentUser?['id'] as int? ?? 1;
-    await rewardProvider.loadGifts(userId);
+    await rewardProvider.loadGifts();
   }
 
   @override
@@ -522,10 +520,17 @@ class _GiftShopScreenState extends State<GiftShopScreen>
     );
   }
 
-  void _confirmRedeem(Gift gift, RewardProvider reward) {
+  Future<void> _confirmRedeem(Gift gift, RewardProvider reward) async {
     final userProvider = context.read<UserProvider>();
-    final childId =
-        userProvider.activeChildId ?? userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请先添加/选择孩子')),
+        );
+      }
+      return;
+    }
 
     showDialog(
       context: context,

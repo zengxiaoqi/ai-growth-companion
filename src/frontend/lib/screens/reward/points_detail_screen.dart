@@ -26,7 +26,8 @@ class _PointsDetailScreenState extends State<PointsDetailScreen> {
   Future<void> _loadData() async {
     final userProvider = context.read<UserProvider>();
     final rewardProvider = context.read<RewardProvider>();
-    final childId = userProvider.activeChildId ?? userProvider.currentUser?['id'] as int? ?? 1;
+    final childId = await userProvider.resolveChildId();
+    if (childId == null) return;
     await rewardProvider.loadPointRecords(childId, limit: 50);
   }
 

@@ -134,6 +134,51 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 解析当前应使用的 childId
+  /// 1. 优先返回 activeChildId
+  /// 2. 孩子账号返回自己的 ID
+  /// 3. 家长账号尝试获取第一个孩子
+  /// 4. 无法解析时返回 null（调用方应显示提示）
+  Future<int?> resolveChildId() async {
+    // 1. 已设置 activeChildId
+    if (_activeChildId != null) return _activeChildId!;
+
+    // 2. 无登录用户
+    if (_currentUser == null) return null;
+
+    final userId = _currentUser!['id'] is int
+        ? _currentUser!['id'] as int
+        : int.tryParse(_currentUser!['id']?.toString() ?? '');
+    final userType = _currentUser!['type']?.toString() ?? 'child';
+
+    // 3. 孩子账号
+    if (userType == 'child' && userId != null) {
+      _activeChildId = userId;
+      return userId;
+    }
+
+    // 4. 家长账号：尝试获取第一个孩子
+    if (userType == 'parent' && userId != null && _apiService != null) {
+      try {
+        final children = await _apiService!.getChildrenByParent(userId);
+        if (children.isNotEmpty) {
+          final firstChild = children.first;
+          final childId = firstChild['id'] is int
+              ? firstChild['id'] as int
+              : int.tryParse(firstChild['id']?.toString() ?? '');
+          if (childId != null) {
+            await setActiveChildId(childId);
+            return childId;
+          }
+        }
+      } catch (e) {
+        debugPrint('[UserProvider] resolveChildId error: $e');
+      }
+    }
+
+    return null;
+  }
+
   @override
   void dispose() {
     _loadTimer?.cancel();

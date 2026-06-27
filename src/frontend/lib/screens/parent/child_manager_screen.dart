@@ -197,14 +197,52 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     return RefreshIndicator(
       onRefresh: _loadChildren,
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _children.length,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+        itemCount: _children.length + 1,
         itemBuilder: (context, index) {
-          final child = _children[index];
-          return _ChildCard(
-            child: child,
-            onEdit: () => _showEditChildDialog(child),
-            onDelete: () => _deleteChild(child),
+          if (index < _children.length) {
+            final child = _children[index];
+            return _ChildCard(
+              child: child,
+              onEdit: () => _showEditChildDialog(child),
+              onDelete: () => _deleteChild(child),
+            );
+          }
+          // 末尾的添加按钮
+          return Card(
+            margin: const EdgeInsets.only(top: 4),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            color: AppTheme.primaryColor.withValues(alpha: 0.05),
+            child: ListTile(
+              onTap: _showAddChildDialog,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.person_add, color: AppTheme.primaryColor),
+              ),
+              title: Text(
+                '添加孩子',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                '支持管理多个孩子',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              trailing: Icon(Icons.add, color: AppTheme.primaryColor),
+            ),
           );
         },
       ),

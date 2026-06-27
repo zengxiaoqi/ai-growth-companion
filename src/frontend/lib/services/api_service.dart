@@ -107,8 +107,15 @@ class ApiService {
         'password': password,
       });
       return response.data;
+    } on DioException catch (e) {
+      // Extract user-friendly error message from API response
+      final data = e.response?.data;
+      if (data is Map && data['message'] != null) {
+        return {'error': data['message'].toString()};
+      }
+      return {'error': '网络错误，请检查网络后重试'};
     } catch (e) {
-      return {'error': e.toString()};
+      return {'error': '登录失败，请稍后重试'};
     }
   }
 
@@ -116,8 +123,14 @@ class ApiService {
     try {
       final response = await _dio.post('/auth/register', data: userData);
       return response.data;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data['message'] != null) {
+        return {'error': data['message'].toString()};
+      }
+      return {'error': '网络错误，请检查网络后重试'};
     } catch (e) {
-      return {'error': e.toString()};
+      return {'error': '注册失败，请稍后重试'};
     }
   }
 

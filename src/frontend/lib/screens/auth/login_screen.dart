@@ -41,10 +41,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       curve: Curves.easeOut,
     );
     _animationController.forward();
-
-    // 测试环境默认填写账号密码
-    _phoneController.text = '13800000001';
-    _passwordController.text = 'password123';
   }
 
   @override

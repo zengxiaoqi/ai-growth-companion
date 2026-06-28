@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../theme/app_theme.dart';
+import '../../components/reward_icon.dart';
+import '../../components/icon_picker.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
 import '../../models/reward_models.dart';
@@ -259,10 +262,26 @@ class _GiftShopScreenState extends State<GiftShopScreen>
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Text(
-                        gift.emoji,
-                        style: const TextStyle(fontSize: 48),
-                      ),
+                      // 支持自定义图片或 emoji
+                      if (gift.iconImage != null && gift.iconImage!.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: CachedNetworkImage(
+                            imageUrl: gift.iconImage!.startsWith('http')
+                                ? gift.iconImage!
+                                : 'https://lingxi.chataifree.eu.org/api${gift.iconImage}',
+                            fit: BoxFit.cover,
+                            width: 56,
+                            height: 56,
+                            errorWidget: (context, url, error) =>
+                                Text(gift.emoji, style: const TextStyle(fontSize: 48)),
+                          ),
+                        )
+                      else
+                        Text(
+                          gift.emoji,
+                          style: const TextStyle(fontSize: 48),
+                        ),
                       if (canAfford)
                         Positioned(
                           top: 8,
@@ -418,7 +437,23 @@ class _GiftShopScreenState extends State<GiftShopScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(gift.emoji, style: const TextStyle(fontSize: 56)),
+              // 支持自定义图片或 emoji
+              if (gift.iconImage != null && gift.iconImage!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CachedNetworkImage(
+                    imageUrl: gift.iconImage!.startsWith('http')
+                        ? gift.iconImage!
+                        : 'https://lingxi.chataifree.eu.org/api${gift.iconImage}',
+                    fit: BoxFit.cover,
+                    width: 64,
+                    height: 64,
+                    errorWidget: (context, url, error) =>
+                        Text(gift.emoji, style: const TextStyle(fontSize: 56)),
+                  ),
+                )
+              else
+                Text(gift.emoji, style: const TextStyle(fontSize: 56)),
               const SizedBox(height: 12),
               Text(
                 gift.name,
@@ -710,10 +745,16 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
   }
 
   Widget _buildGiftTile(BuildContext context, Gift gift, RewardProvider reward) {
+    final isPositive = gift.pointsCost >= 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
-        leading: Text(gift.emoji, style: const TextStyle(fontSize: 24)),
+        leading: RewardIcon(
+          emoji: gift.emoji,
+          iconImage: gift.iconImage,
+          size: 40,
+          backgroundColor: AppTheme.accentColor,
+        ),
         title: Text(
           gift.name,
           style: TextStyle(
@@ -802,6 +843,9 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
     final stockController =
         TextEditingController(text: gift != null ? gift.stock.toString() : '-1');
     String selectedCategory = gift?.category ?? 'entertainment';
+    // 当前图标状态
+    String currentEmoji = gift?.emoji ?? '🎁';
+    String? currentIconImage = gift?.iconImage;
 
     showDialog(
       context: context,
@@ -813,32 +857,75 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Emoji + 名称
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 60,
-                      child: TextField(
-                        controller: emojiController,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 24),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(vertical: 8),
-                        ),
-                      ),
+                // 图标选择器（编辑模式）
+                if (isEdit) ...[
+                  IconPicker(
+                    emoji: currentEmoji,
+                    iconImage: currentIconImage,
+                    size: 56,
+                    onImageSelected: (filePath) async {
+                      final reward = context.read<RewardProvider>();
+                      final ok = await reward.uploadGiftIcon(gift.id, filePath);
+                      if (ok) {
+                        final updated = reward.gifts.firstWhere((g) => g.id == gift.id,
+                            orElse: () => gift);
+                        setState(() {
+                          currentIconImage = updated.iconImage;
+                          currentEmoji = updated.emoji;
+                        });
+                      }
+                      return ok;
+                    },
+                    onImageDeleted: () async {
+                      final reward = context.read<RewardProvider>();
+                      final ok = await reward.deleteGiftIcon(gift.id);
+                      if (ok) {
+                        final updated = reward.gifts.firstWhere((g) => g.id == gift.id,
+                            orElse: () => gift);
+                        setState(() {
+                          currentIconImage = null;
+                          currentEmoji = updated.emoji;
+                        });
+                      }
+                      return ok;
+                    },
+                    onEmojiSelected: (emoji) async {
+                      emojiController.text = emoji;
+                      setState(() => currentEmoji = emoji);
+                      if (currentIconImage != null) {
+                        final reward = context.read<RewardProvider>();
+                        await reward.deleteGiftIcon(gift.id);
+                        setState(() => currentIconImage = null);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '点击图标可上传自定义图片或选择 emoji',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  // 新增模式：emoji 文本输入
+                  TextField(
+                    controller: emojiController,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 24),
+                    decoration: const InputDecoration(
+                      labelText: 'Emoji',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(vertical: 8),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: '礼品名称',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                // 名称
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: '礼品名称',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(

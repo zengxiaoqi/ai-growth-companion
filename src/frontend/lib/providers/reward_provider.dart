@@ -202,6 +202,44 @@ class RewardProvider extends ChangeNotifier {
     }
   }
 
+  /// 上传行为模板图标图片
+  Future<bool> uploadBehaviorIcon(int id, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath),
+      });
+      final response = await _apiService.dio.post(
+        '/reward/behaviors/$id/icon',
+        data: formData,
+      );
+      final iconImage = response.data['url'] as String;
+      final index = _behaviors.indexWhere((b) => b.id == id);
+      if (index != -1) {
+        // 重新从完整 API 数据加载该行为
+        await loadBehaviors();
+      }
+      _log.info('uploadBehaviorIcon success: $iconImage');
+      return true;
+    } catch (e) {
+      _error = '上传图标失败: $e';
+      _log.warning('uploadBehaviorIcon error: $e');
+      return false;
+    }
+  }
+
+  /// 删除行为模板图标图片（恢复为 emoji）
+  Future<bool> deleteBehaviorIcon(int id) async {
+    try {
+      await _apiService.dio.delete('/reward/behaviors/$id/icon');
+      await loadBehaviors();
+      return true;
+    } catch (e) {
+      _error = '删除图标失败: $e';
+      _log.warning('deleteBehaviorIcon error: $e');
+      return false;
+    }
+  }
+
   // ==================== 积分记录 ====================
 
   Future<void> loadPointRecords(int childId, {int page = 1, int limit = 20, bool append = false}) async {
@@ -381,6 +419,40 @@ class RewardProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = '删除礼品失败: $e';
+      return false;
+    }
+  }
+
+  /// 上传礼品图标图片
+  Future<bool> uploadGiftIcon(int id, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath),
+      });
+      final response = await _apiService.dio.post(
+        '/reward/gifts/$id/icon',
+        data: formData,
+      );
+      final iconImage = response.data['url'] as String;
+      await loadGifts();
+      _log.info('uploadGiftIcon success: $iconImage');
+      return true;
+    } catch (e) {
+      _error = '上传图标失败: $e';
+      _log.warning('uploadGiftIcon error: $e');
+      return false;
+    }
+  }
+
+  /// 删除礼品图标图片（恢复为 emoji）
+  Future<bool> deleteGiftIcon(int id) async {
+    try {
+      await _apiService.dio.delete('/reward/gifts/$id/icon');
+      await loadGifts();
+      return true;
+    } catch (e) {
+      _error = '删除图标失败: $e';
+      _log.warning('deleteGiftIcon error: $e');
       return false;
     }
   }

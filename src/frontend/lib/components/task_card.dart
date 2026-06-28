@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart';
 
 /// 任务卡片组件 - 用于打卡任务列表
@@ -19,22 +20,28 @@ import '../theme/app_theme.dart';
 class TaskCard extends StatefulWidget {
   /// 任务标题
   final String title;
-  
+
   /// 副标题（通常显示积分）
   final String subtitle;
-  
-  /// 图标
-  final IconData icon;
-  
+
+  /// 图标（IconData 模式，与 emoji/iconImage 互斥）
+  final IconData? icon;
+
+  /// emoji 文本（与 icon 互斥，优先级低于 iconImage）
+  final String? emoji;
+
+  /// 自定义图标图片 URL（优先级最高）
+  final String? iconImage;
+
   /// 图标背景颜色
   final Color? iconColor;
-  
+
   /// 是否已完成
   final bool isCompleted;
-  
+
   /// 点击回调
   final VoidCallback? onTap;
-  
+
   /// 长按回调（可选）
   final VoidCallback? onLongPress;
 
@@ -42,12 +49,15 @@ class TaskCard extends StatefulWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    this.icon,
+    this.emoji,
+    this.iconImage,
     this.iconColor,
     this.isCompleted = false,
     this.onTap,
     this.onLongPress,
-  });
+  }) : assert(icon != null || emoji != null,
+           'Either icon or emoji must be provided');
 
   @override
   State<TaskCard> createState() => _TaskCardState();
@@ -133,11 +143,7 @@ class _TaskCardState extends State<TaskCard>
                   color: iconColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  widget.icon,
-                  color: iconColor,
-                  size: AppTheme.iconMd,
-                ),
+                child: _buildIcon(iconColor),
               ),
               
               const SizedBox(width: 16),
@@ -180,6 +186,44 @@ class _TaskCardState extends State<TaskCard>
           ),
         ),
       ),
+    );
+  }
+
+  /// 构建图标内容：优先显示自定义图片，其次 emoji，最后 IconData
+  Widget _buildIcon(Color iconColor) {
+    // 优先显示自定义图片
+    if (widget.iconImage != null && widget.iconImage!.isNotEmpty) {
+      final url = widget.iconImage!;
+      final fullUrl = url.startsWith('http')
+          ? url
+          : 'https://lingxi.chataifree.eu.org/api$url';
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: CachedNetworkImage(
+          imageUrl: fullUrl,
+          fit: BoxFit.cover,
+          width: 48,
+          height: 48,
+          errorWidget: (context, url, error) => _buildEmojiOrIcon(iconColor),
+        ),
+      );
+    }
+    return _buildEmojiOrIcon(iconColor);
+  }
+
+  Widget _buildEmojiOrIcon(Color iconColor) {
+    if (widget.emoji != null) {
+      return Center(
+        child: Text(
+          widget.emoji!,
+          style: const TextStyle(fontSize: 24),
+        ),
+      );
+    }
+    return Icon(
+      widget.icon,
+      color: iconColor,
+      size: AppTheme.iconMd,
     );
   }
 
@@ -249,7 +293,9 @@ class _TaskCardState extends State<TaskCard>
 class AnimatedTaskCard extends StatefulWidget {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final IconData? icon;
+  final String? emoji;
+  final String? iconImage;
   final Color? iconColor;
   final bool isCompleted;
   final VoidCallback? onTap;
@@ -260,13 +306,16 @@ class AnimatedTaskCard extends StatefulWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    this.icon,
+    this.emoji,
+    this.iconImage,
     this.iconColor,
     this.isCompleted = false,
     this.onTap,
     this.onLongPress,
     this.index = 0,
-  });
+  }) : assert(icon != null || emoji != null,
+           'Either icon or emoji must be provided');
 
   @override
   State<AnimatedTaskCard> createState() => _AnimatedTaskCardState();
@@ -325,6 +374,8 @@ class _AnimatedTaskCardState extends State<AnimatedTaskCard>
           title: widget.title,
           subtitle: widget.subtitle,
           icon: widget.icon,
+          emoji: widget.emoji,
+          iconImage: widget.iconImage,
           iconColor: widget.iconColor,
           isCompleted: widget.isCompleted,
           onTap: widget.onTap,

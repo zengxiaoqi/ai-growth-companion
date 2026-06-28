@@ -6,6 +6,8 @@ import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';
 import '../../components/stat_card.dart';
 import '../../components/task_card.dart';
+import '../../components/reward_icon.dart';
+import '../../components/icon_picker.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
 import '../../models/reward_models.dart';
@@ -381,14 +383,13 @@ class _CheckInPanel extends StatelessWidget {
       (r) => r.behaviorName == template.name,
     );
 
-    // 根据分类选择合适的图标
-    final iconData = _getIconForCategory(template.category);
-
+    // 使用模板自带的 emoji 和自定义图标，而非按分类统一图标
     return AnimatedTaskCard(
       title: template.name,
       subtitle: '${isPositive ? '+' : ''}${template.points} 积分',
-      icon: iconData.icon,
-      iconColor: isPositive ? iconData.color : AppTheme.warningColor,
+      emoji: template.emoji,
+      iconImage: template.iconImage,
+      iconColor: isPositive ? AppTheme.primaryColor : AppTheme.warningColor,
       isCompleted: alreadyCheckedIn,
       onTap: alreadyCheckedIn ? null : () => _handleCheckIn(context, template, reward),
     );
@@ -716,7 +717,12 @@ class _BehaviorTemplateManagementSheetState
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
-        leading: Text(template.emoji, style: const TextStyle(fontSize: 24)),
+        leading: RewardIcon(
+          emoji: template.emoji,
+          iconImage: template.iconImage,
+          size: 40,
+          backgroundColor: isPositive ? AppTheme.primaryColor : AppTheme.warningColor,
+        ),
         title: Text(template.name),
         subtitle: Text(
           '${isPositive ? '+' : ''}${template.points} 积分',
@@ -802,6 +808,9 @@ class _BehaviorTemplateManagementSheetState
     final pointsController =
         TextEditingController(text: template?.points.toString() ?? '1');
     String selectedCategory = template?.category ?? 'daily';
+    // 当前图标状态（可被 IconPicker 修改）
+    String currentEmoji = template?.emoji ?? '⭐';
+    String? currentIconImage = template?.iconImage;
 
     showDialog(
       context: context,
@@ -812,6 +821,7 @@ class _BehaviorTemplateManagementSheetState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // 行为名称
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
@@ -820,16 +830,69 @@ class _BehaviorTemplateManagementSheetState
                     border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emojiController,
-                  decoration: const InputDecoration(
-                    labelText: 'Emoji 图标',
-                    hintText: '如：🌅',
-                    border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                // 图标选择器
+                if (isEdit) ...[
+                  IconPicker(
+                    emoji: currentEmoji,
+                    iconImage: currentIconImage,
+                    size: 56,
+                    onImageSelected: (filePath) async {
+                      final reward = context.read<RewardProvider>();
+                      final ok = await reward.uploadBehaviorIcon(template.id, filePath);
+                      if (ok) {
+                        // 从 provider 获取最新数据
+                        final updated = reward.behaviors.firstWhere((b) => b.id == template.id,
+                            orElse: () => template);
+                        setDialogState(() {
+                          currentIconImage = updated.iconImage;
+                          currentEmoji = updated.emoji;
+                        });
+                      }
+                      return ok;
+                    },
+                    onImageDeleted: () async {
+                      final reward = context.read<RewardProvider>();
+                      final ok = await reward.deleteBehaviorIcon(template.id);
+                      if (ok) {
+                        final updated = reward.behaviors.firstWhere((b) => b.id == template.id,
+                            orElse: () => template);
+                        setDialogState(() {
+                          currentIconImage = null;
+                          currentEmoji = updated.emoji;
+                        });
+                      }
+                      return ok;
+                    },
+                    onEmojiSelected: (emoji) async {
+                      emojiController.text = emoji;
+                      setDialogState(() => currentEmoji = emoji);
+                      // 如果已有自定义图片，删除图片以恢复 emoji
+                      if (currentIconImage != null) {
+                        final reward = context.read<RewardProvider>();
+                        await reward.deleteBehaviorIcon(template.id);
+                        setDialogState(() => currentIconImage = null);
+                      }
+                    },
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  Text(
+                    '点击图标可上传自定义图片或选择 emoji',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  // 新增模式：只显示 emoji 输入
+                  TextField(
+                    controller: emojiController,
+                    decoration: const InputDecoration(
+                      labelText: 'Emoji 图标',
+                      hintText: '如：🌅',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 TextField(
                   controller: pointsController,
                   keyboardType: TextInputType.number,
@@ -1154,13 +1217,14 @@ class _MakeupCheckInSheetState extends State<_MakeupCheckInSheet> {
   ) {
     final isPositive = template.points >= 0;
     final alreadyCheckedIn = _isCheckedIn(template.name);
-    final iconData = _getIconForCategory(template.category);
 
+    // 使用模板自带的 emoji 和自定义图标
     return AnimatedTaskCard(
       title: template.name,
       subtitle: '${isPositive ? '+' : ''}${template.points} 积分',
-      icon: iconData.icon,
-      iconColor: isPositive ? iconData.color : AppTheme.warningColor,
+      emoji: template.emoji,
+      iconImage: template.iconImage,
+      iconColor: isPositive ? AppTheme.primaryColor : AppTheme.warningColor,
       isCompleted: alreadyCheckedIn,
       onTap: alreadyCheckedIn
           ? null

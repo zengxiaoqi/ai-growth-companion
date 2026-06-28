@@ -18,7 +18,10 @@ export class Gift {
   name: string; // 礼品名称
 
   @Column({ length: 10, default: '🎁' })
-  emoji: string; // 图标
+  emoji: string; // emoji 图标
+
+  @Column({ nullable: true, length: 500 })
+  iconImage: string; // 自定义图标图片 URL（上传后覆盖 emoji）
 
   @Column({ nullable: true, length: 500 })
   description: string; // 描述

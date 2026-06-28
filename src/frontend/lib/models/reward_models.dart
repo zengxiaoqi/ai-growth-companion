@@ -4,6 +4,7 @@ class BehaviorTemplate {
   final int userId;
   final String name;
   final String emoji;
+  final String? iconImage; // 自定义图标图片 URL
   final int points;
   final String category;
   final bool isDefault;
@@ -17,6 +18,7 @@ class BehaviorTemplate {
     required this.userId,
     required this.name,
     required this.emoji,
+    this.iconImage,
     required this.points,
     required this.category,
     required this.isDefault,
@@ -32,6 +34,7 @@ class BehaviorTemplate {
       userId: json['userId'] as int,
       name: json['name'] as String,
       emoji: json['emoji'] as String? ?? '⭐',
+      iconImage: json['iconImage'] as String?,
       points: json['points'] as int,
       category: json['category'] as String? ?? 'daily',
       isDefault: json['isDefault'] as bool? ?? false,
@@ -48,6 +51,7 @@ class BehaviorTemplate {
       'userId': userId,
       'name': name,
       'emoji': emoji,
+      'iconImage': iconImage,
       'points': points,
       'category': category,
       'isDefault': isDefault,
@@ -60,6 +64,7 @@ class BehaviorTemplate {
 
   bool get isPositive => points > 0;
   bool get isNegative => points < 0;
+  bool get hasCustomIcon => iconImage != null && iconImage!.isNotEmpty;
 }
 
 /// 积分记录模型
@@ -153,6 +158,7 @@ class Gift {
   final int userId;
   final String name;
   final String emoji;
+  final String? iconImage; // 自定义图标图片 URL
   final String? description;
   final int pointsCost;
   final String category;
@@ -167,6 +173,7 @@ class Gift {
     required this.userId,
     required this.name,
     required this.emoji,
+    this.iconImage,
     required this.description,
     required this.pointsCost,
     required this.category,
@@ -183,6 +190,7 @@ class Gift {
       userId: json['userId'] as int,
       name: json['name'] as String,
       emoji: json['emoji'] as String? ?? '🎁',
+      iconImage: json['iconImage'] as String?,
       description: json['description'] as String?,
       pointsCost: json['pointsCost'] as int,
       category: json['category'] as String? ?? 'other',
@@ -200,6 +208,7 @@ class Gift {
       'userId': userId,
       'name': name,
       'emoji': emoji,
+      'iconImage': iconImage,
       'description': description,
       'pointsCost': pointsCost,
       'category': category,
@@ -213,6 +222,7 @@ class Gift {
 
   bool get isUnlimited => stock == -1;
   bool get hasStock => isUnlimited || stock > 0;
+  bool get hasCustomIcon => iconImage != null && iconImage!.isNotEmpty;
 }
 
 /// 兑换记录模型

@@ -26,6 +26,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   cached_network_image: ^3.3.0
   flutter_svg: ^2.0.9
+  image_picker: ^1.0.7
   lottie: ^3.0.0
   fl_chart: ^1.2.0
   

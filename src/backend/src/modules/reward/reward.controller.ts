@@ -14,10 +14,26 @@ import {
   ConflictException,
   UseGuards,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { Request } from 'express';
 import { RewardService } from './reward.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { UsersService } from '../users/users.service';
+
+/** 确保上传目录存在 */
+function ensureUploadDir(): string {
+  const uploadDir = join(__dirname, '..', '..', '..', 'public', 'uploads', 'icons');
+  if (!existsSync(uploadDir)) {
+    mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
+}
 
 @Controller('reward')
 @UseGuards(JwtAuthGuard)
@@ -287,5 +303,107 @@ export class RewardController {
   async seedGifts(@Req() req: any) {
     const userId = req.user.sub as number;
     return this.rewardService.seedDefaultGifts(userId);
+  }
+
+  // ==================== 图标图片上传 ====================
+
+  /** 上传行为模板图标 */
+  @Post('behaviors/:id/icon')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req: any, file: any, cb: any) => {
+          const uploadDir = ensureUploadDir();
+          cb(null, uploadDir);
+        },
+        filename: (req: any, file: any, cb: any) => {
+          const ext = extname(file.originalname) || '.png';
+          cb(null, `behavior_${req.params.id}_${Date.now()}${ext}`);
+        },
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+      fileFilter: (req: any, file: any, cb: any) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(
+            new HttpException('只支持 JPG/PNG/GIF/WEBP 格式', HttpStatus.BAD_REQUEST),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadBehaviorIcon(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new HttpException('请选择文件', HttpStatus.BAD_REQUEST);
+    const userId = (req.user as any).sub as number;
+    const behavior = await this.rewardService.getBehaviorById(+id);
+    if (!behavior) throw new HttpException('模板不存在', HttpStatus.NOT_FOUND);
+    if (behavior.userId !== userId) throw new ForbiddenException('无权操作他人模板');
+    const iconImage = `/uploads/icons/${file.filename}`;
+    await this.rewardService.updateBehavior(+id, { iconImage });
+    return { url: iconImage };
+  }
+
+  /** 上传礼品图标 */
+  @Post('gifts/:id/icon')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req: any, file: any, cb: any) => {
+          const uploadDir = ensureUploadDir();
+          cb(null, uploadDir);
+        },
+        filename: (req: any, file: any, cb: any) => {
+          const ext = extname(file.originalname) || '.png';
+          cb(null, `gift_${req.params.id}_${Date.now()}${ext}`);
+        },
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+      fileFilter: (req: any, file: any, cb: any) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(
+            new HttpException('只支持 JPG/PNG/GIF/WEBP 格式', HttpStatus.BAD_REQUEST),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadGiftIcon(@Req() req: Request, @Param('id') id: string, @UploadedFile() file: any) {
+    if (!file) throw new HttpException('请选择文件', HttpStatus.BAD_REQUEST);
+    const userId = (req.user as any).sub as number;
+    const gift = await this.rewardService.getGiftById(+id);
+    if (!gift) throw new HttpException('礼品不存在', HttpStatus.NOT_FOUND);
+    if (gift.userId !== userId) throw new ForbiddenException('无权操作他人礼品');
+    const iconImage = `/uploads/icons/${file.filename}`;
+    await this.rewardService.updateGift(+id, { iconImage });
+    return { url: iconImage };
+  }
+
+  /** 删除行为模板图标（恢复为 emoji） */
+  @Delete('behaviors/:id/icon')
+  async deleteBehaviorIcon(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user.sub as number;
+    const behavior = await this.rewardService.getBehaviorById(+id);
+    if (!behavior) throw new HttpException('模板不存在', HttpStatus.NOT_FOUND);
+    if (behavior.userId !== userId) throw new ForbiddenException('无权操作他人模板');
+    await this.rewardService.updateBehavior(+id, { iconImage: null });
+    return { success: true };
+  }
+
+  /** 删除礼品图标（恢复为 emoji） */
+  @Delete('gifts/:id/icon')
+  async deleteGiftIcon(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user.sub as number;
+    const gift = await this.rewardService.getGiftById(+id);
+    if (!gift) throw new HttpException('礼品不存在', HttpStatus.NOT_FOUND);
+    if (gift.userId !== userId) throw new ForbiddenException('无权操作他人礼品');
+    await this.rewardService.updateGift(+id, { iconImage: null });
+    return { success: true };
   }
 }

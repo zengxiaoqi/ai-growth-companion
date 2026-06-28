@@ -240,15 +240,20 @@ class RewardProvider extends ChangeNotifier {
     required int points,
     int? templateId,
     String? note,
+    DateTime? recordedAt,
   }) async {
     try {
-      final response = await _apiService.dio.post('/reward/points', data: {
+      final body = <String, dynamic>{
         'childId': childId,
         'templateId': templateId,
         'behaviorName': behaviorName,
         'points': points,
         'note': note,
-      });
+      };
+      if (recordedAt != null) {
+        body['recordedAt'] = recordedAt.toIso8601String();
+      }
+      final response = await _apiService.dio.post('/reward/points', data: body);
       final record = PointRecord.fromJson(response.data);
       _dayRecordsCache.clear(); // 清除日历缓存
       _error = null;
@@ -289,10 +294,20 @@ class RewardProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deletePointRecord(int id) async {
+  Future<bool> deletePointRecord(int id, {int? childId}) async {
     try {
       await _apiService.dio.delete('/reward/points/$id');
       _pointRecords.removeWhere((r) => r.id == id);
+      _dayRecordsCache.clear();
+      // 刷新汇总、今日记录和日历数据
+      if (childId != null) {
+        final now = DateTime.now();
+        await Future.wait([
+          loadSummary(childId),
+          loadTodayRecords(childId),
+          loadCalendarData(childId, year: now.year, month: now.month),
+        ]);
+      }
       notifyListeners();
       return true;
     } catch (e) {

@@ -494,9 +494,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: () async {
                     Navigator.pop(ctx);
                     await userProvider.logout();
+                    // Consumer 会自动重建 home 为 LoginScreen
+                    // 只需弹回根路由，不要 push 新的 /login
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       Navigator.of(context, rootNavigator: true)
-                          .pushNamedAndRemoveUntil('/login', (_) => false);
+                          .popUntil((route) => route.isFirst);
                     });
                   },
                   style: ElevatedButton.styleFrom(

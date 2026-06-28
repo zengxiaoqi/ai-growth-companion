@@ -253,26 +253,36 @@ class _CheckInPanel extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            // 管理模板按钮
+            // 补打卡 + 管理模板按钮
             Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: onManageTemplates,
-                  icon: const Icon(Icons.settings, size: 18),
-                  label: const Text('管理模板', style: TextStyle(fontSize: 13)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _showMakeupCheckIn(context),
+                    icon: const Icon(Icons.history_edu_rounded, size: 18),
+                    label: const Text('补打卡', style: TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                    ),
                   ),
-                ),
+                  TextButton.icon(
+                    onPressed: onManageTemplates,
+                    icon: const Icon(Icons.settings, size: 18),
+                    label: const Text('管理模板', style: TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
               ),
             ),
             // 今日打卡记录
             if (todayRecords.isNotEmpty) ...[
               const _RewardSectionHeader(title: '今日打卡', emoji: '✅'),
               const SizedBox(height: 12),
-              ...todayRecords.map((r) => _buildTodayRecordCard(r)),
+              ...todayRecords.map((r) => _buildTodayRecordCard(context, r)),
               const SizedBox(height: 20),
             ],
             // 按分类显示行为模板
@@ -289,7 +299,7 @@ class _CheckInPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildTodayRecordCard(PointRecord record) {
+  Widget _buildTodayRecordCard(BuildContext context, PointRecord record) {
     final isPositive = record.points >= 0;
     return AppCard(
       margin: const EdgeInsets.only(bottom: 8),
@@ -322,7 +332,7 @@ class _CheckInPanel extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${record.recordedAt.hour}:${record.recordedAt.minute.toString().padLeft(2, '0')}',
+                  '${record.recordedAt.toLocal().hour}:${record.recordedAt.toLocal().minute.toString().padLeft(2, '0')}',
                   style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
@@ -337,6 +347,24 @@ class _CheckInPanel extends StatelessWidget {
               color: isPositive ? AppTheme.accentColor : AppTheme.warningColor,
               fontSize: 16,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _showUndoConfirm(context, record),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '撤回',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
         ],
@@ -460,6 +488,91 @@ class _CheckInPanel extends StatelessWidget {
         );
       }
     }
+  }
+
+  // ==================== 补打卡 ====================
+
+  Future<void> _showMakeupCheckIn(BuildContext context) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final earliest = today.subtract(const Duration(days: 30));
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: today.subtract(const Duration(days: 1)),
+      firstDate: earliest,
+      lastDate: today.subtract(const Duration(days: 1)),
+      helpText: '选择补打卡日期',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+
+    if (selectedDate == null) return;
+    if (!context.mounted) return;
+
+    final userProvider = context.read<UserProvider>();
+    final childId = await userProvider.resolveChildId();
+
+    if (childId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('未找到孩子信息，请先绑定孩子'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _MakeupCheckInSheet(
+        selectedDate: selectedDate,
+        childId: childId,
+      ),
+    );
+  }
+
+  void _showUndoConfirm(BuildContext context, PointRecord record) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('撤回打卡'),
+        content: Text('确定要撤回「${record.behaviorName}」的打卡记录吗？\n撤回后积分将扣除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final userProvider = context.read<UserProvider>();
+              final childId = await userProvider.resolveChildId();
+              final reward = context.read<RewardProvider>();
+              final success = await reward.deletePointRecord(record.id, childId: childId);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? '✅ 已撤回「${record.behaviorName}」'
+                        : '撤回失败: ${reward.error ?? "未知错误"}'),
+                    backgroundColor: success ? AppTheme.accentColor : Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('确认撤回', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -897,5 +1010,256 @@ class GiftShopPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const GiftShopScreen();
+  }
+}
+
+// ==================== 补打卡底部弹窗 ====================
+
+class _MakeupCheckInSheet extends StatefulWidget {
+  final DateTime selectedDate;
+  final int childId;
+
+  const _MakeupCheckInSheet({
+    required this.selectedDate,
+    required this.childId,
+  });
+
+  @override
+  State<_MakeupCheckInSheet> createState() => _MakeupCheckInSheetState();
+}
+
+class _MakeupCheckInSheetState extends State<_MakeupCheckInSheet> {
+  List<PointRecord> _dayRecords = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDayRecords();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadDayRecords() async {
+    final rewardProvider = context.read<RewardProvider>();
+    final records = await rewardProvider.loadDayRecords(
+      widget.childId,
+      _formatDate(widget.selectedDate),
+    );
+    if (mounted) {
+      setState(() {
+        _dayRecords = records;
+        _isLoading = false;
+      });
+    }
+  }
+
+  bool _isCheckedIn(String behaviorName) {
+    return _dayRecords.any((r) => r.behaviorName == behaviorName);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 拖拽指示器
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // 标题栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '补打卡 - ${_formatDate(widget.selectedDate)}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          // 内容
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Consumer<RewardProvider>(
+                    builder: (context, reward, _) {
+                      final templates =
+                          reward.behaviors.where((t) => t.isEnabled).toList();
+                      if (templates.isEmpty) {
+                        return const Center(
+                          child: Text('暂无行为模板',
+                              style: TextStyle(color: Colors.grey)),
+                        );
+                      }
+                      // 按分类分组
+                      final categories =
+                          <String, List<BehaviorTemplate>>{};
+                      for (final t in templates) {
+                        categories.putIfAbsent(t.category, () => []).add(t);
+                      }
+                      return ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          ...categories.entries.expand((entry) => [
+                                _RewardSectionHeader(
+                                  title: _getCategoryLabel(entry.key),
+                                  emoji: _getCategoryEmoji(entry.key),
+                                ),
+                                const SizedBox(height: 12),
+                                ...entry.value.map((t) =>
+                                    _buildBehaviorCard(context, t, reward)),
+                                const SizedBox(height: 12),
+                              ]),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBehaviorCard(
+    BuildContext context,
+    BehaviorTemplate template,
+    RewardProvider reward,
+  ) {
+    final isPositive = template.points >= 0;
+    final alreadyCheckedIn = _isCheckedIn(template.name);
+    final iconData = _getIconForCategory(template.category);
+
+    return AnimatedTaskCard(
+      title: template.name,
+      subtitle: '${isPositive ? '+' : ''}${template.points} 积分',
+      icon: iconData.icon,
+      iconColor: isPositive ? iconData.color : AppTheme.warningColor,
+      isCompleted: alreadyCheckedIn,
+      onTap: alreadyCheckedIn
+          ? null
+          : () => _handleMakeupCheckIn(context, template, reward),
+    );
+  }
+
+  Future<void> _handleMakeupCheckIn(
+    BuildContext context,
+    BehaviorTemplate template,
+    RewardProvider reward,
+  ) async {
+    // 使用选定日期的中午时间，避免时区边界问题
+    final recordedAt = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+      widget.selectedDate.day,
+      12,
+    );
+
+    final record = await reward.recordPoints(
+      childId: widget.childId,
+      behaviorName: template.name,
+      points: template.points,
+      templateId: template.id,
+      recordedAt: recordedAt,
+    );
+
+    if (context.mounted) {
+      if (record != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              template.points >= 0
+                  ? '✅ ${template.name} +${template.points}积分（补打卡）'
+                  : '⚠️ ${template.name} ${template.points}积分（补打卡）',
+            ),
+            backgroundColor: template.points >= 0
+                ? AppTheme.accentColor
+                : AppTheme.warningColor,
+          ),
+        );
+        // 重新加载当日记录以更新已打卡状态
+        await _loadDayRecords();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('操作失败: ${reward.error ?? "未知错误"}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // ==================== 辅助方法 ====================
+
+  _IconData _getIconForCategory(String category) {
+    switch (category) {
+      case 'daily':
+      case '日常习惯':
+        return _IconData(Icons.wb_sunny_rounded, AppTheme.secondaryColor);
+      case 'extra':
+      case '学习活动':
+        return _IconData(Icons.menu_book_rounded, AppTheme.primaryColor);
+      case 'negative':
+      case '扣分行为':
+        return _IconData(Icons.warning_amber_rounded, AppTheme.warningColor);
+      default:
+        return _IconData(Icons.check_circle_outline, AppTheme.textSecondary);
+    }
+  }
+
+  String _getCategoryEmoji(String category) {
+    switch (category) {
+      case 'daily':
+      case '日常习惯':
+        return '🌅';
+      case 'extra':
+      case '学习活动':
+        return '📚';
+      case 'negative':
+      case '扣分行为':
+        return '⚠️';
+      default:
+        return '📋';
+    }
+  }
+
+  String _getCategoryLabel(String category) {
+    switch (category) {
+      case 'daily':
+        return '日常习惯';
+      case 'extra':
+        return '额外加分';
+      case 'negative':
+        return '扣分行为';
+      default:
+        return category;
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThan } from 'typeorm';
 import { BehaviorTemplate } from '../../database/entities/behavior-template.entity';
@@ -155,21 +155,37 @@ export class RewardService {
     recordedBy: number;
     recordedAt?: Date;
   }) {
-    // 检查今日是否已打卡该行为（防止重复打卡）
-    const now = data.recordedAt || new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // 补打卡日期校验
+    if (data.recordedAt) {
+      const now = new Date();
+      // 不能选择未来日期
+      if (data.recordedAt > now) {
+        throw new BadRequestException('不能选择未来日期打卡');
+      }
+      // 最多补打卡30天内的记录
+      const diffDays = Math.floor((now.getTime() - data.recordedAt.getTime()) / (24 * 3600 * 1000));
+      if (diffDays > 30) {
+        throw new BadRequestException('最多只能补打卡30天内的记录');
+      }
+    }
+
+    // 检查指定日期是否已打卡该行为（防止重复打卡，支持补打卡）
+    const checkDate = data.recordedAt || new Date();
+    const dayStart = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
 
     const existingRecord = await this.pointRecordRepo.findOne({
       where: {
         childId: data.childId,
         behaviorName: data.behaviorName,
-        recordedAt: Between(todayStart, now),
+        recordedAt: Between(dayStart, dayEnd),
       },
     });
 
     if (existingRecord) {
       this.logger.warn(
-        `Duplicate check-in blocked: child=${data.childId}, behavior="${data.behaviorName}" already checked in today`,
+        `Duplicate check-in blocked: child=${data.childId}, behavior="${data.behaviorName}" already checked in on ${dayStart.toISOString().split('T')[0]}`,
       );
       return null; // 返回 null 表示重复打卡被拒绝
     }

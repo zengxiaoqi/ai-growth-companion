@@ -128,7 +128,7 @@ export class RewardController {
     });
 
     if (!result) {
-      throw new ConflictException('今日已打卡该行为，不能重复打卡');
+      throw new ConflictException('该日期已打卡此行为，不能重复打卡');
     }
 
     return result;

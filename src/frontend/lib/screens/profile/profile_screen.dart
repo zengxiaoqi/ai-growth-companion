@@ -227,10 +227,11 @@ class ProfileScreen extends StatelessWidget {
                   onPressed: () async {
                                       Navigator.pop(context); // close dialog
                                       await userProvider.logout();
-                                      // 使用 addPostFrameCallback 确保在 dialog 关闭后再导航
+                                      // Consumer 会自动重建 home 为 LoginScreen
+                                      // 只需弹回根路由，不要 push 新的 /login
                                       WidgetsBinding.instance.addPostFrameCallback((_) {
                                         Navigator.of(context, rootNavigator: true)
-                                            .pushNamedAndRemoveUntil('/login', (_) => false);
+                                            .popUntil((route) => route.isFirst);
                                       });
                                     },
                   style: ElevatedButton.styleFrom(

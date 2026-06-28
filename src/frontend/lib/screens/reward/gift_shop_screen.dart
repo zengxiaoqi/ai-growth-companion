@@ -118,10 +118,30 @@ class _GiftShopScreenState extends State<GiftShopScreen>
           const Text(' 分', style: TextStyle(color: Colors.white, fontSize: 15)),
           const Spacer(),
           // 管理礼品按钮
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white, size: 22),
-            tooltip: '管理礼品',
-            onPressed: () => _showGiftManagement(context),
+          GestureDetector(
+            onTap: () => _showGiftManagement(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.settings, color: Colors.white, size: 18),
+                  SizedBox(width: 4),
+                  Text(
+                    '管理礼品',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

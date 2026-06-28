@@ -441,7 +441,9 @@ describe('RemotionRenderService', () => {
       path.join(os.tmpdir(), 'dynamic-remotion-empty-audio.mp4'),
     );
 
-    expect(voiceService.textToSpeech).toHaveBeenCalledTimes(2);
+    // Zero-byte TTS responses are a persistent failure — the service should
+    // fail fast (1 call) instead of retrying pointlessly.
+    expect(voiceService.textToSpeech).toHaveBeenCalledTimes(1);
     expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
   }, 60000);
 });

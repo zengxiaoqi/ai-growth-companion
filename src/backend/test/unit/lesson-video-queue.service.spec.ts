@@ -467,12 +467,13 @@ describe('LessonVideoQueueService', () => {
     expect(result.buffer).toEqual(Buffer.from('hf'));
   });
 
-  it('falls back to HyperFrames when AI repair retry also fails', async () => {
+  it('falls back to built-in template when AI repair fails, then to HyperFrames if all Remotion fails', async () => {
     const videoAgent = createVideoAgent();
     const agentService = createAgentBackedService(videoAgent);
     remotionRender.renderGeneratedComposition
       .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: Unexpected token'))
-      .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: repaired error'));
+      .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: repaired error'))
+      .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: built-in fallback error'));
     remotionRender.resolveComposition.mockRejectedValue(new Error('fixed remotion unavailable'));
     hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from('hf'));
     jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
@@ -489,7 +490,10 @@ describe('LessonVideoQueueService', () => {
     );
 
     expect(videoAgent.repairGeneratedRemotionComposition).toHaveBeenCalledTimes(1);
-    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(2);
+    // 3 calls: initial render, AI repair retry, built-in template fallback
+    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(3);
+    // 2 calls: initial generation + built-in template fallback after repair failure
+    expect(videoAgent.generateRemotionComposition).toHaveBeenCalledTimes(2);
     expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from('hf'));
   });

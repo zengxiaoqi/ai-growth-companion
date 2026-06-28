@@ -6,7 +6,6 @@ import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';
 import '../../components/stat_card.dart';
 import '../../components/task_card.dart';
-import '../../components/points_badge.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
 import '../../services/api_service.dart';

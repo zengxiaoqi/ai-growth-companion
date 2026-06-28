@@ -6,7 +6,6 @@ import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
-import '../../models/reward_models.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -17,7 +16,6 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _currentMonth;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -32,13 +30,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final childId = await userProvider.resolveChildId();
     if (childId == null) return;
 
-    setState(() => _isLoading = true);
     await rewardProvider.loadCalendarData(
       childId,
       year: _currentMonth.year,
       month: _currentMonth.month,
     );
-    if (mounted) setState(() => _isLoading = false);
   }
 
   void _prevMonth() {
@@ -279,7 +275,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               final dayData = dailyData[dateKey] as Map<String, dynamic>?;
               final hasRecord = dayData != null;
               final points = dayData?['points'] as int? ?? 0;
-              final count = dayData?['count'] as int? ?? 0;
               final date = DateTime(year, month, day);
               final isToday = date == today;
               final isFuture = date.isAfter(today);

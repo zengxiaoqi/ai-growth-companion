@@ -23,7 +23,7 @@ class RewardProvider extends ChangeNotifier {
   List<RedemptionRecord> _redemptions = [];
   List<WeeklyStat> _weeklyStats = [];
   Map<String, dynamic>? _calendarData;
-  Map<String, List<PointRecord>> _dayRecordsCache = {};
+  final Map<String, List<PointRecord>> _dayRecordsCache = {};
 
   // Getters
   bool get isLoading => _isLoading;

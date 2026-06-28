@@ -30,13 +30,16 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     });
 
     try {
+      if (!mounted) return;
       final api = context.read<ApiService>();
       final children = await api.getChildren();
+      if (!mounted) return;
       setState(() {
         _children = children.map((c) => Map<String, dynamic>.from(c)).toList();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = '加载失败: $e';
         _isLoading = false;
@@ -112,6 +115,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       final api = context.read<ApiService>();
       final childId = child['id'] as int;
       final success = await api.deleteChild(childId);
@@ -280,7 +284,7 @@ class _ChildCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           child: Icon(
             Icons.child_care,
             color: AppTheme.primaryColor,
@@ -454,7 +458,7 @@ class _ChildFormDialogState extends State<_ChildFormDialog> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _gender,
+                initialValue: _gender,
                 decoration: const InputDecoration(
                   labelText: '性别',
                   prefixIcon: Icon(Icons.wc),

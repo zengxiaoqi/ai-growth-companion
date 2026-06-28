@@ -513,16 +513,13 @@ class _GiftShopScreenState extends State<GiftShopScreen>
   Future<void> _confirmRedeem(Gift gift, RewardProvider reward) async {
     final userProvider = context.read<UserProvider>();
     final childId = await userProvider.resolveChildId();
+    if (!mounted) return;
     if (childId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先添加/选择孩子')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先添加/选择孩子')),
+      );
       return;
     }
-
-    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

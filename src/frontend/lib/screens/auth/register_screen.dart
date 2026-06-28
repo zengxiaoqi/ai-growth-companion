@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/animation_utils.dart';
 import '../../components/app_card.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';

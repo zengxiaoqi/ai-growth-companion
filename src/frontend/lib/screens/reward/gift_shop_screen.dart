@@ -522,6 +522,7 @@ class _GiftShopScreenState extends State<GiftShopScreen>
       return;
     }
 
+    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -861,7 +862,7 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
                 const SizedBox(height: 12),
                 // 分类选择
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: const InputDecoration(
                     labelText: '分类',
                     border: OutlineInputBorder(),
@@ -904,7 +905,7 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
                 final reward = context.read<RewardProvider>();
                 if (isEdit) {
                   await reward.updateGift(
-                    id: gift!.id,
+                    id: gift.id,
                     name: name,
                     emoji: emoji.isEmpty ? '🎁' : emoji,
                     description: desc,

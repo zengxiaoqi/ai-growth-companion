@@ -8,7 +8,6 @@ import '../../components/stat_card.dart';
 import '../../components/task_card.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/reward_provider.dart';
-import '../../services/api_service.dart';
 import '../../models/reward_models.dart';
 import 'gift_shop_screen.dart';
 import 'growth_report_screen.dart';
@@ -60,18 +59,6 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
       await rewardProvider.loadTodayRecords(childId);
       await rewardProvider.loadSummary(childId);
     }
-  }
-
-  /// 切换孩子后重新加载数据
-  void _onChildChanged(int newChildId) {
-    setState(() {
-      _resolvedChildId = newChildId;
-    });
-    final rewardProvider = context.read<RewardProvider>();
-    rewardProvider.loadPointRecords(newChildId);
-    rewardProvider.loadTodayRecords(newChildId);
-    rewardProvider.loadSummary(newChildId);
-    rewardProvider.loadRedemptions(newChildId);
   }
 
   @override
@@ -741,7 +728,7 @@ class _BehaviorTemplateManagementSheetState
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   decoration: const InputDecoration(
                     labelText: '分类',
                     border: OutlineInputBorder(),
@@ -866,7 +853,6 @@ class _RewardSectionHeader extends StatelessWidget {
   final String emoji;
 
   const _RewardSectionHeader({
-    super.key,
     required this.title,
     this.emoji = '',
   });

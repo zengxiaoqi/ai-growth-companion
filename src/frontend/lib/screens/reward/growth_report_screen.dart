@@ -655,7 +655,6 @@ class _AnimatedBar extends StatelessWidget {
   final BoxDecoration decoration;
 
   const _AnimatedBar({
-    super.key,
     required this.height,
     required this.decoration,
   });

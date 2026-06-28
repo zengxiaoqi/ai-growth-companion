@@ -121,7 +121,34 @@ export class OrchestratorService {
     private readonly executorService: AgentExecutorService,
     private readonly conversationStore: IConversationStore | null,
     private readonly skillRegistry: SkillRegistryService,
-  ) {}
+  ) {
+    this.validateRegisteredAgents();
+  }
+
+  /**
+   * Validate that all agent types referenced in routing logic exist in the registry.
+   * Logs an error for each missing agent so issues are caught at startup rather than
+   * silently degrading at runtime.
+   */
+  private validateRegisteredAgents(): void {
+    const referencedTypes: AgentType[] = [
+      'child-companion',
+      'parent-advisor',
+      'course-designer',
+      'activity-generator',
+      'video-generator',
+    ];
+
+    for (const type of referencedTypes) {
+      const agent = this.agentRegistry.get(type);
+      if (!agent) {
+        this.logger.error(
+          `Agent "${type}" is referenced in routing logic but not found in registry. ` +
+            `Routes that depend on this agent will be degraded until it is registered.`,
+        );
+      }
+    }
+  }
 
   async route(input: string, context: AgentContext): Promise<ExecutionResult> {
     const startedAt = Date.now();

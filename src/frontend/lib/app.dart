@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'theme/app_theme.dart';
@@ -60,6 +61,17 @@ class LingxiApp extends StatelessWidget {
       title: '灵犀伴学',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
+      // 中文本地化：让 DatePicker 等 Material 组件显示中文月份/星期
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [
+        Locale('zh', 'CN'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       // Force initial route to '/' — prevents Flutter Web from treating
       // the browser URL path (e.g. '/login') as the initial route and
       // pushing it onto the navigator stack, which would shadow the

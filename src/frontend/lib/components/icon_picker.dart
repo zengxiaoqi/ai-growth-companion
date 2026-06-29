@@ -276,31 +276,45 @@ class _IconPickerState extends State<IconPicker> {
 
   @override
   Widget build(BuildContext context) {
+    // Badge 尺寸 — 相对于图标大小的比例
+    final badgeSize = widget.size * 0.28;
+    // badge 中心对齐图标右下角，一半在图标内一半在图标外
+    final badgeOffset = badgeSize / 2;
+
     return GestureDetector(
       onTap: _showPickerDialog,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
+          // 图标本体
           RewardIcon(
             emoji: widget.emoji,
             iconImage: widget.iconImage,
             size: widget.size,
           ),
-          // 右下角编辑标识
+          // 右下角编辑标识 — 半在内半在外，不遮挡图标内容
           Positioned(
-            right: -2,
-            bottom: -2,
+            right: -badgeOffset,
+            bottom: -badgeOffset,
             child: Container(
-              width: 20,
-              height: 20,
+              width: badgeSize,
+              height: badgeSize,
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.edit,
                 color: Colors.white,
-                size: 10,
+                size: badgeSize * 0.5,
               ),
             ),
           ),
@@ -311,11 +325,11 @@ class _IconPickerState extends State<IconPicker> {
                   color: Colors.black.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Center(
+                child: Center(
                   child: SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),

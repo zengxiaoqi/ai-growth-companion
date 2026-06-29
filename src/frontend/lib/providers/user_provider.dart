@@ -47,7 +47,10 @@ class UserProvider extends ChangeNotifier {
         final token = _storage.getToken();
         if (token != null && token.isNotEmpty) {
           _apiService!.setToken(token);
-          // 异步验证 token 是否仍然有效（可能已过期或后端重启）
+          // 先通知 UI 重建——用 storage 中的已保存状态立即显示页面，
+          // 不让用户盯着 SplashScreen 等待网络验证
+          notifyListeners();
+          // 然后异步验证 token 是否仍然有效（可能已过期或后端重启）
           _validateToken();
           return;
         }
@@ -58,13 +61,26 @@ class UserProvider extends ChangeNotifier {
   }
 
   /// 验证当前 token 是否仍然有效（防止过期 token 导致"已登录但无数据"僵尸状态）
+  ///
+  /// 策略：
+  /// - profile 返回数据 → token 有效，更新用户信息
+  /// - profile 返回 null（401/403）→ token 确实无效，清除登录态
+  /// - 网络错误（超时/断网）→ **不清除登录态**，保留 storage 中的会话让用户稍后重试
   Future<void> _validateToken() async {
     if (_apiService == null) return;
     try {
       final profile = await _apiService!.getProfile();
       if (profile == null) {
-        // token 无效或网络错误 → 清除登录态
-        debugPrint('[UserProvider] Token validation failed — logging out');
+        // token 无效或网络错误 → 判断是否真的是 401
+        // getProfile 返回 null 有两种情况：401（token 过期）或网络错误
+        // 如果 token 还在（没有被 401 拦截器清除），说明是网络错误，不要 logout
+        if (_apiService!.token != null && _apiService!.token!.isNotEmpty) {
+          debugPrint('[UserProvider] Profile fetch returned null but token still set — likely network error, keeping session');
+          notifyListeners();
+          return;
+        }
+        // token 确实被 401 拦截清除了 → 清除登录态
+        debugPrint('[UserProvider] Token invalid (401) — logging out');
         await _storage.clearUser();
         _currentUser = null;
         _selectedMode = null;

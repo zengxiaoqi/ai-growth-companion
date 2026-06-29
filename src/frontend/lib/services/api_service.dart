@@ -27,6 +27,9 @@ class ApiService {
   final Dio _dio;
   String? _token;
 
+  /// 401 过期回调 — 由 main.dart 设置，触发跳转登录页
+  static void Function()? onAuthExpired;
+
   /// 运行时解析的 API base URL（由 getApiBaseUrl() 动态决定）
   static String get baseUrl => getApiBaseUrl();
 
@@ -44,9 +47,23 @@ class ApiService {
       },
       onError: (error, handler) {
         _log.warning('API Error: ${error.message}');
+        // 全局 401 处理：token 过期/无效 → 触发 auth expired 回调
+        if (error.response?.statusCode == 401) {
+          _handleAuthExpired();
+        }
         return handler.next(error);
       },
     ));
+  }
+
+  /// 处理 token 过期：清除 token，触发回调跳转登录页
+  void _handleAuthExpired() {
+    _log.warning('Auth token expired — triggering logout');
+    _token = null;
+    _dio.interceptors.removeWhere((i) => i is _AuthInterceptor);
+    if (onAuthExpired != null) {
+      onAuthExpired!();
+    }
   }
 
   Dio get dio => _dio;

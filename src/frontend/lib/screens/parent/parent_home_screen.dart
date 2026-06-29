@@ -70,6 +70,7 @@ class ParentHomeContent extends StatefulWidget {
 class _ParentHomeContentState extends State<ParentHomeContent> {
   bool _isLoading = true;
   bool _loaded = false;
+  String? _loadError;
   List<Map<String, dynamic>> _children = [];
   // 本地选中的孩子 ID（优先于 Provider，反映实时 UI）
   int? _localSelectedChildId;
@@ -86,7 +87,10 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
 
     // 先从 Provider 恢复已保存的 activeChildId
     _localSelectedChildId = userProvider.activeChildId;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
 
     final currentUser = userProvider.currentUser;
     final parentId = currentUser?['parentId'] is int
@@ -124,12 +128,17 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         _children = childList;
         _isLoading = false;
         _loaded = true;
+        // 如果列表为空且无错误，标记为"暂无孩子"而非静默通过
+        if (childList.isEmpty) {
+          _loadError = '尚未绑定孩子，请先添加孩子';
+        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _loaded = true;
+        _loadError = '加载孩子列表失败，请重试';
       });
     }
   }
@@ -218,6 +227,42 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
 
   Widget _buildChildSelector(int? selectedId) {
     if (_children.isEmpty) {
+      // 显示提示信息 + 重试按钮（而非静默隐藏）
+      if (_loadError != null && !_isLoading) {
+        return Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _loaded = false;
+              });
+              _loadInitialData();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      _loadError!,
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       return const SizedBox.shrink();
     }
     return Padding(

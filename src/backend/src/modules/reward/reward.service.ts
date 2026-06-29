@@ -55,6 +55,17 @@ export class RewardService {
     isDefault?: boolean;
     sortOrder?: number;
   }) {
+    // 如果未指定 sortOrder，自动分配：取同分类下最大 sortOrder + 1
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined || sortOrder === null) {
+      const existing = await this.behaviorRepo.find({
+        where: { userId: data.userId, category: data.category || 'daily' },
+        order: { sortOrder: 'DESC' },
+        take: 1,
+      });
+      const maxSort = existing.length > 0 ? existing[0].sortOrder : 0;
+      sortOrder = maxSort + 1;
+    }
     const behavior = this.behaviorRepo.create({
       userId: data.userId,
       name: data.name,
@@ -62,7 +73,7 @@ export class RewardService {
       points: data.points,
       category: data.category || 'daily',
       isDefault: data.isDefault || false,
-      sortOrder: data.sortOrder || 0,
+      sortOrder,
     });
     return this.behaviorRepo.save(behavior);
   }
@@ -341,6 +352,17 @@ export class RewardService {
     stock?: number;
     sortOrder?: number;
   }) {
+    // 如果未指定 sortOrder，自动分配：取同分类下最大 sortOrder + 1
+    let sortOrder = data.sortOrder;
+    if (sortOrder === undefined || sortOrder === null) {
+      const existing = await this.giftRepo.find({
+        where: { userId: data.userId, category: data.category || 'other' },
+        order: { sortOrder: 'DESC' },
+        take: 1,
+      });
+      const maxSort = existing.length > 0 ? existing[0].sortOrder : 0;
+      sortOrder = maxSort + 1;
+    }
     const gift = this.giftRepo.create({
       userId: data.userId,
       name: data.name,
@@ -349,7 +371,7 @@ export class RewardService {
       pointsCost: data.pointsCost,
       category: data.category || 'other',
       stock: data.stock ?? -1,
-      sortOrder: data.sortOrder || 0,
+      sortOrder,
     });
     return this.giftRepo.save(gift);
   }

@@ -29,6 +29,14 @@ void main() async {
   // 初始化 AI 服务
   final aiService = AiService(apiService);
 
+  // 设置 401 过期回调：清除本地登录态 + 跳转登录页
+  ApiService.onAuthExpired = () {
+    debugPrint('[AuthExpired] 401 detected — clearing session and redirecting');
+    storageService.clearUser();
+    // 通过全局 navigatorKey 跳转到登录页，清空所有路由栈
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
+  };
+
   runApp(
     MultiProvider(
       providers: [

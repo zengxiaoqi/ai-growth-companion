@@ -863,9 +863,9 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
                     emoji: currentEmoji,
                     iconImage: currentIconImage,
                     size: 56,
-                    onImageSelected: (filePath) async {
+                    onImageSelectedBytes: (bytes, fileName) async {
                       final reward = context.read<RewardProvider>();
-                      final ok = await reward.uploadGiftIcon(gift.id, filePath);
+                      final ok = await reward.uploadGiftIconFromBytes(gift.id, bytes, fileName);
                       if (ok) {
                         final updated = reward.gifts.firstWhere((g) => g.id == gift.id,
                             orElse: () => gift);

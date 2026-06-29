@@ -32,6 +32,9 @@ import 'screens/learning/lesson_scene_player.dart';
 import 'screens/learning/subject_content_list_screen.dart';
 // AnimationScene 已在 animation_scene_player.dart 中导出
 
+/// 全局 Navigator Key，供 ApiService 在 401 时跳转登录页
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class LingxiApp extends StatelessWidget {
   const LingxiApp({super.key});
 
@@ -52,6 +55,8 @@ class LingxiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      key: const ValueKey('lingxi_app'),
+      navigatorKey: navigatorKey,
       title: '灵犀伴学',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,

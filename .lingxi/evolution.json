@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-06-28",
-  "analysis_count": 36,
-  "commit_count": 359,
-  "last_commit": "2026-06-28T09:10:55+08:00",
-  "last_commit_hash": "dae416c",
+  "last_analysis": "2026-06-29",
+  "analysis_count": 37,
+  "commit_count": 364,
+  "last_commit": "2026-06-29T09:06:01+08:00",
+  "last_commit_hash": "8916f3b",
   "commits_ahead_remote": 0,
-  "remote_head": "dae416c",
-  "remote_head_date": "2026-06-28T09:10:55+08:00",
+  "remote_head": "8916f3b",
+  "remote_head_date": "2026-06-29T09:06:01+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 93,
@@ -68,7 +68,8 @@
     "2026-06-25: Fixed CRITICAL 502 error — cloudflared config.yml pointed to port 8080 instead of 3001. Restarted tunnel service, verified external URL returns 200 OK. Auto-fixed ESLint/Prettier formatting errors in 10 new reward AI tool files. Verified backend build clean, 65/65 reward tests passing, frontend-web typecheck passes.",
     "2026-06-26: Killed zombie Jest process (PID 15168, running since Jun 25, 96% CPU + 963MB RAM from workspace-product-agent). Rebuilt Flutter Web (5 stale files: reward screens, parent_home, app.dart, reward_provider). Restored React Web production frontend (Flutter Web deploy was incorrect). Verified all systems: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK.",
     "2026-06-27: Fixed CRITICAL frontend contamination — Flutter Web artifacts (42 files, 48MB) were tracked in git despite .gitignore. Removed from git tracking. Restored React Web as production frontend (title: 灵犀伴学 - AI 成长伙伴). Pushed 13 commits to origin (Phase 5-6 UI美化, reward timezone fixes, check-in status fixes). Infrastructure score adjusted 93→92 due to CDN cache persistence issue.",
-    "2026-06-28: Pushed 8 unpushed commits to origin (reward data isolation + JWT auth, gift shop management, template management UI, login button fix, child manager multi-child, DioException error handling, extendBody fix). Merged fix/issue-60 (BuildContext async safety + deprecated withOpacity→withValues + DropdownButtonFormField value→initialValue) and fix/issue-61 (unused imports/fields cleanup across 5 Flutter files). Fixed 9 Flutter lint warnings (unused imports, deprecated APIs, dead code, unnecessary assertions). Rewrote reward.controller.spec.ts for JWT-based API — 42 tests covering all 19 endpoints including 403 Forbidden, 404 Not Found, ConflictException, userId stripping, calendar/day-records. 83/83 reward tests passing. Backend running latest code (reward API returns 401 without JWT). Deploy 200 OK. Flutter Web build at 02:16 includes 8 commits (minor lint/PR changes pending rebuild)."
+    "2026-06-28: Pushed 8 unpushed commits to origin (reward data isolation + JWT auth, gift shop management, template management UI, login button fix, child manager multi-child, DioException error handling, extendBody fix). Merged fix/issue-60 (BuildContext async safety + deprecated withOpacity→withValues + DropdownButtonFormField value→initialValue) and fix/issue-61 (unused imports/fields cleanup across 5 Flutter files). Fixed 9 Flutter lint warnings (unused imports, deprecated APIs, dead code, unnecessary assertions). Rewrote reward.controller.spec.ts for JWT-based API — 42 tests covering all 19 endpoints including 403 Forbidden, 404 Not Found, ConflictException, userId stripping, calendar/day-records. 83/83 reward tests passing. Backend running latest code (reward API returns 401 without JWT). Deploy 200 OK. Flutter Web build at 02:16 includes 8 commits (minor lint/PR changes pending rebuild).",
+    "2026-06-29: Fixed 2 failing reward.service tests caused by uncommitted auto-sortOrder logic in createBehavior/createGift. The service now queries existing records for max sortOrder+1 when sortOrder is not provided, but the tests didn't mock the find() call → TypeError. Updated tests to mock the auto-sort query and expect sortOrder=1. All 41 reward.service tests pass. Pushed to origin. 4 remote feature branches pending review: fix/issue-64 (use_build_context_synchronously in gift_shop), fix/issue-65 (video pipeline hardening: TTS 0-byte fail-fast, Chrome path fix, built-in template fallback), fix/issue-66 (agent registry startup validation + videoGeneratorDefinition export), fix/gift-manage-button-visibility (desktop button visibility)."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -108,22 +109,26 @@
     "Cloudflare CDN caches HTML for 5 minutes (max-age=300 in Cache-Control header). After deploying new frontend, the old version may persist at edge for up to 5 minutes. Use cache-busting query params or wait for TTL expiry. Consider adding Cloudflare API token for cache purge automation.",
     "When on a feature branch (e.g., fix/issue-57), commits don't push to origin/main automatically. Must checkout main and merge (git merge fix/issue-57 --ff-only) before pushing. Always verify current branch with 'git branch' before pushing.",
     "When controller signatures change (e.g., adding @Req() for JWT auth), ALL existing controller tests must be updated to pass the new req parameter. The test won't even compile — TypeScript reports 'An argument for X was not provided'. Always run tests after controller refactoring, not just npm run build. The build uses nest build which may have different tsconfig than jest's ts-jest.",
-    "Flutter DropdownButtonFormField 'value' parameter is deprecated since Flutter 3.33.0 — use 'initialValue' instead. This affects all forms with dropdowns. The analyzer flags it as 'deprecated_member_use'. fix/issue-60 applied this to child_manager_screen, but the same pattern exists in gift_shop_screen and reward_home_screen — always grep for 'value: selected' in DropdownButtonFormField after merging deprecated API fixes."
+    "Flutter DropdownButtonFormField 'value' parameter is deprecated since Flutter 3.33.0 — use 'initialValue' instead. This affects all forms with dropdowns. The analyzer flags it as 'deprecated_member_use'. fix/issue-60 applied this to child_manager_screen, but the same pattern exists in gift_shop_screen and reward_home_screen — always grep for 'value: selected' in DropdownButtonFormField after merging deprecated API fixes.",
+    "When service methods add new internal queries (e.g., auto-sortOrder that calls repo.find()), ALL existing tests for that method must be updated to mock the new query — otherwise the mock returns undefined and causes TypeError. Always run the full test file after modifying service method internals, not just the build.",
+    "Backend running on nvm node v22 (MODULE_VERSION 127) but better-sqlite3 was compiled for v22 — this is currently CORRECT and working (seed user login succeeds). However, registered users (13297720010) get 401 because the DB was reset on 2026-06-28 23:00 (tunnel restart triggered backend restart with fresh seed). The sql.js fallback warning was NOT in the startup log — better-sqlite3 is loading correctly. Registered users simply don't exist in the fresh DB.",
+    "4 remote feature branches (fix/issue-64, fix/issue-65, fix/issue-66, fix/gift-manage-button-visibility) contain important fixes but also revert the iconImage/icon_picker feature (removing 370+ lines of custom icon upload code). This suggests the iconImage feature was experimental and is being rolled back. Do NOT merge these branches without user confirmation — the iconImage feature is in the current main branch and uncommitted changes.",
+    "Uncommitted local changes (reward.service.ts auto-sortOrder, Flutter icon_picker/reward_icon/task_card components, reward_provider, user_provider, parent_home_screen, gift_shop_screen, reward_home_screen, api_service) represent work-in-progress on the icon upload feature + sortOrder auto-assignment. The remote branches appear to be an alternative direction (reverting iconImage). Need user decision on which direction to take."
   ],
   "metrics": {
     "backend_files": 214,
     "backend_test_files": 73,
     "backend_test_ratio": "34.1%",
-    "backend_src_lines": 33315,
-    "backend_test_lines": 15064,
-    "flutter_files": 78,
-    "flutter_lines": 37927,
+    "backend_src_lines": 38948,
+    "backend_test_lines": 15015,
+    "flutter_files": 80,
+    "flutter_lines": 41082,
     "web_files": 100,
-    "web_lines": 21283,
+    "web_lines": 26529,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 114943,
-    "repo_build_artifacts": "41MB deployed (build/web/), 41MB public/",
+    "total_lines": 129196,
+    "repo_build_artifacts": "41MB build/web/, 41MB public/",
     "backend_modules": 17,
     "entities": 17
   }

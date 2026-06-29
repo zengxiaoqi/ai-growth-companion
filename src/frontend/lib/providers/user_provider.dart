@@ -42,16 +42,56 @@ class UserProvider extends ChangeNotifier {
         _activeChildId = user['id'] as int?;
       }
 
-      // 恢复 token 到 API 拦截器
+      // 注入 token 到 API 拦截器
       if (_apiService != null) {
         final token = _storage.getToken();
-        if (token != null) {
+        if (token != null && token.isNotEmpty) {
           _apiService!.setToken(token);
+          // 异步验证 token 是否仍然有效（可能已过期或后端重启）
+          _validateToken();
+          return;
         }
       }
 
       notifyListeners();
     });
+  }
+
+  /// 验证当前 token 是否仍然有效（防止过期 token 导致"已登录但无数据"僵尸状态）
+  Future<void> _validateToken() async {
+    if (_apiService == null) return;
+    try {
+      final profile = await _apiService!.getProfile();
+      if (profile == null) {
+        // token 无效或网络错误 → 清除登录态
+        debugPrint('[UserProvider] Token validation failed — logging out');
+        await _storage.clearUser();
+        _currentUser = null;
+        _selectedMode = null;
+        _activeChildId = null;
+        _apiService!.setToken('');
+        notifyListeners();
+      } else {
+        // token 有效 → 用最新 profile 更新本地用户数据（防止后端用户信息变更）
+        if (profile['id'] != null) {
+          _currentUser = {
+            'id': profile['id'] is int ? profile['id'] : int.tryParse(profile['id'].toString()) ?? 0,
+            'type': profile['type']?.toString() ?? 'child',
+            'name': profile['name']?.toString() ?? '',
+            'age': profile['age'],
+            'phone': profile['phone']?.toString(),
+            'parentId': profile['parentId'] is int
+                ? profile['parentId']
+                : int.tryParse(profile['parentId']?.toString() ?? ''),
+          };
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[UserProvider] Token validation error: $e');
+      // 网络错误不 logout（可能暂时断网），保持登录态让用户重试
+      notifyListeners();
+    }
   }
 
   Future<void> login(Map<String, dynamic> userData) async {

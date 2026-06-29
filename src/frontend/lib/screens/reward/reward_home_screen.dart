@@ -837,9 +837,9 @@ class _BehaviorTemplateManagementSheetState
                     emoji: currentEmoji,
                     iconImage: currentIconImage,
                     size: 56,
-                    onImageSelected: (filePath) async {
+                    onImageSelectedBytes: (bytes, fileName) async {
                       final reward = context.read<RewardProvider>();
-                      final ok = await reward.uploadBehaviorIcon(template.id, filePath);
+                      final ok = await reward.uploadBehaviorIconFromBytes(template.id, bytes, fileName);
                       if (ok) {
                         // 从 provider 获取最新数据
                         final updated = reward.behaviors.firstWhere((b) => b.id == template.id,

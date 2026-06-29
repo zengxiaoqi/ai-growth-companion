@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'dart:typed_data';
 import '../models/reward_models.dart';
 import '../services/api_service.dart';
 import '../utils/app_logger.dart';
@@ -202,12 +203,25 @@ class RewardProvider extends ChangeNotifier {
     }
   }
 
-  /// 上传行为模板图标图片
+  /// 上传行为模板图标图片（移动端，文件路径）
   Future<bool> uploadBehaviorIcon(int id, String filePath) async {
+    return _uploadBehaviorIconBytes(id, null, filePath);
+  }
+
+  /// 上传行为模板图标图片（Web/通用，bytes）
+  Future<bool> uploadBehaviorIconFromBytes(int id, Uint8List bytes, String fileName) async {
+    return _uploadBehaviorIconBytes(id, bytes, fileName);
+  }
+
+  Future<bool> _uploadBehaviorIconBytes(int id, Uint8List? bytes, String? filePath) async {
     try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath),
-      });
+      MultipartFile filePart;
+      if (bytes != null) {
+        filePart = MultipartFile.fromBytes(bytes, filename: filePath ?? 'icon.png');
+      } else {
+        filePart = await MultipartFile.fromFile(filePath!);
+      }
+      final formData = FormData.fromMap({'file': filePart});
       final response = await _apiService.dio.post(
         '/reward/behaviors/$id/icon',
         data: formData,
@@ -215,7 +229,6 @@ class RewardProvider extends ChangeNotifier {
       final iconImage = response.data['url'] as String;
       final index = _behaviors.indexWhere((b) => b.id == id);
       if (index != -1) {
-        // 重新从完整 API 数据加载该行为
         await loadBehaviors();
       }
       _log.info('uploadBehaviorIcon success: $iconImage');
@@ -423,12 +436,25 @@ class RewardProvider extends ChangeNotifier {
     }
   }
 
-  /// 上传礼品图标图片
+  /// 上传礼品图标图片（移动端，文件路径）
   Future<bool> uploadGiftIcon(int id, String filePath) async {
+    return _uploadGiftIconBytes(id, null, filePath);
+  }
+
+  /// 上传礼品图标图片（Web/通用，bytes）
+  Future<bool> uploadGiftIconFromBytes(int id, Uint8List bytes, String fileName) async {
+    return _uploadGiftIconBytes(id, bytes, fileName);
+  }
+
+  Future<bool> _uploadGiftIconBytes(int id, Uint8List? bytes, String? filePath) async {
     try {
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath),
-      });
+      MultipartFile filePart;
+      if (bytes != null) {
+        filePart = MultipartFile.fromBytes(bytes, filename: filePath ?? 'icon.png');
+      } else {
+        filePart = await MultipartFile.fromFile(filePath!);
+      }
+      final formData = FormData.fromMap({'file': filePart});
       final response = await _apiService.dio.post(
         '/reward/gifts/$id/icon',
         data: formData,

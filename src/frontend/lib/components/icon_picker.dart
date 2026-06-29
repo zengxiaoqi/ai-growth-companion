@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../theme/app_theme.dart';
 import 'reward_icon.dart';
 
@@ -29,8 +29,11 @@ class IconPicker extends StatefulWidget {
   /// 当前自定义图片 URL
   final String? iconImage;
 
-  /// 图片上传回调（传入文件路径）
+  /// 图片上传回调（传入文件路径，用于移动端）
   final Future<bool> Function(String filePath)? onImageSelected;
+
+  /// 图片上传回调（传入 bytes + 文件名，用于 Web 平台）
+  final Future<bool> Function(Uint8List bytes, String fileName)? onImageSelectedBytes;
 
   /// 图片删除回调
   final Future<bool> Function()? onImageDeleted;
@@ -46,6 +49,7 @@ class IconPicker extends StatefulWidget {
     required this.emoji,
     this.iconImage,
     this.onImageSelected,
+    this.onImageSelectedBytes,
     this.onImageDeleted,
     this.onEmojiSelected,
     this.size = 56,
@@ -79,44 +83,55 @@ class _IconPickerState extends State<IconPicker> {
       );
       if (xfile == null) return;
 
-      // Flutter Web 中 xfile.path 可能为 null，使用 bytes
-      final path = xfile.path;
-      if (path == null || path.isEmpty) {
-        // Web 平台处理
-        final bytes = await xfile.readAsBytes();
-        // 对于 Web 平台，直接传 MultipartFile
-        if (widget.onImageSelected != null) {
-          setState(() => _uploading = true);
-          // Web 平台没有文件路径，需要特殊处理
-          // 这里直接传路径（在非 Web 平台工作）
-          // Web 平台需要在调用方处理
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Web 平台暂不支持图片上传，请使用 emoji')),
-          );
+      setState(() => _uploading = true);
+
+      // 统一使用 bytes 上传（Web 和移动端都支持）
+      final bytes = await xfile.readAsBytes();
+      final fileName = xfile.name.isNotEmpty ? xfile.name : 'icon.png';
+
+      bool success = false;
+      if (widget.onImageSelectedBytes != null) {
+        // Web 优先使用 bytes 上传
+        success = await widget.onImageSelectedBytes!(bytes, fileName);
+      } else if (widget.onImageSelected != null) {
+        // 移动端 fallback 使用文件路径
+        final path = xfile.path;
+        if (path != null && path.isNotEmpty) {
+          success = await widget.onImageSelected!(path);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('无法获取图片路径')),
+            );
+          }
           setState(() => _uploading = false);
           return;
         }
-      }
-
-      if (widget.onImageSelected != null && path != null && path.isNotEmpty) {
-        setState(() => _uploading = true);
-        final success = await widget.onImageSelected!(path);
-        setState(() => _uploading = false);
-        if (success && mounted) {
+      } else {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('图标上传成功'),
-              backgroundColor: AppTheme.successColor,
-            ),
-          );
-        } else if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('上传失败'),
-              backgroundColor: AppTheme.errorColor,
-            ),
+            const SnackBar(content: Text('未配置上传回调')),
           );
         }
+        setState(() => _uploading = false);
+        return;
+      }
+
+      setState(() => _uploading = false);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('图标上传成功'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('上传失败'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
       }
     } catch (e) {
       setState(() => _uploading = false);
@@ -190,7 +205,7 @@ class _IconPickerState extends State<IconPicker> {
                 const SizedBox(height: 16),
 
                 // 上传图片按钮
-                if (widget.onImageSelected != null) ...[
+                if (widget.onImageSelected != null || widget.onImageSelectedBytes != null) ...[
                   _UploadButton(
                     uploading: _uploading,
                     onTap: _uploading ? null : () {

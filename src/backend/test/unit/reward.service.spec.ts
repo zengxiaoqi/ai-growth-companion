@@ -99,9 +99,11 @@ describe('RewardService', () => {
         emoji: '⭐',
         category: 'daily',
         isDefault: false,
-        sortOrder: 0,
+        sortOrder: 1,
       };
 
+      // Mock the auto-sortOrder query (no existing behaviors → sortOrder = 1)
+      behaviorRepo.find.mockResolvedValue([]);
       behaviorRepo.create.mockReturnValue(created);
       behaviorRepo.save.mockResolvedValue(created);
 
@@ -115,7 +117,7 @@ describe('RewardService', () => {
           emoji: '⭐',
           category: 'daily',
           isDefault: false,
-          sortOrder: 0,
+          sortOrder: 1,
         }),
       );
       expect(result).toEqual(created);
@@ -461,9 +463,11 @@ describe('RewardService', () => {
         description: null,
         category: 'other',
         stock: -1,
-        sortOrder: 0,
+        sortOrder: 1,
       };
 
+      // Mock the auto-sortOrder query (no existing gifts → sortOrder = 1)
+      giftRepo.find.mockResolvedValue([]);
       giftRepo.create.mockReturnValue(created);
       giftRepo.save.mockResolvedValue(created);
 
@@ -478,7 +482,7 @@ describe('RewardService', () => {
           description: null,
           category: 'other',
           stock: -1,
-          sortOrder: 0,
+          sortOrder: 1,
         }),
       );
       expect(result).toEqual(created);

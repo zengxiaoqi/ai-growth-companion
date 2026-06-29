@@ -763,7 +763,6 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
   }
 
   Widget _buildGiftTile(BuildContext context, Gift gift, RewardProvider reward) {
-    final isPositive = gift.pointsCost >= 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(

@@ -395,22 +395,6 @@ class _CheckInPanel extends StatelessWidget {
     );
   }
 
-  _IconData _getIconForCategory(String category) {
-    switch (category) {
-      case 'daily':
-      case '日常习惯':
-        return _IconData(Icons.wb_sunny_rounded, AppTheme.secondaryColor);
-      case 'extra':
-      case '学习活动':
-        return _IconData(Icons.menu_book_rounded, AppTheme.primaryColor);
-      case 'negative':
-      case '扣分行为':
-        return _IconData(Icons.warning_amber_rounded, AppTheme.warningColor);
-      default:
-        return _IconData(Icons.check_circle_outline, AppTheme.textSecondary);
-    }
-  }
-
   String _getCategoryEmoji(String category) {
     switch (category) {
       case 'daily':
@@ -555,8 +539,8 @@ class _CheckInPanel extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               final userProvider = context.read<UserProvider>();
-              final childId = await userProvider.resolveChildId();
               final reward = context.read<RewardProvider>();
+              final childId = await userProvider.resolveChildId();
               final success = await reward.deletePointRecord(record.id, childId: childId);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -575,12 +559,6 @@ class _CheckInPanel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _IconData {
-  final IconData icon;
-  final Color color;
-  _IconData(this.icon, this.color);
 }
 
 // ==================== 行为模板管理底部弹窗 ====================
@@ -1281,22 +1259,6 @@ class _MakeupCheckInSheetState extends State<_MakeupCheckInSheet> {
   }
 
   // ==================== 辅助方法 ====================
-
-  _IconData _getIconForCategory(String category) {
-    switch (category) {
-      case 'daily':
-      case '日常习惯':
-        return _IconData(Icons.wb_sunny_rounded, AppTheme.secondaryColor);
-      case 'extra':
-      case '学习活动':
-        return _IconData(Icons.menu_book_rounded, AppTheme.primaryColor);
-      case 'negative':
-      case '扣分行为':
-        return _IconData(Icons.warning_amber_rounded, AppTheme.warningColor);
-      default:
-        return _IconData(Icons.check_circle_outline, AppTheme.textSecondary);
-    }
-  }
 
   String _getCategoryEmoji(String category) {
     switch (category) {

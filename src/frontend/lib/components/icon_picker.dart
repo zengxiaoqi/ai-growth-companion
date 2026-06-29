@@ -96,7 +96,7 @@ class _IconPickerState extends State<IconPicker> {
       } else if (widget.onImageSelected != null) {
         // 移动端 fallback 使用文件路径
         final path = xfile.path;
-        if (path != null && path.isNotEmpty) {
+        if (path.isNotEmpty) {
           success = await widget.onImageSelected!(path);
         } else {
           if (mounted) {

@@ -29,12 +29,20 @@ void main() async {
   // 初始化 AI 服务
   final aiService = AiService(apiService);
 
-  // 设置 401 过期回调：清除本地登录态 + 跳转登录页
+  // 设置 401 过期回调：清除本地登录态 + 回到根路由
+  // 不 push /login 路由 — Consumer 会根据 isLoggedIn 自动显示 LoginScreen
   ApiService.onAuthExpired = () {
-    debugPrint('[AuthExpired] 401 detected — clearing session and redirecting');
-    storageService.clearUser();
-    // 通过全局 navigatorKey 跳转到登录页，清空所有路由栈
-    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
+    debugPrint('[AuthExpired] 401 detected — clearing session');
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) {
+      // 通过 Provider 调用 logout，清内存状态 + storage + 通知 Consumer 重建
+      Provider.of<UserProvider>(ctx, listen: false).logout();
+    } else {
+      // Fallback: 直接清 storage
+      storageService.clearUser();
+    }
+    // 弹回根路由，让 Consumer 重建为 LoginScreen
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
   };
 
   runApp(

@@ -60,6 +60,11 @@ class LingxiApp extends StatelessWidget {
       title: '灵犀伴学',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
+      // Force initial route to '/' — prevents Flutter Web from treating
+      // the browser URL path (e.g. '/login') as the initial route and
+      // pushing it onto the navigator stack, which would shadow the
+      // Consumer-based home widget.
+      initialRoute: '/',
       // All routes use custom page transitions defined in
       // theme/page_transitions.dart.  See that file for the transition
       // assignment rationale.
@@ -78,7 +83,10 @@ class LingxiApp extends StatelessWidget {
         switch (settings.name) {
           // ── Authentication → fadeThrough ──
           case '/login':
-            return page((_) => const LoginScreen(), fadeThrough);
+            // Return _HomeScreen (Consumer) instead of standalone LoginScreen.
+            // This ensures notifyListeners() triggers UI rebuild when login
+            // succeeds, even when /login is the initial route (URL-based).
+            return page((_) => const _HomeScreen(), fadeThrough);
           case '/register':
             return page((_) => const RegisterScreen(), fadeThrough);
           case '/modeSelection':
@@ -210,28 +218,44 @@ class LingxiApp extends StatelessWidget {
             return null;
         }
       },
-      home: Consumer<UserProvider>(
-        builder: (context, userProvider, _) {
-          if (userProvider.isLoading) {
-            return const SplashScreen();
-          }
+      home: const _HomeScreen(),
+    );
+  }
+}
 
-          if (!userProvider.isLoggedIn) {
-            return const LoginScreen();
-          }
+/// Central Consumer-based home widget.
+///
+/// Used both as `MaterialApp.home` and as the `/login` route target.
+/// By routing `/login` through this Consumer (instead of a standalone
+/// `LoginScreen`), `notifyListeners()` from `UserProvider.login()` reliably
+/// triggers a rebuild that swaps to the appropriate screen — even when
+/// the user navigated directly to the `/login` URL.
+class _HomeScreen extends StatelessWidget {
+  const _HomeScreen();
 
-          final mode = userProvider.selectedMode;
-          if (mode == null) {
-            return const ModeSelectionScreen();
-          }
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) {
+        if (userProvider.isLoading) {
+          return const SplashScreen();
+        }
 
-          if (mode == 'child') {
-            return const ChildHomeScreen();
-          }
+        if (!userProvider.isLoggedIn) {
+          return const LoginScreen();
+        }
 
-          return const ParentHomeScreen();
-        },
-      ),
+        final mode = userProvider.selectedMode;
+        if (mode == null) {
+          return const ModeSelectionScreen();
+        }
+
+        if (mode == 'child') {
+          return const ChildHomeScreen();
+        }
+
+        return const ParentHomeScreen();
+      },
     );
   }
 }

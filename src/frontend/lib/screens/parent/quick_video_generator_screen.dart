@@ -30,8 +30,8 @@ class QuickVideoGeneratorScreen extends StatefulWidget {
 }
 
 class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
-  final _api = ApiService();
   final _topicController = TextEditingController();
+  late final ApiService _api;
 
   VideoGenStatus _status = VideoGenStatus.idle;
   String _errorMessage = '';
@@ -56,6 +56,9 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
   @override
   void initState() {
     super.initState();
+    // 从 Provider 获取已注入 token 的 ApiService 实例，
+    // 不要 new ApiService() — 那样会丢失 token 导致所有 API 请求返回 401
+    _api = context.read<ApiService>();
     _loadChildren();
   }
 

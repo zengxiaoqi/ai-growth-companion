@@ -164,9 +164,13 @@ class _IconPickerState extends State<IconPicker> {
   void _showPickerDialog() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
       ),
       builder: (context) {
         return SafeArea(
@@ -227,43 +231,45 @@ class _IconPickerState extends State<IconPicker> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 6,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 1,
-                    ),
-                    itemCount: _presetEmojis.length,
-                    itemBuilder: (context, index) {
-                      final emoji = _presetEmojis[index];
-                      final isSelected = emoji == widget.emoji && (widget.iconImage == null);
-                      return GestureDetector(
-                        onTap: () {
-                          widget.onEmojiSelected!(emoji);
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: isSelected
-                                ? Border.all(color: AppTheme.primaryColor, width: 2)
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              emoji,
-                              style: const TextStyle(fontSize: 24),
+                  Flexible(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 6,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1,
+                      ),
+                      itemCount: _presetEmojis.length,
+                      itemBuilder: (context, index) {
+                        final emoji = _presetEmojis[index];
+                        final isSelected = emoji == widget.emoji && (widget.iconImage == null);
+                        return GestureDetector(
+                          onTap: () {
+                            widget.onEmojiSelected!(emoji);
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isSelected
+                                  ? Border.all(color: AppTheme.primaryColor, width: 2)
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 24),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ],
               ],

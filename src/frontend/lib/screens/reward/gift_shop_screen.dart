@@ -923,18 +923,22 @@ class _GiftManagementSheetState extends State<_GiftManagementSheet> {
                   ),
                   const SizedBox(height: 16),
                 ] else ...[
-                  // 新增模式：emoji 文本输入
-                  TextField(
-                    controller: emojiController,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 24),
-                    decoration: const InputDecoration(
-                      labelText: 'Emoji',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
+                  // 新增模式：emoji 选择器（保存后可上传自定义图片）
+                  IconPicker(
+                    emoji: currentEmoji,
+                    iconImage: null,
+                    size: 56,
+                    onEmojiSelected: (emoji) {
+                      emojiController.text = emoji;
+                      setState(() => currentEmoji = emoji);
+                    },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  Text(
+                    '选择 emoji 图标，保存后可上传自定义图片',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 16),
                 ],
                 // 名称
                 TextField(

@@ -860,16 +860,22 @@ class _BehaviorTemplateManagementSheetState
                   ),
                   const SizedBox(height: 16),
                 ] else ...[
-                  // 新增模式：只显示 emoji 输入
-                  TextField(
-                    controller: emojiController,
-                    decoration: const InputDecoration(
-                      labelText: 'Emoji 图标',
-                      hintText: '如：🌅',
-                      border: OutlineInputBorder(),
-                    ),
+                  // 新增模式：emoji 选择器（保存后可上传自定义图片）
+                  IconPicker(
+                    emoji: currentEmoji,
+                    iconImage: null,
+                    size: 56,
+                    onEmojiSelected: (emoji) {
+                      emojiController.text = emoji;
+                      setDialogState(() => currentEmoji = emoji);
+                    },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  Text(
+                    '选择 emoji 图标，保存后可上传自定义图片',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                  const SizedBox(height: 16),
                 ],
                 TextField(
                   controller: pointsController,

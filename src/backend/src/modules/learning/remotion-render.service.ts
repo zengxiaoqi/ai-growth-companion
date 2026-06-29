@@ -373,44 +373,12 @@ export class RemotionRenderService implements OnModuleInit {
     }
 
     // 4. System-installed browsers
+    // NOTE: Windows system paths are intentionally omitted — hardcoded paths like
+    // "C:\Program Files\..." contain spaces that can be split by downstream CLI
+    // parsers. On Windows, set CHROME_PATH env var or rely on puppeteer/playwright
+    // cache discovery above.
     const systemPaths = isWin
-      ? [
-          path.join(
-            process.env.PROGRAMFILES ?? 'C:\\Program Files',
-            'Google',
-            'Chrome',
-            'Application',
-            'chrome.exe',
-          ),
-          path.join(
-            process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)',
-            'Google',
-            'Chrome',
-            'Application',
-            'chrome.exe',
-          ),
-          path.join(
-            process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'),
-            'Google',
-            'Chrome',
-            'Application',
-            'chrome.exe',
-          ),
-          path.join(
-            process.env.PROGRAMFILES ?? 'C:\\Program Files',
-            'BraveSoftware',
-            'Brave-Browser',
-            'Application',
-            'brave.exe',
-          ),
-          path.join(
-            process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local'),
-            'Microsoft',
-            'Edge',
-            'Application',
-            'msedge.exe',
-          ),
-        ]
+      ? []
       : isMac
         ? [
             '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -1612,7 +1580,17 @@ export class RemotionRenderService implements OnModuleInit {
       try {
         const buffer = await this.voiceService.textToSpeech(narration);
         if (!Buffer.isBuffer(buffer) || buffer.length < minBytes) {
-          throw new Error(`empty or too small TTS buffer (${buffer?.length || 0} bytes)`);
+          const size = buffer?.length || 0;
+          // Zero-byte responses are a persistent failure (TTS engine down or
+          // misconfigured). Retrying won't help — fail fast and fall through
+          // to the silent-placeholder path.
+          if (size === 0) {
+            this.logger.warn(
+              `TTS returned 0 bytes for dynamic scene "${label}" — skipping retry (persistent failure)`,
+            );
+            return null;
+          }
+          throw new Error(`empty or too small TTS buffer (${size} bytes)`);
         }
         return {
           buffer,

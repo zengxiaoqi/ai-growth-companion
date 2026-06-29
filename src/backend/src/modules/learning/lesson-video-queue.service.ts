@@ -768,7 +768,24 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(
           `[generateByDynamicRemotion] taskId=${task.id} AI repair retry failed: original=${error?.message || 'unknown'} repair=${repairError?.message || 'unknown'}`,
         );
-        throw repairError;
+        // Fall back to built-in template instead of throwing — the built-in
+        // template is known-good TSX that always compiles.
+        this.logger.log(
+          `[generateByDynamicRemotion] taskId=${task.id} falling back to built-in GeneratedLesson template`,
+        );
+        const fallbackManifest = await this.videoGenerationAgent.generateRemotionComposition(
+          storyboard,
+          payload,
+        );
+        await this.remotionRender.renderGeneratedComposition(
+          task,
+          fallbackManifest,
+          outputPath,
+          onProgress,
+        );
+        this.logger.log(
+          `[generateByDynamicRemotion] taskId=${task.id} built-in template fallback succeeded`,
+        );
       }
     }
 

@@ -120,11 +120,31 @@ class _GiftShopScreenState extends State<GiftShopScreen>
           ),
           const Text(' 分', style: TextStyle(color: Colors.white, fontSize: 15)),
           const Spacer(),
-          // 管理礼品按钮
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white, size: 22),
-            tooltip: '管理礼品',
-            onPressed: () => _showGiftManagement(context),
+          // 管理礼品按钮 — 带文字的 pill 样式，桌面端更明显
+          GestureDetector(
+            onTap: () => _showGiftManagement(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.settings, color: Colors.white, size: 18),
+                  SizedBox(width: 4),
+                  Text(
+                    '管理礼品',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -548,16 +568,14 @@ class _GiftShopScreenState extends State<GiftShopScreen>
   Future<void> _confirmRedeem(Gift gift, RewardProvider reward) async {
     final userProvider = context.read<UserProvider>();
     final childId = await userProvider.resolveChildId();
+    if (!mounted) return;
     if (childId == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请先添加/选择孩子')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先添加/选择孩子')),
+      );
       return;
     }
 
-    if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

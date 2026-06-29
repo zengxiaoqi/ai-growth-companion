@@ -16,6 +16,9 @@ class UserProvider extends ChangeNotifier {
   Timer? _loadTimer;
 
   UserProvider(this._storage, [this._apiService]) {
+    // 同步加载用户状态（无 Timer 延迟），确保 token 在任何 widget 的
+    // initState 之前注入到 ApiService，防止 Flutter Web 刷新时
+    // RewardHomeScreen 等页面在 token 设置之前就发出 API 请求 → 401
     _loadUser();
   }
 
@@ -27,37 +30,38 @@ class UserProvider extends ChangeNotifier {
   ApiService? get apiService => _apiService;
 
   void _loadUser() {
-    // 使用微小的 Timer 延迟，确保 SplashScreen 在首帧中渲染
-    // Timer 在当前帧 pump 完成后才触发，避免同步切换导致 SplashScreen 跳过
-    _loadTimer = Timer(const Duration(milliseconds: 30), () {
-      final user = _storage.getUser();
-      _currentUser = user;
-      _selectedMode = _storage.getSelectedMode();
-      _isLoading = false;
+    // 同步从 storage 读取用户状态——不使用 Timer 延迟。
+    // 之前用 30ms Timer 是为了让 SplashScreen 在首帧渲染，但这会导致
+    // token 在 widget initState 之后才注入 ApiService，引发 401 竞态。
+    // 现在 _isLoading 初始为 true，Consumer 首帧会显示 SplashScreen，
+    // 这里同步设置完状态后调用 notifyListeners() 触发重建即可。
+    final user = _storage.getUser();
+    _currentUser = user;
+    _selectedMode = _storage.getSelectedMode();
+    _isLoading = false;
 
-      // 恢复 activeChildId
-      _activeChildId = _storage.getActiveChildId();
-      // 如果未设置且当前用户是孩子，默认使用当前用户 ID
-      if (_activeChildId == null && user != null && user['type'] == 'child') {
-        _activeChildId = user['id'] as int?;
+    // 恢复 activeChildId
+    _activeChildId = _storage.getActiveChildId();
+    // 如果未设置且当前用户是孩子，默认使用当前用户 ID
+    if (_activeChildId == null && user != null && user['type'] == 'child') {
+      _activeChildId = user['id'] as int?;
+    }
+
+    // 注入 token 到 API 拦截器
+    if (_apiService != null) {
+      final token = _storage.getToken();
+      if (token != null && token.isNotEmpty) {
+        _apiService!.setToken(token);
+        // 先通知 UI 重建——用 storage 中的已保存状态立即显示页面，
+        // 不让用户盯着 SplashScreen 等待网络验证
+        notifyListeners();
+        // 然后异步验证 token 是否仍然有效（可能已过期或后端重启）
+        _validateToken();
+        return;
       }
+    }
 
-      // 注入 token 到 API 拦截器
-      if (_apiService != null) {
-        final token = _storage.getToken();
-        if (token != null && token.isNotEmpty) {
-          _apiService!.setToken(token);
-          // 先通知 UI 重建——用 storage 中的已保存状态立即显示页面，
-          // 不让用户盯着 SplashScreen 等待网络验证
-          notifyListeners();
-          // 然后异步验证 token 是否仍然有效（可能已过期或后端重启）
-          _validateToken();
-          return;
-        }
-      }
-
-      notifyListeners();
-    });
+    notifyListeners();
   }
 
   /// 验证当前 token 是否仍然有效（防止过期 token 导致"已登录但无数据"僵尸状态）

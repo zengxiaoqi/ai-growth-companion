@@ -57,7 +57,15 @@ class ApiService {
   }
 
   /// 处理 token 过期：清除 token，触发回调跳转登录页
+  ///
+  /// 重要保护：如果 _token 为 null/空，说明 token 还未从 storage 恢复
+  /// （UserProvider 的 _loadUser 还没执行），此时 401 是预期的——
+  /// 请求在 token 注入之前就发出了。不要在这种情况下触发登出。
   void _handleAuthExpired() {
+    if (_token == null || _token!.isEmpty) {
+      _log.warning('401 received but no token was set — ignoring (initial load race condition)');
+      return;
+    }
     _log.warning('Auth token expired — triggering logout');
     _token = null;
     _dio.interceptors.removeWhere((i) => i is _AuthInterceptor);
@@ -1404,8 +1412,8 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode == 401) {
-      // Token expired — you can emit to a stream here or rely on ApiResult error
-      _log.warning('Auth token expired or invalid');
+      // Token expired — _handleAuthExpired is called by the global onError handler below
+      _log.warning('Auth token expired or invalid (interceptor)');
     }
     handler.next(err);
   }

@@ -12,6 +12,7 @@ jobs:
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/backend
@@ -48,6 +49,7 @@ jobs:
   frontend:
     name: Frontend CI
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/frontend-web

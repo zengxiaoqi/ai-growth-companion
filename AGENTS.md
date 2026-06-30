@@ -38,6 +38,7 @@ npm run typecheck              # tsc --noEmit
 cd src/frontend
 flutter pub get
 flutter run                    # Requires Flutter SDK + emulator/device
+flutter build web              # Web build → build/web/ (served by nginx directly)
 ```
 
 ### Quick Start (Windows)
@@ -65,7 +66,7 @@ Three separate applications under `src/` with no monorepo tooling — each has i
 - **Screens:** `lib/screens/` organized by role — `child/`, `parent/`, `learning/`, `games/`, `auth/`, `achievement/`.
 - **Components:** Shared UI under `lib/components/` — `EmptyState`, `ShimmerLoading`, `SpeechInputWidget`, `NotificationPanel`, `AppCard`, `SectionHeader`.
 - **Theme:** `lib/theme/` with `PageTransitions` (custom route animations), `AnimationUtils`, and `AppTheme`.
-- **Flutter Web build:** Output at `src/frontend/build/web/`. Deploy by copying to `src/backend/public/`: `cd src/frontend && flutter build web && rsync -av --delete build/web/ ../backend/public/`
+- **Flutter Web build:** Output at `src/frontend/build/web/`. nginx serves this directory directly — no rsync to `backend/public/` needed. Just run `cd src/frontend && flutter build web` and the files are live. After rebuild, rename `main.dart.js` to a versioned name (e.g. `main.dart.v1.js`), update `flutter_bootstrap.js` to reference it, and delete old `main.dart.v*.js` files for cache-busting.
 
 ### Frontend Web — `src/frontend-web/` (React 19 + Vite 6 + Tailwind CSS v4)
 
@@ -86,7 +87,7 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **Database resets:** Delete `lingxi.db` and restart backend to reset. The seeder runs automatically when the DB is empty.
 - **API prefix:** All backend routes are under `/api/`.
 - **Video generation:** Uses Remotion (Node.js video rendering framework). Chrome/Chromium auto-discovery. Scene components are modular (NumberScene, etc.). Generated assets cached in `public/.generated/`.
-- **Flutter Web deploy:** Build output goes to `src/frontend/build/web/`, then copied to `src/backend/public/` where NestJS serves it as static files. Use `rsync -av --delete build/web/ ../backend/public/` instead of `cp -r` to remove stale files.
+- **Flutter Web deploy:** Build output stays at `src/frontend/build/web/` and is served directly by nginx. No rsync to `backend/public/` — that directory is stale and unused. After rebuild, rename `main.dart.js` → `main.dart.vN.js`, update `flutter_bootstrap.js` reference, delete old versioned JS.
 - **Agent tools:** AI agent tools are in `src/backend/src/modules/ai/agent/tools/` — each tool is a standalone module with Zod schemas for parameter validation.
 
 ## Task Closure
@@ -96,9 +97,20 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 
 ## Deployment
 
-- **Production URL:** https://lingxi.chataifree.eu.org/
-- **Infrastructure:** Cloudflare Tunnel (HTTP2) → NestJS backend (port 3001) directly. Note: OpenClaw Gateway on port 18789 is for bot channels (Telegram/Feishu) only — it is NOT in the API routing path.
-- **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:3001/`.
-- **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken. Config at `~/.cloudflared/config.yml` — ingress rules must point to `localhost:3001` (backend) and `localhost:8081` (web). If external URL returns 502, check config.yml port matches actual backend port.
+- **Production URLs:**
+  - Flutter Web: https://lingxi.chataifree.eu.org/
+  - React Web: https://lingxi-web.chataifree.eu.org/
+  - API: Accessed via nginx reverse proxy at `/api/` on either domain (not a separate hostname)
+- **Infrastructure:** Cloudflare Tunnel (HTTP2) → nginx (ports 8080/8081) → static files + reverse proxy to NestJS backend (port 3001). nginx config at `/etc/nginx/sites-available/lingxi`.
+  - `lingxi.chataifree.eu.org` → nginx :8080 → root `src/frontend/build/web/` (Flutter Web)
+  - `lingxi-web.chataifree.eu.org` → nginx :8081 → root `src/frontend-web/dist/` (React Web)
+  - Both nginx servers proxy `/api/` and `/uploads/` to `localhost:3001` (backend)
+  - Note: `lingxi-api.chataifree.eu.org` in cloudflared config points to :3000 but is unused — API is served via nginx `/api/` path
+- **OpenClaw Gateway** on port 18789 is for bot channels (Telegram/Feishu) only — NOT in the API routing path.
+- **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:8080/` (nginx) or `http://localhost:3001/` (backend direct).
+- **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken. Config at `~/.cloudflared/config.yml`.
 - **Before deploy:** Stash local changes (`git stash`), then `git pull`
-- **Flutter Web deploy:** `cd src/frontend && flutter build web && rsync -av --delete build/web/ ../backend/public/`
+- **Flutter Web deploy:** `cd src/frontend && flutter build web` — files served directly from `build/web/` by nginx. No rsync needed. After rebuild: rename `main.dart.js` → `main.dart.vN.js`, update `flutter_bootstrap.js` to reference the new filename, delete old `main.dart.v*.js` files.
+- **React Web deploy:** `cd src/frontend-web && npm run build` — output at `dist/` served directly by nginx on :8081.
+- **Backend deploy:** Backend runs manually as `/usr/bin/node --enable-source-maps dist/main` (not systemd). After code changes: rebuild (`npm run build` in `src/backend/`), kill old process, start new one. Port is 3001 (check `.env` — multiple agents may篡改 PORT causing 502).
+- **nginx /uploads/ proxy:** Must use `location ^~ /uploads/` (with `^~` prefix) to override the file-extension regex match, otherwise image uploads return 404.

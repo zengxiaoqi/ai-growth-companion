@@ -65,7 +65,7 @@ Three separate applications under `src/` with no monorepo tooling — each has i
 - **Screens:** `lib/screens/` organized by role — `child/`, `parent/`, `learning/`, `games/`, `auth/`, `achievement/`.
 - **Components:** Shared UI under `lib/components/` — `EmptyState`, `ShimmerLoading`, `SpeechInputWidget`, `NotificationPanel`, `AppCard`, `SectionHeader`.
 - **Theme:** `lib/theme/` with `PageTransitions` (custom route animations), `AnimationUtils`, and `AppTheme`.
-- **Flutter Web build:** Output at `src/frontend/build/web/`. Deploy by copying to `src/backend/public/`: `cd src/frontend && flutter build web && cp -r build/web/* ../backend/public/`
+- **Flutter Web build:** Output at `src/frontend/build/web/`. Deploy by copying to `src/backend/public/`: `cd src/frontend && flutter build web && rsync -av --delete build/web/ ../backend/public/`
 
 ### Frontend Web — `src/frontend-web/` (React 19 + Vite 6 + Tailwind CSS v4)
 

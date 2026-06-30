@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-06-29",
-  "analysis_count": 37,
-  "commit_count": 364,
-  "last_commit": "2026-06-29T09:06:01+08:00",
-  "last_commit_hash": "8916f3b",
+  "last_analysis": "2026-06-30",
+  "analysis_count": 38,
+  "commit_count": 376,
+  "last_commit": "2026-06-30T09:02:47+08:00",
+  "last_commit_hash": "e531ee9",
   "commits_ahead_remote": 0,
-  "remote_head": "8916f3b",
-  "remote_head_date": "2026-06-29T09:06:01+08:00",
+  "remote_head": "e531ee9",
+  "remote_head_date": "2026-06-30T09:02:47+08:00",
   "stale_days": 0,
   "capabilities": {
-    "child_experience": 93,
+    "child_experience": 94,
     "parent_dashboard": 95,
     "content_system": 87,
-    "infrastructure": 92,
+    "infrastructure": 93,
     "code_quality": 98
   },
   "active_plans": [],
@@ -69,7 +69,8 @@
     "2026-06-26: Killed zombie Jest process (PID 15168, running since Jun 25, 96% CPU + 963MB RAM from workspace-product-agent). Rebuilt Flutter Web (5 stale files: reward screens, parent_home, app.dart, reward_provider). Restored React Web production frontend (Flutter Web deploy was incorrect). Verified all systems: backend build clean, ESLint passes, frontend-web typecheck passes, deploy 200 OK.",
     "2026-06-27: Fixed CRITICAL frontend contamination — Flutter Web artifacts (42 files, 48MB) were tracked in git despite .gitignore. Removed from git tracking. Restored React Web as production frontend (title: 灵犀伴学 - AI 成长伙伴). Pushed 13 commits to origin (Phase 5-6 UI美化, reward timezone fixes, check-in status fixes). Infrastructure score adjusted 93→92 due to CDN cache persistence issue.",
     "2026-06-28: Pushed 8 unpushed commits to origin (reward data isolation + JWT auth, gift shop management, template management UI, login button fix, child manager multi-child, DioException error handling, extendBody fix). Merged fix/issue-60 (BuildContext async safety + deprecated withOpacity→withValues + DropdownButtonFormField value→initialValue) and fix/issue-61 (unused imports/fields cleanup across 5 Flutter files). Fixed 9 Flutter lint warnings (unused imports, deprecated APIs, dead code, unnecessary assertions). Rewrote reward.controller.spec.ts for JWT-based API — 42 tests covering all 19 endpoints including 403 Forbidden, 404 Not Found, ConflictException, userId stripping, calendar/day-records. 83/83 reward tests passing. Backend running latest code (reward API returns 401 without JWT). Deploy 200 OK. Flutter Web build at 02:16 includes 8 commits (minor lint/PR changes pending rebuild).",
-    "2026-06-29: Fixed 2 failing reward.service tests caused by uncommitted auto-sortOrder logic in createBehavior/createGift. The service now queries existing records for max sortOrder+1 when sortOrder is not provided, but the tests didn't mock the find() call → TypeError. Updated tests to mock the auto-sort query and expect sortOrder=1. All 41 reward.service tests pass. Pushed to origin. 4 remote feature branches pending review: fix/issue-64 (use_build_context_synchronously in gift_shop), fix/issue-65 (video pipeline hardening: TTS 0-byte fail-fast, Chrome path fix, built-in template fallback), fix/issue-66 (agent registry startup validation + videoGeneratorDefinition export), fix/gift-manage-button-visibility (desktop button visibility)."
+    "2026-06-29: Fixed 2 failing reward.service tests caused by uncommitted auto-sortOrder logic in createBehavior/createGift. The service now queries existing records for max sortOrder+1 when sortOrder is not provided, but the tests didn't mock the find() call → TypeError. Updated tests to mock the auto-sort query and expect sortOrder=1. All 41 reward.service tests pass. Pushed to origin. 4 remote feature branches pending review: fix/issue-64 (use_build_context_synchronously in gift_shop), fix/issue-65 (video pipeline hardening: TTS 0-byte fail-fast, Chrome path fix, built-in template fallback), fix/issue-66 (agent registry startup validation + videoGeneratorDefinition export), fix/gift-manage-button-visibility (desktop button visibility).",
+    "2026-06-30: Rebased 6 local commits on top of 4 remote commits (PR #74 users.controller spec update, PR #75 analyzer warnings cleanup, PR #76 mounted check, PR #77 CI timeout). Pushed to origin — git fully synced. Verified backend build clean, ESLint 0 errors, frontend-web typecheck passes, reward tests 83/83, AI controller 50/50, users controller 10/10. Fixed AGENTS.md Flutter Web deploy command (cp -r → rsync --delete in Architecture section). Deploy 200 OK, tunnel active, no zombie processes."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -113,22 +114,23 @@
     "When service methods add new internal queries (e.g., auto-sortOrder that calls repo.find()), ALL existing tests for that method must be updated to mock the new query — otherwise the mock returns undefined and causes TypeError. Always run the full test file after modifying service method internals, not just the build.",
     "Backend running on nvm node v22 (MODULE_VERSION 127) but better-sqlite3 was compiled for v22 — this is currently CORRECT and working (seed user login succeeds). However, registered users (13297720010) get 401 because the DB was reset on 2026-06-28 23:00 (tunnel restart triggered backend restart with fresh seed). The sql.js fallback warning was NOT in the startup log — better-sqlite3 is loading correctly. Registered users simply don't exist in the fresh DB.",
     "4 remote feature branches (fix/issue-64, fix/issue-65, fix/issue-66, fix/gift-manage-button-visibility) contain important fixes but also revert the iconImage/icon_picker feature (removing 370+ lines of custom icon upload code). This suggests the iconImage feature was experimental and is being rolled back. Do NOT merge these branches without user confirmation — the iconImage feature is in the current main branch and uncommitted changes.",
-    "Uncommitted local changes (reward.service.ts auto-sortOrder, Flutter icon_picker/reward_icon/task_card components, reward_provider, user_provider, parent_home_screen, gift_shop_screen, reward_home_screen, api_service) represent work-in-progress on the icon upload feature + sortOrder auto-assignment. The remote branches appear to be an alternative direction (reverting iconImage). Need user decision on which direction to take."
+    "Uncommitted local changes (reward.service.ts auto-sortOrder, Flutter icon_picker/reward_icon/task_card components, reward_provider, user_provider, parent_home_screen, gift_shop_screen, reward_home_screen, api_service) represent work-in-progress on the icon upload feature + sortOrder auto-assignment. The remote branches appear to be an alternative direction (reverting iconImage). Need user decision on which direction to take.",
+    "git pull --rebase with 6 local + 4 remote commits can succeed cleanly when the changed files don't overlap. Always check git diff --stat origin/main before rebasing to predict conflicts. The rebase replayed 6 local commits on top of 4 remote commits without any conflict."
   ],
   "metrics": {
     "backend_files": 214,
     "backend_test_files": 73,
     "backend_test_ratio": "34.1%",
-    "backend_src_lines": 38948,
-    "backend_test_lines": 15015,
+    "backend_src_lines": 38971,
+    "backend_test_lines": 15052,
     "flutter_files": 80,
-    "flutter_lines": 41082,
-    "web_files": 100,
-    "web_lines": 26529,
+    "flutter_lines": 41166,
+    "web_files": 101,
+    "web_lines": 26895,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 129196,
-    "repo_build_artifacts": "41MB build/web/, 41MB public/",
+    "total_lines": 129685,
+    "repo_build_artifacts": "42MB build/web/, 41MB public/",
     "backend_modules": 17,
     "entities": 17
   }

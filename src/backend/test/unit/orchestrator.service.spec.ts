@@ -6,7 +6,7 @@ import type {
   LlmMessage,
 } from '../../src/agent-framework/core';
 
-type AgentType = 'child-companion' | 'parent-advisor' | 'course-designer' | 'activity-generator';
+type AgentType = 'child-companion' | 'parent-advisor' | 'course-designer' | 'activity-generator' | 'video-generator';
 
 function createDefinition(type: AgentType, allowedTools: string[]): AgentDefinition {
   return {
@@ -29,6 +29,7 @@ describe('OrchestratorService', () => {
     'parent-advisor': createDefinition('parent-advisor', ['getAbilities']),
     'course-designer': createDefinition('course-designer', ['generateCoursePack']),
     'activity-generator': createDefinition('activity-generator', ['generateActivity']),
+    'video-generator': createDefinition('video-generator', []),
   };
 
   const allTools = [

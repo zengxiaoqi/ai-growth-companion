@@ -12,7 +12,7 @@ import 'package:lingxi_companion/providers/content_provider.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-  testWidgets('App shows splash screen initially', (WidgetTester tester) async {
+  testWidgets('App shows login screen when not logged in', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final storageService = StorageService(prefs);
@@ -39,14 +39,15 @@ void main() {
       ),
     );
 
-    // 首帧应显示 SplashScreen
-    // pump() 不推进时钟，Timer 不会触发，SplashScreen 保持可见
+    // UserProvider._loadUser() runs synchronously in the constructor,
+    // so by the time the first frame renders, isLoading is already false.
+    // With no user logged in (empty SharedPreferences), LoginScreen is shown.
     await tester.pump();
 
-    // Should show splash screen since no user is logged in and loading is deferred
-    expect(find.text('灵犀伴学'), findsOneWidget);
+    // Should show login screen since no user is logged in
+    expect(find.text('欢迎回来'), findsOneWidget);
 
-    // 推进时钟让延迟加载 Timer 触发，避免测试结束时存在 pending timer
+    // Advance clock to settle any pending animations
     await tester.pump(const Duration(milliseconds: 30));
     await tester.pump();
   });

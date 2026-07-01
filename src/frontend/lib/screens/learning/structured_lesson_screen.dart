@@ -631,7 +631,32 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   }
 
   List<_LessonStep> _parseSteps(Map<String, dynamic>? structured) {
-    final rawSteps = structured?['steps'];
+    if (structured == null) return const [];
+
+    var rawSteps = structured['steps'];
+
+    // video_lesson 类型课程没有 steps 数组，但有 videoLesson.shots / visualStory.scenes
+    // 自动构造一个 watch 步骤，复用已有的场景渲染逻辑
+    if (rawSteps is! List || (rawSteps is List && rawSteps.isEmpty)) {
+      final hasVideoLesson = structured['videoLesson'] is Map;
+      final hasVisualStory = structured['visualStory'] is Map;
+      final hasScenes = structured['scenes'] is List;
+      if (hasVideoLesson || hasVisualStory || hasScenes) {
+        rawSteps = [
+          <String, dynamic>{
+            'id': 'watch',
+            'label': '看',
+            'icon': 'eye',
+            'order': 1,
+            'module': <String, dynamic>{
+              'type': 'video',
+              ...structured,
+            },
+          },
+        ];
+      }
+    }
+
     if (rawSteps is! List) return const [];
 
     final result = <_LessonStep>[];

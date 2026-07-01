@@ -162,17 +162,25 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async resetOrphanedProcessingTasks(): Promise<void> {
     try {
+      // Only reset tasks that have been 'processing' for more than 10 minutes.
+      // This prevents killing tasks that are still actively being worked on by
+      // another process instance that started recently.
+      const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
       const result = await this.taskRepo
         .createQueryBuilder()
         .update(VideoGenerationTask)
         .set({
           status: 'failed',
-          errorMessage: 'Server restarted during processing',
+          errorMessage: 'Server restarted during processing (task was stale)',
         })
-        .where("status = 'processing'")
+        .where("status = 'processing' AND startedAt < :staleThreshold", { staleThreshold })
         .execute();
       if (result.affected && result.affected > 0) {
-        this.logger.warn(`Reset ${result.affected} orphaned 'processing' task(s) to 'failed'`);
+        this.logger.warn(
+          `Reset ${result.affected} stale 'processing' task(s) to 'failed' (older than 10 min)`,
+        );
+      } else {
+        this.logger.log('No stale processing tasks to reset');
       }
     } catch (error: any) {
       this.logger.warn(`Failed to reset orphaned tasks: ${error?.message}`);

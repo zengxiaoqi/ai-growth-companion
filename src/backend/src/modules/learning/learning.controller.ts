@@ -548,7 +548,7 @@ export class LearningController {
       res.setHeader('Content-Type', 'video/mp4');
       res.setHeader(
         'Content-Disposition',
-        "attachment; filename*=UTF-8''" + encodeURIComponent(filename),
+        "inline; filename*=UTF-8''" + encodeURIComponent(filename),
       );
       return res.send(body.subarray(start, end + 1));
     }
@@ -557,7 +557,7 @@ export class LearningController {
     res.setHeader('Content-Type', 'video/mp4');
     res.setHeader(
       'Content-Disposition',
-      "attachment; filename*=UTF-8''" + encodeURIComponent(filename),
+      "inline; filename*=UTF-8''" + encodeURIComponent(filename),
     );
     res.setHeader('Content-Length', totalSize);
     res.setHeader('Accept-Ranges', 'bytes');

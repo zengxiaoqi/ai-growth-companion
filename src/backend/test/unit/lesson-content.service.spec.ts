@@ -61,7 +61,10 @@ describe('LessonContentService modifyDraft scene sync', () => {
         { provide: AssignmentService, useValue: {} },
         { provide: LearningTrackerService, useValue: {} },
         { provide: LlmClientService, useValue: llmClient },
-        { provide: LessonVideoQueueService, useValue: { enqueue: jest.fn(), processQueue: jest.fn() } },
+        {
+          provide: LessonVideoQueueService,
+          useValue: { enqueue: jest.fn(), processQueue: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -481,4 +484,3 @@ describe('LessonContentService modifyDraft scene sync', () => {
     expect(prompt).toContain('Focus on step "write" first');
   });
 });
-

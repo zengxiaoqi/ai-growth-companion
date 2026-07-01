@@ -705,7 +705,13 @@ class ApiService {
 
   /// Get the full video playback URL (token passed separately via httpHeaders)
   String getLessonVideoPlaybackUrl(int lessonId, int childId) {
-    return '$baseUrl/learning/lessons/$lessonId/teaching-video?childId=$childId';
+    // On Flutter Web, the <video> element cannot send Authorization headers.
+    // Append the JWT token as a query parameter so the backend can authenticate.
+    final base = '$baseUrl/learning/lessons/$lessonId/teaching-video?childId=$childId';
+    if (_token != null && _token!.isNotEmpty) {
+      return '$base&token=${Uri.encodeComponent(_token!)}';
+    }
+    return base;
   }
 
   Future<Map<String, dynamic>?> approveVideo(int lessonId, int childId, bool approved, {String? feedback, int? taskId}) async {

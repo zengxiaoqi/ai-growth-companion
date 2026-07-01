@@ -36,7 +36,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
   VideoGenStatus _status = VideoGenStatus.idle;
   String _errorMessage = '';
   int _pollCount = 0;
-  static const _maxPollCount = 60; // 最多轮询 60 次 (约 5 分钟)
+  static const _maxPollCount = 120; // 最多轮询 120 次 (约 10 分钟，AI agent pipeline 可能需要 7+ 分钟)
 
   // 表单状态
   String _ageGroup = '4-5';
@@ -677,10 +677,20 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
             height: 48,
             child: ElevatedButton.icon(
               onPressed: () {
-                _showSnack('视频播放功能在 Flutter 中需要使用 video_player 插件');
+                if (_contentId != null && _selectedChildId != null) {
+                  Navigator.of(context).pushNamed(
+                    '/learning/structuredLesson',
+                    arguments: {
+                      'contentId': _contentId,
+                      'childId': _selectedChildId,
+                    },
+                  );
+                } else {
+                  _showSnack('课程信息缺失，无法查看');
+                }
               },
               icon: const Icon(Icons.play_circle_rounded),
-              label: const Text('播放视频'),
+              label: const Text('查看课程视频'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.secondaryColor,
                 foregroundColor: Colors.white,

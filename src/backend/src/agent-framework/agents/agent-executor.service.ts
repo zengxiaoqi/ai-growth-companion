@@ -92,7 +92,21 @@ export class AgentExecutorService {
           try {
             toolArgs = JSON.parse(toolCall.function.arguments);
           } catch {
-            toolArgs = {};
+            // LLM returned malformed/truncated function arguments.
+            // Try to salvage partial JSON before falling back to empty.
+            const rawArgs = toolCall.function.arguments;
+            const salvaged = this.trySalvageToolArgs(rawArgs);
+            if (salvaged) {
+              this.logger.warn(
+                `Tool "${toolName}" had malformed JSON arguments (${rawArgs?.length || 0} chars), salvaged partial: ${Object.keys(salvaged).join(',')}`,
+              );
+              toolArgs = salvaged;
+            } else {
+              this.logger.warn(
+                `Tool "${toolName}" JSON.parse failed (${rawArgs?.length || 0} chars), raw: ${(rawArgs || '').slice(0, 200)}`,
+              );
+              toolArgs = {};
+            }
           }
 
           // Execute tool
@@ -228,7 +242,19 @@ export class AgentExecutorService {
           try {
             toolArgs = JSON.parse(toolCall.function.arguments);
           } catch {
-            toolArgs = {};
+            const rawArgs = toolCall.function.arguments;
+            const salvaged = this.trySalvageToolArgs(rawArgs);
+            if (salvaged) {
+              this.logger.warn(
+                `Tool "${toolName}" had malformed JSON arguments (${rawArgs?.length || 0} chars), salvaged partial: ${Object.keys(salvaged).join(',')}`,
+              );
+              toolArgs = salvaged;
+            } else {
+              this.logger.warn(
+                `Tool "${toolName}" JSON.parse failed (${rawArgs?.length || 0} chars), raw: ${(rawArgs || '').slice(0, 200)}`,
+              );
+              toolArgs = {};
+            }
           }
 
           // Execute tool
@@ -419,5 +445,57 @@ export class AgentExecutorService {
     }
 
     return normalized;
+  }
+
+  /**
+   * Attempt to salvage a partial JSON object from truncated/malformed LLM
+   * function-call arguments. DeepSeek and similar models sometimes truncate
+   * large arguments (e.g. writeFile with a full TSX component) at max_tokens,
+   * producing invalid JSON like {"path":"GeneratedLesson.tsx","content":"import R
+   *
+   * Strategy: find the first '{', then try progressive brace-matching to
+   * recover whatever key-value pairs are complete.
+   */
+  private trySalvageToolArgs(raw: unknown): Record<string, any> | null {
+    if (!raw || typeof raw !== 'string') return null;
+    const text = raw.trim();
+    if (!text) return null;
+
+    // Try parsing as-is first (maybe just had whitespace issues)
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch {
+      /* continue */
+    }
+
+    const firstBrace = text.indexOf('{');
+    if (firstBrace === -1) return null;
+    const sliced = text.slice(firstBrace);
+
+    // Progressive salvage attempts — close open structures and try parsing
+    const attempts = [
+      () => sliced + '}',
+      () => sliced.replace(/,\s*$/, '') + '}',
+      () => sliced.replace(/"[^"]*$/, '"') + '}',
+      () => sliced.replace(/,\s*"[^"]*$/, '') + '}',
+      () => sliced.replace(/,\s*"[^"]*":\s*"[^"]*$/, '') + '}',
+      () => sliced.replace(/,\s*\{[^}]*$/, '') + '}',
+      () => sliced.replace(/,\s*\[[^\]]*$/, '') + '}',
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        const candidate = attempt();
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      } catch {
+        /* continue */
+      }
+    }
+
+    return null;
   }
 }

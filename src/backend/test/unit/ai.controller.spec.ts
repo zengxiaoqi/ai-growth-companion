@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AiController } from '../../src/modules/ai/ai.controller';
 import { AiService } from '../../src/modules/ai/ai.service';
 
@@ -58,9 +54,7 @@ describe('AiController', () => {
     it('throws ForbiddenException when parent cannot access child', async () => {
       service.canViewerAccessChild!.mockResolvedValue(false);
       const body = { message: 'hi', childId: 99 };
-      await expect(controller.chat(parentReq as any, body)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(controller.chat(parentReq as any, body)).rejects.toThrow(ForbiddenException);
     });
 
     it('skips access check for student viewer', async () => {
@@ -95,36 +89,34 @@ describe('AiController', () => {
         { type: 'token', content: 'Hello' },
         { type: 'done', sessionId: 's1', wasFiltered: false, suggestions: [] },
       ];
-      service.chatStream!.mockReturnValue((async function* () {
-        for (const e of events) yield e;
-      })());
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
 
       await controller.chatStream(parentReq as any, 'hi', '2', 's1', res);
 
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-cache');
       expect(res.flushHeaders).toHaveBeenCalled();
-      expect(res.write).toHaveBeenCalledWith(
-        expect.stringContaining('"content":"Hello"'),
-      );
-      expect(res.write).toHaveBeenCalledWith(
-        expect.stringContaining('"sessionId":"s1"'),
-      );
+      expect(res.write).toHaveBeenCalledWith(expect.stringContaining('"content":"Hello"'));
+      expect(res.write).toHaveBeenCalledWith(expect.stringContaining('"sessionId":"s1"'));
       expect(res.end).toHaveBeenCalled();
     });
 
     it('writes error event and breaks on error type', async () => {
       const res = mockRes();
       const events = [{ type: 'error', message: 'LLM timeout' }];
-      service.chatStream!.mockReturnValue((async function* () {
-        for (const e of events) yield e;
-      })());
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
 
       await controller.chatStream(parentReq as any, 'hi', '', '', res);
 
-      expect(res.write).toHaveBeenCalledWith(
-        expect.stringContaining('LLM timeout'),
-      );
+      expect(res.write).toHaveBeenCalledWith(expect.stringContaining('LLM timeout'));
       expect(res.end).toHaveBeenCalled();
     });
 
@@ -144,9 +136,7 @@ describe('AiController', () => {
 
       await controller.chatStream(parentReq as any, 'hi', '99', '', res);
 
-      expect(res.write).toHaveBeenCalledWith(
-        expect.stringContaining('无权访问该学生'),
-      );
+      expect(res.write).toHaveBeenCalledWith(expect.stringContaining('无权访问该学生'));
       expect(res.end).toHaveBeenCalled();
     });
 
@@ -158,9 +148,7 @@ describe('AiController', () => {
 
       await controller.chatStream(parentReq as any, 'hi', '', '', res);
 
-      expect(res.write).toHaveBeenCalledWith(
-        expect.stringContaining('AI服务暂时不可用'),
-      );
+      expect(res.write).toHaveBeenCalledWith(expect.stringContaining('AI服务暂时不可用'));
     });
 
     it('handles thinking and tool events', async () => {
@@ -172,9 +160,11 @@ describe('AiController', () => {
         { type: 'game_data', activityType: 'quiz', gameData: { q: 1 }, domain: 'math' },
         { type: 'done', sessionId: 's2', wasFiltered: false, suggestions: [] },
       ];
-      service.chatStream!.mockReturnValue((async function* () {
-        for (const e of events) yield e;
-      })());
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
 
       await controller.chatStream(childReq as any, 'play', '', '', res);
 
@@ -187,9 +177,11 @@ describe('AiController', () => {
 
     it('converts childId string to number', async () => {
       const res = mockRes();
-      service.chatStream!.mockReturnValue((async function* () {
-        yield { type: 'done', sessionId: 's', wasFiltered: false, suggestions: [] };
-      })());
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          yield { type: 'done', sessionId: 's', wasFiltered: false, suggestions: [] };
+        })(),
+      );
 
       await controller.chatStream(parentReq as any, 'hi', '42', '', res);
 
@@ -203,12 +195,7 @@ describe('AiController', () => {
   describe('getConversationSessions', () => {
     it('delegates with converted childId', async () => {
       service.getConversationSessions!.mockResolvedValue([{ id: 's1' }]);
-      const result = await controller.getConversationSessions(
-        parentReq as any,
-        '5',
-        '1',
-        '10',
-      );
+      const result = await controller.getConversationSessions(parentReq as any, '5', '1', '10');
       expect(result).toEqual([{ id: 's1' }]);
       expect(service.getConversationSessions).toHaveBeenCalledWith({
         viewerId: 1,
@@ -228,28 +215,24 @@ describe('AiController', () => {
     });
 
     it('throws ForbiddenException on FORBIDDEN_CHILD_ACCESS', async () => {
-      service.getConversationSessions!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
+      service.getConversationSessions!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
+      await expect(controller.getConversationSessions(parentReq as any, '99')).rejects.toThrow(
+        ForbiddenException,
       );
-      await expect(
-        controller.getConversationSessions(parentReq as any, '99'),
-      ).rejects.toThrow(ForbiddenException);
     });
 
     it('rethrows non-access errors', async () => {
       service.getConversationSessions!.mockRejectedValue(new Error('DB error'));
-      await expect(
-        controller.getConversationSessions(parentReq as any, '1'),
-      ).rejects.toThrow('DB error');
+      await expect(controller.getConversationSessions(parentReq as any, '1')).rejects.toThrow(
+        'DB error',
+      );
     });
   });
 
   // ─── GET /ai/history/sessions/:sessionId/messages ───────────────
   describe('getConversationSessionMessages', () => {
     it('delegates with sessionId and pagination', async () => {
-      service.getConversationSessionMessages!.mockResolvedValue([
-        { id: 'm1', content: 'hi' },
-      ]);
+      service.getConversationSessionMessages!.mockResolvedValue([{ id: 'm1', content: 'hi' }]);
       const result = await controller.getConversationSessionMessages(
         parentReq as any,
         'sess-1',
@@ -291,12 +274,10 @@ describe('AiController', () => {
     });
 
     it('throws ForbiddenException on access error', async () => {
-      service.getCoursePacks!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
+      service.getCoursePacks!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
+      await expect(controller.getCoursePacks(parentReq as any, '99')).rejects.toThrow(
+        ForbiddenException,
       );
-      await expect(
-        controller.getCoursePacks(parentReq as any, '99'),
-      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -314,12 +295,10 @@ describe('AiController', () => {
     });
 
     it('throws ForbiddenException on access error', async () => {
-      service.getCoursePackById!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
+      service.getCoursePackById!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
+      await expect(controller.getCoursePackById(parentReq as any, '1')).rejects.toThrow(
+        ForbiddenException,
       );
-      await expect(
-        controller.getCoursePackById(parentReq as any, '1'),
-      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -339,12 +318,7 @@ describe('AiController', () => {
         filename: 'test.json',
         body: Buffer.from('{}'),
       });
-      await controller.exportCoursePack(
-        parentReq as any,
-        '5',
-        'capcut_json',
-        res,
-      );
+      await controller.exportCoursePack(parentReq as any, '5', 'capcut_json', res);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json');
       expect(res.setHeader).toHaveBeenCalledWith(
         'Content-Disposition',
@@ -355,9 +329,7 @@ describe('AiController', () => {
 
     it('throws NotFoundException on COURSE_PACK_NOT_FOUND', async () => {
       const res = mockRes();
-      service.exportCoursePack!.mockRejectedValue(
-        new Error('COURSE_PACK_NOT_FOUND'),
-      );
+      service.exportCoursePack!.mockRejectedValue(new Error('COURSE_PACK_NOT_FOUND'));
       await expect(
         controller.exportCoursePack(parentReq as any, '999', 'capcut_json', res),
       ).rejects.toThrow(NotFoundException);
@@ -365,9 +337,7 @@ describe('AiController', () => {
 
     it('throws BadRequestException on NARRATION_AUDIO_UNAVAILABLE', async () => {
       const res = mockRes();
-      service.exportCoursePack!.mockRejectedValue(
-        new Error('NARRATION_AUDIO_UNAVAILABLE'),
-      );
+      service.exportCoursePack!.mockRejectedValue(new Error('NARRATION_AUDIO_UNAVAILABLE'));
       await expect(
         controller.exportCoursePack(parentReq as any, '1', 'narration_mp3', res),
       ).rejects.toThrow(BadRequestException);
@@ -375,24 +345,15 @@ describe('AiController', () => {
 
     it('throws BadRequestException on TEACHING_VIDEO_UNAVAILABLE', async () => {
       const res = mockRes();
-      service.exportCoursePack!.mockRejectedValue(
-        new Error('TEACHING_VIDEO_UNAVAILABLE'),
-      );
+      service.exportCoursePack!.mockRejectedValue(new Error('TEACHING_VIDEO_UNAVAILABLE'));
       await expect(
-        controller.exportCoursePack(
-          parentReq as any,
-          '1',
-          'teaching_video_mp4',
-          res,
-        ),
+        controller.exportCoursePack(parentReq as any, '1', 'teaching_video_mp4', res),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('throws ForbiddenException on access error', async () => {
       const res = mockRes();
-      service.exportCoursePack!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
-      );
+      service.exportCoursePack!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
       await expect(
         controller.exportCoursePack(parentReq as any, '1', 'capcut_json', res),
       ).rejects.toThrow(ForbiddenException);
@@ -435,25 +396,15 @@ describe('AiController', () => {
     it('throws BadRequestException when ids is not an array', async () => {
       const res = mockRes();
       await expect(
-        controller.exportCoursePacksBatch(
-          parentReq as any,
-          { ids: null as any },
-          res,
-        ),
+        controller.exportCoursePacksBatch(parentReq as any, { ids: null as any }, res),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('throws BadRequestException on INVALID_COURSE_PACK_IDS', async () => {
       const res = mockRes();
-      service.exportCoursePacksBatch!.mockRejectedValue(
-        new Error('INVALID_COURSE_PACK_IDS'),
-      );
+      service.exportCoursePacksBatch!.mockRejectedValue(new Error('INVALID_COURSE_PACK_IDS'));
       await expect(
-        controller.exportCoursePacksBatch(
-          parentReq as any,
-          { ids: [999] },
-          res,
-        ),
+        controller.exportCoursePacksBatch(parentReq as any, { ids: [999] }, res),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -463,11 +414,7 @@ describe('AiController', () => {
         new Error('COURSE_PACK_EXPORT_BATCH_EMPTY'),
       );
       await expect(
-        controller.exportCoursePacksBatch(
-          parentReq as any,
-          { ids: [1] },
-          res,
-        ),
+        controller.exportCoursePacksBatch(parentReq as any, { ids: [1] }, res),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -487,21 +434,17 @@ describe('AiController', () => {
     });
 
     it('throws NotFoundException on COURSE_PACK_NOT_FOUND', async () => {
-      service.getCoursePackVersions!.mockRejectedValue(
-        new Error('COURSE_PACK_NOT_FOUND'),
+      service.getCoursePackVersions!.mockRejectedValue(new Error('COURSE_PACK_NOT_FOUND'));
+      await expect(controller.getCoursePackVersions(parentReq as any, '999')).rejects.toThrow(
+        NotFoundException,
       );
-      await expect(
-        controller.getCoursePackVersions(parentReq as any, '999'),
-      ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException on access error', async () => {
-      service.getCoursePackVersions!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
+      service.getCoursePackVersions!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
+      await expect(controller.getCoursePackVersions(parentReq as any, '1')).rejects.toThrow(
+        ForbiddenException,
       );
-      await expect(
-        controller.getCoursePackVersions(parentReq as any, '1'),
-      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -528,12 +471,10 @@ describe('AiController', () => {
     });
 
     it('throws NotFoundException on COURSE_PACK_NOT_FOUND', async () => {
-      service.saveCoursePackVersion!.mockRejectedValue(
-        new Error('COURSE_PACK_NOT_FOUND'),
+      service.saveCoursePackVersion!.mockRejectedValue(new Error('COURSE_PACK_NOT_FOUND'));
+      await expect(controller.saveCoursePackVersion(parentReq as any, '999', {})).rejects.toThrow(
+        NotFoundException,
       );
-      await expect(
-        controller.saveCoursePackVersion(parentReq as any, '999', {}),
-      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -557,9 +498,7 @@ describe('AiController', () => {
     });
 
     it('throws NotFoundException on COURSE_PACK_NOT_FOUND', async () => {
-      service.enrichCoursePackBilingual!.mockRejectedValue(
-        new Error('COURSE_PACK_NOT_FOUND'),
-      );
+      service.enrichCoursePackBilingual!.mockRejectedValue(new Error('COURSE_PACK_NOT_FOUND'));
       await expect(
         controller.enrichCoursePackBilingual(parentReq as any, '999', {}),
       ).rejects.toThrow(NotFoundException);
@@ -589,9 +528,7 @@ describe('AiController', () => {
     });
 
     it('throws BadRequestException on INVALID_WEEKLY_TOPIC', async () => {
-      service.generateWeeklyCoursePacks!.mockRejectedValue(
-        new Error('INVALID_WEEKLY_TOPIC'),
-      );
+      service.generateWeeklyCoursePacks!.mockRejectedValue(new Error('INVALID_WEEKLY_TOPIC'));
       await expect(
         controller.generateWeeklyCoursePacks(parentReq as any, {
           topic: '',
@@ -601,9 +538,7 @@ describe('AiController', () => {
     });
 
     it('throws BadRequestException on INVALID_CHILD_ID', async () => {
-      service.generateWeeklyCoursePacks!.mockRejectedValue(
-        new Error('INVALID_CHILD_ID'),
-      );
+      service.generateWeeklyCoursePacks!.mockRejectedValue(new Error('INVALID_CHILD_ID'));
       await expect(
         controller.generateWeeklyCoursePacks(parentReq as any, {
           topic: 'test',
@@ -651,9 +586,7 @@ describe('AiController', () => {
     });
 
     it('throws ForbiddenException on access error', async () => {
-      service.generateCoursePack!.mockRejectedValue(
-        new Error('FORBIDDEN_CHILD_ACCESS'),
-      );
+      service.generateCoursePack!.mockRejectedValue(new Error('FORBIDDEN_CHILD_ACCESS'));
       await expect(
         controller.generateCoursePack(parentReq as any, {
           topic: 'test',

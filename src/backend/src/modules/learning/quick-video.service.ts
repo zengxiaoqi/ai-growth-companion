@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { Content } from '../../database/entities/content.entity';
 import { LessonVideoQueueService } from './lesson-video-queue.service';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
@@ -175,19 +176,20 @@ export class QuickVideoService {
 
       // 3. 创建 Content 实体
       const content = this.contentRepo.create({
+        uuid: randomUUID(),
         title: lessonData.title || params.topic,
         topic: params.topic,
-        ageGroup: params.ageGroup,
+        ageRange: params.ageGroup,
         domain: lessonData.domain || 'language',
-        summary: lessonData.summary || '',
+        subtitle: lessonData.summary || '',
         source: 'quick_generate',
         // 将 AI 生成的完整数据存入 content 字段（JSON 类型）
         content: lessonData,
-        contentStatus: 'published',
-        // 其他 Content 实体必需字段
-        type: 'video_lesson',
+        status: 'published',
+        contentType: 'video_lesson',
         difficulty: 1,
         durationMinutes: Math.ceil((params.durationSec || 60) / 60),
+        mediaUrls: [],
         tags: [params.topic],
         childId: params.childId,
       } as any);

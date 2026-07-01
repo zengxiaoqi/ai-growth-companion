@@ -82,14 +82,19 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     return tools as any;
   }
 
-  async chatCompletion(messages: LlmMessage[], tools?: LlmToolDefinition[]): Promise<LlmResponse> {
+  async chatCompletion(
+    messages: LlmMessage[],
+    tools?: LlmToolDefinition[],
+    maxTokensOverride?: number,
+  ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
+      const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
       const response = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
         tool_choice: tools ? 'auto' : undefined,
-        max_tokens: this.config.maxTokens,
+        max_tokens: effectiveMaxTokens,
         temperature: this.config.temperature,
       });
 

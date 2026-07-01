@@ -38,6 +38,9 @@ export class User {
   @Column({ nullable: true })
   pin: string;
 
+  @Column({ nullable: true })
+  loginCode: string;
+
   @Column({ type: 'simple-json', nullable: true })
   settings: any;
 

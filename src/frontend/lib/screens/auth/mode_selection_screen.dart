@@ -10,6 +10,9 @@ class ModeSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final userName = userProvider.currentUser?['name'] ?? '用户';
+    final userType = userProvider.currentUser?['type']?.toString() ?? 'child';
+    final isChild = userType == 'child';
+    final isParent = userType == 'parent';
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -66,11 +69,11 @@ class ModeSelectionScreen extends StatelessWidget {
               const SizedBox(height: 28),
 
               // 学生模式卡片
-              _buildStudentCard(context),
+              _buildStudentCard(context, isChild),
               const SizedBox(height: 20),
 
               // 家长模式卡片
-              _buildParentCard(context, userName, userProvider),
+              _buildParentCard(context, userName, userProvider, isParent),
               const SizedBox(height: 28),
 
               // 底部安全提示
@@ -99,11 +102,13 @@ class ModeSelectionScreen extends StatelessWidget {
   }
 
   // 学生模式卡片
-  Widget _buildStudentCard(BuildContext context) {
+  Widget _buildStudentCard(BuildContext context, bool isChild) {
     return GestureDetector(
-      onTap: () {
-        context.read<UserProvider>().setSelectedMode('child');
-      },
+      onTap: isChild
+          ? () {
+              context.read<UserProvider>().setSelectedMode('child');
+            }
+          : null,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -112,11 +117,12 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.12),
+              color: AppTheme.primaryColor.withValues(alpha: isChild ? 0.12 : 0.04),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
           ],
+          border: isChild ? null : Border.all(color: Colors.grey.shade200, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,17 +134,17 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    color: AppTheme.primaryColor.withValues(alpha: isChild ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.rocket_launch_rounded,
                     size: 28,
-                    color: AppTheme.primaryColor,
+                    color: isChild ? AppTheme.primaryColor : Colors.grey.shade400,
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -147,16 +153,16 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+                          color: isChild ? AppTheme.primaryColor : Colors.grey.shade500,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         '课程、挑战与 AI 伙伴',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
+                          color: isChild ? AppTheme.textSecondary : Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -167,12 +173,14 @@ class ModeSelectionScreen extends StatelessWidget {
             const SizedBox(height: 18),
 
             // 描述
-            const Text(
-              '进入学习主界面，开始今日任务、完成互动练习，并解锁成长成就。',
+            Text(
+              isChild
+                  ? '进入学习主界面，开始今日任务、完成互动练习，并解锁成长成就。'
+                  : '仅孩子账号可进入学生端。',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: AppTheme.textSecondary,
+                color: isChild ? AppTheme.textSecondary : Colors.grey.shade400,
               ),
             ),
             const SizedBox(height: 20),
@@ -182,18 +190,18 @@ class ModeSelectionScreen extends StatelessWidget {
               width: double.infinity,
               height: 50,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primaryColor, Color(0xFFFFA5B9)],
-                ),
+                gradient: isChild
+                    ? const LinearGradient(colors: [AppTheme.primaryColor, Color(0xFFFFA5B9)])
+                    : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    '进入学生端',
+                    isChild ? '进入学生端' : '不可用',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -210,13 +218,13 @@ class ModeSelectionScreen extends StatelessWidget {
   }
 
   // 家长模式卡片
-  Widget _buildParentCard(BuildContext context, String userName, UserProvider userProvider) {
-    final isParent = userProvider.currentUser?['type'] == 'parent';
-
+  Widget _buildParentCard(BuildContext context, String userName, UserProvider userProvider, bool isParent) {
     return GestureDetector(
-      onTap: () {
-        context.read<UserProvider>().setSelectedMode('parent');
-      },
+      onTap: isParent
+          ? () {
+              context.read<UserProvider>().setSelectedMode('parent');
+            }
+          : null,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -225,11 +233,12 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+              color: AppTheme.secondaryColor.withValues(alpha: isParent ? 0.12 : 0.04),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
           ],
+          border: isParent ? null : Border.all(color: Colors.grey.shade200, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,17 +250,17 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryColor.withValues(alpha: 0.15),
+                    color: AppTheme.secondaryColor.withValues(alpha: isParent ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.trending_up_rounded,
                     size: 28,
-                    color: AppTheme.secondaryColor,
+                    color: isParent ? AppTheme.secondaryColor : Colors.grey.shade400,
                   ),
                 ),
                 const SizedBox(width: 14),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -260,16 +269,16 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textColor,
+                          color: isParent ? AppTheme.textColor : Colors.grey.shade500,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
                         '报告、管控与作业管理',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
+                          color: isParent ? AppTheme.textSecondary : Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -306,7 +315,7 @@ class ModeSelectionScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isParent ? '已登录家长账号' : '请先使用家长账号登录',
+                    isParent ? '已登录家长账号' : '当前为孩子账号，家长端不可用',
                     style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 ],
@@ -319,18 +328,18 @@ class ModeSelectionScreen extends StatelessWidget {
               width: double.infinity,
               height: 50,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.secondaryColor, Color(0xFFA8D8EA)],
-                ),
+                gradient: isParent
+                    ? const LinearGradient(colors: [AppTheme.secondaryColor, Color(0xFFA8D8EA)])
+                    : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.lock_outline_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    '进入家长端',
+                    isParent ? '进入家长端' : '不可用',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

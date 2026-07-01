@@ -63,11 +63,19 @@ export class UsersController {
     return this.usersService.findSafeById(req.user.sub);
   }
 
-  // 通过手机号关联孩子账号（保留原有功能）
+  // 通过手机号+验证码关联孩子账号
   @Post('link-child')
   @UseGuards(JwtAuthGuard)
-  async linkChild(@Request() req, @Body() body: { childPhone: string }) {
+  async linkChild(@Request() req, @Body() body: { childPhone: string; loginCode: string }) {
     const parentId = req.user.sub;
-    return this.usersService.linkChild(parentId, body.childPhone);
+    return this.usersService.linkChild(parentId, body.childPhone, body.loginCode);
+  }
+
+  // 重新生成孩子的登录验证码
+  @Post('child/:id/regenerate-code')
+  @UseGuards(JwtAuthGuard)
+  async regenerateLoginCode(@Request() req, @Param('id') id: string) {
+    const parentId = req.user.sub;
+    return this.usersService.regenerateLoginCode(parentId, parseInt(id));
   }
 }

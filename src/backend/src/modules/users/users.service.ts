@@ -32,6 +32,7 @@ export class UsersService {
         avatar: true,
         age: true,
         gender: true,
+        loginCode: true,
         settings: true,
         createdAt: true,
         updatedAt: true,
@@ -42,6 +43,11 @@ export class UsersService {
 
   async findByPhone(phone: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { phone } });
+  }
+
+  /** 通过 loginCode 查找孩子账号 */
+  async findByLoginCode(loginCode: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { loginCode } });
   }
 
   async findByParentId(parentId: number): Promise<Omit<User, 'password' | 'pin'>[]> {
@@ -56,6 +62,7 @@ export class UsersService {
         avatar: true,
         age: true,
         gender: true,
+        loginCode: true,
         settings: true,
         createdAt: true,
         updatedAt: true,
@@ -79,7 +86,7 @@ export class UsersService {
     }
   }
 
-  async linkChild(parentId: number, childPhone: string): Promise<User> {
+  async linkChild(parentId: number, childPhone: string, loginCode?: string): Promise<User> {
     const parent = await this.findById(parentId);
     if (!parent || parent.type !== 'parent') {
       throw new BadRequestException('仅家长账号可关联孩子');
@@ -93,7 +100,17 @@ export class UsersService {
       throw new BadRequestException('只能关联孩子类型的账号');
     }
     if (child.parentId === parentId) {
-      return child;
+      // 已绑定自己，仍然需要验证 loginCode 防止信息泄露
+      if (!loginCode || !child.loginCode || loginCode !== child.loginCode) {
+        throw new BadRequestException('验证码错误，请输入该孩子的6位登录验证码');
+      }
+      return this.findSafeById(child.id) as Promise<User>;
+    }
+
+    // 安全验证：必须提供正确的 loginCode 才能绑定
+    // 防止误绑他人孩子 + 恶意绑定
+    if (!loginCode || !child.loginCode || loginCode !== child.loginCode) {
+      throw new BadRequestException('验证码错误，请输入该孩子的6位登录验证码');
     }
 
     child.parentId = parentId;
@@ -108,6 +125,29 @@ export class UsersService {
       return Boolean(child && child.parentId === viewerId);
     }
     return false;
+  }
+
+  /** 生成6位登录验证码（大写字母+数字，排除易混淆字符） */
+  private generateLoginCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去掉 I/O/0/1
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
+  /** 生成唯一的 loginCode（检查数据库不重复） */
+  async generateUniqueLoginCode(): Promise<string> {
+    let loginCode = this.generateLoginCode();
+    let attempts = 0;
+    while (attempts < 10) {
+      const existing = await this.usersRepository.findOne({ where: { loginCode } });
+      if (!existing) break;
+      loginCode = this.generateLoginCode();
+      attempts++;
+    }
+    return loginCode;
   }
 
   /** 添加孩子账号 */
@@ -128,6 +168,9 @@ export class UsersService {
       }
     }
 
+    // 生成唯一的 loginCode
+    const loginCode = await this.generateUniqueLoginCode();
+
     const child = this.usersRepository.create({
       name: childData.name,
       phone: childData.phone,
@@ -136,6 +179,7 @@ export class UsersService {
       type: 'child',
       parentId: parentId,
       password: '', // 孩子账号不需要密码（由家长管理）
+      loginCode,
     });
 
     const saved = await this.usersRepository.save(child);
@@ -191,5 +235,23 @@ export class UsersService {
     }
 
     await this.usersRepository.delete(childId);
+  }
+
+  /** 重新生成孩子的登录验证码（仅家长可操作自己的孩子） */
+  async regenerateLoginCode(parentId: number, childId: number): Promise<User> {
+    const child = await this.findById(childId);
+    if (!child) {
+      throw new NotFoundException('孩子不存在');
+    }
+    if (child.parentId !== parentId) {
+      throw new BadRequestException('只能操作自己的孩子');
+    }
+    if (child.type !== 'child') {
+      throw new BadRequestException('只能操作孩子类型的账号');
+    }
+
+    const loginCode = await this.generateUniqueLoginCode();
+    await this.usersRepository.update(childId, { loginCode });
+    return this.findSafeById(childId) as Promise<User>;
   }
 }

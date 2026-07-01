@@ -58,3 +58,10 @@ export class VerifyPinDto {
   @IsNotEmpty()
   pin: string;
 }
+
+export class ChildLoginDto {
+  @ApiProperty({ description: '孩子6位登录验证码' })
+  @IsString()
+  @IsNotEmpty()
+  loginCode: string;
+}

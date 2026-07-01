@@ -169,6 +169,13 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 清除模式选择（用于 type/mode 不匹配时）
+  Future<void> clearSelectedMode() async {
+    _selectedMode = null;
+    await _storage.saveSelectedMode('');
+    notifyListeners();
+  }
+
   Future<void> updateUserInfo(Map<String, dynamic> info) async {
     if (_currentUser != null) {
       final updatedUser = {..._currentUser!, ...info};

@@ -144,6 +144,24 @@ class ApiService {
     }
   }
 
+  /// 孩子快捷登录（通过6位登录验证码）
+  Future<Map<String, dynamic>> childLogin(String loginCode) async {
+    try {
+      final response = await _dio.post('/auth/child-login', data: {
+        'loginCode': loginCode,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data['message'] != null) {
+        return {'error': data['message'].toString()};
+      }
+      return {'error': '网络错误，请检查网络后重试'};
+    } catch (e) {
+      return {'error': '登录失败，请稍后重试'};
+    }
+  }
+
   Future<Map<String, dynamic>> register(Map<String, dynamic> userData) async {
     try {
       final response = await _dio.post('/auth/register', data: userData);
@@ -287,14 +305,27 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> linkChild(String childPhone) async {
+  /// 绑定已有孩子账号（需要孩子的登录验证码）
+  Future<Map<String, dynamic>?> linkChild(String childPhone, String loginCode) async {
     try {
       final response = await _dio.post('/users/link-child', data: {
         'childPhone': childPhone,
+        'loginCode': loginCode,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
       _log.warning('Link child error: $e');
+      return null;
+    }
+  }
+
+  /// 重新生成孩子的登录验证码
+  Future<Map<String, dynamic>?> regenerateLoginCode(int childId) async {
+    try {
+      final response = await _dio.post('/users/child/$childId/regenerate-code');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      _log.warning('Regenerate loginCode error: $e');
       return null;
     }
   }

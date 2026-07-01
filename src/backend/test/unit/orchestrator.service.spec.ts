@@ -6,7 +6,12 @@ import type {
   LlmMessage,
 } from '../../src/agent-framework/core';
 
-type AgentType = 'child-companion' | 'parent-advisor' | 'course-designer' | 'activity-generator' | 'video-generator';
+type AgentType =
+  | 'child-companion'
+  | 'parent-advisor'
+  | 'course-designer'
+  | 'activity-generator'
+  | 'video-generator';
 
 function createDefinition(type: AgentType, allowedTools: string[]): AgentDefinition {
   return {

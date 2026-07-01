@@ -135,12 +135,235 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     }
   }
 
+  /// 绑定已有孩子（两步验证：手机号 + loginCode）
+  void _showLinkChildDialog() {
+    final phoneController = TextEditingController();
+    final codeController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('绑定已有孩子'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '请输入孩子账号的手机号和6位登录验证码完成绑定',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: '孩子手机号',
+                      hintText: '孩子注册时填写的手机号',
+                      prefixIcon: Icon(Icons.phone),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: codeController,
+                    textCapitalization: TextCapitalization.characters,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '登录验证码',
+                      hintText: '6位',
+                      counterText: '',
+                      prefixIcon: Icon(Icons.vpn_key),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '验证码可在孩子账号的设置页查看，或由已绑定的家长在孩子管理页查看。',
+                            style: TextStyle(fontSize: 11, color: Colors.orange[700]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final phone = phoneController.text.trim();
+                          final code = codeController.text.trim().toUpperCase();
+                          if (phone.isEmpty || code.length != 6) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('请填写手机号和6位验证码')),
+                            );
+                            return;
+                          }
+
+                          setState(() => isSubmitting = true);
+                          try {
+                            final api = ctx.read<ApiService>();
+                            final result = await api.linkChild(phone, code);
+                            if (!mounted) return;
+                            Navigator.pop(dialogContext);
+
+                            if (result == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('绑定失败，请检查手机号和验证码')),
+                              );
+                            } else {
+                              await _loadChildren();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('已成功绑定 ${result['name'] ?? '孩子'}')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('绑定失败: $e')),
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => isSubmitting = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('绑定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 重新生成孩子的登录验证码
+  Future<void> _regenerateLoginCode(Map<String, dynamic> child) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('重新生成验证码'),
+        content: Text('将为"${child['name']}"生成新的6位登录验证码，旧验证码将失效。确定继续？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final api = context.read<ApiService>();
+    final childId = child['id'] as int;
+    final result = await api.regenerateLoginCode(childId);
+
+    if (!mounted) return;
+    if (result != null && result['loginCode'] != null) {
+      await _loadChildren();
+      // 弹窗展示新验证码
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('新验证码'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('请记录新的登录验证码：'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  result['loginCode'].toString(),
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 8,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '孩子可用此验证码在登录页"孩子快捷登录"处登录',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('知道了'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('生成失败，请重试')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('孩子管理'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.link),
+            onPressed: _showLinkChildDialog,
+            tooltip: '绑定已有孩子',
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _showAddChildDialog,
@@ -209,6 +432,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               child: child,
               onEdit: () => _showEditChildDialog(child),
               onDelete: () => _deleteChild(child),
+              onRegenerateCode: () => _regenerateLoginCode(child),
             );
           }
           // 末尾的添加按钮
@@ -258,11 +482,13 @@ class _ChildCard extends StatelessWidget {
   final Map<String, dynamic> child;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onRegenerateCode;
 
   const _ChildCard({
     required this.child,
     required this.onEdit,
     required this.onDelete,
+    required this.onRegenerateCode,
   });
 
   @override
@@ -271,6 +497,7 @@ class _ChildCard extends StatelessWidget {
     final age = child['age'] as int?;
     final gender = child['gender'] as String?;
     final phone = child['phone'] as String?;
+    final loginCode = child['loginCode'] as String?;
 
     String genderText = '';
     if (gender == 'male') {
@@ -281,7 +508,7 @@ class _ChildCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
+      child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           child: Icon(
@@ -325,6 +552,48 @@ class _ChildCard extends StatelessWidget {
             ),
           ],
         ),
+        children: [
+          // 登录验证码展示区
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.vpn_key, size: 18, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('登录验证码', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Text(
+                    loginCode ?? '未生成',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                      color: loginCode != null ? AppTheme.primaryColor : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 18),
+                    onPressed: onRegenerateCode,
+                    tooltip: '重新生成',
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

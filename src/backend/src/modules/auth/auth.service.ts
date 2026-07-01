@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
-import { LoginDto, RegisterDto } from './auth.dto';
+import { LoginDto, RegisterDto, VerifyPinDto, ChildLoginDto } from './auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +37,12 @@ export class AuthService {
       hashedPin = await bcrypt.hash(pin, 10);
     }
 
+    // 孩子账号自动生成 loginCode（用于快捷登录）
+    let loginCode: string | undefined;
+    if ((type || 'child') === 'child') {
+      loginCode = await this.usersService.generateUniqueLoginCode();
+    }
+
     // 创建用户
     const user = await this.usersService.create({
       phone,
@@ -45,6 +51,7 @@ export class AuthService {
       type: type || 'child',
       age,
       pin: hashedPin,
+      loginCode,
     });
 
     // 生成 Token
@@ -67,6 +74,26 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('手机号或密码错误');
+    }
+
+    const token = this.generateToken(user);
+
+    return {
+      user: this.sanitizeUser(user),
+      token,
+    };
+  }
+
+  /** 孩子快捷登录（通过6位 loginCode） */
+  async childLogin(childLoginDto: ChildLoginDto) {
+    const { loginCode } = childLoginDto;
+
+    const user = await this.usersService.findByLoginCode(loginCode);
+    if (!user) {
+      throw new UnauthorizedException('验证码无效');
+    }
+    if (user.type !== 'child') {
+      throw new UnauthorizedException('该验证码仅限孩子账号使用');
     }
 
     const token = this.generateToken(user);

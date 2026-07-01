@@ -142,6 +142,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         const SizedBox(height: 16),
                       ],
                       _buildLoginButton(),
+                      const SizedBox(height: 16),
+                      _buildChildQuickLoginButton(),
                       const SizedBox(height: 24),
                       _buildRegisterLink(),
                     ],
@@ -361,6 +363,152 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
               ),
       ),
+    );
+  }
+
+  // 孩子快捷登录按钮
+  Widget _buildChildQuickLoginButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _showChildLoginDialog,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.primaryColor,
+          side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+          ),
+        ),
+        icon: const Icon(Icons.rocket_launch_rounded, size: 20),
+        label: const Text(
+          '孩子快捷登录',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
+  // 孩子快捷登录弹窗
+  void _showChildLoginDialog() {
+    final codeController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isSubmitting,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: const Text('孩子快捷登录'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '请输入6位登录验证码',
+                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: codeController,
+                    keyboardType: TextInputType.text,
+                    textCapitalization: TextCapitalization.characters,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 8,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'ABC123',
+                      counterText: '',
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                      ),
+                    ),
+                    autofocus: true,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim().toUpperCase();
+                          if (code.length != 6) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('请输入6位验证码')),
+                            );
+                            return;
+                          }
+
+                          setState(() => isSubmitting = true);
+
+                          try {
+                            final apiService = context.read<ApiService>();
+                            final result = await apiService.childLogin(code);
+
+                            if (!mounted) return;
+                            Navigator.pop(dialogContext);
+
+                            if (result.containsKey('error')) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(result['error'].toString())),
+                              );
+                              return;
+                            }
+
+                            // 保存 token
+                            final token = result['access_token'] ?? result['token'];
+                            if (token != null) {
+                              final storage = context.read<StorageService>();
+                              await storage.saveToken(token.toString());
+                              context.read<ApiService>().setToken(token.toString());
+                            }
+
+                            // 保存用户信息
+                            final user = result['user'] as Map<String, dynamic>? ?? result;
+                            if (mounted) {
+                              final userProvider = context.read<UserProvider>();
+                              await userProvider.login(Map<String, dynamic>.from(user));
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('登录失败: $e')),
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => isSubmitting = false);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('登录'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

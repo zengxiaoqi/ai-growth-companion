@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, VerifyPinDto } from './auth.dto';
+import { LoginDto, RegisterDto, VerifyPinDto, ChildLoginDto } from './auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('认证管理')
@@ -19,6 +19,12 @@ export class AuthController {
   @ApiOperation({ summary: '用户登录' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('child-login')
+  @ApiOperation({ summary: '孩子快捷登录（验证码）' })
+  async childLogin(@Body() childLoginDto: ChildLoginDto) {
+    return this.authService.childLogin(childLoginDto);
   }
 
   @Get('profile')

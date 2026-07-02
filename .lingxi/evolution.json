@@ -1,16 +1,16 @@
 {
-  "last_analysis": "2026-07-01",
-  "analysis_count": 39,
-  "commit_count": 380,
-  "last_commit": "2026-07-01T09:30:00+08:00",
-  "last_commit_hash": "9eac249",
+  "last_analysis": "2026-07-02",
+  "analysis_count": 40,
+  "commit_count": 385,
+  "last_commit": "2026-07-02T09:10:57+08:00",
+  "last_commit_hash": "2df89ea",
   "commits_ahead_remote": 0,
-  "remote_head": "9eac249",
-  "remote_head_date": "2026-07-01T09:30:00+08:00",
+  "remote_head": "2df89ea",
+  "remote_head_date": "2026-07-02T09:10:57+08:00",
   "stale_days": 0,
   "capabilities": {
-    "child_experience": 94,
-    "parent_dashboard": 95,
+    "child_experience": 95,
+    "parent_dashboard": 96,
     "content_system": 88,
     "infrastructure": 90,
     "code_quality": 98
@@ -71,7 +71,8 @@
     "2026-06-28: Pushed 8 unpushed commits to origin (reward data isolation + JWT auth, gift shop management, template management UI, login button fix, child manager multi-child, DioException error handling, extendBody fix). Merged fix/issue-60 (BuildContext async safety + deprecated withOpacity→withValues + DropdownButtonFormField value→initialValue) and fix/issue-61 (unused imports/fields cleanup across 5 Flutter files). Fixed 9 Flutter lint warnings (unused imports, deprecated APIs, dead code, unnecessary assertions). Rewrote reward.controller.spec.ts for JWT-based API — 42 tests covering all 19 endpoints including 403 Forbidden, 404 Not Found, ConflictException, userId stripping, calendar/day-records. 83/83 reward tests passing. Backend running latest code (reward API returns 401 without JWT). Deploy 200 OK. Flutter Web build at 02:16 includes 8 commits (minor lint/PR changes pending rebuild).",
     "2026-06-29: Fixed 2 failing reward.service tests caused by uncommitted auto-sortOrder logic in createBehavior/createGift. The service now queries existing records for max sortOrder+1 when sortOrder is not provided, but the tests didn't mock the find() call → TypeError. Updated tests to mock the auto-sort query and expect sortOrder=1. All 41 reward.service tests pass. Pushed to origin. 4 remote feature branches pending review: fix/issue-64 (use_build_context_synchronously in gift_shop), fix/issue-65 (video pipeline hardening: TTS 0-byte fail-fast, Chrome path fix, built-in template fallback), fix/issue-66 (agent registry startup validation + videoGeneratorDefinition export), fix/gift-manage-button-visibility (desktop button visibility).",
     "2026-06-30: Rebased 6 local commits on top of 4 remote commits (PR #74 users.controller spec update, PR #75 analyzer warnings cleanup, PR #76 mounted check, PR #77 CI timeout). Pushed to origin — git fully synced. Verified backend build clean, ESLint 0 errors, frontend-web typecheck passes, reward tests 83/83, AI controller 50/50, users controller 10/10. Fixed AGENTS.md Flutter Web deploy command (cp -r → rsync --delete in Architecture section). Deploy 200 OK, tunnel active, no zombie processes.",
-    "2026-07-01: Synced 2 remote PR commits (#80 widget_test fix for UserProvider sync loading, #81 orchestrator spec video-generator mock). Committed 12 uncommitted files — video queue debugging fixes (pitfall #60: chatCompletion maxTokensOverride, trySalvageToolArgs, resetOrphanedProcessingTasks 10-min threshold, Content entity field fix), JWT query param for Flutter Web video playback (pitfall #62), Flutter structured_lesson_screen video_lesson fallback (pitfall #63), quick_video_generator_screen ApiService fix. Backend build clean, ESLint 0 errors, AI controller 50/50, orchestrator 4/4, lesson-content 5/5, frontend-web typecheck passes. Pushed to origin. External URL unreachable from WSL cron (Network is unreachable) but nginx 8080/8081 and backend 3001 all return 200 locally."
+    "2026-07-01: Synced 2 remote PR commits (#80 widget_test fix for UserProvider sync loading, #81 orchestrator spec video-generator mock). Committed 12 uncommitted files — video queue debugging fixes (pitfall #60: chatCompletion maxTokensOverride, trySalvageToolArgs, resetOrphanedProcessingTasks 10-min threshold, Content entity field fix), JWT query param for Flutter Web video playback (pitfall #62), Flutter structured_lesson_screen video_lesson fallback (pitfall #63), quick_video_generator_screen ApiService fix. Backend build clean, ESLint 0 errors, AI controller 50/50, orchestrator 4/4, lesson-content 5/5, frontend-web typecheck passes. Pushed to origin. External URL unreachable from WSL cron (Network is unreachable) but nginx 8080/8081 and backend 3001 all return 200 locally.",
+    "2026-07-02: Pushed unpushed account management commit (34cba99 — loginCode child login + bind verification + ModeSelection auto-routing + ChildManagerScreen). Fixed ESLint error: removed unused VerifyPinDto import in auth.service.ts. Updated users.service.spec.ts (11→14 tests: added loginCode missing/wrong/already-bound cases) and users.controller.spec.ts (linkChild tests pass loginCode in body). All 24 users tests + 11 auth tests passing. Backend build clean, ESLint 0 errors, Flutter Web build fresh (contains 孩子快捷登录), deploy 200 OK, git fully synced."
   ],
   "lessons_learned": [
     "AGENTS.md references port 3000 but actual backend port is 3001 — environment docs need a sweep",
@@ -113,21 +114,24 @@
     "Uncommitted local changes from pitfall #60 video queue debugging have been committed and pushed (2026-07-01) — chatCompletion maxTokensOverride, trySalvageToolArgs, JWT query param, Content entity fix.",
     "WSL cron environment cannot reach external HTTPS (curl to lingxi.chataifree.eu.org returns 'Network is unreachable') — health checks must use localhost:3001 or localhost:8080 in cron context. Tunnel is active but external connectivity is WSL networking limitation.",
     "workspace-product-agent backend (PID 522383) runs on a separate copy at /home/zxq/workspace-product-agent/projects/ai-growth-companion/src/backend/dist/main — it does NOT conflict with our backend on port 3001 but may cause EADDRINUSE if both try same port. Always check for ghost processes.",
-    "OrchestratorService logs 'Agent not found in registry' errors for parent-advisor, course-designer, activity-generator, video-generator, child-companion on every startup — these agents are referenced in routing logic but not registered. This is a known issue that degrades routing but doesn't crash the app."
+    "OrchestratorService logs 'Agent not found in registry' errors for parent-advisor, course-designer, activity-generator, video-generator, child-companion on every startup — these agents are referenced in routing logic but not registered. This is a known issue that degrades routing but doesn't crash the app. (Note: pitfall #64 moved validation to onApplicationBootstrap, but the agents themselves still aren't registered.)",
+    "2026-07-02: When a feature commit changes service method signatures (e.g., linkChild gains loginCode param), ALL existing tests for that method must be updated — both service and controller specs. The pre-commit ESLint hook catches formatting but NOT test failures. Always run jest after signature changes.",
+    "2026-07-02: Backend running on nvm node v22 (PID 68830, /home/zxq/.nvm/versions/node/v22.22.0/bin/node) — better-sqlite3 currently works on both v22 and v24 so no sql.js fallback. However, pitfall #52 recommends system node v24 for production. This should be corrected at next backend restart.",
+    "2026-07-02: Flutter Web build is fresh — main.dart.v1782930448.js contains '孩子快捷登录' (3 occurrences). Build timestamp 2026-07-02 02:27, 0 source files newer than build."
   ],
   "metrics": {
     "backend_files": 214,
     "backend_test_files": 73,
     "backend_test_ratio": "34.1%",
-    "backend_src_lines": 39069,
-    "backend_test_lines": 14988,
+    "backend_src_lines": 39182,
+    "backend_test_lines": 15036,
     "flutter_files": 80,
-    "flutter_lines": 41207,
+    "flutter_lines": 41689,
     "web_files": 101,
     "web_lines": 26895,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 129685,
+    "total_lines": 130434,
     "repo_build_artifacts": "1.0GB build/web/, 41MB public/",
     "backend_modules": 17,
     "entities": 17

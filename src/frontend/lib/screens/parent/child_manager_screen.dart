@@ -231,7 +231,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                           try {
                             final api = ctx.read<ApiService>();
                             final result = await api.linkChild(phone, code);
-                            if (!mounted) return;
+                            if (!mounted || !dialogContext.mounted) return;
                             Navigator.pop(dialogContext);
 
                             if (result == null) {
@@ -240,6 +240,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                               );
                             } else {
                               await _loadChildren();
+                              if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('已成功绑定 ${result['name'] ?? '孩子'}')),
                               );
@@ -306,6 +307,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     if (!mounted) return;
     if (result != null && result['loginCode'] != null) {
       await _loadChildren();
+      if (!mounted) return;
       // 弹窗展示新验证码
       showDialog(
         context: context,
@@ -418,7 +420,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                           final childId = child['id'] as int;
                           final result = await api.setLoginCode(childId, code);
 
-                          if (!mounted) return;
+                          if (!mounted || !dialogContext.mounted) return;
                           Navigator.pop(dialogContext);
 
                           if (result != null && result['error'] == null) {

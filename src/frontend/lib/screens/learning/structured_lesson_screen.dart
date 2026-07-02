@@ -637,7 +637,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
     // video_lesson 类型课程没有 steps 数组，但有 videoLesson.shots / visualStory.scenes
     // 自动构造一个 watch 步骤，复用已有的场景渲染逻辑
-    if (rawSteps is! List || (rawSteps is List && rawSteps.isEmpty)) {
+    if (rawSteps is! List || rawSteps.isEmpty) {
       final hasVideoLesson = structured['videoLesson'] is Map;
       final hasVisualStory = structured['visualStory'] is Map;
       final hasScenes = structured['scenes'] is List;

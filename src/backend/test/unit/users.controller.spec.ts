@@ -109,25 +109,28 @@ describe('UsersController', () => {
   });
 
   describe('POST /users/link-child', () => {
-    it('should link child by phone number', async () => {
+    it('should link child by phone number with loginCode', async () => {
       const req = { user: { sub: 10 } };
-      const body = { childPhone: '13800000002' };
+      const body = { childPhone: '13800000002', loginCode: 'ABCDEF' };
       const linked = { parentId: 10, childId: 2 };
       usersService.linkChild.mockResolvedValue(linked);
 
       const result = await controller.linkChild(req, body);
 
       expect(result).toEqual(linked);
-      expect(usersService.linkChild).toHaveBeenCalledWith(10, '13800000002');
+      expect(usersService.linkChild).toHaveBeenCalledWith(10, '13800000002', 'ABCDEF');
     });
 
     it('should use req.user.sub as parentId', async () => {
       const req = { user: { sub: 99 } };
       usersService.linkChild.mockResolvedValue({});
 
-      await controller.linkChild(req, { childPhone: '13800000003' });
+      await controller.linkChild(req, {
+        childPhone: '13800000003',
+        loginCode: 'XYZWXY',
+      });
 
-      expect(usersService.linkChild).toHaveBeenCalledWith(99, '13800000003');
+      expect(usersService.linkChild).toHaveBeenCalledWith(99, '13800000003', 'XYZWXY');
     });
   });
 });

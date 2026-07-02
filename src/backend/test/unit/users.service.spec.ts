@@ -23,6 +23,16 @@ describe('UsersService', () => {
     type: 'child',
     parentId: 1,
     password: 'hashed',
+    loginCode: 'ABCDEF',
+  };
+
+  const mockChildSafe: Partial<User> = {
+    id: 2,
+    phone: '13800000002',
+    name: 'TestChild',
+    type: 'child',
+    parentId: 1,
+    loginCode: 'ABCDEF',
   };
 
   beforeEach(async () => {
@@ -94,24 +104,54 @@ describe('UsersService', () => {
   });
 
   describe('linkChild', () => {
-    it('links child to parent', async () => {
+    it('links child to parent with valid loginCode', async () => {
       mockRepo.findOne
-        .mockResolvedValueOnce(mockUser) // parent lookup
-        .mockResolvedValueOnce(mockChild); // child lookup
+        .mockResolvedValueOnce(mockUser) // parent lookup (findById)
+        .mockResolvedValueOnce(mockChild) // child lookup (findByPhone)
+        .mockResolvedValueOnce(mockChildSafe); // findSafeById after save
       mockRepo.save.mockResolvedValue({ ...mockChild, parentId: 1 });
 
-      const result = await service.linkChild(1, '13800000002');
+      const result = await service.linkChild(1, '13800000002', 'ABCDEF');
       expect(result.parentId).toBe(1);
+    });
+
+    it('throws if loginCode is missing', async () => {
+      mockRepo.findOne.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(mockChild);
+
+      await expect(service.linkChild(1, '13800000002')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws if loginCode is wrong', async () => {
+      mockRepo.findOne.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(mockChild);
+
+      await expect(service.linkChild(1, '13800000002', 'WRONG')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws if parent not found', async () => {
       mockRepo.findOne.mockResolvedValueOnce(null);
-      await expect(service.linkChild(999, '13800000002')).rejects.toThrow(BadRequestException);
+      await expect(service.linkChild(999, '13800000002', 'ABCDEF')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws if child phone not found', async () => {
       mockRepo.findOne.mockResolvedValueOnce(mockUser).mockResolvedValueOnce(null);
-      await expect(service.linkChild(1, '00000000000')).rejects.toThrow(NotFoundException);
+      await expect(service.linkChild(1, '00000000000', 'ABCDEF')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns safe user when child already bound to this parent', async () => {
+      mockRepo.findOne
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce(mockChild) // already has parentId=1
+        .mockResolvedValueOnce(mockChildSafe); // findSafeById
+
+      const result = await service.linkChild(1, '13800000002', 'ABCDEF');
+      expect(result.id).toBe(2);
+      expect(result.parentId).toBe(1);
     });
   });
 

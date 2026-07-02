@@ -330,6 +330,25 @@ class ApiService {
     }
   }
 
+  /// 设置自定义登录验证码
+  Future<Map<String, dynamic>?> setLoginCode(int childId, String loginCode) async {
+    try {
+      final response = await _dio.post('/users/child/$childId/set-code', data: {
+        'loginCode': loginCode,
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      if (data is Map && data['message'] != null) {
+        return {'error': data['message'].toString()};
+      }
+      return {'error': '网络错误，请稍后重试'};
+    } catch (e) {
+      _log.warning('Set loginCode error: $e');
+      return {'error': '设置失败，请稍后重试'};
+    }
+  }
+
   // ==================== 内容 API ====================
 
   Future<List<dynamic>> getContents({

@@ -78,4 +78,12 @@ export class UsersController {
     const parentId = req.user.sub;
     return this.usersService.regenerateLoginCode(parentId, parseInt(id));
   }
+
+  // 设置自定义登录验证码
+  @Post('child/:id/set-code')
+  @UseGuards(JwtAuthGuard)
+  async setLoginCode(@Request() req, @Param('id') id: string, @Body() body: { loginCode: string }) {
+    const parentId = req.user.sub;
+    return this.usersService.setLoginCode(parentId, parseInt(id), body.loginCode);
+  }
 }

@@ -16,6 +16,7 @@ import {
   ForbiddenException,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -53,12 +54,32 @@ export class RewardController {
     }
   }
 
+  /** 仅家长可操作，否则抛 ForbiddenException */
+  private assertParent(req: any) {
+    const userType = req.user.type as string;
+    if (userType !== 'parent') {
+      throw new ForbiddenException('仅家长账号可执行此操作');
+    }
+  }
+
+  /** 获取行为模板归属的 userId：孩子用 parentId，家长用自己的 ID */
+  private async resolveBehaviorOwnerId(req: any): Promise<number> {
+    const userId = req.user.sub as number;
+    const userType = req.user.type as string;
+    if (userType === 'child') {
+      const user = await this.usersService.findById(userId);
+      if (user?.parentId) return user.parentId;
+      throw new BadRequestException('孩子账号未绑定家长，无法获取行为模板');
+    }
+    return userId;
+  }
+
   // ==================== 行为模板 ====================
 
   @Get('behaviors')
   async getBehaviors(@Req() req: any) {
-    const userId = req.user.sub as number;
-    return this.rewardService.getBehaviorsWithAutoSeed(userId);
+    const ownerId = await this.resolveBehaviorOwnerId(req);
+    return this.rewardService.getBehaviorsWithAutoSeed(ownerId);
   }
 
   @Post('behaviors')
@@ -73,6 +94,7 @@ export class RewardController {
       sortOrder?: number;
     },
   ) {
+    this.assertParent(req);
     const userId = req.user.sub as number;
     return this.rewardService.createBehavior({ ...data, userId });
   }
@@ -83,6 +105,7 @@ export class RewardController {
     @Param('id') id: string,
     @Body() data: Record<string, any>,
   ) {
+    this.assertParent(req);
     const userId = req.user.sub as number;
     const behavior = await this.rewardService.getBehaviorById(+id);
     if (!behavior) throw new HttpException('模板不存在', HttpStatus.NOT_FOUND);
@@ -94,6 +117,7 @@ export class RewardController {
 
   @Delete('behaviors/:id')
   async deleteBehavior(@Req() req: any, @Param('id') id: string) {
+    this.assertParent(req);
     const userId = req.user.sub as number;
     const behavior = await this.rewardService.getBehaviorById(+id);
     if (!behavior) throw new HttpException('模板不存在', HttpStatus.NOT_FOUND);
@@ -103,6 +127,7 @@ export class RewardController {
 
   @Patch('behaviors/:id/toggle')
   async toggleBehavior(@Req() req: any, @Param('id') id: string) {
+    this.assertParent(req);
     const userId = req.user.sub as number;
     const behavior = await this.rewardService.getBehaviorById(+id);
     if (!behavior) throw new HttpException('模板不存在', HttpStatus.NOT_FOUND);
@@ -137,6 +162,10 @@ export class RewardController {
     },
   ) {
     await this.assertCanAccessChild(req, data.childId);
+    // 补打卡（带 recordedAt）仅家长可操作，孩子只能当日打卡
+    if (data.recordedAt) {
+      this.assertParent(req);
+    }
     const result = await this.rewardService.recordPoints({
       ...data,
       recordedBy: req.user.sub as number,
@@ -152,6 +181,7 @@ export class RewardController {
 
   @Delete('points/:id')
   async deletePointRecord(@Req() req: any, @Param('id') id: string) {
+    this.assertParent(req);
     const userId = req.user.sub as number;
     const userType = req.user.type as string;
     // 查找记录，获取 childId 后验证归属

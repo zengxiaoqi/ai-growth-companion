@@ -225,6 +225,10 @@ class _CheckInPanel extends StatelessWidget {
         final templates = reward.behaviors;
         final todayRecords = reward.todayRecords;
 
+        // 判断当前用户是否是家长
+        final userProvider = context.read<UserProvider>();
+        final isParent = userProvider.currentUser?['type'] == 'parent';
+
         if (reward.isLoading && templates.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -236,11 +240,12 @@ class _CheckInPanel extends StatelessWidget {
               children: [
                 const Text('暂无行为模板，点击设置添加', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: onManageTemplates,
-                  icon: const Icon(Icons.settings),
-                  label: const Text('管理模板'),
-                ),
+                if (isParent)
+                  ElevatedButton.icon(
+                    onPressed: onManageTemplates,
+                    icon: const Icon(Icons.settings),
+                    label: const Text('管理模板'),
+                  ),
               ],
             ),
           );
@@ -255,31 +260,32 @@ class _CheckInPanel extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            // 补打卡 + 管理模板按钮
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () => _showMakeupCheckIn(context),
-                    icon: const Icon(Icons.history_edu_rounded, size: 18),
-                    label: const Text('补打卡', style: TextStyle(fontSize: 13)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
+            // 补打卡 + 管理模板按钮（仅家长可见）
+            if (isParent)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showMakeupCheckIn(context),
+                      icon: const Icon(Icons.history_edu_rounded, size: 18),
+                      label: const Text('补打卡', style: TextStyle(fontSize: 13)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                      ),
                     ),
-                  ),
-                  TextButton.icon(
-                    onPressed: onManageTemplates,
-                    icon: const Icon(Icons.settings, size: 18),
-                    label: const Text('管理模板', style: TextStyle(fontSize: 13)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
+                    TextButton.icon(
+                      onPressed: onManageTemplates,
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('管理模板', style: TextStyle(fontSize: 13)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             // 今日打卡记录
             if (todayRecords.isNotEmpty) ...[
               const _RewardSectionHeader(title: '今日打卡', emoji: '✅'),
@@ -303,6 +309,9 @@ class _CheckInPanel extends StatelessWidget {
 
   Widget _buildTodayRecordCard(BuildContext context, PointRecord record) {
     final isPositive = record.points >= 0;
+    // 判断当前用户是否是家长（仅家长可撤回）
+    final userProvider = context.read<UserProvider>();
+    final isParent = userProvider.currentUser?['type'] == 'parent';
     return AppCard(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -351,24 +360,26 @@ class _CheckInPanel extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => _showUndoConfirm(context, record),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '撤回',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
+          if (isParent) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showUndoConfirm(context, record),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '撤回',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

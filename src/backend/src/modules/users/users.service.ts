@@ -254,4 +254,34 @@ export class UsersService {
     await this.usersRepository.update(childId, { loginCode });
     return this.findSafeById(childId) as Promise<User>;
   }
+
+  /** 设置自定义登录验证码（仅家长可操作自己的孩子） */
+  async setLoginCode(parentId: number, childId: number, customCode: string): Promise<User> {
+    const child = await this.findById(childId);
+    if (!child) {
+      throw new NotFoundException('孩子不存在');
+    }
+    if (child.parentId !== parentId) {
+      throw new BadRequestException('只能操作自己的孩子');
+    }
+    if (child.type !== 'child') {
+      throw new BadRequestException('只能操作孩子类型的账号');
+    }
+
+    // 验证格式：6位大写字母+数字（排除易混淆字符）
+    const validChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const code = customCode.toUpperCase().trim();
+    if (code.length !== 6 || !code.split('').every((c) => validChars.includes(c))) {
+      throw new BadRequestException('验证码必须是6位大写字母+数字（不含 I/O/0/1）');
+    }
+
+    // 检查唯一性
+    const existing = await this.usersRepository.findOne({ where: { loginCode: code } });
+    if (existing && existing.id !== childId) {
+      throw new BadRequestException('该验证码已被其他账号使用');
+    }
+
+    await this.usersRepository.update(childId, { loginCode: code });
+    return this.findSafeById(childId) as Promise<User>;
+  }
 }

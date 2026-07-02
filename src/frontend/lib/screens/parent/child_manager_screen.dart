@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -353,6 +354,112 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
     }
   }
 
+  /// 设置自定义登录验证码
+  Future<void> _setLoginCode(Map<String, dynamic> child) async {
+    final codeController = TextEditingController(
+      text: (child['loginCode'] as String?) ?? '',
+    );
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              title: Text('设置验证码 — ${child['name']}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '输入6位自定义验证码（大写字母+数字，不含 I/O/0/1）',
+                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: codeController,
+                    textCapitalization: TextCapitalization.characters,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: '自定义验证码',
+                      hintText: '6位',
+                      counterText: '',
+                      prefixIcon: Icon(Icons.vpn_key),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim().toUpperCase();
+                          if (code.length != 6) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('验证码必须是6位')),
+                            );
+                            return;
+                          }
+
+                          setState(() => isSubmitting = true);
+                          final api = ctx.read<ApiService>();
+                          final childId = child['id'] as int;
+                          final result = await api.setLoginCode(childId, code);
+
+                          if (!mounted) return;
+                          Navigator.pop(dialogContext);
+
+                          if (result != null && result['error'] == null) {
+                            await _loadChildren();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('验证码已设置为 $code')),
+                              );
+                            }
+                          } else {
+                            final errMsg = result?['error'] ?? '设置失败';
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(errMsg)),
+                              );
+                            }
+                          }
+                          if (mounted) setState(() => isSubmitting = false);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -433,6 +540,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               onEdit: () => _showEditChildDialog(child),
               onDelete: () => _deleteChild(child),
               onRegenerateCode: () => _regenerateLoginCode(child),
+              onSetCode: () => _setLoginCode(child),
             );
           }
           // 末尾的添加按钮
@@ -483,12 +591,14 @@ class _ChildCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRegenerateCode;
+  final VoidCallback onSetCode;
 
   const _ChildCard({
     required this.child,
     required this.onEdit,
     required this.onDelete,
     required this.onRegenerateCode,
+    required this.onSetCode,
   });
 
   @override
@@ -566,28 +676,112 @@ class _ChildCard extends StatelessWidget {
                   width: 1,
                 ),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  const Icon(Icons.vpn_key, size: 18, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  const Text('登录验证码', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  Text(
-                    loginCode ?? '未生成',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
-                      color: loginCode != null ? AppTheme.primaryColor : Colors.grey,
+                  Row(
+                    children: [
+                      const Icon(Icons.vpn_key, size: 18, color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      const Text('登录验证码', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          final code = child['loginCode'] as String?;
+                          if (code != null && code.isNotEmpty) {
+                            Clipboard.setData(ClipboardData(text: code));
+                            // 用 context 的 ScaffoldMessenger
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('验证码已复制到剪贴板'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.copy, size: 14, color: AppTheme.primaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                '复制',
+                                style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // 验证码文本（可点击复制）
+                  GestureDetector(
+                    onTap: () {
+                      final code = child['loginCode'] as String?;
+                      if (code != null && code.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: code));
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('验证码已复制到剪贴板'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Center(
+                        child: Text(
+                          loginCode ?? '未生成',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 6,
+                            color: loginCode != null ? AppTheme.primaryColor : Colors.grey,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: onRegenerateCode,
-                    tooltip: '重新生成',
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    padding: EdgeInsets.zero,
+                  const SizedBox(height: 8),
+                  // 操作按钮行
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onSetCode,
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('自定义', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onRegenerateCode,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('随机生成', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

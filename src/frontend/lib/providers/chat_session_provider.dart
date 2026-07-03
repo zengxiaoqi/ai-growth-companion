@@ -198,7 +198,7 @@ String _buildDisplayText(Map<String, dynamic> decoded) {
 
 // ── 思考内容清理工具 ──────────────────────────────────────────────────────
 
-/// 从文本中移除 <thinking>...</thinking> 标签对及其内容
+/// 从文本中移除 `<thinking>...</thinking>` 标签对及其内容
 /// 用于防止后端返回的 thinking 内容混入 displayText
 String _stripThinkingFromText(String text) {
   // 移除 <thinking>...</thinking> 块

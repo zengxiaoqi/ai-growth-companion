@@ -3,7 +3,9 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../components/shimmer_loading.dart';
@@ -573,17 +575,23 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  final bool _isLoading = false;
   final bool _autoPlay = true;
   bool _isListening = false;
   int? _speakingMessageIndex;
   bool _showSessionDrawer = false;
 
-  /// 每条消息的答题记录
-  final Map<String, int> _questionAnswers = {};
+  /// 每条消息的答题记录（用于思考内容折叠状态）
+  final Map<int, bool> _thinkingExpanded = {};
 
   /// 是否已有活跃会话（用于判断是否在加载状态）
   bool _hasLoadedSession = false;
+
+  /// 切换思考区域展开/折叠
+  void _toggleThinking(int index) {
+    setState(() {
+      _thinkingExpanded[index] = !(_thinkingExpanded[index] ?? false);
+    });
+  }
 
   @override
   void initState() {
@@ -624,6 +632,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     // 开场白由 Provider 管理，这里不做任何事
   }
 
+  bool _isLoading = false;
+
   // ─── 消息发送（使用 Provider）─────────────────────────────────────
 
   Future<void> _sendMessage({String? text}) async {
@@ -631,15 +641,21 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     if (message.isEmpty) return;
 
     _controller.clear();
+    setState(() => _isLoading = true);
     _scrollToBottom();
 
     final provider = context.read<ChatSessionProvider>();
-    final msgIndex = await provider.sendMessage(message);
-
-    // 自动朗读
-    if (_autoPlay && mounted) {
-      await _autoSpeakMessage(msgIndex);
-    }
+    // 不 await，让用户消息立即显示，AI 回复通过 notifyListeners 流式更新
+    provider.sendMessage(message).then((msgIndex) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _scrollToBottom();
+        // 自动朗读
+        if (_autoPlay) {
+          _autoSpeakMessage(msgIndex);
+        }
+      }
+    });
   }
 
   void _scrollToBottom() {
@@ -801,6 +817,11 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final quizQuestions = message.quizQuestions;
     final displayText = message.displayText ?? message.content;
     final hasQuiz = quizQuestions != null && quizQuestions.isNotEmpty;
+    final isStreaming = message.isStreaming;
+    final isEmpty = displayText.isEmpty;
+    final thinkingContent = message.thinkingContent?.trim();
+    final showThinking = thinkingContent != null && thinkingContent.isNotEmpty;
+    final expanded = _thinkingExpanded[index] ?? false;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -831,10 +852,93 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           ),
           padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            // ── AI 消息：思考内容区域（可折叠）──
+            if (!isUser && showThinking) ...[
+              GestureDetector(
+                onTap: () => _toggleThinking(index),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                        size: 18, color: AppTheme.textSecondary),
+                    const SizedBox(width: 6),
+                    Text('💭 思考过程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                    const Spacer(),
+                    if (showThinking && !isStreaming) ...[
+                      Text('${thinkingContent.replaceAll(RegExp(r'\s+'), ' ').split('').length} 字',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.5))),
+                    ],
+                  ]),
+                ),
+              ),
+              if (expanded) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    color: AppTheme.textSecondary.withValues(alpha: 0.05),
+                    child: MarkdownBody(
+                      data: thinkingContent,
+                      styleSheet: Theme.of(context).useMaterial3
+                        ? MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        : MarkdownStyleSheet(
+                            p: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textSecondary.withValues(alpha: 0.75)),
+                            code: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textSecondary),
+                            codeblockDecoration: BoxDecoration(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            blockquoteDecoration: BoxDecoration(
+                              color: AppTheme.textSecondary.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            blockquote: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppTheme.textSecondary.withValues(alpha: 0.65)),
+                          ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+            ],
+
+            // ── 消息主体文本 ──
             Row(mainAxisSize: MainAxisSize.min, children: [
               if (!isUser) ...[const Text('🦄', style: TextStyle(fontSize: 24)), const SizedBox(width: 10)],
-              Flexible(child: Text(displayText,
-                  style: TextStyle(color: isUser ? Colors.white : AppTheme.textColor, fontSize: 16, height: 1.4))),
+              if (!isUser && isEmpty && isStreaming)
+                _buildTypingIndicator()
+              else if (isUser)
+                Flexible(child: Text(displayText,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)))
+              else
+                Flexible(child: MarkdownBody(
+                  data: displayText,
+                  styleSheet: Theme.of(context).useMaterial3
+                      ? MarkdownStyleSheet.fromTheme(Theme.of(context))
+                      : MarkdownStyleSheet(
+                          p: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor),
+                          code: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.textColor),
+                          codeblockDecoration: BoxDecoration(
+                            color: AppTheme.softYellow.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          blockquoteDecoration: BoxDecoration(
+                            color: AppTheme.softYellow.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          blockquote: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                        ),
+                )),
+              if (!isUser && isStreaming && !isEmpty) ...[
+                const SizedBox(width: 6),
+                _buildStreamingDots(),
+              ],
               if (isUser) const SizedBox(width: 4),
             ]),
             if (!isUser && hasQuiz) ...[
@@ -843,17 +947,40 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                 questions: quizQuestions,
                 messageIndex: index,
                 onAnswered: (qIdx, selected) {
-                  setState(() => _questionAnswers['${index}_$qIdx'] = selected);
+                  // placeholder — quiz answers handled by InlineQuizCard internally
                 },
               ),
             ],
-            if (!isUser) ...[
+            if (!isUser && !isStreaming) ...[
               const SizedBox(height: 6),
               Align(alignment: Alignment.centerRight, child: _buildSpeakButton(isSpeaking, index)),
             ],
           ]),
         ),
       )),
+    );
+  }
+
+  /// 三个跳动圆点的打字指示器
+  Widget _buildTypingIndicator() {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _DotAnimation(delay: 0),
+      const SizedBox(width: 4),
+      _DotAnimation(delay: 200),
+      const SizedBox(width: 4),
+      _DotAnimation(delay: 400),
+    ]);
+  }
+
+  /// 流式输出时文末的小跳动点
+  Widget _buildStreamingDots() {
+    return SizedBox(
+      width: 16, height: 20,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        _DotAnimation(delay: 0, size: 4),
+        const SizedBox(width: 2),
+        _DotAnimation(delay: 200, size: 4),
+      ]),
     );
   }
 
@@ -932,6 +1059,59 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           ),
         ),
       ]),
+    );
+  }
+}
+
+/// 跳动圆点动画组件（用于打字指示器）
+class _DotAnimation extends StatefulWidget {
+  final int delay;
+  final double size;
+
+  const _DotAnimation({this.delay = 0, this.size = 8});
+
+  @override
+  State<_DotAnimation> createState() => _DotAnimationState();
+}
+
+class _DotAnimationState extends State<_DotAnimation> with TickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _controller.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Opacity(
+          opacity: 0.4 + (_controller.value * 0.6),
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        );
+      },
     );
   }
 }

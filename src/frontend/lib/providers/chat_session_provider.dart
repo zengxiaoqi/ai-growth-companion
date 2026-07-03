@@ -66,15 +66,23 @@ class ChatSessionSummary {
 /// 一条聊天消息（统一格式）
 class ChatMessageEntry {
   final String role;       // 'user' | 'assistant'
-  final String content;    // 消息内容
+  String content;    // 消息内容（流式时动态更新）
   final List<Map<String, dynamic>>? quizQuestions; // 内联测验（如果有）
-  final String? displayText; // 用于展示的文本（不含 JSON）
+  String? displayText; // 用于展示的文本（不含 JSON），流式时动态更新
+  bool isStreaming;  // 是否正在流式输出
+
+  // ── 思考内容（AI 回复的思考链）──
+  String? thinkingContent;   // 存储 thinking 事件的内容
+  bool isThinkingExpanded;   // 控制思考区域展开/折叠
 
   ChatMessageEntry({
     required this.role,
     required this.content,
     this.quizQuestions,
     this.displayText,
+    this.isStreaming = false,
+    this.thinkingContent,
+    this.isThinkingExpanded = false,
   });
 
   factory ChatMessageEntry.fromJson(Map<String, dynamic> json) {
@@ -84,6 +92,8 @@ class ChatMessageEntry {
       role: json['role']?.toString() ?? 'assistant',
       content: rawContent ?? content,
       displayText: rawContent ?? content,
+      thinkingContent: json['thinkingContent']?.toString(),
+      isThinkingExpanded: json['isThinkingExpanded'] as bool? ?? false,
     );
   }
 }
@@ -184,6 +194,16 @@ String _buildDisplayText(Map<String, dynamic> decoded) {
     return parts.join('');
   }
   return '来做几道题目吧！📝';
+}
+
+// ── 思考内容清理工具 ──────────────────────────────────────────────────────
+
+/// 从文本中移除 <thinking>...</thinking> 标签对及其内容
+/// 用于防止后端返回的 thinking 内容混入 displayText
+String _stripThinkingFromText(String text) {
+  // 移除 <thinking>...</thinking> 块
+  final cleaned = text.replaceAll(RegExp(r'<thinking>.*?</thinking>', dotAll: true), '').trim();
+  return cleaned;
 }
 
 // ─── Provider ──────────────────────────────────────────────────────────────
@@ -339,9 +359,9 @@ class ChatSessionProvider extends ChangeNotifier {
     _localMessages.clear();
   }
 
-  // ─── 消息发送 ──────────────────────────────────────────────────────
+  // ─── 消息发送（流式输出）──────────────────────────────────────
 
-  /// 发送消息（支持上下文摘要 + 会话持久化）
+  /// 发送消息（流式输出，支持实时 token 显示 + 测验渲染）
   ///
   /// [onAnswered] 可选回调，在检测到测验答案时通知
   /// 返回助手消息在 [_localMessages] 中的索引
@@ -349,75 +369,237 @@ class ChatSessionProvider extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return -1;
 
-    final targetSession = _activeSession;
-
     // 添加用户消息到本地缓存
     _localMessages.add(ChatMessageEntry(role: 'user', content: trimmed));
     notifyListeners();
 
+    // 添加一个空的 AI 消息，用于流式更新
+    final aiMsg = ChatMessageEntry(
+      role: 'assistant',
+      content: '',
+      displayText: '',
+      isStreaming: true,
+    );
+    _localMessages.add(aiMsg);
+    notifyListeners();
+
+    final targetSession = _activeSession;
+    final sessionUuid = targetSession?.uuid;
+
     try {
-      Map<String, dynamic>? response;
-      if (targetSession != null) {
-        response = await _apiService.sendAIChatMessage(
-          trimmed,
-          childId: _childId,
-          sessionId: int.tryParse(targetSession.uuid),
-        );
-      } else {
-        response = await _apiService.sendAIChatMessage(trimmed, childId: _childId);
-      }
-
-      final reply = response?['reply'] as String? ??
-          response?['content'] as String? ??
-          '抱歉，我暂时无法回复 ~';
-
-      // 解析测验数据
-      final (displayText, quizQuestions) = _parseQuizFromAIResponse(reply);
-      final assistantMsg = ChatMessageEntry(
-        role: 'assistant',
-        content: reply,
-        quizQuestions: quizQuestions,
-        displayText: displayText ?? reply,
+      // 优先使用流式 SSE
+      final stream = _apiService.sendAIChatMessageStream(
+        trimmed,
+        childId: _childId,
+        sessionId: sessionUuid,
       );
 
-      _localMessages.add(assistantMsg);
+      String fullReply = '';
+      List<Map<String, dynamic>>? quizQuestions;
+      String? newSessionId;
+
+      await for (final event in stream) {
+        final type = event['type'] as String?;
+
+        if (type == 'token') {
+          final chunk = event['content'] as String? ?? '';
+          fullReply += chunk;
+          aiMsg.content = fullReply;
+          aiMsg.displayText = fullReply;
+          notifyListeners();
+        } else if (type == 'thinking') {
+          // 收集思考内容（独立存储，用于可折叠显示）
+          final think = event['content'] as String? ?? '';
+          if (think.isNotEmpty) {
+            aiMsg.thinkingContent = (aiMsg.thinkingContent ?? '') + think;
+            notifyListeners();
+          }
+        } else if (type == 'tool_start') {
+          final toolName = event['toolName'] as String? ?? '';
+          if (toolName == 'generateActivity') {
+            aiMsg.displayText = fullReply.isEmpty ? '🎨 正在生成互动题目...' : fullReply;
+          } else {
+            aiMsg.displayText = fullReply.isEmpty ? '🔍 正在查找信息...' : fullReply;
+          }
+          notifyListeners();
+        } else if (type == 'game_data') {
+          final gameDataStr = event['gameData'] as String? ?? '';
+          if (gameDataStr.isNotEmpty) {
+            final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
+            quizQuestions = qs;
+            if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
+              fullReply = dt;
+              aiMsg.content = fullReply;
+              aiMsg.displayText = fullReply;
+            }
+          }
+          notifyListeners();
+        } else if (type == 'done') {
+          newSessionId = event['sessionId'] as String?;
+
+          // 清理全量 reply 中可能残留的 thinking 标签（防御性处理）
+          if ((aiMsg.thinkingContent?.trim().isEmpty ?? false) == false) {
+            fullReply = _stripThinkingFromText(fullReply);
+          }
+
+          // 如果没有收到任何 token 但有 game_data，用 game_data 的 displayText
+          if (fullReply.isEmpty && quizQuestions != null) {
+            final gameDataStr = event['gameData'] as String? ?? '';
+            if (gameDataStr.isNotEmpty) {
+              final (dt, _) = _parseQuizFromAIResponse(gameDataStr);
+              if (dt != null) fullReply = dt;
+            }
+          }
+          // 如果最终还是空的，给个兜底
+          if (fullReply.isEmpty) {
+            fullReply = '我暂时没法回答这个问题，换个话题试试吧~ 🌟';
+          }
+          break;
+        } else if (type == 'error') {
+          final msg = event['message'] as String? ?? 'AI服务暂时不可用';
+          aiMsg.content = msg;
+          aiMsg.displayText = msg;
+          aiMsg.isStreaming = false;
+          notifyListeners();
+          return _localMessages.length - 1;
+        }
+      }
+
+      // 最终化消息
+      final (displayText, parsedQuiz) = _parseQuizFromAIResponse(fullReply);
+      aiMsg.content = fullReply;
+      aiMsg.displayText = displayText ?? fullReply;
+      // 如果流式过程中收到了 game_data 事件，使用那个 quizQuestions
+      // 否则尝试从 reply 文本中解析
+      final finalQuiz = quizQuestions ?? parsedQuiz;
+      // 需要重建消息对象以设置 quizQuestions（final 字段）
+      final finalizedMsg = ChatMessageEntry(
+        role: 'assistant',
+        content: fullReply,
+        quizQuestions: finalQuiz,
+        displayText: displayText ?? fullReply,
+        isStreaming: false,
+        thinkingContent: aiMsg.thinkingContent,
+        isThinkingExpanded: false,
+      );
+      _localMessages[_localMessages.length - 1] = finalizedMsg;
 
       // 更新会话信息
-      final sessionId = response?['sessionId'] as String?;
-      if (sessionId != null && targetSession == null) {
-        // 后端创建了新的会话
-        _activeSession = ChatSessionSummary(
-          uuid: sessionId,
-          title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        _sessions.insert(0, _activeSession!);
-      } else if (sessionId != null && _activeSession != null) {
-        _activeSession = ChatSessionSummary(
-          uuid: _activeSession!.uuid,
-          title: _activeSession!.title,
-          createdAt: _activeSession!.createdAt,
-          updatedAt: DateTime.now(),
-          messageCount: _localMessages.length ~/ 2,
-        );
-        // 更新会话列表中的位置
-        final idx = _sessions.indexWhere((s) => s.uuid == sessionId);
-        if (idx >= 0) {
-          _sessions[idx] = _activeSession!;
+      if (newSessionId != null && newSessionId.isNotEmpty) {
+        if (targetSession == null) {
+          _activeSession = ChatSessionSummary(
+            uuid: newSessionId,
+            title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          _sessions.insert(0, _activeSession!);
+        } else {
+          _activeSession = ChatSessionSummary(
+            uuid: _activeSession!.uuid,
+            title: _activeSession!.title,
+            createdAt: _activeSession!.createdAt,
+            updatedAt: DateTime.now(),
+            messageCount: _localMessages.length ~/ 2,
+          );
+          final idx = _sessions.indexWhere((s) => s.uuid == newSessionId);
+          if (idx >= 0) {
+            _sessions[idx] = _activeSession!;
+          }
         }
       }
 
       notifyListeners();
       return _localMessages.length - 1;
     } catch (e) {
-      debugPrint('⚠️ AI chat send error: $e');
-      _localMessages.add(ChatMessageEntry(
-        role: 'assistant',
-        content: '哎呀，网络不太好，再试一次吧 🌐',
-      ));
-      notifyListeners();
-      return _localMessages.length - 1;
+      debugPrint('⚠️ AI chat stream error: $e, falling back to non-streaming');
+
+      // 回退到非流式
+      try {
+        Map<String, dynamic>? response;
+        if (targetSession != null) {
+          response = await _apiService.sendAIChatMessage(
+            trimmed,
+            childId: _childId,
+            sessionId: targetSession.uuid,
+          );
+        } else {
+          response = await _apiService.sendAIChatMessage(trimmed, childId: _childId);
+        }
+
+        final reply = response?['reply'] as String? ??
+            response?['content'] as String? ??
+            '抱歉，我暂时无法回复 ~';
+
+        final (displayText, quizQuestions) = _parseQuizFromAIResponse(reply);
+
+        // 也检查 gameData 字段
+        List<Map<String, dynamic>>? finalQuiz = quizQuestions;
+        final gameData = response?['gameData'];
+        if (finalQuiz == null && gameData != null) {
+          final gameDataStr = gameData is String ? gameData : jsonEncode(gameData);
+          final (gdt, gqs) = _parseQuizFromAIResponse(gameDataStr);
+          if (gqs != null) {
+            finalQuiz = gqs;
+            final finalText = (displayText ?? '').isEmpty ? (gdt ?? reply) : displayText!;
+            final finalizedMsg = ChatMessageEntry(
+              role: 'assistant',
+              content: reply,
+              quizQuestions: finalQuiz,
+              displayText: finalText,
+              isStreaming: false,
+              thinkingContent: _stripThinkingFromText(reply),
+              isThinkingExpanded: false,
+            );
+            _localMessages[_localMessages.length - 1] = finalizedMsg;
+          } else {
+            final finalizedMsg = ChatMessageEntry(
+              role: 'assistant',
+              content: reply,
+              quizQuestions: null,
+              displayText: displayText ?? reply,
+              isStreaming: false,
+              thinkingContent: _stripThinkingFromText(reply),
+              isThinkingExpanded: false,
+            );
+            _localMessages[_localMessages.length - 1] = finalizedMsg;
+          }
+        } else {
+          final finalizedMsg = ChatMessageEntry(
+            role: 'assistant',
+            content: reply,
+            quizQuestions: finalQuiz,
+            displayText: displayText ?? reply,
+            isStreaming: false,
+            thinkingContent: _stripThinkingFromText(reply),
+            isThinkingExpanded: false,
+          );
+          _localMessages[_localMessages.length - 1] = finalizedMsg;
+        }
+
+        final sessionId = response?['sessionId'] as String?;
+        if (sessionId != null && targetSession == null) {
+          _activeSession = ChatSessionSummary(
+            uuid: sessionId,
+            title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          _sessions.insert(0, _activeSession!);
+        }
+
+        notifyListeners();
+        return _localMessages.length - 1;
+      } catch (e2) {
+        debugPrint('⚠️ AI chat fallback also failed: $e2');
+        _localMessages[_localMessages.length - 1] = ChatMessageEntry(
+          role: 'assistant',
+          content: '哎呀，网络不太好，再试一次吧 🌐',
+          isStreaming: false,
+        );
+        notifyListeners();
+        return _localMessages.length - 1;
+      }
     }
   }
 

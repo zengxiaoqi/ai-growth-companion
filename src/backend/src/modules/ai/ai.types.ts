@@ -20,6 +20,11 @@ export interface ChatResponse {
   suggestions?: string[];
   toolCalls?: ToolCallInfo[];
   wasFiltered?: boolean;
+  gameData?: {
+    activityType: string;
+    gameData: string;
+    domain: string;
+  };
 }
 
 export interface ToolCallInfo {

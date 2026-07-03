@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -1360,7 +1362,7 @@ class ApiService {
 
   // ==================== AI 对话 ====================
 
-  Future<Map<String, dynamic>?> sendAIChatMessage(String message, {int? childId, int? sessionId}) async {
+  Future<Map<String, dynamic>?> sendAIChatMessage(String message, {int? childId, String? sessionId}) async {
     try {
       final response = await _dio.post('/ai/chat', data: {
         'message': message,
@@ -1371,6 +1373,89 @@ class ApiService {
     } catch (e) {
       _log.warning('AI chat error: $e');
       return null;
+    }
+  }
+
+  /// AI 对话流式输出（SSE）
+  /// 返回一个 Stream<Map<String, dynamic>>，每个 event 包含 type 和相关字段。
+  /// 事件类型: thinking, tool_start, tool_result, token, game_data, done, error
+  Stream<Map<String, dynamic>> sendAIChatMessageStream(
+    String message, {
+    int? childId,
+    String? sessionId,
+  }) async* {
+    final url = '/ai/chat/stream';
+    final headers = <String, dynamic>{
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    };
+    if (_token != null && _token!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
+
+    final response = await _dio.post(
+      url,
+      data: {
+        'message': message,
+        if (childId != null) 'childId': childId,
+        if (sessionId != null) 'sessionId': sessionId,
+      },
+      options: Options(
+        headers: headers,
+        responseType: ResponseType.stream,
+        receiveTimeout: const Duration(seconds: 120),
+      ),
+    );
+
+    final stream = response.data.stream as Stream<List<int>>;
+    final lineBuffer = StringBuffer();
+    final byteBuffer = <int>[];  // 用于处理跨 chunk 的 UTF-8 多字节字符
+    String currentEvent = 'message';
+
+    await for (final chunk in stream) {
+      byteBuffer.addAll(chunk);
+      // 尝试 UTF-8 解码；incomplete 部分留在 byteBuffer 等下一个 chunk
+      try {
+        final decoded = utf8.decode(byteBuffer, allowMalformed: false);
+        byteBuffer.clear();
+        lineBuffer.write(decoded);
+      } catch (_) {
+        // UTF-8 不完整，等待更多字节
+        continue;
+      }
+
+      // Process complete lines (terminated by \n\n for SSE events)
+      while (true) {
+        final raw = lineBuffer.toString();
+        final eventEnd = raw.indexOf('\n\n');
+        if (eventEnd == -1) break;
+
+        final eventBlock = raw.substring(0, eventEnd);
+        lineBuffer.clear();
+        lineBuffer.write(raw.substring(eventEnd + 2));
+
+        // Parse the SSE block
+        String? eventName;
+        String? dataLine;
+        for (final line in eventBlock.split('\n')) {
+          if (line.startsWith('event:')) {
+            eventName = line.substring(6).trim();
+          } else if (line.startsWith('data:')) {
+            dataLine = line.substring(5).trim();
+          }
+        }
+
+        if (dataLine == null) continue;
+        eventName ??= currentEvent;
+
+        try {
+          final data = jsonDecode(dataLine) as Map<String, dynamic>;
+          data['type'] = eventName;
+          yield data;
+        } catch (_) {
+          // Non-JSON data, skip
+        }
+      }
     }
   }
 

@@ -4,6 +4,7 @@
   Controller,
   ForbiddenException,
   Get,
+  Logger,
   NotFoundException,
   Patch,
   Param,
@@ -22,6 +23,7 @@ import { AiService } from './ai.service';
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
 export class AiController {
+  private readonly logger = new Logger('AiController');
   constructor(private readonly aiService: AiService) {}
 
   @Post('chat')
@@ -60,6 +62,111 @@ export class AiController {
       targetChildId,
       context: body.context,
     });
+  }
+
+  @Post('chat/stream')
+  @ApiOperation({ summary: 'AI 对话流式输出（SSE，POST）' })
+  async chatStreamPost(
+    @Request() req: any,
+    @Body()
+    body: {
+      message: string;
+      childId?: number;
+      parentId?: number;
+      sessionId?: string;
+      context?: any;
+    },
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    try {
+      const viewerId = req.user.sub;
+      const viewerType = req.user.type;
+      const targetChildId = body.childId;
+
+      if (viewerType === 'parent' && targetChildId != null) {
+        const canAccess = await this.aiService.canViewerAccessChild({
+          viewerId,
+          viewerType,
+          childId: targetChildId,
+        });
+        if (!canAccess) {
+          res.write(`event: error\ndata: ${JSON.stringify({ message: '无权访问该学生' })}\n\n`);
+          res.end();
+          return;
+        }
+      }
+
+      const stream = this.aiService.chatStream({
+        message: body.message,
+        sessionId: body.sessionId,
+        viewerId,
+        viewerType,
+        targetChildId,
+        context: body.context,
+      });
+
+      for await (const event of stream) {
+        if (event.type === 'error') {
+          res.write(`event: error\ndata: ${JSON.stringify({ message: event.message })}\n\n`);
+          break;
+        }
+
+        if (event.type === 'done') {
+          res.write(
+            `event: done\ndata: ${JSON.stringify({
+              sessionId: event.sessionId,
+              wasFiltered: event.wasFiltered,
+              suggestions: event.suggestions,
+              toolCalls: event.toolCalls,
+            })}\n\n`,
+          );
+          break;
+        }
+
+        if (event.type === 'thinking') {
+          res.write(
+            `event: thinking\ndata: ${JSON.stringify({ content: event.thinkingContent })}\n\n`,
+          );
+        } else if (event.type === 'tool_start') {
+          res.write(
+            `event: tool_start\ndata: ${JSON.stringify({
+              content: event.content,
+              toolName: event.toolName,
+              toolArgs: event.toolArgs,
+            })}\n\n`,
+          );
+        } else if (event.type === 'tool_result') {
+          res.write(
+            `event: tool_result\ndata: ${JSON.stringify({
+              content: event.content,
+              toolName: event.toolName,
+              toolResult: event.toolResult,
+            })}\n\n`,
+          );
+        } else if (event.type === 'token') {
+          res.write(`event: token\ndata: ${JSON.stringify({ content: event.content })}\n\n`);
+        } else if (event.type === 'game_data') {
+          res.write(
+            `event: game_data\ndata: ${JSON.stringify({
+              activityType: event.activityType,
+              gameData: event.gameData,
+              domain: event.domain,
+            })}\n\n`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(`SSE stream error: ${error.message}`);
+      res.write(`event: error\ndata: ${JSON.stringify({ message: 'AI服务暂时不可用' })}\n\n`);
+    } finally {
+      res.end();
+    }
   }
 
   @Get('chat/stream')

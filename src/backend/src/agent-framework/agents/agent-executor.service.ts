@@ -62,6 +62,7 @@ export class AgentExecutorService {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
 
     const toolCallLog: ToolCallInfo[] = [];
+    let gameData: unknown = undefined;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       this.logger.log(`Agent iteration ${iteration + 1}/${maxIterations}`);
@@ -138,6 +139,22 @@ export class AgentExecutorService {
             resultSummary: resultString.slice(0, 100),
           });
 
+          // Extract game data from generateActivity tool calls
+          if (toolName === 'generateActivity') {
+            const resultPayload = extractJsonObject(resultString);
+            const activityType = this.resolveGenerateActivityType(
+              normalizedToolArgs,
+              resultPayload,
+            );
+            if (activityType && !this.isToolErrorPayload(resultPayload)) {
+              gameData = {
+                activityType,
+                gameData: resultString,
+                domain: normalizedToolArgs.domain || 'language',
+              };
+            }
+          }
+
           // Notify caller (for conversation persistence, etc.)
           if (onToolCall) {
             await onToolCall({
@@ -163,6 +180,7 @@ export class AgentExecutorService {
         response: finalReply,
         toolCalls: toolCallLog,
         wasFiltered: safeResult.wasFiltered,
+        gameData,
         tokenUsage: response.usage
           ? {
               prompt: response.usage.promptTokens,
@@ -324,36 +342,92 @@ export class AgentExecutorService {
         continue; // next iteration
       }
 
-      // --- Final response ---
-      const finalThinking = extractThinking(assistantContent || '');
-      if (finalThinking) {
-        yield { type: 'thinking', thinkingContent: finalThinking };
-      }
+      // --- Final response (streaming with thinking-block-aware state machine) ---
+      this.logger.log('[STREAM] Starting streaming final response');
 
-      let cleanContent = stripThinking(assistantContent || '');
+      // Accumulate streamed text so we can detect <think> boundaries across chunks.
+      // Buffer tracks the portion of the stream not yet classified into events.
+      // inThinkBlock: true means the buffer holds content between <think...> and </think>.
+      let streamedText = '';
+      let buffer = '';
+      let inThinkBlock = false;
 
-      // If the non-streaming response was only thinking, make a follow-up call without tools
-      if (!cleanContent) {
-        this.logger.log(
-          '[STREAM] Non-streaming response was empty, making follow-up call without tools',
-        );
-        try {
-          const followUp = await this.llmClient.chatCompletion(fullMessages, undefined);
-          cleanContent = stripThinking(followUp.content || '');
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.logger.warn(`[STREAM] Follow-up call failed: ${msg}`);
+      for await (const chunk of this.llmClient.chatCompletionStream(fullMessages, undefined)) {
+        if (!chunk) continue;
+        streamedText += chunk;
+        buffer += chunk;
+
+        if (!inThinkBlock) {
+          // Not in a thinking block — look for <think... opening tag
+          if (/<think\b/.test(buffer)) {
+            // Emit any preceding text as a token event
+            const splitIdx = buffer.indexOf('<think');
+            if (splitIdx > 0) {
+              yield { type: 'token', content: buffer.slice(0, splitIdx) };
+            }
+            // Everything from '<think' onward is thinking content
+            inThinkBlock = true;
+            // Do NOT clear buffer — extractThinking below will grab it
+          } else if (this.hasPartialThinkPrefix(buffer)) {
+            // Buffer might end with a partial '<think' prefix — hold it back
+            const safeEnd = buffer.length - this.partialThinkPrefixLength(buffer);
+            if (safeEnd > 0) {
+              yield { type: 'token', content: buffer.slice(0, safeEnd) };
+              buffer = buffer.slice(safeEnd);
+            }
+          } else {
+            // No thinking tag detected — emit buffer as token and clear
+            yield { type: 'token', content: buffer };
+            buffer = '';
+          }
+        } else {
+          // Inside a thinking block — look for </think... closing tag
+          if (/<\/think/i.test(buffer)) {
+            // Flush thinking content as a thinking event
+            const thinkingContent = extractThinking(buffer);
+            if (thinkingContent) {
+              yield { type: 'thinking', thinkingContent };
+            }
+            // Exit thinking mode; remaining text after closing tag becomes new token
+            const closeMatch = buffer.match(/<\/think[^>]*>/i);
+            if (closeMatch) {
+              const closeEnd = buffer.indexOf(closeMatch[0]) + closeMatch[0].length;
+              buffer = buffer.slice(closeEnd);
+            } else {
+              buffer = '';
+            }
+            inThinkBlock = false;
+            // Emit any text that came after the closing tag
+            if (buffer) {
+              // Check if buffer starts a new think block
+              if (/<think\b/.test(buffer)) {
+                // leave inThinkBlock = false, let next iteration handle it
+              } else {
+                yield { type: 'token', content: buffer };
+                buffer = '';
+              }
+            }
+          }
+          // else: no closing tag yet — continue accumulating
         }
       }
 
-      this.logger.log(`[STREAM] cleanContent length=${cleanContent.length}`);
-
-      if (cleanContent) {
-        yield { type: 'token', content: cleanContent };
+      // Flush any remaining buffered content after stream ends
+      if (buffer) {
+        if (inThinkBlock) {
+          // Unclosed think block — treat remaining buffer as regular text
+          const residual = stripThinking(buffer);
+          if (residual) {
+            yield { type: 'token', content: residual };
+          }
+        } else {
+          yield { type: 'token', content: buffer };
+        }
       }
 
       // Safety filter
-      const safeResult = filterContent(cleanContent);
+      this.logger.log(`[STREAM] Streaming complete, streamedText length=${streamedText.length}`);
+      const safeResult = filterContent(streamedText);
 
       yield {
         type: 'done',
@@ -375,6 +449,22 @@ export class AgentExecutorService {
   }
 
   // --- Private helpers ---
+
+  /** Check if buffer ends with a partial `<think` prefix (e.g. `<`, `<t`, `<thi`) */
+  private hasPartialThinkPrefix(buffer: string): boolean {
+    return this.partialThinkPrefixLength(buffer) > 0;
+  }
+
+  /** Returns the length of a partial `<think` prefix at the end of buffer, or 0 */
+  private partialThinkPrefixLength(buffer: string): number {
+    const tag = '<think';
+    for (let i = Math.min(buffer.length, tag.length); i >= 1; i--) {
+      if (buffer.endsWith(tag.slice(0, i))) {
+        return i;
+      }
+    }
+    return 0;
+  }
 
   private resolveGenerateActivityType(
     toolArgs: Record<string, any>,

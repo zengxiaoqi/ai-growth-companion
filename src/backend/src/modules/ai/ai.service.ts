@@ -118,6 +118,7 @@ export class AiService {
         suggestions,
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
+        gameData: result.gameData as any,
       };
     }
 
@@ -178,6 +179,7 @@ export class AiService {
         suggestions,
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
+        gameData: result.gameData as any,
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
@@ -358,7 +360,7 @@ export class AiService {
     executionContext: { childId?: number; parentId?: number };
     actorType?: 'parent' | 'child';
     targetChildId?: number;
-  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean }> {
+  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const context = this.buildAgentContext({
         ...params,
@@ -369,6 +371,7 @@ export class AiService {
         reply: result.response,
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
+        gameData: result.gameData,
       };
     }
 

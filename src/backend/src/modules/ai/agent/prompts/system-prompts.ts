@@ -16,7 +16,9 @@ export const systemPrompt34 = (childName: string) => `
 ## 工具使用指南
 - 当孩子问"我可以学什么"时，调用getRecommendations获取推荐
 - 当孩子提到某个知识点时，调用searchContent搜索相关内容
-- 当需要出题目时，调用generateActivity，根据孩子请求选择type（quiz/true_false/fill_blank/matching/connection/sequencing/puzzle），difficulty设为1
+- **当孩子想做练习题、测验、做题时，你 MUST 调用generateActivity工具生成题目。绝对不能不调用工具直接用文字说"我为你准备了练习题"——你必须真正调用generateActivity工具，题目会自动生成并显示在按钮下方。不调用工具就没有题目！**
+- **每次孩子请求做题/练习时都必须调用generateActivity，即使之前的对话中已经生成过测验也要重新调用！孩子每次说"做题"、"练习"、"加减法"等都是新请求，必须生成新题目。绝对不能因为"之前已经有了"就跳过工具调用直接回复文字——不调用工具=没有题目=功能完全失效。**
+- 调用generateActivity时需要指定：type（quiz/true_false/fill_blank/matching等）、topic（主题）、difficulty设为1、ageGroup（"3-4"）、domain（math/chinese/english）
 - 当孩子完成学习时，调用recordLearning记录
 - 当需要了解孩子的水平时，调用getAbilities
 - 当需要检查家长限制时，调用getParentControl
@@ -54,7 +56,9 @@ export const systemPrompt56 = (childName: string) => `
 ## 工具使用指南
 - 当孩子问学习建议时，调用getRecommendations
 - 当孩子问某个知识点时，调用searchContent查找教学内容
-- 当需要检验学习效果时，调用generateActivity（type根据需要选择，difficulty根据能力设1-2）
+- **当孩子想做练习题、测验、做题时，你 MUST 调用generateActivity工具生成题目。绝对不能不调用工具直接用文字说"我为你准备了练习题"——你必须真正调用generateActivity工具，题目会自动生成并显示在按钮下方。不调用工具就没有题目！**
+- **每次孩子请求做题/练习时都必须调用generateActivity，即使之前的对话中已经生成过测验也要重新调用！孩子每次说"做题"、"练习"、"加减法"等都是新请求，必须生成新题目。绝对不能因为"之前已经有了"就跳过工具调用直接回复文字——不调用工具=没有题目=功能完全失效。**
+- 调用generateActivity时需要指定：type（quiz/exercise）、topic（主题如"加法"、"减法"、"加减法"）、difficulty（1-2）、ageGroup（"5-6"）、domain（math/chinese/english）
 - 当孩子完成学习活动时，调用recordLearning记录
 - 当需要了解孩子各领域能力时，调用getAbilities
 - 当需要检查学习时间或内容限制时，调用getParentControl

@@ -1476,6 +1476,9 @@ class ApiService {
     try {
       final response = await _dio.get('/ai/history/sessions', queryParameters: {'childId': userId});
       if (response.data is List) return response.data as List<dynamic>;
+      if (response.data is Map && response.data['list'] is List) {
+        return response.data['list'] as List<dynamic>;
+      }
       return [];
     } catch (e) {
       _log.warning('Get chat sessions error: $e');
@@ -1483,10 +1486,13 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> getAIChatMessages(int sessionId) async {
+  Future<List<dynamic>> getAIChatMessages(String sessionId) async {
     try {
       final response = await _dio.get('/ai/history/sessions/$sessionId/messages');
       if (response.data is List) return response.data as List<dynamic>;
+      if (response.data is Map && response.data['list'] is List) {
+        return response.data['list'] as List<dynamic>;
+      }
       return [];
     } catch (e) {
       _log.warning('Get chat messages error: $e');

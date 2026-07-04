@@ -8,7 +8,7 @@
  * - Keep tool access constrained per agent definition
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import type {
   IAgentRegistry,
   AgentContext,
@@ -72,7 +72,7 @@ interface CoordinatedRunOutput {
 }
 
 @Injectable()
-export class OrchestratorService {
+export class OrchestratorService implements OnApplicationBootstrap {
   private readonly logger = new Logger(OrchestratorService.name);
 
   private static readonly COURSE_PATTERNS: Array<[RegExp, number]> = [
@@ -121,7 +121,15 @@ export class OrchestratorService {
     private readonly executorService: AgentExecutorService,
     private readonly conversationStore: IConversationStore | null,
     private readonly skillRegistry: SkillRegistryService,
-  ) {
+  ) {}
+
+  /**
+   * Validate that all agent types referenced in routing logic exist in the registry.
+   * Runs in onApplicationBootstrap (after all onModuleInit registrations) so agents
+   * are already registered. Running in the constructor produced 10 false ERROR logs
+   * at every startup because agents hadn't been registered yet (see pitfall #64).
+   */
+  onApplicationBootstrap(): void {
     this.validateRegisteredAgents();
   }
 

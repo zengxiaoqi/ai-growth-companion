@@ -231,15 +231,19 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
     for await (const event of stream) {
       if (event.type === 'token') {
-        finalContent = event.content;
+        finalContent += event.content;
       }
-      yield event;
 
+      // Persist assistant message BEFORE yielding the done event,
+      // because the consumer may close the stream after receiving 'done',
+      // which would prevent code after yield from executing.
       if (event.type === 'done') {
         const safeResult = filterContent(finalContent);
         await this.persistMessage(context, 'assistant', safeResult.content);
         finalDone = event;
       }
+
+      yield event;
     }
 
     this.logRouteResult(true, plan, [plan.primaryAgent], startedAt, {

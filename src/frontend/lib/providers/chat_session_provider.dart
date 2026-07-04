@@ -321,14 +321,14 @@ class ChatSessionProvider extends ChangeNotifier {
 
   Future<void> _loadSessionMessages(String sessionId) async {
     try {
-      final rawMessages = await _apiService.getAIChatMessages(sessionId as int);
+      final rawMessages = await _apiService.getAIChatMessages(sessionId);
       final rawList = rawMessages
           .whereType<Map<String, dynamic>>()
           .where((m) => m['role'] != null)
           .toList();
 
       // Build display messages: skip 'tool' and 'system' roles, but attach
-      // quiz data from tool messages to the nearest preceding assistant message.
+      // quiz data from tool messages to the nearest assistant message.
       final List<ChatMessageEntry> messages = [];
       List<Map<String, dynamic>>? pendingQuiz;
 
@@ -343,6 +343,16 @@ class ChatSessionProvider extends ChangeNotifier {
             if (toolName == 'generateActivity' && content.isNotEmpty) {
               final (_, qs) = _parseQuizFromAIResponse(content);
               if (qs != null && qs.isNotEmpty) {
+                // If there's a pending quiz that wasn't attached, create a
+                // synthetic assistant message for it before starting new one
+                if (pendingQuiz != null) {
+                  messages.add(ChatMessageEntry(
+                    role: 'assistant',
+                    content: '来做几道题目吧！📝',
+                    quizQuestions: pendingQuiz,
+                    displayText: '来做几道题目吧！📝',
+                  ));
+                }
                 pendingQuiz = qs;
               }
             }
@@ -379,19 +389,15 @@ class ChatSessionProvider extends ChangeNotifier {
         }
       }
 
-      // If quiz data wasn't attached to any assistant message, attach to last one
-      if (pendingQuiz != null && messages.isNotEmpty) {
-        final last = messages.last;
-        if (last.role == 'assistant') {
-          messages[messages.length - 1] = ChatMessageEntry(
-            role: 'assistant',
-            content: last.content,
-            quizQuestions: pendingQuiz,
-            displayText: last.displayText ?? last.content,
-            thinkingContent: last.thinkingContent,
-            isThinkingExpanded: last.isThinkingExpanded,
-          );
-        }
+      // If quiz data wasn't attached to any assistant message (e.g. assistant
+      // text wasn't stored), create a synthetic assistant message with the quiz
+      if (pendingQuiz != null) {
+        messages.add(ChatMessageEntry(
+          role: 'assistant',
+          content: '来做几道题目吧！📝',
+          quizQuestions: pendingQuiz,
+          displayText: '来做几道题目吧！📝',
+        ));
       }
 
       _localMessages.clear();

@@ -305,7 +305,7 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
     if (userProvider.hasCachedChildSession) {
       final error = await userProvider.switchToChildMode();
       if (error.isEmpty) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('已切换到学生端'),
@@ -315,7 +315,7 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           ),
         );
       } else {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
         );
@@ -340,10 +340,11 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
 
     final error = await userProvider.switchToChildMode();
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context, rootNavigator: true).pop(); // close loading
 
     if (error.isEmpty) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('已切换到学生端'),
@@ -353,6 +354,7 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         ),
       );
     } else {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
       );

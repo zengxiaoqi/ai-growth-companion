@@ -154,18 +154,11 @@ class ApiService {
     this.setToken(null);
   }
 
-  // PIN Verification
-  async verifyPin(pin: string): Promise<{ valid: boolean; needsSetup?: boolean }> {
-    return this.request<{ valid: boolean; needsSetup?: boolean }>('/auth/verify-pin', {
+  // Switch to parent (password verification)
+  async switchToParent(password: string): Promise<{ user: User; token: string }> {
+    return this.request<{ user: User; token: string }>('/auth/switch-to-parent', {
       method: 'POST',
-      body: JSON.stringify({ pin }),
-    });
-  }
-
-  async setPin(pin: string): Promise<{ success: boolean }> {
-    return this.request<{ success: boolean }>('/auth/set-pin', {
-      method: 'POST',
-      body: JSON.stringify({ pin }),
+      body: JSON.stringify({ password }),
     });
   }
 

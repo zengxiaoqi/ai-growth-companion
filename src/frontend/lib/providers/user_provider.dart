@@ -11,6 +11,7 @@ class UserProvider extends ChangeNotifier {
   bool _isLoading = true;
   Map<String, dynamic>? _currentUser;
   String? _selectedMode;
+  String? _activeRole; // 'parent' or 'child' — which side is currently active
   int? _activeChildId;
 
   Timer? _loadTimer;
@@ -26,8 +27,17 @@ class UserProvider extends ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
   Map<String, dynamic>? get currentUser => _currentUser;
   String? get selectedMode => _selectedMode;
+  String? get activeRole => _activeRole;
+  bool get hasCachedChildSession => _storage.getChildSession() != null;
+  bool get hasCachedParentSession => _storage.getParentSession() != null;
   int? get activeChildId => _activeChildId;
   ApiService? get apiService => _apiService;
+
+  /// 当前活跃的用户类型（'parent' 或 'child'），基于 activeRole 或 currentUser
+  String get activeUserType {
+    if (_activeRole != null) return _activeRole!;
+    return _currentUser?['type']?.toString() ?? 'child';
+  }
 
   void _loadUser() {
     // 同步从 storage 读取用户状态——不使用 Timer 延迟。
@@ -35,9 +45,57 @@ class UserProvider extends ChangeNotifier {
     // token 在 widget initState 之后才注入 ApiService，引发 401 竞态。
     // 现在 _isLoading 初始为 true，Consumer 首帧会显示 SplashScreen，
     // 这里同步设置完状态后调用 notifyListeners() 触发重建即可。
+
+    // ── 角色切换会话恢复 ──
+    // 如果有 activeRole，优先从对应的 session 存储 恢复
+    final activeRole = _storage.getActiveRole();
+    if (activeRole == 'parent') {
+      final parentSession = _storage.getParentSession();
+      if (parentSession != null) {
+        _currentUser = Map<String, dynamic>.from(parentSession);
+        _activeRole = 'parent';
+        _selectedMode = 'parent';
+        _activeChildId = _storage.getActiveChildId();
+        _isLoading = false;
+        if (_apiService != null) {
+          final token = parentSession['token'] as String?;
+          if (token != null && token.isNotEmpty) {
+            _apiService!.setToken(token);
+            notifyListeners();
+            _validateToken();
+            return;
+          }
+        }
+        notifyListeners();
+        return;
+      }
+    } else if (activeRole == 'child') {
+      final childSession = _storage.getChildSession();
+      if (childSession != null) {
+        _currentUser = Map<String, dynamic>.from(childSession);
+        _activeRole = 'child';
+        _selectedMode = 'child';
+        _activeChildId = childSession['id'] as int?;
+        _isLoading = false;
+        if (_apiService != null) {
+          final token = childSession['token'] as String?;
+          if (token != null && token.isNotEmpty) {
+            _apiService!.setToken(token);
+            notifyListeners();
+            _validateToken();
+            return;
+          }
+        }
+        notifyListeners();
+        return;
+      }
+    }
+
+    // ── 常规登录恢复（无角色切换会话时） ──
     final user = _storage.getUser();
     _currentUser = user;
     _selectedMode = _storage.getSelectedMode();
+    _activeRole = user != null ? user['type']?.toString() : null;
     _isLoading = false;
 
     // 恢复 activeChildId
@@ -117,30 +175,60 @@ class UserProvider extends ChangeNotifier {
   Future<void> login(Map<String, dynamic> userData) async {
     // 先设置用户并通知 UI，确保护航立即生效
     _currentUser = userData;
+    final userType = userData['type']?.toString() ?? 'child';
+    _activeRole = userType;
+    _selectedMode = userType;
     notifyListeners();
 
     // 然后异步持久化（不阻塞 UI 导航）
     try {
+      final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
+      final name = userData['name']?.toString() ?? '';
+      final phone = userData['phone']?.toString();
+      final age = userData['age'] is int ? userData['age'] : int.tryParse(userData['age'].toString());
+      final parentId = userData['parentId'] is int ? userData['parentId'] : int.tryParse(userData['parentId'].toString());
+
       await _storage.saveUser(
-        userId: userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0,
-        userType: userData['type']?.toString() ?? 'child',
-        name: userData['name']?.toString() ?? '',
-        age: userData['age'] is int ? userData['age'] : int.tryParse(userData['age'].toString()),
-        phone: userData['phone']?.toString(),
-        parentId: userData['parentId'] is int ? userData['parentId'] : int.tryParse(userData['parentId'].toString()),
+        userId: userId,
+        userType: userType,
+        name: name,
+        age: age,
+        phone: phone,
+        parentId: parentId,
       );
 
+      // 保存到对应的角色会话存储
+      final token = _storage.getToken();
+      if (token != null && token.isNotEmpty) {
+        if (userType == 'parent') {
+          await _storage.saveParentSession(
+            userId: userId,
+            name: name,
+            phone: phone,
+            age: age,
+            token: token,
+          );
+        } else {
+          await _storage.saveChildSession(
+            userId: userId,
+            name: name,
+            phone: phone,
+            age: age,
+            parentId: parentId,
+            token: token,
+          );
+        }
+        await _storage.saveActiveRole(userType);
+      }
+
       // 孩子登录时自动设为 activeChildId
-      final userType = userData['type']?.toString() ?? 'child';
       if (userType == 'child') {
-        final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
         _activeChildId = userId;
         await _storage.saveActiveChildId(userId);
       }
 
       // 注入 token
       if (_apiService != null) {
-        final token = _storage.getToken();
         if (token != null) {
           _apiService!.setToken(token);
         }
@@ -154,6 +242,7 @@ class UserProvider extends ChangeNotifier {
     await _storage.clearUser();
     _currentUser = null;
     _selectedMode = null;
+    _activeRole = null;
     _activeChildId = null;
 
     if (_apiService != null) {
@@ -199,6 +288,107 @@ class UserProvider extends ChangeNotifier {
       await _storage.saveActiveChildId(id);
     }
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  双端快速切换
+  // ═══════════════════════════════════════════════════
+
+  /// 家长端 → 学生端切换（无需认证）
+  /// 1. 如果已有缓存的孩子会话，直接恢复（即时切换）
+  /// 2. 如果没有缓存会话，调用后端 API 用家长 token 换取孩子 token
+  Future<String> switchToChildMode({int? childId}) async {
+    if (_apiService == null) return 'API 不可可用';
+
+    // 先检查缓存
+    final cachedChild = _storage.getChildSession();
+    if (cachedChild != null && childId == null) {
+      // 有缓存的孩子会话 — 即时恢复
+      _currentUser = Map<String, dynamic>.from(cachedChild);
+      _activeRole = 'child';
+      _selectedMode = 'child';
+      _activeChildId = cachedChild['id'] as int?;
+      final token = cachedChild['token'] as String?;
+      if (token != null) _apiService!.setToken(token);
+      await _storage.saveActiveRole('child');
+      notifyListeners();
+      return '';
+    }
+
+    // 没有缓存 — 调用 API
+    final result = await _apiService!.switchToChild(childId: childId);
+    if (result.containsKey('error')) {
+      return result['error'].toString();
+    }
+
+    final user = result['user'] as Map<String, dynamic>? ?? result;
+    final token = result['token'] as String?;
+
+    if (token == null) return '切换失败：未获取到 token';
+
+    // 保存孩子端会话
+    final userId = user['id'] is int ? user['id'] as int : int.tryParse(user['id']?.toString() ?? '') ?? 0;
+    await _storage.saveChildSession(
+      userId: userId,
+      name: user['name']?.toString() ?? '',
+      phone: user['phone']?.toString(),
+      age: user['age'] is int ? user['age'] as int : null,
+      parentId: user['parentId'] is int ? user['parentId'] as int : int.tryParse(user['parentId']?.toString() ?? ''),
+      token: token,
+    );
+
+    // 更新当前状态
+    _currentUser = Map<String, dynamic>.from(user);
+    _currentUser!['token'] = token;
+    _activeRole = 'child';
+    _selectedMode = 'child';
+    _activeChildId = userId;
+    _apiService!.setToken(token);
+    await _storage.saveActiveRole('child');
+    await _storage.saveActiveChildId(userId);
+
+    notifyListeners();
+    return '';
+  }
+
+  /// 学生端 → 家长端切换（需要家长登录密码认证）
+  /// 每次都需要输入密码验证
+  Future<String> switchToParentMode(String password) async {
+    if (_apiService == null) return 'API 不可可用';
+
+    // 通过孩子 token 调用 switch-to-parent 端点
+    // 后端通过 child.parentId 找到家长，再验证家长登录密码
+
+    final result = await _apiService!.switchToParent(password);
+    if (result.containsKey('error')) {
+      return result['error'].toString();
+    }
+
+    final user = result['user'] as Map<String, dynamic>? ?? result;
+    final token = result['token'] as String?;
+
+    if (token == null) return '切换失败：未获取到 token';
+
+    // 保存家长端会话
+    final userId = user['id'] is int ? user['id'] as int : int.tryParse(user['id']?.toString() ?? '') ?? 0;
+    await _storage.saveParentSession(
+      userId: userId,
+      name: user['name']?.toString() ?? '',
+      phone: user['phone']?.toString(),
+      age: user['age'] is int ? user['age'] as int : null,
+      token: token,
+    );
+
+    // 更新当前状态
+    _currentUser = Map<String, dynamic>.from(user);
+    _currentUser!['token'] = token;
+    _activeRole = 'parent';
+    _selectedMode = 'parent';
+    _apiService!.setToken(token);
+    await _storage.saveActiveRole('parent');
+
+    notifyListeners();
+    return '';
   }
 
   /// 解析当前应使用的 childId

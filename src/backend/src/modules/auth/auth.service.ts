@@ -154,6 +154,65 @@ export class AuthService {
     return { success: true };
   }
 
+  /** 家长切换到孩子模式（无需PIN验证） */
+  async switchToChild(parentId: number, childId?: number) {
+    const parent = await this.usersService.findById(parentId);
+    if (!parent || parent.type !== 'parent') {
+      throw new UnauthorizedException('仅家长账号可切换到孩子模式');
+    }
+
+    let child: any;
+    if (childId) {
+      child = await this.usersService.findById(childId);
+      if (!child || child.type !== 'child' || child.parentId !== parentId) {
+        throw new BadRequestException('无效的孩子账号');
+      }
+    } else {
+      const children = await this.usersService.findByParentId(parentId);
+      if (!children.length) {
+        throw new BadRequestException('尚未绑定孩子账号');
+      }
+      child = await this.usersService.findById(children[0].id);
+    }
+
+    const token = this.generateToken(child);
+    return {
+      user: this.sanitizeUser(child),
+      token,
+    };
+  }
+
+  /** 孩子切换到家长模式（需要家长登录密码验证） */
+  async switchToParent(childId: number, password: string) {
+    if (!password) {
+      throw new BadRequestException('请输入家长登录密码');
+    }
+
+    const child = await this.usersService.findById(childId);
+    if (!child || child.type !== 'child') {
+      throw new UnauthorizedException('仅孩子账号可切换到家长模式');
+    }
+
+    if (!child.parentId) {
+      throw new BadRequestException('该孩子账号未绑定家长');
+    }
+
+    const parent = await this.usersService.findById(child.parentId);
+    if (!parent || parent.type !== 'parent') {
+      throw new UnauthorizedException('家长账号不存在');
+    }
+
+    const isValid = await bcrypt.compare(password, parent.password);
+    if (!isValid) {
+      throw new UnauthorizedException('家长密码错误');
+    }
+
+    return {
+      user: this.sanitizeUser(parent),
+      token: this.generateToken(parent),
+    };
+  }
+
   private generateToken(user: any) {
     const payload = { sub: user.id, phone: user.phone, type: user.type };
     return this.jwtService.sign(payload);

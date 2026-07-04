@@ -322,11 +322,77 @@ class ChatSessionProvider extends ChangeNotifier {
   Future<void> _loadSessionMessages(String sessionId) async {
     try {
       final rawMessages = await _apiService.getAIChatMessages(sessionId as int);
-      final messages = rawMessages
+      final rawList = rawMessages
           .whereType<Map<String, dynamic>>()
           .where((m) => m['role'] != null)
-          .map((json) => ChatMessageEntry.fromJson(json))
           .toList();
+
+      // Build display messages: skip 'tool' and 'system' roles, but attach
+      // quiz data from tool messages to the nearest preceding assistant message.
+      final List<ChatMessageEntry> messages = [];
+      List<Map<String, dynamic>>? pendingQuiz;
+
+      for (final json in rawList) {
+        final role = json['role']?.toString() ?? 'assistant';
+
+        if (role == 'tool' || role == 'system') {
+          // Try to extract quiz data from tool message content
+          if (role == 'tool') {
+            final toolName = json['toolName']?.toString() ?? '';
+            final content = json['content']?.toString() ?? '';
+            if (toolName == 'generateActivity' && content.isNotEmpty) {
+              final (_, qs) = _parseQuizFromAIResponse(content);
+              if (qs != null && qs.isNotEmpty) {
+                pendingQuiz = qs;
+              }
+            }
+          }
+          // Don't add tool/system messages to the visible list
+          continue;
+        }
+
+        final entry = ChatMessageEntry.fromJson(json);
+
+        // If we have quiz data from a tool message, attach it to this
+        // assistant message (the tool result comes after the assistant
+        // message that triggered the tool call, but for display purposes
+        // the quiz card should appear with the assistant's text)
+        if (role == 'assistant' && pendingQuiz != null) {
+          // If assistant text is empty or just a placeholder, use the
+          // display text from the quiz data
+          if (entry.content.trim().isEmpty) {
+            entry.content = '来做几道题目吧！📝';
+          }
+          entry.displayText = entry.content;
+          // Re-create with quiz questions (final field)
+          messages.add(ChatMessageEntry(
+            role: 'assistant',
+            content: entry.content,
+            quizQuestions: pendingQuiz,
+            displayText: entry.displayText,
+            thinkingContent: entry.thinkingContent,
+            isThinkingExpanded: entry.isThinkingExpanded,
+          ));
+          pendingQuiz = null;
+        } else {
+          messages.add(entry);
+        }
+      }
+
+      // If quiz data wasn't attached to any assistant message, attach to last one
+      if (pendingQuiz != null && messages.isNotEmpty) {
+        final last = messages.last;
+        if (last.role == 'assistant') {
+          messages[messages.length - 1] = ChatMessageEntry(
+            role: 'assistant',
+            content: last.content,
+            quizQuestions: pendingQuiz,
+            displayText: last.displayText ?? last.content,
+            thinkingContent: last.thinkingContent,
+            isThinkingExpanded: last.isThinkingExpanded,
+          );
+        }
+      }
 
       _localMessages.clear();
       if (messages.isNotEmpty) {

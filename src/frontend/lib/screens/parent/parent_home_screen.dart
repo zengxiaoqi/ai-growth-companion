@@ -186,6 +186,12 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
               leftSlot: _buildChildSelector(displayChildId),
               actions: [
                 TopBarAction(
+                  key: 'switchToChild',
+                  label: '学生端',
+                  icon: Icons.swap_horiz_rounded,
+                  onTap: () => _switchToChild(context),
+                ),
+                TopBarAction(
                   key: 'notification',
                   label: '通知',
                   icon: Icons.notifications_none_rounded,
@@ -289,6 +295,68 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
       backgroundColor: Colors.transparent,
       builder: (_) => NotificationPanel(userId: userId),
     );
+  }
+
+  /// 家长端 → 学生端切换（无需认证）
+  Future<void> _switchToChild(BuildContext context) async {
+    final userProvider = context.read<UserProvider>();
+
+    // 如果已有缓存的孩子会话，直接切换 + Toast 提示
+    if (userProvider.hasCachedChildSession) {
+      final error = await userProvider.switchToChildMode();
+      if (error.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('已切换到学生端'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+        );
+      }
+      return;
+    }
+
+    // 没有缓存 — 调用 API（显示 loading）
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            SizedBox(width: 16),
+            Text('正在切换...'),
+          ],
+        ),
+      ),
+    );
+
+    final error = await userProvider.switchToChildMode();
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close loading
+
+    if (error.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('已切换到学生端'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   Widget _buildWelcomeCard(String userName) {

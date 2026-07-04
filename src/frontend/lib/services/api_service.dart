@@ -190,25 +190,38 @@ class ApiService {
     }
   }
 
-  /// 验证家长 PIN 码
-  Future<Map<String, dynamic>?> verifyPin(String pin) async {
+  /// 家长切换到孩子模式（无需密码验证）
+  /// [childId] 可选，指定切换到哪个孩子；不传则自动选第一个
+  Future<Map<String, dynamic>> switchToChild({int? childId}) async {
     try {
-      final response = await _dio.post('/auth/verify-pin', data: {'pin': pin});
-      return response.data as Map<String, dynamic>;
+      final data = <String, dynamic>{};
+      if (childId != null) data['childId'] = childId;
+      final response = await _dio.post('/auth/switch-to-child', data: data);
+      return response.data;
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      if (d is Map && d['message'] != null) {
+        return {'error': d['message'].toString()};
+      }
+      return {'error': '切换失败，请稍后重试'};
     } catch (e) {
-      _log.warning('Verify pin error: $e');
-      return null;
+      return {'error': '切换失败，请稍后重试'};
     }
   }
 
-  /// 设置家长 PIN 码
-  Future<Map<String, dynamic>?> setPin(String pin) async {
+  /// 孩子切换到家长模式（需要家长登录密码验证）
+  Future<Map<String, dynamic>> switchToParent(String password) async {
     try {
-      final response = await _dio.post('/auth/set-pin', data: {'pin': pin});
-      return response.data as Map<String, dynamic>;
+      final response = await _dio.post('/auth/switch-to-parent', data: {'password': password});
+      return response.data;
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      if (d is Map && d['message'] != null) {
+        return {'error': d['message'].toString()};
+      }
+      return {'error': '切换失败，请稍后重试'};
     } catch (e) {
-      _log.warning('Set pin error: $e');
-      return null;
+      return {'error': '切换失败，请稍后重试'};
     }
   }
 

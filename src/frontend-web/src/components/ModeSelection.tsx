@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
 import { AlertCircle, Lock, Rocket, Shield, Sparkles, TrendingUp, UserCircle } from '@/icons';
 import type { User } from '@/types';
 import type { AppMode } from '../App';
@@ -13,65 +13,35 @@ interface ModeSelectionProps {
 
 export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps) {
   const auth = useAuth();
-  const [pin, setPin] = useState(['', '', '', '']);
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [pinLoading, setPinLoading] = useState(false);
-  const pinRefs = useRef<Array<HTMLInputElement | null>>([]);
-
-  const pinValue = useMemo(() => pin.join(''), [pin]);
-
-  const handlePinChange = (index: number, value: string) => {
-    const next = value.replace(/\D/g, '').slice(-1);
-    const copy = [...pin];
-    copy[index] = next;
-    setPin(copy);
-    setPinError(null);
-
-    if (next && index < pin.length - 1) {
-      pinRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handlePinKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !pin[index] && index > 0) {
-      pinRefs.current[index - 1]?.focus();
-    }
-  };
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleParentLogin = async () => {
     if (!auth.isAuthenticated || user?.type !== 'parent') {
-      setPinError('请先登录家长账号，再进入家长中心。');
+      setPasswordError('请先登录家长账号，再进入家长中心。');
       return;
     }
 
-    if (pinValue.length !== 4) {
-      setPinError('请输入 4 位管理密码。');
+    if (!password) {
+      setPasswordError('请输入家长登录密码。');
       return;
     }
 
-    setPinLoading(true);
-    setPinError(null);
+    setLoading(true);
+    setPasswordError(null);
 
     try {
-      const result = await api.verifyPin(pinValue);
-      if (!result.valid) {
-        setPinError('管理密码错误，请重试。');
-        return;
+      const result = await api.switchToParent(password);
+      if (result.token) {
+        api.setToken(result.token);
+        localStorage.setItem('auth_token', result.token);
       }
-
-      if (result.needsSetup) {
-        try {
-          await api.setPin(pinValue);
-        } catch {
-          // 首次设置失败时不阻断当前进入流程
-        }
-      }
-
       onSelectMode('parent');
     } catch (err: any) {
-      setPinError(err?.message || '管理密码验证失败，请稍后再试。');
+      setPasswordError(err?.message || '密码错误，请重试。');
     } finally {
-      setPinLoading(false);
+      setLoading(false);
     }
   };
 
@@ -147,53 +117,48 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
                 </div>
                 <p>
                   {user?.type === 'parent'
-                    ? '已登录家长账号，可直接验证 PIN。'
+                    ? '已登录家长账号，请输入登录密码验证。'
                     : '请先使用家长账号登录。'}
                 </p>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-bold text-on-surface">
-                  输入 4 位管理密码
+                  家长登录密码
                 </label>
-                <div className="flex gap-2 sm:gap-3">
-                  {pin.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={(node) => {
-                        pinRefs.current[index] = node;
-                      }}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={1}
-                      type="password"
-                      value={digit}
-                      aria-label={`PIN 第 ${index + 1} 位`}
-                      className="touch-target h-12 w-12 rounded-xl border border-outline-variant/35 bg-surface text-center text-lg font-black text-on-surface focus:border-primary focus:outline-none"
-                      onChange={(event) => handlePinChange(index, event.target.value)}
-                      onKeyDown={(event) => handlePinKeyDown(index, event)}
-                      disabled={pinLoading}
-                    />
-                  ))}
-                </div>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  aria-label="家长登录密码"
+                  className="touch-target h-12 w-full rounded-xl border border-outline-variant/35 bg-surface px-4 text-base font-semibold text-on-surface focus:border-primary focus:outline-none"
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setPasswordError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleParentLogin();
+                  }}
+                  disabled={loading}
+                />
               </div>
 
-              {pinError && (
+              {passwordError && (
                 <div className="flex items-start gap-2 rounded-xl bg-error-container/20 px-3 py-2 text-sm font-semibold text-error">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{pinError}</span>
+                  <span>{passwordError}</span>
                 </div>
               )}
 
               <div className="mt-auto flex flex-col gap-2 sm:flex-row">
                 <Button
                   onClick={handleParentLogin}
-                  disabled={pinLoading}
+                  disabled={loading}
                   className="w-full rounded-2xl"
                   variant="secondary"
                   size="lg"
                 >
-                  {pinLoading ? (
+                  {loading ? (
                     <>验证中...</>
                   ) : (
                     <>

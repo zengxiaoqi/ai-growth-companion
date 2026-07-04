@@ -59,6 +59,13 @@ export class VerifyPinDto {
   pin: string;
 }
 
+export class SwitchToParentDto {
+  @ApiProperty({ description: '家长登录密码' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
 export class ChildLoginDto {
   @ApiProperty({ description: '孩子6位登录验证码' })
   @IsString()

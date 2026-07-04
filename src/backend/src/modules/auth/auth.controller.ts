@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, VerifyPinDto, ChildLoginDto } from './auth.dto';
+import { LoginDto, RegisterDto, VerifyPinDto, SwitchToParentDto, ChildLoginDto } from './auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('认证管理')
@@ -49,5 +49,21 @@ export class AuthController {
   @ApiOperation({ summary: '设置家长管理密码' })
   async setPin(@Request() req: any, @Body() verifyPinDto: VerifyPinDto) {
     return this.authService.setPin(req.user.sub, verifyPinDto.pin);
+  }
+
+  @Post('switch-to-child')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '家长切换到孩子模式（无需PIN验证）' })
+  async switchToChild(@Request() req: any, @Body() body: { childId?: number }) {
+    return this.authService.switchToChild(req.user.sub, body?.childId);
+  }
+
+  @Post('switch-to-parent')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '孩子切换到家长模式（需要家长登录密码验证）' })
+  async switchToParent(@Request() req: any, @Body() dto: SwitchToParentDto) {
+    return this.authService.switchToParent(req.user.sub, dto.password);
   }
 }

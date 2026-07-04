@@ -257,34 +257,16 @@ class _HomeScreen extends StatelessWidget {
           return const LoginScreen();
         }
 
-        // 根据用户类型自动路由，不再每次都显示选择页
-        final userType = userProvider.currentUser?['type']?.toString() ?? 'child';
-        final mode = userProvider.selectedMode;
+        // 根据 activeRole 决定显示哪个端
+        // activeRole 由登录或双端切换设置
+        final role = userProvider.activeRole ??
+            userProvider.currentUser?['type']?.toString() ??
+            'child';
 
-        // 如果 mode 与 type 不匹配（比如孩子选了家长端），清除无效 mode
-        if (mode != null && mode != userType) {
-          // 异步清除，当前帧先用正确的路由
-          Future.microtask(() => userProvider.clearSelectedMode());
-          return userType == 'parent'
-              ? const ParentHomeScreen()
-              : const ChildHomeScreen();
+        if (role == 'parent') {
+          return const ParentHomeScreen();
         }
-
-        // mode 为 null（首次登录或 logout 后）→ 自动路由
-        if (mode == null) {
-          // 自动设置 mode 并路由
-          Future.microtask(() => userProvider.setSelectedMode(userType));
-          return userType == 'parent'
-              ? const ParentHomeScreen()
-              : const ChildHomeScreen();
-        }
-
-        // mode 与 type 匹配，正常路由
-        if (mode == 'child') {
-          return const ChildHomeScreen();
-        }
-
-        return const ParentHomeScreen();
+        return const ChildHomeScreen();
       },
     );
   }

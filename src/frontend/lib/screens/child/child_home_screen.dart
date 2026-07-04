@@ -47,6 +47,137 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     ];
   }
 
+  /// 孩子端 → 家长端切换（需要 PIN 认证）
+  void _showSwitchToParentDialog() {
+    final pinController = TextEditingController();
+    bool isSubmitting = false;
+    String? errorMsg;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Row(
+                children: [
+                  Text('🔒 ', style: TextStyle(fontSize: 24)),
+                  Text('切换到家长端'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '请输入家长登录密码',
+                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: pinController,
+                    keyboardType: TextInputType.visiblePassword,
+                    textAlign: TextAlign.center,
+                    obscureText: true,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '请输入密码',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                      ),
+                    ),
+                    autofocus: true,
+                    enabled: !isSubmitting,
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorMsg!,
+                      style: TextStyle(fontSize: 13, color: Colors.red.shade600),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final pin = pinController.text.trim();
+                          if (pin.isEmpty) {
+                            setState(() => errorMsg = '请输入家长登录密码');
+                            return;
+                          }
+
+                          setState(() {
+                            isSubmitting = true;
+                            errorMsg = null;
+                          });
+
+                          final userProvider = context.read<UserProvider>();
+                          final error = await userProvider.switchToParentMode(pin);
+
+                          if (!dialogContext.mounted) return;
+
+                          if (error.isEmpty) {
+                            Navigator.pop(dialogContext);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('已切换到家长端'),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          } else {
+                            setState(() {
+                              isSubmitting = false;
+                              errorMsg = error;
+                            });
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text('确认切换'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,6 +187,12 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             title: _navItems[_currentIndex].label,
             subtitle: '灵犀伴学',
             actions: [
+              TopBarAction(
+                key: 'switchToParent',
+                label: '家长端',
+                icon: Icons.swap_horiz_rounded,
+                onTap: () => _showSwitchToParentDialog(),
+              ),
               TopBarAction(
                 key: 'settings',
                 label: '设置',

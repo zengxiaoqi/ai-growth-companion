@@ -119,7 +119,7 @@ export class EmergencyService {
     record.errorMessage = errorMessage;
     await this.emergencyRepository.save(record);
 
-    // 7. Create in-app notification for parent
+    // 7. Create in-app notification for parent (graceful degradation)
     try {
       await this.notificationService.create({
         userId: parent.id,
@@ -127,9 +127,15 @@ export class EmergencyService {
         message: `孩子"${child.name}"发起了紧急呼叫，请立即关注！`,
         type: 'system',
       });
+      record.notificationStatus = 'sent';
     } catch (e) {
-      this.logger.warn('创建应用内通知失败:', e);
+      record.notificationStatus = 'failed';
+      record.notificationError = e instanceof Error ? e.message : String(e);
+      this.logger.warn(
+        `创建应用内通知失败 (parentId=${parent.id}, childId=${childId}): ${record.notificationError}`,
+      );
     }
+    await this.emergencyRepository.save(record);
 
     return record;
   }

@@ -129,6 +129,113 @@ describe('VisualAssetService', () => {
     expect(asset.staticPath).toMatch(/^\.generated\/assets\//);
   });
 
+  it('returns null gracefully when Openverse download throws TypeError (network failure)', async () => {
+    jest.spyOn(global as any, 'fetch').mockImplementation(async (input: any) => {
+      const url = String(input);
+      if (url.includes('openverse')) {
+        return {
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 'asset-net-fail',
+                url: 'https://example.test/unreachable.png',
+                foreign_landing_url: 'https://example.test/unreachable',
+                license: 'cc0',
+                license_url: 'https://creativecommons.org/publicdomain/zero/1.0/',
+                creator: 'Test',
+                mature: false,
+                width: 800,
+                height: 600,
+              },
+            ],
+          }),
+        } as any;
+      }
+      // Simulate Node.js fetch TypeError on network failure
+      throw new TypeError('fetch failed');
+    });
+
+    const service = new VisualAssetService();
+    const asset = await (service as any).resolveAsset({
+      kind: 'character',
+      role: 'test-net-fail',
+      query: 'test network failure',
+      tags: ['test'],
+      minWidth: 256,
+      minHeight: 200,
+    });
+
+    // Should return null instead of throwing TypeError
+    expect(asset).toBeNull();
+  });
+
+  it('returns null gracefully when wikimedia download throws TypeError', async () => {
+    jest.spyOn(global as any, 'fetch').mockImplementation(async (input: any) => {
+      const url = String(input);
+      if (url.includes('wikimedia')) {
+        return {
+          ok: true,
+          json: async () => ({
+            query: {
+              pages: {
+                '1': {
+                  imageinfo: [
+                    {
+                      url: 'https://example.test/wiki-image.jpg',
+                      mime: 'image/jpeg',
+                      width: 1600,
+                      height: 900,
+                      extmetadata: {
+                        LicenseShortName: { value: 'CC0' },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+        } as any;
+      }
+      // Simulate network TypeError
+      throw new TypeError('fetch failed');
+    });
+
+    const service = new VisualAssetService();
+    const asset = await (service as any).resolveAsset({
+      kind: 'background',
+      role: 'test-wiki-fail',
+      query: 'test wiki failure',
+      tags: ['test'],
+      minWidth: 256,
+      minHeight: 200,
+    });
+
+    expect(asset).toBeNull();
+  });
+
+  it('handles fetch TypeError with cause property gracefully', async () => {
+    const typeError = new TypeError('fetch failed');
+    (typeError as any).cause = new Error('ECONNREFUSED 127.0.0.1:443');
+
+    jest.spyOn(global as any, 'fetch').mockRejectedValue(typeError);
+
+    const service = new VisualAssetService();
+    // Should not throw - all providers fail gracefully
+    const plan = await service.resolveSceneVisualAssets(
+      {
+        title: 'test',
+        assetTags: ['test'],
+        action: 'explore',
+        habitat: 'forest',
+      },
+      'test topic',
+    );
+
+    expect(plan).toBeDefined();
+    expect(plan.sourceProvider).toBe('svgFallback');
+  });
+
   it('rejects non-CC0 and undersized external assets', async () => {
     jest.spyOn(global as any, 'fetch').mockImplementation(async (input: any) => {
       const url = String(input);

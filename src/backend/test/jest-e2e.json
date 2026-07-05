@@ -12,5 +12,6 @@
   },
   "testTimeout": 30000,
   "maxWorkers": 1,
-  "forceExit": true
+  "forceExit": true,
+  "setupFilesAfterEnv": ["<rootDir>/test/setup-logger.ts"]
 }

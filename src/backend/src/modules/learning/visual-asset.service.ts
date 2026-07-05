@@ -397,7 +397,7 @@ export class VisualAssetService {
     try {
       const response = await fetch(source.url);
       if (!response.ok) throw new Error(`download status ${response.status}`);
-      const contentType = response.headers.get('content-type') || '';
+      const contentType = response.headers?.get?.('content-type') || '';
       if (!contentType.startsWith('image/') && !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)) {
         throw new Error(`non-image content type ${contentType || 'unknown'}`);
       }

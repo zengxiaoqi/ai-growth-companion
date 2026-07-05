@@ -12,4 +12,5 @@ module.exports = {
     '^src/(.*)$': '<rootDir>/src/$1',
   },
   roots: ['<rootDir>/src/', '<rootDir>/test/'],
+  setupFilesAfterEnv: ['<rootDir>/test/setup-logger.ts'],
 };

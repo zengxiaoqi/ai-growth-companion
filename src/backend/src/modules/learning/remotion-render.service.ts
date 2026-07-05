@@ -1290,6 +1290,16 @@ export class RemotionRenderService implements OnModuleInit {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           buffer = await this.voiceService.textToSpeech(slide.narration);
+          // Zero-byte responses are a persistent failure (TTS engine down or
+          // misconfigured). Retrying won't help — fail fast and fall through
+          // to the silent-placeholder path.
+          if (Buffer.isBuffer(buffer) && buffer.length === 0) {
+            this.logger.warn(
+              `TTS returned 0 bytes for slide "${slide.title}" — skipping retry (persistent failure)`,
+            );
+            buffer = null;
+            break;
+          }
           break; // success
         } catch (err: any) {
           if (attempt === 0) {
@@ -1305,7 +1315,7 @@ export class RemotionRenderService implements OnModuleInit {
         }
       }
 
-      if (!buffer) {
+      if (!buffer || (Buffer.isBuffer(buffer) && buffer.length === 0)) {
         // Fallback: estimate duration from text length (≈4 chars/s for Chinese TTS)
         const chars = slide.narration.replace(/\s+/g, '').length;
         const estimatedSeconds = Math.max(3, chars / 4);

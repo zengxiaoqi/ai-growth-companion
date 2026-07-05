@@ -1,15 +1,15 @@
 {
   "last_analysis": "2026-07-05",
-  "analysis_count": 43,
-  "commit_count": 400,
-  "last_commit": "2026-07-04T22:05:59+08:00",
-  "last_commit_hash": "9cd00a9",
+  "analysis_count": 44,
+  "commit_count": 401,
+  "last_commit": "2026-07-05T09:09:46+08:00",
+  "last_commit_hash": "8706564",
   "commits_ahead_remote": 0,
-  "remote_head": "9cd00a9",
-  "remote_head_date": "2026-07-04T22:05:59+08:00",
+  "remote_head": "8706564",
+  "remote_head_date": "2026-07-05T09:09:46+08:00",
   "stale_days": 0,
   "capabilities": {
-    "child_experience": 96,
+    "child_experience": 97,
     "parent_dashboard": 96,
     "content_system": 88,
     "infrastructure": 88,
@@ -42,7 +42,8 @@
     "2026-07-01: Pitfall #64 documented — OrchestratorService constructor validation runs before agent registration (10 false ERROR logs at startup)",
     "2026-07-03: AGENTS.md deployment architecture fix, .env.example PORT 3000→3001, Flutter analyze fixes (#84/#85, #86/#87/#88/#89)",
     "2026-07-04: Fixed OrchestratorService constructor→onApplicationBootstrap (pitfall #64) — moved validateRegisteredAgents() to lifecycle hook, eliminated 10 false ERROR logs at every startup. Backend restarted, error.log clean, 4 orchestrator tests pass.",
-    "2026-07-05: Added 21 new unit tests for auth switchToChild/switchToParent/childLogin (5→25 tests). Covers: switch-to-first-child auto-selection, explicit childId, non-parent rejection, no-children-bound, wrong child type, child-not-owned, password leak prevention (sanitizeUser), switchToParent with correct/wrong password, empty password, non-child rejection, no parentId, parent not found, childLogin via loginCode with invalid/non-child rejection. Mock bcrypt at module level to avoid 'Cannot redefine property' issue."
+    "2026-07-05: Added 21 new unit tests for auth switchToChild/switchToParent/childLogin (5→25 tests). Covers: switch-to-first-child auto-selection, explicit childId, non-parent rejection, no-children-bound, wrong child type, child-not-owned, password leak prevention (sanitizeUser), switchToParent with correct/wrong password, empty password, non-child rejection, no parentId, parent not found, childLogin via loginCode with invalid/non-child rejection. Mock bcrypt at module level to avoid 'Cannot redefine property' issue.",
+    "2026-07-05: Cleaned 3.1GB stale Android build cache (src/frontend/build/app/, test_cache/) — freed disk space, build/web/ (43MB deployed) untouched."
   ],
   "lessons_learned": [
     "NestJS lifecycle: constructor validation runs BEFORE onModuleInit — never validate DI state in constructors, use OnApplicationBootstrap (pitfall #64)",
@@ -53,7 +54,9 @@
     "JWT query param token needed for Flutter Web <video> elements — httpHeaders ignored on Web (pitfall #62)",
     "Remotion CLI entry point is remotion-cli.js, NOT dist/index.js which only exports (pitfall #70)",
     "Always check ALL entry points when fixing auth/navigation — grep across entire lib/ directory (pitfall #21)",
-    "bcrypt.compare in Jest tests: use jest.mock('bcrypt') at module level, NOT jest.spyOn(bcrypt, 'compare') — the latter fails with 'Cannot redefine property' because bcrypt's compare is non-configurable. Always mock the entire module with jest.mock()."
+    "bcrypt.compare in Jest tests: use jest.mock('bcrypt') at module level, NOT jest.spyOn(bcrypt, 'compare') — the latter fails with 'Cannot redefine property' because bcrypt's compare is non-configurable. Always mock the entire module with jest.mock().",
+    "SSE streaming: orchestrator must persistMessage BEFORE yield event — SSE controller terminates generator after 'done', code after yield never runs (commit 0024c5b)",
+    "SSE streaming: finalContent must use += not = — was overwriting instead of appending token chunks (commit 0024c5b)"
   ],
   "metrics": {
     "backend_files": 214,
@@ -61,6 +64,6 @@
     "flutter_files": 80,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 212739
+    "total_lines": 167350
   }
 }

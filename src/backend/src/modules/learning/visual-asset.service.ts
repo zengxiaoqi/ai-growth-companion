@@ -274,7 +274,16 @@ export class VisualAssetService {
     url.searchParams.set('mature', 'false');
 
     try {
-      const response = await fetch(url);
+      let response: Response;
+      try {
+        response = await fetch(url);
+      } catch (fetchError: any) {
+        throw new Error(
+          `network request failed: ${fetchError?.message || 'unknown'}${
+            fetchError?.cause ? ` (cause: ${fetchError.cause})` : ''
+          }`,
+        );
+      }
       if (!response.ok) throw new Error(`status ${response.status}`);
       const payload = (await response.json()) as any;
       const candidate = (payload?.results || []).find((item: any) => {
@@ -324,7 +333,16 @@ export class VisualAssetService {
     url.searchParams.set('iiprop', 'url|mime|size|extmetadata');
 
     try {
-      const response = await fetch(url);
+      let response: Response;
+      try {
+        response = await fetch(url);
+      } catch (fetchError: any) {
+        throw new Error(
+          `network request failed: ${fetchError?.message || 'unknown'}${
+            fetchError?.cause ? ` (cause: ${fetchError.cause})` : ''
+          }`,
+        );
+      }
       if (!response.ok) throw new Error(`status ${response.status}`);
       const payload = (await response.json()) as any;
       const pages = Object.values(payload?.query?.pages || {}) as any[];
@@ -337,6 +355,7 @@ export class VisualAssetService {
         const height = Number(info?.height) || 0;
         if (width < request.minWidth || height < request.minHeight) continue;
         if (!String(info?.mime || '').startsWith('image/')) continue;
+        if (!info?.url || typeof info.url !== 'string') continue;
 
         return await this.downloadAndCacheAsset(request, {
           provider: 'wikimedia',
@@ -377,14 +396,37 @@ export class VisualAssetService {
   ): Promise<VisualAsset | null> {
     if (!this.isAllowedLicense(source.license)) return null;
 
-    const key = createHash('sha1')
-      .update(`${source.provider}:${source.url}:${request.role}`)
-      .digest('hex')
-      .slice(0, 16);
-    const extension = this.inferExtension(source.url);
-    const relativePath = `.generated/assets/${key}/${request.role}${extension}`;
-    const outputDir = path.join(this.generatedAssetDir, key);
-    const outputPath = path.join(outputDir, `${request.role}${extension}`);
+    // Guard against missing/invalid URL early to avoid TypeError in inferExtension
+    if (!source.url || typeof source.url !== 'string') {
+      this.logger.warn(
+        `[VisualAssetService] skipping download for ${request.role}: missing or invalid source URL`,
+      );
+      return null;
+    }
+
+    let key: string;
+    let extension: string;
+    let relativePath: string;
+    let outputDir: string;
+    let outputPath: string;
+
+    try {
+      key = createHash('sha1')
+        .update(`${source.provider}:${source.url}:${request.role}`)
+        .digest('hex')
+        .slice(0, 16);
+      extension = this.inferExtension(source.url);
+      relativePath = `.generated/assets/${key}/${request.role}${extension}`;
+      outputDir = path.join(this.generatedAssetDir, key);
+      outputPath = path.join(outputDir, `${request.role}${extension}`);
+    } catch (setupError: any) {
+      this.logger.warn(
+        `[VisualAssetService] failed to prepare download paths for ${request.role}: ${
+          setupError?.message || 'unknown'
+        }`,
+      );
+      return null;
+    }
 
     try {
       await fs.access(outputPath);
@@ -395,13 +437,34 @@ export class VisualAssetService {
     }
 
     try {
-      const response = await fetch(source.url);
-      if (!response.ok) throw new Error(`download status ${response.status}`);
+      let response: Response;
+      try {
+        response = await fetch(source.url);
+      } catch (fetchError: any) {
+        // Network errors (ECONNREFUSED, ENOTFOUND, DNS failures, etc.)
+        // often surface as TypeError from undici/fetch
+        throw new Error(
+          `network request failed: ${fetchError?.message || 'unknown'}${
+            fetchError?.cause ? ` (cause: ${fetchError.cause})` : ''
+          }`,
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(`download status ${response.status}`);
+      }
       const contentType = response.headers?.get?.('content-type') || '';
       if (!contentType.startsWith('image/') && !source.url.match(/\.(svg|png|jpe?g|webp)(\?|$)/i)) {
         throw new Error(`non-image content type ${contentType || 'unknown'}`);
       }
-      const buffer = Buffer.from(await response.arrayBuffer());
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(await response.arrayBuffer());
+      } catch (bodyError: any) {
+        throw new Error(`failed to read response body: ${bodyError?.message || 'unknown'}`);
+      }
+
       if (buffer.length < 512) throw new Error('image payload too small');
 
       await fs.mkdir(outputDir, { recursive: true });
@@ -429,7 +492,7 @@ export class VisualAssetService {
       return asset;
     } catch (error: any) {
       this.logger.warn(
-        `[VisualAssetService] asset download failed for ${request.role}: ${
+        `[VisualAssetService] asset download failed for ${request.role} (${source.url}): ${
           error?.message || 'unknown'
         }`,
       );
@@ -530,6 +593,7 @@ export class VisualAssetService {
   }
 
   private inferExtension(url: string): string {
+    if (!url || typeof url !== 'string') return '.jpg';
     const match = url.match(/\.(svg|png|jpe?g|webp)(?:\?|#|$)/i);
     if (!match) return '.jpg';
     const ext = match[1].toLowerCase();

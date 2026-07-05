@@ -26,6 +26,12 @@ export class EmergencyCall {
   @Column({ nullable: true })
   errorMessage: string;
 
+  @Column({ nullable: true })
+  notificationStatus: string; // sent | failed
+
+  @Column({ nullable: true })
+  notificationError: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

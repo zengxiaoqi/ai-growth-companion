@@ -133,8 +133,8 @@ describe('EmergencyService', () => {
       expect(result).toHaveProperty('parentId', 2);
     });
 
-    it('should create notification for parent', async () => {
-      await service.triggerEmergencyCall(1);
+    it('should create notification for parent and mark status as sent', async () => {
+      const result = await service.triggerEmergencyCall(1);
 
       expect(mockNotificationService.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -143,16 +143,28 @@ describe('EmergencyService', () => {
           type: 'system',
         }),
       );
+      expect(result.notificationStatus).toBe('sent');
     });
 
-    it('should handle notification failure gracefully', async () => {
-      mockNotificationService.create.mockRejectedValue(new Error('通知失败'));
+    it('should handle notification failure gracefully and record failure details', async () => {
+      mockNotificationService.create.mockRejectedValue(new Error('通知服务不可用'));
 
       // Should not throw — notification failure is caught internally
       const result = await service.triggerEmergencyCall(1);
 
       expect(result).toBeDefined();
       expect(result.childId).toBe(1);
+      expect(result.notificationStatus).toBe('failed');
+      expect(result.notificationError).toBe('通知服务不可用');
+    });
+
+    it('should handle non-Error notification rejection', async () => {
+      mockNotificationService.create.mockRejectedValue('unknown failure');
+
+      const result = await service.triggerEmergencyCall(1);
+
+      expect(result.notificationStatus).toBe('failed');
+      expect(result.notificationError).toBe('unknown failure');
     });
   });
 

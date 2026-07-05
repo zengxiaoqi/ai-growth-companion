@@ -392,6 +392,35 @@ describe('RemotionRenderService', () => {
     });
   });
 
+  it('does not attach narrationSrc when legacy TTS returns a zero-byte buffer', async () => {
+    // The mock already returns Buffer.alloc(0) by default
+    const result = await service.resolveComposition(
+      {
+        topic: '认识动物',
+        ageGroup: '5-6',
+        title: '动物观察课',
+        summary: '',
+        watchScene: {
+          version: 1,
+          stepType: 'watch',
+          mode: 'playback',
+          scenes: [{ id: 'watch-1', title: '小猫', narration: '认识小猫。' }],
+        },
+        visualStory: {},
+        videoLesson: {},
+      },
+      '5-6',
+    );
+
+    // Zero-byte TTS responses are a persistent failure — the service should
+    // fail fast (1 call) instead of retrying pointlessly.
+    expect(voiceService.textToSpeech).toHaveBeenCalledTimes(1);
+    // narrationSrc should not be set when TTS returns 0 bytes
+    expect(result.inputProps.slides[0].narrationSrc).toBeUndefined();
+    // duration should fall back to text-length estimate
+    expect(result.inputProps.slides[0].durationFrames).toBeGreaterThan(0);
+  });
+
   it('does not attach narrationSrc when dynamic TTS returns a zero-byte buffer', async () => {
     let renderedProps: any = null;
     jest

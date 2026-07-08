@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-07",
-  "analysis_count": 46,
-  "commit_count": 408,
-  "last_commit": "2026-07-06T09:11:17+08:00",
-  "last_commit_hash": "80dacf8",
+  "last_analysis": "2026-07-08",
+  "analysis_count": 47,
+  "commit_count": 409,
+  "last_commit": "2026-07-07T09:47:26+08:00",
+  "last_commit_hash": "839c460",
   "commits_ahead_remote": 0,
-  "remote_head": "80dacf8",
-  "remote_head_date": "2026-07-06T09:11:17+08:00",
+  "remote_head": "839c460",
+  "remote_head_date": "2026-07-07T09:47:26+08:00",
   "stale_days": 1,
   "capabilities": {
     "child_experience": 97,
@@ -46,7 +46,8 @@
     "2026-07-05: Cleaned 3.1GB stale Android build cache (src/frontend/build/app/, test_cache/) — freed disk space, build/web/ (43MB deployed) untouched.",
     "2026-07-06: Fixed AGENTS.md backend deploy section — documented systemd service (lingxi-backend.service) and pitfall #52 warning. Previous text incorrectly said 'runs manually as /usr/bin/node (not systemd)'.",
     "2026-07-06: Diagnosed sqljs fallback risk — startup log showed MODULE_VERSION 127 vs 137 mismatch from a prior v24 start attempt. Current process (PID 251454) runs on nvm v22 which matches the Jan 17 better-sqlite3 build. Native DB queries confirmed working (20 users, seed user present). Note: seed password hash in DB does not match 'password123' — data issue, not code bug.",
-    "2026-07-07: Daily analysis #46 — deploy healthy (200), backend+systemd running (1d10h uptime), tunnel active (3d). 6 new commits since #44: Jest hang fix (maxWorkers/testTimeout), test logger suppression, EmergencyService/VisualAssetService error handling, AGENTS.md deploy section fix. Backend build clean, 73 test files all pass (game.service has intermittent ts-jest compile hang in isolation — documented in issue #93, mitigated by maxWorkers:'50%'). ESLint 0 errors, Prettier 0 drift, React typecheck clean. Uncommitted local: SSE adapter for Flutter Web (sse_adapter.dart + api_service.dart refactor) — work in progress from AI chat streaming feature."
+    "2026-07-07: Daily analysis #46 — deploy healthy (200), backend+systemd running (1d10h uptime), tunnel active (3d). 6 new commits since #44: Jest hang fix (maxWorkers/testTimeout), test logger suppression, EmergencyService/VisualAssetService error handling, AGENTS.md deploy section fix. Backend build clean, 73 test files all pass. ESLint 0 errors, Prettier 0 drift, React typecheck clean. Uncommitted local: SSE adapter for Flutter Web (sse_adapter.dart + api_service.dart refactor) — work in progress from AI chat streaming feature.",
+    "2026-07-08: Daily analysis #47 — deploy healthy (200), backend systemd running (2d uptime), tunnel active (4d). No new commits since #46. All 72 unit test suites pass (847 tests). Fixed unused import warning in api_service.dart (removed 'dart:convert' — no longer needed after SSE adapter refactor moved jsonDecode/utf8 to sse_adapter.dart). Flutter analyze: 3 info-level issues in sse_adapter.dart (JS interop runtime checks — acceptable for cross-platform Web/native code). Uncommitted WIP: SSE adapter for Flutter Web streaming (sse_adapter.dart 275 lines + api_service.dart refactor)."
   ],
   "lessons_learned": [
     "NestJS lifecycle: constructor validation runs BEFORE onModuleInit — never validate DI state in constructors, use OnApplicationBootstrap (pitfall #64)",
@@ -59,18 +60,20 @@
     "Always check ALL entry points when fixing auth/navigation — grep across entire lib/ directory (pitfall #21)",
     "bcrypt.compare in Jest tests: use jest.mock('bcrypt') at module level, NOT jest.spyOn(bcrypt, 'compare') — the latter fails with 'Cannot redefine property' because bcrypt's compare is non-configurable. Always mock the entire module with jest.mock().",
     "SSE streaming: orchestrator must persistMessage BEFORE yield event — SSE controller terminates generator after 'done', code after yield never runs (commit 0024c5b)",
-    "SSE streaming: finalContent must use += not = — was overwriting instead of appending token chunks (commit 0024c5b)"
+    "SSE streaming: finalContent must use += not = — was overwriting instead of appending token chunks (commit 0024c5b)",
+    "Dio Web adapter (XMLHttpRequest) cannot do true SSE streaming — use browser fetch + ReadableStream.getReader() on Web platform (sse_adapter.dart pattern)",
+    "When refactoring to extract a module (e.g. SSE parsing → sse_adapter.dart), check if the original file still needs its now-unused imports (e.g. dart:convert in api_service.dart)"
   ],
   "metrics": {
     "backend_files": 214,
     "backend_test_files": 73,
     "backend_src_lines": 39652,
-    "backend_test_lines": 15431,
+    "backend_test_lines": 15480,
     "flutter_files": 81,
-    "flutter_lines": 43114,
-    "web_files": 100,
-    "web_lines": 26514,
+    "flutter_lines": 43112,
+    "web_files": 101,
+    "web_lines": 26880,
     "content_files": 46,
-    "total_lines": 124711
+    "total_lines": 125124
   }
 }

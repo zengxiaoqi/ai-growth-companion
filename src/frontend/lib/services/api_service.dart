@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../utils/app_logger.dart';
 import 'api_result.dart';
+import 'sse_adapter.dart';
 
 final _log = AppLogger('ApiService');
 
@@ -1392,13 +1391,20 @@ class ApiService {
   /// AI 对话流式输出（SSE）
   /// 返回一个 `Stream<Map<String, dynamic>>`，每个 event 包含 type 和相关字段。
   /// 事件类型: thinking, tool_start, tool_result, token, game_data, done, error
+  ///
+  /// 重要：Web 平台通过 [fetchSseStream] 使用浏览器原生 fetch + ReadableStream，
+  /// 绕过 Dio Web adapter (XMLHttpRequest) 不支持流式的问题。
   Stream<Map<String, dynamic>> sendAIChatMessageStream(
     String message, {
     int? childId,
     String? sessionId,
-  }) async* {
-    final url = '/ai/chat/stream';
-    final headers = <String, dynamic>{
+  }) {
+    // Web: 需要完整路径给 fetch()（Dio 不参与 Web SSE）
+    // 非 Web: 只给相对路径，Dio 的 baseUrl 会自动拼接
+    final url = kIsWeb
+        ? '$baseUrl/ai/chat/stream'
+        : '/ai/chat/stream';
+    final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
     };
@@ -1406,70 +1412,19 @@ class ApiService {
       headers['Authorization'] = 'Bearer $_token';
     }
 
-    final response = await _dio.post(
-      url,
-      data: {
-        'message': message,
-        if (childId != null) 'childId': childId,
-        if (sessionId != null) 'sessionId': sessionId,
-      },
-      options: Options(
-        headers: headers,
-        responseType: ResponseType.stream,
-        receiveTimeout: const Duration(seconds: 120),
-      ),
+    final body = <String, dynamic>{
+      'message': message,
+      if (childId != null) 'childId': childId,
+      if (sessionId != null) 'sessionId': sessionId,
+    };
+
+    return fetchSseStream(
+      url: url,
+      method: 'POST',
+      headers: headers,
+      body: body,
+      dio: _dio,
     );
-
-    final stream = response.data.stream as Stream<List<int>>;
-    final lineBuffer = StringBuffer();
-    final byteBuffer = <int>[];  // 用于处理跨 chunk 的 UTF-8 多字节字符
-    String currentEvent = 'message';
-
-    await for (final chunk in stream) {
-      byteBuffer.addAll(chunk);
-      // 尝试 UTF-8 解码；incomplete 部分留在 byteBuffer 等下一个 chunk
-      try {
-        final decoded = utf8.decode(byteBuffer, allowMalformed: false);
-        byteBuffer.clear();
-        lineBuffer.write(decoded);
-      } catch (_) {
-        // UTF-8 不完整，等待更多字节
-        continue;
-      }
-
-      // Process complete lines (terminated by \n\n for SSE events)
-      while (true) {
-        final raw = lineBuffer.toString();
-        final eventEnd = raw.indexOf('\n\n');
-        if (eventEnd == -1) break;
-
-        final eventBlock = raw.substring(0, eventEnd);
-        lineBuffer.clear();
-        lineBuffer.write(raw.substring(eventEnd + 2));
-
-        // Parse the SSE block
-        String? eventName;
-        String? dataLine;
-        for (final line in eventBlock.split('\n')) {
-          if (line.startsWith('event:')) {
-            eventName = line.substring(6).trim();
-          } else if (line.startsWith('data:')) {
-            dataLine = line.substring(5).trim();
-          }
-        }
-
-        if (dataLine == null) continue;
-        eventName ??= currentEvent;
-
-        try {
-          final data = jsonDecode(dataLine) as Map<String, dynamic>;
-          data['type'] = eventName;
-          yield data;
-        } catch (_) {
-          // Non-JSON data, skip
-        }
-      }
-    }
   }
 
   Future<List<dynamic>> getAIChatSessions(int userId) async {

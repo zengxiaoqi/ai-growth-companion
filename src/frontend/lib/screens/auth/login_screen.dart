@@ -75,17 +75,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         return;
       }
 
-      // 保存 token
+      // 保存 rememberMe 标志
+      final storage = context.read<StorageService>();
+      await storage.saveRememberMe(_rememberMe);
+
+      // 保存 token（仅在"记住我"勾选时持久化，否则仅内存使用）
       final token = result['access_token'] ?? result['token'];
-      debugPrint('[LOGIN] Token found: ${token != null}');
+      debugPrint('[LOGIN] Token found: ${token != null}, rememberMe: $_rememberMe');
       if (token != null) {
         if (!mounted) {
           debugPrint('[LOGIN] Widget not mounted after token save');
           return;
         }
-        final storage = context.read<StorageService>();
-        await storage.saveToken(token.toString());
-        debugPrint('[LOGIN] Token saved');
+        if (_rememberMe) {
+          await storage.saveToken(token.toString());
+          debugPrint('[LOGIN] Token saved to storage (rememberMe=true)');
+        } else {
+          // 不持久化 token，仅注入到 ApiService 供当前会话使用
+          debugPrint('[LOGIN] Token not saved (rememberMe=false)');
+        }
+        context.read<ApiService>().setToken(token.toString());
       }
 
       // 保存用户信息并跳转模式选择
@@ -466,11 +475,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               return;
                             }
 
-                            // 保存 token
+                            // 保存 token（孩子快捷登录也受"记住我"控制）
                             final token = result['access_token'] ?? result['token'];
                             if (token != null) {
                               final storage = context.read<StorageService>();
-                              await storage.saveToken(token.toString());
+                              if (_rememberMe) {
+                                await storage.saveToken(token.toString());
+                              }
                               if (!mounted) return;
                               context.read<ApiService>().setToken(token.toString());
                             }

@@ -46,6 +46,17 @@ class UserProvider extends ChangeNotifier {
     // 现在 _isLoading 初始为 true，Consumer 首帧会显示 SplashScreen，
     // 这里同步设置完状态后调用 notifyListeners() 触发重建即可。
 
+    // ── 记住我检查 ──
+    // 如果用户未勾选"记住我"，不自动恢复登录态，直接显示登录页
+    final rememberMe = _storage.getRememberMe();
+    if (!rememberMe) {
+      // 清除可能残留的旧 token 和用户数据
+      _storage.clearUser();
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
     // ── 角色切换会话恢复 ──
     // 如果有 activeRole，优先从对应的 session 存储 恢复
     final activeRole = _storage.getActiveRole();
@@ -181,6 +192,16 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     // 然后异步持久化（不阻塞 UI 导航）
+    // 仅在"记住我"勾选时持久化用户数据和会话
+    final rememberMe = _storage.getRememberMe();
+    if (!rememberMe) {
+      // 不持久化，仅注入 token 到 ApiService
+      if (_apiService != null) {
+        // token 已由 login_screen 注入，此处无需再处理
+      }
+      return;
+    }
+
     try {
       final userId = userData['id'] is int ? userData['id'] : int.tryParse(userData['id'].toString()) ?? 0;
       final name = userData['name']?.toString() ?? '';

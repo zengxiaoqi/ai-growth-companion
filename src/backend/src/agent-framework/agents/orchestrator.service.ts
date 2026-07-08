@@ -17,6 +17,7 @@ import type {
   StreamEvent,
   LlmMessage,
   LlmToolDefinition,
+  ToolCallInfo,
 } from '../core';
 import { filterContent } from '../core';
 import { AgentExecutorService } from './agent-executor.service';
@@ -195,18 +196,33 @@ export class OrchestratorService implements OnApplicationBootstrap {
     if (plan.mode === 'coordinated') {
       yield {
         type: 'thinking',
-        thinkingContent: 'Detected composite request, coordinating multiple agents.',
+        thinkingContent: '检测到复合请求，正在协调多个智能体处理...',
       };
-      const coordinated = await this.runCoordinatedFlow(plan, input, context, history);
-      await this.persistMessage(context, 'assistant', coordinated.result.response);
-      this.logRouteResult(true, plan, coordinated.executionChain, startedAt, coordinated.result);
-      yield { type: 'token', content: coordinated.result.response };
-      yield {
-        type: 'done',
-        sessionId: context.conversationId,
-        wasFiltered: coordinated.result.wasFiltered ?? false,
-        toolCalls: coordinated.result.toolCalls,
-      };
+
+      let finalContent = '';
+      let finalToolCalls: ToolCallInfo[] = [];
+      let finalWasFiltered = false;
+
+      for await (const event of this.runCoordinatedFlowStream(plan, input, context, history)) {
+        if (event.type === 'token') {
+          finalContent += event.content;
+          yield event;
+        } else if (event.type === 'done') {
+          // Persist BEFORE yielding done — consumer may close stream after done
+          finalToolCalls = event.toolCalls || [];
+          finalWasFiltered = event.wasFiltered;
+          const safeResult = filterContent(finalContent);
+          await this.persistMessage(context, 'assistant', safeResult.content);
+          yield event;
+        } else {
+          yield event;
+        }
+      }
+
+      this.logRouteResult(true, plan, plan.collaborators, startedAt, {
+        toolCalls: finalToolCalls,
+        wasFiltered: finalWasFiltered,
+      });
       return;
     }
 
@@ -482,6 +498,140 @@ export class OrchestratorService implements OnApplicationBootstrap {
         tokenUsage: merged.tokenUsage,
       },
       executionChain,
+    };
+  }
+
+  /**
+   * Streaming version of runCoordinatedFlow.
+   *
+   * Executes each collaborator and the primary agent through runLoopStream,
+   * yielding all stream events (token, thinking, tool_start, tool_result,
+   * game_data) directly to the caller. This gives the frontend real-time
+   * streaming output in coordinated mode, instead of receiving the entire
+   * response as a single token event.
+   */
+  private async *runCoordinatedFlowStream(
+    plan: RoutePlan,
+    input: string,
+    context: AgentContext,
+    history: LlmMessage[],
+  ): AsyncGenerator<StreamEvent> {
+    const sections: AgentRunSection[] = [];
+    const executionChain: AgentType[] = [];
+    const allToolCalls: ToolCallInfo[] = [];
+    let wasFiltered = false;
+
+    // --- Run each collaborator agent in streaming mode ---
+    for (const collaborator of this.uniqueAgentList(plan.collaborators)) {
+      const collaboratorDef = this.getAgentDefinition(collaborator);
+      if (!collaboratorDef) continue;
+
+      const taskPrompt = this.buildSpecialistTaskPrompt(collaborator, input, sections);
+      const runHistory: LlmMessage[] = [...history, { role: 'user', content: taskPrompt }];
+
+      let collabSystemPrompt = collaboratorDef.buildSystemPrompt(context);
+      collabSystemPrompt = this.injectSkills(collabSystemPrompt, collaboratorDef.allowedSkills);
+      const collabTools = this.getFilteredToolDefinitions(collaboratorDef);
+
+      yield {
+        type: 'thinking',
+        thinkingContent: `正在执行 ${this.agentTitle(collaborator)}...`,
+      };
+
+      let collabContent = '';
+      let collabToolCalls: ToolCallInfo[] = [];
+      let collabWasFiltered = false;
+
+      for await (const event of this.executorService.runLoopStream(
+        collabSystemPrompt,
+        runHistory,
+        collabTools,
+        collaboratorDef.maxIterations,
+        context,
+        async (e) => {
+          await this.persistMessage(context, 'tool', e.result, { toolName: e.toolName });
+        },
+      )) {
+        if (event.type === 'token') {
+          collabContent += event.content;
+          yield event;
+        } else if (event.type === 'done') {
+          // Capture done metadata but don't yield — we emit our own final done
+          collabToolCalls = event.toolCalls || [];
+          collabWasFiltered = event.wasFiltered;
+        } else {
+          // Yield thinking, tool_start, tool_result, game_data, error events
+          yield event;
+        }
+      }
+
+      executionChain.push(collaborator);
+      allToolCalls.push(...collabToolCalls);
+      wasFiltered = wasFiltered || collabWasFiltered;
+
+      // Build a synthetic ExecutionResult for section tracking
+      const safeContent = filterContent(collabContent);
+      sections.push({
+        agentType: collaborator,
+        title: this.agentTitle(collaborator),
+        result: {
+          response: safeContent.content,
+          toolCalls: collabToolCalls,
+          wasFiltered: collabWasFiltered,
+        },
+      });
+    }
+
+    // --- Run primary agent in streaming mode ---
+    const primaryDef = this.getAgentDefinition(plan.primaryAgent);
+    if (primaryDef) {
+      const integrationPrompt = this.buildPrimaryIntegrationPrompt(plan, input, sections);
+      const runHistory: LlmMessage[] = [...history, { role: 'user', content: integrationPrompt }];
+
+      let primarySystemPrompt = primaryDef.buildSystemPrompt(context);
+      primarySystemPrompt = this.injectSkills(primarySystemPrompt, primaryDef.allowedSkills);
+      const primaryTools = this.getFilteredToolDefinitions(primaryDef);
+
+      yield {
+        type: 'thinking',
+        thinkingContent: `正在整合结果 (${this.agentTitle(plan.primaryAgent)})...`,
+      };
+
+      let primaryToolCalls: ToolCallInfo[] = [];
+      let primaryWasFiltered = false;
+
+      for await (const event of this.executorService.runLoopStream(
+        primarySystemPrompt,
+        runHistory,
+        primaryTools,
+        primaryDef.maxIterations,
+        context,
+        async (e) => {
+          await this.persistMessage(context, 'tool', e.result, { toolName: e.toolName });
+        },
+      )) {
+        if (event.type === 'token') {
+          yield event;
+        } else if (event.type === 'done') {
+          // Capture done metadata but don't yield — we emit our own final done
+          primaryToolCalls = event.toolCalls || [];
+          primaryWasFiltered = event.wasFiltered;
+        } else {
+          // Yield thinking, tool_start, tool_result, game_data, error events
+          yield event;
+        }
+      }
+
+      executionChain.push(plan.primaryAgent);
+      allToolCalls.push(...primaryToolCalls);
+      wasFiltered = wasFiltered || primaryWasFiltered;
+    }
+
+    yield {
+      type: 'done',
+      sessionId: context.conversationId,
+      wasFiltered,
+      toolCalls: allToolCalls,
     };
   }
 

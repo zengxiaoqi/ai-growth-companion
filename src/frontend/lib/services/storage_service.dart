@@ -52,6 +52,9 @@ class StorageService {
   // 当前活跃端（'parent' 或 'child'）
   static const String keyActiveRole = 'active_role';
 
+  // 记住我标志
+  static const String keyRememberMe = 'remember_me';
+
   // 保存用户信息
   Future<void> saveUser({
     required int userId,
@@ -90,11 +93,13 @@ class StorageService {
     await _prefs.remove(keyUserType);
     await _prefs.remove(keyUserName);
     await _prefs.remove(keyUserAge);
+    await _prefs.remove(keyUserPhone);
     await _prefs.remove(keyParentId);
     await _prefs.remove(keyAuthToken);
     await _prefs.remove(keySelectedMode);
     await _prefs.remove(keyActiveChildId);
     await _prefs.remove(keyActiveRole);
+    await _prefs.remove(keyRememberMe);
     await clearParentSession();
     await clearChildSession();
   }
@@ -263,6 +268,16 @@ class StorageService {
   /// 设置当前活跃角色
   Future<void> saveActiveRole(String role) async {
     await _prefs.setString(keyActiveRole, role);
+  }
+
+  /// 获取记住我标志
+  bool getRememberMe() {
+    return _prefs.getBool(keyRememberMe) ?? false;
+  }
+
+  /// 保存记住我标志
+  Future<void> saveRememberMe(bool value) async {
+    await _prefs.setBool(keyRememberMe, value);
   }
 
   /// 清除家长端会话

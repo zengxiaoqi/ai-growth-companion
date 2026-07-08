@@ -45,6 +45,13 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { phone } });
   }
 
+  /** 通过手机号或用户名查找用户（用于登录/绑定场景） */
+  async findByPhoneOrName(phoneOrName: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: [{ phone: phoneOrName }, { name: phoneOrName }],
+    });
+  }
+
   /** 通过 loginCode 查找孩子账号 */
   async findByLoginCode(loginCode: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { loginCode } });
@@ -86,15 +93,16 @@ export class UsersService {
     }
   }
 
-  async linkChild(parentId: number, childPhone: string, loginCode?: string): Promise<User> {
+  async linkChild(parentId: number, childPhoneOrName: string, loginCode?: string): Promise<User> {
     const parent = await this.findById(parentId);
     if (!parent || parent.type !== 'parent') {
       throw new BadRequestException('仅家长账号可关联孩子');
     }
 
-    const child = await this.findByPhone(childPhone);
+    // 支持通过手机号或用户名查找孩子
+    const child = await this.findByPhoneOrName(childPhoneOrName);
     if (!child) {
-      throw new NotFoundException('未找到该手机号对应的用户');
+      throw new NotFoundException('未找到该手机号/账号对应的用户');
     }
     if (child.type !== 'child') {
       throw new BadRequestException('只能关联孩子类型的账号');

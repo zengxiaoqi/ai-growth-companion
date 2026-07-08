@@ -63,7 +63,7 @@ export class UsersController {
     return this.usersService.findSafeById(req.user.sub);
   }
 
-  // 通过手机号+验证码关联孩子账号
+  // 通过手机号/账号+验证码关联孩子账号
   @Post('link-child')
   @UseGuards(JwtAuthGuard)
   async linkChild(@Request() req, @Body() body: { childPhone: string; loginCode: string }) {

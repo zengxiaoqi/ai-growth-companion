@@ -563,7 +563,15 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           title: '孩子管理',
           subtitle: '添加、编辑或删除孩子账号',
           color: const Color(0xFF81C784),
-          onTap: () => Navigator.pushNamed(context, '/parent/childManager'),
+          onTap: () async {
+            await Navigator.pushNamed(context, '/parent/childManager');
+            // 返回后强制重新加载孩子列表，确保新增/绑定的孩子立即出现在切换器中
+            if (!mounted) return;
+            setState(() {
+              _loaded = false;
+            });
+            _loadInitialData();
+          },
         ),
         _MenuTile(
           icon: Icons.emoji_events_rounded,

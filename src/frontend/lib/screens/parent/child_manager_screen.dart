@@ -153,16 +153,15 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    '请输入孩子账号的手机号和6位登录验证码完成绑定',
+                    '请输入孩子账号的手机号/账号和6位登录验证码完成绑定',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: phoneController,
-                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      labelText: '孩子手机号',
-                      hintText: '孩子注册时填写的手机号',
+                      labelText: '孩子手机号 / 账号',
+                      hintText: '孩子注册时填写的手机号或账号',
                       prefixIcon: Icon(Icons.phone),
                       border: OutlineInputBorder(),
                     ),
@@ -222,7 +221,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                           final code = codeController.text.trim().toUpperCase();
                           if (phone.isEmpty || code.length != 6) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              const SnackBar(content: Text('请填写手机号和6位验证码')),
+                              const SnackBar(content: Text('请填写手机号/账号和6位验证码')),
                             );
                             return;
                           }
@@ -236,7 +235,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
 
                             if (result == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('绑定失败，请检查手机号和验证码')),
+                                const SnackBar(content: Text('绑定失败，请检查手机号/账号和验证码')),
                               );
                             } else {
                               await _loadChildren();
@@ -904,11 +903,11 @@ class _ChildFormDialogState extends State<_ChildFormDialog> {
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
-                  labelText: '手机号',
+                  labelText: '手机号 / 账号',
                   hintText: '可选，用于孩子登录',
                   prefixIcon: Icon(Icons.phone),
                 ),
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.text,
               ),
               const SizedBox(height: 16),
               TextFormField(

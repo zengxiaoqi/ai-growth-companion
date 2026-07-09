@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-09",
-  "analysis_count": 48,
-  "commit_count": 412,
-  "last_commit": "2026-07-09T00:15:21+08:00",
-  "last_commit_hash": "f13cdc3",
+  "last_analysis": "2026-07-10",
+  "analysis_count": 49,
+  "commit_count": 418,
+  "last_commit": "2026-07-10T02:15:00+08:00",
+  "last_commit_hash": "6356170",
   "commits_ahead_remote": 0,
-  "remote_head": "f13cdc3",
-  "remote_head_date": "2026-07-09T00:15:21+08:00",
+  "remote_head": "6356170",
+  "remote_head_date": "2026-07-10T02:15:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 98,
@@ -48,7 +48,8 @@
     "2026-07-06: Diagnosed sqljs fallback risk — startup log showed MODULE_VERSION 127 vs 137 mismatch from a prior v24 start attempt. Current process (PID 251454) runs on nvm v22 which matches the Jan 17 better-sqlite3 build. Native DB queries confirmed working (20 users, seed user present). Note: seed password hash in DB does not match 'password123' — data issue, not code bug.",
     "2026-07-07: Daily analysis #46 — deploy healthy (200), backend+systemd running (1d10h uptime), tunnel active (3d). 6 new commits since #44: Jest hang fix (maxWorkers/testTimeout), test logger suppression, EmergencyService/VisualAssetService error handling, AGENTS.md deploy section fix. Backend build clean, 73 test files all pass. ESLint 0 errors, Prettier 0 drift, React typecheck clean. Uncommitted local: SSE adapter for Flutter Web (sse_adapter.dart + api_service.dart refactor) — work in progress from AI chat streaming feature.",
     "2026-07-08: Daily analysis #47 — deploy healthy (200), backend systemd running (2d uptime), tunnel active (4d). No new commits since #46. All 72 unit test suites pass (847 tests). Fixed unused import warning in api_service.dart (removed 'dart:convert' — no longer needed after SSE adapter refactor moved jsonDecode/utf8 to sse_adapter.dart). Flutter analyze: 3 info-level issues in sse_adapter.dart (JS interop runtime checks — acceptable for cross-platform Web/native code). Uncommitted WIP: SSE adapter for Flutter Web streaming (sse_adapter.dart 275 lines + api_service.dart refactor).",
-    "2026-07-09: Daily analysis #48 — deploy healthy (200), backend systemd running (8h, nvm v22 + better-sqlite3 confirmed working), tunnel active (5d). 2 new commits since #47: (1) f352b94 孩子管理手机号→手机号/账号 + 后端 findByPhoneOrName + 主页孩子列表刷新, (2) f13cdc3 协调模式流式输出 runCoordinatedFlowStream 替代非流式 runCoordinatedFlow (重大修复: 修复前1 thinking+1 token, 修复后3 thinking+2 tool_start+2 tool_result+1 game_data+216 token). SSE adapter.dart 已提交 (P1 跟踪项清零). Pushed 2 commits to origin. Cleaned 1GB stale Android build cache (913MB build/app/ + 24MB jni/ + 11 plugin caches → 57MB total). Cleaned stale versioned JS files. Backend build clean, ESLint 0 errors, 69 tests verified passing (orchestrator 4, users 27, agents 4, SSE+game 34). Flutter web build fresh (01:27 today). React typecheck clean."
+    "2026-07-09: Daily analysis #48 — deploy healthy (200), backend systemd running (8h, nvm v22 + better-sqlite3 confirmed working), tunnel active (5d). 2 new commits since #47: (1) f352b94 孩子管理手机号→手机号/账号 + 后端 findByPhoneOrName + 主页孩子列表刷新, (2) f13cdc3 协调模式流式输出 runCoordinatedFlowStream 替代非流式 runCoordinatedFlow (重大修复: 修复前1 thinking+1 token, 修复后3 thinking+2 tool_start+2 tool_result+1 game_data+216 token). SSE adapter.dart 已提交 (P1 跟踪项清零). Pushed 2 commits to origin. Cleaned 1GB stale Android build cache (913MB build/app/ + 24MB jni/ + 11 plugin caches → 57MB total). Cleaned stale versioned JS files. Backend build clean, ESLint 0 errors, 69 tests verified passing (orchestrator 4, users 27, agents 4, SSE+game 34). Flutter web build fresh (01:27 today). React typecheck clean.",
+    "2026-07-10: Daily analysis #49 — deploy healthy (200), backend systemd running (12h), tunnel active (6d). 3 new commits since #48: (1) 4d3fba7 GameRenderer integration for non-quiz game types, (2) ac13816 getChildren API endpoint mismatch fix, (3) 7dfb346 api token cache on mode switch. Committed uncommitted WIP: 36b4faf generateQuiz tool handling — agent-executor now emits game_data for both generateActivity AND generateQuiz (backend) + unified game rendering path in Flutter chat_session_provider (all game types go through _InlineGameCard with _inferActivityType) + React Web SSE parser rewritten for robust event block parsing. Fixed unused dart:typed_data import in sse_adapter_native.dart (6356170). All 72 test suites pass. Backend build clean, ESLint 0 errors. Flutter analyze: 5 info-level + 0 warnings (was 6 issues, fixed the 1 warning). React typecheck clean."
   ],
   "lessons_learned": [
     "NestJS lifecycle: constructor validation runs BEFORE onModuleInit — never validate DI state in constructors, use OnApplicationBootstrap (pitfall #64)",
@@ -65,7 +66,10 @@
     "Dio Web adapter (XMLHttpRequest) cannot do true SSE streaming — use browser fetch + ReadableStream.getReader() on Web platform (sse_adapter.dart pattern)",
     "When refactoring to extract a module (e.g. SSE parsing → sse_adapter.dart), check if the original file still needs its now-unused imports (e.g. dart:convert in api_service.dart)",
     "Coordinated mode streaming: runCoordinatedFlow (non-streaming) batches all events → single yield. Must use runCoordinatedFlowStream with runLoopStream to get per-token SSE events (commit f13cdc3)",
-    "Coordinated mode: runLoopStream's 'done' event must be filtered inside runCoordinatedFlowStream — only emit the final done, not the inner agent's done"
+    "Coordinated mode: runLoopStream's 'done' event must be filtered inside runCoordinatedFlowStream — only emit the final done, not the inner agent's done",
+    "generateQuiz tool handling: agent-executor must emit game_data for both generateActivity AND generateQuiz — previously generateQuiz game_data was silently dropped, meaning quiz content from generateQuiz never reached the frontend (commit 36b4faf)",
+    "Flutter game rendering: unify all game types through _InlineGameCard with _inferActivityType — don't special-case quiz via _parseQuizFromAIResponse, let GameRenderer handle all types including quiz (commit 36b4faf)",
+    "React SSE parsing: parse complete event blocks delimited by \\n\\n, NOT line-by-line — line-by-line breaks on multi-line data payloads and CRLF endings (commit 36b4faf)"
   ],
   "metrics": {
     "backend_files": 214,
@@ -73,10 +77,10 @@
     "backend_src_lines": 39810,
     "backend_test_lines": 15431,
     "flutter_files": 83,
-    "flutter_lines": 43112,
+    "flutter_lines": 43417,
     "web_files": 100,
-    "web_lines": 18395,
+    "web_lines": 26754,
     "content_files": 46,
-    "total_lines": 116648
+    "total_lines": 125412
   }
 }

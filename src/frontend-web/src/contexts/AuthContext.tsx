@@ -115,6 +115,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Switch to parent mode (child → parent, requires parent password)
   const switchToParentMode = useCallback(async (password: string): Promise<User> => {
     const response = await api.switchToParent(password);
+    api.setToken(response.token);
     setToken(response.token);
     setUser(response.user);
     localStorage.setItem('auth_token', response.token);
@@ -125,6 +126,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Switch to child mode (parent → child, no password needed)
   const switchToChildMode = useCallback(async (childId?: number): Promise<User> => {
     const response = await api.switchToChild(childId);
+    api.setToken(response.token);
     setToken(response.token);
     setUser(response.user);
     localStorage.setItem('auth_token', response.token);

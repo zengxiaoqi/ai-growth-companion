@@ -75,6 +75,10 @@ class ChatMessageEntry {
   String? thinkingContent;   // 存储 thinking 事件的内容
   bool isThinkingExpanded;   // 控制思考区域展开/折叠
 
+  // ── 非测验类游戏数据（matching/fill_blank/sequencing/connection/puzzle/true_false）──
+  final String? gameType;              // 游戏类型
+  final Map<String, dynamic>? gameData; // 游戏原始数据
+
   ChatMessageEntry({
     required this.role,
     required this.content,
@@ -83,6 +87,8 @@ class ChatMessageEntry {
     this.isStreaming = false,
     this.thinkingContent,
     this.isThinkingExpanded = false,
+    this.gameType,
+    this.gameData,
   });
 
   factory ChatMessageEntry.fromJson(Map<String, dynamic> json) {
@@ -194,6 +200,22 @@ String _buildDisplayText(Map<String, dynamic> decoded) {
     return parts.join('');
   }
   return '来做几道题目吧！📝';
+}
+
+/// 根据数据结构推断游戏类型（与 GameRenderer._normalizeGameType 的推断逻辑一致）
+String _inferGameType(Map<String, dynamic> data) {
+  if (data['pairs'] is List || (data['items'] is List && data['targets'] is List)) {
+    return 'matching';
+  }
+  if (data['sentences'] is List) return 'fill_blank';
+  if (data['connections'] is List || (data['leftItems'] is List && data['rightItems'] is List)) {
+    return 'connection';
+  }
+  if (data['pieces'] is List || data['gridSize'] is Map) return 'puzzle';
+  if (data['items'] is List) return 'sequencing';
+  if (data['statements'] is List) return 'true_false';
+  if (data['questions'] is List) return 'quiz';
+  return 'quiz';
 }
 
 // ── 思考内容清理工具 ──────────────────────────────────────────────────────
@@ -328,32 +350,65 @@ class ChatSessionProvider extends ChangeNotifier {
           .toList();
 
       // Build display messages: skip 'tool' and 'system' roles, but attach
-      // quiz data from tool messages to the nearest assistant message.
+      // quiz/game data from tool messages to the nearest assistant message.
       final List<ChatMessageEntry> messages = [];
       List<Map<String, dynamic>>? pendingQuiz;
+      String? pendingGameType;
+      Map<String, dynamic>? pendingGameData;
 
       for (final json in rawList) {
         final role = json['role']?.toString() ?? 'assistant';
 
         if (role == 'tool' || role == 'system') {
-          // Try to extract quiz data from tool message content
+          // Try to extract quiz/game data from tool message content
           if (role == 'tool') {
             final toolName = json['toolName']?.toString() ?? '';
             final content = json['content']?.toString() ?? '';
             if (toolName == 'generateActivity' && content.isNotEmpty) {
+              // Try quiz first
               final (_, qs) = _parseQuizFromAIResponse(content);
               if (qs != null && qs.isNotEmpty) {
-                // If there's a pending quiz that wasn't attached, create a
+                // If there's a pending game/quiz that wasn't attached, create a
                 // synthetic assistant message for it before starting new one
-                if (pendingQuiz != null) {
+                if (pendingQuiz != null || pendingGameData != null) {
                   messages.add(ChatMessageEntry(
                     role: 'assistant',
-                    content: '来做几道题目吧！📝',
+                    content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                     quizQuestions: pendingQuiz,
-                    displayText: '来做几道题目吧！📝',
+                    gameType: pendingGameType,
+                    gameData: pendingGameData,
+                    displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                   ));
                 }
                 pendingQuiz = qs;
+                pendingGameType = null;
+                pendingGameData = null;
+              } else {
+                // Not quiz — try to parse as non-quiz game data
+                try {
+                  final gameMap = jsonDecode(content) as Map<String, dynamic>;
+                  // Determine game type from the data structure
+                  final gameType = gameMap['type']?.toString() ??
+                      gameMap['activityType']?.toString() ??
+                      _inferGameType(gameMap);
+                  if (gameType.isNotEmpty && gameType != 'quiz') {
+                    if (pendingQuiz != null || pendingGameData != null) {
+                      messages.add(ChatMessageEntry(
+                        role: 'assistant',
+                        content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                        quizQuestions: pendingQuiz,
+                        gameType: pendingGameType,
+                        gameData: pendingGameData,
+                        displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                      ));
+                    }
+                    pendingGameType = gameType;
+                    pendingGameData = gameMap;
+                    pendingQuiz = null;
+                  }
+                } catch (_) {
+                  // JSON parse failed, skip
+                }
               }
             }
           }
@@ -363,18 +418,18 @@ class ChatSessionProvider extends ChangeNotifier {
 
         final entry = ChatMessageEntry.fromJson(json);
 
-        // If we have quiz data from a tool message, attach it to this
+        // If we have quiz or game data from a tool message, attach it to this
         // assistant message (the tool result comes after the assistant
         // message that triggered the tool call, but for display purposes
-        // the quiz card should appear with the assistant's text)
-        if (role == 'assistant' && pendingQuiz != null) {
+        // the game card should appear with the assistant's text)
+        if (role == 'assistant' && (pendingQuiz != null || pendingGameData != null)) {
           // If assistant text is empty or just a placeholder, use the
-          // display text from the quiz data
+          // display text from the quiz/game data
           if (entry.content.trim().isEmpty) {
-            entry.content = '来做几道题目吧！📝';
+            entry.content = pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝';
           }
           entry.displayText = entry.content;
-          // Re-create with quiz questions (final field)
+          // Re-create with quiz/game data (final fields)
           messages.add(ChatMessageEntry(
             role: 'assistant',
             content: entry.content,
@@ -382,21 +437,27 @@ class ChatSessionProvider extends ChangeNotifier {
             displayText: entry.displayText,
             thinkingContent: entry.thinkingContent,
             isThinkingExpanded: entry.isThinkingExpanded,
+            gameType: pendingGameType,
+            gameData: pendingGameData,
           ));
           pendingQuiz = null;
+          pendingGameType = null;
+          pendingGameData = null;
         } else {
           messages.add(entry);
         }
       }
 
-      // If quiz data wasn't attached to any assistant message (e.g. assistant
-      // text wasn't stored), create a synthetic assistant message with the quiz
-      if (pendingQuiz != null) {
+      // If quiz/game data wasn't attached to any assistant message (e.g. assistant
+      // text wasn't stored), create a synthetic assistant message with the quiz/game
+      if (pendingQuiz != null || pendingGameData != null) {
         messages.add(ChatMessageEntry(
           role: 'assistant',
-          content: '来做几道题目吧！📝',
+          content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
           quizQuestions: pendingQuiz,
-          displayText: '来做几道题目吧！📝',
+          gameType: pendingGameType,
+          gameData: pendingGameData,
+          displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
         ));
       }
 
@@ -469,6 +530,8 @@ class ChatSessionProvider extends ChangeNotifier {
       String fullReply = '';
       List<Map<String, dynamic>>? quizQuestions;
       String? newSessionId;
+      String? pendingGameType;
+      Map<String, dynamic>? pendingGameData;
 
       await for (final event in stream) {
         final type = event['type'] as String?;
@@ -496,13 +559,38 @@ class ChatSessionProvider extends ChangeNotifier {
           notifyListeners();
         } else if (type == 'game_data') {
           final gameDataStr = event['gameData'] as String? ?? '';
+          final activityType = event['activityType'] as String? ?? '';
           if (gameDataStr.isNotEmpty) {
-            final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
-            quizQuestions = qs;
-            if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
-              fullReply = dt;
-              aiMsg.content = fullReply;
-              aiMsg.displayText = fullReply;
+            if (activityType == 'quiz' || activityType.isEmpty) {
+              // quiz 类型：继续用 _parseQuizFromAIResponse 提取 questions
+              final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
+              quizQuestions = qs;
+              if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
+                fullReply = dt;
+                aiMsg.content = fullReply;
+                aiMsg.displayText = fullReply;
+              }
+            } else {
+              // 非 quiz 类型：存储原始游戏数据，由 GameRenderer 渲染
+              try {
+                final gameMap = jsonDecode(gameDataStr) as Map<String, dynamic>;
+                pendingGameType = activityType;
+                pendingGameData = gameMap;
+                if (fullReply.isEmpty) {
+                  fullReply = '来玩个互动游戏吧！🎮';
+                  aiMsg.content = fullReply;
+                  aiMsg.displayText = fullReply;
+                }
+              } catch (_) {
+                // JSON 解析失败，降级为 quiz 解析
+                final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
+                quizQuestions = qs;
+                if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
+                  fullReply = dt;
+                  aiMsg.content = fullReply;
+                  aiMsg.displayText = fullReply;
+                }
+              }
             }
           }
           notifyListeners();
@@ -553,6 +641,8 @@ class ChatSessionProvider extends ChangeNotifier {
         isStreaming: false,
         thinkingContent: aiMsg.thinkingContent,
         isThinkingExpanded: false,
+        gameType: pendingGameType,
+        gameData: pendingGameData,
       );
       _localMessages[_localMessages.length - 1] = finalizedMsg;
 

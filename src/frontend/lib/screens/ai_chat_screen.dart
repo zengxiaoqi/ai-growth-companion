@@ -10,6 +10,7 @@ import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../components/speech_input_widget.dart';
+import 'games/game_renderer.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 内联答题卡 Widget
@@ -249,6 +250,121 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
         )),
       ]),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 内联游戏卡 Widget — 非 quiz 类型的游戏渲染（matching/fill_blank/sequencing/connection/puzzle/true_false）
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _InlineGameCard extends StatefulWidget {
+  final String gameType;
+  final Map<String, dynamic> gameData;
+
+  const _InlineGameCard({
+    required this.gameType,
+    required this.gameData,
+  });
+
+  @override
+  State<_InlineGameCard> createState() => _InlineGameCardState();
+}
+
+class _InlineGameCardState extends State<_InlineGameCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_expanded) {
+      // 收起状态：显示一个"点击开始游戏"按钮
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.softYellow.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _gameTypeLabel(widget.gameType),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                  ),
+                ),
+                const Spacer(),
+                const Text('🎮', style: TextStyle(fontSize: 20)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              widget.gameData['title']?.toString() ?? '互动游戏',
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => setState(() => _expanded = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow_rounded, size: 20, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text('开始游戏', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 展开状态：直接渲染 GameRenderer
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: GameRenderer(
+          activityType: widget.gameType,
+          initialData: widget.gameData,
+          onExit: () => setState(() => _expanded = false),
+        ),
+      ),
+    );
+  }
+
+  String _gameTypeLabel(String type) {
+    const labels = {
+      'quiz': '选择题',
+      'true_false': '判断题',
+      'matching': '配对游戏',
+      'fill_blank': '填空游戏',
+      'sequencing': '排序游戏',
+      'connection': '连线游戏',
+      'puzzle': '拼图游戏',
+    };
+    return labels[type] ?? '互动游戏';
   }
 }
 
@@ -640,6 +756,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final quizQuestions = message.quizQuestions;
     final displayText = message.displayText ?? message.content;
     final hasQuiz = quizQuestions != null && quizQuestions.isNotEmpty;
+    final hasGame = message.gameType != null && message.gameData != null;
     final isStreaming = message.isStreaming;
     final isEmpty = displayText.isEmpty;
     final thinkingContent = message.thinkingContent?.trim();
@@ -772,6 +889,13 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                 onAnswered: (qIdx, selected) {
                   // placeholder — quiz answers handled by InlineQuizCard internally
                 },
+              ),
+            ],
+            if (!isUser && hasGame) ...[
+              const SizedBox(height: 12),
+              _InlineGameCard(
+                gameType: message.gameType!,
+                gameData: message.gameData!,
               ),
             ],
             if (!isUser && !isStreaming) ...[

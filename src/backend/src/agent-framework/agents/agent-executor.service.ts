@@ -139,8 +139,8 @@ export class AgentExecutorService {
             resultSummary: resultString.slice(0, 100),
           });
 
-          // Extract game data from generateActivity tool calls
-          if (toolName === 'generateActivity') {
+          // Extract game data from generateActivity / generateQuiz tool calls
+          if (toolName === 'generateActivity' || toolName === 'generateQuiz') {
             const resultPayload = extractJsonObject(resultString);
             const activityType = this.resolveGenerateActivityType(
               normalizedToolArgs,
@@ -299,8 +299,8 @@ export class AgentExecutorService {
             toolResult: resultString,
           };
 
-          // Emit game_data for generateActivity tool
-          if (toolName === 'generateActivity') {
+          // Emit game_data for generateActivity / generateQuiz tool
+          if (toolName === 'generateActivity' || toolName === 'generateQuiz') {
             const resultPayload = extractJsonObject(resultString);
             const activityType = this.resolveGenerateActivityType(
               normalizedToolArgs,
@@ -314,7 +314,7 @@ export class AgentExecutorService {
                 domain: normalizedToolArgs.domain || 'language',
               };
             } else {
-              this.logger.warn('[STREAM] Skip invalid game_data payload for generateActivity');
+              this.logger.warn(`[STREAM] Skip invalid game_data payload for ${toolName}`);
             }
           }
 

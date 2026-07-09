@@ -620,115 +620,133 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           const { done, value } = await reader.read();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          let currentEvent = '';
 
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (line.startsWith('event: ')) {
-              currentEvent = line.slice(7).trim();
-            } else if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (currentEvent === 'done') {
-                  if (data.sessionId) setSessionId(data.sessionId);
-                  if (data.suggestions?.length) setSuggestions(data.suggestions);
-                } else if (currentEvent === 'thinking') {
-                  thinkingCounter++;
-                  const tid = `thinking-${assistantId}-${thinkingCounter}`;
+          // Parse complete SSE event blocks (delimited by \n\n)
+          // This handles multi-line data, CRLF line endings, and cross-chunk boundaries
+          while (true) {
+            const eventEnd = buffer.indexOf('\n\n');
+            if (eventEnd === -1) break;
+
+            const eventBlock = buffer.slice(0, eventEnd);
+            buffer = buffer.slice(eventEnd + 2);
+
+            // Parse event block: extract event: and data: lines
+            let currentEvent = '';
+            let dataStr = '';
+            for (const line of eventBlock.split('\n')) {
+              const trimmed = line.replace(/\r$/, ''); // strip CRLF
+              if (trimmed.startsWith('event: ')) {
+                currentEvent = trimmed.slice(7).trim();
+              } else if (trimmed.startsWith('event:')) {
+                currentEvent = trimmed.slice(6).trim();
+              } else if (trimmed.startsWith('data: ')) {
+                dataStr = trimmed.slice(6);
+              } else if (trimmed.startsWith('data:')) {
+                dataStr = trimmed.slice(5);
+              }
+            }
+
+            if (!dataStr) continue;
+            currentEvent = currentEvent || 'message';
+
+            try {
+              const data = JSON.parse(dataStr);
+              if (currentEvent === 'done') {
+                if (data.sessionId) setSessionId(data.sessionId);
+                if (data.suggestions?.length) setSuggestions(data.suggestions);
+              } else if (currentEvent === 'thinking') {
+                thinkingCounter++;
+                const tid = `thinking-${assistantId}-${thinkingCounter}`;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          thinkingSteps: [...m.thinkingSteps, { id: tid, content: data.content }],
+                        }
+                      : m,
+                  ),
+                );
+              } else if (currentEvent === 'tool_start') {
+                toolStepCounter++;
+                const tsid = `tool-${assistantId}-${toolStepCounter}`;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          toolSteps: [
+                            ...m.toolSteps,
+                            {
+                              id: tsid,
+                              toolName: data.toolName || data.content,
+                              args: data.toolArgs || {},
+                              status: 'running',
+                            },
+                          ],
+                        }
+                      : m,
+                  ),
+                );
+              } else if (currentEvent === 'tool_result') {
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const steps = [...m.toolSteps];
+                    for (let j = steps.length - 1; j >= 0; j--) {
+                      if (
+                        steps[j].status === 'running' &&
+                        steps[j].toolName === (data.toolName || data.content)
+                      ) {
+                        steps[j] = { ...steps[j], status: 'done', result: data.toolResult };
+                        break;
+                      }
+                    }
+                    return { ...m, toolSteps: steps };
+                  }),
+                );
+              } else if (currentEvent === 'game_data') {
+                // Store game data for interactive rendering
+                try {
+                  const rawParsed =
+                    typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
+                  const activityType = normalizeActivityType(data.activityType, rawParsed);
+                  const parsed = normalizeActivityData(activityType, rawParsed);
+                  const normalizedGameData: GameData = {
+                    activityType,
+                    gameData:
+                      typeof data.gameData === 'string'
+                        ? data.gameData
+                        : JSON.stringify(data.gameData),
+                    parsed,
+                    domain: data.domain,
+                  };
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantId
                         ? {
                             ...m,
-                            thinkingSteps: [...m.thinkingSteps, { id: tid, content: data.content }],
-                          }
-                        : m,
-                    ),
-                  );
-                } else if (currentEvent === 'tool_start') {
-                  toolStepCounter++;
-                  const tsid = `tool-${assistantId}-${toolStepCounter}`;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            toolSteps: [
-                              ...m.toolSteps,
-                              {
-                                id: tsid,
-                                toolName: data.toolName || data.content,
-                                args: data.toolArgs || {},
-                                status: 'running',
-                              },
+                            gameData: normalizedGameData,
+                            gameDataList: [
+                              ...(m.gameDataList?.length
+                                ? m.gameDataList
+                                : m.gameData
+                                  ? [m.gameData]
+                                  : []),
+                              normalizedGameData,
                             ],
                           }
                         : m,
                     ),
                   );
-                } else if (currentEvent === 'tool_result') {
-                  setMessages((prev) =>
-                    prev.map((m) => {
-                      if (m.id !== assistantId) return m;
-                      const steps = [...m.toolSteps];
-                      for (let j = steps.length - 1; j >= 0; j--) {
-                        if (
-                          steps[j].status === 'running' &&
-                          steps[j].toolName === (data.toolName || data.content)
-                        ) {
-                          steps[j] = { ...steps[j], status: 'done', result: data.toolResult };
-                          break;
-                        }
-                      }
-                      return { ...m, toolSteps: steps };
-                    }),
-                  );
-                } else if (currentEvent === 'game_data') {
-                  // Store game data for interactive rendering
-                  try {
-                    const rawParsed =
-                      typeof data.gameData === 'string' ? JSON.parse(data.gameData) : data.gameData;
-                    const activityType = normalizeActivityType(data.activityType, rawParsed);
-                    const parsed = normalizeActivityData(activityType, rawParsed);
-                    const normalizedGameData: GameData = {
-                      activityType,
-                      gameData:
-                        typeof data.gameData === 'string'
-                          ? data.gameData
-                          : JSON.stringify(data.gameData),
-                      parsed,
-                      domain: data.domain,
-                    };
-                    setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantId
-                          ? {
-                              ...m,
-                              gameData: normalizedGameData,
-                              gameDataList: [
-                                ...(m.gameDataList?.length
-                                  ? m.gameDataList
-                                  : m.gameData
-                                    ? [m.gameData]
-                                    : []),
-                                normalizedGameData,
-                              ],
-                            }
-                          : m,
-                      ),
-                    );
-                  } catch {}
-                } else if (currentEvent === 'token' && data.content) {
-                  fullContent += data.content;
-                  setMessages((prev) =>
-                    prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m)),
-                  );
-                }
-              } catch {}
-              currentEvent = '';
-            }
+                } catch {}
+              } else if (currentEvent === 'token' && data.content) {
+                fullContent += data.content;
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m)),
+                );
+              }
+            } catch {}
           }
         }
 

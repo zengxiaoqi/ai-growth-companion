@@ -354,8 +354,8 @@ export class AgentExecutor {
             toolResult: result,
           };
 
-          // If this was generateActivity, emit game_data for frontend rendering
-          if (toolName === 'generateActivity') {
+          // If this was generateActivity or generateQuiz, emit game_data for frontend rendering
+          if (toolName === 'generateActivity' || toolName === 'generateQuiz') {
             const resultPayload = safeParseJsonObject(result);
             const activityType = this.resolveGenerateActivityType(
               normalizedToolArgs,
@@ -369,7 +369,7 @@ export class AgentExecutor {
                 domain: normalizedToolArgs.domain || 'language',
               } as any;
             } else {
-              this.logger.warn(`[STREAM] Skip invalid game_data payload for generateActivity`);
+              this.logger.warn(`[STREAM] Skip invalid game_data payload for ${toolName}`);
             }
           }
 

@@ -364,7 +364,7 @@ class ChatSessionProvider extends ChangeNotifier {
           if (role == 'tool') {
             final toolName = json['toolName']?.toString() ?? '';
             final content = json['content']?.toString() ?? '';
-            if (toolName == 'generateActivity' && content.isNotEmpty) {
+            if ((toolName == 'generateActivity' || toolName == 'generateQuiz') && content.isNotEmpty) {
               // Try quiz first
               final (_, qs) = _parseQuizFromAIResponse(content);
               if (qs != null && qs.isNotEmpty) {
@@ -551,7 +551,7 @@ class ChatSessionProvider extends ChangeNotifier {
           }
         } else if (type == 'tool_start') {
           final toolName = event['toolName'] as String? ?? '';
-          if (toolName == 'generateActivity') {
+          if (toolName == 'generateActivity' || toolName == 'generateQuiz') {
             aiMsg.displayText = fullReply.isEmpty ? '🎨 正在生成互动题目...' : fullReply;
           } else {
             aiMsg.displayText = fullReply.isEmpty ? '🔍 正在查找信息...' : fullReply;
@@ -561,35 +561,30 @@ class ChatSessionProvider extends ChangeNotifier {
           final gameDataStr = event['gameData'] as String? ?? '';
           final activityType = event['activityType'] as String? ?? '';
           if (gameDataStr.isNotEmpty) {
-            if (activityType == 'quiz' || activityType.isEmpty) {
-              // quiz 类型：继续用 _parseQuizFromAIResponse 提取 questions
+            // 统一走 _InlineGameCard 路径（含"开始游戏"按钮）
+            // 无论 quiz 还是其他类型，都存储为 pendingGameType/GameData
+            try {
+              final gameMap = jsonDecode(gameDataStr) as Map<String, dynamic>;
+              // 如果后端没有给出 activityType，尝试从数据结构推断
+              final resolvedType = activityType.isNotEmpty
+                  ? activityType
+                  : _inferActivityType(gameMap);
+              pendingGameType = resolvedType;
+              pendingGameData = gameMap;
+              if (fullReply.isEmpty) {
+                final label = _gameTypeLabel(resolvedType);
+                fullReply = '来玩个$label吧！🎮';
+                aiMsg.content = fullReply;
+                aiMsg.displayText = fullReply;
+              }
+            } catch (_) {
+              // JSON 解析失败，降级为从文本解析 quiz
               final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
               quizQuestions = qs;
               if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
                 fullReply = dt;
                 aiMsg.content = fullReply;
                 aiMsg.displayText = fullReply;
-              }
-            } else {
-              // 非 quiz 类型：存储原始游戏数据，由 GameRenderer 渲染
-              try {
-                final gameMap = jsonDecode(gameDataStr) as Map<String, dynamic>;
-                pendingGameType = activityType;
-                pendingGameData = gameMap;
-                if (fullReply.isEmpty) {
-                  fullReply = '来玩个互动游戏吧！🎮';
-                  aiMsg.content = fullReply;
-                  aiMsg.displayText = fullReply;
-                }
-              } catch (_) {
-                // JSON 解析失败，降级为 quiz 解析
-                final (dt, qs) = _parseQuizFromAIResponse(gameDataStr);
-                quizQuestions = qs;
-                if (dt != null && dt.isNotEmpty && fullReply.isEmpty) {
-                  fullReply = dt;
-                  aiMsg.content = fullReply;
-                  aiMsg.displayText = fullReply;
-                }
               }
             }
           }
@@ -603,12 +598,9 @@ class ChatSessionProvider extends ChangeNotifier {
           }
 
           // 如果没有收到任何 token 但有 game_data，用 game_data 的 displayText
-          if (fullReply.isEmpty && quizQuestions != null) {
-            final gameDataStr = event['gameData'] as String? ?? '';
-            if (gameDataStr.isNotEmpty) {
-              final (dt, _) = _parseQuizFromAIResponse(gameDataStr);
-              if (dt != null) fullReply = dt;
-            }
+          if (fullReply.isEmpty && pendingGameData != null) {
+            final label = _gameTypeLabel(pendingGameType ?? 'quiz');
+            fullReply = '来玩个$label吧！🎮';
           }
           // 如果最终还是空的，给个兜底
           if (fullReply.isEmpty) {
@@ -694,15 +686,25 @@ class ChatSessionProvider extends ChangeNotifier {
             '抱歉，我暂时无法回复 ~';
 
         final (displayText, quizQuestions) = _parseQuizFromAIResponse(reply);
+        List<Map<String, dynamic>>? finalQuiz = quizQuestions;
+        String? pendingGameType;
+        Map<String, dynamic>? pendingGameData;
 
         // 也检查 gameData 字段
-        List<Map<String, dynamic>>? finalQuiz = quizQuestions;
         final gameData = response?['gameData'];
-        if (finalQuiz == null && gameData != null) {
+        if (gameData != null) {
           final gameDataStr = gameData is String ? gameData : jsonEncode(gameData);
-          final (gdt, gqs) = _parseQuizFromAIResponse(gameDataStr);
-          if (gqs != null) {
-            finalQuiz = gqs;
+          try {
+            final gameMap = jsonDecode(gameDataStr) as Map<String, dynamic>;
+            final gameType = gameMap['activityType']?.toString() ??
+                gameMap['type']?.toString() ??
+                _inferActivityType(gameMap);
+            pendingGameType = gameType;
+            pendingGameData = gameMap;
+          } catch (_) {
+            // JSON 解析失败，降级为文本 quiz 解析
+            final (gdt, gqs) = _parseQuizFromAIResponse(gameDataStr);
+            if (gqs != null) finalQuiz = gqs;
             final finalText = (displayText ?? '').isEmpty ? (gdt ?? reply) : displayText!;
             final finalizedMsg = ChatMessageEntry(
               role: 'assistant',
@@ -714,30 +716,33 @@ class ChatSessionProvider extends ChangeNotifier {
               isThinkingExpanded: false,
             );
             _localMessages[_localMessages.length - 1] = finalizedMsg;
-          } else {
-            final finalizedMsg = ChatMessageEntry(
-              role: 'assistant',
-              content: reply,
-              quizQuestions: null,
-              displayText: displayText ?? reply,
-              isStreaming: false,
-              thinkingContent: _stripThinkingFromText(reply),
-              isThinkingExpanded: false,
-            );
-            _localMessages[_localMessages.length - 1] = finalizedMsg;
+            final sessionId = response?['sessionId'] as String?;
+            if (sessionId != null && targetSession == null) {
+              _activeSession = ChatSessionSummary(
+                uuid: sessionId,
+                title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+              _sessions.insert(0, _activeSession!);
+            }
+            notifyListeners();
+            return _localMessages.length - 1;
           }
-        } else {
-          final finalizedMsg = ChatMessageEntry(
-            role: 'assistant',
-            content: reply,
-            quizQuestions: finalQuiz,
-            displayText: displayText ?? reply,
-            isStreaming: false,
-            thinkingContent: _stripThinkingFromText(reply),
-            isThinkingExpanded: false,
-          );
-          _localMessages[_localMessages.length - 1] = finalizedMsg;
         }
+
+        final finalizedMsg = ChatMessageEntry(
+          role: 'assistant',
+          content: reply,
+          quizQuestions: finalQuiz,
+          displayText: displayText ?? reply,
+          isStreaming: false,
+          thinkingContent: _stripThinkingFromText(reply),
+          isThinkingExpanded: false,
+          gameType: pendingGameType,
+          gameData: pendingGameData,
+        );
+        _localMessages[_localMessages.length - 1] = finalizedMsg;
 
         final sessionId = response?['sessionId'] as String?;
         if (sessionId != null && targetSession == null) {
@@ -763,6 +768,42 @@ class ChatSessionProvider extends ChangeNotifier {
         return _localMessages.length - 1;
       }
     }
+  }
+
+  /// 从游戏数据结构推断活动类型
+  String _inferActivityType(Map<String, dynamic> data) {
+    // 显式类型字段
+    final type = data['type']?.toString().trim() ??
+        data['activityType']?.toString().trim();
+    if (type != null && type.isNotEmpty) return type;
+
+    // 根据数据结构推断
+    if (data['questions'] is List) return 'quiz';
+    if (data['statements'] is List) return 'true_false';
+    if (data['sentences'] is List) return 'fill_blank';
+    if (data['pairs'] is List) return 'matching';
+    if (data['connections'] is List ||
+        (data['leftItems'] is List && data['rightItems'] is List)) {
+      return 'connection';
+    }
+    if (data['pieces'] is List || data['gridSize'] is Map) return 'puzzle';
+    if (data['items'] is List) return 'sequencing';
+
+    return 'quiz'; // 默认
+  }
+
+  /// 游戏类型中文名
+  String _gameTypeLabel(String type) {
+    const labels = {
+      'quiz': '选择题',
+      'true_false': '判断题',
+      'matching': '配对游戏',
+      'fill_blank': '填空游戏',
+      'sequencing': '排序游戏',
+      'connection': '连线游戏',
+      'puzzle': '拼图游戏',
+    };
+    return labels[type] ?? '互动游戏';
   }
 
 }

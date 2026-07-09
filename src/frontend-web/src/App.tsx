@@ -10,7 +10,11 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom';
-import { Shield, Loader2, ArrowLeft } from '@/icons';
+import {
+  Shield,
+  Loader2,
+  ArrowLeft,
+} from '@/icons';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
@@ -49,9 +53,11 @@ function PageLoader({ label = '加载中...' }: { label?: string }) {
 }
 
 function GuestOnly({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   if (isLoading) return <PageLoader />;
-  if (isAuthenticated) return <Navigate to="/mode" replace />;
+  if (isAuthenticated) {
+    return <Navigate to={user?.type === 'parent' ? '/parent' : '/student'} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -69,8 +75,9 @@ function LoginRoute() {
   return (
     <LoginScreen
       onLogin={async (phone, password) => {
-        await login({ phone, password });
-        navigate('/mode', { replace: true });
+        const response = await login({ phone, password });
+        // Auto-route based on user type
+        navigate(response.user.type === 'parent' ? '/parent' : '/student', { replace: true });
       }}
       onSwitchToRegister={() => {
         clearError();
@@ -89,8 +96,9 @@ function RegisterRoute() {
   return (
     <RegisterScreen
       onRegister={async (data) => {
-        await register(data);
-        navigate('/mode', { replace: true });
+        const response = await register(data);
+        // Auto-route based on user type
+        navigate(response.user.type === 'parent' ? '/parent' : '/student', { replace: true });
       }}
       onSwitchToLogin={() => {
         clearError();
@@ -367,7 +375,15 @@ function ProtectedShell() {
         <Route path="/student/companion" element={<StudentCompanionRoute />} />
         <Route path="/parent" element={<ParentRoute />} />
         <Route path="/parent/content/:id" element={<ParentContentRoute />} />
-        <Route path="*" element={<Navigate to="/mode" replace />} />
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={user?.type === 'parent' ? '/parent' : '/student'}
+              replace
+            />
+          }
+        />
       </Routes>
 
       {!hideSecurityBadge ? (

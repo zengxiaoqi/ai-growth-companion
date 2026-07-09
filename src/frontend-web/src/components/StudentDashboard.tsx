@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import useSWR from 'swr';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import {
   Settings,
   Flag,
@@ -23,6 +24,9 @@ import {
   Trophy,
   ClipboardCheck,
   ChevronUp,
+  ArrowsRightLeft,
+  Lock,
+  X,
   type LucideIcon,
 } from '@/icons';
 import { cn } from '../lib/utils';
@@ -161,10 +165,17 @@ export default function StudentDashboard({
   onOpenCompanion,
   onOpenAssignment,
 }: StudentDashboardProps) {
-  const { user } = useAuth();
+  const { user, switchToParentMode } = useAuth();
+  const navigate = useNavigate();
   const reducedMotion = useReducedMotion();
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>('3-4');
   const ageRange: '3-4' | '5-6' = user?.age && user.age >= 5 ? '5-6' : '3-4';
+
+  // Switch to parent mode state
+  const [showSwitchDialog, setShowSwitchDialog] = useState(false);
+  const [parentPassword, setParentPassword] = useState('');
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const { data: contentsData, isLoading } = useSWR(
     ['contents', ageRange],
@@ -439,6 +450,25 @@ export default function StudentDashboard({
     curriculumRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const handleSwitchToParent = useCallback(async () => {
+    if (!parentPassword) {
+      setSwitchError('请输入家长登录密码');
+      return;
+    }
+    setSwitching(true);
+    setSwitchError(null);
+    try {
+      await switchToParentMode(parentPassword);
+      setShowSwitchDialog(false);
+      setParentPassword('');
+      navigate('/parent', { replace: true });
+    } catch (err) {
+      setSwitchError(err instanceof Error ? err.message : '密码错误，请重试');
+    } finally {
+      setSwitching(false);
+    }
+  }, [parentPassword, switchToParentMode, navigate]);
+
   const userName = user?.name || '小朋友';
 
   return (
@@ -462,13 +492,27 @@ export default function StudentDashboard({
             <h1 className="text-lg font-black tracking-tight md:text-xl">灵犀伴学</h1>
           </div>
 
-          <button
-            onClick={onOpenSettings}
-            aria-label="打开设置"
-            className="touch-target rounded-xl p-2 transition-colors hover:bg-surface-container"
-          >
-            <Settings className="h-5 w-5 text-on-secondary-container" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setShowSwitchDialog(true);
+                setParentPassword('');
+                setSwitchError(null);
+              }}
+              aria-label="切换到家长端"
+              className="touch-target flex items-center gap-1.5 rounded-full bg-secondary-container/40 px-3 py-1.5 text-sm font-bold text-on-secondary-container transition-colors hover:bg-secondary-container/60"
+            >
+              <ArrowsRightLeft className="h-4 w-4" />
+              家长端
+            </button>
+            <button
+              onClick={onOpenSettings}
+              aria-label="打开设置"
+              className="touch-target rounded-xl p-2 transition-colors hover:bg-surface-container"
+            >
+              <Settings className="h-5 w-5 text-on-secondary-container" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1117,6 +1161,101 @@ export default function StudentDashboard({
         onClose={() => setShowEmergencyDialog(false)}
         childId={user?.id ?? 0}
       />
+
+      {/* Switch to parent mode dialog */}
+      <AnimatePresence>
+        {showSwitchDialog ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => !switching && setShowSwitchDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-sm rounded-3xl bg-surface p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🔒</span>
+                  <h2 className="text-lg font-black text-on-surface">切换到家长端</h2>
+                </div>
+                <button
+                  onClick={() => !switching && setShowSwitchDialog(false)}
+                  className="touch-target rounded-full p-1.5 transition-colors hover:bg-surface-container"
+                  aria-label="关闭"
+                >
+                  <X className="h-5 w-5 text-on-surface-variant" />
+                </button>
+              </div>
+
+              <p className="mb-4 text-sm text-on-surface-variant">
+                请输入家长登录密码以验证身份。
+              </p>
+
+              <div className="mb-3">
+                <label className="mb-2 block text-sm font-bold text-on-surface">
+                  家长登录密码
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={parentPassword}
+                    autoFocus
+                    disabled={switching}
+                    placeholder="请输入密码"
+                    className="touch-target h-12 w-full rounded-xl border border-outline-variant/35 bg-surface pl-10 pr-4 text-base font-semibold text-on-surface focus:border-primary focus:outline-none disabled:opacity-50"
+                    onChange={(e) => {
+                      setParentPassword(e.target.value);
+                      setSwitchError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSwitchToParent();
+                    }}
+                  />
+                </div>
+              </div>
+
+              {switchError && (
+                <div className="mb-3 flex items-start gap-2 rounded-xl bg-error-container/20 px-3 py-2 text-sm font-semibold text-error">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{switchError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => !switching && setShowSwitchDialog(false)}
+                  disabled={switching}
+                  className="touch-target flex-1 rounded-2xl bg-surface-container-high px-4 py-3 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container-highest disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSwitchToParent}
+                  disabled={switching || !parentPassword}
+                  className="touch-target flex-1 rounded-2xl bg-secondary px-4 py-3 text-sm font-bold text-on-secondary transition-colors hover:bg-secondary/90 disabled:opacity-50"
+                >
+                  {switching ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      验证中...
+                    </span>
+                  ) : (
+                    '验证并切换'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

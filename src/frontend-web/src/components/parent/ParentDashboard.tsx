@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowsRightLeft,
   BarChart3,
   ClipboardList,
   Clock3,
   LogOut,
+  Loader2,
   MessageCircle,
   Settings,
   Sparkles,
@@ -84,7 +86,7 @@ function NoChildSelected({ onBackToChat }: { onBackToChat?: () => void }) {
 }
 
 export default function ParentDashboard({ onBack }: ParentDashboardProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, switchToChildMode } = useAuth();
   const navigate = useNavigate();
   const controlsRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +94,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showReportDetail, setShowReportDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [switchingMode, setSwitchingMode] = useState(false);
 
   const [children, setChildren] = useState<User[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
@@ -115,7 +118,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       if (!user?.id) return;
 
       try {
-        const childrenData = await api.getChildren(user.id);
+        const childrenData = await api.getChildren();
         setChildren(childrenData);
         if (childrenData.length > 0) {
           setSelectedChildId((prev) => prev ?? childrenData[0].id);
@@ -341,6 +344,19 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     onBack();
   }, [logout, onBack]);
 
+  const handleSwitchToChild = useCallback(async () => {
+    setSwitchingMode(true);
+    try {
+      // If a child is selected, switch to that child; otherwise let backend pick first child
+      await switchToChildMode(selectedChildId ?? undefined);
+      navigate('/student', { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '切换失败，请重试');
+    } finally {
+      setSwitchingMode(false);
+    }
+  }, [switchToChildMode, selectedChildId, navigate]);
+
   const handleSaveControls = useCallback(
     async (data: {
       dailyLimitMinutes: number;
@@ -470,6 +486,19 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
             onLinkChild={handleLinkChild}
             selectedChild={selectedChild}
           />
+          <button
+            type="button"
+            onClick={handleSwitchToChild}
+            disabled={switchingMode}
+            className="touch-target flex items-center gap-1.5 rounded-full bg-primary-container/35 px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary-container/55 disabled:opacity-50"
+          >
+            {switchingMode ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowsRightLeft className="h-4 w-4" />
+            )}
+            学生端
+          </button>
         </div>
       </header>
 

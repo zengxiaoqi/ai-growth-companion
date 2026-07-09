@@ -13,6 +13,7 @@ import {
   ArrowPathIcon,
   ArrowRightIcon,
   ArrowRightStartOnRectangleIcon,
+  ArrowsRightLeftIcon,
   Bars3Icon,
   BeakerIcon,
   BellIcon,
@@ -87,6 +88,7 @@ export const ArrowDown = ArrowDownIcon;
 export const ArrowLeft = ArrowLeftIcon;
 export const ArrowRight = ArrowRightIcon;
 export const ArrowUpDown = ArrowsUpDownIcon;
+export const ArrowsRightLeft = ArrowsRightLeftIcon;
 export const Award = TrophyIcon;
 export const Baby = UserCircleIcon;
 export const Bell = BellIcon;

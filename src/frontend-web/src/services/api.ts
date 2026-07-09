@@ -154,11 +154,19 @@ class ApiService {
     this.setToken(null);
   }
 
-  // Switch to parent (password verification)
+  // Switch to parent (password verification, child → parent)
   async switchToParent(password: string): Promise<{ user: User; token: string }> {
     return this.request<{ user: User; token: string }>('/auth/switch-to-parent', {
       method: 'POST',
       body: JSON.stringify({ password }),
+    });
+  }
+
+  // Switch to child (parent → child, no password needed)
+  async switchToChild(childId?: number): Promise<{ user: User; token: string }> {
+    return this.request<{ user: User; token: string }>('/auth/switch-to-child', {
+      method: 'POST',
+      body: JSON.stringify(childId ? { childId } : {}),
     });
   }
 
@@ -174,9 +182,9 @@ class ApiService {
     });
   }
 
-  // Children
-  async getChildren(parentId: number): Promise<User[]> {
-    return this.request<User[]>(`/users/children/${parentId}`);
+  // Children — backend resolves parentId from JWT, no path param needed
+  async getChildren(): Promise<User[]> {
+    return this.request<User[]>('/users/children');
   }
 
   async linkChild(childPhone: string): Promise<User> {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import type { User, LoginRequest, RegisterRequest } from '@/types';
+import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types';
 import api from '@/services/api';
 
 interface AuthContextType {
@@ -8,10 +8,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<AuthResponse>;
+  register: (data: RegisterRequest) => Promise<AuthResponse>;
   logout: () => void;
   clearError: () => void;
+  switchToParentMode: (password: string) => Promise<User>;
+  switchToChildMode: (childId?: number) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -57,7 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (data: LoginRequest) => {
+  const login = useCallback(async (data: LoginRequest): Promise<AuthResponse> => {
     setIsLoading(true);
     setError(null);
 
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(response.user);
       localStorage.setItem('auth_token', response.token);
       localStorage.setItem('auth_user', JSON.stringify(response.user));
+      return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : '登录失败，请重试';
       setError(message);
@@ -76,7 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  const register = useCallback(async (data: RegisterRequest) => {
+  const register = useCallback(async (data: RegisterRequest): Promise<AuthResponse> => {
     setIsLoading(true);
     setError(null);
 
@@ -86,6 +89,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(response.user);
       localStorage.setItem('auth_token', response.token);
       localStorage.setItem('auth_user', JSON.stringify(response.user));
+      return response;
     } catch (err) {
       const message = err instanceof Error ? err.message : '注册失败，请重试';
       setError(message);
@@ -108,6 +112,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null);
   }, []);
 
+  // Switch to parent mode (child → parent, requires parent password)
+  const switchToParentMode = useCallback(async (password: string): Promise<User> => {
+    const response = await api.switchToParent(password);
+    setToken(response.token);
+    setUser(response.user);
+    localStorage.setItem('auth_token', response.token);
+    localStorage.setItem('auth_user', JSON.stringify(response.user));
+    return response.user;
+  }, []);
+
+  // Switch to child mode (parent → child, no password needed)
+  const switchToChildMode = useCallback(async (childId?: number): Promise<User> => {
+    const response = await api.switchToChild(childId);
+    setToken(response.token);
+    setUser(response.user);
+    localStorage.setItem('auth_token', response.token);
+    localStorage.setItem('auth_user', JSON.stringify(response.user));
+    return response.user;
+  }, []);
+
   const value: AuthContextType = {
     user,
     token,
@@ -118,6 +142,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     clearError,
+    switchToParentMode,
+    switchToChildMode,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

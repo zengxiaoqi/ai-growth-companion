@@ -80,7 +80,7 @@ describe('ApiService', () => {
   });
 
   describe('getChildren', () => {
-    it('calls /users/children/:parentId', async () => {
+    it('calls /users/children', async () => {
       const mockChildren = [
         { id: 2, name: 'Child 1', type: 'child' },
         { id: 3, name: 'Child 2', type: 'child' },
@@ -91,7 +91,7 @@ describe('ApiService', () => {
         json: () => Promise.resolve(mockChildren),
       });
 
-      const result = await api.getChildren(1);
+      const result = await api.getChildren();
       expect(result).toEqual(mockChildren);
     });
   });

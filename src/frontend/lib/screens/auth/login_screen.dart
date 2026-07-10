@@ -75,21 +75,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         return;
       }
 
-      // 保存 rememberMe 标志
-      final storage = context.read<StorageService>();
+      // 保存 rememberMe 标志（capture references before await to satisfy use_build_context_synchronously)
+      final storage = mounted ? context.read<StorageService>() : null;
+      if (storage == null) return;
       await storage.saveRememberMe(_rememberMe);
+      if (!mounted) return;
 
       // 保存 token（仅在"记住我"勾选时持久化，否则仅内存使用）
       final token = result['access_token'] ?? result['token'];
       debugPrint('[LOGIN] Token found: ${token != null}, rememberMe: $_rememberMe');
       if (token != null) {
-        if (!mounted) {
-          debugPrint('[LOGIN] Widget not mounted after token save');
-          return;
-        }
         if (_rememberMe) {
           await storage.saveToken(token.toString());
           debugPrint('[LOGIN] Token saved to storage (rememberMe=true)');
+          if (!mounted) return;
         } else {
           // 不持久化 token，仅注入到 ApiService 供当前会话使用
           debugPrint('[LOGIN] Token not saved (rememberMe=false)');

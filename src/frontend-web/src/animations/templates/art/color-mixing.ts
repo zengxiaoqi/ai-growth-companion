@@ -60,7 +60,7 @@ registerP5Sketch('art.color-mixing', (p: p5, params: Record<string, unknown>) =>
   let leftX: number;
   let rightX: number;
   let centerY: number;
-  let circleSize = 70;
+  const circleSize = 70;
 
   // Splash particles
   interface Particle {

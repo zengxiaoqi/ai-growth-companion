@@ -233,7 +233,7 @@ registerP5Sketch('science.plant-growth', (p: p5, params: Record<string, unknown>
     p.noFill();
     p.beginShape();
     p.vertex(plantX, baseY);
-    // @ts-ignore - p5 types are incorrect for 2D bezierVertex (6 args expected by p5 but types only show 5)
+    // @ts-expect-error - p5 types are incorrect for 2D bezierVertex (6 args expected by p5 but types only show 5)
     p.bezierVertex(plantX - 3, baseY - stemH * 0.3, plantX + 3, baseY - stemH * 0.6, plantX, topY);
     p.endShape();
     p.noStroke();
@@ -250,7 +250,7 @@ registerP5Sketch('science.plant-growth', (p: p5, params: Record<string, unknown>
     p.noFill();
     p.beginShape();
     p.vertex(plantX, baseY);
-    // @ts-ignore - p5 types are incorrect for 2D bezierVertex (6 args expected by p5 but types only show 5)
+    // @ts-expect-error - p5 types are incorrect for 2D bezierVertex (6 args expected by p5 but types only show 5)
     p.bezierVertex(plantX - 4, baseY - stemH * 0.3, plantX + 4, baseY - stemH * 0.7, plantX, topY);
     p.endShape();
     p.noStroke();

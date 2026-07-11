@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-11",
-  "analysis_count": 50,
-  "commit_count": 419,
-  "last_commit": "2026-07-11T02:31:42+08:00",
-  "last_commit_hash": "837a5e3",
+  "last_analysis": "2026-07-12",
+  "analysis_count": 51,
+  "commit_count": 420,
+  "last_commit": "2026-07-12T00:00:00+08:00",
+  "last_commit_hash": "5bd9d69",
   "commits_ahead_remote": 0,
-  "remote_head": "837a5e3",
-  "remote_head_date": "2026-07-11T02:31:42+08:00",
+  "remote_head": "5bd9d69",
+  "remote_head_date": "2026-07-12T00:00:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 98,
@@ -50,7 +50,8 @@
     "2026-07-08: Daily analysis #47 — deploy healthy (200), backend systemd running (2d uptime), tunnel active (4d). No new commits since #46. All 72 unit test suites pass (847 tests). Fixed unused import warning in api_service.dart (removed 'dart:convert' — no longer needed after SSE adapter refactor moved jsonDecode/utf8 to sse_adapter.dart). Flutter analyze: 3 info-level issues in sse_adapter.dart (JS interop runtime checks — acceptable for cross-platform Web/native code). Uncommitted WIP: SSE adapter for Flutter Web streaming (sse_adapter.dart 275 lines + api_service.dart refactor).",
     "2026-07-09: Daily analysis #48 — deploy healthy (200), backend systemd running (8h, nvm v22 + better-sqlite3 confirmed working), tunnel active (5d). 2 new commits since #47: (1) f352b94 孩子管理手机号→手机号/账号 + 后端 findByPhoneOrName + 主页孩子列表刷新, (2) f13cdc3 协调模式流式输出 runCoordinatedFlowStream 替代非流式 runCoordinatedFlow (重大修复: 修复前1 thinking+1 token, 修复后3 thinking+2 tool_start+2 tool_result+1 game_data+216 token). SSE adapter.dart 已提交 (P1 跟踪项清零). Pushed 2 commits to origin. Cleaned 1GB stale Android build cache (913MB build/app/ + 24MB jni/ + 11 plugin caches → 57MB total). Cleaned stale versioned JS files. Backend build clean, ESLint 0 errors, 69 tests verified passing (orchestrator 4, users 27, agents 4, SSE+game 34). Flutter web build fresh (01:27 today). React typecheck clean.",
     "2026-07-10: Daily analysis #49 — deploy healthy (200), backend systemd running (12h), tunnel active (6d). 3 new commits since #48: (1) 4d3fba7 GameRenderer integration for non-quiz game types, (2) ac13816 getChildren API endpoint mismatch fix, (3) 7dfb346 api token cache on mode switch. Committed uncommitted WIP: 36b4faf generateQuiz tool handling — agent-executor now emits game_data for both generateActivity AND generateQuiz (backend) + unified game rendering path in Flutter chat_session_provider (all game types go through _InlineGameCard with _inferActivityType) + React Web SSE parser rewritten for robust event block parsing. Fixed unused dart:typed_data import in sse_adapter_native.dart (6356170). All 72 test suites pass. Backend build clean, ESLint 0 errors. Flutter analyze: 5 info-level + 0 warnings (was 6 issues, fixed the 1 warning). React typecheck clean.",
-    "2026-07-11: Daily analysis #50 — deploy healthy (200), backend systemd running (2d7h), tunnel active (1w0d). Autonomous Evaluation & Implementation Pipeline executed 3 Tier 1 actions: (1) Fixed Flutter login_screen.dart use_build_context_synchronously warnings — capture StorageService ref before await + add mounted checks, flutter analyze 5→3 issues (remaining 3 are SSE adapter JS interop). (2) Added 20 unit tests for agent-executor game_data emission (new file: agent-executor.game-data.spec.ts) — covers generateQuiz/generateActivity → game_data events, all 7 activity types, error payload skipping, non-JSON handling, code block parsing, stream event ordering, domain field. All 20 pass, total 846→866 tests. (3) Added ESLint flat config (eslint.config.js) for React web frontend — installed @eslint/js + typescript-eslint + react-hooks + react-refresh, updated lint script to 'eslint src/', auto-fixed prefer-const in color-mixing.ts, 233 issues identified for gradual cleanup (18 errors, 215 warnings). TypeScript typecheck clean. Backend build clean, pre-commit hook passed. Pushed to origin."
+    "2026-07-11: Daily analysis #50 — deploy healthy (200), backend systemd running (2d7h), tunnel active (1w0d). Autonomous Evaluation & Implementation Pipeline executed 3 Tier 1 actions: (1) Fixed Flutter login_screen.dart use_build_context_synchronously warnings — capture StorageService ref before await + add mounted checks, flutter analyze 5→3 issues (remaining 3 are SSE adapter JS interop). (2) Added 20 unit tests for agent-executor game_data emission (new file: agent-executor.game-data.spec.ts) — covers generateQuiz/generateActivity → game_data events, all 7 activity types, error payload skipping, non-JSON handling, code block parsing, stream event ordering, domain field. All 20 pass, total 846→866 tests. (3) Added ESLint flat config (eslint.config.js) for React web frontend — installed @eslint/js + typescript-eslint + react-hooks + react-refresh, updated lint script to 'eslint src/', auto-fixed prefer-const in color-mixing.ts, 233 issues identified for gradual cleanup (18 errors, 215 warnings). TypeScript typecheck clean. Backend build clean, pre-commit hook passed. Pushed to origin.",
+    "2026-07-12: Daily analysis #51 — deploy healthy (200), backend systemd running (3d), tunnel active (1w1d). Autonomous Pipeline: fixed all 18 ESLint errors in React web frontend → 0 errors (215 warnings remain, all no-explicit-any for gradual cleanup). Fixes: api.ts (preserve-caught-error + 3 no-empty catch blocks + no-useless-escape regex), AIChat.tsx (2 no-empty catch blocks), TracePathCanvas.tsx (react-hooks/rules-of-hooks — moved useState above conditional return + null-safe hook signatures), plant-growth.ts/daily-routine.ts/emotion-faces.ts (6 @ts-ignore→@ts-expect-error with descriptions), StructuredLessonView.tsx (1 pre-existing react-hooks/rules-of-hooks — moved useState above conditional return). TypeScript typecheck clean. Vite build successful. 7 files, +31/-18 lines."
   ],
   "lessons_learned": [
     "NestJS lifecycle: constructor validation runs BEFORE onModuleInit — never validate DI state in constructors, use OnApplicationBootstrap (pitfall #64)",
@@ -73,7 +74,9 @@
     "Flutter use_build_context_synchronously: capture context.read references BEFORE await calls — using mounted ? context.read<T>() : null pattern satisfies the analyzer and is semantically correct",
     "Jest testing agent-executor: ContentSafetyService mock must include filterContent() (not just isContentSafe) — the executeStream method calls this.contentSafetyService.filterContent() on the final response. Mock returns { content, wasFiltered: false }.",
     "ESLint v10 flat config: when installing typescript-eslint + react-hooks plugins for React 19, some rules (set-state-in-effect, preserve-caught-error) are new in v10 and may flag existing code as errors — downgrade to 'warn' to avoid blocking builds while issues are addressed gradually",
-    "Frontend-web ESLint: the 'lint' npm script was misconfigured as 'tsc --noEmit' (typecheck) instead of actual eslint. When adding flat config, also update package.json scripts: lint='eslint src/', lint:fix='eslint src/ --fix', keep typecheck separate"
+    "Frontend-web ESLint: the 'lint' npm script was misconfigured as 'tsc --noEmit' (typecheck) instead of actual eslint. When adding flat config, also update package.json scripts: lint='eslint src/', lint:fix='eslint src/ --fix', keep typecheck separate",
+    "React rules-of-hooks: when a component has a conditional early return (e.g. `if (sceneDocument) return <Component />`), ALL hooks must be placed BEFORE the conditional — not just the ones that are always called. Moving useState above the early return is the correct fix, not wrapping in a conditional hook.",
+    "ESLint @typescript-eslint/ban-ts-comment: @ts-expect-error directives require a description of at least 3 characters after the directive (e.g. `// @ts-expect-error - reason here`). Without a description, it triggers an error. Always add a description when converting from @ts-ignore."
   ],
   "metrics": {
     "backend_files": 214,

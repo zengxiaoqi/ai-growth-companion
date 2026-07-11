@@ -992,6 +992,7 @@ function WriteStep({
   isCompleted: boolean;
 }) {
   const sceneDocument = useMemo(() => resolveLessonSceneDocument('write', m), [m]);
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   if (sceneDocument) {
     return (
       <LessonScenePlayer
@@ -1006,7 +1007,6 @@ function WriteStep({
   const tracingItems: string[] = writing.tracingItems || [];
   const tasks: string[] = writing.practiceTasks || [];
   const checklist: string[] = writing.checklist || [];
-  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   return (
     <div className="space-y-3">

@@ -739,14 +739,18 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                         : m,
                     ),
                   );
-                } catch {}
+                } catch {
+                  // JSON parse error in event data, skip
+                }
               } else if (currentEvent === 'token' && data.content) {
                 fullContent += data.content;
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m)),
                 );
               }
-            } catch {}
+            } catch {
+              // SSE stream parse error, skip this event
+            }
           }
         }
 

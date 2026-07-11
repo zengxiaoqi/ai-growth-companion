@@ -49,8 +49,9 @@ function samplePolyline(points: Point[]): Point[] {
   return samples;
 }
 
-function useGlyphTarget(target: Extract<TracePathSpec, { kind: 'glyph' }>) {
+function useGlyphTarget(target: Extract<TracePathSpec, { kind: 'glyph' }> | null) {
   return useMemo(() => {
+    if (!target) return { samples: [] as Point[], drawGuide: (_ctx: CanvasRenderingContext2D) => {} };
     const guideCanvas = document.createElement('canvas');
     guideCanvas.width = CANVAS_SIZE;
     guideCanvas.height = CANVAS_SIZE;
@@ -88,8 +89,9 @@ function useGlyphTarget(target: Extract<TracePathSpec, { kind: 'glyph' }>) {
   }, [target]);
 }
 
-function usePolylineTarget(target: Extract<TracePathSpec, { kind: 'polyline' }>) {
+function usePolylineTarget(target: Extract<TracePathSpec, { kind: 'polyline' }> | null) {
   return useMemo(() => {
+    if (!target) return { samples: [] as Point[], drawGuide: (_ctx: CanvasRenderingContext2D) => {} };
     const points = target.points.map((point) => ({
       x: point.x * CANVAS_SIZE,
       y: point.y * CANVAS_SIZE,
@@ -131,10 +133,11 @@ export default function TracePathCanvas({
   const [attempts, setAttempts] = useState(1);
   const [warning, setWarning] = useState<string | null>(null);
 
+  // Hooks must be called unconditionally — call both and select the result
   const glyphTarget = target.kind === 'glyph' ? target : null;
   const polylineTarget = target.kind === 'polyline' ? target : null;
-  const glyphGuide = glyphTarget ? useGlyphTarget(glyphTarget) : null;
-  const polylineGuide = polylineTarget ? usePolylineTarget(polylineTarget) : null;
+  const glyphGuide = useGlyphTarget(glyphTarget);
+  const polylineGuide = usePolylineTarget(polylineTarget);
 
   const samplePoints = glyphGuide?.samples || polylineGuide?.samples || [];
 

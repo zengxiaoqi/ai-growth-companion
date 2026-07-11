@@ -111,7 +111,7 @@ class ApiService {
       });
     } catch (err: any) {
       if (err?.name === 'AbortError') {
-        throw new Error('请求超时，请检查网络连接或后端服务是否可访问');
+        throw new Error('请求超时，请检查网络连接或后端服务是否可访问', { cause: err });
       }
       throw err;
     } finally {
@@ -345,7 +345,9 @@ class ApiService {
       try {
         const body = await response.json();
         message = body?.message || message;
-      } catch {}
+      } catch {
+        // response body is not JSON, use default message
+      }
       throw new Error(message);
     }
 
@@ -385,7 +387,9 @@ class ApiService {
       try {
         const body = await response.json();
         message = body?.message || message;
-      } catch {}
+      } catch {
+        // response body is not JSON, use default message
+      }
       throw new Error(message);
     }
 
@@ -413,7 +417,7 @@ class ApiService {
         return utf8Match[1];
       }
     }
-    const normalMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+    const normalMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
     if (normalMatch?.[1]) return normalMatch[1];
     return fallback;
   }
@@ -884,7 +888,9 @@ class ApiService {
       try {
         const body = await response.json();
         message = body?.message || message;
-      } catch {}
+      } catch {
+        // response body is not JSON, use default message
+      }
       throw new Error(message);
     }
 

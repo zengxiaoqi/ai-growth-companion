@@ -283,7 +283,7 @@ registerP5Sketch('social.daily-routine', (p: p5, params: Record<string, unknown>
         p.strokeWeight(1.5);
         p.beginShape();
         p.vertex(x - s * 0.5, y - s * 0.3);
-        // @ts-ignore - quadraticVertexTo doesn't exist, convert to bezierVertex
+        // @ts-expect-error - quadraticVertexTo doesn't exist, convert to bezierVertex
         p.bezierVertex(x - s * 0.5, y + s * 0.3, x, y + s * 0.4 * 0.67, x, y + s * 0.4);
         (p as any).bezierVertex(
           x + s * 0.5,

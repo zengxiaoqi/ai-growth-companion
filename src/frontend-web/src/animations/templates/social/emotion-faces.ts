@@ -341,7 +341,7 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
       // Open mouth
       p.beginShape();
       p.vertex(x - mouthW / 2, mouthY);
-      // @ts-ignore - quadraticVertexTo doesn't exist, convert to bezierVertex
+      // @ts-expect-error - quadraticVertexTo doesn't exist, convert to bezierVertex
       p.quadraticVertexTo(
         x,
         mouthY + currentState.mouthCurve * 30 + currentState.mouthOpenness * 25,
@@ -355,7 +355,7 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
       p.fill(120, 40, 40);
       p.beginShape();
       p.vertex(x - mouthW / 2 + 2, mouthY);
-      // @ts-ignore
+      // @ts-expect-error - quadraticVertexTo doesn't exist on p5 type defs
       p.quadraticVertexTo(
         x,
         mouthY + currentState.mouthCurve * 25 + currentState.mouthOpenness * 20,
@@ -367,7 +367,7 @@ registerP5Sketch('social.emotion-faces', (p: p5, params: Record<string, unknown>
       // Closed/slight smile
       p.beginShape();
       p.vertex(x - mouthW / 2, mouthY);
-      // @ts-ignore
+      // @ts-expect-error - quadraticVertexTo doesn't exist on p5 type defs
       p.quadraticVertexTo(x, mouthY + currentState.mouthCurve * 30, x + mouthW / 2, mouthY);
       p.endShape();
     }

@@ -23,7 +23,6 @@ Stream<Map<String, dynamic>> platformFetchSseStream({
   required Dio dio,
 }) async* {
   _log.info('Web SSE: fetch $method $url');
-  debugPrint('🔍 [WebSSE] 发起请求: $method $url');
 
   // 尝试 fetch + ReadableStream
   try {
@@ -31,7 +30,6 @@ Stream<Map<String, dynamic>> platformFetchSseStream({
     return;
   } catch (e) {
     _log.warning('Web SSE: stream failed, falling back to non-streaming: $e');
-    debugPrint('⚠️ [WebSSE] 流式失败，回退到非流式: $e');
   }
 
   // Fallback: 非流式请求
@@ -67,17 +65,15 @@ Stream<Map<String, dynamic>> _fetchSseStream({
     response = await responsePromise.toDart;
   } catch (e) {
     _log.warning('Web SSE: fetch failed: $e');
-    debugPrint('⚠️ [WebSSE] fetch失败: $e');
     throw Exception('fetch failed: $e');
   }
 
-  debugPrint('🔍 [WebSSE] 响应状态: ${response.status} ${response.statusText}');
+
 
   if (!response.ok) {
     final status = response.status;
     final statusText = response.statusText;
     _log.warning('Web SSE: HTTP $status $statusText');
-    debugPrint('⚠️ [WebSSE] HTTP错误: $status $statusText');
     yield {'type': 'error', 'message': 'HTTP $status: $statusText'};
     return;
   }
@@ -98,13 +94,11 @@ Stream<Map<String, dynamic>> _fetchSseStream({
   // 超时检测：如果 30 秒内没有收到任何数据，说明 Cloudflare 在缓冲，回退到非流式
   bool gotFirstChunk = false;
 
-  debugPrint('🔍 [WebSSE] 开始监听流...');
   while (true) {
     final result = await reader.read().toDart;
 
     if (result.done) {
       _log.info('Web SSE: stream done');
-      debugPrint('🔍 [WebSSE] 流结束');
       break;
     }
 
@@ -116,11 +110,8 @@ Stream<Map<String, dynamic>> _fetchSseStream({
     final uint8List = _jsToUint8List(chunkData);
     if (uint8List == null) {
       _log.warning('Web SSE: unexpected chunk type: ${chunkData.runtimeType}');
-      debugPrint('⚠️ [WebSSE] 未知chunk类型: ${chunkData.runtimeType}');
       continue;
     }
-
-    debugPrint('🔍 [WebSSE] 收到chunk: ${uint8List.length} bytes');
 
     byteBuffer.addAll(uint8List);
 
@@ -182,7 +173,6 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
   // 将 /chat/stream 改为 /chat
   final nonStreamUrl = url.replaceAll('/chat/stream', '/chat');
   _log.info('Web SSE: fallback to non-streaming $nonStreamUrl');
-  debugPrint('🔍 [WebSSE] 非流式回退: $nonStreamUrl');
 
   try {
     final response = await dio.post(
@@ -195,7 +185,6 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
     );
 
     final data = response.data;
-    debugPrint('🔍 [WebSSE] 非流式响应: ${response.statusCode}');
 
     // 模拟 SSE 事件序列
     // 先发 thinking（如果有）
@@ -227,7 +216,6 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
     };
   } catch (e) {
     _log.warning('Web SSE: fallback failed: $e');
-    debugPrint('⚠️ [WebSSE] 非流式回退失败: $e');
     yield {'type': 'error', 'message': '请求失败: $e'};
   }
 }

@@ -63,6 +63,7 @@ export class AgentExecutorService {
 
     const toolCallLog: ToolCallInfo[] = [];
     let gameData: unknown = undefined;
+    let lastIterationHadToolCall = false;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       this.logger.log(`Agent iteration ${iteration + 1}/${maxIterations}`);
@@ -73,14 +74,20 @@ export class AgentExecutorService {
         break;
       }
 
+      const forceToolChoice =
+        iteration === 0
+          ? false
+          : !lastIterationHadToolCall && !!toolDefinitions && toolDefinitions.length > 0;
       const response = await this.llmClient.chatCompletion(
         fullMessages,
         toolDefinitions,
         maxTokensOverride,
+        forceToolChoice,
       );
 
       // Check for tool calls from LlmResponse
       if (response.toolCalls && response.toolCalls.length > 0) {
+        lastIterationHadToolCall = true;
         fullMessages.push({
           role: 'assistant',
           content: response.content || null,
@@ -139,17 +146,22 @@ export class AgentExecutorService {
             resultSummary: resultString.slice(0, 100),
           });
 
-          // Extract game data from generateActivity / generateQuiz tool calls
-          if (toolName === 'generateActivity' || toolName === 'generateQuiz') {
+          // Extract game data from generateActivity / generateQuiz / assignActivity tool calls
+          if (
+            toolName === 'generateActivity' ||
+            toolName === 'generateQuiz' ||
+            toolName === 'assignActivity'
+          ) {
             const resultPayload = extractJsonObject(resultString);
             const activityType = this.resolveGenerateActivityType(
               normalizedToolArgs,
               resultPayload,
             );
             if (activityType && !this.isToolErrorPayload(resultPayload)) {
+              const gameDataPayload = this.extractGameDataPayload(resultPayload, toolName);
               gameData = {
                 activityType,
-                gameData: resultString,
+                gameData: JSON.stringify(gameDataPayload),
                 domain: normalizedToolArgs.domain || 'language',
               };
             }
@@ -166,6 +178,23 @@ export class AgentExecutorService {
         }
 
         continue; // next iteration
+      }
+
+      // No tool calls this iteration
+      lastIterationHadToolCall = false;
+
+      // If tools are available and this is the first iteration, the LLM may have
+      // skipped tool usage. Retry with a stronger prompt nudge.
+      if (toolDefinitions && toolDefinitions.length > 0 && iteration === 0 && response.content) {
+        this.logger.log('No tool calls on iteration 1, retrying with stronger prompt');
+        fullMessages.push({ role: 'assistant', content: response.content });
+        fullMessages.push({
+          role: 'user',
+          content:
+            '⚠️ 你刚才的回复没有调用任何工具！请立即调用 generateActivity 工具来生成活动。' +
+            '不要只用文字描述，必须调用工具！',
+        });
+        continue;
       }
 
       // --- Final answer (no tool calls) ---
@@ -226,6 +255,7 @@ export class AgentExecutorService {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
 
     const toolCallLog: ToolCallInfo[] = [];
+    let lastIterationHadToolCall = false;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       this.logger.log(`[STREAM] Agent iteration ${iteration + 1}/${maxIterations}`);
@@ -235,13 +265,28 @@ export class AgentExecutorService {
         return;
       }
 
-      const response = await this.llmClient.chatCompletion(fullMessages, toolDefinitions);
+      // On the first iteration, if tools are available, try with tool_choice='auto'.
+      // If the LLM returns no tool calls but tools are available, retry with
+      // tool_choice='required' to force a tool call on the next iteration.
+      const forceToolChoice =
+        iteration === 0
+          ? false
+          : !lastIterationHadToolCall && !!toolDefinitions && toolDefinitions.length > 0;
+      const response = await this.llmClient.chatCompletion(
+        fullMessages,
+        toolDefinitions,
+        undefined,
+        forceToolChoice,
+      );
       const assistantContent = response.content;
       const assistantToolCalls = response.toolCalls;
       if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
 
+      lastIterationHadToolCall = false;
+
       // --- Tool calls ---
       if (assistantToolCalls && assistantToolCalls.length > 0) {
+        lastIterationHadToolCall = true;
         // Emit thinking content if present (before tool calls)
         const thinkingContent = extractThinking(assistantContent || '');
         if (thinkingContent) {
@@ -299,18 +344,24 @@ export class AgentExecutorService {
             toolResult: resultString,
           };
 
-          // Emit game_data for generateActivity / generateQuiz tool
-          if (toolName === 'generateActivity' || toolName === 'generateQuiz') {
+          // Emit game_data for generateActivity / generateQuiz / assignActivity tool
+          if (
+            toolName === 'generateActivity' ||
+            toolName === 'generateQuiz' ||
+            toolName === 'assignActivity'
+          ) {
             const resultPayload = extractJsonObject(resultString);
             const activityType = this.resolveGenerateActivityType(
               normalizedToolArgs,
               resultPayload,
             );
             if (activityType && !this.isToolErrorPayload(resultPayload)) {
+              // For assignActivity, the actual game data is nested in draft.activityData
+              const gameDataPayload = this.extractGameDataPayload(resultPayload, toolName);
               yield {
                 type: 'game_data',
                 activityType,
-                gameData: resultString,
+                gameData: JSON.stringify(gameDataPayload),
                 domain: normalizedToolArgs.domain || 'language',
               };
             } else {
@@ -340,6 +391,26 @@ export class AgentExecutorService {
         }
 
         continue; // next iteration
+      }
+
+      // --- No tool calls this iteration ---
+      // If tools are available and this is the first iteration, the LLM may have
+      // skipped tool usage despite instructions. Push the assistant message and
+      // retry with a stronger prompt nudge.
+      if (toolDefinitions && toolDefinitions.length > 0 && iteration === 0 && assistantContent) {
+        this.logger.log('[STREAM] No tool calls on iteration 1, retrying with stronger prompt');
+        fullMessages.push({
+          role: 'assistant',
+          content: assistantContent,
+        });
+        fullMessages.push({
+          role: 'user',
+          content:
+            '⚠️ 你刚才的回复没有调用任何工具！请立即调用 generateActivity 工具来生成活动。' +
+            '例如，对于"出3道数学小游戏"，你需要调用3次 generateActivity，分别使用不同的type（quiz、true_false、matching）。' +
+            '不要只用文字描述，必须调用工具！',
+        });
+        continue;
       }
 
       // --- Final response (streaming with thinking-block-aware state machine) ---
@@ -472,13 +543,44 @@ export class AgentExecutorService {
   ): ActivityType | undefined {
     if (this.isToolErrorPayload(resultPayload)) return undefined;
 
+    // For assignActivity, the activity type comes from toolArgs.activityType
+    const fromArgs = this.inferActivityType({ type: toolArgs.activityType || toolArgs.type });
+    if (fromArgs) return fromArgs;
+
     const fromResult = this.inferActivityType(resultPayload);
     if (fromResult) return fromResult;
 
-    const fromArgs = this.inferActivityType(toolArgs);
-    if (fromArgs) return fromArgs;
+    const fromArgsInferred = this.inferActivityType(toolArgs);
+    if (fromArgsInferred) return fromArgsInferred;
 
     return undefined;
+  }
+
+  /**
+   * Extract the actual game data payload from a tool result.
+   * For generateActivity/generateQuiz, the result itself is the game data.
+   * For assignActivity, the game data is nested in draft.activityData.
+   */
+  private extractGameDataPayload(
+    resultPayload: Record<string, any> | null,
+    toolName: string,
+  ): Record<string, any> | null {
+    if (!resultPayload) return null;
+
+    if (toolName === 'assignActivity') {
+      // assignActivity returns { status: 'draft_ready', draft: { activityData: {...} } }
+      const draft = resultPayload.draft;
+      if (draft && draft.activityData) {
+        return draft.activityData as Record<string, any>;
+      }
+      // Fallback: check if activityData is at top level
+      if (resultPayload.activityData) {
+        return resultPayload.activityData as Record<string, any>;
+      }
+    }
+
+    // For generateActivity/generateQuiz, the result payload IS the game data
+    return resultPayload;
   }
 
   private isToolErrorPayload(payload: Record<string, any> | null): boolean {

@@ -503,8 +503,11 @@ class ChatSessionProvider extends ChangeNotifier {
     if (trimmed.isEmpty) return -1;
 
     // 添加用户消息到本地缓存
+    debugPrint('🔍 [sendMessage] 添加用户消息: "$trimmed", 当前消息数: ${_localMessages.length}');
     _localMessages.add(ChatMessageEntry(role: 'user', content: trimmed));
+    debugPrint('🔍 [sendMessage] 用户消息已添加, 消息数: ${_localMessages.length}, isLoadingMessages: $_isLoadingMessages');
     notifyListeners();
+    debugPrint('🔍 [sendMessage] notifyListeners() 已调用 (用户消息)');
 
     // 添加一个空的 AI 消息，用于流式更新
     final aiMsg = ChatMessageEntry(
@@ -514,13 +517,16 @@ class ChatSessionProvider extends ChangeNotifier {
       isStreaming: true,
     );
     _localMessages.add(aiMsg);
+    debugPrint('🔍 [sendMessage] AI空消息已添加, 消息数: ${_localMessages.length}');
     notifyListeners();
+    debugPrint('🔍 [sendMessage] notifyListeners() 已调用 (AI空消息), childId: $_childId');
 
     final targetSession = _activeSession;
     final sessionUuid = targetSession?.uuid;
 
     try {
       // 优先使用流式 SSE
+      debugPrint('🔍 [sendMessage] 开始SSE流, message="$trimmed", childId=$_childId, sessionId=$sessionUuid');
       final stream = _apiService.sendAIChatMessageStream(
         trimmed,
         childId: _childId,
@@ -533,8 +539,10 @@ class ChatSessionProvider extends ChangeNotifier {
       String? pendingGameType;
       Map<String, dynamic>? pendingGameData;
 
+      debugPrint('🔍 [sendMessage] 等待SSE事件...');
       await for (final event in stream) {
         final type = event['type'] as String?;
+        debugPrint('🔍 [sendMessage] 收到SSE事件: type=$type, content=${event['content'] ?? event['toolName'] ?? event['activityType'] ?? ""}');
 
         if (type == 'token') {
           final chunk = event['content'] as String? ?? '';
@@ -665,8 +673,9 @@ class ChatSessionProvider extends ChangeNotifier {
 
       notifyListeners();
       return _localMessages.length - 1;
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('⚠️ AI chat stream error: $e, falling back to non-streaming');
+      debugPrint('⚠️ Stack: $stack');
 
       // 回退到非流式
       try {

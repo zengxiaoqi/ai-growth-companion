@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -25,7 +26,7 @@ class FillBlankGame extends StatefulWidget {
   State<FillBlankGame> createState() => _FillBlankGameState();
 }
 
-class _FillBlankGameState extends State<FillBlankGame> {
+class _FillBlankGameState extends State<FillBlankGame> with GameTtsHelper {
   List<_FillBlankSentence> _sentences = const [];
   int _currentIndex = 0;
   int _correctCount = 0;
@@ -34,11 +35,23 @@ class _FillBlankGameState extends State<FillBlankGame> {
   String? _selectedAnswer;
   final List<String?> _userAnswers = <String?>[];
   final Random _random = Random();
+  bool _ttsPlayedForCurrent = false;
 
   @override
   void initState() {
     super.initState();
     _sentences = _parseSentences(widget.data);
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
+  }
+
+  /// 将句子中的 "___" 替换为朗读文本 "空白"
+  String _sentenceTextForSpeech(String sentenceText) {
+    return sentenceText.replaceAll('___', '空白');
   }
 
   void _prepareGame() {
@@ -50,6 +63,7 @@ class _FillBlankGameState extends State<FillBlankGame> {
       _finished = false;
       _selectedAnswer = null;
       _userAnswers.clear();
+      _ttsPlayedForCurrent = false;
     });
   }
 
@@ -85,6 +99,16 @@ class _FillBlankGameState extends State<FillBlankGame> {
     }).toList();
   }
 
+  /// 为当前题目播放语音（延迟后，等 UI 渲染完成）
+  void _speakCurrentQuestion() {
+    final current = _sentences[_currentIndex];
+    if (!_ttsPlayedForCurrent && ttsEnabled) {
+      final text = _sentenceTextForSpeech(current.text);
+      speakAfterDelay(text);
+      _ttsPlayedForCurrent = true;
+    }
+  }
+
   void _applyAnswer(String value) {
     if (_revealed) return;
 
@@ -98,6 +122,13 @@ class _FillBlankGameState extends State<FillBlankGame> {
       if (isCorrect) _correctCount += 1;
     });
 
+    // 播报答题反馈
+    if (isCorrect) {
+      speak('答对了！');
+    } else {
+      speak('正确答案是${current.answer}');
+    }
+
     Timer(const Duration(milliseconds: 900), () {
       if (!mounted) return;
       if (_currentIndex >= _sentences.length - 1) {
@@ -107,6 +138,11 @@ class _FillBlankGameState extends State<FillBlankGame> {
           _currentIndex += 1;
           _selectedAnswer = null;
           _revealed = false;
+          _ttsPlayedForCurrent = false;
+        });
+        // 下一题自动朗读
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _speakCurrentQuestion();
         });
       }
     });
@@ -153,6 +189,24 @@ class _FillBlankGameState extends State<FillBlankGame> {
   }
 
   @override
+  void didUpdateWidget(covariant FillBlankGame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 如果数据源变了，重新初始化
+    if (oldWidget.data != widget.data) {
+      setState(() {
+        _sentences = _parseSentences(widget.data);
+        _currentIndex = 0;
+        _correctCount = 0;
+        _revealed = false;
+        _finished = false;
+        _selectedAnswer = null;
+        _userAnswers.clear();
+        _ttsPlayedForCurrent = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (_sentences.isEmpty) {
@@ -175,14 +229,28 @@ class _FillBlankGameState extends State<FillBlankGame> {
     final current = _sentences[_currentIndex];
     final isCurrentCorrect = _selectedAnswer == current.answer;
 
+    // 首次渲染时自动朗读题目
+    if (!_ttsPlayedForCurrent && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _speakCurrentQuestion();
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '填空题游戏',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.data['title']?.toString() ?? '填空题游戏',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 10),
         Row(
@@ -222,6 +290,7 @@ class _FillBlankGameState extends State<FillBlankGame> {
                 revealed: _revealed,
                 isCorrect: isCurrentCorrect,
                 onDrop: _applyAnswer,
+                onReplay: _revealed ? null : () => speak(_sentenceTextForSpeech(current.text)),
               ),
               if ((current.hint ?? '').trim().isNotEmpty && !_revealed) ...[
                 const SizedBox(height: 10),
@@ -327,6 +396,7 @@ class _SentenceWithBlank extends StatelessWidget {
   final bool revealed;
   final bool isCorrect;
   final ValueChanged<String> onDrop;
+  final VoidCallback? onReplay;
 
   const _SentenceWithBlank({
     required this.text,
@@ -334,10 +404,36 @@ class _SentenceWithBlank extends StatelessWidget {
     required this.revealed,
     required this.isCorrect,
     required this.onDrop,
+    this.onReplay,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 如果有重读按钮，用 Stack 包裹；否则用原始布局
+    if (onReplay != null) {
+      return Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topRight,
+        children: [
+          _buildSentenceContent(context),
+          Positioned(
+            top: -4,
+            right: -4,
+            child: IconButton(
+              icon: const Icon(Icons.campaign_rounded, size: 22, color: Color(0xFF6C5CE7)),
+              onPressed: onReplay,
+              tooltip: '重新朗读',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ),
+        ],
+      );
+    }
+    return _buildSentenceContent(context);
+  }
+
+  Widget _buildSentenceContent(BuildContext context) {
     final parts = text.split('___');
     final hasBlank = parts.length > 1;
 

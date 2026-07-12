@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -25,7 +26,7 @@ class MatchingGame extends StatefulWidget {
   State<MatchingGame> createState() => _MatchingGameState();
 }
 
-class _MatchingGameState extends State<MatchingGame> {
+class _MatchingGameState extends State<MatchingGame> with GameTtsHelper {
   final Random _random = Random();
 
   List<_PairItem> _pairs = const [];
@@ -49,6 +50,7 @@ class _MatchingGameState extends State<MatchingGame> {
 
   @override
   void dispose() {
+    disposeTts();
     _timer?.cancel();
     super.dispose();
   }
@@ -72,6 +74,8 @@ class _MatchingGameState extends State<MatchingGame> {
       if (!mounted || _finished) return;
       setState(() => _seconds += 1);
     });
+
+    speak('配对游戏，请把左边和右边对应的项连起来');
   }
 
   List<_PairItem> _parsePairs(Map<String, dynamic> data) {
@@ -153,8 +157,12 @@ class _MatchingGameState extends State<MatchingGame> {
     final success = _selectedLeftId == _selectedRightId;
 
     if (success) {
+      final leftItem = _pairs.firstWhere((p) => p.id == _selectedLeftId);
       await Future<void>.delayed(const Duration(milliseconds: 220));
       if (!mounted) return;
+      if (ttsEnabled) {
+        speak('${leftItem.left}配${leftItem.right}');
+      }
       setState(() {
         _matchedIds = {..._matchedIds, _selectedLeftId!};
         _selectedLeftId = null;
@@ -167,6 +175,7 @@ class _MatchingGameState extends State<MatchingGame> {
         _finish();
       }
     } else {
+      speak('不对哦，再试一次');
       await Future<void>.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
       setState(() {
@@ -220,9 +229,16 @@ class _MatchingGameState extends State<MatchingGame> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '配对游戏',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.data['title']?.toString() ?? '配对游戏',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 12),
         Container(

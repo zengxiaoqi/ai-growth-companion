@@ -54,6 +54,7 @@ function buildParentSystemPrompt(context: AgentContext): string {
 - 当家长要查看作业时，调用listAssignments
 - 当家长要查看多个孩子时，调用listChildren
 - 不要每句话都调用工具，只在需要时才调用
+- 简单问候（如"你好""测试""在吗"）直接回复，不调用任何工具
 - 如果当前没有选中孩子，先调用listChildren列出孩子，请家长选择
 
 ## 禁止事项

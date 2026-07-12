@@ -17,7 +17,18 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // 启用 gzip/brotli 压缩（必须在静态文件之前）
-  app.use(compression());
+  // 对 SSE 流式响应禁用压缩，否则 compression 中间件会缓冲所有数据导致不实时推送
+  app.use(
+    compression({
+      filter: (req, res) => {
+        const contentType = res.getHeader('Content-Type');
+        if (contentType && contentType.includes('text/event-stream')) {
+          return false; // 不压缩 SSE
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
 
   // 静态文件服务（Web 前端）
   app.useStaticAssets(join(__dirname, '..', 'public'), {

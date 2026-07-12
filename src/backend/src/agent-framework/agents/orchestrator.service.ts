@@ -332,12 +332,12 @@ export class OrchestratorService implements OnApplicationBootstrap {
           signals,
         };
       }
-      if (signals.activity >= 4) {
+      if (signals.activity >= 3) {
         return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['activity-generator'],
-          reason: 'parent asks for rich activity generation',
+          mode: 'single',
+          primaryAgent: 'activity-generator',
+          collaborators: [],
+          reason: 'parent asks for activity/game generation',
           signals,
         };
       }

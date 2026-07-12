@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -24,7 +25,7 @@ class SequencingGame extends StatefulWidget {
   State<SequencingGame> createState() => _SequencingGameState();
 }
 
-class _SequencingGameState extends State<SequencingGame> {
+class _SequencingGameState extends State<SequencingGame> with GameTtsHelper {
   final Random _random = Random();
 
   List<_SequenceItem> _orderedItems = const [];
@@ -38,6 +39,15 @@ class _SequencingGameState extends State<SequencingGame> {
   void initState() {
     super.initState();
     _prepareGame();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      speak('排序游戏，请拖拽卡片排列正确顺序');
+    });
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
   }
 
   void _prepareGame() {
@@ -99,10 +109,15 @@ class _SequencingGameState extends State<SequencingGame> {
       }
     }
 
+    // Build correct order label string
+    final correctLabels = _orderedItems.map((item) => item.label).join('，');
+
     setState(() {
       _correctCount = correct;
       _submitted = true;
     });
+
+    speak('你排对了$correct个，正确顺序是：$correctLabels');
   }
 
   void _finish() {
@@ -147,11 +162,18 @@ class _SequencingGameState extends State<SequencingGame> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '排序题游戏',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.data['title']?.toString() ?? '排序题游戏',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 8),
         Text(

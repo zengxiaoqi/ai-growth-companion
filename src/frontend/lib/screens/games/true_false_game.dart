@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -24,7 +25,7 @@ class TrueFalseGame extends StatefulWidget {
   State<TrueFalseGame> createState() => _TrueFalseGameState();
 }
 
-class _TrueFalseGameState extends State<TrueFalseGame> {
+class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
   int _currentIndex = 0;
   int _correctCount = 0;
   bool? _selected;
@@ -49,6 +50,27 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
     }).toList();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentStatement());
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
+  }
+
+  void _speakCurrentStatement() {
+    if (!mounted) return;
+    final current = _statements[_currentIndex];
+    final statementText = current['statement']?.toString();
+    if (statementText != null && statementText.isNotEmpty) {
+      speakAfterDelay(statementText);
+    }
+  }
+
   void _submit(bool value) {
     if (_revealed) return;
     final current = _statements[_currentIndex];
@@ -61,6 +83,14 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
       if (isCorrect) _correctCount += 1;
     });
 
+    // TTS feedback
+    final currentAnswer = (current['isCorrect'] as bool? ?? false);
+    if (isCorrect) {
+      speak('判断正确！');
+    } else {
+      speak('答错了，正确答案是${currentAnswer ? '对' : '错'}');
+    }
+
     Timer(const Duration(milliseconds: 850), () {
       if (!mounted) return;
       if (_currentIndex >= _statements.length - 1) {
@@ -71,11 +101,13 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
           _selected = null;
           _revealed = false;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentStatement());
       }
     });
   }
 
   void _finish() {
+    stopSpeaking();
     final result = {
       'score': _correctCount,
       'totalQuestions': _statements.length,
@@ -128,9 +160,17 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '判断题游戏',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.data['title']?.toString() ?? '判断题游戏',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(width: 8),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 10),
         LinearProgressIndicator(
@@ -154,13 +194,22 @@ class _TrueFalseGameState extends State<TrueFalseGame> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: AppTheme.softShadow(AppTheme.softBlue),
           ),
-          child: Text(
-            current['statement']?.toString() ?? '',
-            style: theme.textTheme.titleMedium?.copyWith(
-              height: 1.45,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
+          child: Stack(
+            children: [
+              Text(
+                current['statement']?.toString() ?? '',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  height: 1.45,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              Positioned(
+                top: -8,
+                right: -4,
+                child: buildReplayButton(current['statement']?.toString() ?? ''),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),

@@ -86,9 +86,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
+    _forceToolChoice?: boolean,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
+      // NOTE: tool_choice='required' is unsupported by many thinking-mode LLMs
+      // (e.g. deepseek-v4-pro). We always use 'auto' and rely on prompt
+      // engineering to steer the LLM toward tool usage.
       const response = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),

@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../utils/app_logger.dart';
 
@@ -17,6 +18,9 @@ Stream<Map<String, dynamic>> platformFetchSseStream({
   required Dio dio,
 }) async* {
   _log.info('Native SSE: $method $url');
+  debugPrint('🔍 [SSE] 发起请求: $method $url');
+  debugPrint('🔍 [SSE] headers: $headers');
+  debugPrint('🔍 [SSE] body: $body');
 
   final response = await dio.request(
     url,
@@ -25,21 +29,26 @@ Stream<Map<String, dynamic>> platformFetchSseStream({
       method: method,
       headers: headers,
       responseType: ResponseType.stream,
-      receiveTimeout: const Duration(seconds: 120),
+      receiveTimeout: const Duration(minutes: 5),
     ),
   );
+  debugPrint('🔍 [SSE] 响应状态码: ${response.statusCode}');
+  debugPrint('🔍 [SSE] 响应头: ${response.headers.map}');
 
   final stream = response.data.stream as Stream<List<int>>;
   final lineBuffer = StringBuffer();
   final byteBuffer = <int>[];
 
+  debugPrint('🔍 [SSE] 开始监听流...');
   await for (final chunk in stream) {
+    debugPrint('🔍 [SSE] 收到chunk: ${chunk.length} bytes');
     byteBuffer.addAll(chunk);
     try {
       final decoded = utf8.decode(byteBuffer, allowMalformed: false);
       byteBuffer.clear();
       lineBuffer.write(decoded);
     } catch (_) {
+      // 不完整的多字节字符，保留 buffer 等待下一个 chunk
       continue;
     }
 

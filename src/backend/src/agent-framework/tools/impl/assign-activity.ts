@@ -194,6 +194,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
         domain: draft.domain,
         dueDate: draft.dueDate,
         expiresAt: draft.expiresAt,
+        activityData: draft.activityData,
       },
     });
   }

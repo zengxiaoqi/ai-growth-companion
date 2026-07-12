@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -24,12 +25,13 @@ class PuzzleGame extends StatefulWidget {
   State<PuzzleGame> createState() => _PuzzleGameState();
 }
 
-class _PuzzleGameState extends State<PuzzleGame> {
+class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
   int _rows = 2;
   int _cols = 2;
   List<_PuzzlePiece> _pieces = [];
   bool _finished = false;
   int _moves = 0;
+  Set<String> _spokeCorrectIds = {};
 
   final Random _random = Random();
 
@@ -37,6 +39,12 @@ class _PuzzleGameState extends State<PuzzleGame> {
   void initState() {
     super.initState();
     _prepareGame();
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
   }
 
   void _prepareGame() {
@@ -99,7 +107,11 @@ class _PuzzleGameState extends State<PuzzleGame> {
       _pieces = shuffled;
       _finished = false;
       _moves = 0;
+      _spokeCorrectIds.clear();
     });
+
+    // 游戏开始时语音提示。
+    speak('拼图游戏，拖拽拼图块到正确位置');
   }
 
   bool _isComplete(List<_PuzzlePiece> pieces) {
@@ -129,6 +141,13 @@ class _PuzzleGameState extends State<PuzzleGame> {
         _pieces[idx2] = _pieces[idx2].copyWith(currentPosition: pos1);
         _moves++;
       }
+      // 检查交换后是否有拼图块归位。
+      for (final piece in _pieces) {
+        if (piece.currentPosition == piece.correctPosition && !_spokeCorrectIds.contains(piece.id)) {
+          _spokeCorrectIds.add(piece.id);
+          speakAfterDelay(piece.label.isNotEmpty ? piece.label : '正确');
+        }
+      }
       if (_isComplete(_pieces)) {
         _finish();
       }
@@ -146,6 +165,8 @@ class _PuzzleGameState extends State<PuzzleGame> {
     };
     widget.onFinished?.call(result);
     setState(() => _finished = true);
+    // 完成后语音鼓励。
+    speak('拼图完成！太棒了！');
   }
 
   @override
@@ -195,19 +216,25 @@ class _PuzzleGameState extends State<PuzzleGame> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.softPurple.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '步数：$_moves',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryColor,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                buildTtsToggleButton(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.softPurple.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '步数：$_moves',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

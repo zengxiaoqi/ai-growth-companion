@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -24,7 +25,7 @@ class ConnectionGame extends StatefulWidget {
   State<ConnectionGame> createState() => _ConnectionGameState();
 }
 
-class _ConnectionGameState extends State<ConnectionGame> {
+class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
   List<_ConnectionItem> _leftItems = const [];
   List<_ConnectionItem> _rightItems = const [];
   List<_ConnectionPair> _correctPairs = const [];
@@ -42,6 +43,17 @@ class _ConnectionGameState extends State<ConnectionGame> {
   void initState() {
     super.initState();
     _prepareGame();
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
+  }
+
+  void _speakInstructions() {
+    // small delay so UI renders first
+    Future.microtask(() => speak('连线游戏，先点左边，再点右边建立连线'));
   }
 
   void _prepareGame() {
@@ -75,6 +87,7 @@ class _ConnectionGameState extends State<ConnectionGame> {
       _finished = false;
       _correctCount = 0;
     });
+    _speakInstructions();
   }
 
   List<_ConnectionItem> _parseItems(dynamic raw, String prefix) {
@@ -95,6 +108,8 @@ class _ConnectionGameState extends State<ConnectionGame> {
 
   void _tapLeft(String id) {
     if (_submitted) return;
+    final item = _leftItems.firstWhere((i) => i.id == id);
+    Future.microtask(() => speak(item.label));
     setState(() {
       _selectedLeftId = _selectedLeftId == id ? null : id;
     });
@@ -105,12 +120,17 @@ class _ConnectionGameState extends State<ConnectionGame> {
     final leftId = _selectedLeftId;
     if (leftId == null) return;
 
+    // Find the left and right items for speech
+    final leftItem = _leftItems.firstWhere((i) => i.id == leftId);
+    final rightItem = _rightItems.firstWhere((i) => i.id == rightId);
+
     setState(() {
       // 移除该右侧已有的连线。
       _userConnections.removeWhere((_, v) => v == rightId);
       _userConnections[leftId] = rightId;
       _selectedLeftId = null;
     });
+    Future.microtask(() => speak('${leftItem.label}连${rightItem.label}'));
   }
 
   void _submit() {
@@ -119,10 +139,12 @@ class _ConnectionGameState extends State<ConnectionGame> {
     for (final pair in _correctPairs) {
       if (_userConnections[pair.leftId] == pair.rightId) correct++;
     }
+    final count = correct;
     setState(() {
-      _correctCount = correct;
+      _correctCount = count;
       _submitted = true;
     });
+    Future.microtask(() => speak('你连对了$count个'));
   }
 
   void _finish() {
@@ -174,9 +196,16 @@ class _ConnectionGameState extends State<ConnectionGame> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '连线题游戏',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.data['title']?.toString() ?? '连线题游戏',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 8),
         Text(

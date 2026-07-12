@@ -54,6 +54,7 @@ export interface ILlmClient {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
+    forceToolChoice?: boolean,
   ): Promise<LlmResponse>;
 
   /** Streaming chat completion — yields content chunks */

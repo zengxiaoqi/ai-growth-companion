@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
+import 'game_tts_helper.dart';
 
 typedef GameFinishedCallback = void Function(Map<String, dynamic> result);
 
@@ -24,7 +25,7 @@ class QuizGame extends StatefulWidget {
   State<QuizGame> createState() => _QuizGameState();
 }
 
-class _QuizGameState extends State<QuizGame> {
+class _QuizGameState extends State<QuizGame> with GameTtsHelper {
   int _currentIndex = 0;
   int _correctCount = 0;
   int? _selectedIndex;
@@ -32,6 +33,46 @@ class _QuizGameState extends State<QuizGame> {
   bool _finished = false;
   bool _feedbackCorrect = false;
   final List<int> _answers = <int>[];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoSpeakCurrentQuestion();
+    });
+  }
+
+  @override
+  void dispose() {
+    disposeTts();
+    super.dispose();
+  }
+
+  void _autoSpeakCurrentQuestion() {
+    if (!mounted || !ttsEnabled) return;
+    final questions = _questions;
+    if (_currentIndex < questions.length) {
+      final questionText = questions[_currentIndex]['question']?.toString();
+      if (questionText != null && questionText.isNotEmpty) {
+        speakAfterDelay(questionText, delay: const Duration(milliseconds: 400));
+      }
+    }
+  }
+
+  void _speakAnswerFeedback(List<String> options, int correctIndex, bool isCorrect) {
+    if (!ttsEnabled) return;
+    if (isCorrect) {
+      final explanation = _questions[_currentIndex]['explanation']?.toString();
+      String text = '答对了！';
+      if (explanation != null && explanation.isNotEmpty) {
+        text += explanation;
+      }
+      speak(text);
+    } else {
+      final correctText = options[correctIndex];
+      speak('答错了，正确答案是$correctText');
+    }
+  }
 
   List<Map<String, dynamic>> get _questions {
     final raw = widget.data['questions'];
@@ -69,6 +110,8 @@ class _QuizGameState extends State<QuizGame> {
     if (_revealed) return;
     final current = _questions[_currentIndex];
     final isCorrect = index == (current['correctIndex'] as int? ?? 0);
+    final options = (current['options'] as List).cast<String>();
+    final correctIndex = current['correctIndex'] as int? ?? 0;
 
     setState(() {
       _selectedIndex = index;
@@ -77,6 +120,9 @@ class _QuizGameState extends State<QuizGame> {
       _answers.add(index);
       if (isCorrect) _correctCount += 1;
     });
+
+    // Speak answer feedback after UI update
+    _speakAnswerFeedback(options, correctIndex, isCorrect);
 
     Timer(const Duration(milliseconds: 900), () {
       if (!mounted) return;
@@ -88,6 +134,8 @@ class _QuizGameState extends State<QuizGame> {
           _selectedIndex = null;
           _revealed = false;
         });
+        // Auto-speak next question
+        _autoSpeakCurrentQuestion();
       }
     });
   }
@@ -145,15 +193,22 @@ class _QuizGameState extends State<QuizGame> {
     final current = questions[_currentIndex];
     final options = (current['options'] as List).cast<String>();
     final correctIndex = current['correctIndex'] as int? ?? 0;
+    final questionText = current['question']?.toString() ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.data['title']?.toString() ?? '选择题游戏',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              widget.data['title']?.toString() ?? '选择题游戏',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            buildTtsToggleButton(),
+          ],
         ),
         const SizedBox(height: 10),
         Row(
@@ -179,22 +234,31 @@ class _QuizGameState extends State<QuizGame> {
           ],
         ),
         const SizedBox(height: 16),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: AppTheme.softShadow(AppTheme.secondaryColor),
-          ),
-          child: Text(
-            current['question']?.toString() ?? '',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              height: 1.4,
+        Stack(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.softShadow(AppTheme.secondaryColor),
+              ),
+              child: Text(
+                questionText,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
             ),
-          ),
+            Positioned(
+              top: 8,
+              right: 12,
+              child: buildReplayButton(questionText),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
         ...List.generate(options.length, (index) {

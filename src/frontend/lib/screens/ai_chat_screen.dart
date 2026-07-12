@@ -522,9 +522,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   /// 每条消息的答题记录（用于思考内容折叠状态）
   final Map<int, bool> _thinkingExpanded = {};
 
-  /// 是否已有活跃会话（用于判断是否在加载状态）
-  bool _hasLoadedSession = false;
-
   /// 切换思考区域展开/折叠
   void _toggleThinking(int index) {
     setState(() {
@@ -547,13 +544,12 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       // 加载会话列表
       provider.loadSessions();
 
-      // 如果有活跃会话就恢复它
+      // 如果有活跃会话就恢复它（加载历史消息）
       if (provider.activeSession != null) {
-        _hasLoadedSession = true;
+        provider.switchToSession(provider.activeSession!);
       } else {
-        // 设置默认开场白
-        _addGreeting();
-        _hasLoadedSession = true;
+        // 没有活跃会话，添加默认开场白
+        provider.resetGreeting();
       }
     });
   }
@@ -563,12 +559,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _addGreeting() {
-    // 仅在无会话时显示默认开场白
-    if (!_hasLoadedSession) return;
-    // 开场白由 Provider 管理，这里不做任何事
   }
 
   bool _isLoading = false;
@@ -593,6 +583,10 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         if (_autoPlay) {
           _autoSpeakMessage(msgIndex);
         }
+      }
+    }).catchError((e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     });
   }
@@ -676,7 +670,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       child: Scaffold(
         body: Stack(
           children: [
-            Container(
+            Positioned.fill(child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.backgroundColor, Color(0xFFFFF0F5)],
@@ -691,7 +685,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                   _buildInputArea(),
                 ]),
               ),
-            ),
+            )),
             // 会话抽屉
             if (_showSessionDrawer)
               GestureDetector(
@@ -731,22 +725,28 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     return Consumer<ChatSessionProvider>(
       builder: (ctx, provider, _) {
         final messages = provider.localMessages;
-        if (provider.isLoadingMessages) {
-          return const Center(child: ShimmerCard(width: 80, height: 80));
-        }
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          itemCount: messages.length + (_isLoading ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (_isLoading && index == messages.length) {
-              return _buildLoadingIndicator();
-            }
-            final message = messages[index];
-            final isUser = message.role == 'user';
-            return _buildMessageBubble(message, isUser, index);
-          },
-        );
+        debugPrint('🔍 [UI] Consumer rebuild, messages=${messages.length}, isLoadingMessages=${provider.isLoadingMessages}, isLoading=$_isLoading');
+        // Web端：不用Stack/Positioned，用纯Container+Column+Expanded+ListView
+        return Column(children: [
+          if (provider.isLoadingMessages)
+            Expanded(child: const Center(child: ShimmerCard(width: 80, height: 80)))
+          else
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                itemCount: messages.length + (_isLoading ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (_isLoading && index == messages.length) {
+                    return _buildLoadingIndicator();
+                  }
+                  final message = messages[index];
+                  final isUser = message.role == 'user';
+                  return _buildMessageBubble(message, isUser, index);
+                },
+              ),
+            ),
+        ]);
       },
     );
   }
@@ -763,14 +763,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final showThinking = thinkingContent != null && thinkingContent.isNotEmpty;
     final expanded = _thinkingExpanded[index] ?? false;
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(opacity: value, child: Transform.scale(scale: value, child: child));
-      },
-      child: Padding(padding: const EdgeInsets.only(bottom: 12), child: Align(
+    return Padding(padding: const EdgeInsets.only(bottom: 12), child: Align(
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
@@ -811,7 +804,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                     Text('💭 思考过程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                     const Spacer(),
                     if (showThinking && !isStreaming) ...[
-                      Text('${thinkingContent.replaceAll(RegExp(r'\s+'), ' ').split('').length} 字',
+                      Text('${thinkingContent.replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
                           style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.5))),
                     ],
                   ]),
@@ -848,39 +841,23 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               const SizedBox(height: 8),
             ],
 
-            // ── 消息主体文本 ──
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              if (!isUser) ...[const Text('🦄', style: TextStyle(fontSize: 24)), const SizedBox(width: 10)],
-              if (!isUser && isEmpty && isStreaming)
+            // ── 消息主体文本（临时用Text替代MarkdownBody排查）──
+            if (!isUser) ...[
+              const Text('🦄', style: TextStyle(fontSize: 24)),
+              const SizedBox(height: 4),
+              if (isEmpty && isStreaming)
                 _buildTypingIndicator()
-              else if (isUser)
-                Flexible(child: Text(displayText,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)))
               else
-                Flexible(child: MarkdownBody(
-                  data: displayText,
-                  styleSheet: Theme.of(context).useMaterial3
-                      ? MarkdownStyleSheet.fromTheme(Theme.of(context))
-                      : MarkdownStyleSheet(
-                          p: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor),
-                          code: const TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.textColor),
-                          codeblockDecoration: BoxDecoration(
-                            color: AppTheme.softYellow.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          blockquoteDecoration: BoxDecoration(
-                            color: AppTheme.softYellow.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          blockquote: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
-                        ),
-                )),
-              if (!isUser && isStreaming && !isEmpty) ...[
-                const SizedBox(width: 6),
+                Text(displayText,
+                  style: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor)),
+              if (isStreaming && !isEmpty) ...[
+                const SizedBox(height: 4),
                 _buildStreamingDots(),
               ],
-              if (isUser) const SizedBox(width: 4),
-            ]),
+            ] else
+              Text(displayText,
+                style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)),
+            if (isUser) const SizedBox(width: 4),
             if (!isUser && hasQuiz) ...[
               const SizedBox(height: 12),
               _InlineQuizCard(
@@ -904,7 +881,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             ],
           ]),
         ),
-      )),
+      ),
     );
   }
 

@@ -31,7 +31,7 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
   List<_PuzzlePiece> _pieces = [];
   bool _finished = false;
   int _moves = 0;
-  Set<String> _spokeCorrectIds = {};
+  final Set<String> _spokeCorrectIds = {};
 
   final Random _random = Random();
 

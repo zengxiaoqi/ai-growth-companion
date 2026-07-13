@@ -516,6 +516,11 @@ class ChatSessionProvider extends ChangeNotifier {
     _localMessages.add(aiMsg);
     notifyListeners();
 
+    // 等待 UI 渲染用户消息后再开始网络请求
+    // 否则在 Flutter Web 上，网络请求会阻塞事件循环，
+    // 导致 notifyListeners() 触发的帧渲染来不及执行，消息显示空白
+    await Future.delayed(const Duration(milliseconds: 50));
+
     final targetSession = _activeSession;
     final sessionUuid = targetSession?.uuid;
 

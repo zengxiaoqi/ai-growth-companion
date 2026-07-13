@@ -517,7 +517,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   final bool _autoPlay = true;
   bool _isListening = false;
   int? _speakingMessageIndex;
-  bool _showSessionDrawer = false;
 
   /// 每条消息的答题记录（用于思考内容折叠状态）
   final Map<int, bool> _thinkingExpanded = {};
@@ -665,59 +664,37 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: const [],
-      child: Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.backgroundColor, Color(0xFFFFF0F5)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: SafeArea(
-                child: Column(children: [
-                  // _buildTopBar(),  // 顶部栏已隐藏，让对话占满屏幕
-                  Expanded(child: _buildMessageList()),
-                  _buildInputArea(),
-                ]),
-              ),
-            )),
-            // 会话抽屉
-            if (_showSessionDrawer)
-              GestureDetector(
-                onTap: () => setState(() => _showSessionDrawer = false),
-                child: Container(color: Colors.black26),
-              ),
-            if (_showSessionDrawer)
-              SlideTransition(
-                position: Tween<Offset>(begin: const Offset(-1, 0), end: Offset.zero).animate(
-                    CurvedAnimation(parent: ModalRoute.of(context)!.animation ?? const AlwaysStoppedAnimation(0), curve: Curves.easeOut)),
-                child: Consumer<ChatSessionProvider>(
-                  builder: (ctx, provider, _) => _SessionDrawer(
-                    activeSession: provider.activeSession,
-                    sessions: provider.sessions,
-                    loadingSessions: provider.loadingSessions,
-                    onCreateNew: () async {
-                      await provider.createNewSession();
-                      setState(() {
-                        _showSessionDrawer = false;
-                      });
-                    },
-                    onSelectSession: (session) async {
-                      await provider.switchToSession(session);
-                    },
-                    onClose: () => setState(() => _showSessionDrawer = false),
-                  ),
-                ),
-              ),
-          ],
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.backgroundColor, Color(0xFFFFF0F5)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(children: [
+            // 主消息列表
+            Expanded(child: _buildMessageList()),
+            // 输入区域
+            _buildInputArea(),
+          ]),
         ),
       ),
     );
+  }
+
+  /// 打开会话抽屉（用 OverlayEntry 替代 Stack，避免 Web 端渲染问题）
+  void _openSessionDrawer() {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (ctx) => _SessionDrawerOverlay(
+        onClose: () => entry.remove(),
+      ),
+    );
+    overlay.insert(entry);
   }
 
 
@@ -725,27 +702,30 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     return Consumer<ChatSessionProvider>(
       builder: (ctx, provider, _) {
         final messages = provider.localMessages;
-        debugPrint('🔍 [UI] Consumer rebuild, messages=${messages.length}, isLoadingMessages=${provider.isLoadingMessages}, isLoading=$_isLoading');
-        // Web端：不用Stack/Positioned，用纯Container+Column+Expanded+ListView
+        // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
+        // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
         return Column(children: [
+          // 加载历史消息时显示顶部小进度条
           if (provider.isLoadingMessages)
-            Expanded(child: const Center(child: ShimmerCard(width: 80, height: 80)))
-          else
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                itemCount: messages.length + (_isLoading ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (_isLoading && index == messages.length) {
-                    return _buildLoadingIndicator();
-                  }
-                  final message = messages[index];
-                  final isUser = message.role == 'user';
-                  return _buildMessageBubble(message, isUser, index);
-                },
-              ),
-            ),
+            const LinearProgressIndicator(minHeight: 2, backgroundColor: Colors.transparent),
+          Expanded(
+            child: messages.isEmpty && !provider.isLoadingMessages
+                ? const Center(child: Text('和小犀聊天吧~ 🦄', style: TextStyle(fontSize: 16, color: Colors.grey)))
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    itemCount: messages.length + (_isLoading ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (_isLoading && index == messages.length) {
+                        return _buildLoadingIndicator();
+                      }
+                      if (index >= messages.length) return const SizedBox.shrink();
+                      final message = messages[index];
+                      final isUser = message.role == 'user';
+                      return _buildMessageBubble(message, isUser, index);
+                    },
+                  ),
+          ),
         ]);
       },
     );
@@ -940,6 +920,19 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         ],
       ),
       child: Row(children: [
+        // 会话历史按钮
+        GestureDetector(
+          onTap: _openSessionDrawer,
+          child: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.chat_rounded, size: 20, color: AppTheme.primaryColor),
+          ),
+        ),
+        const SizedBox(width: 8),
         SpeechInputWidget(
           onResult: _onSpeechResult,
           onListeningChange: _onListeningChange,
@@ -1036,6 +1029,52 @@ class _DotAnimationState extends State<_DotAnimation> with TickerProviderStateMi
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 会话抽屉覆盖层 — 用 Overlay 替代 Stack，避免 Web 端渲染问题
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SessionDrawerOverlay extends StatelessWidget {
+  final VoidCallback onClose;
+
+  const _SessionDrawerOverlay({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // 半透明背景
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: onClose,
+            child: Container(color: Colors.black26),
+          ),
+        ),
+        // 抽屉面板
+        Positioned(
+          top: 0,
+          bottom: 0,
+          left: 0,
+          child: Consumer<ChatSessionProvider>(
+            builder: (ctx, provider, _) => _SessionDrawer(
+              activeSession: provider.activeSession,
+              sessions: provider.sessions,
+              loadingSessions: provider.loadingSessions,
+              onCreateNew: () async {
+                await provider.createNewSession();
+                onClose();
+              },
+              onSelectSession: (session) async {
+                await provider.switchToSession(session);
+              },
+              onClose: onClose,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

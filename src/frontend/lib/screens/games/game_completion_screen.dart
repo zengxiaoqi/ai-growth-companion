@@ -42,7 +42,7 @@ class _GameCompletionScreenState extends State<GameCompletionScreen> {
         : stars == 2
             ? '不错哦'
             : '继续加油';
-    speakText = '游戏完成！得分${widget.score}分，共${widget.total}题，正确率${percent}%。$praise';
+    speakText = '游戏完成！得分${widget.score}分，共${widget.total}题，正确率$percent%。$praise';
   }
 
   Future<void> _speakScore() async {
@@ -162,7 +162,7 @@ class _GameCompletionScreenState extends State<GameCompletionScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '正确率：${percent}%',
+                    '正确率：$percent%',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textColor,

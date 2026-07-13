@@ -91,11 +91,18 @@ Stream<Map<String, dynamic>> _fetchSseStream({
   final lineBuffer = StringBuffer();
   final byteBuffer = <int>[];
 
-  // 超时检测：如果 30 秒内没有收到任何数据，说明 Cloudflare 在缓冲，回退到非流式
+  // 超时检测：如果 5 秒内没有收到第一个 chunk，说明 Cloudflare 在缓冲，回退到非流式
   bool gotFirstChunk = false;
 
   while (true) {
-    final result = await reader.read().toDart;
+    // 对 reader.read() 加 5 秒超时（仅首 chunk）
+    final readFuture = reader.read().toDart;
+    final result = gotFirstChunk
+        ? await readFuture  // 已收到首 chunk 后不再超时
+        : await readFuture.timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw Exception('SSE timeout: no data in 5s (CF buffering)'),
+          );
 
     if (result.done) {
       _log.info('Web SSE: stream done');

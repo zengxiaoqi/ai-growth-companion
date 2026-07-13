@@ -201,7 +201,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               ),
             ],
           ),
-          Expanded(child: _screens[_currentIndex]),
+          Expanded(child: IndexedStack(index: _currentIndex, children: _screens)),
         ],
       ),
       bottomNavigationBar: SafeArea(

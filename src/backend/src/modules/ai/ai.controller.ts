@@ -84,6 +84,16 @@ export class AiController {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
+    // 立即发送 SSE 注释行，强制 Cloudflare/nginx 刷新缓冲区
+    res.write(': ping\n\n');
+
+    // 定期发送 heartbeat，防止 Cloudflare 在 AI 生成期间缓冲响应
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': ping\n\n');
+      } catch (_) {}
+    }, 10000);
+
     try {
       const viewerId = req.user.sub;
       const viewerType = req.user.type;
@@ -165,6 +175,7 @@ export class AiController {
       this.logger.error(`SSE stream error: ${error.message}`);
       res.write(`event: error\ndata: ${JSON.stringify({ message: 'AI服务暂时不可用' })}\n\n`);
     } finally {
+      clearInterval(heartbeat);
       res.end();
     }
   }

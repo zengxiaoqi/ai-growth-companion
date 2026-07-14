@@ -569,16 +569,15 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     if (message.isEmpty) return;
 
     _controller.clear();
-    setState(() => _isLoading = true);
-    _scrollToBottom();
 
     final provider = context.read<ChatSessionProvider>();
-    // 不 await，让用户消息立即显示，AI 回复通过 notifyListeners 流式更新
+    // 先让 provider 添加用户消息+AI占位符到 localMessages
+    // sendMessage 内部会调用 notifyListeners() 触发 Consumer 重建
+    // 然后 sendMessage 会在 _waitForFramePaint() 处等待帧绘制完成
     provider.sendMessage(message).then((msgIndex) {
       if (mounted) {
         setState(() => _isLoading = false);
         _scrollToBottom();
-        // 自动朗读
         if (_autoPlay) {
           _autoSpeakMessage(msgIndex);
         }
@@ -588,6 +587,13 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         setState(() => _isLoading = false);
       }
     });
+
+    // setState 在 provider.sendMessage 之后调用
+    // sendMessage 同步执行到 await _waitForFramePaint() 才 yield
+    // 此时 localMessages 已更新，_isLoading=true 会让发送按钮变灰
+    // 二者在同一帧内处理，避免中间空白状态
+    setState(() => _isLoading = true);
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {

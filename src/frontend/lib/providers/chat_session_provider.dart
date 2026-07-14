@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import '../services/api_service.dart';
 
 // ─── 数据模型 ──────────────────────────────────────────────────────────────
@@ -494,6 +495,24 @@ class ChatSessionProvider extends ChangeNotifier {
 
   // ─── 消息发送（流式输出）──────────────────────────────────────
 
+  /// 等待 Flutter 完成一帧的构建和绘制
+  /// 用于确保 notifyListeners() 触发的 UI 更新在屏幕上可见后再继续
+  Future<void> _waitForFramePaint() async {
+    // 第一帧：build 阶段（widget tree 重建）
+    await _nextFrame();
+    // 第二帧：paint 阶段（光栅化到屏幕）
+    // 两个帧确保 build→layout→paint→composite 全部完成
+    await _nextFrame();
+  }
+
+  static Future<void> _nextFrame() {
+    final completer = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      completer.complete();
+    });
+    return completer.future;
+  }
+
   /// 发送消息（流式输出，支持实时 token 显示 + 测验渲染）
   ///
   /// [onAnswered] 可选回调，在检测到测验答案时通知
@@ -505,6 +524,7 @@ class ChatSessionProvider extends ChangeNotifier {
     // 添加用户消息到本地缓存
     _localMessages.add(ChatMessageEntry(role: 'user', content: trimmed));
     notifyListeners();
+    debugPrint('🔍 [ChatProvider] user message added, localMessages=${_localMessages.length}');
 
     // 添加一个空的 AI 消息，用于流式更新
     final aiMsg = ChatMessageEntry(
@@ -515,11 +535,14 @@ class ChatSessionProvider extends ChangeNotifier {
     );
     _localMessages.add(aiMsg);
     notifyListeners();
+    debugPrint('🔍 [ChatProvider] AI placeholder added, localMessages=${_localMessages.length}');
 
-    // 等待 UI 渲染用户消息后再开始网络请求
-    // 否则在 Flutter Web 上，网络请求会阻塞事件循环，
-    // 导致 notifyListeners() 触发的帧渲染来不及执行，消息显示空白
-    await Future.delayed(const Duration(milliseconds: 50));
+    // 等待 UI 渲染（paint）用户消息后再开始网络请求
+    // 使用 addPostFrameCallback 确保帧不仅被构建(build)还被绘制(paint)到屏幕
+    // Future.delayed(50ms) 在 Flutter Web mobile Safari 上不可靠——
+    // 键盘收起等操作会延迟 requestAnimationFrame，导致帧未绘制就开始网络请求
+    await _waitForFramePaint();
+    debugPrint('🔍 [ChatProvider] frame painted, starting SSE stream');
 
     final targetSession = _activeSession;
     final sessionUuid = targetSession?.uuid;
@@ -538,11 +561,15 @@ class ChatSessionProvider extends ChangeNotifier {
       String? pendingGameType;
       Map<String, dynamic>? pendingGameData;
 
+      debugPrint('🔍 [ChatProvider] SSE stream starting...');
       await for (final event in stream) {
         final type = event['type'] as String?;
 
         if (type == 'token') {
           final chunk = event['content'] as String? ?? '';
+          if (fullReply.isEmpty) {
+            debugPrint('🔍 [ChatProvider] first token received: "$chunk"');
+          }
           fullReply += chunk;
           aiMsg.content = fullReply;
           aiMsg.displayText = fullReply;

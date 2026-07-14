@@ -7,6 +7,7 @@ environment:
   sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
+  flutter_skill: ^0.9.36
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -85,3 +86,9 @@ flutter_launcher_icons:
   image_path: "app_icon_preview.png"
   min_sdk_android: 21
   adaptive_icon_background: "#ffffff"
+
+
+dependency_overrides:
+  http: ^1.1.0
+
+

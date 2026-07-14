@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import '../services/api_service.dart';
 
@@ -562,12 +561,42 @@ class ChatSessionProvider extends ChangeNotifier {
       Map<String, dynamic>? pendingGameData;
 
       debugPrint('🔍 [ChatProvider] SSE stream starting...');
-      await for (final event in stream) {
+
+      // 思考进度提示：AI 在思考中给用户视觉反馈
+      int thinkingSeconds = 0;
+      final thinkingMessages = [
+        '🦄 正在思考...',
+        '🦄 想得更仔细一些...',
+        '🦄 马上就好...',
+        '🦄 让我想想...',
+      ];
+      Timer thinkingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        thinkingSeconds += 3;
+        if (aiMsg.isStreaming && aiMsg.displayText!.isEmpty) {
+          final msgIdx = (thinkingSeconds ~/ 3 - 1) % thinkingMessages.length;
+          aiMsg.displayText = thinkingMessages[msgIdx];
+          notifyListeners();
+          debugPrint('🔍 [ChatProvider] thinking tick: ${thinkingMessages[msgIdx]}');
+        } else {
+          timer.cancel();
+        }
+      });
+
+      try {
+      await for (final event in stream.timeout(
+        const Duration(seconds: 90),
+        onTimeout: (sink) {
+          debugPrint('⚠️ [ChatProvider] stream timeout (90s), aborting');
+          sink.add({'type': 'error', 'message': 'AI响应超时（90秒），请稍后重试~'});
+          sink.close();
+        },
+      )) {
         final type = event['type'] as String?;
 
         if (type == 'token') {
           final chunk = event['content'] as String? ?? '';
           if (fullReply.isEmpty) {
+            thinkingTimer.cancel();
             debugPrint('🔍 [ChatProvider] first token received: "$chunk"');
           }
           fullReply += chunk;
@@ -582,6 +611,7 @@ class ChatSessionProvider extends ChangeNotifier {
             notifyListeners();
           }
         } else if (type == 'tool_start') {
+          thinkingTimer.cancel();
           final toolName = event['toolName'] as String? ?? '';
           if (toolName == 'generateActivity' || toolName == 'generateQuiz') {
             aiMsg.displayText = fullReply.isEmpty ? '🎨 正在生成互动题目...' : fullReply;
@@ -622,6 +652,7 @@ class ChatSessionProvider extends ChangeNotifier {
           }
           notifyListeners();
         } else if (type == 'done') {
+          thinkingTimer.cancel();
           newSessionId = event['sessionId'] as String?;
 
           // 清理全量 reply 中可能残留的 thinking 标签（防御性处理）
@@ -640,6 +671,7 @@ class ChatSessionProvider extends ChangeNotifier {
           }
           break;
         } else if (type == 'error') {
+          thinkingTimer.cancel();
           final msg = event['message'] as String? ?? 'AI服务暂时不可用';
           aiMsg.content = msg;
           aiMsg.displayText = msg;
@@ -647,6 +679,9 @@ class ChatSessionProvider extends ChangeNotifier {
           notifyListeners();
           return _localMessages.length - 1;
         }
+      }
+      } finally {
+        thinkingTimer.cancel();
       }
 
       // 最终化消息

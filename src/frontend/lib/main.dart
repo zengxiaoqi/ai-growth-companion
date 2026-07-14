@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_skill/flutter_skill.dart';
 
 import 'app.dart';
 import 'services/storage_service.dart';
@@ -16,8 +18,34 @@ import 'utils/app_logger.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 初始化 flutter_skill（仅 debug 模式）
+  if (kDebugMode) {
+    FlutterSkillBinding.ensureInitialized();
+  }
+
   // 初始化日志系统
   initLogger();
+
+  // 让 release 模式下的 build 异常可见（默认 ErrorWidget 在 release 模式渲染为 0x0 不可见框）
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('🔥 [ErrorWidget] ${details.exception}');
+    debugPrint('🔥 [ErrorWidget] STACK: ${details.stack}');
+    return Material(
+      child: Container(
+        color: Colors.red.shade50,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 32),
+            const SizedBox(height: 8),
+            Text('渲染错误: ${details.exception}',
+                style: const TextStyle(fontSize: 12, color: Colors.red)),
+          ],
+        ),
+      ),
+    );
+  };
 
   // 初始化本地存储
   final prefs = await SharedPreferences.getInstance();

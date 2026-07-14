@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../components/shimmer_loading.dart';
 import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
@@ -226,9 +225,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: allCorrect
-            ? const LinearGradient(colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)], begin: Alignment.topLeft, end: Alignment.bottomRight)
-            : const LinearGradient(colors: [Color(0xFFFFF3E0), Color(0xFFFFE0B2)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        color: allCorrect ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: allCorrect ? AppTheme.accentColor.withValues(alpha: 0.4) : AppTheme.warningColor.withValues(alpha: 0.3)),
       ),
@@ -316,11 +313,7 @@ class _InlineGameCardState extends State<_InlineGameCard> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppTheme.primaryColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Row(
@@ -571,10 +564,21 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     _controller.clear();
 
     final provider = context.read<ChatSessionProvider>();
-    // 先让 provider 添加用户消息+AI占位符到 localMessages
-    // sendMessage 内部会调用 notifyListeners() 触发 Consumer 重建
-    // 然后 sendMessage 会在 _waitForFramePaint() 处等待帧绘制完成
-    provider.sendMessage(message).then((msgIndex) {
+    
+    // 先设置 loading 状态（禁用发送按钮）
+    setState(() => _isLoading = true);
+    
+    // 启动发送流程 - provider.sendMessage 会同步添加用户消息和 AI 占位符
+    // 然后异步等待 SSE 流
+    final sendFuture = provider.sendMessage(message);
+    
+    // 等待当前帧完成，确保消息已添加到列表并渲染
+    // 使用 addPostFrameCallback 确保 ListView 已布局完成
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottomImmediate();
+    });
+    
+    sendFuture.then((msgIndex) {
       if (mounted) {
         setState(() => _isLoading = false);
         _scrollToBottom();
@@ -587,13 +591,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         setState(() => _isLoading = false);
       }
     });
-
-    // setState 在 provider.sendMessage 之后调用
-    // sendMessage 同步执行到 await _waitForFramePaint() 才 yield
-    // 此时 localMessages 已更新，_isLoading=true 会让发送按钮变灰
-    // 二者在同一帧内处理，避免中间空白状态
-    setState(() => _isLoading = true);
-    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -606,6 +603,29 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         );
       }
     });
+  }
+
+  /// 立即滚动到底部（用于消息发送后确保新消息可见）
+  /// 与 _scrollToBottom 不同，这个方法会重试直到滚动成功
+  void _scrollToBottomImmediate() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    } else {
+      // ListView 还没布局完成，延迟重试
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
   }
 
   // ─── 语音输出 ──────────────────────────────────────────────────────
@@ -673,11 +693,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.backgroundColor, Color(0xFFFFF0F5)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: AppTheme.backgroundColor,
         ),
         child: SafeArea(
           child: Column(children: [
@@ -707,6 +723,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   Widget _buildMessageList() {
     return Consumer<ChatSessionProvider>(
       builder: (ctx, provider, _) {
+        try {
         final messages = provider.localMessages;
         // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
         // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
@@ -720,11 +737,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    itemCount: messages.length + (_isLoading ? 1 : 0),
+                    itemCount: messages.length,
                     itemBuilder: (context, index) {
-                      if (_isLoading && index == messages.length) {
-                        return _buildLoadingIndicator();
-                      }
                       if (index >= messages.length) return const SizedBox.shrink();
                       final message = messages[index];
                       final isUser = message.role == 'user';
@@ -733,6 +747,11 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                   ),
           ),
         ]);
+        } catch (e, s) {
+          debugPrint('🔥 [MessageList] EXCEPTION: $e');
+          debugPrint('🔥 [MessageList] STACK: $s');
+          return Center(child: Text('⚠️ 消息列表渲染错误: $e', style: const TextStyle(color: Colors.red)));
+        }
       },
     );
   }
@@ -748,16 +767,98 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final thinkingContent = message.thinkingContent?.trim();
     final showThinking = thinkingContent != null && thinkingContent.isNotEmpty;
     final expanded = _thinkingExpanded[index] ?? false;
+    debugPrint('🔍 [UI] buildBubble idx=$index role=${message.role} isEmpty=$isEmpty isStreaming=$isStreaming displayText="${displayText.length > 50 ? displayText.substring(0, 50) : displayText}" hasGame=$hasGame hasQuiz=$hasQuiz showThinking=$showThinking');
+
+    try {
+    return _buildMessageBubbleInner(message, isUser, index, isSpeaking, quizQuestions,
+        displayText, hasQuiz, hasGame, isStreaming, isEmpty, thinkingContent, showThinking, expanded);
+    } catch (e, s) {
+      debugPrint('🔥 [UI] EXCEPTION in buildBubble idx=$index: $e');
+      debugPrint('🔥 [UI] STACK: $s');
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Align(alignment: Alignment.centerLeft, child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
+          child: Text('⚠️ 渲染错误: $e', style: TextStyle(fontSize: 13, color: Colors.red)),
+        )),
+      );
+    }
+  }
+
+  Widget _buildMessageBubbleInner(ChatMessageEntry message, bool isUser, int index,
+      bool isSpeaking, dynamic quizQuestions, String displayText,
+      bool hasQuiz, bool hasGame, bool isStreaming, bool isEmpty,
+      String? thinkingContent, bool showThinking, bool expanded) {
+    debugPrint('🔍 [UI] buildInner START idx=$index');
+
+    // Build children list with debug logging
+    final List<Widget> columnChildren = [];
+    
+    // ── AI 消息：思考内容区域（可折叠）──
+    if (!isUser && showThinking) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding thinking section');
+      columnChildren.addAll(_buildThinkingSection(thinkingContent, expanded, isStreaming, index));
+    }
+
+    // ── 消息主体文本 ──
+    if (!isUser) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding AI message body (isEmpty=$isEmpty, isStreaming=$isStreaming)');
+      columnChildren.add(const Text('🦄', style: TextStyle(fontSize: 24)));
+      columnChildren.add(const SizedBox(height: 4));
+      if (isEmpty && isStreaming) {
+        debugPrint('🔍 [UI] buildInner idx=$index: adding typing indicator');
+        columnChildren.add(_buildTypingIndicator());
+      } else {
+        columnChildren.add(Text(displayText,
+          style: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor)));
+        if (isStreaming && !isEmpty) {
+          columnChildren.add(const SizedBox(height: 4));
+          columnChildren.add(_buildStreamingDots());
+        }
+      }
+    } else {
+      columnChildren.add(Text(displayText,
+        style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)));
+      columnChildren.add(const SizedBox(width: 4));
+    }
+
+    // ── Quiz card ──
+    if (!isUser && hasQuiz) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding quiz card');
+      columnChildren.add(const SizedBox(height: 12));
+      columnChildren.add(_InlineQuizCard(
+        questions: quizQuestions,
+        messageIndex: index,
+        onAnswered: (qIdx, selected) {},
+      ));
+    }
+
+    // ── Game card ──
+    if (!isUser && hasGame) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding game card');
+      columnChildren.add(const SizedBox(height: 12));
+      columnChildren.add(_InlineGameCard(
+        gameType: message.gameType!,
+        gameData: message.gameData!,
+      ));
+    }
+
+    // ── Speak button ──
+    if (!isUser && !isStreaming) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding speak button');
+      columnChildren.add(const SizedBox(height: 6));
+      columnChildren.add(Align(alignment: Alignment.centerRight, child: _buildSpeakButton(isSpeaking, index)));
+    }
+
+    debugPrint('🔍 [UI] buildInner idx=$index: assembling widget tree (${columnChildren.length} children)');
 
     return Padding(padding: const EdgeInsets.only(bottom: 12), child: Align(
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
           decoration: BoxDecoration(
-            gradient: isUser ? const LinearGradient(
-                colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
-            color: isUser ? null : Colors.white,
+            color: isUser ? AppTheme.primaryColor : Colors.white,
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(AppTheme.buttonRadius),
               topRight: const Radius.circular(AppTheme.buttonRadius),
@@ -770,115 +871,78 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             ],
           ),
           padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            // ── AI 消息：思考内容区域（可折叠）──
-            if (!isUser && showThinking) ...[
-              GestureDetector(
-                onTap: () => _toggleThinking(index),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
-                        size: 18, color: AppTheme.textSecondary),
-                    const SizedBox(width: 6),
-                    Text('💭 思考过程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
-                    const Spacer(),
-                    if (showThinking && !isStreaming) ...[
-                      Text('${thinkingContent.replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.5))),
-                    ],
-                  ]),
-                ),
-              ),
-              if (expanded) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    color: AppTheme.textSecondary.withValues(alpha: 0.05),
-                    child: MarkdownBody(
-                      data: thinkingContent,
-                      styleSheet: Theme.of(context).useMaterial3
-                        ? MarkdownStyleSheet.fromTheme(Theme.of(context))
-                        : MarkdownStyleSheet(
-                            p: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textSecondary.withValues(alpha: 0.75)),
-                            code: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textSecondary),
-                            codeblockDecoration: BoxDecoration(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            blockquoteDecoration: BoxDecoration(
-                              color: AppTheme.textSecondary.withValues(alpha: 0.06),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            blockquote: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppTheme.textSecondary.withValues(alpha: 0.65)),
-                          ),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-            ],
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: columnChildren,
+        ),
+      ),
+    ),
+  );
+  }
 
-            // ── 消息主体文本（临时用Text替代MarkdownBody排查）──
-            if (!isUser) ...[
-              const Text('🦄', style: TextStyle(fontSize: 24)),
-              const SizedBox(height: 4),
-              if (isEmpty && isStreaming)
-                _buildTypingIndicator()
-              else
-                Text(displayText,
-                  style: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor)),
-              if (isStreaming && !isEmpty) ...[
-                const SizedBox(height: 4),
-                _buildStreamingDots(),
-              ],
-            ] else
-              Text(displayText,
-                style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)),
-            if (isUser) const SizedBox(width: 4),
-            if (!isUser && hasQuiz) ...[
-              const SizedBox(height: 12),
-              _InlineQuizCard(
-                questions: quizQuestions,
-                messageIndex: index,
-                onAnswered: (qIdx, selected) {
-                  // placeholder — quiz answers handled by InlineQuizCard internally
-                },
-              ),
-            ],
-            if (!isUser && hasGame) ...[
-              const SizedBox(height: 12),
-              _InlineGameCard(
-                gameType: message.gameType!,
-                gameData: message.gameData!,
-              ),
-            ],
-            if (!isUser && !isStreaming) ...[
-              const SizedBox(height: 6),
-              Align(alignment: Alignment.centerRight, child: _buildSpeakButton(isSpeaking, index)),
+  List<Widget> _buildThinkingSection(String? thinkingContent, bool expanded, bool isStreaming, int index) {
+    return [
+      GestureDetector(
+        onTap: () => _toggleThinking(index),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.textSecondary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
+                size: 18, color: AppTheme.textSecondary),
+            const SizedBox(width: 6),
+            Text('💭 思考过程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            const Spacer(),
+            if (!isStreaming) ...[
+              Text('${(thinkingContent ?? '').replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.5))),
             ],
           ]),
         ),
       ),
-    );
+      if (expanded) ...[
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            color: AppTheme.textSecondary.withValues(alpha: 0.05),
+            child: MarkdownBody(
+              data: thinkingContent ?? '',
+              styleSheet: Theme.of(context).useMaterial3
+                ? MarkdownStyleSheet.fromTheme(Theme.of(context))
+                : MarkdownStyleSheet(
+                    p: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textSecondary.withValues(alpha: 0.75)),
+                    code: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textSecondary),
+                    codeblockDecoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    blockquoteDecoration: BoxDecoration(
+                      color: AppTheme.textSecondary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    blockquote: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppTheme.textSecondary.withValues(alpha: 0.65)),
+                  ),
+            ),
+          ),
+        ),
+      ],
+      const SizedBox(height: 8),
+    ];
   }
-
-  /// 三个跳动圆点的打字指示器
+  /// 三个跳动圆点的打字指示器（临时用静态组件替代_DotAnimation排查）
   Widget _buildTypingIndicator() {
+    debugPrint('🔍 [UI] _buildTypingIndicator CALLED');
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      _DotAnimation(delay: 0),
+      _SimpleDot(),
       const SizedBox(width: 4),
-      _DotAnimation(delay: 200),
+      _SimpleDot(),
       const SizedBox(width: 4),
-      _DotAnimation(delay: 400),
+      _SimpleDot(),
     ]);
   }
 
@@ -887,9 +951,9 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     return SizedBox(
       width: 16, height: 20,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        _DotAnimation(delay: 0, size: 4),
+        _SimpleDot(size: 4),
         const SizedBox(width: 2),
-        _DotAnimation(delay: 200, size: 4),
+        _SimpleDot(size: 4),
       ]),
     );
   }
@@ -908,11 +972,6 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             color: isSpeaking ? AppTheme.primaryColor : AppTheme.textSecondary),
       ),
     );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return const Padding(padding: EdgeInsets.only(bottom: 12), child: Align(
-      alignment: Alignment.centerLeft, child: ShimmerCard(width: 200, height: 48)));
   }
 
   Widget _buildInputArea() {
@@ -968,9 +1027,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             duration: const Duration(milliseconds: 200),
             width: 48, height: 48,
             decoration: BoxDecoration(
-              gradient: _isLoading
-                  ? LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400])
-                  : const LinearGradient(colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              color: _isLoading ? Colors.grey.shade400 : AppTheme.primaryColor,
               shape: BoxShape.circle,
               boxShadow: _isLoading ? null : [
                 BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 5)),
@@ -987,54 +1044,19 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 }
 
 /// 跳动圆点动画组件（用于打字指示器）
-class _DotAnimation extends StatefulWidget {
-  final int delay;
+class _SimpleDot extends StatelessWidget {
   final double size;
-
-  const _DotAnimation({this.delay = 0, this.size = 8});
-
-  @override
-  State<_DotAnimation> createState() => _DotAnimationState();
-}
-
-class _DotAnimationState extends State<_DotAnimation> with TickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.repeat(reverse: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _SimpleDot({this.size = 8});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Opacity(
-          opacity: 0.4 + (_controller.value * 0.6),
-          child: Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-        );
-      },
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: AppTheme.primaryColor,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

@@ -5,15 +5,10 @@
 
 import 'dart:convert';
 import 'dart:js_interop';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
-
-import '../utils/app_logger.dart';
-
-final _log = AppLogger('SseAdapter');
 
 Stream<Map<String, dynamic>> platformFetchSseStream({
   required String url,
@@ -22,14 +17,14 @@ Stream<Map<String, dynamic>> platformFetchSseStream({
   required Map<String, dynamic> body,
   required Dio dio,
 }) async* {
-  _log.info('Web SSE: fetch $method $url');
+  debugPrint('🔍 [SSE] platformFetchSseStream: $method $url');
 
   // 尝试 fetch + ReadableStream
   try {
     yield* _fetchSseStream(url: url, method: method, headers: headers, body: body);
     return;
   } catch (e) {
-    _log.warning('Web SSE: stream failed, falling back to non-streaming: $e');
+    debugPrint('⚠️ [SSE] stream failed, falling back to non-streaming: $e');
   }
 
   // Fallback: 非流式请求
@@ -59,33 +54,35 @@ Stream<Map<String, dynamic>> _fetchSseStream({
   }
 
   // 发起 fetch 请求
+  debugPrint('🔍 [SSE] _fetchSseStream: calling fetch $url...');
   final responsePromise = web.window.fetch(url.toJS, init);
   final web.Response response;
   try {
     response = await responsePromise.toDart;
   } catch (e) {
-    _log.warning('Web SSE: fetch failed: $e');
+    debugPrint('⚠️ [SSE] fetch failed: $e');
     throw Exception('fetch failed: $e');
   }
 
-
+  debugPrint('🔍 [SSE] fetch resolved, status=${response.status}');
 
   if (!response.ok) {
     final status = response.status;
     final statusText = response.statusText;
-    _log.warning('Web SSE: HTTP $status $statusText');
+    debugPrint('⚠️ [SSE] HTTP $status $statusText');
     yield {'type': 'error', 'message': 'HTTP $status: $statusText'};
     return;
   }
 
   final readableStream = response.body;
   if (readableStream == null) {
-    _log.warning('Web SSE: response.body is null');
+    debugPrint('⚠️ [SSE] response.body is null');
     throw Exception('response.body is null');
   }
 
   // 获取 reader
   final reader = web.ReadableStreamDefaultReader(readableStream);
+  debugPrint('🔍 [SSE] reader created, entering read loop');
 
   // SSE 解析缓冲
   final lineBuffer = StringBuffer();
@@ -93,6 +90,9 @@ Stream<Map<String, dynamic>> _fetchSseStream({
 
   // 超时检测：如果 5 秒内没有收到第一个 chunk，说明 Cloudflare 在缓冲，回退到非流式
   bool gotFirstChunk = false;
+  // 记录首 chunk 时间，用于检测"收到 ping 但无实际事件"的情况
+  DateTime? firstChunkTime;
+  bool gotFirstRealEvent = false;
 
   while (true) {
     // 对 reader.read() 加 5 秒超时（仅首 chunk）
@@ -105,18 +105,32 @@ Stream<Map<String, dynamic>> _fetchSseStream({
           );
 
     if (result.done) {
-      _log.info('Web SSE: stream done');
+      debugPrint('🔍 [SSE] stream done (reader.done=true)');
       break;
     }
 
     final chunkData = result.value;
     if (chunkData == null) continue;
 
-    gotFirstChunk = true;
+    if (!gotFirstChunk) {
+      gotFirstChunk = true;
+      firstChunkTime = DateTime.now();
+      debugPrint('🔍 [SSE] first chunk received');
+    }
+
+    // 检查是否已收到首 chunk 但长时间无实际事件
+    if (!gotFirstRealEvent && firstChunkTime != null) {
+      final elapsed = DateTime.now().difference(firstChunkTime);
+      if (elapsed.inSeconds > 45) {
+        debugPrint('⚠️ [SSE] no real events in 45s after first chunk, aborting');
+        yield {'type': 'error', 'message': 'AI响应超时，请稍后重试~'};
+        return;
+      }
+    }
 
     final uint8List = _jsToUint8List(chunkData);
     if (uint8List == null) {
-      _log.warning('Web SSE: unexpected chunk type: ${chunkData.runtimeType}');
+      debugPrint('⚠️ [SSE] unexpected chunk type: ${chunkData.runtimeType}');
       continue;
     }
 
@@ -151,12 +165,19 @@ Stream<Map<String, dynamic>> _fetchSseStream({
         }
       }
 
+      // 跳过 ping（注释行，无 data:）
       if (dataLine == null) continue;
       eventName ??= 'message';
+
+      if (!gotFirstRealEvent) {
+        gotFirstRealEvent = true;
+        debugPrint('🔍 [SSE] first real event: type=$eventName');
+      }
 
       try {
         final data = jsonDecode(dataLine) as Map<String, dynamic>;
         data['type'] = eventName;
+        debugPrint('🔍 [SSE] event: type=$eventName, keys=${data.keys.toList()}');
         yield data;
       } catch (_) {
         // Non-JSON data, skip
@@ -168,6 +189,8 @@ Stream<Map<String, dynamic>> _fetchSseStream({
     // 没收到任何数据，说明 Cloudflare 在缓冲
     throw Exception('No data received from SSE stream (Cloudflare buffering)');
   }
+
+  debugPrint('🔍 [SSE] stream ended, gotFirstRealEvent=$gotFirstRealEvent');
 }
 
 /// 非流式 fallback：用 dio 发普通 POST 请求，返回完整结果
@@ -177,9 +200,10 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
   required Map<String, dynamic> body,
   required Dio dio,
 }) async* {
-  // 将 /chat/stream 改为 /chat
-  final nonStreamUrl = url.replaceAll('/chat/stream', '/chat');
-  _log.info('Web SSE: fallback to non-streaming $nonStreamUrl');
+  // 修复：url 可能是 '/api/ai/chat/stream'，但 dio baseUrl 已是 '/api'
+  // 所以只需 '/ai/chat'，避免双前缀 '/api/api/ai/chat'
+  final nonStreamUrl = url.replaceAll('/chat/stream', '/chat').replaceFirst('/api', '');
+  debugPrint('🔍 [SSE] fallback to non-streaming: $nonStreamUrl (original url was: $url)');
 
   try {
     final response = await dio.post(
@@ -187,9 +211,11 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
       data: body,
       options: Options(
         headers: headers,
-        receiveTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(seconds: 30),
       ),
     );
+
+    debugPrint('🔍 [SSE] fallback response: status=${response.statusCode}');
 
     final data = response.data;
 
@@ -222,7 +248,7 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
       'suggestions': data['suggestions'] ?? <String>[],
     };
   } catch (e) {
-    _log.warning('Web SSE: fallback failed: $e');
+    debugPrint('⚠️ [SSE] fallback failed: $e');
     yield {'type': 'error', 'message': '请求失败: $e'};
   }
 }
@@ -244,7 +270,7 @@ Uint8List? _jsToUint8List(JSAny? value) {
     // 最后尝试直接 cast（JS 编译器上 Uint8Array = Uint8List）
     return value as Uint8List;
   } catch (e) {
-    _log.warning('_jsToUint8List: conversion failed: $e');
+    debugPrint('⚠️ [SSE] _jsToUint8List conversion failed: $e');
     return null;
   }
 }

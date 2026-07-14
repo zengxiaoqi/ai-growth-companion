@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-07-14",
-  "analysis_count": 53,
-  "commit_count": 426,
-  "last_commit": "2026-07-14T02:09:00+08:00",
-  "last_commit_hash": "4a86bed",
+  "last_analysis": "2026-07-15",
+  "analysis_count": 54,
+  "commit_count": 428,
+  "last_commit": "2026-07-15T02:15:00+08:00",
+  "last_commit_hash": "6111ae0",
   "commits_ahead_remote": 0,
-  "remote_head": "4a86bed",
-  "remote_head_date": "2026-07-14T02:09:00+08:00",
+  "remote_head": "6111ae0",
+  "remote_head_date": "2026-07-15T02:15:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 99,
     "parent_dashboard": 97,
     "content_system": 88,
-    "infrastructure": 93,
+    "infrastructure": 94,
     "code_quality": 98
   },
   "active_plans": [],
@@ -53,7 +53,8 @@
     "2026-07-11: Daily analysis #50 — deploy healthy (200), backend systemd running (2d7h), tunnel active (1w0d). Autonomous Evaluation & Implementation Pipeline executed 3 Tier 1 actions: (1) Fixed Flutter login_screen.dart use_build_context_synchronously warnings — capture StorageService ref before await + add mounted checks, flutter analyze 5→3 issues. (2) Added 20 unit tests for agent-executor game_data emission (new file: agent-executor.game-data.spec.ts) — covers generateQuiz/generateActivity → game_data events, all 7 activity types, error payload skipping, non-JSON handling, code block parsing, stream event ordering, domain field. All 20 pass, total 846→866 tests. (3) Added ESLint flat config (eslint.config.js) for React web frontend — installed @eslint/js + typescript-eslint + react-hooks + react-refresh, updated lint script to 'eslint src/', auto-fixed prefer-const in color-mixing.ts, 233 issues identified for gradual cleanup (18 errors, 215 warnings). TypeScript typecheck clean. Backend build clean, pre-commit hook passed. Pushed to origin.",
     "2026-07-12: Daily analysis #51 — deploy healthy (200), backend systemd running (3d), tunnel active (1w1d). Autonomous Pipeline: fixed all 18 ESLint errors in React web frontend → 0 errors (215 warnings remain, all no-explicit-any for gradual cleanup). Fixes: api.ts (preserve-caught-error + 3 no-empty catch blocks + no-useless-escape regex), AIChat.tsx (2 no-empty catch blocks), TracePathCanvas.tsx (react-hooks/rules-of-hooks — moved useState above conditional return + null-safe hook signatures), plant-growth.ts/daily-routine.ts/emotion-faces.ts (6 @ts-ignore→@ts-expect-error with descriptions), StructuredLessonView.tsx (1 pre-existing react-hooks/rules-of-hooks — moved useState above conditional return). TypeScript typecheck clean. Vite build successful. 7 files, +31/-18 lines.",
     "2026-07-13: Daily analysis #52 — deploy healthy (200), backend systemd running (12h, restarted for SSE compression fix), tunnel active (1w2d). Committed WIP: a0d1e87 feat: game TTS voice + SSE non-streaming fallback + agent tool-call enforcement. 23 files, +911/-233 lines. Backend: SSE compression filter (skip text/event-stream), agent-executor forceToolChoice retry + prompt nudge + assignActivity game_data extraction + extractGameDataPayload, orchestrator activity threshold 4→3 + single mode routing, activity-generator prompt enforcement, expanded NUMBER_TERMS/TOPIC_CORE_TERMS, LLM interface forceToolChoice param. Flutter: GameTtsHelper mixin (7 games + completion screen), SSE web non-streaming fallback (Cloudflare HTTP/2 buffering), AI chat screen session restore fix + error handling. Backend build clean, ESLint 0 errors. Flutter analyze 7 info (4 unnecessary_brace + prefer_final + unnecessary_import + 3 JS interop). Flutter web build deployed (v202607130211, verified). Pushed to origin.",
-    "2026-07-14: Daily analysis #53 — deploy healthy (200), backend systemd running (restarted for SSE heartbeat deploy), tunnel active (1w3d). Committed WIP: 4a86bed fix: SSE heartbeat + Flutter Web chat rendering fixes + lint cleanup. 7 files, +138/-76 lines. Backend: SSE heartbeat (': ping' every 10s during AI generation, prevents Cloudflare HTTP/2 buffering). Flutter: OverlayEntry-based session drawer (replaces Stack approach that caused Web rendering issues), 50ms delay before network request in chat_session_provider (fixes Web event loop blocking), IndexedStack in child_home_screen (preserves tab state), SSE adapter 5s first-chunk timeout (was 30s — faster CF buffering detection). Lint: 3 Flutter analyze issues fixed (unnecessary_brace ×2, prefer_final ×1), 6→3 remaining (all JS interop). Backend build clean, ESLint 0 errors, 143 AI+SSE tests pass. React build clean. Autonomous Pipeline: 3 evaluators dispatched (value/feasibility/scope), feasibility evaluator returned PROCEED (score 8). Backend restarted, health 200. Flutter Web rebuild in progress."
+    "2026-07-14: Daily analysis #53 — deploy healthy (200), backend systemd running (restarted for SSE heartbeat deploy), tunnel active (1w3d). Committed WIP: 4a86bed fix: SSE heartbeat + Flutter Web chat rendering fixes + lint cleanup. 7 files, +138/-76 lines. Backend: SSE heartbeat (': ping' every 10s during AI generation, prevents Cloudflare HTTP/2 buffering). Flutter: OverlayEntry-based session drawer (replaces Stack approach that caused Web rendering issues), 50ms delay before network request in chat_session_provider (fixes Web event loop blocking), IndexedStack in child_home_screen (preserves tab state), SSE adapter 5s first-chunk timeout (was 30s — faster CF buffering detection). Lint: 3 Flutter analyze issues fixed (unnecessary_brace x2, prefer_final x1), 6->3 remaining (all JS interop). Backend build clean, ESLint 0 errors, 143 AI+SSE tests pass. React build clean. Autonomous Pipeline: 3 evaluators dispatched (value/feasibility/scope), feasibility evaluator returned PROCEED (score 8). Backend restarted, health 200. Flutter Web rebuild in progress.",
+    "2026-07-15: Daily analysis #54 — deploy healthy (200), backend systemd running (1d uptime, nvm v22 + better-sqlite3 confirmed working), tunnel active (1w4d). Committed WIP: 6111ae0 fix: SSE chat UX — thinking progress, 90s timeout, fallback URL fix, release-mode logging. 6 files, +562/-420 lines. Flutter: chat_session_provider thinking progress indicators (🦄 正在思考... every 3s) + 90s stream timeout with graceful error; sse_adapter_web debugPrint replacing silenced AppLogger (release-build visibility) + fallback URL double-prefix fix (/api/api/ai/chat -> /ai/chat) + 45s no-real-event timeout; ai_chat_screen addPostFrameCallback frame paint wait (replaces Future.delayed(50ms)) + _scrollToBottomImmediate + gradient->solid color simplification + dead _DotAnimation class removed; main.dart ErrorWidget.builder for release mode + flutter_skill binding; pubspec.yaml flutter_skill dep + http override. Flutter analyze 13->3 issues (all JS interop info). Backend build clean (tsc --noEmit 0 errors). Flutter Web build successful (164.5s), deployed v202607150300, CDN verified MISS->200. Backend SSE endpoint verified: ping heartbeats + tool_start/tool_result/game_data events flowing correctly. 3 parallel evaluators dispatched (value/feasibility/scope)."
   ],
   "lessons_learned": [
     "NestJS lifecycle: constructor validation runs BEFORE onModuleInit — never validate DI state in constructors, use OnApplicationBootstrap (pitfall #64)",
@@ -63,18 +64,22 @@
     "SSE streaming over Cloudflare HTTP/2 tunnel gets buffered — need heartbeat ('ping') + fast first-chunk timeout + non-streaming fallback",
     "Flutter Web event loop: network requests can block notifyListeners frame render — add small delay before network request",
     "OverlayEntry is more reliable than Stack for Flutter Web overlays — Stack-based drawer had rendering issues on Web",
-    "IndexedStack preserves tab state in bottom navigation — better than rebuilding screen on tab switch"
+    "IndexedStack preserves tab state in bottom navigation — better than rebuilding screen on tab switch",
+    "AppLogger with kDebugMode guard is silenced in release builds — use debugPrint for production-visible logging in SSE/networking code",
+    "Flutter Web SSE fallback URL double-prefix bug: dio baseUrl '/api' + full url '/api/ai/chat' = '/api/api/ai/chat' — always strip the baseUrl prefix from the URL before passing to dio.post",
+    "addPostFrameCallback guarantees frame paint completion on Flutter Web Safari — Future.delayed(50ms) does NOT guarantee paint, causing blank chat on send",
+    "ErrorWidget.builder in release mode makes rendering errors visible — default ErrorWidget renders as 0x0 invisible box, masking all layout exceptions"
   ],
   "metrics": {
-    "backend_files": 215,
+    "backend_files": 214,
     "backend_test_files": 75,
     "backend_src_lines": 39967,
-    "backend_test_lines": 16504,
+    "backend_test_lines": 16455,
     "flutter_files": 84,
-    "flutter_lines": 43966,
-    "web_files": 101,
-    "web_lines": 27133,
+    "flutter_lines": 44110,
+    "web_files": 100,
+    "web_lines": 26767,
     "content_files": 46,
-    "total_lines": 127570
+    "total_lines": 127299
   }
 }

@@ -76,8 +76,13 @@ class ChatMessageEntry {
   bool isThinkingExpanded;   // 控制思考区域展开/折叠
 
   // ── 非测验类游戏数据（matching/fill_blank/sequencing/connection/puzzle/true_false）──
-  final String? gameType;              // 游戏类型
-  final Map<String, dynamic>? gameData; // 游戏原始数据
+  // 支持多条游戏数据（AI 可能在一次回复中生成多个游戏）
+  final List<String> gameTypes;           // 游戏类型列表
+  final List<Map<String, dynamic>> gameDatas; // 游戏原始数据列表
+
+  // 兼容旧代码的单值访问器
+  String? get gameType => gameTypes.isNotEmpty ? gameTypes.first : null;
+  Map<String, dynamic>? get gameData => gameDatas.isNotEmpty ? gameDatas.first : null;
 
   ChatMessageEntry({
     required this.role,
@@ -87,9 +92,10 @@ class ChatMessageEntry {
     this.isStreaming = false,
     this.thinkingContent,
     this.isThinkingExpanded = false,
-    this.gameType,
-    this.gameData,
-  });
+    List<String>? gameTypes,
+    List<Map<String, dynamic>>? gameDatas,
+  }) : gameTypes = gameTypes ?? const [],
+       gameDatas = gameDatas ?? const [];
 
   factory ChatMessageEntry.fromJson(Map<String, dynamic> json) {
     final content = json['content']?.toString() ?? '';
@@ -353,8 +359,8 @@ class ChatSessionProvider extends ChangeNotifier {
       // quiz/game data from tool messages to the nearest assistant message.
       final List<ChatMessageEntry> messages = [];
       List<Map<String, dynamic>>? pendingQuiz;
-      String? pendingGameType;
-      Map<String, dynamic>? pendingGameData;
+      final List<String> pendingGameTypes = [];
+      final List<Map<String, dynamic>> pendingGameDatas = [];
 
       for (final json in rawList) {
         final role = json['role']?.toString() ?? 'assistant';
@@ -370,19 +376,19 @@ class ChatSessionProvider extends ChangeNotifier {
               if (qs != null && qs.isNotEmpty) {
                 // If there's a pending game/quiz that wasn't attached, create a
                 // synthetic assistant message for it before starting new one
-                if (pendingQuiz != null || pendingGameData != null) {
+                if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
                   messages.add(ChatMessageEntry(
                     role: 'assistant',
-                    content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                    content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                     quizQuestions: pendingQuiz,
-                    gameType: pendingGameType,
-                    gameData: pendingGameData,
-                    displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                    gameTypes: pendingGameTypes,
+                    gameDatas: pendingGameDatas,
+                    displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                   ));
                 }
                 pendingQuiz = qs;
-                pendingGameType = null;
-                pendingGameData = null;
+                pendingGameTypes.clear();
+                pendingGameDatas.clear();
               } else {
                 // Not quiz — try to parse as non-quiz game data
                 try {
@@ -392,18 +398,18 @@ class ChatSessionProvider extends ChangeNotifier {
                       gameMap['activityType']?.toString() ??
                       _inferGameType(gameMap);
                   if (gameType.isNotEmpty && gameType != 'quiz') {
-                    if (pendingQuiz != null || pendingGameData != null) {
+                    if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
                       messages.add(ChatMessageEntry(
                         role: 'assistant',
-                        content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                        content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                         quizQuestions: pendingQuiz,
-                        gameType: pendingGameType,
-                        gameData: pendingGameData,
-                        displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+                        gameTypes: pendingGameTypes,
+                        gameDatas: pendingGameDatas,
+                        displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
                       ));
                     }
-                    pendingGameType = gameType;
-                    pendingGameData = gameMap;
+                    pendingGameTypes.add(gameType);
+                    pendingGameDatas.add(gameMap);
                     pendingQuiz = null;
                   }
                 } catch (_) {
@@ -422,11 +428,11 @@ class ChatSessionProvider extends ChangeNotifier {
         // assistant message (the tool result comes after the assistant
         // message that triggered the tool call, but for display purposes
         // the game card should appear with the assistant's text)
-        if (role == 'assistant' && (pendingQuiz != null || pendingGameData != null)) {
+        if (role == 'assistant' && (pendingQuiz != null || pendingGameDatas.isNotEmpty)) {
           // If assistant text is empty or just a placeholder, use the
           // display text from the quiz/game data
           if (entry.content.trim().isEmpty) {
-            entry.content = pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝';
+            entry.content = pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝';
           }
           entry.displayText = entry.content;
           // Re-create with quiz/game data (final fields)
@@ -437,12 +443,12 @@ class ChatSessionProvider extends ChangeNotifier {
             displayText: entry.displayText,
             thinkingContent: entry.thinkingContent,
             isThinkingExpanded: entry.isThinkingExpanded,
-            gameType: pendingGameType,
-            gameData: pendingGameData,
+            gameTypes: pendingGameTypes,
+            gameDatas: pendingGameDatas,
           ));
           pendingQuiz = null;
-          pendingGameType = null;
-          pendingGameData = null;
+          pendingGameTypes.clear();
+          pendingGameDatas.clear();
         } else {
           messages.add(entry);
         }
@@ -450,14 +456,14 @@ class ChatSessionProvider extends ChangeNotifier {
 
       // If quiz/game data wasn't attached to any assistant message (e.g. assistant
       // text wasn't stored), create a synthetic assistant message with the quiz/game
-      if (pendingQuiz != null || pendingGameData != null) {
+      if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
         messages.add(ChatMessageEntry(
           role: 'assistant',
-          content: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+          content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
           quizQuestions: pendingQuiz,
-          gameType: pendingGameType,
-          gameData: pendingGameData,
-          displayText: pendingGameData != null ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+          gameTypes: pendingGameTypes,
+          gameDatas: pendingGameDatas,
+          displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
         ));
       }
 
@@ -557,8 +563,8 @@ class ChatSessionProvider extends ChangeNotifier {
       String fullReply = '';
       List<Map<String, dynamic>>? quizQuestions;
       String? newSessionId;
-      String? pendingGameType;
-      Map<String, dynamic>? pendingGameData;
+      final List<String> pendingGameTypes = [];
+      final List<Map<String, dynamic>> pendingGameDatas = [];
 
       debugPrint('🔍 [ChatProvider] SSE stream starting...');
 
@@ -624,15 +630,15 @@ class ChatSessionProvider extends ChangeNotifier {
           final activityType = event['activityType'] as String? ?? '';
           if (gameDataStr.isNotEmpty) {
             // 统一走 _InlineGameCard 路径（含"开始游戏"按钮）
-            // 无论 quiz 还是其他类型，都存储为 pendingGameType/GameData
+            // 无论 quiz 还是其他类型，都存储为 pendingGameTypes/GameDatas
             try {
               final gameMap = jsonDecode(gameDataStr) as Map<String, dynamic>;
               // 如果后端没有给出 activityType，尝试从数据结构推断
               final resolvedType = activityType.isNotEmpty
                   ? activityType
                   : _inferActivityType(gameMap);
-              pendingGameType = resolvedType;
-              pendingGameData = gameMap;
+              pendingGameTypes.add(resolvedType);
+              pendingGameDatas.add(gameMap);
               if (fullReply.isEmpty) {
                 final label = _gameTypeLabel(resolvedType);
                 fullReply = '来玩个$label吧！🎮';
@@ -661,8 +667,8 @@ class ChatSessionProvider extends ChangeNotifier {
           }
 
           // 如果没有收到任何 token 但有 game_data，用 game_data 的 displayText
-          if (fullReply.isEmpty && pendingGameData != null) {
-            final label = _gameTypeLabel(pendingGameType ?? 'quiz');
+          if (fullReply.isEmpty && pendingGameDatas.isNotEmpty) {
+            final label = _gameTypeLabel(pendingGameTypes.first);
             fullReply = '来玩个$label吧！🎮';
           }
           // 如果最终还是空的，给个兜底
@@ -700,8 +706,8 @@ class ChatSessionProvider extends ChangeNotifier {
         isStreaming: false,
         thinkingContent: aiMsg.thinkingContent,
         isThinkingExpanded: false,
-        gameType: pendingGameType,
-        gameData: pendingGameData,
+        gameTypes: pendingGameTypes,
+        gameDatas: pendingGameDatas,
       );
       _localMessages[_localMessages.length - 1] = finalizedMsg;
 
@@ -752,8 +758,8 @@ class ChatSessionProvider extends ChangeNotifier {
 
         final (displayText, quizQuestions) = _parseQuizFromAIResponse(reply);
         List<Map<String, dynamic>>? finalQuiz = quizQuestions;
-        String? pendingGameType;
-        Map<String, dynamic>? pendingGameData;
+        final List<String> pendingGameTypes = [];
+        final List<Map<String, dynamic>> pendingGameDatas = [];
 
         // 也检查 gameData 字段
         final gameData = response?['gameData'];
@@ -764,8 +770,8 @@ class ChatSessionProvider extends ChangeNotifier {
             final gameType = gameMap['activityType']?.toString() ??
                 gameMap['type']?.toString() ??
                 _inferActivityType(gameMap);
-            pendingGameType = gameType;
-            pendingGameData = gameMap;
+            pendingGameTypes.add(gameType);
+            pendingGameDatas.add(gameMap);
           } catch (_) {
             // JSON 解析失败，降级为文本 quiz 解析
             final (gdt, gqs) = _parseQuizFromAIResponse(gameDataStr);
@@ -804,8 +810,8 @@ class ChatSessionProvider extends ChangeNotifier {
           isStreaming: false,
           thinkingContent: _stripThinkingFromText(reply),
           isThinkingExpanded: false,
-          gameType: pendingGameType,
-          gameData: pendingGameData,
+          gameTypes: pendingGameTypes,
+          gameDatas: pendingGameDatas,
         );
         _localMessages[_localMessages.length - 1] = finalizedMsg;
 

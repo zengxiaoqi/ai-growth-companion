@@ -761,7 +761,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final quizQuestions = message.quizQuestions;
     final displayText = message.displayText ?? message.content;
     final hasQuiz = quizQuestions != null && quizQuestions.isNotEmpty;
-    final hasGame = message.gameType != null && message.gameData != null;
+    final hasGame = message.gameDatas.isNotEmpty;
     final isStreaming = message.isStreaming;
     final isEmpty = displayText.isEmpty;
     final thinkingContent = message.thinkingContent?.trim();
@@ -834,14 +834,16 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       ));
     }
 
-    // ── Game card ──
-    if (!isUser && hasGame) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding game card');
-      columnChildren.add(const SizedBox(height: 12));
-      columnChildren.add(_InlineGameCard(
-        gameType: message.gameType!,
-        gameData: message.gameData!,
-      ));
+    // ── Game cards (支持多个游戏) ──
+    if (!isUser && message.gameDatas.isNotEmpty) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding ${message.gameDatas.length} game card(s)');
+      for (var i = 0; i < message.gameDatas.length; i++) {
+        columnChildren.add(const SizedBox(height: 12));
+        columnChildren.add(_InlineGameCard(
+          gameType: message.gameTypes[i],
+          gameData: message.gameDatas[i],
+        ));
+      }
     }
 
     // ── Speak button ──

@@ -19,18 +19,14 @@ export class ConversationManager {
   private readonly logger = new Logger(ConversationManager.name);
   private readonly activeSessions = new Map<string, ActiveSession>();
   private readonly SUMMARY_THRESHOLD = 50; // 生成摘要的消息数阈值
-  private llmClient: LlmClientService;
 
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(ConversationMessage)
     private readonly messageRepo: Repository<ConversationMessage>,
+    private readonly llmClient: LlmClientService,
   ) {}
-
-  setLlmClient(llmClient: LlmClientService) {
-    this.llmClient = llmClient;
-  }
 
   /** Get or create a conversation session */
   async getOrCreateSession(childId: number, sessionId?: string): Promise<ActiveSession> {

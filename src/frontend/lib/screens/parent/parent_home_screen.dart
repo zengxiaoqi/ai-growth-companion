@@ -559,6 +559,13 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           onTap: () => Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
         ),
         _MenuTile(
+          icon: Icons.download_rounded,
+          title: '视频下载',
+          subtitle: '无水印下载抖音/B站等视频',
+          color: const Color(0xFF7E57C2),
+          onTap: () => Navigator.pushNamed(context, '/parent/videoDownload'),
+        ),
+        _MenuTile(
           icon: Icons.family_restroom_rounded,
           title: '孩子管理',
           subtitle: '添加、编辑或删除孩子账号',

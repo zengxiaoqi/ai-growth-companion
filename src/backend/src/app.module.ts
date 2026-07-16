@@ -18,6 +18,7 @@ import { SseModule } from './modules/sse/sse.module';
 import { AssignmentModule } from './modules/assignment/assignment.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
 import { RewardModule } from './modules/reward/reward.module';
+import { VideoDownloadModule } from './modules/video-download/video-download.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 /**
@@ -121,6 +122,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     AssignmentModule,
     EmergencyModule,
     RewardModule,
+    VideoDownloadModule,
     DatabaseSeederModule,
   ],
 })

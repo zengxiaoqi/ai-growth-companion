@@ -24,6 +24,7 @@ import 'screens/parent/lesson_generator_screen.dart';
 import 'screens/parent/draft_manager_screen.dart';
 import 'screens/parent/quick_video_generator_screen.dart';
 import 'screens/parent/child_manager_screen.dart';
+import 'screens/parent/video_download_screen.dart';
 import 'screens/reward/reward_home_screen.dart';
 import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
@@ -168,6 +169,11 @@ class LingxiApp extends StatelessWidget {
           case '/parent/quickVideoGenerator':
             return page(
               (_) => const QuickVideoGeneratorScreen(),
+              slideFromRight,
+            );
+          case '/parent/videoDownload':
+            return page(
+              (_) => const VideoDownloadScreen(),
               slideFromRight,
             );
           case '/parent/childManager':

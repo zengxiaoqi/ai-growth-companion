@@ -13,6 +13,7 @@ import 'providers/learning_provider.dart';
 import 'providers/content_provider.dart';
 import 'providers/chat_session_provider.dart';
 import 'providers/reward_provider.dart';
+import 'providers/video_download_provider.dart';
 import 'utils/app_logger.dart';
 
 void main() async {
@@ -94,6 +95,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => RewardProvider(apiService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => VideoDownloadProvider(apiService),
         ),
       ],
       child: const LingxiApp(),

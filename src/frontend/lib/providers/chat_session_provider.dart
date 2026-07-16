@@ -419,8 +419,8 @@ class ChatSessionProvider extends ChangeNotifier {
             displayText: entry.displayText,
             thinkingContent: entry.thinkingContent,
             isThinkingExpanded: entry.isThinkingExpanded,
-            gameTypes: pendingGameTypes,
-            gameDatas: pendingGameDatas,
+            gameTypes: List.from(pendingGameTypes),
+            gameDatas: List.from(pendingGameDatas),
           ));
           pendingGameTypes.clear();
           pendingGameDatas.clear();
@@ -435,8 +435,8 @@ class ChatSessionProvider extends ChangeNotifier {
         messages.add(ChatMessageEntry(
           role: 'assistant',
           content: '来玩个互动游戏吧！🎮',
-          gameTypes: pendingGameTypes,
-          gameDatas: pendingGameDatas,
+          gameTypes: List.from(pendingGameTypes),
+          gameDatas: List.from(pendingGameDatas),
           displayText: '来玩个互动游戏吧！🎮',
         ));
       }
@@ -680,8 +680,8 @@ class ChatSessionProvider extends ChangeNotifier {
         isStreaming: false,
         thinkingContent: aiMsg.thinkingContent,
         isThinkingExpanded: false,
-        gameTypes: pendingGameTypes,
-        gameDatas: pendingGameDatas,
+        gameTypes: List.from(pendingGameTypes),
+        gameDatas: List.from(pendingGameDatas),
       );
       _localMessages[_localMessages.length - 1] = finalizedMsg;
 
@@ -784,8 +784,8 @@ class ChatSessionProvider extends ChangeNotifier {
           isStreaming: false,
           thinkingContent: _stripThinkingFromText(reply),
           isThinkingExpanded: false,
-          gameTypes: pendingGameTypes,
-          gameDatas: pendingGameDatas,
+          gameTypes: List.from(pendingGameTypes),
+          gameDatas: List.from(pendingGameDatas),
         );
         _localMessages[_localMessages.length - 1] = finalizedMsg;
 

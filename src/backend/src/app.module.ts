@@ -71,7 +71,9 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
               configService.get('NODE_ENV') === 'production'
                 ? { rejectUnauthorized: false }
                 : false,
-            logging: configService.get('NODE_ENV') === 'development',
+            // Log only errors/warnings to prevent log flooding from
+            // periodic query polling (e.g. video generation task queue).
+            logging: ['error', 'warn'],
           };
         }
 
@@ -86,7 +88,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
             type: 'sqljs',
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
-            logging: configService.get('NODE_ENV') === 'development',
+            logging: ['error', 'warn'],
           };
         }
 
@@ -95,7 +97,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
           database: configService.get('DB_PATH', 'lingxi.db'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           synchronize: true,
-          logging: configService.get('NODE_ENV') === 'development',
+          logging: ['error', 'warn'],
         };
       },
       inject: [ConfigService],

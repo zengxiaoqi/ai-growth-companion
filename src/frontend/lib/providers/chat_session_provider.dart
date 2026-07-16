@@ -356,9 +356,13 @@ class ChatSessionProvider extends ChangeNotifier {
           .toList();
 
       // Build display messages: skip 'tool' and 'system' roles, but attach
-      // quiz/game data from tool messages to the nearest assistant message.
+      // game data from tool messages to the nearest assistant message.
+      //
+      // 统一走 _InlineGameCard 路径（含"开始游戏"按钮），与实时流式路径一致。
+      // 所有游戏类型（quiz/true_false/matching/fill_blank/sequencing/connection/puzzle）
+      // 都存入 pendingGameTypes/pendingGameDatas，不再使用 _parseQuizFromAIResponse
+      // 和 pendingQuiz（旧路径的 quiz 解析过于严格，导致大量有效 quiz 游戏数据被丢弃）。
       final List<ChatMessageEntry> messages = [];
-      List<Map<String, dynamic>>? pendingQuiz;
       final List<String> pendingGameTypes = [];
       final List<Map<String, dynamic>> pendingGameDatas = [];
 
@@ -366,55 +370,28 @@ class ChatSessionProvider extends ChangeNotifier {
         final role = json['role']?.toString() ?? 'assistant';
 
         if (role == 'tool' || role == 'system') {
-          // Try to extract quiz/game data from tool message content
+          // Try to extract game data from tool message content
           if (role == 'tool') {
             final toolName = json['toolName']?.toString() ?? '';
             final content = json['content']?.toString() ?? '';
             if ((toolName == 'generateActivity' || toolName == 'generateQuiz') && content.isNotEmpty) {
-              // Try quiz first
-              final (_, qs) = _parseQuizFromAIResponse(content);
-              if (qs != null && qs.isNotEmpty) {
-                // If there's a pending game/quiz that wasn't attached, create a
-                // synthetic assistant message for it before starting new one
-                if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
-                  messages.add(ChatMessageEntry(
-                    role: 'assistant',
-                    content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
-                    quizQuestions: pendingQuiz,
-                    gameTypes: pendingGameTypes,
-                    gameDatas: pendingGameDatas,
-                    displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
-                  ));
+              // 跳过错误的 tool 结果
+              if (content.contains('"error"')) {
+                continue;
+              }
+              // 统一解析为 game data，不再区分 quiz vs non-quiz
+              try {
+                final gameMap = jsonDecode(content) as Map<String, dynamic>;
+                // Determine game type from the data structure
+                final gameType = gameMap['type']?.toString() ??
+                    gameMap['activityType']?.toString() ??
+                    _inferGameType(gameMap);
+                if (gameType.isNotEmpty) {
+                  pendingGameTypes.add(gameType);
+                  pendingGameDatas.add(gameMap);
                 }
-                pendingQuiz = qs;
-                pendingGameTypes.clear();
-                pendingGameDatas.clear();
-              } else {
-                // Not quiz — try to parse as non-quiz game data
-                try {
-                  final gameMap = jsonDecode(content) as Map<String, dynamic>;
-                  // Determine game type from the data structure
-                  final gameType = gameMap['type']?.toString() ??
-                      gameMap['activityType']?.toString() ??
-                      _inferGameType(gameMap);
-                  if (gameType.isNotEmpty && gameType != 'quiz') {
-                    if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
-                      messages.add(ChatMessageEntry(
-                        role: 'assistant',
-                        content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
-                        quizQuestions: pendingQuiz,
-                        gameTypes: pendingGameTypes,
-                        gameDatas: pendingGameDatas,
-                        displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
-                      ));
-                    }
-                    pendingGameTypes.add(gameType);
-                    pendingGameDatas.add(gameMap);
-                    pendingQuiz = null;
-                  }
-                } catch (_) {
-                  // JSON parse failed, skip
-                }
+              } catch (_) {
+                // JSON parse failed, skip
               }
             }
           }
@@ -424,29 +401,27 @@ class ChatSessionProvider extends ChangeNotifier {
 
         final entry = ChatMessageEntry.fromJson(json);
 
-        // If we have quiz or game data from a tool message, attach it to this
+        // If we have game data from tool messages, attach it to this
         // assistant message (the tool result comes after the assistant
         // message that triggered the tool call, but for display purposes
         // the game card should appear with the assistant's text)
-        if (role == 'assistant' && (pendingQuiz != null || pendingGameDatas.isNotEmpty)) {
+        if (role == 'assistant' && pendingGameDatas.isNotEmpty) {
           // If assistant text is empty or just a placeholder, use the
-          // display text from the quiz/game data
+          // display text from the game data
           if (entry.content.trim().isEmpty) {
-            entry.content = pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝';
+            entry.content = '来玩个互动游戏吧！🎮';
           }
           entry.displayText = entry.content;
-          // Re-create with quiz/game data (final fields)
+          // Re-create with game data (final fields)
           messages.add(ChatMessageEntry(
             role: 'assistant',
             content: entry.content,
-            quizQuestions: pendingQuiz,
             displayText: entry.displayText,
             thinkingContent: entry.thinkingContent,
             isThinkingExpanded: entry.isThinkingExpanded,
             gameTypes: pendingGameTypes,
             gameDatas: pendingGameDatas,
           ));
-          pendingQuiz = null;
           pendingGameTypes.clear();
           pendingGameDatas.clear();
         } else {
@@ -454,16 +429,15 @@ class ChatSessionProvider extends ChangeNotifier {
         }
       }
 
-      // If quiz/game data wasn't attached to any assistant message (e.g. assistant
-      // text wasn't stored), create a synthetic assistant message with the quiz/game
-      if (pendingQuiz != null || pendingGameDatas.isNotEmpty) {
+      // If game data wasn't attached to any assistant message (e.g. assistant
+      // text wasn't stored), create a synthetic assistant message with the game
+      if (pendingGameDatas.isNotEmpty) {
         messages.add(ChatMessageEntry(
           role: 'assistant',
-          content: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
-          quizQuestions: pendingQuiz,
+          content: '来玩个互动游戏吧！🎮',
           gameTypes: pendingGameTypes,
           gameDatas: pendingGameDatas,
-          displayText: pendingGameDatas.isNotEmpty ? '来玩个互动游戏吧！🎮' : '来做几道题目吧！📝',
+          displayText: '来玩个互动游戏吧！🎮',
         ));
       }
 

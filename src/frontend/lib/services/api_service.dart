@@ -1443,7 +1443,10 @@ class ApiService {
 
   Future<List<dynamic>> getAIChatMessages(String sessionId) async {
     try {
-      final response = await _dio.get('/ai/history/sessions/$sessionId/messages');
+      // 传 limit=200 获取更多历史消息（后端最大支持200）
+      // 之前不传 limit 导致默认只返回最新50条，大量游戏历史丢失
+      final response = await _dio.get('/ai/history/sessions/$sessionId/messages',
+          queryParameters: {'limit': 200, 'page': 1});
       if (response.data is List) return response.data as List<dynamic>;
       if (response.data is Map && response.data['list'] is List) {
         return response.data['list'] as List<dynamic>;

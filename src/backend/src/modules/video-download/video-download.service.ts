@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as path from 'path';
@@ -89,7 +84,11 @@ export class VideoDownloadService {
   /**
    * Create a new download task and start downloading in the background
    */
-  async createDownload(parentId: number, rawInput: string, childId?: number): Promise<VideoDownload> {
+  async createDownload(
+    parentId: number,
+    rawInput: string,
+    childId?: number,
+  ): Promise<VideoDownload> {
     // Extract URL from possible share text (Douyin/Bilibili share messages contain extra text)
     const url = this.extractUrlFromText(rawInput);
 
@@ -345,20 +344,18 @@ export class VideoDownloadService {
   private fetchUrl(url: string, headers: Record<string, string>): Promise<string> {
     return new Promise((resolve, reject) => {
       const mod = url.startsWith('https') ? https : http;
-      const req = mod.get(
-        url,
-        { headers: { 'User-Agent': MOBILE_UA, ...headers } },
-        (res) => {
-          if (res.statusCode === 301 || res.statusCode === 302) {
-            this.fetchUrl(res.headers.location || '', headers).then(resolve).catch(reject);
-            return;
-          }
-          let body = '';
-          res.on('data', (chunk) => (body += chunk));
-          res.on('end', () => resolve(body));
-          res.on('error', reject);
-        },
-      );
+      const req = mod.get(url, { headers: { 'User-Agent': MOBILE_UA, ...headers } }, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          this.fetchUrl(res.headers.location || '', headers)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+        let body = '';
+        res.on('data', (chunk) => (body += chunk));
+        res.on('end', () => resolve(body));
+        res.on('error', reject);
+      });
       req.on('error', reject);
       req.setTimeout(15000, () => {
         req.destroy();
@@ -370,7 +367,11 @@ export class VideoDownloadService {
   /**
    * Download a file to a local path
    */
-  private downloadFile(url: string, outputPath: string, headers: Record<string, string>): Promise<void> {
+  private downloadFile(
+    url: string,
+    outputPath: string,
+    headers: Record<string, string>,
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(outputPath);
       const mod = url.startsWith('https') ? https : http;
@@ -421,7 +422,6 @@ export class VideoDownloadService {
     });
 
     // Extract video info from the embedded JSON in the page
-    const playAddrMatch = html.match(/"play_addr":\{"uri":"([^"]+)"/);
     const titleMatch = html.match(/<title>([^<]+)<\/title>/);
     const descMatch = html.match(/"desc":"([^"]+)"/);
     const uploaderMatch = html.match(/"nickname":"([^"]+)"/);
@@ -495,7 +495,9 @@ export class VideoDownloadService {
         fileSize: stats.size,
       });
 
-      this.logger.log(`Douyin download completed: task=${taskId} size=${stats.size} → ${relativePath}`);
+      this.logger.log(
+        `Douyin download completed: task=${taskId} size=${stats.size} → ${relativePath}`,
+      );
     } catch (err) {
       const errorMsg = (err as Error).message.slice(0, 1000);
       this.logger.error(`Douyin download failed for task ${taskId}: ${errorMsg}`);

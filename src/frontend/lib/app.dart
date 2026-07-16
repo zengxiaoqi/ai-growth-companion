@@ -32,6 +32,12 @@ import 'screens/learning/content_detail_screen.dart';
 import 'screens/learning/structured_lesson_screen.dart';
 import 'screens/learning/lesson_scene_player.dart';
 import 'screens/learning/subject_content_list_screen.dart';
+import 'screens/poetry/poetry_home_screen.dart';
+import 'screens/poetry/poetry_detail_screen.dart';
+import 'screens/poetry/poetry_game_screen.dart';
+import 'screens/poetry/fill_blank_game_screen.dart';
+import 'screens/poetry/flying_flower_game_screen.dart';
+import 'screens/poetry/solitaire_game_screen.dart';
 // AnimationScene 已在 animation_scene_player.dart 中导出
 
 /// 全局 Navigator Key，供 ApiService 在 401 时跳转登录页
@@ -211,6 +217,25 @@ class LingxiApp extends StatelessWidget {
               ),
               slideFromRight,
             );
+
+          // ── Poetry → slideFromRight ──
+          case '/poetry':
+            return page((_) => const PoetryHomeScreen(), slideFromRight);
+          case '/poetry/detail':
+            return page(
+              (_) => PoetryDetailScreen(
+                poemId: args?['poemId'] as int? ?? 0,
+              ),
+              slideFromRight,
+            );
+          case '/poetry/game':
+            return page((_) => const PoetryGameScreen(), slideFromRight);
+          case '/poetry/game/fill-blank':
+            return page((_) => const FillBlankGameScreen(), slideFromRight);
+          case '/poetry/game/flying-flower':
+            return page((_) => const FlyingFlowerGameScreen(), slideFromRight);
+          case '/poetry/game/solitaire':
+            return page((_) => const SolitaireGameScreen(), slideFromRight);
 
           // ── Games / interactive play → childFriendly ──
           case '/learning/animationPlayer':

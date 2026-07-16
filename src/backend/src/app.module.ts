@@ -19,6 +19,7 @@ import { AssignmentModule } from './modules/assignment/assignment.module';
 import { EmergencyModule } from './modules/emergency/emergency.module';
 import { RewardModule } from './modules/reward/reward.module';
 import { VideoDownloadModule } from './modules/video-download/video-download.module';
+import { PoetryModule } from './modules/poetry/poetry.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 /**
@@ -123,6 +124,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     EmergencyModule,
     RewardModule,
     VideoDownloadModule,
+    PoetryModule,
     DatabaseSeederModule,
   ],
 })

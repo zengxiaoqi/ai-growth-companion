@@ -1,0 +1,356 @@
+import 'package:flutter/material.dart';
+import '../../services/poetry_service.dart';
+import '../../services/api_service.dart';
+import 'poetry_detail_screen.dart';
+import 'poetry_game_screen.dart';
+
+/// 诗词模块首页
+class PoetryHomeScreen extends StatefulWidget {
+  const PoetryHomeScreen({super.key});
+
+  @override
+  State<PoetryHomeScreen> createState() => _PoetryHomeScreenState();
+}
+
+class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
+  late final PoetryService _poetryService;
+  
+  List<Poem> _poems = [];
+  bool _isLoading = true;
+  String? _error;
+  int _currentPage = 1;
+  bool _hasMore = true;
+  
+  // 搜索相关
+  final _searchController = TextEditingController();
+  bool _isSearching = false;
+  List<Poem> _searchResults = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _poetryService = PoetryService(ApiService());
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final result = await _poetryService.getPoems(page: 1, pageSize: 20);
+      setState(() {
+        _poems = result.list;
+        _hasMore = _poems.length < result.total;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '加载失败: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (!_hasMore || _isLoading || _isSearching) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _poetryService.getPoems(
+        page: _currentPage + 1,
+        pageSize: 20,
+      );
+
+      setState(() {
+        _poems.addAll(result.list);
+        _currentPage++;
+        _hasMore = _poems.length < result.total;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载更多失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _search(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final result = await _poetryService.searchPoems(query: query);
+      setState(() => _searchResults = result.list);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('搜索失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showRandomPoem() async {
+    try {
+      final poem = await _poetryService.getRandomPoem();
+      if (poem != null && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PoetryDetailScreen(poemId: poem.id),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取随机诗词失败: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '搜索诗词...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.white70),
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: _search,
+              )
+            : const Text('诗词鉴赏'),
+        actions: [
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                _searchController.clear();
+                setState(() => _isSearching = false);
+              },
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () => setState(() => _isSearching = true),
+            ),
+            IconButton(
+              icon: const Icon(Icons.casino),
+              tooltip: '随机诗词',
+              onPressed: _showRandomPoem,
+            ),
+          ],
+        ],
+      ),
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PoetryGameScreen()),
+          );
+        },
+        icon: const Icon(Icons.games),
+        label: const Text('诗词游戏'),
+        backgroundColor: const Color(0xFF8B2500),
+        foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading && _poems.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _poems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadData,
+              child: const Text('重试'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isSearching) {
+      return _buildSearchResults();
+    }
+
+    return _buildPoemList();
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchResults.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('未找到相关诗词'),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) => _buildPoemCard(_searchResults[index]),
+    );
+  }
+
+  Widget _buildPoemList() {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+          _loadMore();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _poems.length + (_hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= _poems.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return _buildPoemCard(_poems[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPoemCard(Poem poem) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PoetryDetailScreen(poemId: poem.id),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题行
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      poem.title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (poem.type != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        poem.type!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 作者和朝代
+              Row(
+                children: [
+                  if (poem.dynasty != null) ...[
+                    Icon(Icons.history, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      poem.dynasty!.name,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (poem.author != null) ...[
+                    Icon(Icons.person, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      poem.author!.name,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 诗词内容预览（前两行）
+              ...poem.contentLines.take(2).map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    line,
+                    style: const TextStyle(fontSize: 15, height: 1.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              if (poem.contentLines.length > 2)
+                Text(
+                  '...',
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

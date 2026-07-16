@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
+import 'dart:html' as html;
+import 'dart:ui_web' as ui_web;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../models/video_download_models.dart';
 import '../../providers/video_download_provider.dart';
 import '../../providers/user_provider.dart';
@@ -482,6 +485,17 @@ class _DownloadCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                       ),
+                    if (isCompleted && kIsWeb && item.filePath != null)
+                      OutlinedButton.icon(
+                        onPressed: () => _downloadToLocal(context, item),
+                        icon: const Icon(Icons.file_download, size: 18),
+                        label: const Text('下载到本地'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: BorderSide(color: AppTheme.primaryColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
                     if (onTogglePublish != null)
                       ElevatedButton.icon(
                         onPressed: onTogglePublish,
@@ -622,9 +636,65 @@ class _DownloadCard extends StatelessWidget {
       ],
     );
   }
+
+  /// Download video file to user's local device via browser download
+  void _downloadToLocal(BuildContext context, VideoDownloadItem item) {
+    try {
+      final provider = context.read<VideoDownloadProvider>();
+      final url = provider.getVideoUrl(item);
+
+      // Create a safe filename from the title
+      final safeTitle = (item.title ?? 'video')
+          .replaceAll(RegExp(r'[\\/:*?"<>|#]'), '_')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      final ext = item.filePath!.endsWith('.mp4') ? '.mp4' : '.mp4';
+      final filename = '${safeTitle}_无水印$ext';
+
+      // Use HTML5 download attribute to trigger browser save-as
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute('download', filename)
+        ..style.display = 'none';
+
+      html.document.body?.children.add(anchor);
+      anchor.click();
+      html.document.body?.children.remove(anchor);
+
+      // Show success feedback
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已开始下载: $filename'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      _log.info('Triggered local download: $filename from $url');
+    } catch (e) {
+      _log.warning('Download to local failed: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('下载失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 }
 
-/// Video player screen using video_player package
+/// Video player screen
+///
+/// On Web: uses native HTML5 `<video controls>` via [HtmlElementView] for
+/// full browser-native playback controls (seek, volume, fullscreen, etc.).
+/// The previous `video_player` overlay approach broke on Web because the
+/// Flutter gesture-detector layer intercepted pointer events meant for the
+/// underlying platform-view `<video>` element, making the progress bar and
+/// playback controls unresponsive.
+///
+/// On mobile: uses `video_player` package with custom controls overlay.
 class _VideoPlayerScreen extends StatefulWidget {
   final String url;
   final String title;
@@ -636,35 +706,71 @@ class _VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
-  late VideoPlayerController _controller;
+  static int _viewIdCounter = 0;
+
+  // Web-only
+  late String _viewType;
+
+  // Mobile-only
+  VideoPlayerController? _controller;
+
   bool _isInitialized = false;
   bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      _initWebPlayer();
+    } else {
+      _initMobilePlayer();
+    }
+  }
+
+  void _initWebPlayer() {
+    _viewType = 'video-download-player-${_viewIdCounter++}';
+    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
+      final video = html.VideoElement()
+        ..src = widget.url
+        ..style.border = 'none'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..controls = true
+        ..autoplay = true
+        ..setAttribute('playsinline', 'true')
+        ..setAttribute('preload', 'auto');
+
+      video.onError.listen((event) {
+        _log.warning('HTML5 video error: ${video.error?.message}');
+        if (mounted) {
+          setState(() => _hasError = true);
+        }
+      });
+
+      return video;
+    });
+    setState(() => _isInitialized = true);
+  }
+
+  void _initMobilePlayer() {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-    _controller.initialize().then((_) {
+    _controller!.initialize().then((_) {
       if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller.setLooping(true);
-        _controller.play();
+        setState(() => _isInitialized = true);
+        _controller!.setLooping(true);
+        _controller!.play();
       }
     }).catchError((e) {
       _log.warning('Video player init error: $e');
       if (mounted) {
-        setState(() {
-          _hasError = true;
-        });
+        setState(() => _hasError = true);
       }
     });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -689,55 +795,61 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
               )
             : !_isInitialized
                 ? const CircularProgressIndicator(color: Colors.white)
-                : AspectRatio(
-                    aspectRatio: _controller.value.aspectRatio,
-                    child: Stack(
-                      alignment: Alignment.bottomCenter,
-                      children: [
-                        VideoPlayer(_controller),
-                        // Play/Pause overlay
-                        Positioned.fill(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _controller.value.isPlaying
-                                    ? _controller.pause()
-                                    : _controller.play();
-                              });
-                            },
-                            child: ValueListenableBuilder(
-                              valueListenable: _controller,
-                              builder: (context, VideoPlayerValue value, _) {
-                                return value.isPlaying
-                                    ? const SizedBox.shrink()
-                                    : Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(40),
-                                          ),
-                                          child: const Icon(
-                                            Icons.play_arrow,
-                                            color: Colors.white,
-                                            size: 40,
-                                          ),
-                                        ),
-                                      );
-                              },
+                : kIsWeb
+                    ? HtmlElementView(viewType: _viewType)
+                    : _buildMobilePlayer(),
+      ),
+    );
+  }
+
+  Widget _buildMobilePlayer() {
+    return AspectRatio(
+      aspectRatio: _controller!.value.aspectRatio,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          VideoPlayer(_controller!),
+          // Play/Pause overlay
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _controller!.value.isPlaying
+                      ? _controller!.pause()
+                      : _controller!.play();
+                });
+              },
+              child: ValueListenableBuilder(
+                valueListenable: _controller!,
+                builder: (context, VideoPlayerValue value, _) {
+                  return value.isPlaying
+                      ? const SizedBox.shrink()
+                      : Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 40,
                             ),
                           ),
-                        ),
-                        // Progress bar
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: _VideoProgressBar(controller: _controller),
-                        ),
-                      ],
-                    ),
-                  ),
+                        );
+                },
+              ),
+            ),
+          ),
+          // Progress bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _VideoProgressBar(controller: _controller!),
+          ),
+        ],
       ),
     );
   }

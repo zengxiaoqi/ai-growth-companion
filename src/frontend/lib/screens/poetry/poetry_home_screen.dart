@@ -210,17 +210,17 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const PoetryGameScreen()),
           );
         },
-        icon: const Icon(Icons.games),
-        label: const Text('诗词游戏'),
+        tooltip: '诗词游戏',
         backgroundColor: const Color(0xFF8B2500),
         foregroundColor: Colors.white,
+        child: const Icon(Icons.games),
       ),
     );
   }

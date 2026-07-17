@@ -26,6 +26,17 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
   bool _isSearching = false;
   List<Poem> _searchResults = [];
 
+  // 搜索类型过滤
+  String _selectedSearchType = 'all';
+  final List<Map<String, String>> _searchTypes = [
+    {'value': 'all', 'label': '全部'},
+    {'value': 'title', 'label': '标题'},
+    {'value': 'content', 'label': '内容'},
+    {'value': 'author', 'label': '作者'},
+    {'value': 'dynasty', 'label': '朝代'},
+    {'value': 'poem_type', 'label': '体裁'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -87,7 +98,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     }
   }
 
-  Future<void> _search(String query) async {
+  Future<void> _search(String query, String searchType) async {
     if (query.isEmpty) {
       setState(() {
         _isSearching = false;
@@ -99,7 +110,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     setState(() => _isSearching = true);
 
     try {
-      final result = await _poetryService.searchPoems(query: query);
+      final result = await _poetryService.searchPoems(query: query, searchType: searchType);
       setState(() => _searchResults = result.list);
     } catch (e) {
       if (mounted) {
@@ -138,13 +149,17 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: '搜索诗词...',
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Colors.white70),
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
                 ),
-                style: const TextStyle(color: Colors.white),
-                onChanged: _search,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                onChanged: (value) => _search(value, _selectedSearchType),
               )
             : const Text('诗词鉴赏'),
         actions: [
@@ -229,10 +244,52 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) => _buildPoemCard(_searchResults[index]),
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        // Search type filter chips
+        Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _searchTypes.length,
+            itemBuilder: (context, index) {
+              final type = _searchTypes[index];
+              final isSelected = _selectedSearchType == type['value'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(type['label']!),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() => _selectedSearchType = type['value']!);
+                    final query = _searchController.text.trim();
+                    if (query.isNotEmpty) {
+                      _search(query, type['value']!);
+                    }
+                  },
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  selectedColor: theme.colorScheme.secondaryContainer,
+                  checkmarkColor: theme.colorScheme.onSecondaryContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: theme.colorScheme.outline),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) => _buildPoemCard(_searchResults[index]),
+          ),
+        ),
+      ],
     );
   }
 
@@ -289,21 +346,24 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                       ),
                     ),
                   ),
-                  if (poem.type != null)
+                  if (poem.type != null) ...[
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
+                        color: const Color(0xFF7EC8E3).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         poem.type!,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Color(0xFF1565C0),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -311,20 +371,32 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
               Row(
                 children: [
                   if (poem.dynasty != null) ...[
-                    Icon(Icons.history, size: 14, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      poem.dynasty!.name,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFB6C1).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        poem.dynasty!.name,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8B2500),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 12),
                   ],
                   if (poem.author != null) ...[
                     Icon(Icons.person, size: 14, color: Colors.grey[600]),
                     const SizedBox(width: 4),
-                    Text(
-                      poem.author!.name,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    Flexible(
+                      child: Text(
+                        poem.author!.name,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ],

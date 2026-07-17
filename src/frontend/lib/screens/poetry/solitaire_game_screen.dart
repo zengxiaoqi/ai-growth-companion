@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/poetry_service.dart';
 import '../../services/api_service.dart';
+import '../games/game_tts_helper.dart';
 
 /// 诗词接龙游戏页
 class SolitaireGameScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class SolitaireGameScreen extends StatefulWidget {
 }
 
 class _SolitaireGameScreenState extends State<SolitaireGameScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, GameTtsHelper {
   late final PoetryService _poetryService;
   late AnimationController _controller;
   late Animation<double> _fadeIn;
@@ -39,6 +40,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
 
   @override
   void dispose() {
+    disposeTts();
     _controller.dispose();
     super.dispose();
   }
@@ -57,6 +59,8 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
         _game = game;
         _isLoading = false;
       });
+      // 加载成功后自动朗读当前诗句
+      speakAfterDelay(_game!.currentLine);
     } catch (e) {
       setState(() {
         _error = '加载游戏失败: $e';
@@ -78,6 +82,13 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
         _streak = 0;
       }
     });
+
+    // TTS反馈
+    if (index == _game!.correctIndex) {
+      speak('答对了！连击$_streak次');
+    } else {
+      speak('答错了，正确答案是${_game!.options[_game!.correctIndex]}');
+    }
   }
 
   @override
@@ -90,6 +101,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          buildTtsToggleButton(),
           // 分数显示
           Center(
             child: Padding(

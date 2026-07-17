@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/poetry_service.dart';
 import '../../services/api_service.dart';
+import '../games/game_tts_helper.dart';
 import 'poetry_detail_screen.dart';
 
 /// 飞花令游戏页
@@ -12,7 +13,7 @@ class FlyingFlowerGameScreen extends StatefulWidget {
 }
 
 class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, GameTtsHelper {
   late final PoetryService _poetryService;
   late AnimationController _controller;
   late Animation<double> _fadeIn;
@@ -42,6 +43,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
 
   @override
   void dispose() {
+    disposeTts();
     _controller.dispose();
     _keywordController.dispose();
     super.dispose();
@@ -61,6 +63,10 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
         _game = game;
         _isLoading = false;
       });
+      // 搜索成功后自动朗读第一条结果
+      if (game.entries.isNotEmpty) {
+        speakAfterDelay(game.entries.first.line);
+      }
     } catch (e) {
       setState(() {
         _error = '搜索失败: $e';
@@ -78,6 +84,9 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
         backgroundColor: const Color(0xFF6A1B9A),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          buildTtsToggleButton(),
+        ],
       ),
       body: FadeTransition(
         opacity: _fadeIn,
@@ -295,13 +304,20 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
                     color: const Color(0xFFF5F0E8),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text.rich(
-                    _buildHighlightedText(entry.line, _game!.keyword),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      height: 1.6,
-                      color: Color(0xFF333333),
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text.rich(
+                          _buildHighlightedText(entry.line, _game!.keyword),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            height: 1.6,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                      ),
+                      buildReplayButton(entry.line),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),

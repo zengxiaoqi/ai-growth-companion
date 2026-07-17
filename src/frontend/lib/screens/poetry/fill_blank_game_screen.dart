@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/poetry_service.dart';
 import '../../services/api_service.dart';
+import '../games/game_tts_helper.dart';
 
 /// 填字游戏页
 class FillBlankGameScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class FillBlankGameScreen extends StatefulWidget {
 }
 
 class _FillBlankGameScreenState extends State<FillBlankGameScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, GameTtsHelper {
   late final PoetryService _poetryService;
   late AnimationController _controller;
   late Animation<double> _fadeIn;
@@ -19,6 +20,9 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
   FillBlankGame? _game;
   bool _isLoading = true;
   String? _error;
+
+  // 难度选择
+  String _difficulty = 'medium';
 
   // 用户答案
   final Map<int, String> _userAnswers = {};
@@ -40,6 +44,7 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
 
   @override
   void dispose() {
+    disposeTts();
     _controller.dispose();
     super.dispose();
   }
@@ -54,11 +59,13 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
     });
 
     try {
-      final game = await _poetryService.fetchFillBlankGame();
+      final game = await _poetryService.fetchFillBlankGame(difficulty: _difficulty);
       setState(() {
         _game = game;
         _isLoading = false;
       });
+      // 加载成功后自动朗读诗词全文
+      speakAfterDelay(_game!.lines.join(' '));
     } catch (e) {
       setState(() {
         _error = '加载游戏失败: $e';
@@ -82,6 +89,13 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
         _isCompleted = true;
       }
     });
+
+    // TTS反馈
+    if (isCorrect) {
+      speak('答对了！');
+    } else {
+      speak('答错了，正确答案是${_game!.answers[blankIndex]}');
+    }
   }
 
   void _showCandidatesDialog(int blankIndex) {
@@ -151,6 +165,7 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          buildTtsToggleButton(),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadGame,
@@ -196,6 +211,35 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // 难度选择器
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: ['简单', '中等', '困难'].asMap().entries.map((entry) {
+              final index = entry.key;
+              final label = entry.value;
+              final value = ['easy', 'medium', 'hard'][index];
+              final isSelected = _difficulty == value;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ChoiceChip(
+                  label: Text(label),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() => _difficulty = value);
+                    _loadGame();
+                  },
+                  selectedColor: const Color(0xFF8B2500).withValues(alpha: 0.1),
+                  backgroundColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: isSelected ? const Color(0xFF8B2500) : null,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
           // 诗词信息卡片
           Container(
             padding: const EdgeInsets.all(20),
@@ -384,6 +428,9 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
   Widget _buildCompletionCard() {
     final total = _game!.blankIndices.length;
     final correct = _answerStatus.values.where((v) => v).length;
+
+    // 朗读完成结果
+    speak('全部完成！答对${correct}题，共${total}题。');
 
     return Container(
       margin: const EdgeInsets.only(top: 20),

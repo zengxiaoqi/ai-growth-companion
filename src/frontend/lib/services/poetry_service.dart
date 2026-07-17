@@ -239,9 +239,12 @@ class PoetryService {
   }
 
   /// 填字游戏：随机挖空诗句
-  Future<FillBlankGame> fetchFillBlankGame() async {
+  Future<FillBlankGame> fetchFillBlankGame({String difficulty = 'medium'}) async {
     try {
-      final response = await _apiService.dio.get('/poetry/game/fill-blank');
+      final response = await _apiService.dio.get(
+        '/poetry/game/fill-blank',
+        queryParameters: {'difficulty': difficulty},
+      );
       return FillBlankGame.fromJson(response.data);
     } catch (e) {
       _log.severe('获取填字游戏失败: $e');

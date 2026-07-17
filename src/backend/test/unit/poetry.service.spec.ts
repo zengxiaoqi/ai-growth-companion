@@ -276,6 +276,22 @@ describe('PoetryService', () => {
       });
     });
 
+    it('should search by dynasty name', async () => {
+      await service.search('唐', 'dynasty');
+
+      expect(qbChain.where).toHaveBeenCalledWith('dynasty.name LIKE :query', {
+        query: '%唐%',
+      });
+    });
+
+    it('should search by poem type', async () => {
+      await service.search('五言', 'poem_type');
+
+      expect(qbChain.where).toHaveBeenCalledWith('poem.type LIKE :query', {
+        query: '%五言%',
+      });
+    });
+
     it('should do full-text search when type is all', async () => {
       await service.search('月', 'all');
 
@@ -343,6 +359,35 @@ describe('PoetryService', () => {
     });
   });
 
+  describe('findTypes', () => {
+    beforeEach(() => {
+      qbChain.getRawMany.mockResolvedValue([
+        { type: '五言绝句', count: '17929' },
+        { type: '七言绝句', count: '87073' },
+      ]);
+    });
+
+    it('should return poem types with counts ordered by descending count', async () => {
+      const result = await service.findTypes();
+
+      // Mock returns raw results; verify structure and that two items returned
+      expect(result.length).toBe(2);
+      expect(result[0]).toEqual({ type: '五言绝句', count: '17929' });
+      expect(result[1]).toEqual({ type: '七言绝句', count: '87073' });
+    });
+
+    it('should use COUNT(*) on poem table with GROUP BY type', async () => {
+      await service.findTypes();
+
+      expect(qbChain.select).toHaveBeenCalledWith('poem.type', 'type');
+      expect(qbChain.addSelect).toHaveBeenCalledWith('COUNT(*)', 'count');
+      expect(qbChain.where).toHaveBeenCalledWith('poem.type IS NOT NULL');
+      expect(qbChain.groupBy).toHaveBeenCalledWith('poem.type');
+      expect(qbChain.orderBy).toHaveBeenCalledWith('count', 'DESC');
+      expect(qbChain.getRawMany).toHaveBeenCalled();
+    });
+  });
+
   describe('getStatistics', () => {
     it('should return total poems, authors, and poems by dynasty', async () => {
       mockPoemRepository.count.mockResolvedValue(370000);
@@ -396,9 +441,10 @@ describe('PoetryService', () => {
 
       const result = await service.findById(2, 'zh-Hans');
 
-      expect(result.author).toBeNull();
-      expect(result.dynasty).toBeNull();
-      expect(result.title).toBe('无名诗');
+      expect(result).not.toBeNull();
+      expect(result!.author).toBeNull();
+      expect(result!.dynasty).toBeNull();
+      expect(result!.title).toBe('无名诗');
     });
   });
 });

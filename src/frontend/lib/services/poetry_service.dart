@@ -214,6 +214,19 @@ class PoetryService {
     }
   }
 
+  /// 获取诗词体裁列表
+  Future<List<Map<String, dynamic>>> getTypes() async {
+    try {
+      final response = await _apiService.dio.get('/poetry/types');
+      return (response.data as List)
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    } catch (e) {
+      _log.severe('获取诗词体裁列表失败: $e');
+      rethrow;
+    }
+  }
+
   /// 获取统计信息
   Future<Map<String, dynamic>> getStatistics() async {
     try {

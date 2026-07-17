@@ -26,7 +26,7 @@ export class PoetryService {
     });
 
     return {
-      list: list.map(p => this.formatPoem(p, lang)),
+      list: list.map((p) => this.formatPoem(p, lang)),
       total,
       page,
       pageSize,
@@ -43,8 +43,12 @@ export class PoetryService {
   }
 
   // 随机诗词
-  async findRandom(filters: { author?: string; dynasty?: string; type?: string; char?: string } = {}, lang = 'zh-Hans') {
-    const qb = this.poemRepository.createQueryBuilder('poem')
+  async findRandom(
+    filters: { author?: string; dynasty?: string; type?: string; char?: string } = {},
+    lang = 'zh-Hans',
+  ) {
+    const qb = this.poemRepository
+      .createQueryBuilder('poem')
       .leftJoinAndSelect('poem.author', 'author')
       .leftJoinAndSelect('poem.dynasty', 'dynasty');
 
@@ -70,7 +74,8 @@ export class PoetryService {
 
   // 搜索诗词
   async search(query: string, searchType = 'all', page = 1, pageSize = 20, lang = 'zh-Hans') {
-    const qb = this.poemRepository.createQueryBuilder('poem')
+    const qb = this.poemRepository
+      .createQueryBuilder('poem')
       .leftJoinAndSelect('poem.author', 'author')
       .leftJoinAndSelect('poem.dynasty', 'dynasty');
 
@@ -80,12 +85,15 @@ export class PoetryService {
       qb.where('poem.content LIKE :query', { query: `%${query}%` });
     } else if (searchType === 'author') {
       qb.where('author.name LIKE :query', { query: `%${query}%` });
+    } else if (searchType === 'dynasty') {
+      qb.where('dynasty.name LIKE :query', { query: `%${query}%` });
+    } else if (searchType === 'poem_type') {
+      qb.where('poem.type LIKE :query', { query: `%${query}%` });
     } else {
       // all - 全文搜索
-      qb.where(
-        '(poem.title LIKE :query OR poem.content LIKE :query OR author.name LIKE :query)',
-        { query: `%${query}%` }
-      );
+      qb.where('(poem.title LIKE :query OR poem.content LIKE :query OR author.name LIKE :query)', {
+        query: `%${query}%`,
+      });
     }
 
     const [list, total] = await qb
@@ -94,7 +102,7 @@ export class PoetryService {
       .getManyAndCount();
 
     return {
-      list: list.map(p => this.formatPoem(p, lang)),
+      list: list.map((p) => this.formatPoem(p, lang)),
       total,
       page,
       pageSize,
@@ -117,6 +125,19 @@ export class PoetryService {
     return this.dynastyRepository.find({
       order: { sortOrder: 'ASC' },
     });
+  }
+
+  // 获取诗词体裁列表
+  async findTypes() {
+    const result = await this.poemRepository
+      .createQueryBuilder('poem')
+      .select('poem.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('poem.type IS NOT NULL')
+      .groupBy('poem.type')
+      .orderBy('count', 'DESC')
+      .getRawMany();
+    return result;
   }
 
   // 获取统计信息
@@ -148,14 +169,22 @@ export class PoetryService {
       title: isTraditional && poem.titleZhHant ? poem.titleZhHant : poem.title,
       content: isTraditional && poem.contentZhHant ? poem.contentZhHant : poem.content,
       type: poem.type,
-      author: poem.author ? {
-        id: poem.author.id,
-        name: isTraditional && poem.author.nameZhHant ? poem.author.nameZhHant : poem.author.name,
-      } : null,
-      dynasty: poem.dynasty ? {
-        id: poem.dynasty.id,
-        name: isTraditional && poem.dynasty.nameZhHant ? poem.dynasty.nameZhHant : poem.dynasty.name,
-      } : null,
+      author: poem.author
+        ? {
+            id: poem.author.id,
+            name:
+              isTraditional && poem.author.nameZhHant ? poem.author.nameZhHant : poem.author.name,
+          }
+        : null,
+      dynasty: poem.dynasty
+        ? {
+            id: poem.dynasty.id,
+            name:
+              isTraditional && poem.dynasty.nameZhHant
+                ? poem.dynasty.nameZhHant
+                : poem.dynasty.name,
+          }
+        : null,
     };
   }
 }

@@ -41,10 +41,7 @@ export class PoetryController {
 
   // 获取作者列表
   @Get('authors')
-  async findAuthors(
-    @Query('page') page = '1',
-    @Query('page_size') pageSize = '20',
-  ) {
+  async findAuthors(@Query('page') page = '1', @Query('page_size') pageSize = '20') {
     return this.poetryService.findAuthors(+page, +pageSize);
   }
 
@@ -60,12 +57,15 @@ export class PoetryController {
     return this.poetryService.getStatistics();
   }
 
+  // 获取诗词体裁列表
+  @Get('types')
+  async findTypes() {
+    return this.poetryService.findTypes();
+  }
+
   // 获取单首诗词（只匹配数字 ID）
   @Get(':id(\\d+)')
-  async findById(
-    @Param('id') id: string,
-    @Query('lang') lang = 'zh-Hans',
-  ) {
+  async findById(@Param('id') id: string, @Query('lang') lang = 'zh-Hans') {
     return this.poetryService.findById(+id, lang);
   }
 }

@@ -10,27 +10,25 @@ export class PoetryGameController {
    * GET /poetry/game/fill-blank?difficulty=easy|medium|hard
    */
   @Get('fill-blank')
-  async getFillBlank(
-    @Query('difficulty') difficulty: 'easy' | 'medium' | 'hard' = 'medium',
-  ) {
+  async getFillBlank(@Query('difficulty') difficulty: 'easy' | 'medium' | 'hard' = 'medium') {
     return this.gameService.generateFillBlank(difficulty);
   }
 
   /**
-   * 飞花令 - 获取包含指定字的诗句
-   * GET /poetry/game/flying-flower?char=月
+   * 飞花令 - 获取包含指定关键字的诗句
+   * GET /poetry/game/flying-flower?keyword=月
    */
   @Get('flying-flower')
-  async getFlyingFlower(@Query('char') char?: string) {
-    return this.gameService.getFlyingFlower(char);
+  async getFlyingFlower(@Query('keyword') keyword?: string) {
+    return this.gameService.getFlyingFlower(keyword);
   }
 
   /**
-   * 诗词接龙
-   * GET /poetry/game/solitaire?lastChar=春
+   * 诗词接龙 - 给出上句，选择正确的下句
+   * GET /poetry/game/solitaire
    */
   @Get('solitaire')
-  async getSolitaire(@Query('lastChar') lastChar?: string) {
-    return this.gameService.getSolitaire(lastChar);
+  async getSolitaire() {
+    return this.gameService.getSolitaire();
   }
 }

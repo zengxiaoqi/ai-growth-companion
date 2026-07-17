@@ -6,8 +6,9 @@ import '../../services/api_service.dart';
 /// 诗词详情页
 class PoetryDetailScreen extends StatefulWidget {
   final int poemId;
+  final String lang;
 
-  const PoetryDetailScreen({super.key, required this.poemId});
+  const PoetryDetailScreen({super.key, required this.poemId, this.lang = 'zh-Hans'});
 
   @override
   State<PoetryDetailScreen> createState() => _PoetryDetailScreenState();
@@ -34,7 +35,7 @@ class _PoetryDetailScreenState extends State<PoetryDetailScreen> {
     });
 
     try {
-      final poem = await _poetryService.getPoemById(widget.poemId);
+      final poem = await _poetryService.getPoemById(widget.poemId, lang: widget.lang);
       setState(() {
         _poem = poem;
         _isLoading = false;

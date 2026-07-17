@@ -22,6 +22,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
   FlyingFlowerGame? _game;
   bool _isLoading = false;
   String? _error;
+  String _lang = 'zh-Hans';
 
   // 常用关键字
   final List<String> _commonKeywords = [
@@ -80,12 +81,38 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F0E8),
       appBar: AppBar(
-        title: const Text('飞花令'),
+        title: const Text(
+          '飞花令',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: const Color(0xFF6A1B9A),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           buildTtsToggleButton(),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _lang = _lang == 'zh-Hans' ? 'zh-Hant' : 'zh-Hans';
+              });
+              if (_game != null) {
+                _search(_keywordController.text.trim().isNotEmpty
+                    ? _keywordController.text.trim()
+                    : _game!.keyword);
+              }
+            },
+            child: Text(
+              _lang == 'zh-Hans' ? '繁' : '简',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ],
       ),
       body: FadeTransition(
@@ -171,9 +198,15 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
                           _keywordController.text = keyword;
                           _search(keyword);
                         },
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        labelStyle: const TextStyle(color: Colors.white),
-                        side: BorderSide.none,
+                        backgroundColor: Colors.white,
+                        labelStyle: const TextStyle(
+                          color: Color(0xFF6A1B9A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        side: BorderSide(
+                          color: const Color(0xFF6A1B9A).withOpacity(0.3),
+                          width: 1,
+                        ),
                       );
                     }).toList(),
                   ),
@@ -263,7 +296,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => PoetryDetailScreen(poemId: entry.poemId),
+                builder: (_) => PoetryDetailScreen(poemId: entry.poemId, lang: _lang),
               ),
             );
           },

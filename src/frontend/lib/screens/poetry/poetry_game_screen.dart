@@ -79,19 +79,20 @@ class _PoetryGameScreenState extends State<PoetryGameScreen>
                     const Text(
                       '诗韵游艺',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
-                        letterSpacing: 4,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '品味诗词之美，畅游古典之韵',
+                    const Text(
+                      '品味诗词之美',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 13,
+                        color: Colors.white70,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -103,8 +104,8 @@ class _PoetryGameScreenState extends State<PoetryGameScreen>
                 context: context,
                 icon: Icons.edit_note,
                 title: '填字游戏',
-                subtitle: '关键字词隐去，考验你的诗词功底',
-                description: '根据上下文，填入正确的字词，还原完整诗词',
+                subtitle: '填入缺失的字词',
+                description: '还原完整诗词',
                 color: const Color(0xFF2E7D32),
                 onTap: () => Navigator.push(
                   context,
@@ -117,8 +118,8 @@ class _PoetryGameScreenState extends State<PoetryGameScreen>
                 context: context,
                 icon: Icons.local_florist,
                 title: '飞花令',
-                subtitle: '一字飞花，诗词中的关键字',
-                description: '输入一个字，找出所有包含该字的诗词名句',
+                subtitle: '输入一个字',
+                description: '找出包含该字的诗句',
                 color: const Color(0xFF6A1B9A),
                 onTap: () => Navigator.push(
                   context,
@@ -131,8 +132,8 @@ class _PoetryGameScreenState extends State<PoetryGameScreen>
                 context: context,
                 icon: Icons.link,
                 title: '诗词接龙',
-                subtitle: '上句接下句，挑战你的诗词储备',
-                description: '根据上一句，选择正确的下一句完成接龙',
+                subtitle: '上句接下句',
+                description: '完成诗词接龙',
                 color: const Color(0xFF1565C0),
                 onTap: () => Navigator.push(
                   context,

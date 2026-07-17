@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import '../../services/poetry_service.dart';
 import '../../services/api_service.dart';
 import 'poetry_detail_screen.dart';
@@ -28,6 +29,9 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
 
   // 搜索类型过滤
   String _selectedSearchType = 'all';
+  
+  // 繁简切换：zh-Hans（简体）或 zh-Hant（繁体）
+  String _lang = 'zh-Hans';
   final List<Map<String, String>> _searchTypes = [
     {'value': 'all', 'label': '全部'},
     {'value': 'title', 'label': '标题'},
@@ -57,7 +61,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     });
 
     try {
-      final result = await _poetryService.getPoems(page: 1, pageSize: 20);
+      final result = await _poetryService.getPoems(page: 1, pageSize: 20, lang: _lang);
       setState(() {
         _poems = result.list;
         _hasMore = _poems.length < result.total;
@@ -80,6 +84,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
       final result = await _poetryService.getPoems(
         page: _currentPage + 1,
         pageSize: 20,
+        lang: _lang,
       );
 
       setState(() {
@@ -110,7 +115,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     setState(() => _isSearching = true);
 
     try {
-      final result = await _poetryService.searchPoems(query: query, searchType: searchType);
+      final result = await _poetryService.searchPoems(query: query, searchType: searchType, lang: _lang);
       setState(() => _searchResults = result.list);
     } catch (e) {
       if (mounted) {
@@ -123,12 +128,12 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
 
   Future<void> _showRandomPoem() async {
     try {
-      final poem = await _poetryService.getRandomPoem();
+      final poem = await _poetryService.getRandomPoem(lang: _lang);
       if (poem != null && mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PoetryDetailScreen(poemId: poem.id),
+            builder: (_) => PoetryDetailScreen(poemId: poem.id, lang: _lang),
           ),
         );
       }
@@ -180,6 +185,26 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
               icon: const Icon(Icons.casino),
               tooltip: '随机诗词',
               onPressed: _showRandomPoem,
+            ),
+            // 繁简切换按钮
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _lang = _lang == 'zh-Hans' ? 'zh-Hant' : 'zh-Hans';
+                });
+                _loadData();
+                if (_isSearching) {
+                  _search(_searchController.text.trim(), _selectedSearchType);
+                }
+              },
+              child: Text(
+                _lang == 'zh-Hans' ? '繁' : '简',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
             ),
           ],
         ],
@@ -325,7 +350,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PoetryDetailScreen(poemId: poem.id),
+              builder: (_) => PoetryDetailScreen(poemId: poem.id, lang: _lang),
             ),
           );
         },

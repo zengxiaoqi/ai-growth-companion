@@ -1,4 +1,5 @@
 
+import 'package:dio/dio.dart';
 import '../utils/app_logger.dart';
 import 'api_service.dart';
 
@@ -247,11 +248,18 @@ class PoetryService {
   }
 
   /// 获取诗词注解/翻译（LLM 生成）
+  ///
+  /// 注：首次生成（无缓存）时后端需调用 LLM，可能耗时 30-60 秒。
+  /// 因此为此请求单独设置更长的超时，避免触发全局 connectTimeout。
   Future<PoemAnnotation?> getPoemAnnotation(int id, {String lang = 'zh-Hans'}) async {
     try {
       final response = await _apiService.dio.get(
         '/poetry/$id/annotation',
         queryParameters: {'lang': lang},
+        options: Options(
+          connectTimeout: const Duration(seconds: 90),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
       );
       if (response.data == null) return null;
       return PoemAnnotation.fromJson(response.data);

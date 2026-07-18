@@ -9,6 +9,7 @@ import { PoetryGameController } from './poetry-game.controller';
 import { Poem } from './entities/poem.entity';
 import { Author } from './entities/author.entity';
 import { Dynasty } from './entities/dynasty.entity';
+import { PoemAnnotationRecord } from './entities/poem-annotation.entity';
 
 @Module({
   imports: [
@@ -27,6 +28,8 @@ import { Dynasty } from './entities/dynasty.entity';
     }),
     // 注册实体到 poetry 连接
     TypeOrmModule.forFeature([Poem, Author, Dynasty], 'poetry'),
+    // 注解持久化表注册到默认（主库）连接
+    TypeOrmModule.forFeature([PoemAnnotationRecord]),
   ],
   providers: [PoetryService, PoetryAnnotationService, PoetryGameService],
   controllers: [PoetryController, PoetryGameController],

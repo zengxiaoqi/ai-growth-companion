@@ -1,8 +1,11 @@
 import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import OpenAI from 'openai/index';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { PoetryService } from './poetry.service';
+import { PoemAnnotationRecord } from './entities/poem-annotation.entity';
 
 /**
  * 诗词注解/翻译服务
@@ -12,7 +15,10 @@ import { PoetryService } from './poetry.service';
  * - notes: 关键字词注解 [{term, explanation}]
  * - appreciation: 简短赏析
  *
- * 带 in-memory LRU 缓存（最多 500 首诗词），避免对同一首诗重复调用 LLM。
+ * 持久化到 lingxi.db 的 poem_annotations 表：
+ * - 首次请求调 LLM 生成，写入 DB，永久保存
+ * - 后续请求直接读 DB，不消耗 token
+ * - refresh=true 时重新调 LLM 覆盖更新
  */
 
 export interface PoemNote {
@@ -29,81 +35,15 @@ export interface PoemAnnotation {
   source: 'llm' | 'fallback';
 }
 
-interface LRUNode {
-  key: number;
-  value: PoemAnnotation;
-  prev: LRUNode | null;
-  next: LRUNode | null;
-}
-
-class LRUCache {
-  private capacity: number;
-  private size = 0;
-  private head: LRUNode | null = null; // most recent
-  private tail: LRUNode | null = null; // least recent
-  private map = new Map<number, LRUNode>();
-
-  constructor(capacity = 500) {
-    this.capacity = capacity;
-  }
-
-  get(key: number): PoemAnnotation | null {
-    const node = this.map.get(key);
-    if (!node) return null;
-    this.moveToFront(node);
-    return node.value;
-  }
-
-  set(key: number, value: PoemAnnotation): void {
-    const existing = this.map.get(key);
-    if (existing) {
-      existing.value = value;
-      this.moveToFront(existing);
-      return;
-    }
-    const node: LRUNode = { key, value, prev: null, next: null };
-    this.map.set(key, node);
-    if (this.head) {
-      node.next = this.head;
-      this.head.prev = node;
-      this.head = node;
-    } else {
-      this.head = node;
-      this.tail = node;
-    }
-    this.size++;
-    if (this.size > this.capacity && this.tail) {
-      const evict = this.tail;
-      this.tail = evict.prev;
-      if (this.tail) this.tail.next = null;
-      else this.head = null;
-      this.map.delete(evict.key);
-      this.size--;
-    }
-  }
-
-  private moveToFront(node: LRUNode): void {
-    if (node === this.head) return;
-    // detach
-    if (node.prev) node.prev.next = node.next;
-    if (node.next) node.next.prev = node.prev;
-    if (node === this.tail) this.tail = node.prev;
-    // front
-    node.prev = null;
-    node.next = this.head;
-    if (this.head) this.head.prev = node;
-    this.head = node;
-  }
-}
-
 @Injectable()
 export class PoetryAnnotationService implements OnModuleInit {
   private readonly logger = new Logger(PoetryAnnotationService.name);
-  private readonly cache = new LRUCache(500);
   private fastClient: OpenAI | null = null;
   private fastModel = 'deepseek-v4-flash';
 
   constructor(
+    @InjectRepository(PoemAnnotationRecord)
+    private readonly annotationRepo: Repository<PoemAnnotationRecord>,
     private readonly poetryService: PoetryService,
     private readonly configService: ConfigService,
     @Optional() private readonly llmClient?: LlmClientService,
@@ -133,14 +73,23 @@ export class PoetryAnnotationService implements OnModuleInit {
   }
 
   /**
-   * 获取诗词注解（命中缓存则直接返回，否则调用 LLM 生成）
+   * 获取诗词注解
+   *
+   * - 先查 DB，命中则直接返回（不消耗 token）
+   * - refresh=true 或未命中时调 LLM 生成，写入 DB 持久化
    */
-  async getAnnotation(poemId: number, lang = 'zh-Hans'): Promise<PoemAnnotation | null> {
-    // 缓存 key 不区分 lang —— 注解始终用简体中文生成（适合儿童阅读）
-    const cached = this.cache.get(poemId);
-    if (cached) {
-      this.logger.debug(`getAnnotation(${poemId}) cache hit`);
-      return cached;
+  async getAnnotation(
+    poemId: number,
+    lang = 'zh-Hans',
+    refresh = false,
+  ): Promise<PoemAnnotation | null> {
+    // 查 DB 持久化缓存
+    if (!refresh) {
+      const record = await this.annotationRepo.findOne({ where: { poemId } });
+      if (record) {
+        this.logger.debug(`getAnnotation(${poemId}) DB hit`);
+        return this.recordToAnnotation(record);
+      }
     }
 
     const poem = await this.poetryService.findById(poemId, lang);
@@ -148,7 +97,7 @@ export class PoetryAnnotationService implements OnModuleInit {
 
     if (!this.fastClient && (!this.llmClient || !this.llmClient.isConfigured)) {
       const fallback = this.buildFallback(poemId, poem);
-      this.cache.set(poemId, fallback);
+      await this.saveAnnotation(poemId, fallback);
       return fallback;
     }
 
@@ -160,14 +109,50 @@ export class PoetryAnnotationService implements OnModuleInit {
         poem.author?.name,
         poem.dynasty?.name,
       );
-      this.cache.set(poemId, annotation);
+      await this.saveAnnotation(poemId, annotation);
+      this.logger.log(`getAnnotation(${poemId}) ${refresh ? 'refreshed' : 'generated'} & saved`);
       return annotation;
     } catch (err: any) {
       this.logger.warn(`getAnnotation(${poemId}) LLM failed, using fallback: ${err.message}`);
       const fallback = this.buildFallback(poemId, poem);
-      this.cache.set(poemId, fallback);
-      return fallback;
+      // fallback 不覆盖已有的有效注解
+      const existing = await this.annotationRepo.findOne({ where: { poemId } });
+      if (!existing) {
+        await this.saveAnnotation(poemId, fallback);
+      }
+      return existing ? this.recordToAnnotation(existing) : fallback;
     }
+  }
+
+  /** 将 DB record 转为 API 返回格式 */
+  private recordToAnnotation(record: PoemAnnotationRecord): PoemAnnotation {
+    let notes: PoemNote[] = [];
+    try {
+      notes = JSON.parse(record.notes);
+    } catch {
+      this.logger.warn(`recordToAnnotation(${record.poemId}) notes JSON parse failed`);
+    }
+    return {
+      poemId: record.poemId,
+      translation: record.translation,
+      notes,
+      appreciation: record.appreciation,
+      source: record.source as 'llm' | 'fallback',
+    };
+  }
+
+  /** 将注解写入 DB（upsert） */
+  private async saveAnnotation(poemId: number, ann: PoemAnnotation): Promise<void> {
+    const record: Partial<PoemAnnotationRecord> = {
+      poemId,
+      translation: ann.translation,
+      notes: JSON.stringify(ann.notes),
+      appreciation: ann.appreciation,
+      source: ann.source,
+      model: this.fastClient ? this.fastModel : 'global',
+      updatedAt: new Date(),
+    };
+    await this.annotationRepo.save(record);
   }
 
   private async generateViaLlm(

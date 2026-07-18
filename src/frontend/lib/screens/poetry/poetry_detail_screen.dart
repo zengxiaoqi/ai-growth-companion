@@ -136,19 +136,28 @@ class _PoetryDetailScreenState extends State<PoetryDetailScreen> {
   }
 
   /// 加载注解/翻译
-  Future<void> _loadAnnotation() async {
-    if (_annotationLoaded) return;
+  Future<void> _loadAnnotation({bool refresh = false}) async {
+    if (!refresh && _annotationLoaded) return;
     setState(() {
       _isLoadingAnnotation = true;
       _annotationError = null;
     });
     try {
-      final annotation = await _poetryService.getPoemAnnotation(widget.poemId, lang: widget.lang);
+      final annotation = await _poetryService.getPoemAnnotation(
+        widget.poemId,
+        lang: widget.lang,
+        refresh: refresh,
+      );
       setState(() {
         _annotation = annotation;
         _isLoadingAnnotation = false;
         _annotationLoaded = true;
       });
+      if (refresh && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('注解已重新生成'), duration: Duration(seconds: 2)),
+        );
+      }
     } catch (e) {
       setState(() {
         _isLoadingAnnotation = false;
@@ -404,6 +413,13 @@ ${_poem!.content}
             const Text('注解 / 翻译 / 赏析'),
           ],
         ),
+        trailing: _annotationLoaded && _annotation != null && _annotation!.source != 'fallback'
+            ? IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                tooltip: '重新生成注解',
+                onPressed: _isLoadingAnnotation ? null : () => _loadAnnotation(refresh: true),
+              )
+            : null,
         onExpansionChanged: (expanded) {
           if (expanded) _loadAnnotation();
         },

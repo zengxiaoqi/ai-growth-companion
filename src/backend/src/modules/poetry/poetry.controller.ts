@@ -67,10 +67,19 @@ export class PoetryController {
     return this.poetryService.findTypes();
   }
 
-  // 获取诗词注解/翻译（LLM 生成，带缓存）
+  // 获取诗词注解/翻译（LLM 生成，持久化到 DB）
+  // ?refresh=true 时强制重新生成（消耗 token）
   @Get(':id(\\d+)/annotation')
-  async getAnnotation(@Param('id') id: string, @Query('lang') lang = 'zh-Hans') {
-    const annotation = await this.annotationService.getAnnotation(+id, lang);
+  async getAnnotation(
+    @Param('id') id: string,
+    @Query('lang') lang = 'zh-Hans',
+    @Query('refresh') refresh?: string,
+  ) {
+    const annotation = await this.annotationService.getAnnotation(
+      +id,
+      lang,
+      refresh === 'true' || refresh === '1',
+    );
     if (!annotation) throw new NotFoundException(`Poem #${id} not found`);
     return annotation;
   }

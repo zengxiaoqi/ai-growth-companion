@@ -247,15 +247,24 @@ class PoetryService {
     }
   }
 
-  /// 获取诗词注解/翻译（LLM 生成）
+  /// 获取诗词注解/翻译（LLM 生成，后端持久化）
   ///
-  /// 注：首次生成（无缓存）时后端需调用 LLM，可能耗时 30-60 秒。
+  /// 注：首次生成（无缓存）时后端需调用 LLM，可能耗时 10-30 秒。
   /// 因此为此请求单独设置更长的超时，避免触发全局 connectTimeout。
-  Future<PoemAnnotation?> getPoemAnnotation(int id, {String lang = 'zh-Hans'}) async {
+  ///
+  /// [refresh] 为 true 时强制重新生成（后端会重新调 LLM）。
+  Future<PoemAnnotation?> getPoemAnnotation(
+    int id, {
+    String lang = 'zh-Hans',
+    bool refresh = false,
+  }) async {
     try {
       final response = await _apiService.dio.get(
         '/poetry/$id/annotation',
-        queryParameters: {'lang': lang},
+        queryParameters: {
+          'lang': lang,
+          if (refresh) 'refresh': 'true',
+        },
         options: Options(
           connectTimeout: const Duration(seconds: 90),
           receiveTimeout: const Duration(minutes: 2),

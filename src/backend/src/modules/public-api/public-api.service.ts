@@ -234,11 +234,11 @@ export class PublicApiService {
   }
 
   /**
-   * Geocode a city name → coordinates using bundled Chinese city table.
-   * Nominatim (OpenStreetMap) is blocked from our network region and times out,
-   * so we ship a static lookup table of ~30 representative Chinese cities instead.
-   * For unknown cities, fallback to Beijing.
-   */
+   /** Geocode a city name → coordinates using bundled Chinese city table.
+    * Nominatim (OpenStreetMap) is blocked from our network region and times out,
+    * so we ship a static lookup table of ~30 representative Chinese cities instead.
+    * For unknown cities, fallback to Beijing.
+    */
   async geocode(city: string) {
     const coord = findCityCoord(city);
     return [
@@ -248,6 +248,79 @@ export class PublicApiService {
         lon: coord.lng.toString(),
       },
     ];
+  }
+
+  // --- B1: Bored API — parent-child activity recommendation ---
+  // boredapi.com is DNS-blocked in our region; use the community mirror
+  // at bored-api.appbrewery.com which also exposes a `kidFriendly` flag.
+  async getActivity(opts?: { type?: string; participants?: number }) {
+    let url = 'https://bored-api.appbrewery.com/random';
+    // The mirror also supports filters via query params, but `random` is
+    // simpler and we filter client-side on kidFriendly + type.
+    if (opts?.type) {
+      url = `https://bored-api.appbrewery.com/filter?type=${encodeURIComponent(opts.type)}`;
+    }
+    return this.proxy<any>({
+      url,
+      cacheKey: `activity:${opts?.type ?? 'random'}`,
+      ttlSeconds: 3600,
+      timeoutMs: 10000,
+    });
+  }
+
+  /** Random kid-friendly activity (pre-filtered). Returns the first
+   * kid-friendly activity; falls back to any activity if none has the flag. */
+  async getKidFriendlyActivity() {
+    // The mirror's `/filter?type=...` returns an array; `/random` returns one.
+    // Strategy: try random 3 times, prefer kidFriendly=true.
+    for (let i = 0; i < 3; i++) {
+      const a = await this.proxy<any>({
+        url: 'https://bored-api.appbrewery.com/random',
+        cacheKey: `activity:kid${i}`,
+        ttlSeconds: 1800,
+        timeoutMs: 10000,
+      }).catch(() => null);
+      if (a?.kidFriendly === true) return a;
+    }
+    // Fallback: last fetched or any
+    return this.proxy<any>({
+      url: 'https://bored-api.appbrewery.com/random',
+      cacheKey: 'activity:any',
+      ttlSeconds: 1800,
+      timeoutMs: 10000,
+    }).catch(() => null);
+  }
+
+  // --- B2: PoetryDB — English classic poetry ---
+  async getRandomPoem() {
+    return this.proxy<any>({
+      url: 'https://poetrydb.org/random',
+      cacheKey: 'poem:random',
+      ttlSeconds: 3600,
+      timeoutMs: 10000,
+    });
+  }
+
+  /** Search poems by author */
+  async getPoemsByAuthor(author: string) {
+    const a = encodeURIComponent(author);
+    return this.proxy<any>({
+      url: `https://poetrydb.org/author/${a}`,
+      cacheKey: `poem:author:${a}`,
+      ttlSeconds: 86400,
+      timeoutMs: 10000,
+    });
+  }
+
+  /** Search poems by title (substring match) */
+  async getPoemsByTitle(title: string) {
+    const t = encodeURIComponent(title);
+    return this.proxy<any>({
+      url: `https://poetrydb.org/title/${t}`,
+      cacheKey: `poem:title:${t}`,
+      ttlSeconds: 86400,
+      timeoutMs: 10000,
+    });
   }
 
   /** Periodic cache eviction — called lazily on each cache read */

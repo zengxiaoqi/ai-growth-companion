@@ -194,4 +194,78 @@ class PublicApiService {
       return null;
     }
   }
+
+  // ─── B1: Bored API — 亲子活动推荐 ───
+
+  /// 获取一个随机儿童友好活动
+  /// 返回 {activity, type, participants, price, accessibility, kidFriendly, ...}
+  Future<Map<String, dynamic>?> getKidFriendlyActivity() async {
+    try {
+      final resp = await _dio.get('/public/activity');
+      if (resp.data == null) return null;
+      return Map<String, dynamic>.from(resp.data as Map);
+    } catch (e) {
+      _log.warning('activity failed: $e');
+      return null;
+    }
+  }
+
+  /// 按类型筛选活动（返回数组）
+  Future<List<dynamic>?> getActivitiesByType(String type) async {
+    try {
+      final resp = await _dio.get(
+        '/public/activity/filter',
+        queryParameters: {'type': type},
+      );
+      return resp.data as List<dynamic>;
+    } catch (e) {
+      _log.warning('activity filter failed: $e');
+      return null;
+    }
+  }
+
+  // ─── B2: PoetryDB — 英文经典诗歌 ───
+
+  /// 获取一首随机英文诗歌
+  /// 返回 [{title, author, lines: [...], linecount: "N"}]
+  Future<Map<String, dynamic>?> getRandomPoem() async {
+    try {
+      final resp = await _dio.get('/public/poem/random');
+      if (resp.data == null) return null;
+      final list = resp.data as List<dynamic>;
+      if (list.isEmpty) return null;
+      return Map<String, dynamic>.from(list[0] as Map);
+    } catch (e) {
+      _log.warning('poem random failed: $e');
+      return null;
+    }
+  }
+
+  /// 按作者搜索诗歌
+  Future<List<dynamic>?> getPoemsByAuthor(String author) async {
+    try {
+      final resp = await _dio.get(
+        '/public/poem/author',
+        queryParameters: {'name': author},
+      );
+      return resp.data as List<dynamic>;
+    } catch (e) {
+      _log.warning('poem author failed: $e');
+      return null;
+    }
+  }
+
+  /// 按标题搜索诗歌
+  Future<List<dynamic>?> getPoemsByTitle(String title) async {
+    try {
+      final resp = await _dio.get(
+        '/public/poem/title',
+        queryParameters: {'title': title},
+      );
+      return resp.data as List<dynamic>;
+    } catch (e) {
+      _log.warning('poem title failed: $e');
+      return null;
+    }
+  }
 }

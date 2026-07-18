@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/top_bar.dart';
 import '../../components/notification_panel.dart';
+import '../../components/activity_card.dart';
 import '../../providers/user_provider.dart';
 import '../learning/learning_home_screen.dart';
 import '../profile/profile_screen.dart';
@@ -208,6 +209,9 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
                     _buildWelcomeCard(userName),
                     const SizedBox(height: 20),
                     _buildTodayStudyCard(),
+                    const SizedBox(height: 20),
+                    // 亲子活动推荐
+                    const ActivityCard(),
                     const SizedBox(height: 20),
                     _buildAbilityCard(),
                     const SizedBox(height: 20),

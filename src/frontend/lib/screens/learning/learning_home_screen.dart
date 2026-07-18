@@ -9,6 +9,7 @@ import '../../components/empty_state.dart';
 import '../../components/section_header.dart';
 import '../../components/shimmer_loading.dart';
 import '../../components/science_explore_section.dart';
+import '../../components/english_poetry_card.dart';
 import '../../services/api_service.dart';
 import '../../providers/user_provider.dart';
 
@@ -98,6 +99,9 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
               _buildHeader(),
               _buildCoursesSection(),
               _buildSubjectGrid(),
+              const SizedBox(height: 8),
+              // 英文诗歌赏读
+              const EnglishPoetryCard(),
               const SizedBox(height: 8),
               const ScienceExploreSection(),
             ],

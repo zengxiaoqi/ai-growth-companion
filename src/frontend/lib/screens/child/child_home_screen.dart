@@ -8,6 +8,9 @@ import '../../components/bottom_nav.dart';
 import '../../components/top_bar.dart';
 import '../../components/app_card.dart';
 import '../../components/section_header.dart';
+import '../../components/weather_card.dart';
+import '../../components/country_card.dart';
+import '../../components/number_fact_card.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
 import '../ai_chat_screen.dart';
@@ -245,6 +248,15 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             BounceIn(
               child: _buildWelcomeSection(userName),
             ),
+            const SizedBox(height: 24),
+            // 天气知识卡片（Open-Meteo）
+            const WeatherCard(),
+            const SizedBox(height: 24),
+            // 每日一国卡片（REST Countries 数据包）
+            const CountryCard(),
+            const SizedBox(height: 24),
+            // 今日数字卡片（Numbers API 替代源）
+            const NumberFactCard(),
             const SizedBox(height: 24),
             _buildStudyTimeCard(todayMinutes),
             const SizedBox(height: 24),

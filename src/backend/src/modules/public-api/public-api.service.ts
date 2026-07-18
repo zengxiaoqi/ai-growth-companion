@@ -1,4 +1,6 @@
 import { Injectable, Logger, BadGatewayException } from '@nestjs/common';
+import { BUNDLED_COUNTRIES, type Country } from './countries.data';
+import { findCityCoord } from './cities.data';
 
 export interface CacheEntry<T> {
   data: T;
@@ -88,24 +90,23 @@ export class PublicApiService {
     });
   }
 
-  /** All countries (for random / flags matching game) */
-  async getAllCountries() {
-    return this.proxy<any[]>({
-      url: 'https://restcountries.com/v3.1/all?fields=name,flags,capital,population,languages,currencies,region,maps',
-      cacheKey: 'countries:all',
-      ttlSeconds: 86400,
-    });
+  /**
+   * All countries — served from bundled dataset (30 representative countries).
+   * restcountries.com v3.1 was deprecated 2026-07; v5 requires an API key.
+   * Bundled dataset keeps the same shape for frontend compatibility.
+   */
+  async getAllCountries(): Promise<Country[]> {
+    return BUNDLED_COUNTRIES;
   }
 
   /** Random country (seeded by date for "每日一国") */
-  async getDailyCountry() {
+  async getDailyCountry(): Promise<Country> {
     const all = await this.getAllCountries();
-    if (!all || all.length === 0) throw new BadGatewayException('REST Countries empty');
+    if (!all || all.length === 0) throw new BadGatewayException('No countries available');
     // Date-based seed so all users see the same country on the same day
     const now = new Date();
     const seed = now.getFullYear() * 1000 + (now.getMonth() + 1) * 40 + now.getDate();
-    const country = all[seed % all.length];
-    return country;
+    return all[seed % all.length];
   }
 
   /**
@@ -231,15 +232,21 @@ export class PublicApiService {
     });
   }
 
-  /** Nominatim geocoding (city name → coords) */
+  /**
+   * Geocode a city name → coordinates using bundled Chinese city table.
+   * Nominatim (OpenStreetMap) is blocked from our network region and times out,
+   * so we ship a static lookup table of ~30 representative Chinese cities instead.
+   * For unknown cities, fallback to Beijing.
+   */
   async geocode(city: string) {
-    const q = encodeURIComponent(city.trim());
-    return this.proxy<any[]>({
-      url: `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
-      cacheKey: `geo:${q}`,
-      ttlSeconds: 2592000, // 30 days
-      timeoutMs: 5000,
-    });
+    const coord = findCityCoord(city);
+    return [
+      {
+        display_name: coord.name,
+        lat: coord.lat.toString(),
+        lon: coord.lng.toString(),
+      },
+    ];
   }
 
   /** Periodic cache eviction — called lazily on each cache read */

@@ -67,6 +67,12 @@ export class PublicApiController {
     return this.publicApi.getIssPosition();
   }
 
+  /** GET /api/public/space-people — people currently in space */
+  @Get('space-people')
+  async spacePeople() {
+    return this.publicApi.getPeopleInSpace();
+  }
+
   /** GET /api/public/sun?lat=..&lng=.. — sunrise/sunset */
   @Get('sun')
   async sun(@Query('lat') lat: string, @Query('lng') lng: string) {

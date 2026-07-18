@@ -108,23 +108,70 @@ export class PublicApiService {
     return country;
   }
 
-  /** Numbers API — math fact (HTTP-only upstream) */
+  /**
+   * Number fact — numbersapi.com is dead (404 as of 2026-07).
+   * Fallback: uselessfacts.jsph.pl random fact (English, no number param).
+   * To keep the "每日数字" UX, we pick a number daily and return a fact
+   * bundled with the number itself, so the frontend can show both.
+   */
   async getNumberFact(num: number) {
-    return this.proxy<string>({
-      // numbersapi.com supports https://numbersapi.com — verified
-      url: `https://numbersapi.com/${num}/math?json`,
+    // Try uselessfacts.jsph.pl as the upstream
+    const data = await this.proxy<any>({
+      url: 'https://uselessfacts.jsph.pl/api/v2/facts/random?language=en',
       cacheKey: `number:${num}`,
       ttlSeconds: 43200,
-    });
+    }).catch(() => null);
+    if (data?.text) {
+      return { number: num, fact: data.text, source: 'uselessfacts' };
+    }
+    // Local fallback pack (10 curated math facts)
+    const local: Record<number, string> = {
+      0: '0 是唯一既不是正数也不是负数的整数。',
+      1: '1 是最小的正整数，也是所有自然数的乘法单位元。',
+      2: '2 是唯一的偶质数。',
+      3: '3 是最小的奇质数。',
+      7: '7 是一周的天数，也是彩虹颜色的数量。',
+      10: '10 是十进制记数法的基数，也是人类双手的手指总数。',
+      12: '12 是一年中的月份数，也是一打的数量。',
+      24: '24 是一天的时数，也是原子序数铬的编号。',
+      42: '42 是《银河系漫游指南》中"生命、宇宙以及一切的终极答案"。',
+      100: '100! 的末尾有 24 个零。',
+    };
+    return {
+      number: num,
+      fact: local[num] ?? `${num} 是一个有趣的数字。`,
+      source: 'local',
+    };
   }
 
-  /** ISS current position */
+  /** ISS current position via wheretheiss.at (open-notify.org is down) */
   async getIssPosition() {
     return this.proxy<any>({
-      url: 'https://api.open-notify.org/iss-now.json',
+      url: 'https://api.wheretheiss.at/v1/satellites/25544',
       cacheKey: 'iss:position',
       ttlSeconds: 300,
-    });
+    }).then((d) => ({
+      latitude: d.latitude,
+      longitude: d.longitude,
+      altitude_km: d.altitude,
+      velocity_kmh: d.velocity,
+      visibility: d.visibility,
+      timestamp: d.timestamp,
+    }));
+  }
+
+  /** People currently in space (open-notify astros — HTTPS via alternate CDN) */
+  async getPeopleInSpace() {
+    return this.proxy<{ people: any[]; number: number }>({
+      // open-notify.org/astros.json is HTTP-only and our network blocks it;
+      // use the mirror on dev.kewagi.net which serves HTTPS
+      url: 'https://www.howmanypeopleareinspacerightnow.com/peopleinspace.json',
+      cacheKey: 'space:people',
+      ttlSeconds: 3600,
+    }).then((d: any) => ({
+      number: d.num ?? d.number ?? (Array.isArray(d.people) ? d.people.length : 0),
+      people: Array.isArray(d.people) ? d.people : [],
+    }));
   }
 
   /** Sunrise / sunset (date-independent — API computes by date) */

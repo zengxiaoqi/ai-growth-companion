@@ -11,6 +11,8 @@ import '../../components/section_header.dart';
 import '../../components/weather_card.dart';
 import '../../components/country_card.dart';
 import '../../components/number_fact_card.dart';
+import '../games/trivia_quiz_game.dart';
+import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
 import '../ai_chat_screen.dart';
@@ -541,6 +543,49 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 emoji: '📖',
                 color: AppTheme.accentColor,
                 onTap: () {},
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _FunctionCard(
+                icon: Icons.quiz_rounded,
+                title: '知识问答',
+                emoji: '🧠',
+                color: const Color(0xFF7EC8E3),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TriviaQuizGame(
+                        onExit: () => Navigator.pop(context),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // 第二行功能卡：国旗配对 + 成就
+        Row(
+          children: [
+            Expanded(
+              child: _FunctionCard(
+                icon: Icons.flag_rounded,
+                title: '国旗配对',
+                emoji: '🌍',
+                color: const Color(0xFF6BC89A),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CountryMatchingGame(
+                        onExit: () => Navigator.pop(context),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),

@@ -2,6 +2,7 @@
 // 原始功能（内联测验、TTS朗读、语音输入）已完整保留
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -9,6 +10,7 @@ import '../services/tts_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../components/speech_input_widget.dart';
+import '../components/dictionary_sheet.dart';
 import 'games/game_renderer.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -875,7 +877,9 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 
     return Padding(padding: const EdgeInsets.only(bottom: 12), child: Align(
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
+        child: GestureDetector(
+          onLongPress: isUser ? null : () => _showAiMessageActions(index, displayText),
+          child: Container(
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
           decoration: BoxDecoration(
             color: isUser ? AppTheme.primaryColor : Colors.white,
@@ -894,8 +898,148 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: columnChildren,
         ),
       ),
-    ),
-  );
+        ),
+      ),
+    );
+  }
+
+  /// AI 消息长按操作菜单：查词、复制、TTS
+  void _showAiMessageActions(int index, String text) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Text('📖', style: TextStyle(fontSize: 22)),
+              title: const Text('查英文单词'),
+              subtitle: const Text('打开词典查一个英文单词的意思'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDictionaryPrompt();
+              },
+            ),
+            ListTile(
+              leading: const Text('📋', style: TextStyle(fontSize: 22)),
+              title: const Text('复制消息'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('已复制到剪贴板'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.volume_up_rounded, color: AppTheme.primaryColor),
+              title: const Text('朗读消息'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _speakMessage(index);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 词典查词输入对话框：用户输入要查的英文单词
+  void _showDictionaryPrompt() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Text('📖', style: TextStyle(fontSize: 24)),
+              SizedBox(width: 8),
+              Text('查英文单词'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '输入一个英文单词，看看它的意思吧~',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: '例如：hello',
+                  prefixText: '🔤 ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                        color: AppTheme.primaryColor, width: 2),
+                  ),
+                ),
+                onSubmitted: (_) =>
+                    _submitDictionaryQuery(dialogContext, controller.text),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () =>
+                  _submitDictionaryQuery(dialogContext, controller.text),
+              child: const Text('查询'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _submitDictionaryQuery(BuildContext dialogContext, String text) {
+    final word = text.trim().toLowerCase();
+    // 简单校验：英文单词（允许连字符）
+    final valid = RegExp(r'^[a-z][a-z\-]*$').hasMatch(word);
+    if (word.isEmpty || !valid) {
+      // 显示错误（StatefulBuilder 状态在外层管理；这里用 snackbar 简化）
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请输入有效的英文单词（仅字母）'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    Navigator.pop(dialogContext);
+    // 关闭输入对话框后弹出词典 sheet
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DictionarySheet.show(context, word: word);
+    });
   }
 
   List<Widget> _buildThinkingSection(String? thinkingContent, bool expanded, bool isStreaming, int index) {

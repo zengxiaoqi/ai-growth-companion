@@ -1,9 +1,13 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
+import { Controller, Get, Query, Param, NotFoundException } from '@nestjs/common';
 import { PoetryService } from './poetry.service';
+import { PoetryAnnotationService } from './poetry-annotation.service';
 
 @Controller('poetry')
 export class PoetryController {
-  constructor(private readonly poetryService: PoetryService) {}
+  constructor(
+    private readonly poetryService: PoetryService,
+    private readonly annotationService: PoetryAnnotationService,
+  ) {}
 
   // 获取诗词列表
   @Get()
@@ -61,6 +65,14 @@ export class PoetryController {
   @Get('types')
   async findTypes() {
     return this.poetryService.findTypes();
+  }
+
+  // 获取诗词注解/翻译（LLM 生成，带缓存）
+  @Get(':id(\\d+)/annotation')
+  async getAnnotation(@Param('id') id: string, @Query('lang') lang = 'zh-Hans') {
+    const annotation = await this.annotationService.getAnnotation(+id, lang);
+    if (!annotation) throw new NotFoundException(`Poem #${id} not found`);
+    return annotation;
   }
 
   // 获取单首诗词（只匹配数字 ID）

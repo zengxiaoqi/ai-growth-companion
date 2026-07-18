@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PoetryService } from './poetry.service';
+import { PoetryAnnotationService } from './poetry-annotation.service';
 import { PoetryController } from './poetry.controller';
 import { PoetryGameService } from './poetry-game.service';
 import { PoetryGameController } from './poetry-game.controller';
@@ -27,8 +28,8 @@ import { Dynasty } from './entities/dynasty.entity';
     // 注册实体到 poetry 连接
     TypeOrmModule.forFeature([Poem, Author, Dynasty], 'poetry'),
   ],
-  providers: [PoetryService, PoetryGameService],
+  providers: [PoetryService, PoetryAnnotationService, PoetryGameService],
   controllers: [PoetryController, PoetryGameController],
-  exports: [PoetryService, PoetryGameService],
+  exports: [PoetryService, PoetryAnnotationService, PoetryGameService],
 })
 export class PoetryModule {}

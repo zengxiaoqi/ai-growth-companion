@@ -105,6 +105,51 @@ class PoetryPageResult {
   }
 }
 
+/// 诗词字词注解
+class PoemNote {
+  final String term;
+  final String explanation;
+
+  PoemNote({required this.term, required this.explanation});
+
+  factory PoemNote.fromJson(Map<String, dynamic> json) {
+    return PoemNote(
+      term: json['term'] as String? ?? '',
+      explanation: json['explanation'] as String? ?? '',
+    );
+  }
+}
+
+/// 诗词注解/翻译（LLM 生成）
+class PoemAnnotation {
+  final int poemId;
+  final String translation;
+  final List<PoemNote> notes;
+  final String appreciation;
+  final String source; // 'llm' | 'fallback'
+
+  PoemAnnotation({
+    required this.poemId,
+    required this.translation,
+    required this.notes,
+    required this.appreciation,
+    required this.source,
+  });
+
+  factory PoemAnnotation.fromJson(Map<String, dynamic> json) {
+    return PoemAnnotation(
+      poemId: json['poemId'] as int? ?? 0,
+      translation: json['translation'] as String? ?? '',
+      notes: (json['notes'] as List?)
+              ?.map((e) => PoemNote.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      appreciation: json['appreciation'] as String? ?? '',
+      source: json['source'] as String? ?? 'llm',
+    );
+  }
+}
+
 /// 诗词服务
 class PoetryService {
   final ApiService _apiService;
@@ -201,6 +246,21 @@ class PoetryService {
     }
   }
 
+  /// 获取诗词注解/翻译（LLM 生成）
+  Future<PoemAnnotation?> getPoemAnnotation(int id, {String lang = 'zh-Hans'}) async {
+    try {
+      final response = await _apiService.dio.get(
+        '/poetry/$id/annotation',
+        queryParameters: {'lang': lang},
+      );
+      if (response.data == null) return null;
+      return PoemAnnotation.fromJson(response.data);
+    } catch (e) {
+      _log.severe('获取诗词注解失败: $e');
+      rethrow;
+    }
+  }
+
   /// 获取朝代列表
   Future<List<Dynasty>> getDynasties() async {
     try {
@@ -239,11 +299,11 @@ class PoetryService {
   }
 
   /// 填字游戏：随机挖空诗句
-  Future<FillBlankGame> fetchFillBlankGame({String difficulty = 'medium'}) async {
+  Future<FillBlankGame> fetchFillBlankGame({String difficulty = 'medium', String lang = 'zh-Hans'}) async {
     try {
       final response = await _apiService.dio.get(
         '/poetry/game/fill-blank',
-        queryParameters: {'difficulty': difficulty},
+        queryParameters: {'difficulty': difficulty, 'lang': lang},
       );
       return FillBlankGame.fromJson(response.data);
     } catch (e) {
@@ -253,11 +313,11 @@ class PoetryService {
   }
 
   /// 飞花令：按字查诗句
-  Future<FlyingFlowerGame> fetchFlyingFlowerGame(String keyword) async {
+  Future<FlyingFlowerGame> fetchFlyingFlowerGame(String keyword, {String lang = 'zh-Hans'}) async {
     try {
       final response = await _apiService.dio.get(
         '/poetry/game/flying-flower',
-        queryParameters: {'keyword': keyword},
+        queryParameters: {'keyword': keyword, 'lang': lang},
       );
       return FlyingFlowerGame.fromJson(response.data);
     } catch (e) {
@@ -267,9 +327,12 @@ class PoetryService {
   }
 
   /// 诗词接龙
-  Future<SolitaireGame> fetchSolitaireGame() async {
+  Future<SolitaireGame> fetchSolitaireGame({String lang = 'zh-Hans'}) async {
     try {
-      final response = await _apiService.dio.get('/poetry/game/solitaire');
+      final response = await _apiService.dio.get(
+        '/poetry/game/solitaire',
+        queryParameters: {'lang': lang},
+      );
       return SolitaireGame.fromJson(response.data);
     } catch (e) {
       _log.severe('获取诗词接龙失败: $e');

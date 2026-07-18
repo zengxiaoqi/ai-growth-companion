@@ -566,6 +566,20 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           onTap: () => Navigator.pushNamed(context, '/parent/videoDownload'),
         ),
         _MenuTile(
+          icon: Icons.menu_book_rounded,
+          title: '诗词鉴赏',
+          subtitle: '37万首古诗词，带注解翻译与朗读',
+          color: const Color(0xFFE57373),
+          onTap: () => Navigator.pushNamed(context, '/poetry'),
+        ),
+        _MenuTile(
+          icon: Icons.sports_esports_rounded,
+          title: '诗词游戏',
+          subtitle: '飞花令、诗词接龙、填字游戏',
+          color: const Color(0xFFBA68C8),
+          onTap: () => Navigator.pushNamed(context, '/poetry/game'),
+        ),
+        _MenuTile(
           icon: Icons.family_restroom_rounded,
           title: '孩子管理',
           subtitle: '添加、编辑或删除孩子账号',

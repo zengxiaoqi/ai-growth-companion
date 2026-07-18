@@ -1,7 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as OpenCC from 'opencc-js';
 import { Poem } from './entities/poem.entity';
+
+// Converter instances
+const s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' });
+const t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' });
+
+function convertText(text: string | null | undefined, lang?: string): string | null {
+  if (!text || !lang) return text ?? null;
+  if (lang === 'zh-Hans') return t2sConverter(text);
+  if (lang === 'zh-Hant') return s2tConverter(text);
+  return text;
+}
 
 /** 填字游戏题目 */
 export interface FillBlankQuestion {
@@ -64,6 +76,7 @@ export class PoetryGameService {
    */
   async generateFillBlank(
     difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+    lang?: string,
   ): Promise<FillBlankQuestion | null> {
     const chineseRe = /[\u4e00-\u9fa5]/;
 
@@ -116,13 +129,13 @@ export class PoetryGameService {
 
       return {
         poemId: poem.id,
-        title: poem.title,
-        authorName: poem.author?.name || '佚名',
-        dynastyName: poem.dynasty?.name || '',
-        lines,
+        title: convertText(poem.title, lang) ?? '',
+        authorName: convertText(poem.author?.name || '佚名', lang) ?? '佚名',
+        dynastyName: convertText(poem.dynasty?.name || '', lang) ?? '',
+        lines: lines.map((l) => convertText(l, lang) ?? l),
         blankIndices: chosen,
-        answers,
-        candidates,
+        answers: answers.map((a) => convertText(a, lang) ?? a),
+        candidates: candidates.map((c) => convertText(c, lang) ?? c),
         appreciation: null,
       };
     }
@@ -133,7 +146,7 @@ export class PoetryGameService {
   /**
    * 飞花令 - 获取包含指定关键字的诗句
    */
-  async getFlyingFlower(keyword?: string): Promise<FlyingFlowerQuestion | null> {
+  async getFlyingFlower(keyword?: string, lang?: string): Promise<FlyingFlowerQuestion | null> {
     const commonKeywords = ['月', '花', '风', '雪', '春', '秋', '山', '水', '云', '雨', '日', '夜'];
     const targetKeyword =
       keyword || commonKeywords[Math.floor(Math.random() * commonKeywords.length)];
@@ -155,16 +168,16 @@ export class PoetryGameService {
 
       return {
         poemId: poem.id,
-        title: poem.title,
-        authorName: poem.author?.name || '佚名',
-        dynastyName: poem.dynasty?.name || '',
-        line,
-        fullContent: poem.content,
+        title: convertText(poem.title, lang) ?? '',
+        authorName: convertText(poem.author?.name || '佚名', lang) ?? '佚名',
+        dynastyName: convertText(poem.dynasty?.name || '', lang) ?? '',
+        line: convertText(line, lang) ?? line,
+        fullContent: convertText(poem.content, lang) ?? poem.content,
       };
     });
 
     return {
-      keyword: targetKeyword,
+      keyword: convertText(targetKeyword, lang) ?? targetKeyword,
       entries,
     };
   }
@@ -172,7 +185,7 @@ export class PoetryGameService {
   /**
    * 诗词接龙 - 给出上句，选择正确的下句
    */
-  async getSolitaire(): Promise<SolitaireQuestion | null> {
+  async getSolitaire(lang?: string): Promise<SolitaireQuestion | null> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const poem = await this.poemRepository
         .createQueryBuilder('poem')
@@ -223,11 +236,11 @@ export class PoetryGameService {
 
       return {
         poemId: poem.id,
-        title: poem.title,
-        authorName: poem.author?.name || '佚名',
-        dynastyName: poem.dynasty?.name || '',
-        currentLine,
-        options,
+        title: convertText(poem.title, lang) ?? '',
+        authorName: convertText(poem.author?.name || '佚名', lang) ?? '佚名',
+        dynastyName: convertText(poem.dynasty?.name || '', lang) ?? '',
+        currentLine: convertText(currentLine, lang) ?? currentLine,
+        options: options.map((o) => convertText(o, lang) ?? o),
         correctIndex,
       };
     }

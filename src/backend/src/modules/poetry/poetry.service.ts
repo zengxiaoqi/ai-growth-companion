@@ -1,9 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as OpenCC from 'opencc-js';
 import { Poem } from './entities/poem.entity';
 import { Author } from './entities/author.entity';
 import { Dynasty } from './entities/dynasty.entity';
+
+// Converter instances (created once, reused across requests)
+// DB stores mostly traditional text; convert to simplified on demand
+const s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' }); // 简体→繁体
+const t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' }); // 繁体→简体
+
+/**
+ * Convert text based on lang parameter.
+ * - zh-Hans: convert to simplified Chinese
+ * - zh-Hant: convert to traditional Chinese
+ * - default: return as-is
+ */
+function convertText(text: string | null | undefined, lang: string): string | null {
+  if (!text) return null;
+  if (lang === 'zh-Hans') return t2sConverter(text);
+  if (lang === 'zh-Hant') return s2tConverter(text);
+  return text;
+}
 
 @Injectable()
 export class PoetryService {
@@ -163,26 +182,21 @@ export class PoetryService {
 
   // 格式化诗词输出（支持简繁切换）
   private formatPoem(poem: Poem, lang: string) {
-    const isTraditional = lang === 'zh-Hant';
     return {
       id: poem.id,
-      title: isTraditional && poem.titleZhHant ? poem.titleZhHant : poem.title,
-      content: isTraditional && poem.contentZhHant ? poem.contentZhHant : poem.content,
+      title: convertText(poem.title, lang),
+      content: convertText(poem.content, lang),
       type: poem.type,
       author: poem.author
         ? {
             id: poem.author.id,
-            name:
-              isTraditional && poem.author.nameZhHant ? poem.author.nameZhHant : poem.author.name,
+            name: convertText(poem.author.name, lang),
           }
         : null,
       dynasty: poem.dynasty
         ? {
             id: poem.dynasty.id,
-            name:
-              isTraditional && poem.dynasty.nameZhHant
-                ? poem.dynasty.nameZhHant
-                : poem.dynasty.name,
+            name: convertText(poem.dynasty.name, lang),
           }
         : null,
     };

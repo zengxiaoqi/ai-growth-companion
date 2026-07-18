@@ -59,7 +59,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
     });
 
     try {
-      final game = await _poetryService.fetchFlyingFlowerGame(keyword);
+      final game = await _poetryService.fetchFlyingFlowerGame(keyword, lang: _lang);
       setState(() {
         _game = game;
         _isLoading = false;

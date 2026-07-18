@@ -11,6 +11,8 @@ import '../../components/section_header.dart';
 import '../../components/weather_card.dart';
 import '../../components/country_card.dart';
 import '../../components/number_fact_card.dart';
+import '../../components/joke_card.dart';
+import '../../components/fact_card.dart';
 import '../games/trivia_quiz_game.dart';
 import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
@@ -259,6 +261,12 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             const SizedBox(height: 24),
             // 今日数字卡片（Numbers API 替代源）
             const NumberFactCard(),
+            const SizedBox(height: 24),
+            // 今日冷知识（Useless Facts + MyMemory 翻译）
+            const FactCard(),
+            const SizedBox(height: 24),
+            // 每日一笑（JokeAPI safe-mode）
+            const JokeCard(),
             const SizedBox(height: 24),
             _buildStudyTimeCard(todayMinutes),
             const SizedBox(height: 24),

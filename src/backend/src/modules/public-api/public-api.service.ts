@@ -323,6 +323,49 @@ export class PublicApiService {
     });
   }
 
+  // ─── C1: MyMemory Translation — 免费翻译（LibreTranslate 替代源）───
+  // LibreTranslate 官方端点被 Cloudflare 挡；MyMemory 提供免费 5000 字/天
+  async translate(text: string, source = 'en', target = 'zh') {
+    const q = encodeURIComponent(text);
+    const url = `https://api.mymemory.translated.net/get?q=${q}&langpair=${source}|${target}`;
+    return this.proxy<any>({
+      url,
+      cacheKey: `translate:${source}|${target}:${text.slice(0, 100)}`,
+      ttlSeconds: 86400, // translations don't change
+      timeoutMs: 10000,
+    });
+  }
+
+  // ─── C3: JokeAPI — 儿童笑话（safe-mode 过滤）───
+  async getJoke(category = 'Any') {
+    const url = `https://v2.jokeapi.dev/joke/${encodeURIComponent(category)}?safe-mode`;
+    return this.proxy<any>({
+      url,
+      cacheKey: `joke:${category}`,
+      ttlSeconds: 1800, // 30 min — fresh jokes
+      timeoutMs: 10000,
+    });
+  }
+
+  // ─── C4: Useless Facts — 今日趣闻 ───
+  async getTodayFact() {
+    return this.proxy<any>({
+      url: 'https://uselessfacts.jsph.pl/api/v2/facts/today',
+      cacheKey: 'fact:today',
+      ttlSeconds: 21600, // 6h — "today" fact
+      timeoutMs: 10000,
+    });
+  }
+
+  async getRandomFact() {
+    return this.proxy<any>({
+      url: 'https://uselessfacts.jsph.pl/api/v2/facts/random',
+      cacheKey: 'fact:random',
+      ttlSeconds: 1800,
+      timeoutMs: 10000,
+    });
+  }
+
   /** Periodic cache eviction — called lazily on each cache read */
   private evictExpired() {
     if (this.cache.size < 200) return; // don't bother unless cache grew

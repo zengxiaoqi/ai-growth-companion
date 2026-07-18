@@ -268,4 +268,75 @@ class PublicApiService {
       return null;
     }
   }
+
+  // ─── C1: 翻译 (MyMemory) ───
+
+  /// 翻译文本，默认 en→zh
+  /// 返回 {responseData: {translatedText: "你好"}, matches: [...]}
+  Future<Map<String, dynamic>?> translate(
+    String text, {
+    String source = 'en',
+    String target = 'zh',
+  }) async {
+    try {
+      final resp = await _dio.get(
+        '/public/translate',
+        queryParameters: {
+          'q': text,
+          'source': source,
+          'target': target,
+        },
+      );
+      if (resp.data == null) return null;
+      return Map<String, dynamic>.from(resp.data as Map);
+    } catch (e) {
+      _log.warning('translate failed: $e');
+      return null;
+    }
+  }
+
+  // ─── C3: JokeAPI ───
+
+  /// 获取儿童友好笑话（safe-mode）
+  /// 返回 {category, type: 'single'|'twopart', joke?, setup?, delivery?}
+  Future<Map<String, dynamic>?> getJoke({String category = 'Any'}) async {
+    try {
+      final resp = await _dio.get(
+        '/public/joke',
+        queryParameters: {'category': category},
+      );
+      if (resp.data == null) return null;
+      return Map<String, dynamic>.from(resp.data as Map);
+    } catch (e) {
+      _log.warning('joke failed: $e');
+      return null;
+    }
+  }
+
+  // ─── C4: Useless Facts ───
+
+  /// 今日趣闻
+  /// 返回 {id, text, source, ...}
+  Future<Map<String, dynamic>?> getTodayFact() async {
+    try {
+      final resp = await _dio.get('/public/fact/today');
+      if (resp.data == null) return null;
+      return Map<String, dynamic>.from(resp.data as Map);
+    } catch (e) {
+      _log.warning('fact today failed: $e');
+      return null;
+    }
+  }
+
+  /// 随机趣闻
+  Future<Map<String, dynamic>?> getRandomFact() async {
+    try {
+      final resp = await _dio.get('/public/fact/random');
+      if (resp.data == null) return null;
+      return Map<String, dynamic>.from(resp.data as Map);
+    } catch (e) {
+      _log.warning('fact random failed: $e');
+      return null;
+    }
+  }
 }

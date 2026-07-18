@@ -23,6 +23,8 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
   Map<String, dynamic>? _poem;
   bool _loading = false;
   bool _error = false;
+  String? _titleTranslation;
+  bool _translatingTitle = false;
 
   @override
   void initState() {
@@ -42,6 +44,13 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
         _poem = p;
         _loading = false;
       });
+      // 自动翻译诗歌标题
+      if (p != null) {
+        final title = p['title'] as String? ?? '';
+        if (title.isNotEmpty) {
+          _translateTitle(title);
+        }
+      }
     } catch (e) {
       _log.warning('load failed: $e');
       if (!mounted) return;
@@ -49,6 +58,30 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
         _error = true;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _translateTitle(String title) async {
+    setState(() => _translatingTitle = true);
+    try {
+      final result = await PublicApiService.instance.translate(title);
+      if (!mounted) return;
+      if (result != null) {
+        final responseData = result['responseData'] as Map?;
+        final translated = responseData?['translatedText'] as String?;
+        if (translated != null && translated.isNotEmpty && translated != title) {
+          setState(() {
+            _titleTranslation = translated;
+            _translatingTitle = false;
+          });
+          return;
+        }
+      }
+      setState(() => _translatingTitle = false);
+    } catch (e) {
+      _log.warning('translate title failed: $e');
+      if (!mounted) return;
+      setState(() => _translatingTitle = false);
     }
   }
 
@@ -190,6 +223,42 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
                   fontStyle: FontStyle.italic,
                 ),
               ),
+              if (_titleTranslation != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '《$_titleTranslation》',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFFE65100),
+                    ),
+                  ),
+                ),
+              if (_translatingTitle && _titleTranslation == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Color(0xFFF57C00),
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        '翻译中...',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFF57C00),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 4),
               Row(
                 children: [

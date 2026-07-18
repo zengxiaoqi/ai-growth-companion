@@ -156,4 +156,39 @@ export class PublicApiController {
     if (!title?.trim()) throw new BadRequestException('title is required');
     return this.publicApi.getPoemsByTitle(title);
   }
+
+  // ─── C1: 翻译 ───
+
+  /** GET /api/public/translate?q=Hello&source=en&target=zh */
+  @Get('translate')
+  async translate(
+    @Query('q') q: string,
+    @Query('source') source = 'en',
+    @Query('target') target = 'zh',
+  ) {
+    if (!q?.trim()) throw new BadRequestException('q is required');
+    return this.publicApi.translate(q, source, target);
+  }
+
+  // ─── C3: JokeAPI ───
+
+  /** GET /api/public/joke?category=Any — safe-mode joke */
+  @Get('joke')
+  async joke(@Query('category') category = 'Any') {
+    return this.publicApi.getJoke(category);
+  }
+
+  // ─── C4: Useless Facts ───
+
+  /** GET /api/public/fact/today — today's fact */
+  @Get('fact/today')
+  async factToday() {
+    return this.publicApi.getTodayFact();
+  }
+
+  /** GET /api/public/fact/random — random fact */
+  @Get('fact/random')
+  async factRandom() {
+    return this.publicApi.getRandomFact();
+  }
 }

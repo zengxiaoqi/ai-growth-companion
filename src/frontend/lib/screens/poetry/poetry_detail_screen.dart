@@ -413,13 +413,6 @@ ${_poem!.content}
             const Text('注解 / 翻译 / 赏析'),
           ],
         ),
-        trailing: _annotationLoaded && _annotation != null && _annotation!.source != 'fallback'
-            ? IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                tooltip: '重新生成注解',
-                onPressed: _isLoadingAnnotation ? null : () => _loadAnnotation(refresh: true),
-              )
-            : null,
         onExpansionChanged: (expanded) {
           if (expanded) _loadAnnotation();
         },
@@ -552,6 +545,25 @@ ${_poem!.content}
             ),
           ),
         ],
+
+        // 重新生成按钮
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isLoadingAnnotation
+                ? null
+                : () => _loadAnnotation(refresh: true),
+            icon: _isLoadingAnnotation
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh, size: 18),
+            label: Text(_isLoadingAnnotation ? '正在重新生成...' : '重新生成注解'),
+          ),
+        ),
       ],
     );
   }

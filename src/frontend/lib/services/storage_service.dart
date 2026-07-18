@@ -55,6 +55,18 @@ class StorageService {
   // 记住我标志
   static const String keyRememberMe = 'remember_me';
 
+  // 孩子端天气卡片城市（默认北京）
+  static const String keyWeatherCity = 'weather_city';
+  static const String kDefaultWeatherCity = '北京';
+
+  /// 保存天气城市
+  Future<void> saveWeatherCity(String city) =>
+      _prefs.setString(keyWeatherCity, city);
+
+  /// 获取天气城市（默认北京）
+  String getWeatherCity() =>
+      _prefs.getString(keyWeatherCity) ?? kDefaultWeatherCity;
+
   // 保存用户信息
   Future<void> saveUser({
     required int userId,

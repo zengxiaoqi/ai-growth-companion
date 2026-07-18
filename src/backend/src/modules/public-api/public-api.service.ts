@@ -151,6 +151,7 @@ export class PublicApiService {
       url: 'https://api.wheretheiss.at/v1/satellites/25544',
       cacheKey: 'iss:position',
       ttlSeconds: 300,
+      timeoutMs: 15000,
     }).then((d) => ({
       latitude: d.latitude,
       longitude: d.longitude,

@@ -119,4 +119,41 @@ export class PublicApiController {
     if (!city?.trim()) throw new BadRequestException('city is required');
     return this.publicApi.geocode(city);
   }
+
+  // ─── B1: Bored API — 亲子活动推荐 ───
+
+  /** GET /api/public/activity — random kid-friendly activity */
+  @Get('activity')
+  async activity() {
+    return this.publicApi.getKidFriendlyActivity();
+  }
+
+  /** GET /api/public/activity/filter?type=cooking — filter by type (array) */
+  @Get('activity/filter')
+  async activityByType(@Query('type') type: string) {
+    if (!type?.trim()) throw new BadRequestException('type is required');
+    return this.publicApi.getActivity({ type });
+  }
+
+  // ─── B2: PoetryDB — 英文经典诗歌 ───
+
+  /** GET /api/public/poem/random — one random poem */
+  @Get('poem/random')
+  async randomPoem() {
+    return this.publicApi.getRandomPoem();
+  }
+
+  /** GET /api/public/poem/author?name=Emily%20Dickinson — poems by author */
+  @Get('poem/author')
+  async poemsByAuthor(@Query('name') name: string) {
+    if (!name?.trim()) throw new BadRequestException('name is required');
+    return this.publicApi.getPoemsByAuthor(name);
+  }
+
+  /** GET /api/public/poem/title?title=Sun — poems matching title */
+  @Get('poem/title')
+  async poemsByTitle(@Query('title') title: string) {
+    if (!title?.trim()) throw new BadRequestException('title is required');
+    return this.publicApi.getPoemsByTitle(title);
+  }
 }

@@ -1,4 +1,6 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import OpenAI from 'openai/index';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { PoetryService } from './poetry.service';
 
@@ -95,14 +97,40 @@ class LRUCache {
 }
 
 @Injectable()
-export class PoetryAnnotationService {
+export class PoetryAnnotationService implements OnModuleInit {
   private readonly logger = new Logger(PoetryAnnotationService.name);
   private readonly cache = new LRUCache(500);
+  private fastClient: OpenAI | null = null;
+  private fastModel = 'deepseek-v4-flash';
 
   constructor(
     private readonly poetryService: PoetryService,
+    private readonly configService: ConfigService,
     @Optional() private readonly llmClient?: LlmClientService,
   ) {}
+
+  onModuleInit() {
+    // 诗词注解用独立的 flash 模型客户端，不共用全局 pro 模型
+    // flash 不支持 function calling，但注解任务不需要 FC
+    const baseUrl = this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1');
+    const apiKey = this.configService.get<string>('LLM_API_KEY', 'unused');
+    const annotationModel = this.configService.get<string>(
+      'POETRY_ANNOTATION_MODEL',
+      this.fastModel,
+    );
+
+    if (baseUrl && annotationModel) {
+      this.fastClient = new OpenAI({ baseURL: baseUrl, apiKey: apiKey || 'unused' });
+      this.fastModel = annotationModel;
+      this.logger.log(
+        `Poetry annotation LLM client initialized: model=${annotationModel}, baseUrl=${baseUrl}`,
+      );
+    } else {
+      this.logger.warn(
+        'Poetry annotation LLM client not configured — will fall back to global LlmClient or placeholder',
+      );
+    }
+  }
 
   /**
    * 获取诗词注解（命中缓存则直接返回，否则调用 LLM 生成）
@@ -118,7 +146,7 @@ export class PoetryAnnotationService {
     const poem = await this.poetryService.findById(poemId, lang);
     if (!poem) return null;
 
-    if (!this.llmClient || !this.llmClient.isConfigured) {
+    if (!this.fastClient && (!this.llmClient || !this.llmClient.isConfigured)) {
       const fallback = this.buildFallback(poemId, poem);
       this.cache.set(poemId, fallback);
       return fallback;
@@ -149,7 +177,7 @@ export class PoetryAnnotationService {
     authorName?: string | null,
     dynastyName?: string | null,
   ): Promise<PoemAnnotation> {
-    const systemPrompt = `你是一位资深语文老师，擅长用儿童易懂的语言讲解古诗词。你的回答必须是纯JSON格式，不要使用Markdown代码块、不要使用<think>标签。`;
+    const systemPrompt = `你是一位资深语文老师，擅长用儿童易懂的语言讲解古诗词。你的回答必须是纯JSON格式，不要使用Markdown代码块、不要使用< /think>标签。`;
 
     const poemDesc = `《${title}》${dynastyName ? `·${dynastyName}` : ''}${authorName ? ` ${authorName}` : ''}\n${content}`;
 
@@ -174,7 +202,25 @@ ${poemDesc}
 - 全部用简体中文
 - 输出必须是合法JSON`;
 
-    const raw = await this.llmClient!.generate(userPrompt, systemPrompt);
+    // 优先用 flash 专用客户端（快 3 倍），否则回退到全局 LlmClient
+    let raw: string;
+    if (this.fastClient) {
+      const resp = await this.fastClient.chat.completions.create({
+        model: this.fastModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 4096,
+        temperature: 0.7,
+      });
+      raw = resp.choices[0]?.message?.content ?? '';
+    } else if (this.llmClient?.isConfigured) {
+      raw = await this.llmClient.generate(userPrompt, systemPrompt);
+    } else {
+      throw new Error('No LLM client available for annotation generation');
+    }
+
     const jsonText = this.extractJson(raw);
     const parsed = JSON.parse(jsonText);
 

@@ -847,6 +847,21 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
       'plum': '🟣', 'pineapple': '🍍', 'pomegranate': '🍎',
       'raspberry': '🫐', 'strawberry': '🍓', 'tangerine': '🍊',
       'tomato': '🍅', 'watermelon': '🍉',
+      // Extended map — covers all Fruityvice entries that previously fell through to 🍎
+      'hazelnut': '🌰', 'hazelnut fig': '🌰',
+      'feijoa': '🟢', 'pineapple guava': '🟢',
+      'pomelo': '🍊', 'pummelo': '🍊', 'shaddock': '🍊',
+      'coconut': '🥥', 'clementine': '🍊', 'mandarin': '🍊',
+      'nectarine': '🍑', 'currant': '🫐', 'kumquat': '🍊',
+      'yuzu': '🍊', 'citron': '🍊', 'physalis': '🍅',
+      'salak': '🟤', 'jackfruit': '🍈', 'longan': '🟢',
+      'rambutan': '🔴', 'sapodilla': '🟤', 'soursop': '🟢',
+      'surinam': '🍒', 'tamarind': '🟤', 'crabapple': '🍎',
+      'roseapple': '🟢', 'sugarapple': '🟢', 'breadfruit': '🍞',
+      'cupuacu': '🍫', 'guava': '🟢', 'quince': '🍏',
+      'starfruit': '⭐', 'carambola': '⭐',
+      'boysenberry': '🫐', 'elderberry': '🫐',
+      'lingonberry': '🫐', 'melon': '🍈',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;
@@ -988,6 +1003,21 @@ class _FruitTile extends StatelessWidget {
       'plum': '🟣', 'pineapple': '🍍', 'pomegranate': '🍎',
       'raspberry': '🫐', 'strawberry': '🍓', 'tangerine': '🍊',
       'tomato': '🍅', 'watermelon': '🍉',
+      // Extended map — covers all Fruityvice entries that previously fell through to 🍎
+      'hazelnut': '🌰', 'hazelnut fig': '🌰',
+      'feijoa': '🟢', 'pineapple guava': '🟢',
+      'pomelo': '🍊', 'pummelo': '🍊', 'shaddock': '🍊',
+      'coconut': '🥥', 'clementine': '🍊', 'mandarin': '🍊',
+      'nectarine': '🍑', 'currant': '🫐', 'kumquat': '🍊',
+      'yuzu': '🍊', 'citron': '🍊', 'physalis': '🍅',
+      'salak': '🟤', 'jackfruit': '🍈', 'longan': '🟢',
+      'rambutan': '🔴', 'sapodilla': '🟤', 'soursop': '🟢',
+      'surinam': '🍒', 'tamarind': '🟤', 'crabapple': '🍎',
+      'roseapple': '🟢', 'sugarapple': '🟢', 'breadfruit': '🍞',
+      'cupuacu': '🍫', 'guava': '🟢', 'quince': '🍏',
+      'starfruit': '⭐', 'carambola': '⭐',
+      'boysenberry': '🫐', 'elderberry': '🫐',
+      'lingonberry': '🫐',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;

@@ -274,6 +274,8 @@ export class PublicApiService {
       sugarapple: '释迦果',
       breadfruit: '面包果',
       cupuacu: '大花可可',
+      feijoa: '斐济果',
+      hazelnut: '榛子',
     };
     return raw.map((f) => {
       const name = (f.name || '').toString();

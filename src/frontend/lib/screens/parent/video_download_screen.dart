@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
-import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'web_video_impl.dart';
 import '../../models/video_download_models.dart';
 import '../../providers/video_download_provider.dart';
 import '../../providers/user_provider.dart';
@@ -652,13 +651,7 @@ class _DownloadCard extends StatelessWidget {
       final filename = '${safeTitle}_无水印$ext';
 
       // Use HTML5 download attribute to trigger browser save-as
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', filename)
-        ..style.display = 'none';
-
-      html.document.body?.children.add(anchor);
-      anchor.click();
-      html.document.body?.children.remove(anchor);
+      triggerBrowserDownload(url, filename);
 
       // Show success feedback
       if (context.mounted) {
@@ -729,27 +722,12 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
   void _initWebPlayer() {
     _viewType = 'video-download-player-${_viewIdCounter++}';
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
-      final video = html.VideoElement()
-        ..src = widget.url
-        ..style.border = 'none'
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..controls = true
-        ..autoplay = true
-        ..setAttribute('playsinline', 'true')
-        ..setAttribute('preload', 'auto');
-
-      video.onError.listen((event) {
-        _log.warning('HTML5 video error: ${video.error?.message}');
-        if (mounted) {
-          setState(() => _hasError = true);
-        }
-      });
-
-      return video;
+    initWebVideoPlayer(_viewType, widget.url, () {
+      _log.warning('HTML5 video error');
+      if (mounted) setState(() => _hasError = true);
+    }, () {
+      if (mounted) setState(() => _isInitialized = true);
     });
-    setState(() => _isInitialized = true);
   }
 
   void _initMobilePlayer() {

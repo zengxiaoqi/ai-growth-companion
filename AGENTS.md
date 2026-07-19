@@ -52,8 +52,8 @@ Three separate applications under `src/` with no monorepo tooling — each has i
 
 ### Backend — `src/backend/` (NestJS + TypeORM + SQLite)
 
-- **Database:** SQLite via `better-sqlite3`, stored as `lingxi.db`. TypeORM entities in `src/database/entities/` (19 entities, incl. poem + video-download). Auto-seeds on first run. A separate read-only `poetry.db` (370K+ classical Chinese poems) is used by the poetry module via a secondary TypeORM connection.
-- **Modules** in `src/modules/`: auth (JWT), users, contents, learning, abilities, achievements, ai, parent, recommend, report, game, voice, emergency, assignment, notification, sse, reward (积分奖惩), poetry (古诗词), video-download (视频下载)
+- **Database:** SQLite via `better-sqlite3`, stored as `lingxi.db`. TypeORM entities in `src/database/entities/` (20 entities, incl. poem, video-download, fruit, poem-annotation). Auto-seeds on first run. A separate read-only `poetry.db` (370K+ classical Chinese poems) is used by the poetry module via a secondary TypeORM connection.
+- **Modules** in `src/modules/`: auth (JWT), users, contents, learning, abilities, achievements, ai, parent, recommend, report, game, voice, emergency, assignment, notification, sse, reward (积分奖惩), poetry (古诗词), video-download (视频下载), public-api (公共API代理+水果数据)
 - **AI module** has a full agent framework (`agent/`) with tools, prompts, and conversation management. Supports AI chat, quiz generation, course pack creation, video generation, and learning recommendations.
 - **Learning module** includes video generation pipeline (Remotion), scene-based rendering, course generation agents, and lesson content management.
 - **Config:** `src/config/` — TypeORM, Swagger, and module configuration. `ConfigModule` loads `.env`.

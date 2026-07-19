@@ -267,6 +267,13 @@ export class PublicApiService {
       surinam: '苏里南樱桃',
       tamarind: '罗望子',
       melon: '甜瓜',
+      tomato: '番茄',
+      lingonberry: '越橘',
+      crabapple: '海棠果',
+      roseapple: '蒲桃',
+      sugarapple: '释迦果',
+      breadfruit: '面包果',
+      cupuacu: '大花可可',
     };
     return raw.map((f) => {
       const name = (f.name || '').toString();

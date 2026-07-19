@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_logger.dart';
 import '../services/public_api_service.dart';
+import '../services/tts_service.dart';
 
 final _log = AppLogger('ScienceExploreSection');
 
@@ -649,12 +650,14 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
 
   void _showFruitDetail(BuildContext context, Map<String, dynamic> fruit) {
     final name = fruit['name'] ?? '未知';
+    final nameZh = fruit['nameZh'] ?? name;
     final family = fruit['family'] ?? '未知';
     final genus = fruit['genus'] ?? '未知';
     final carbs = (fruit['nutritions'] as Map?)?['carbohydrates'];
     final protein = (fruit['nutritions'] as Map?)?['protein'];
     final calories = (fruit['nutritions'] as Map?)?['calories'];
     final sugar = (fruit['nutritions'] as Map?)?['sugar'];
+    final tts = TtsService();
 
     showModalBottomSheet(
       context: context,
@@ -664,11 +667,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFF8E8), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: const Color(0xFFFFF8E8),
           borderRadius: BorderRadius.circular(28),
         ),
         child: Column(
@@ -680,19 +679,47 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                 Text(_fruitEmoji(name), style: const TextStyle(fontSize: 36)),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textColor,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        nameZh,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textColor,
+                        ),
+                      ),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close,
                       color: AppTheme.textSecondary),
                   onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // 朗读按钮行
+            Row(
+              children: [
+                _buildPronounceButton(
+                  '🔊 朗读英文',
+                  () => tts.speak(name, voice: 'en-US-AriaNeural'),
+                ),
+                const SizedBox(width: 8),
+                _buildPronounceButton(
+                  '🔊 朗读中文',
+                  () => tts.speak(nameZh, voice: 'zh-CN-XiaoxiaoNeural'),
                 ),
               ],
             ),
@@ -783,14 +810,43 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
     );
   }
 
+  Widget _buildPronounceButton(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.accentColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   String _fruitEmoji(String name) {
     final n = name.toLowerCase();
-    final map = {
-      'apple': '🍎', 'banana': '🍌', 'orange': '🍊', 'pear': '🍐',
-      'strawberry': '🍓', 'blueberry': '🫐', 'grape': '🍇',
-      'watermelon': '🍉', 'lemon': '🍋', 'peach': '🍑',
-      'cherry': '🍒', 'pineapple': '🍍', 'mango': '🥭',
-      'kiwi': '🥝', 'tomato': '🍅', 'persimmon': '🍅',
+    final map = <String, String>{
+      'apple': '🍎', 'apricot': '🍑', 'avocado': '🥑', 'banana': '🍌',
+      'blackberry': '🫐', 'blueberry': '🫐', 'cherry': '🍒',
+      'cranberry': '🫐', 'date': '🟤', 'dragonfruit': '🌸',
+      'dragon': '🌸', 'durian': '🟡', 'fig': '🟣',
+      'gooseberry': '🫐', 'grape': '🍇', 'grapefruit': '🍊',
+      'kiwi': '🥝', 'lemon': '🍋', 'lime': '🟢',
+      'lychee': '🟢', 'mango': '🥭', 'mangosteen': '🟣',
+      'melon': '🍈', 'orange': '🍊', 'papaya': '🍈',
+      'passionfruit': '🟣', 'passion': '🟣', 'peach': '🍑',
+      'pear': '🍐', 'persimmon': '🍅', 'pitaya': '🌸',
+      'plum': '🟣', 'pineapple': '🍍', 'pomegranate': '🍎',
+      'raspberry': '🫐', 'strawberry': '🍓', 'tangerine': '🍊',
+      'tomato': '🍅', 'watermelon': '🍉',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;
@@ -833,7 +889,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
   }
 }
 
-// ============== 水果 tile ==============
+// ============== 水果 tile =============
 class _FruitTile extends StatelessWidget {
   final Map<String, dynamic> fruit;
   final VoidCallback onTap;
@@ -843,10 +899,12 @@ class _FruitTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = fruit['name'] ?? '未知';
+    final nameZh = fruit['nameZh'] ?? name;
+    final tts = TtsService();
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: AppTheme.softMint.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(14),
@@ -856,18 +914,57 @@ class _FruitTile extends StatelessWidget {
           children: [
             Text(
               _fruitEmoji(name),
-              style: const TextStyle(fontSize: 28),
+              style: const TextStyle(fontSize: 24),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              name,
+              nameZh,
               style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
                 color: AppTheme.textColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 1),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 9,
+                color: AppTheme.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            GestureDetector(
+              onTap: () {
+                // 朗读英文水果名（英语学习）
+                tts.speak(name, voice: 'en-US-AriaNeural');
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.volume_up, size: 10, color: AppTheme.accentColor),
+                    SizedBox(width: 2),
+                    Text(
+                      '朗读',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: AppTheme.accentColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -877,12 +974,20 @@ class _FruitTile extends StatelessWidget {
 
   String _fruitEmoji(String name) {
     final n = name.toLowerCase();
-    final map = {
-      'apple': '🍎', 'banana': '🍌', 'orange': '🍊', 'pear': '🍐',
-      'strawberry': '🍓', 'blueberry': '🫐', 'grape': '🍇',
-      'watermelon': '🍉', 'lemon': '🍋', 'peach': '🍑',
-      'cherry': '🍒', 'pineapple': '🍍', 'mango': '🥭',
-      'kiwi': '🥝', 'tomato': '🍅', 'persimmon': '🍅',
+    final map = <String, String>{
+      'apple': '🍎', 'apricot': '🍑', 'avocado': '🥑', 'banana': '🍌',
+      'blackberry': '🫐', 'blueberry': '🫐', 'cherry': '🍒',
+      'cranberry': '🫐', 'date': '🟤', 'dragonfruit': '🌸',
+      'dragon': '🌸', 'durian': '🟡', 'fig': '🟣',
+      'gooseberry': '🫐', 'grape': '🍇', 'grapefruit': '🍊',
+      'kiwi': '🥝', 'lemon': '🍋', 'lime': '🟢',
+      'lychee': '🟢', 'mango': '🥭', 'mangosteen': '🟣',
+      'melon': '🍈', 'orange': '🍊', 'papaya': '🍈',
+      'passionfruit': '🟣', 'passion': '🟣', 'peach': '🍑',
+      'pear': '🍐', 'persimmon': '🍅', 'pitaya': '🌸',
+      'plum': '🟣', 'pineapple': '🍍', 'pomegranate': '🍎',
+      'raspberry': '🫐', 'strawberry': '🍓', 'tangerine': '🍊',
+      'tomato': '🍅', 'watermelon': '🍉',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;

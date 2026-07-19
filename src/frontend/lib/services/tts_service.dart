@@ -49,15 +49,16 @@ class TtsService {
   }
 
   /// 构建 TTS 请求 URL
-  String _buildUrl(String text) {
-    return '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(text)}';
+  String _buildUrl(String text, {String? voice}) {
+    final v = voice ?? 'zh-CN-XiaoxiaoNeural';
+    return '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(text)}&voice=$v';
   }
 
   /// 朗读文本
   ///
   /// 内部先停止已有朗读，再开始朗读新文本。
   /// 返回的 [onComplete] Future 在朗读自然结束时 resolve。
-  Future<void> speak(String text) async {
+  Future<void> speak(String text, {String? voice}) async {
     if (text.isEmpty) return;
 
     // 安全停止当前朗读，清理状态
@@ -67,7 +68,7 @@ class TtsService {
     final completer = Completer<void>();
     _speakCompleter = completer;
 
-    final url = _buildUrl(text);
+    final url = _buildUrl(text, voice: voice);
 
     try {
       await _player.play(UrlSource(url));

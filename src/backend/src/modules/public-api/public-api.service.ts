@@ -198,12 +198,90 @@ export class PublicApiService {
     });
   }
 
-  /** Fruityvice — all fruits */
+  /** Fruityvice — all fruits (with Chinese names) */
   async getFruits() {
-    return this.proxy<any[]>({
+    const raw = await this.proxy<any[]>({
       url: 'https://www.fruityvice.com/api/fruit/all',
       cacheKey: 'fruits:all',
       ttlSeconds: 604800,
+    });
+    if (!Array.isArray(raw)) return raw;
+    // Add Chinese names + emoji for common fruits
+    const zhMap: Record<string, string> = {
+      apple: '苹果',
+      banana: '香蕉',
+      orange: '橙子',
+      pear: '梨',
+      strawberry: '草莓',
+      blueberry: '蓝莓',
+      blackberry: '黑莓',
+      raspberry: '树莓',
+      cranberry: '蔓越莓',
+      grape: '葡萄',
+      watermelon: '西瓜',
+      lemon: '柠檬',
+      lime: '青柠',
+      peach: '桃子',
+      cherry: '樱桃',
+      pineapple: '菠萝',
+      mango: '芒果',
+      kiwi: '猕猴桃',
+      papaya: '木瓜',
+      coconut: '椰子',
+      avocado: '牛油果',
+      pomegranate: '石榴',
+      plum: '李子',
+      apricot: '杏',
+      fig: '无花果',
+      date: '椰枣',
+      lychee: '荔枝',
+      persimmon: '柿子',
+      quince: '木瓜',
+      passionfruit: '百香果',
+      dragonfruit: '火龙果',
+      durian: '榴莲',
+      mangosteen: '山竹',
+      starfruit: '杨桃',
+      guava: '番石榴',
+      cantaloupe: '哈密瓜',
+      honeydew: '蜜瓜',
+      clementine: '克莱门汀',
+      tangerine: '橘子',
+      mandarin: '橘子',
+      nectarine: '油桃',
+      gooseberry: '鹅莓',
+      elderberry: '接骨木莓',
+      boysenberry: '博伊森莓',
+      currant: '加仑',
+      kumquat: '金桔',
+      yuzu: '柚子',
+      pomelo: '柚子',
+      citron: '香橼',
+      physalis: '灯笼果',
+      salak: '蛇皮果',
+      jackfruit: '菠萝蜜',
+      longan: '龙眼',
+      rambutan: '红毛丹',
+      sapodilla: '人心果',
+      soursop: '刺果番荔枝',
+      surinam: '苏里南樱桃',
+      tamarind: '罗望子',
+      melon: '甜瓜',
+    };
+    return raw.map((f) => {
+      const name = (f.name || '').toString();
+      const key = name.toLowerCase();
+      let zh = zhMap[key];
+      if (!zh) {
+        // Try partial match
+        for (const k of Object.keys(zhMap)) {
+          if (key.includes(k)) {
+            zh = zhMap[k];
+            break;
+          }
+        }
+      }
+      return { ...f, nameZh: zh ?? name };
     });
   }
 

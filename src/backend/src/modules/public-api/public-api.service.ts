@@ -276,6 +276,15 @@ export class PublicApiService {
       cupuacu: '大花可可',
       feijoa: '斐济果',
       hazelnut: '榛子',
+      pitahaya: '火龙果',
+      morus: '桑葚',
+      pumpkin: '南瓜',
+      annona: '番荔枝',
+      'horned melon': '刺角瓜',
+      'green apple': '青苹果',
+      'japanese persimmon': '日本柿子',
+      kiwifruit: '猕猴桃',
+      pitaya: '火龙果',
     };
     return raw.map((f) => {
       const name = (f.name || '').toString();

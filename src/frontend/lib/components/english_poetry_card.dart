@@ -312,7 +312,7 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '长按诗歌中的单词可以一键查词哦！',
+                  '点击诗歌中的蓝色单词即可查词哦！',
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFFE65100),
@@ -327,24 +327,45 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
   }
 }
 
-/// 诗歌正文 — 每行独立 SelectableText，支持选择复制 + 一键查词。
+/// 诗歌正文 — 每个英文单词可点击直接查词，非英文片段纯展示。
 ///
 /// 设计要点：
-/// - 空行（诗节分隔）渲染为间距，不计入可选内容
-/// - 长按选中单词/短语后，上下文菜单出现"📖 查词"按钮
-/// - 点击查词：取选中文本中第一个英文单词，打开 DictionarySheet
+/// - 空行（诗节分隔）渲染为间距
+/// - 英文单词渲染为带下划线的可点击 TextSpan（Material InkWell 效果）
+/// - 点击单词：直接打开 DictionarySheet（不依赖上下文菜单）
+/// - 同时保留 SelectableText 容器，使整行可选择/复制（系统级菜单）
 class _PoemBody extends StatelessWidget {
   const _PoemBody({required this.lines});
 
   final List<String> lines;
 
-  /// 从选中文本中提取第一个英文单词（去除标点）
-  String? _extractWord(String selected) {
-    final trimmed = selected.trim();
-    if (trimmed.isEmpty) return null;
-    // 匹配纯英文字母词
-    final match = RegExp(r'[A-Za-z]+').firstMatch(trimmed);
-    return match?.group(0)?.toLowerCase();
+  /// 将一行切分为 [TextSpan] 列表：英文单词 → 可点击查词；其他 → 普通文本。
+  List<InlineSpan> _buildSpans(BuildContext context, String line) {
+    final spans = <InlineSpan>[];
+    // 匹配英文单词（含简写如 I'm / don't）或非英文片段
+    final regex = RegExp(r"[A-Za-z]+(?:'[a-z]+)?");
+    var lastEnd = 0;
+    for (final m in regex.allMatches(line)) {
+      if (m.start > lastEnd) {
+        spans.add(TextSpan(text: line.substring(lastEnd, m.start)));
+      }
+      final word = m.group(0)!;
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: _WordChip(
+            word: word,
+            onTap: () => DictionarySheet.show(context, word: word),
+          ),
+        ),
+      );
+      lastEnd = m.end;
+    }
+    if (lastEnd < line.length) {
+      spans.add(TextSpan(text: line.substring(lastEnd)));
+    }
+    return spans;
   }
 
   @override
@@ -357,46 +378,50 @@ class _PoemBody extends StatelessWidget {
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 3),
-          child: SelectableText(
-            line,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.6,
-              color: Color(0xFF3E2723),
-              fontFamily: 'serif',
+          child: SelectableText.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.6,
+                color: Color(0xFF3E2723),
+                fontFamily: 'serif',
+              ),
+              children: _buildSpans(context, line),
             ),
-            contextMenuBuilder: (context, editableTextState) {
-              final selectedText = editableTextState.textEditingValue.selection
-                  .textInside(editableTextState.textEditingValue.text);
-              final word = _extractWord(selectedText);
-              final buttonItems = editableTextState.contextMenuButtonItems;
-              // 在"复制"按钮之后添加"查词"按钮
-              if (word != null && word.isNotEmpty) {
-                final copyIndex = buttonItems.indexWhere(
-                  (b) => b.type == ContextMenuButtonType.copy,
-                );
-                buttonItems.insert(
-                  copyIndex >= 0 ? copyIndex + 1 : 0,
-                  ContextMenuButtonItem(
-                    onPressed: () {
-                      // 关闭选择菜单
-                      editableTextState.hideToolbar();
-                      // 打开词典弹窗
-                      DictionarySheet.show(context, word: word);
-                    },
-                    type: ContextMenuButtonType.custom,
-                    label: '📖 查词',
-                  ),
-                );
-              }
-              return AdaptiveTextSelectionToolbar.buttonItems(
-                anchors: editableTextState.contextMenuAnchors,
-                buttonItems: buttonItems,
-              );
-            },
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// 可点击的英文单词 chip：带下划线 + InkWell 水波纹反馈。
+class _WordChip extends StatelessWidget {
+  const _WordChip({required this.word, required this.onTap});
+
+  final String word;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      onTapDown: (_) {}, // 触摸反馈
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1),
+        child: Text(
+          word,
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            color: const Color(0xFF1565C0),
+            fontFamily: 'serif',
+            decoration: TextDecoration.underline,
+            decorationColor: const Color(0xFF1565C0).withValues(alpha: 0.4),
+            decorationStyle: TextDecorationStyle.dotted,
+          ),
+        ),
+      ),
     );
   }
 }

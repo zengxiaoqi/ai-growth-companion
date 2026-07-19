@@ -1,4 +1,15 @@
-import { Controller, Get, Query, Param, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { PublicApiService } from './public-api.service';
 
 /**
@@ -90,10 +101,29 @@ export class PublicApiController {
     return this.publicApi.getEarthquakes();
   }
 
-  /** GET /api/public/fruits — all fruits */
+  /** GET /api/public/fruits — all fruits (from DB, auto-seeded) */
   @Get('fruits')
   async fruits() {
     return this.publicApi.getFruits();
+  }
+
+  /** POST /api/public/fruits — add a new fruit */
+  @Post('fruits')
+  async addFruit(@Body() body: any) {
+    if (!body?.name?.trim()) throw new BadRequestException('name is required');
+    return this.publicApi.addFruit(body);
+  }
+
+  /** PUT /api/public/fruits/:id — update a fruit */
+  @Put('fruits/:id')
+  async updateFruit(@Param('id') id: string, @Body() body: any) {
+    return this.publicApi.updateFruit(parseInt(id, 10), body);
+  }
+
+  /** DELETE /api/public/fruits/:id — delete a fruit */
+  @Delete('fruits/:id')
+  async deleteFruit(@Param('id') id: string) {
+    return this.publicApi.deleteFruit(parseInt(id, 10));
   }
 
   /** GET /api/public/trivia?amount=10&difficulty=easy&category=17 — quiz questions */

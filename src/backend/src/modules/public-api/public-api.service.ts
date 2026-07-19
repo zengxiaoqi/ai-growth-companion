@@ -1,6 +1,10 @@
-import { Injectable, Logger, BadGatewayException } from '@nestjs/common';
+import { Injectable, Logger, BadGatewayException, NotFoundException } from '@nestjs/common';
 import { BUNDLED_COUNTRIES, type Country } from './countries.data';
 import { findCityCoord } from './cities.data';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Fruit } from '../../database/entities/fruit.entity';
+import { FRUITS_SEED_DATA } from './fruits.data';
 
 export interface CacheEntry<T> {
   data: T;
@@ -22,6 +26,11 @@ export class PublicApiService {
   private readonly logger = new Logger(PublicApiService.name);
   private readonly cache = new Map<string, CacheEntry<any>>();
   private readonly inflight = new Map<string, Promise<any>>();
+
+  constructor(
+    @InjectRepository(Fruit)
+    private readonly fruitRepo: Repository<Fruit>,
+  ) {}
 
   /**
    * Proxy a GET request to an external public API.
@@ -198,109 +207,50 @@ export class PublicApiService {
     });
   }
 
-  /** Fruityvice — all fruits (with Chinese names) */
+  /** Fruits — from database, auto-seeded on first call */
   async getFruits() {
-    const raw = await this.proxy<any[]>({
-      url: 'https://www.fruityvice.com/api/fruit/all',
-      cacheKey: 'fruits:all',
-      ttlSeconds: 604800,
-    });
-    if (!Array.isArray(raw)) return raw;
-    // Add Chinese names + emoji for common fruits
-    const zhMap: Record<string, string> = {
-      apple: '苹果',
-      banana: '香蕉',
-      orange: '橙子',
-      pear: '梨',
-      strawberry: '草莓',
-      blueberry: '蓝莓',
-      blackberry: '黑莓',
-      raspberry: '树莓',
-      cranberry: '蔓越莓',
-      grape: '葡萄',
-      watermelon: '西瓜',
-      lemon: '柠檬',
-      lime: '青柠',
-      peach: '桃子',
-      cherry: '樱桃',
-      pineapple: '菠萝',
-      mango: '芒果',
-      kiwi: '猕猴桃',
-      papaya: '木瓜',
-      coconut: '椰子',
-      avocado: '牛油果',
-      pomegranate: '石榴',
-      plum: '李子',
-      apricot: '杏',
-      fig: '无花果',
-      date: '椰枣',
-      lychee: '荔枝',
-      persimmon: '柿子',
-      quince: '木瓜',
-      passionfruit: '百香果',
-      dragonfruit: '火龙果',
-      durian: '榴莲',
-      mangosteen: '山竹',
-      starfruit: '杨桃',
-      guava: '番石榴',
-      cantaloupe: '哈密瓜',
-      honeydew: '蜜瓜',
-      clementine: '克莱门汀',
-      tangerine: '橘子',
-      mandarin: '橘子',
-      nectarine: '油桃',
-      gooseberry: '鹅莓',
-      elderberry: '接骨木莓',
-      boysenberry: '博伊森莓',
-      currant: '加仑',
-      kumquat: '金桔',
-      yuzu: '柚子',
-      pomelo: '柚子',
-      citron: '香橼',
-      physalis: '灯笼果',
-      salak: '蛇皮果',
-      jackfruit: '菠萝蜜',
-      longan: '龙眼',
-      rambutan: '红毛丹',
-      sapodilla: '人心果',
-      soursop: '刺果番荔枝',
-      surinam: '苏里南樱桃',
-      tamarind: '罗望子',
-      melon: '甜瓜',
-      tomato: '番茄',
-      lingonberry: '越橘',
-      crabapple: '海棠果',
-      roseapple: '蒲桃',
-      sugarapple: '释迦果',
-      breadfruit: '面包果',
-      cupuacu: '大花可可',
-      feijoa: '斐济果',
-      hazelnut: '榛子',
-      pitahaya: '火龙果',
-      morus: '桑葚',
-      pumpkin: '南瓜',
-      annona: '番荔枝',
-      'horned melon': '刺角瓜',
-      'green apple': '青苹果',
-      'japanese persimmon': '日本柿子',
-      kiwifruit: '猕猴桃',
-      pitaya: '火龙果',
-    };
-    return raw.map((f) => {
-      const name = (f.name || '').toString();
-      const key = name.toLowerCase();
-      let zh = zhMap[key];
-      if (!zh) {
-        // Try partial match
-        for (const k of Object.keys(zhMap)) {
-          if (key.includes(k)) {
-            zh = zhMap[k];
-            break;
-          }
-        }
+    const count = await this.fruitRepo.count();
+    if (count === 0) {
+      await this.seedFruits();
+    }
+    return this.fruitRepo.find({ order: { id: 'ASC' } });
+  }
+
+  /** Seed fruits from bundled data (idempotent) */
+  private async seedFruits() {
+    this.logger.log('Seeding fruits table with 49 entries...');
+    for (const f of FRUITS_SEED_DATA) {
+      const existing = await this.fruitRepo.findOne({ where: { name: f.name } });
+      if (!existing) {
+        await this.fruitRepo.save(this.fruitRepo.create(f));
       }
-      return { ...f, nameZh: zh ?? name };
-    });
+    }
+    this.logger.log('Fruit seeding complete.');
+  }
+
+  /** Add a new fruit */
+  async addFruit(data: Partial<Fruit>) {
+    const existing = await this.fruitRepo.findOne({ where: { name: data.name } });
+    if (existing) {
+      throw new Error(`Fruit "${data.name}" already exists`);
+    }
+    return this.fruitRepo.save(this.fruitRepo.create(data));
+  }
+
+  /** Update a fruit */
+  async updateFruit(id: number, data: Partial<Fruit>) {
+    const fruit = await this.fruitRepo.findOne({ where: { id } });
+    if (!fruit) throw new NotFoundException(`Fruit ${id} not found`);
+    Object.assign(fruit, data);
+    return this.fruitRepo.save(fruit);
+  }
+
+  /** Delete a fruit */
+  async deleteFruit(id: number) {
+    const fruit = await this.fruitRepo.findOne({ where: { id } });
+    if (!fruit) throw new NotFoundException(`Fruit ${id} not found`);
+    await this.fruitRepo.delete(id);
+    return { deleted: true };
   }
 
   /** Open Trivia DB questions */

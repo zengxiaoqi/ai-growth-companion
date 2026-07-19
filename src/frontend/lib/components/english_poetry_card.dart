@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/app_logger.dart';
 import '../services/public_api_service.dart';
+import 'dictionary_sheet.dart';
 
 final _log = AppLogger('EnglishPoetryCard');
 
@@ -283,7 +284,7 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
           ),
         ),
         const SizedBox(height: 14),
-        // 诗歌正文
+        // 诗歌正文 — 全部展示，可选择复制 + 一键查词
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -294,41 +295,8 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
               color: const Color(0xFFFFCC80).withValues(alpha: 0.4),
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: lines.take(20).map((line) {
-              // 空字符串 = 诗节分隔
-              if (line.isEmpty) {
-                return const SizedBox(height: 10);
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  line,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.6,
-                    color: Color(0xFF3E2723),
-                    fontFamily: 'serif',
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
+          child: _PoemBody(lines: lines),
         ),
-        if (lines.length > 20) ...[
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              '（共 ${lines.length} 行，展示前 20 行）',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFFFA726),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ],
         const SizedBox(height: 12),
         // 学习提示
         Container(
@@ -344,7 +312,7 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '遇到不认识的单词？长按 AI 对话中的消息可以一键查词哦！',
+                  '长按诗歌中的单词可以一键查词哦！',
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFFE65100),
@@ -355,6 +323,80 @@ class _EnglishPoetryCardState extends State<EnglishPoetryCard> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 诗歌正文 — 每行独立 SelectableText，支持选择复制 + 一键查词。
+///
+/// 设计要点：
+/// - 空行（诗节分隔）渲染为间距，不计入可选内容
+/// - 长按选中单词/短语后，上下文菜单出现"📖 查词"按钮
+/// - 点击查词：取选中文本中第一个英文单词，打开 DictionarySheet
+class _PoemBody extends StatelessWidget {
+  const _PoemBody({required this.lines});
+
+  final List<String> lines;
+
+  /// 从选中文本中提取第一个英文单词（去除标点）
+  String? _extractWord(String selected) {
+    final trimmed = selected.trim();
+    if (trimmed.isEmpty) return null;
+    // 匹配纯英文字母词
+    final match = RegExp(r'[A-Za-z]+').firstMatch(trimmed);
+    return match?.group(0)?.toLowerCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: lines.map((line) {
+        if (line.isEmpty) {
+          return const SizedBox(height: 10);
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 3),
+          child: SelectableText(
+            line,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.6,
+              color: Color(0xFF3E2723),
+              fontFamily: 'serif',
+            ),
+            contextMenuBuilder: (context, editableTextState) {
+              final selectedText = editableTextState.textEditingValue.selection
+                  .textInside(editableTextState.textEditingValue.text);
+              final word = _extractWord(selectedText);
+              final buttonItems = editableTextState.contextMenuButtonItems;
+              // 在"复制"按钮之后添加"查词"按钮
+              if (word != null && word.isNotEmpty) {
+                final copyIndex = buttonItems.indexWhere(
+                  (b) => b.type == ContextMenuButtonType.copy,
+                );
+                buttonItems.insert(
+                  copyIndex >= 0 ? copyIndex + 1 : 0,
+                  ContextMenuButtonItem(
+                    onPressed: () {
+                      // 关闭选择菜单
+                      editableTextState.hideToolbar();
+                      // 打开词典弹窗
+                      DictionarySheet.show(context, word: word);
+                    },
+                    type: ContextMenuButtonType.custom,
+                    label: '📖 查词',
+                  ),
+                );
+              }
+              return AdaptiveTextSelectionToolbar.buttonItems(
+                anchors: editableTextState.contextMenuAnchors,
+                buttonItems: buttonItems,
+              );
+            },
+          ),
+        );
+      }).toList(),
     );
   }
 }

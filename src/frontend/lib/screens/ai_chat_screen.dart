@@ -39,19 +39,69 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
   int _correctCount = 0;
   bool _completed = false;
 
+  final TtsService _tts = TtsService();
+
   List<Map<String, dynamic>> get _questions => widget.questions;
+
+  @override
+  void initState() {
+    super.initState();
+    // 首帧后播报第一道题目
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _speakCurrentQuestion();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
+
+  /// 朗读当前题目：题干 + 各选项
+  Future<void> _speakCurrentQuestion() async {
+    if (!mounted || _revealed || _completed) return;
+    final current = _questions[_currentIndex];
+    final questionText = current['question']?.toString() ?? '';
+    final options = (current['options'] as List?)?.cast<String>() ?? [];
+
+    final parts = <String>['第${_currentIndex + 1}题。$questionText'];
+    for (var i = 0; i < options.length; i++) {
+      parts.add('选项${String.fromCharCode(65 + i)}。${options[i]}');
+    }
+    final text = parts.join('。');
+    await _tts.stop();
+    await _tts.speak(text);
+  }
+
+  /// 朗读答题反馈：答对/答错 + 正确答案
+  Future<void> _speakFeedback(bool isCorrect, int correctIndex, List<String> options) async {
+    final String text;
+    if (isCorrect) {
+      text = '答对啦！太棒了！';
+    } else {
+      final correctOption = String.fromCharCode(65 + correctIndex);
+      final correctText = correctIndex < options.length ? options[correctIndex] : '';
+      text = '答错了。正确答案是选项$correctOption。$correctText';
+    }
+    await _tts.stop();
+    await _tts.speak(text);
+  }
 
   void _selectOption(int index) {
     if (_revealed) return;
     final current = _questions[_currentIndex];
     final correctIndex = current['correctIndex'] as int? ?? 0;
     final isCorrect = index == correctIndex;
+    final options = (current['options'] as List?)?.cast<String>() ?? [];
     setState(() {
       _selectedOption = index;
       _revealed = true;
       if (isCorrect) _correctCount++;
     });
     widget.onAnswered(_currentIndex, index);
+    // 语音播报答题反馈
+    _speakFeedback(isCorrect, correctIndex, options);
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       if (_currentIndex >= _questions.length - 1) {
@@ -61,6 +111,12 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
           _currentIndex++;
           _selectedOption = null;
           _revealed = false;
+        });
+        // 播报下一道题目（等待反馈朗读完毕后再播报，避免打断）
+        _tts.onComplete.then((_) {
+          if (mounted && !_revealed && !_completed) {
+            _speakCurrentQuestion();
+          }
         });
       }
     });
@@ -75,6 +131,12 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
         _selectedOption = null;
         _revealed = false;
       });
+      // 播报下一道题目
+      _tts.onComplete.then((_) {
+        if (mounted && !_revealed && !_completed) {
+          _speakCurrentQuestion();
+        }
+      });
     }
   }
 
@@ -85,6 +147,12 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
       _revealed = false;
       _completed = false;
       _correctCount = 0;
+    });
+    // 重新播报第一道题目
+    _tts.onComplete.then((_) {
+      if (mounted && !_revealed && !_completed) {
+        _speakCurrentQuestion();
+      }
     });
   }
 

@@ -1,19 +1,18 @@
 // Speech Input Widget — 儿童友好的语音输入组件
 //
-// 提供两种交互模式：
-// - 按住说话（press-and-hold），松开即识别
-// - 点击切换（toggle），适合需要连续说话的场景
+// 点击切换模式：点一下开始录音，再点一下停止并发送
+// 跨平台：
+//   - Web: 浏览器原生 Web Speech API（不依赖任何插件）
+//   - Android/iOS: speech_to_text 插件设备端引擎
 //
-// 集成 permission_handler 做显式权限请求，
-// 集成 speech_to_text 做设备端语音识别。
+// 集成 permission_handler 做显式权限请求
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:speech_to_text/speech_recognition_result.dart';
 
+import '../services/speech_recognition_service.dart';
 import '../theme/app_theme.dart';
 
 // ─── 状态枚举 ────────────────────────────────────────────────────────────────
@@ -28,34 +27,15 @@ enum SpeechInputState {
 
 // ─── 回调类型 ────────────────────────────────────────────────────────────────
 
-/// 当语音识别产生最终结果时回调。
 typedef SpeechResultCallback = void Function(String text);
-
-/// 当录音状态变化（开始/结束录音）时回调。用于父组件 UI 联动。
 typedef SpeechListeningCallback = void Function(bool isListening);
 
 // ─── Widget ──────────────────────────────────────────────────────────────────
 
-/// 可复用的语音输入按钮组件。
-///
-/// 使用示例：
-/// ```dart
-/// SpeechInputWidget(
-///   onResult: (text) { print('识别结果: $text'); },
-///   localeId: 'zh_CN',
-/// )
-/// ```
 class SpeechInputWidget extends StatefulWidget {
-  /// 语音识别结果回调（最终结果，非实时）。
   final SpeechResultCallback onResult;
-
-  /// 识别语言区域（如 'zh_CN', 'en_US'），默认中文。
   final String localeId;
-
-  /// 按钮尺寸。
   final double size;
-
-  /// 录音状态变化回调。
   final SpeechListeningCallback? onListeningChange;
 
   const SpeechInputWidget({
@@ -72,14 +52,13 @@ class SpeechInputWidget extends StatefulWidget {
 
 class _SpeechInputWidgetState extends State<SpeechInputWidget>
     with TickerProviderStateMixin {
-  // ── 语音引擎 ──
-  final stt.SpeechToText _speech = stt.SpeechToText();
-
-  // ── 状态 ──
+  late SpeechRecognitionService _speech;
   SpeechInputState _state = SpeechInputState.idle;
-  String _recognizedWords = '';
+  String _recognizedText = '';
+  String _interimText = '';
+  String _errorMessage = '';
+  bool _supported = true;
 
-  // ── 动画 ──
   late AnimationController _pulseController;
   late Animation<double> _pulseScale;
   late Animation<double> _pulseOpacity;
@@ -87,19 +66,15 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
   late AnimationController _waveController;
   late List<Animation<double>> _waveAnimations;
 
-  // ── 定时器 ──
   Timer? _silenceTimer;
-
-  // ── 防重入 ──
+  Timer? _maxDurationTimer;
   bool _isTransitioning = false;
-
-  // ──────────────── 生命周期 ────────────────
 
   @override
   void initState() {
     super.initState();
+    _speech = createSpeechRecognitionService();
 
-    // 脉冲动画（录音时缩放）
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -115,7 +90,6 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // 波形条动画
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -136,93 +110,135 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
       );
     });
     _waveController.repeat(reverse: true);
+
+    // 异步检查平台是否支持
+    _checkSupport();
+  }
+
+  Future<void> _checkSupport() async {
+    final supported = await _speech.isSupported();
+    if (mounted) {
+      setState(() => _supported = supported);
+      if (!supported) {
+        _errorMessage = '当前浏览器不支持语音识别，建议使用 Chrome 或 Safari';
+      }
+    }
   }
 
   @override
   void dispose() {
-    if (_speech.isListening) {
-      _speech.cancel();
-    }
+    _silenceTimer?.cancel();
+    _maxDurationTimer?.cancel();
     _pulseController.dispose();
     _waveController.dispose();
-    _silenceTimer?.cancel();
+    _speech.dispose();
     super.dispose();
   }
 
   // ──────────────── 权限 ────────────────
 
-  /// 请求麦克风权限。
-  ///
-  /// 返回 true 表示已授权，false 表示已拒或永久拒绝。
   Future<bool> _requestPermission() async {
     var status = await Permission.microphone.status;
-
     if (status.isGranted) return true;
-
     if (status.isPermanentlyDenied) {
       if (mounted) setState(() => _state = SpeechInputState.permissionDenied);
       return false;
     }
-
     status = await Permission.microphone.request();
-
     if (status.isGranted) return true;
-
     if (mounted) {
-      setState(() =>
-          status.isPermanentlyDenied
-              ? SpeechInputState.permissionDenied
-              : _state = SpeechInputState.idle);
+      setState(() => _state = status.isPermanentlyDenied
+          ? SpeechInputState.permissionDenied
+          : SpeechInputState.idle);
     }
     return false;
   }
 
-  // ──────────────── 语音控制 ────────────────
+  // ──────────────── 点击切换 ────────────────
+
+  /// 点击麦克风按钮：
+  /// - idle/error → 开始录音
+  /// - listening → 停止并发送
+  Future<void> _onTap() async {
+    if (_isTransitioning) return;
+
+    if (_state == SpeechInputState.listening) {
+      await _stopListening();
+      return;
+    }
+
+    await _startListening();
+  }
 
   Future<void> _startListening() async {
-    if (_isTransitioning) return;
     _isTransitioning = true;
     try {
-      final hasPermission = await _requestPermission();
-      if (!hasPermission) return;
-
-      // 初始化语音引擎
-      bool available = _speech.isAvailable;
-      if (!available) {
-        available = await _speech.initialize(
-          onStatus: _onSpeechStatus,
-          onError: (error) {
-            debugPrint('Speech error: ${error.errorMsg}');
-            if (mounted) setState(() => _state = SpeechInputState.error);
-          },
-        );
-      }
-
-      if (!available) {
-        if (mounted) setState(() => _state = SpeechInputState.error);
+      // 1. 检查平台支持
+      if (!_supported) {
+        _errorMessage = '当前环境不支持语音识别';
+        setState(() => _state = SpeechInputState.error);
         return;
       }
 
-      _recognizedWords = '';
+      // 2. 请求权限（mobile 平台）
+      final hasPermission = await _requestPermission();
+      if (!hasPermission) return;
+
+      // 3. 启动识别
+      _recognizedText = '';
+      _interimText = '';
       setState(() => _state = SpeechInputState.listening);
       widget.onListeningChange?.call(true);
-
-      // 启动脉冲动画
       _pulseController.repeat(reverse: true);
 
-      await _speech.listen(
-        onResult: _onSpeechResult,
-        listenOptions: stt.SpeechListenOptions(
-          partialResults: true,
-          onDevice: false,
-          listenMode: stt.ListenMode.dictation,
-          cancelOnError: false,
-          localeId: widget.localeId,
-        ),
+      final ok = await _speech.startListening(
+        localeId: widget.localeId,
+        onResult: (finalText, interim) {
+          if (!mounted) return;
+          setState(() {
+            _recognizedText = finalText;
+            _interimText = interim;
+          });
+          _resetSilenceTimer();
+        },
+        onStateChange: (isListening) {
+          if (!mounted) return;
+          if (!isListening && _state == SpeechInputState.listening) {
+            // 录音意外停止（如浏览器自动停止），等待最终结果
+            // 不直接 _stopListening，让 silenceTimer 或 onend 处理
+            debugPrint('[speech] onStateChange(false) during listening — waiting for final result');
+          }
+        },
+        onError: (err) {
+          if (!mounted) return;
+          debugPrint('Speech error: $err');
+          _errorMessage = _mapError(err);
+          setState(() => _state = SpeechInputState.error);
+          widget.onListeningChange?.call(false);
+          _pulseController.stop();
+          _pulseController.reset();
+        },
       );
 
-      // 设置 10 秒无语音自动停止
+      if (!ok) {
+        if (mounted) {
+          _errorMessage = '语音识别启动失败，请检查麦克风权限';
+          setState(() => _state = SpeechInputState.error);
+          widget.onListeningChange?.call(false);
+          _pulseController.stop();
+          _pulseController.reset();
+        }
+        return;
+      }
+
       _resetSilenceTimer();
+      // 最长录音 30 秒
+      _maxDurationTimer?.cancel();
+      _maxDurationTimer = Timer(const Duration(seconds: 30), () {
+        if (_state == SpeechInputState.listening) {
+          _stopListening();
+        }
+      });
     } finally {
       _isTransitioning = false;
     }
@@ -230,67 +246,65 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
   Future<void> _stopListening() async {
     _silenceTimer?.cancel();
+    _maxDurationTimer?.cancel();
     _pulseController.stop();
     _pulseController.reset();
 
-    if (_speech.isListening) {
-      await _speech.stop();
-    }
+    // 先切到 processing 状态，防止 onStateChange(false) 触发再次 stop
+    if (mounted) setState(() => _state = SpeechInputState.processing);
 
-    final finalText = _recognizedWords.trim();
+    // 调用 stop（Web Speech API 的 rec.stop() 是异步的）
+    await _speech.stopListening();
+
+    // 给浏览器 500ms 触发最后的 onresult(final result)
+    // rec.stop() 后浏览器会异步触发一次带 isFinal=true 的 onresult
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 最终文字 = final results + interim results
+    final finalText = (_recognizedText + _interimText).trim();
+    debugPrint('[speech] stopListening — final="$_recognizedText" interim="$_interimText" → "$finalText"');
     if (finalText.isNotEmpty) {
       widget.onResult(finalText);
     }
 
-    if (mounted) setState(() => _state = SpeechInputState.idle);
+    if (mounted) {
+      setState(() {
+        _state = SpeechInputState.idle;
+        _recognizedText = '';
+        _interimText = '';
+      });
+    }
     widget.onListeningChange?.call(false);
-  }
-
-  Future<void> _cancelListening() async {
-    _silenceTimer?.cancel();
-    _pulseController.stop();
-    _pulseController.reset();
-
-    if (_speech.isListening) {
-      await _speech.cancel();
-    }
-
-    _recognizedWords = '';
-    if (mounted) setState(() => _state = SpeechInputState.idle);
-    widget.onListeningChange?.call(false);
-  }
-
-  // ──────────────── 回调 ────────────────
-
-  void _onSpeechStatus(String status) {
-    debugPrint('Speech status: $status');
-    if (status == 'notListening' && _state == SpeechInputState.listening) {
-      if (mounted) setState(() => _state = SpeechInputState.processing);
-    }
-  }
-
-  void _onSpeechResult(SpeechRecognitionResult result) {
-    if (!mounted) return;
-    setState(() {
-      _recognizedWords = result.recognizedWords;
-    });
-
-    // 每次收到新结果时重置静音计时器
-    _resetSilenceTimer();
-
-    if (result.finalResult && _recognizedWords.trim().isNotEmpty) {
-      _stopListening();
-    }
   }
 
   void _resetSilenceTimer() {
     _silenceTimer?.cancel();
-    _silenceTimer = Timer(const Duration(seconds: 10), () {
-      if (_state == SpeechInputState.listening && _speech.isListening) {
+    _silenceTimer = Timer(const Duration(seconds: 8), () {
+      if (_state == SpeechInputState.listening) {
         debugPrint('Silence timeout — auto-stopping');
         _stopListening();
       }
     });
+  }
+
+  String _mapError(String err) {
+    switch (err) {
+      case 'not_supported':
+        return '当前浏览器不支持语音识别\n建议使用 Chrome 或 Safari';
+      case 'not_allowed':
+      case 'service-not-allowed':
+        return '麦克风权限被拒绝\n请允许麦克风权限';
+      case 'not_available':
+        return '设备没有可用的语音识别引擎\n建议在系统设置中开启语音输入';
+      case 'network':
+        return '网络错误，请检查网络连接';
+      case 'no_speech':
+        return '没有检测到语音\n请再试一次';
+      case 'aborted':
+        return '';
+      default:
+        return '语音识别出错：$err';
+    }
   }
 
   // ──────────────── 权限被拒 ────────────────
@@ -312,13 +326,9 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
     };
   }
 
-  // ── 闲置状态：麦克风图标 ──
-
   Widget _buildIdleButton() {
     return GestureDetector(
-      onLongPressStart: (_) => _startListening(),
-      onLongPressEnd: (_) => _stopListening(),
-      onLongPressCancel: () => _cancelListening(),
+      onTap: _onTap,
       child: Container(
         width: widget.size,
         height: widget.size,
@@ -346,22 +356,16 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
     );
   }
 
-  // ── 录音中：脉冲麦克风 + 波形条 ──
-
   Widget _buildListeningButton() {
     final size = widget.size;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 波形条（麦克风上方）
         _buildWaveformBars(),
         const SizedBox(height: 4),
-
-        // 脉冲麦克风按钮
         GestureDetector(
-          onLongPressEnd: (_) => _stopListening(),
-          onTap: _stopListening,
+          onTap: _onTap,
           child: AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
@@ -382,7 +386,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.warningColor.withValues(alpha: 
+                        color: AppTheme.warningColor.withValues(alpha:
                           0.4 * _pulseOpacity.value,
                         ),
                         blurRadius: 20,
@@ -402,10 +406,10 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
           ),
         ),
         const SizedBox(height: 4),
-
-        // 提示文字
         Text(
-          _recognizedWords.isEmpty ? '正在听…' : '松开结束',
+          (_recognizedText + _interimText).isEmpty
+              ? '正在听…点击结束'
+              : (_recognizedText + _interimText),
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
@@ -416,7 +420,6 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
     );
   }
 
-  /// 五根波形条动画
   Widget _buildWaveformBars() {
     return SizedBox(
       height: 20,
@@ -442,8 +445,6 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
     );
   }
 
-  // ── 识别处理中 ──
-
   Widget _buildProcessingButton() {
     return Container(
       width: widget.size,
@@ -466,12 +467,34 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
     );
   }
 
-  // ── 识别失败 ──
-
   Widget _buildErrorButton() {
     return GestureDetector(
       onTap: () {
         setState(() => _state = SpeechInputState.idle);
+      },
+      onLongPress: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            ),
+            title: const Row(children: [
+              Text('🎤', style: TextStyle(fontSize: 28)),
+              SizedBox(width: 10),
+              Text('语音识别不可用', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ]),
+            content: Text(
+              _errorMessage.isEmpty
+                  ? '设备没有可用的语音识别引擎。\n\n建议在系统设置中检查语音输入功能，或改用键盘输入。'
+                  : _errorMessage,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了')),
+            ],
+          ),
+        );
       },
       child: Container(
         width: widget.size,
@@ -492,8 +515,6 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
       ),
     );
   }
-
-  // ── 权限被拒 ──
 
   Widget _buildPermissionDeniedButton() {
     return GestureDetector(
@@ -560,7 +581,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
         child: const Icon(
           Icons.mic_off_rounded,
           color: AppTheme.textSecondary,
-          size: 22,
+          size: 24,
         ),
       ),
     );

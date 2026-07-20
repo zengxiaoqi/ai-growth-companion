@@ -1093,6 +1093,8 @@ export class LessonContentService implements OnModuleInit {
         title: `${topic} 配对游戏`,
         topic,
         ageGroup,
+        leftTitle: '概念',
+        rightTitle: '对应',
         pairs:
           pairs.length > 0
             ? pairs
@@ -1127,6 +1129,8 @@ export class LessonContentService implements OnModuleInit {
           title: `${topic} 连线练习`,
           topic,
           ageGroup,
+          leftTitle: '概念',
+          rightTitle: '对应',
           leftItems,
           rightItems,
           connections,

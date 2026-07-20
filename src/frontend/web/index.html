@@ -14,7 +14,7 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="$FLUTTER_BASE_HREF">
+  <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -31,6 +31,81 @@
 
   <title>lingxi_companion</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // ─── Web Speech API helper ─────────────────────────────────────────
+    // 浏览器原生语音识别，不依赖 speech_to_text 插件
+    // 用全局函数回调，避免 dart:js 属性赋值的兼容性问题
+    (function() {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var _rec = null;
+
+      // Dart 端设置这些全局回调
+      // window._lingxiOnResult(finalText, interimText)
+      // window._lingxiOnEnd()
+      // window._lingxiOnError(errorStr)
+
+      window._lingxiSpeech = {
+        supported: !!SR,
+
+        start: function(lang) {
+          console.log('[lingxi-speech] start called, SR=' + !!SR);
+          if (!SR) { if (window._lingxiOnError) window._lingxiOnError('not_supported'); return; }
+          if (_rec) { try { _rec.stop(); } catch(e){} _rec = null; }
+          var rec = new SR();
+          rec.lang = lang || 'zh-CN';
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+
+          rec.onresult = function(ev) {
+            var finalText = '';
+            var interimText = '';
+            for (var i = ev.resultIndex; i < ev.results.length; i++) {
+              var r = ev.results[i];
+              if (r.isFinal) finalText += r[0].transcript;
+              else interimText += r[0].transcript;
+            }
+            console.log('[lingxi-speech] onresult: final="' + finalText + '" interim="' + interimText + '"');
+            if (window._lingxiOnResult) {
+              try { window._lingxiOnResult(finalText, interimText); }
+              catch(e) { console.error('[lingxi-speech] _onResult callback error: ' + e); }
+            } else {
+              console.warn('[lingxi-speech] _lingxiOnResult not set!');
+            }
+          };
+
+          rec.onerror = function(ev) {
+            console.error('[lingxi-speech] onerror: ' + (ev.error || 'unknown'));
+            if (window._lingxiOnError) window._lingxiOnError(ev.error || 'error');
+          };
+
+          rec.onend = function() {
+            console.log('[lingxi-speech] onend');
+            if (window._lingxiOnEnd) window._lingxiOnEnd();
+          };
+
+          try {
+            rec.start();
+            _rec = rec;
+            console.log('[lingxi-speech] recognition started');
+          } catch(e) {
+            console.error('[lingxi-speech] start failed: ' + e.message);
+            if (window._lingxiOnError) window._lingxiOnError('start_failed: ' + e.message);
+          }
+        },
+
+        stop: function() {
+          console.log('[lingxi-speech] stop called, _rec=' + !!_rec);
+          if (_rec) {
+            try { _rec.stop(); } catch(e){}
+            _rec = null;
+          }
+        }
+      };
+
+      console.log('[lingxi-speech] helper initialized, supported=' + !!SR);
+    })();
+  </script>
 </head>
 <body>
   <!--

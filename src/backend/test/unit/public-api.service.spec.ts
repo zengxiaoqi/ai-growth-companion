@@ -1,20 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadGatewayException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { PublicApiService } from '../../src/modules/public-api/public-api.service';
 import { BUNDLED_COUNTRIES } from '../../src/modules/public-api/countries.data';
+import { Fruit } from '../../src/database/entities/fruit.entity';
 
 // Mock global fetch
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch as any;
+
+// Mock FruitRepository
+const mockFruitRepo = {
+  find: jest.fn(),
+  findOne: jest.fn(),
+  save: jest.fn(),
+  create: jest.fn(),
+  count: jest.fn().mockResolvedValue(49),
+  delete: jest.fn(),
+} as unknown as Repository<Fruit>;
 
 describe('PublicApiService', () => {
   let service: PublicApiService;
 
   beforeEach(async () => {
     mockFetch.mockReset();
+    jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PublicApiService],
+      providers: [
+        PublicApiService,
+        { provide: getRepositoryToken(Fruit), useValue: mockFruitRepo },
+      ],
     }).compile();
 
     service = module.get<PublicApiService>(PublicApiService);
@@ -271,11 +288,13 @@ describe('PublicApiService', () => {
       expect(calledUrl).toContain('open-meteo.com');
     });
 
-    it('getFruits proxies to fruityvice', async () => {
-      mockFetch.mockResolvedValueOnce(makeOkResponse([{ name: 'apple' }]));
+    it('getFruits returns from database', async () => {
+      const fruits = [{ id: 1, name: 'apple', nameZh: '苹果' }];
+      (mockFruitRepo.find as jest.Mock).mockResolvedValueOnce(fruits);
       const result = await service.getFruits();
-      expect(result).toEqual([{ name: 'apple' }]);
-      expect(mockFetch.mock.calls[0][0] as string).toContain('fruityvice.com');
+      expect(result).toEqual(fruits);
+      expect(mockFruitRepo.find).toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled(); // from DB, not upstream
     });
 
     it('getTrivia passes amount and difficulty to opentdb', async () => {

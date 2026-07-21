@@ -479,8 +479,11 @@ export class AiService {
       throw new Error('FORBIDDEN_CHILD_ACCESS');
     }
 
+    // Parent conversations are stored with childId = viewerId (parent's own ID),
+    // not the child's ID. When a parent views history, use viewerId as childId.
+    const effectiveChildId = params.viewerType === 'parent' ? params.viewerId : params.childId;
     return this.conversationManager.listSessions({
-      childId: params.childId,
+      childId: effectiveChildId,
       actorType: params.viewerType === 'parent' ? 'parent' : 'child',
       page: params.page,
       limit: params.limit,

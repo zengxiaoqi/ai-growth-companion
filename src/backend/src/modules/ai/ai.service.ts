@@ -88,7 +88,11 @@ export class AiService {
       }
 
       // Parent conversations are keyed by parent account to avoid mixing with child-side sessions.
-      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(
+        viewerId,
+        'parent',
+        sessionId,
+      );
       const parentName = parent.name || '家长';
 
       // Update session metadata
@@ -142,7 +146,11 @@ export class AiService {
 
     try {
       // Get or create conversation session
-      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(
+        viewerId,
+        'child',
+        sessionId,
+      );
 
       // Update session metadata
       await this.conversationManager.updateMetadata(session.uuid, {
@@ -221,7 +229,11 @@ export class AiService {
         return;
       }
 
-      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(
+        viewerId,
+        'parent',
+        sessionId,
+      );
       const parentName = parent.name || '家长';
       await this.conversationManager.updateMetadata(session.uuid, {
         ageGroup: 'parent',
@@ -273,7 +285,11 @@ export class AiService {
     }
 
     try {
-      const session = await this.conversationManager.getOrCreateSession(viewerId, sessionId);
+      const session = await this.conversationManager.getOrCreateSession(
+        viewerId,
+        'child',
+        sessionId,
+      );
       await this.conversationManager.updateMetadata(session.uuid, {
         ageGroup,
         childName,
@@ -441,6 +457,12 @@ export class AiService {
     return this.usersService.canAccessChild(params.viewerId, params.viewerType, params.childId);
   }
 
+  async createChatSession(params: { viewerId: number; viewerType: string }) {
+    const actorType = params.viewerType === 'parent' ? 'parent' : 'child';
+    // Pass no sessionId → always creates a brand new session
+    return this.conversationManager.getOrCreateSession(params.viewerId, actorType);
+  }
+
   async getConversationSessions(params: {
     viewerId: number;
     viewerType: string;
@@ -459,6 +481,7 @@ export class AiService {
 
     return this.conversationManager.listSessions({
       childId: params.childId,
+      actorType: params.viewerType === 'parent' ? 'parent' : 'child',
       page: params.page,
       limit: params.limit,
     });

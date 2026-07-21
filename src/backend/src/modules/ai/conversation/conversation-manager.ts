@@ -6,7 +6,7 @@ import { Conversation, ConversationMessage } from './conversation.entity';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions/completions';
 import { LlmClientService } from '../../../agent-framework/llm/llm-client.service';
 
-interface ActiveSession {
+export interface ActiveSession {
   conversationId: number;
   uuid: string;
   childId: number;
@@ -29,8 +29,12 @@ export class ConversationManager {
   ) {}
 
   /** Get or create a conversation session */
-  async getOrCreateSession(childId: number, sessionId?: string): Promise<ActiveSession> {
-    // Try to find existing session
+  async getOrCreateSession(
+    childId: number,
+    actorType: string,
+    sessionId?: string,
+  ): Promise<ActiveSession> {
+    // Try to find existing session by uuid
     if (sessionId) {
       const cached = this.activeSessions.get(sessionId);
       if (cached) return cached;
@@ -39,38 +43,35 @@ export class ConversationManager {
         where: { uuid: sessionId, status: 'active' },
       });
       if (conv) {
-        const session: ActiveSession = {
-          conversationId: conv.id,
-          uuid: conv.uuid,
-          childId: conv.childId,
-          metadata: conv.metadata,
-        };
-        this.activeSessions.set(sessionId, session);
-        return session;
+        // Verify actorType matches — if the stored actorType differs,
+        // the session was created by a different role; treat as not found.
+        // (Backward compat: sessions without actorType fall back to metadata.actorType)
+        const storedType = conv.actorType || conv.metadata?.actorType;
+        if (storedType && storedType !== actorType) {
+          this.logger.warn(
+            `Session ${sessionId} owner=${storedType} but caller=${actorType} — not reusing`,
+          );
+        } else {
+          const session: ActiveSession = {
+            conversationId: conv.id,
+            uuid: conv.uuid,
+            childId: conv.childId,
+            metadata: conv.metadata,
+          };
+          this.activeSessions.set(sessionId, session);
+          return session;
+        }
       }
     }
 
-    // Try to find an active session for this child
-    const existing = await this.conversationRepo.findOne({
-      where: { childId, status: 'active' },
-      order: { updatedAt: 'DESC' },
-    });
-    if (existing) {
-      const session: ActiveSession = {
-        conversationId: existing.id,
-        uuid: existing.uuid,
-        childId: existing.childId,
-        metadata: existing.metadata,
-      };
-      this.activeSessions.set(existing.uuid, session);
-      return session;
-    }
-
-    // Create new session
+    // No sessionId or not found: always create a NEW session.
+    // Never reuse the old active session — that would merge conversations
+    // across "new chat" clicks into one chat history.
     const uuid = uuidv4();
     const conv = this.conversationRepo.create({
       uuid,
       childId,
+      actorType,
       status: 'active',
       metadata: {},
     });
@@ -310,12 +311,22 @@ export class ConversationManager {
     });
   }
 
-  async listSessions(params: { childId: number; page?: number; limit?: number }) {
+  async listSessions(params: {
+    childId: number;
+    actorType?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(50, Math.max(1, params.limit || 20));
 
+    const where: any = { childId: params.childId };
+    if (params.actorType) {
+      where.actorType = params.actorType;
+    }
+
     const [list, total] = await this.conversationRepo.findAndCount({
-      where: { childId: params.childId },
+      where,
       order: { updatedAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,

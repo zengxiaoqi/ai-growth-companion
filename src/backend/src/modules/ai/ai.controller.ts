@@ -279,6 +279,18 @@ export class AiController {
     }
   }
 
+  @Post('chat/sessions')
+  @ApiOperation({ summary: '创建新对话会话' })
+  async createChatSession(@Request() req: any) {
+    const viewerId = req.user.sub;
+    const viewerType = req.user.type;
+    const session = await this.aiService.createChatSession({
+      viewerId,
+      viewerType,
+    });
+    return { sessionId: session.uuid, createdAt: new Date().toISOString() };
+  }
+
   @Get('history/sessions')
   @ApiOperation({ summary: '获取对话会话历史' })
   async getConversationSessions(

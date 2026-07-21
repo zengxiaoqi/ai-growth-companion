@@ -1388,6 +1388,17 @@ class ApiService {
     }
   }
 
+  /// 创建新 AI 对话会话（后端生成唯一 sessionId，实现会话隔离）
+  Future<Map<String, dynamic>?> createAIChatSession() async {
+    try {
+      final response = await _dio.post('/ai/chat/sessions');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      _log.warning('Create AI chat session error: $e');
+      return null;
+    }
+  }
+
   /// AI 对话流式输出（SSE）
   /// 返回一个 `Stream<Map<String, dynamic>>`，每个 event 包含 type 和相关字段。
   /// 事件类型: thinking, tool_start, tool_result, token, game_data, done, error

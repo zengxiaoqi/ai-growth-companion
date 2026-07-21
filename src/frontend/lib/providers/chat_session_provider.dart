@@ -322,12 +322,36 @@ class ChatSessionProvider extends ChangeNotifier {
     await loadSessions(page: _sessionPage + 1);
   }
 
-  /// 开始创建新会话（清空本地状态）
+  /// 开始创建新会话（调用后端创建隔离会话，防止历史对话合并）
   Future<void> createNewSession() async {
     _isCreatingSession = true;
     notifyListeners();
+
     _clearLocalMessages();
     _activeSession = null;
+
+    try {
+      final result = await _apiService.createAIChatSession();
+      if (result != null && result['sessionId'] != null) {
+        // Create a local summary so the session list is immediately consistent
+        final newSession = ChatSessionSummary(
+          uuid: result['sessionId'],
+          title: '新对话',
+          createdAt: result['createdAt'] != null
+              ? DateTime.tryParse(result['createdAt'])
+              : DateTime.now(),
+          updatedAt: DateTime.now(),
+          messageCount: 0,
+        );
+        _activeSession = newSession;
+        // Prepend to session list so it shows up immediately
+        _sessions.insert(0, newSession);
+      }
+    } catch (e) {
+      debugPrint('Failed to create session: $e');
+      // Even if the API fails, we keep the local blank state
+    }
+
     _isCreatingSession = false;
     notifyListeners();
   }

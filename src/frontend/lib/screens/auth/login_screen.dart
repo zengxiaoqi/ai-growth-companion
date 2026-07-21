@@ -40,6 +40,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       curve: Curves.easeOut,
     );
     _animationController.forward();
+
+    // 从 storage 恢复记住我状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final storage = context.read<StorageService>();
+      setState(() => _rememberMe = storage.getRememberMe());
+    });
   }
 
   @override

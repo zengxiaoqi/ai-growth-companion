@@ -111,8 +111,9 @@ class StorageService {
     await _prefs.remove(keySelectedMode);
     await _prefs.remove(keyActiveChildId);
     await _prefs.remove(keyActiveRole);
-    await _prefs.remove(keyRememberMe);
-    await clearParentSession();
+        // 注意：不清除 keyRememberMe — 保持记住我复选框状态
+        // 如果用户主动登出，由 logout() 显式清除
+        await clearParentSession();
     await clearChildSession();
   }
   

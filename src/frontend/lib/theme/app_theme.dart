@@ -145,9 +145,10 @@ class AppTheme {
   }
 
   static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
+      return ThemeData(
+        useMaterial3: true,
+        fontFamily: 'NotoSansCJK',
+        colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.light,
         primary: primaryColor,

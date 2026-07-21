@@ -77,8 +77,15 @@ flutter:
     - assets/images/
     - assets/audios/
     - assets/animations/
+    - assets/fonts/
   
-# 字体使用系统默认栈：macOS→PingFang SC, Windows→微软雅黑, Android/iOS→系统中文字体
+  fonts:
+    - family: NotoSansCJK
+      fonts:
+        - asset: assets/fonts/NotoSansCJK-Regular.ttc
+          weight: 400
+        - asset: assets/fonts/NotoSansCJK-Bold.ttc
+          weight: 700
 
 flutter_launcher_icons:
   android: true

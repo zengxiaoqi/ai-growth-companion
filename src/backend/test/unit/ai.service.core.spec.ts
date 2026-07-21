@@ -135,7 +135,8 @@ describe('AiService core public methods', () => {
       });
       expect(usersService.canAccessChild).toHaveBeenCalledWith(1, 'parent', 2);
       expect(conversationManager.listSessions).toHaveBeenCalledWith({
-        childId: 2,
+        childId: 1,
+        actorType: 'parent',
         page: 1,
         limit: 10,
       });

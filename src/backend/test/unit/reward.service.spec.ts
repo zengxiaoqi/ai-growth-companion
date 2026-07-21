@@ -289,7 +289,7 @@ describe('RewardService', () => {
     });
 
     it('should use provided recordedAt when given', async () => {
-      const customDate = new Date('2026-06-20T10:00:00Z');
+      const customDate = new Date('2026-07-15T10:00:00Z');
       const data = {
         childId: 1,
         behaviorName: '学习',

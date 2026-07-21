@@ -135,7 +135,7 @@ describe('PoetryService', () => {
 
       const result = await service.findAll(1, 20, 'zh-Hant');
 
-      expect(result.list[0].title).toBe('无名诗');
+      expect(result.list[0].title).toBe('無名詩');
     });
   });
 

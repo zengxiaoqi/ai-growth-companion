@@ -1,19 +1,19 @@
 {
-  "last_analysis": "2026-07-21",
-  "analysis_count": 60,
-  "commit_count": 476,
-  "last_commit": "2026-07-21T11:05:00+08:00",
-  "last_commit_hash": "0df544b",
-  "commits_ahead_remote": 0,
-  "remote_head": "0df544b",
-  "remote_head_date": "2026-07-21T11:05:00+08:00",
+  "last_analysis": "2026-07-22",
+  "analysis_count": 61,
+  "commit_count": 487,
+  "last_commit": "2026-07-22T12:00:00+08:00",
+  "last_commit_hash": "a46f615",
+  "commits_ahead_remote": 1,
+  "remote_head": "a46f615",
+  "remote_head_date": "2026-07-22T12:00:00+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
-    "parent_dashboard": 97,
+    "parent_dashboard": 98,
     "content_system": 91,
     "infrastructure": 94,
-    "code_quality": 98
+    "code_quality": 99
   },
   "active_plans": [],
   "completed_actions": [
@@ -55,7 +55,10 @@
     "2026-07-21: Cleaned 3 stale APK files (200MB) from build/web/ + 3 stale main.dart.v*.js from legacy backend/public/",
     "2026-07-21: Audited AGENTS.md — 20 entities confirmed, 20 modules confirmed, 78 test files, 133K total lines",
     "2026-07-21: Pushed 1 commit (e9f68cd) to origin/main + cleaned build/app/ (910MB APK build artifacts)",
-    "2026-07-21: poetry-annotation.service.spec.ts — unit test file created for 0-coverage module"
+    "2026-07-21: poetry-annotation.service.spec.ts — unit test file created for 0-coverage module",
+    "2026-07-22: Fixed 3 failing unit tests (ai.service.core, reward.service, poetry.service) — regressions from parent history lookup, 30-day makeup validation, and OpenCC traditional→simplified conversion",
+    "2026-07-22: Fixed AGENTS.md port numbers (8080→80 for Flutter Web nginx) — actual deployed config uses :80, not :8080",
+    "2026-07-22: Cleaned stale main.dart.48e2b41a.js from build/web/ (unreferenced versioned artifact)"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -65,7 +68,8 @@
     "Fruit persistence (FruitRepository) added to PublicApiService — getFruits() now queries DB, not proxying to fruityvice.com",
     "Speech recognition rewrite (commit d751c52) replaces the speech_to_text plugin with a platform-aware abstraction — Web uses native Web Speech API, mobile uses the plugin",
     "Quiz TTS now auto-reads questions & options with voice feedback on answers — requires no additional API calls",
-    "Game animations added: fade+slide quiz transitions, floating emoji decorations in country matching, leftTitle/rightTitle labels in matching games"
+    "Game animations added: fade+slide quiz transitions, floating emoji decorations in country matching, leftTitle/rightTitle labels in matching games",
+    "Test regressions from prod fixes: ai.service.core.spec.ts expected old listSessions params (childId:2), reward.service.spec.ts used date >30 days ago (makeup validation), poetry.service.spec.ts expected simplified Chinese but OpenCC converts to traditional (zh-Hant lang)"
   ],
   "metrics": {
     "backend_files": 236,

@@ -101,13 +101,13 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
   - Flutter Web: https://lingxi.chataifree.eu.org/
   - React Web: https://lingxi-web.chataifree.eu.org/
   - API: Accessed via nginx reverse proxy at `/api/` on either domain (not a separate hostname)
-- **Infrastructure:** Cloudflare Tunnel (HTTP2) → nginx (ports 8080/8081) → static files + reverse proxy to NestJS backend (port 3001). nginx config at `/etc/nginx/sites-available/lingxi`.
-  - `lingxi.chataifree.eu.org` → nginx :8080 → root `src/frontend/build/web/` (Flutter Web)
+- **Infrastructure:** Cloudflare Tunnel (HTTP2) → nginx (ports 80/8081) → static files + reverse proxy to NestJS backend (port 3001). nginx config at `/etc/nginx/sites-available/lingxi`.
+  - `lingxi.chataifree.eu.org` → nginx :80 → root `src/frontend/build/web/` (Flutter Web)
   - `lingxi-web.chataifree.eu.org` → nginx :8081 → root `src/frontend-web/dist/` (React Web)
   - Both nginx servers proxy `/api/` and `/uploads/` to `localhost:3001` (backend)
   - Note: `lingxi-api.chataifree.eu.org` in cloudflared config points to :3000 but is unused — API is served via nginx `/api/` path
 - **OpenClaw Gateway** on port 18789 is for bot channels (Telegram/Feishu) only — NOT in the API routing path.
-- **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:8080/` (nginx) or `http://localhost:3001/` (backend direct).
+- **Health check:** `curl -s -o /dev/null -w "%{http_code}" https://lingxi.chataifree.eu.org/` (expect 200). If external URL unreachable, fallback to `http://localhost:80/` (nginx) or `http://localhost:3001/` (backend direct).
 - **Cloudflare tunnel:** `systemctl --user status lingxi-tunnel.service` — uses `--protocol http2`, QUIC is broken. Config at `~/.cloudflared/config.yml`.
 - **Before deploy:** Stash local changes (`git stash`), then `git pull`
 - **Flutter Web deploy:** `cd src/frontend && flutter build web` — files served directly from `build/web/` by nginx. No rsync needed. After rebuild: rename `main.dart.js` → `main.dart.vN.js`, update `flutter_bootstrap.js` to reference the new filename, delete old `main.dart.v*.js` files.

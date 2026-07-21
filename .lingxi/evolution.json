@@ -53,7 +53,9 @@
     "2026-07-20: Speech recognition rewrite — platform-aware abstraction (Web Speech API + mobile plugin), quiz TTS, game animations, country matching polish (14 files, +2785/-855 lines)",
     "2026-07-21: Fixed public-api.service.spec.ts regression — FruitRepository DI mock for 40 tests (regression from fruit persistence feature)",
     "2026-07-21: Cleaned 3 stale APK files (200MB) from build/web/ + 3 stale main.dart.v*.js from legacy backend/public/",
-    "2026-07-21: Audited AGENTS.md — 20 entities confirmed, 20 modules confirmed, 78 test files, 133K total lines"
+    "2026-07-21: Audited AGENTS.md — 20 entities confirmed, 20 modules confirmed, 78 test files, 133K total lines",
+    "2026-07-21: Pushed 1 commit (e9f68cd) to origin/main + cleaned build/app/ (910MB APK build artifacts)",
+    "2026-07-21: poetry-annotation.service.spec.ts — unit test file created for 0-coverage module"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",

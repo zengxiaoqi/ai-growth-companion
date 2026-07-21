@@ -28,6 +28,7 @@ import 'screens/parent/video_download_screen.dart';
 import 'screens/reward/reward_home_screen.dart';
 import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
+import 'screens/learning/assignment_play_screen.dart';
 import 'screens/learning/content_detail_screen.dart';
 import 'screens/learning/structured_lesson_screen.dart';
 import 'screens/learning/lesson_scene_player.dart';
@@ -238,6 +239,13 @@ class LingxiApp extends StatelessWidget {
             return page((_) => const SolitaireGameScreen(), slideFromRight);
 
           // ── Games / interactive play → childFriendly ──
+          case '/learning/assignmentPlay':
+            return page(
+              (_) => AssignmentPlayScreen(
+                assignment: args?['assignment'] as Map<String, dynamic>? ?? {},
+              ),
+              childFriendly,
+            );
           case '/learning/animationPlayer':
             return page(
               (_) => AnimationScenePlayer(

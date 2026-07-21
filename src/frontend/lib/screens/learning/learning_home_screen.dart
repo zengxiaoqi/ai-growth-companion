@@ -23,6 +23,7 @@ class LearningHomeScreen extends StatefulWidget {
 class _LearningHomeScreenState extends State<LearningHomeScreen> {
   List<dynamic> _courses = [];
   bool _loadingCourses = true;
+  List<Map<String, dynamic>> _assignments = [];
   int? _lastLoadedChildId;
   VoidCallback? _userProviderListener;
 
@@ -78,9 +79,15 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
     try {
       _lastLoadedChildId = childId;
       final courses = await context.read<ApiService>().getContents(childId: childId);
+      // 同时加载待完成作业
+      final assignments = await context.read<ApiService>().getAssignmentsByChild(childId);
       if (mounted) {
         setState(() {
           _courses = courses;
+          _assignments = assignments
+              .where((a) => a is Map && a['status'] == 'pending')
+              .map((a) => Map<String, dynamic>.from(a as Map))
+              .toList();
           _loadingCourses = false;
         });
       }
@@ -97,6 +104,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
           child: Column(
             children: [
               _buildHeader(),
+              _buildAssignmentsSection(),
               _buildCoursesSection(),
               _buildSubjectGrid(),
               const SizedBox(height: 8),
@@ -128,6 +136,194 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAssignmentsSection() {
+    if (_loadingCourses) return const SizedBox.shrink();
+    if (_assignments.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: SectionHeader(
+                  title: '待完成作业',
+                  emoji: '📝',
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_assignments.length} 项',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 100,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _assignments.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final assignment = _assignments[index];
+                final activityData = assignment['activityData'];
+                final title = (activityData is Map
+                        ? (activityData['title']?.toString() ??
+                            activityData['topic']?.toString())
+                        : null) ??
+                    '作业';
+                final type = assignment['activityType']?.toString() ?? 'quiz';
+                final domain = assignment['domain']?.toString() ?? '';
+                final difficulty = assignment['difficulty'] as int? ?? 1;
+
+                final typeLabel = _assignmentTypeLabel(type);
+                final typeIcon = _assignmentTypeIcon(type);
+
+                final color = AppTheme.childColors[
+                    index % AppTheme.childColors.length];
+
+                return AppCard(
+                  width: 180,
+                  height: 100,
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/learning/assignmentPlay',
+                      arguments: {'assignment': assignment},
+                    );
+                  },
+                  gradient: LinearGradient(
+                    colors: [
+                      color.withValues(alpha: 0.2),
+                      color.withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(typeIcon, color: color, size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  typeLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: color,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 12,
+                                  color: color.withValues(alpha: 0.5),
+                                ),
+                                Text(
+                                  '$difficulty',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: color.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (domain.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                domain,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  String _assignmentTypeLabel(String type) {
+    const labels = {
+      'quiz': '选择题',
+      'true_false': '判断题',
+      'matching': '配对游戏',
+      'fill_blank': '填空游戏',
+      'sequencing': '排序游戏',
+      'connection': '连线游戏',
+      'puzzle': '拼图游戏',
+    };
+    return labels[type] ?? '互动游戏';
+  }
+
+  IconData _assignmentTypeIcon(String type) {
+    const icons = {
+      'quiz': Icons.quiz_rounded,
+      'true_false': Icons.check_circle_outline_rounded,
+      'matching': Icons.compare_arrows_rounded,
+      'fill_blank': Icons.edit_note_rounded,
+      'sequencing': Icons.sort_rounded,
+      'connection': Icons.link_rounded,
+      'puzzle': Icons.extension_rounded,
+    };
+    return icons[type] ?? Icons.play_circle_rounded;
   }
 
   Widget _buildCoursesSection() {
@@ -294,7 +490,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-    
+
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
@@ -310,128 +506,66 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        Navigator.pushNamed(
-          context,
-          '/learning/subjectContentList',
-          arguments: {'subject': widget.title},
-        );
-      },
+      onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        transform: Matrix4.identity()..scaleByVector3(Vector3.all(_isPressed ? 0.95 : 1.0)),
-        child: AppCard(
-          gradient: LinearGradient(
-            colors: [
-              widget.gradient[0].withValues(alpha: 0.15),
-              widget.gradient[1].withValues(alpha: 0.05),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.15),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform(
+            alignment: Alignment.center,
+            transform: _isPressed
+                ? Matrix4.diagonal3Values(0.95, 0.95, 1)
+                : Matrix4.identity(),
+            child: child,
+          );
+        },
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.diagonal3Values(
+                _scaleAnimation.value,
+                _scaleAnimation.value,
+                1,
+              ),
+              child: child,
+            );
+          },
+          child: AppCard(
+            gradient: LinearGradient(
+              colors: [
+                widget.gradient[0].withValues(alpha: 0.15),
+                widget.gradient[1].withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-          child: Stack(
-            children: [
-              // 背景装饰
-              Positioned(
-                right: -10,
-                top: -10,
-                child: AnimatedBuilder(
-                  animation: _scaleAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: child,
-                    );
-                  },
-                  child: Icon(
-                    widget.icon,
-                    size: 80,
-                    color: widget.color.withValues(alpha: 0.1),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Text(
-                  widget.emoji,
-                  style: TextStyle(
-                    fontSize: 30,
-                    color: widget.color.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              // 内容
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            widget.color.withValues(alpha: 0.2),
-                            widget.color.withValues(alpha: 0.1),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.3),
-                            blurRadius: 15,
-                          ),
-                        ],
-                      ),
-                      child: Icon(widget.icon, size: 40, color: widget.color),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-                      ),
-                      child: Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: widget.color,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.arrow_forward_rounded, size: 16, color: widget.color.withValues(alpha: 0.6)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '开始学习',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: widget.color.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.emoji,
+                  style: const TextStyle(fontSize: 32),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -277,7 +277,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '支持抖音、哔哩哔哩、腾讯视频等平台',
+              '支持抖音、头条、B站、快手、小红书、优酷、爱奇艺等平台',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 12),
@@ -578,6 +578,16 @@ class _DownloadCard extends StatelessWidget {
         return const Color(0xFF12B7F5);
       case 'youtube':
         return const Color(0xFFFF0000);
+      case 'toutiao':
+        return const Color(0xFFD43C33);
+      case 'kuaishou':
+        return const Color(0xFFFF4906);
+      case 'xiaohongshu':
+        return const Color(0xFFFF2442);
+      case 'youku':
+        return const Color(0xFF1FA6E6);
+      case 'iqiyi':
+        return const Color(0xFF07C160);
       default:
         return Colors.grey;
     }

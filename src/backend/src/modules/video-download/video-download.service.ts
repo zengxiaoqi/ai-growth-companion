@@ -519,6 +519,13 @@ export class VideoDownloadService {
     if (lower.includes('youtube') || lower.includes('youtu.be')) return 'youtube';
     if (lower.includes('weibo')) return 'weibo';
     if (lower.includes('kuaishou')) return 'kuaishou';
+    if (lower.includes('toutiao')) return 'toutiao';
+    if (lower.includes('ixigua')) return 'ixigua';
+    if (lower.includes('xiaohongshu')) return 'xiaohongshu';
+    if (lower.includes('youku')) return 'youku';
+    if (lower.includes('iqiyi')) return 'iqiyi';
+    if (lower.includes('sohu')) return 'sohu';
+    if (lower.includes('acfun') || lower.includes('acplay')) return 'acfun';
     return 'unknown';
   }
 }

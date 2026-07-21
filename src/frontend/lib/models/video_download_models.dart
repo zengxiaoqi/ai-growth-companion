@@ -67,6 +67,20 @@ class VideoDownloadItem {
         return '微博';
       case 'kuaishou':
         return '快手';
+      case 'toutiao':
+        return '今日头条';
+      case 'ixigua':
+        return '西瓜视频';
+      case 'xiaohongshu':
+        return '小红书';
+      case 'youku':
+        return '优酷';
+      case 'iqiyi':
+        return '爱奇艺';
+      case 'sohu':
+        return '搜狐视频';
+      case 'acfun':
+        return 'AcFun';
       default:
         return platform != null ? platform! : '未知';
     }

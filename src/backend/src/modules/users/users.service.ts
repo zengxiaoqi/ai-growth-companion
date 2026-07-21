@@ -129,6 +129,8 @@ export class UsersService {
   async canAccessChild(viewerId: number, viewerType: string, childId: number): Promise<boolean> {
     if (viewerType === 'child') return viewerId === childId;
     if (viewerType === 'parent') {
+      // Parent can access their own data (parent conversations store childId = parentId)
+      if (childId === viewerId) return true;
       const child = await this.findById(childId);
       return Boolean(child && child.parentId === viewerId);
     }

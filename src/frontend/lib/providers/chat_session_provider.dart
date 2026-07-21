@@ -338,7 +338,7 @@ class ChatSessionProvider extends ChangeNotifier {
           uuid: result['sessionId'],
           title: '新对话',
           createdAt: result['createdAt'] != null
-              ? DateTime.tryParse(result['createdAt'])
+              ? (DateTime.tryParse(result['createdAt']) ?? DateTime.now())
               : DateTime.now(),
           updatedAt: DateTime.now(),
           messageCount: 0,

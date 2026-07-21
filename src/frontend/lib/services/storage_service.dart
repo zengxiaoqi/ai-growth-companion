@@ -55,6 +55,10 @@ class StorageService {
   // 记住我标志
   static const String keyRememberMe = 'remember_me';
 
+  // 记住我保存的登录凭证
+  static const String keyRememberedPhone = 'remembered_phone';
+  static const String keyRememberedPassword = 'remembered_password';
+
   // 孩子端天气卡片城市（默认北京）
   static const String keyWeatherCity = 'weather_city';
   static const String kDefaultWeatherCity = '北京';
@@ -111,9 +115,9 @@ class StorageService {
     await _prefs.remove(keySelectedMode);
     await _prefs.remove(keyActiveChildId);
     await _prefs.remove(keyActiveRole);
-        // 注意：不清除 keyRememberMe — 保持记住我复选框状态
-        // 如果用户主动登出，由 logout() 显式清除
-        await clearParentSession();
+    // 注意：不清除 keyRememberMe — 保持记住我复选框状态
+    // 如果用户主动登出，由 logout() 显式清除
+    await clearParentSession();
     await clearChildSession();
   }
   
@@ -291,6 +295,28 @@ class StorageService {
   /// 保存记住我标志
   Future<void> saveRememberMe(bool value) async {
     await _prefs.setBool(keyRememberMe, value);
+  }
+
+  /// 保存记住我的登录凭证（手机号 + 密码）
+  Future<void> saveCredentials(String phone, String password) async {
+    await _prefs.setString(keyRememberedPhone, phone);
+    await _prefs.setString(keyRememberedPassword, password);
+  }
+
+  /// 获取记住我保存的手机号
+  String? getRememberedPhone() {
+    return _prefs.getString(keyRememberedPhone);
+  }
+
+  /// 获取记住我保存的密码
+  String? getRememberedPassword() {
+    return _prefs.getString(keyRememberedPassword);
+  }
+
+  /// 清除记住我的登录凭证
+  Future<void> clearCredentials() async {
+    await _prefs.remove(keyRememberedPhone);
+    await _prefs.remove(keyRememberedPassword);
   }
 
   /// 清除家长端会话

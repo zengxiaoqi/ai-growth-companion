@@ -882,7 +882,14 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     // ── 消息主体文本 ──
     if (!isUser) {
       debugPrint('🔍 [UI] buildInner idx=$index: adding AI message body (isEmpty=$isEmpty, isStreaming=$isStreaming)');
-      columnChildren.add(const Text('🦄', style: TextStyle(fontSize: 24)));
+      columnChildren.add(Container(
+        width: 28, height: 28,
+        decoration: const BoxDecoration(
+          color: AppTheme.primaryColor,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
+      ));
       columnChildren.add(const SizedBox(height: 4));
       if (isEmpty && isStreaming) {
         debugPrint('🔍 [UI] buildInner idx=$index: adding typing indicator');

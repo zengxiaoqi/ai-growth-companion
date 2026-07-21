@@ -473,8 +473,8 @@ class ChatSessionProvider extends ChangeNotifier {
     _localMessages.add(ChatMessageEntry(
       role: 'assistant',
       content: _isParentMode
-          ? '您好！我是灵犀伴学的AI助手 🦄\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？'
-          : '你好呀！我是小犀 🦄\n有什么想聊的吗？',
+          ? '您好！我是灵犀伴学的AI助手，\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？'
+          : '你好呀！我是小犀，\n有什么想聊的吗？',
     ));
     notifyListeners();
   }

@@ -41,11 +41,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
     _animationController.forward();
 
-    // 从 storage 恢复记住我状态
+    // 从 storage 恢复记住我状态和已保存的凭证
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final storage = context.read<StorageService>();
-      setState(() => _rememberMe = storage.getRememberMe());
+      final remembered = storage.getRememberMe();
+      if (remembered) {
+        final savedPhone = storage.getRememberedPhone();
+        final savedPassword = storage.getRememberedPassword();
+        setState(() {
+          _rememberMe = true;
+          if (savedPhone != null) _phoneController.text = savedPhone;
+          if (savedPassword != null) _passwordController.text = savedPassword;
+        });
+      } else {
+        // 未勾选记住我时清空凭证（防止手动清除 checkbox 后旧数据残留）
+        _phoneController.clear();
+        _passwordController.clear();
+        setState(() => _rememberMe = false);
+      }
     });
   }
 
@@ -86,6 +100,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final storage = mounted ? context.read<StorageService>() : null;
       if (storage == null) return;
       await storage.saveRememberMe(_rememberMe);
+      // 保存登录凭证，退出后自动填回手机号和密码
+      if (_rememberMe) {
+        await storage.saveCredentials(
+          _phoneController.text.trim(),
+          _passwordController.text,
+        );
+      } else {
+        await storage.clearCredentials();
+      }
       if (!mounted) return;
 
       // 保存 token（仅在"记住我"勾选时持久化，否则仅内存使用）
@@ -282,7 +305,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         GestureDetector(
-          onTap: () => setState(() => _rememberMe = !_rememberMe),
+          onTap: () {
+            setState(() => _rememberMe = !_rememberMe);
+            // 取消记住我时立即清除已保存的凭证
+            if (!_rememberMe) {
+              context.read<StorageService>().clearCredentials();
+            }
+          },
           child: Row(
             children: [
               Container(

@@ -259,6 +259,9 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 子ID（由外部调用者设置）
   int? _childId;
 
+  /// 是否为家长模式
+  bool _isParentMode = false;
+
   // Getters
   ChatSessionSummary? get activeSession => _activeSession;
   bool get isCreatingSession => _isCreatingSession;
@@ -268,12 +271,18 @@ class ChatSessionProvider extends ChangeNotifier {
   bool get isLoadingMessages => _isLoadingMessages;
   List<ChatMessageEntry> get localMessages => _localMessages;
   int? get childId => _childId;
+  bool get isParentMode => _isParentMode;
 
   ChatSessionProvider(this._apiService);
 
   /// 设置子 ID（必须在获取会话之前调用）
   void setChildId(int childId) {
     _childId = childId;
+  }
+
+  /// 设置家长模式
+  void setParentMode(bool value) {
+    _isParentMode = value;
   }
 
   // ─── 会话管理 ──────────────────────────────────────────────────────
@@ -463,7 +472,9 @@ class ChatSessionProvider extends ChangeNotifier {
     _clearLocalMessages();
     _localMessages.add(ChatMessageEntry(
       role: 'assistant',
-      content: '你好呀！我是小犀 🦄\n有什么想聊的吗？',
+      content: _isParentMode
+          ? '您好！我是灵犀伴学的AI助手 🦄\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？'
+          : '你好呀！我是小犀 🦄\n有什么想聊的吗？',
     ));
     notifyListeners();
   }
@@ -531,6 +542,7 @@ class ChatSessionProvider extends ChangeNotifier {
       final stream = _apiService.sendAIChatMessageStream(
         trimmed,
         childId: _childId,
+        parentId: _isParentMode ? _childId : null,
         sessionId: sessionUuid,
       );
 

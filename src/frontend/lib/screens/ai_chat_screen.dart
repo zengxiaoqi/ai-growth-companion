@@ -567,7 +567,9 @@ class _SessionDrawer extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class AIChatScreen extends StatefulWidget {
-  const AIChatScreen({super.key});
+  final bool isParentMode;
+
+  const AIChatScreen({super.key, this.isParentMode = false});
 
   @override
   State<AIChatScreen> createState() => _AIChatScreenState();
@@ -599,6 +601,12 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatSessionProvider>();
       final userProvider = context.read<UserProvider>();
+
+      // 设置家长模式
+      if (widget.isParentMode) {
+        provider.setParentMode(true);
+      }
+
       final childId = userProvider.activeChildId;
       if (childId != null) {
         provider.setChildId(childId);

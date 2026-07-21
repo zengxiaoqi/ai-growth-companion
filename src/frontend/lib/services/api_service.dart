@@ -1397,6 +1397,7 @@ class ApiService {
   Stream<Map<String, dynamic>> sendAIChatMessageStream(
     String message, {
     int? childId,
+    int? parentId,
     String? sessionId,
   }) {
     // Web: 需要完整路径给 fetch()（Dio 不参与 Web SSE）
@@ -1415,6 +1416,7 @@ class ApiService {
     final body = <String, dynamic>{
       'message': message,
       if (childId != null) 'childId': childId,
+      if (parentId != null) 'parentId': parentId,
       if (sessionId != null) 'sessionId': sessionId,
     };
 

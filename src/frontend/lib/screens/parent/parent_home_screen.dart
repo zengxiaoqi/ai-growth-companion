@@ -9,6 +9,7 @@ import '../../components/activity_card.dart';
 import '../../providers/user_provider.dart';
 import '../learning/learning_home_screen.dart';
 import '../profile/profile_screen.dart';
+import '../ai_chat_screen.dart';
 import 'growth_report_screen.dart';
 import 'child_selector.dart';
 
@@ -25,6 +26,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   static const _navItems = [
     BottomNavItem(key: 'home', label: '首页', icon: Icons.home_rounded),
     BottomNavItem(key: 'learning', label: '学习', icon: Icons.school_rounded),
+    BottomNavItem(key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
     BottomNavItem(key: 'report', label: '报告', icon: Icons.assessment_rounded),
     BottomNavItem(key: 'profile', label: '我的', icon: Icons.person_rounded),
   ];
@@ -37,6 +39,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     _screens = [
       const ParentHomeContent(),
       const LearningHomeScreen(),
+      const AIChatScreen(isParentMode: true),
       const GrowthReportScreen(),
       const ProfileScreen(),
     ];

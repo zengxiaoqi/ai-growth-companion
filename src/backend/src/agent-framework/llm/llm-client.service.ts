@@ -16,20 +16,9 @@ import type { ILlmClient, LlmMessage, LlmResponse, LlmToolDefinition, LlmConfig 
 import { stripThinking } from '../core';
 import { RetryStrategy } from './retry.strategy';
 
-// ─────────────────────────────────────────────────────────────────────
-// pi-ai type shims (dynamic import since pi-ai is ESM-only)
-// TypeScript resolves `import()` type expressions at compile time, so
-// these work even though the actual import is dynamic at runtime.
-// ─────────────────────────────────────────────────────────────────────
-type PiAiModels = import('@earendil-works/pi-ai').Models;
-type PiAiModel = import('@earendil-works/pi-ai').Model<import('@earendil-works/pi-ai').Api>;
-type PiAiContext = import('@earendil-works/pi-ai').Context;
-type PiAiMessage = import('@earendil-works/pi-ai').Message;
-type PiAiAssistantMessage = import('@earendil-works/pi-ai').AssistantMessage;
-
 interface ProviderEntry {
   config: ProviderConfig;
-  model: PiAiModel;
+  model: any; // pi-ai Model<Api>
 }
 
 interface ProviderConfig {
@@ -51,7 +40,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private client: OpenAI;
 
   // pi-ai state
-  private models: PiAiModels | null = null;
+  private models: any = null; // PiAiModels
   private entries: ProviderEntry[] = [];
   private piAiEnabled = false;
 
@@ -95,10 +84,15 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   private async initializePiAi() {
     const piAi = await import('@earendil-works/pi-ai');
-    const apiModule = await import('@earendil-works/pi-ai/api/openai-completions');
 
     const configs = this.buildProviderConfigs();
     const models = piAi.createModels();
+
+    // Use lazyApi to wrap the dynamic API module import
+    const apiStreams = piAi.lazyApi(
+      // @ts-expect-error — ESM subpath export, works at runtime via dynamic import
+      () => import('@earendil-works/pi-ai/api/openai-completions') as Promise<any>,
+    );
 
     for (const pc of configs) {
       const provider = piAi.createProvider({
@@ -122,12 +116,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             baseUrl: pc.baseUrl,
             reasoning: false,
             input: ['text'],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             contextWindow: 128000,
             maxTokens: pc.maxTokens,
           },
         ],
-        api: apiModule,
+        // Use lazyApi to wrap the dynamic API module import
+        api: apiStreams,
       });
 
       models.setProvider(provider);
@@ -225,7 +220,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       const raw = response.content ?? '';
       const result = stripThinking(raw);
 
-      // finish_reason === 'length' means output was truncated — retry with higher limit
       if (
         response.finishReason === 'length' &&
         tokenLimit < this.ESCALATING_TOKEN_LIMITS[this.ESCALATING_TOKEN_LIMITS.length - 1]
@@ -234,7 +228,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         continue;
       }
 
-      // Attempt partial JSON salvage for truncated responses
       if (response.finishReason === 'length' && result) {
         const salvaged = this.tryPartialJsonSalvage(result);
         if (salvaged) {
@@ -243,10 +236,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         }
       }
 
-      // Normal success path
       if (result) return result;
 
-      // Empty after stripThinking — model produced only thinking blocks
       if (raw) {
         this.logger.debug(
           'generate() produced empty content after stripThinking, retrying with anti-thinking prompt...',
@@ -272,7 +263,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       return result;
     }
 
-    // Fallback: return whatever we got at the highest token limit
     const finalResponse = await this.chatCompletion(messages);
     return stripThinking(finalResponse.content ?? '');
   }
@@ -294,7 +284,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
   ): Promise<LlmResponse> {
-    // Try each provider in sequence, falling back on failure
     let lastError: Error | null = null;
 
     for (const entry of this.entries) {
@@ -323,21 +312,16 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   ): Promise<LlmResponse> {
     if (!this.models) throw new Error('pi-ai not initialized');
 
-    // Extract system prompt from messages
     const systemPrompt = messages.find((m) => m.role === 'system')?.content;
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
-    // Build pi-ai Context
-    const context: PiAiContext = {
+    const context: any = {
       systemPrompt,
-      messages: nonSystemMessages.map((m) => this.toPiAiMessage(m)),
+      messages: nonSystemMessages.map((m) => this.toPiAiMessage(m, messages)),
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const piAi = await import('@earendil-works/pi-ai');
-
-    // Use Models.complete() which handles auth resolution + provider dispatch
-    const result = await piAi.complete(entry.model, context, {
+    const result = await this.models.complete(entry.model, context, {
       maxTokens: maxTokensOverride ?? entry.config.maxTokens,
       temperature: entry.config.temperature,
     });
@@ -357,21 +341,18 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       throw new Error('pi-ai not initialized');
     }
 
-    // Use the first (primary) provider for streaming
     const entry = this.entries[0];
 
     const systemPrompt = messages.find((m) => m.role === 'system')?.content;
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
-    const context: PiAiContext = {
+    const context: any = {
       systemPrompt,
-      messages: nonSystemMessages.map((m) => this.toPiAiMessage(m)),
+      messages: nonSystemMessages.map((m) => this.toPiAiMessage(m, messages)),
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const piAi = await import('@earendil-works/pi-ai');
-
-    const stream = piAi.stream(entry.model, context, {
+    const stream = this.models.stream(entry.model, context, {
       maxTokens: entry.config.maxTokens,
       temperature: entry.config.temperature,
     });
@@ -385,13 +366,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   // ─── Type conversion: LlmMessage ↔ pi-ai Message ─────────────────
 
-  private toPiAiMessage(msg: LlmMessage): PiAiMessage {
+  private toPiAiMessage(msg: LlmMessage, allMessages: LlmMessage[]): any {
     if (msg.role === 'user') {
       return {
         role: 'user',
         content: msg.content,
         timestamp: Date.now(),
-      } as unknown as PiAiMessage;
+      };
     }
 
     if (msg.role === 'assistant') {
@@ -419,25 +400,37 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         role: 'assistant',
         content,
         timestamp: Date.now(),
-      } as unknown as PiAiMessage;
+      };
     }
 
     if (msg.role === 'tool') {
+      // Look up the tool name from the corresponding assistant message
+      let toolName = '';
+      if (msg.toolCallId) {
+        for (const m of allMessages) {
+          if (m.role === 'assistant' && m.toolCalls) {
+            const tc = m.toolCalls.find((t: any) => t.id === msg.toolCallId);
+            if (tc) {
+              toolName = tc.function?.name || '';
+              break;
+            }
+          }
+        }
+      }
       return {
         role: 'toolResult',
-        toolCallId: msg.toolCallId!,
-        toolName: msg.toolName!,
-        content: [{ type: 'text', text: msg.content }],
+        toolCallId: msg.toolCallId || '',
+        toolName,
+        content: [{ type: 'text', text: msg.content || '' }],
         timestamp: Date.now(),
-      } as unknown as PiAiMessage;
+      };
     }
 
-    // Fallback: treat unknown roles as user
     return {
       role: 'user',
       content: msg.content,
       timestamp: Date.now(),
-    } as unknown as PiAiMessage;
+    };
   }
 
   private toPiAiTool(tool: LlmToolDefinition): any {
@@ -448,13 +441,11 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     };
   }
 
-  private fromPiAiResponse(result: PiAiAssistantMessage): LlmResponse {
-    // Extract text content
-    const textContent = (result.content as any[])?.find((c: any) => c.type === 'text');
+  private fromPiAiResponse(result: any): LlmResponse {
+    const textContent = result.content?.find((c: any) => c.type === 'text');
     const content = textContent?.text ?? null;
 
-    // Extract tool calls
-    const toolCalls = (result.content as any[])
+    const toolCalls = result.content
       ?.filter((c: any) => c.type === 'toolCall')
       ?.map((tc: any) => ({
         id: tc.id,
@@ -465,7 +456,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         },
       }));
 
-    // Map usage
     const usage = result.usage
       ? {
           promptTokens: result.usage.input,
@@ -473,7 +463,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         }
       : undefined;
 
-    // Map finish reason
     const finishReason =
       result.stopReason === 'stop'
         ? 'stop'
@@ -494,7 +483,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   private readonly ESCALATING_TOKEN_LIMITS = [4096, 8192, 16384];
 
-  /** Convert framework messages to OpenAI format */
   private toOpenAIMessages(messages: LlmMessage[]): OpenAI.ChatCompletionMessageParam[] {
     return messages.map((msg) => {
       if (msg.role === 'tool') {
@@ -518,7 +506,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     });
   }
 
-  /** Convert framework tool definitions to OpenAI format */
   private toOpenAITools(tools?: LlmToolDefinition[]): OpenAI.ChatCompletionTool[] | undefined {
     if (!tools || tools.length === 0) return undefined;
     return tools as any;
@@ -532,9 +519,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
-      // NOTE: tool_choice='required' is unsupported by many thinking-mode LLMs
-      // (e.g. deepseek-v4-pro). We always use 'auto' and rely on prompt
-      // engineering to steer the LLM toward tool usage.
       const response = await this.client.chat.completions.create({
         model: this.config.model,
         messages: this.toOpenAIMessages(messages),
@@ -593,7 +577,6 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     }
   }
 
-  /** chatCompletion with a specific max_tokens override */
   private async chatCompletionWithTokenLimit(
     messages: LlmMessage[],
     maxTokens: number,
@@ -623,31 +606,25 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     }, 'chatCompletion');
   }
 
-  /**
-   * Attempt to salvage a valid JSON object from a truncated response.
-   * Tries progressive brace-matching from the end of the string.
-   */
   private tryPartialJsonSalvage(text: string): string | null {
     const firstBrace = text.indexOf('{');
     if (firstBrace === -1) return null;
 
-    // Try parsing the full text first
     try {
       JSON.parse(text.slice(firstBrace));
-      return text; // wasn't actually broken
+      return text;
     } catch {
       /* continue */
     }
 
-    // Progressive salvage: close open structures and try parsing
     const sliced = text.slice(firstBrace);
     const attempts = [
-      () => sliced + '}', // close outermost object
-      () => sliced.replace(/,\s*$/, '') + '}', // remove trailing comma + close
-      () => sliced.replace(/"[^"]*$/, '"') + '}', // close truncated string value
-      () => sliced.replace(/,\s*"[^"]*$/, '') + '}', // remove truncated key-value pair
-      () => sliced.replace(/,\s*\{[^}]*$/, '') + '}', // remove truncated inner object
-      () => sliced.replace(/,\s*\[[^\]]*$/, '') + '}', // remove truncated inner array
+      () => sliced + '}',
+      () => sliced.replace(/,\s*$/, '') + '}',
+      () => sliced.replace(/"[^"]*$/, '"') + '}',
+      () => sliced.replace(/,\s*"[^"]*$/, '') + '}',
+      () => sliced.replace(/,\s*\{[^}]*$/, '') + '}',
+      () => sliced.replace(/,\s*\[[^\]]*$/, '') + '}',
     ];
 
     for (const attempt of attempts) {

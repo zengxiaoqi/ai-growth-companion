@@ -39,10 +39,18 @@
 | Learning | 学习记录 |
 | Abilities | 能力评估 |
 | Achievements | 成就系统 |
-| AI | AI 对话服务 |
+| AI | AI 对话服务 (含 Agent Framework + pi-ai 多 Provider) |
 | Parent | 家长控制 |
 | **Recommend** | **智能推荐** |
 | **Report** | **成长报告** |
+
+### AI Agent 框架 (NestJS)
+| 模块 | 功能 |
+|------|------|
+| llm (pi-ai) | 多 Provider 切换 (OpenAI/DeepSeek/Ollama)、自动 Fallback、Token/Cost 追踪 |
+| agents | Agent Executor、Orchestrator、Base Agent |
+| tools | 工具系统 (Assign Activity、Generate Activity 等) |
+| prompts | 提示词模板 (按年龄分) |
 
 ### 前端 (Flutter)
 | 页面 | 功能 |
@@ -134,9 +142,20 @@ PATCH  /api/parent/controls/:parentId  - 更新设置
 ```bash
 cd src/backend
 npm install
-cp .env.example .env
+cp .env.example .env        # 编辑 LLM 配置
 npm run start:dev
 ```
+
+### 环境变量说明 (LLM)
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `LLM_PROVIDER` | 主 Provider 名称 (openai / deepseek / openai-compat) | `openai` |
+| `LLM_BASE_URL` | API 地址 | `http://localhost:11434/v1` |
+| `LLM_API_KEY` | API Key | — |
+| `LLM_MODEL` | 模型名称 | `qwen2.5:7b` |
+| `LLM_MAX_TOKENS` | 最大 Token 数 | `4096` |
+| `LLM_TEMPERATURE` | 温度参数 | `0.7` |
+| `LLM_FALLBACK_*` | 备用 Provider 配置 (可选，自动 Fallback) | — |
 
 ### 前端启动
 ```bash
@@ -157,6 +176,11 @@ ai-growth-companion/
 ├── src/
 │   ├── backend/        # NestJS 后端
 │   │   ├── src/
+│   │   │   ├── agent-framework/  # AI Agent 框架
+│   │   │   │   ├── llm/          # pi-ai 多 Provider LLM 客户端
+│   │   │   │   ├── agents/       # Agent Executor / Orchestrator
+│   │   │   │   ├── tools/        # 工具系统
+│   │   │   │   └── prompts/      # 提示词模板
 │   │   │   ├── modules/
 │   │   │   └── database/
 │   │   └── database/

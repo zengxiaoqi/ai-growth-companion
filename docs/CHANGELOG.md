@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### ⚙️ 后端
+- **AI Agent 框架升级** — LlmClientService 引入 `@earendil-works/pi-ai` 多 Provider 支持
+  - 多 Provider 切换 (OpenAI / DeepSeek / Ollama 等 20+)
+  - 自动 Fallback：主 Provider 失败自动切换到备用 Provider
+  - Token 用量和 Cost 追踪（通过 pi-ai Usage 接口）
+  - 渐进式 Token 上限（4096→8192→16384 自动递增）
+  - 降级兼容：pi-ai 初始化失败自动回退到 OpenAI SDK
+  - 新增 `.env` 配置项：`LLM_PROVIDER`、`LLM_FALLBACK_*` 系列
+
 ### 📋 规划与文档
 - **公共 API 集成方案** — 完成 public-apis 项目分析，输出集成方案文档 (`docs/public-apis-integration-plan.md`)
   - 筛选 8 个高优先级 API（Open-Meteo 天气、REST Countries 国家地理、Free Dictionary 词典、Numbers API 数字趣闻、Bored API 活动推荐、Open Notify ISS 太空、Sunrise/Sunset 日出日落、USGS 地震）

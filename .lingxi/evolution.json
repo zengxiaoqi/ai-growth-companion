@@ -1,12 +1,12 @@
 {
   "last_analysis": "2026-07-23",
-  "analysis_count": 62,
-  "commit_count": 494,
-  "last_commit": "2026-07-23T01:47:02+08:00",
-  "last_commit_hash": "de7dcc9",
+  "analysis_count": 63,
+  "commit_count": 495,
+  "last_commit": "2026-07-23T02:17:02+08:00",
+  "last_commit_hash": "d7c9cab",
   "commits_ahead_remote": 0,
-  "remote_head": "de7dcc9",
-  "remote_head_date": "2026-07-23T01:47:02+08:00",
+  "remote_head": "d7c9cab",
+  "remote_head_date": "2026-07-23T02:17:02+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -64,7 +64,8 @@
     "2026-07-23: AI chat UX — session list shows first message as title, text selection enabled (c54c902, 2f0013f)",
     "2026-07-23: post-build-web.sh deploy script (0e46975)",
     "2026-07-23: Cleaned stale Flutter Web artifacts from backend/public/ (91MB→13MB, 3 stale versioned JS files + canvaskit/assets/etc.)",
-    "2026-07-23: Cleaned 2 stale versioned JS files from build/web/ (main.dart.v3/v4.js)"
+    "2026-07-23: Cleaned 2 stale versioned JS files from build/web/ (main.dart.v3/v4.js)",
+    "2026-07-23: Updated AGENTS.md — fixed backend deploy section to use system node v24 (not nvm v22), added better-sqlite3 rebuild command"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -84,8 +85,8 @@
     "backend_files": 236,
     "backend_test_files": 79,
     "flutter_files": 115,
-    "web_files": 100,
+    "web_files": 101,
     "content_files": 46,
-    "total_lines": 118797
+    "total_lines": 189847
   }
 }

@@ -1,0 +1,22 @@
+{
+  "date": "2026-07-23",
+  "source": "daily-evolution-report-#62",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P2",
+      "task": "Flutter Web 重部署 — 过去24小时有4个Flutter提交（会话列表、文本选择、学习页面重构、缩进修复），main.dart.js为2天前，需要重建",
+      "type": "frontend_deploy",
+      "detail": "cd src/frontend && flutter build web --release && bash post-build-web.sh",
+      "tier": 2
+    },
+    {
+      "id": "s2",
+      "priority": "P2",
+      "task": "运行内容导入脚本 — 新脚本 import-content-json.py 可批量导入47个课程文件到 lingxi.db",
+      "type": "backend_task",
+      "detail": "src/backend/scripts/import-content-json.py",
+      "tier": 2
+    }
+  ]
+}

@@ -895,23 +895,25 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         debugPrint('🔍 [UI] buildInner idx=$index: adding typing indicator');
         columnChildren.add(_buildTypingIndicator());
       } else {
-        // 使用 MarkdownBody 渲染 AI 回复，支持粗体、分隔线等 markdown 格式
-        columnChildren.add(MarkdownBody(
-          data: displayText,
-          styleSheet: MarkdownStyleSheet(
-            p: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor),
-            strong: const TextStyle(fontSize: 16, height: 1.4, fontWeight: FontWeight.bold, color: AppTheme.textColor),
-            horizontalRuleDecoration: BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2), width: 1)),
-            ),
-            code: TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.primaryColor),
-            codeblockDecoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            blockquoteDecoration: BoxDecoration(
-              color: AppTheme.textSecondary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(8),
+        // 使用 SelectionArea + MarkdownBody 渲染 AI 回复，支持文本选中复制
+        columnChildren.add(SelectionArea(
+          child: MarkdownBody(
+            data: displayText,
+            styleSheet: MarkdownStyleSheet(
+              p: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor),
+              strong: const TextStyle(fontSize: 16, height: 1.4, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+              horizontalRuleDecoration: BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2), width: 1)),
+              ),
+              code: TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.primaryColor),
+              codeblockDecoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: AppTheme.textSecondary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ));
@@ -921,7 +923,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         }
       }
     } else {
-      columnChildren.add(Text(displayText,
+      // 用户消息使用 SelectableText 支持选中复制
+      columnChildren.add(SelectableText(displayText,
         style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)));
       columnChildren.add(const SizedBox(width: 4));
     }

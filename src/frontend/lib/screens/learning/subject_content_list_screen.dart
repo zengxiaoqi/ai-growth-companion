@@ -43,7 +43,10 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
       final api = context.read<ApiService>();
       final ageGroup = _subjectAgeGroup(subject);
 
-      final list = await api.getContents(domain: subject, ageRange: ageGroup);
+      final list = await api.getContents(
+        domain: subject,
+        ageRange: ageGroup.isEmpty ? null : ageGroup,
+      );
       setState(() {
         _courses = list.whereType<Map>().map((c) => c.map((k, v) => MapEntry(k.toString(), v))).toList();
         _isLoading = false;
@@ -54,14 +57,26 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
   }
 
   String _subjectAgeGroup(String subject) {
-    // Default age range based on subject — backend expects '3-4','5-6' etc.
-    return '5-6';
+    // 不再硬编码，而是不传 ageRange，让后端返回该 domain 所有年龄的课程
+    return '';
   }
 
   /// 学科 emoji 映射
   String get _subjectEmoji {
-    return _subjectMeta[subject]?['emoji'] as String? ?? '📚';
+    // 如果 subject 是英文 domain，转中文显示
+    final cn = _domainToCn[subject] ?? subject;
+    return _subjectMeta[cn]?['emoji'] as String? ?? '📚';
   }
+
+  /// 英文 domain → 中文映射（用于显示）
+  static const Map<String, String> _domainToCn = {
+    'language': '语言',
+    'math': '数学',
+    'science': '科学',
+    'art': '艺术',
+    'social': '社会',
+    'music': '音乐',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -159,12 +174,12 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
   // ─── 学科元数据 ────────────────────────────────────────────────────────
 
   static const Map<String, Map<String, dynamic>> _subjectMeta = {
-    '语言': {'emoji': '🗣️', 'color': AppTheme.primaryColor},
-    '数学': {'emoji': '🔢', 'color': AppTheme.secondaryColor},
-    '科学': {'emoji': '🔬', 'color': AppTheme.accentColor},
-    '艺术': {'emoji': '🎨', 'color': Color(0xFFDDA0DD)},
-    '社会': {'emoji': '🌍', 'color': Color(0xFFFFCE4E)},
-    '音乐': {'emoji': '🎵', 'color': Color(0xFFFF85A2)},
+    'language': {'emoji': '🗣️', 'color': AppTheme.primaryColor},
+    'math': {'emoji': '🔢', 'color': AppTheme.secondaryColor},
+    'science': {'emoji': '🔬', 'color': AppTheme.accentColor},
+    'art': {'emoji': '🎨', 'color': Color(0xFFDDA0DD)},
+    'social': {'emoji': '🌍', 'color': Color(0xFFFFCE4E)},
+    'music': {'emoji': '🎵', 'color': Color(0xFFFF85A2)},
   };
 }
 

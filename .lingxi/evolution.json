@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-07-22",
-  "analysis_count": 61,
-  "commit_count": 487,
-  "last_commit": "2026-07-22T12:00:00+08:00",
-  "last_commit_hash": "a46f615",
-  "commits_ahead_remote": 1,
-  "remote_head": "a46f615",
-  "remote_head_date": "2026-07-22T12:00:00+08:00",
+  "last_analysis": "2026-07-23",
+  "analysis_count": 62,
+  "commit_count": 494,
+  "last_commit": "2026-07-23T01:47:02+08:00",
+  "last_commit_hash": "de7dcc9",
+  "commits_ahead_remote": 0,
+  "remote_head": "de7dcc9",
+  "remote_head_date": "2026-07-23T01:47:02+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 98,
-    "content_system": 91,
-    "infrastructure": 94,
+    "content_system": 93,
+    "infrastructure": 96,
     "code_quality": 99
   },
   "active_plans": [],
@@ -42,7 +42,7 @@
     "2026-07-02: Flutter Web build OOM fix (4GB temp swap), versioning pitfall fix, account management refactor (Pitfalls 65-69, 5 commits)",
     "2026-07-02: Video pipeline fixes — Remotion CLI entry point, cross-platform font resolution, three-tier engine order (Pitfalls 70-73, 4 commits)",
     "2026-07-07: Verified deployed build — Flutter Web main.dart.v14.js serving correctly, backend health 200, tunnel active",
-    "2026-07-14: D1 clean — cleaned 3 stale APK files from build/web/ (200MB), verified Flutter Web build freshness (v14)", 
+    "2026-07-14: D1 clean — cleaned 3 stale APK files from build/web/ (200MB), verified Flutter Web build freshness (v14)",
     "2026-07-14: Expanded test coverage — poetry-game.service.spec.ts (+50 lines, 5→13 tests, 100% branch coverage), poetry.service.spec.ts (+50 lines, 5→12 tests, 100% branch coverage)",
     "2026-07-15: Fixed public-api.service.spec.ts regression — FruitRepository DI + trigger-cache test (40 tests passing)",
     "2026-07-18: Phase 11 poetry annotation persistence — 3 commits (30→60s timeout, flash model, DB persistence, annotation UI refresh button repositioned)",
@@ -58,7 +58,13 @@
     "2026-07-21: poetry-annotation.service.spec.ts — unit test file created for 0-coverage module",
     "2026-07-22: Fixed 3 failing unit tests (ai.service.core, reward.service, poetry.service) — regressions from parent history lookup, 30-day makeup validation, and OpenCC traditional→simplified conversion",
     "2026-07-22: Fixed AGENTS.md port numbers (8080→80 for Flutter Web nginx) — actual deployed config uses :80, not :8080",
-    "2026-07-22: Cleaned stale main.dart.48e2b41a.js from build/web/ (unreferenced versioned artifact)"
+    "2026-07-22: Cleaned stale main.dart.48e2b41a.js from build/web/ (unreferenced versioned artifact)",
+    "2026-07-23: pi-ai multi-provider LLM client — replaced direct OpenAI SDK with @earendil-works/pi-ai for multi-provider switching + automatic fallback + token/cost tracking (73117ca, c99e7c9)",
+    "2026-07-23: Learning screen refactor + content import script — domain-based navigation, batch import 47 JSON courses (cc3f2d0, de7dcc9)",
+    "2026-07-23: AI chat UX — session list shows first message as title, text selection enabled (c54c902, 2f0013f)",
+    "2026-07-23: post-build-web.sh deploy script (0e46975)",
+    "2026-07-23: Cleaned stale Flutter Web artifacts from backend/public/ (91MB→13MB, 3 stale versioned JS files + canvaskit/assets/etc.)",
+    "2026-07-23: Cleaned 2 stale versioned JS files from build/web/ (main.dart.v3/v4.js)"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -69,14 +75,17 @@
     "Speech recognition rewrite (commit d751c52) replaces the speech_to_text plugin with a platform-aware abstraction — Web uses native Web Speech API, mobile uses the plugin",
     "Quiz TTS now auto-reads questions & options with voice feedback on answers — requires no additional API calls",
     "Game animations added: fade+slide quiz transitions, floating emoji decorations in country matching, leftTitle/rightTitle labels in matching games",
-    "Test regressions from prod fixes: ai.service.core.spec.ts expected old listSessions params (childId:2), reward.service.spec.ts used date >30 days ago (makeup validation), poetry.service.spec.ts expected simplified Chinese but OpenCC converts to traditional (zh-Hant lang)"
+    "Test regressions from prod fixes: ai.service.core.spec.ts expected old listSessions params (childId:2), reward.service.spec.ts used date >30 days ago (makeup validation), poetry.service.spec.ts expected simplified Chinese but OpenCC converts to traditional (zh-Hant lang)",
+    "pi-ai multi-provider migration: @earendil-works/pi-ai is ESM-only — must use dynamic import. Fallback to OpenAI SDK works when pi-ai fails to load.",
+    "Content import script (import-content-json.py) enables batch loading of 47 curriculum JSON files into lingxi.db — run after each content update.",
+    "backend/public/ still held 91MB of stale Flutter Web build artifacts (canvaskit, assets, main.dart.js) — nginx serves from frontend/build/web/ directly, so backend/public/ Flutter artifacts are dead weight."
   ],
   "metrics": {
     "backend_files": 236,
     "backend_test_files": 79,
-    "flutter_files": 114,
+    "flutter_files": 115,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 133654
+    "total_lines": 118797
   }
 }

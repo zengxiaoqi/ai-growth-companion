@@ -422,175 +422,175 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
   }
 
   Widget _buildSubjectGrid() {
-      final subjects = [
-        {'title': '语言', 'domain': 'language', 'icon': Icons.chat_bubble_rounded, 'emoji': '🗣️', 'color': AppTheme.primaryColor, 'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]},
-        {'title': '数学', 'domain': 'math', 'icon': Icons.calculate_rounded, 'emoji': '🔢', 'color': AppTheme.secondaryColor, 'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]},
-        {'title': '科学', 'domain': 'science', 'icon': Icons.science_rounded, 'emoji': '🔬', 'color': AppTheme.accentColor, 'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]},
-        {'title': '艺术', 'domain': 'art', 'icon': Icons.palette_rounded, 'emoji': '🎨', 'color': const Color(0xFFDDA0DD), 'gradient': [const Color(0xFFDDA0DD), const Color(0xFFE8B8E8)]},
-        {'title': '社会', 'domain': 'social', 'icon': Icons.people_rounded, 'emoji': '🌍', 'color': const Color(0xFFFFCE4E), 'gradient': [const Color(0xFFFFCE4E), const Color(0xFFFFE066)]},
-        {'title': '音乐', 'domain': 'music', 'icon': Icons.music_note_rounded, 'emoji': '🎵', 'color': const Color(0xFFFF85A2), 'gradient': [const Color(0xFFFF85A2), const Color(0xFFFFA5B9)]},
-      ];
+    final subjects = [
+      {'title': '语言', 'domain': 'language', 'icon': Icons.chat_bubble_rounded, 'emoji': '🗣️', 'color': AppTheme.primaryColor, 'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]},
+      {'title': '数学', 'domain': 'math', 'icon': Icons.calculate_rounded, 'emoji': '🔢', 'color': AppTheme.secondaryColor, 'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]},
+      {'title': '科学', 'domain': 'science', 'icon': Icons.science_rounded, 'emoji': '🔬', 'color': AppTheme.accentColor, 'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]},
+      {'title': '艺术', 'domain': 'art', 'icon': Icons.palette_rounded, 'emoji': '🎨', 'color': const Color(0xFFDDA0DD), 'gradient': [const Color(0xFFDDA0DD), const Color(0xFFE8B8E8)]},
+      {'title': '社会', 'domain': 'social', 'icon': Icons.people_rounded, 'emoji': '🌍', 'color': const Color(0xFFFFCE4E), 'gradient': [const Color(0xFFFFCE4E), const Color(0xFFFFE066)]},
+      {'title': '音乐', 'domain': 'music', 'icon': Icons.music_note_rounded, 'emoji': '🎵', 'color': const Color(0xFFFF85A2), 'gradient': [const Color(0xFFFF85A2), const Color(0xFFFFA5B9)]},
+    ];
 
-      return GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 0.9,
-        ),
-        itemCount: subjects.length,
-        itemBuilder: (context, index) {
-          final subject = subjects[index];
-          return _SubjectCard(
-            title: subject['title'] as String,
-            domain: subject['domain'] as String,
-            icon: subject['icon'] as IconData,
-            emoji: subject['emoji'] as String,
-            color: subject['color'] as Color,
-            gradient: subject['gradient'] as List<Color>,
-            index: index,
-            onTap: () {
-              final childId = context.read<UserProvider>().activeChildId;
-              Navigator.pushNamed(
-                context,
-                '/learning/subjectContentList',
-                arguments: {
-                  'subject': subject['domain'] as String,
-                  'childId': childId,
-                },
-              );
-            },
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.9,
+      ),
+      itemCount: subjects.length,
+      itemBuilder: (context, index) {
+        final subject = subjects[index];
+        return _SubjectCard(
+          title: subject['title'] as String,
+          domain: subject['domain'] as String,
+          icon: subject['icon'] as IconData,
+          emoji: subject['emoji'] as String,
+          color: subject['color'] as Color,
+          gradient: subject['gradient'] as List<Color>,
+          index: index,
+          onTap: () {
+            final childId = context.read<UserProvider>().activeChildId;
+            Navigator.pushNamed(
+              context,
+              '/learning/subjectContentList',
+              arguments: {
+                'subject': subject['domain'] as String,
+                'childId': childId,
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SubjectCard extends StatefulWidget {
+  final String title;
+  final String domain;
+  final IconData icon;
+  final String emoji;
+  final Color color;
+  final List<Color> gradient;
+  final int index;
+  final VoidCallback onTap;
+
+  const _SubjectCard({
+    required this.title,
+    required this.domain,
+    required this.icon,
+    required this.emoji,
+    required this.color,
+    required this.gradient,
+    required this.index,
+    required this.onTap,
+  });
+
+  @override
+  State<_SubjectCard> createState() => _SubjectCardState();
+}
+
+class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform(
+            alignment: Alignment.center,
+            transform: _isPressed
+                ? Matrix4.diagonal3Values(0.95, 0.95, 1)
+                : Matrix4.identity(),
+            child: child,
           );
         },
-      );
-    }
-  }
-
-  class _SubjectCard extends StatefulWidget {
-    final String title;
-    final String domain;
-    final IconData icon;
-    final String emoji;
-    final Color color;
-    final List<Color> gradient;
-    final int index;
-    final VoidCallback onTap;
-
-    const _SubjectCard({
-      required this.title,
-      required this.domain,
-      required this.icon,
-      required this.emoji,
-      required this.color,
-      required this.gradient,
-      required this.index,
-      required this.onTap,
-    });
-
-    @override
-    State<_SubjectCard> createState() => _SubjectCardState();
-  }
-
-  class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderStateMixin {
-    late AnimationController _controller;
-    late Animation<double> _scaleAnimation;
-    bool _isPressed = false;
-
-    @override
-    void initState() {
-      super.initState();
-      _controller = AnimationController(
-        duration: const Duration(milliseconds: 1500),
-        vsync: this,
-      )..repeat(reverse: true);
-
-      _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      );
-    }
-
-    @override
-    void dispose() {
-      _controller.dispose();
-      super.dispose();
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return GestureDetector(
-        onTap: widget.onTap,
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => setState(() => _isPressed = false),
-        onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
             return Transform(
               alignment: Alignment.center,
-              transform: _isPressed
-                  ? Matrix4.diagonal3Values(0.95, 0.95, 1)
-                  : Matrix4.identity(),
+              transform: Matrix4.diagonal3Values(
+                _scaleAnimation.value,
+                _scaleAnimation.value,
+                1,
+              ),
               child: child,
             );
           },
-          child: AnimatedBuilder(
-            animation: _scaleAnimation,
-            builder: (context, child) {
-              return Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.diagonal3Values(
-                  _scaleAnimation.value,
-                  _scaleAnimation.value,
-                  1,
-                ),
-                child: child,
-              );
-            },
-            child: AppCard(
-              gradient: LinearGradient(
-                colors: [
-                  widget.gradient[0].withValues(alpha: 0.15),
-                  widget.gradient[1].withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          child: AppCard(
+            gradient: LinearGradient(
+              colors: [
+                widget.gradient[0].withValues(alpha: 0.15),
+                widget.gradient[1].withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: 0.12),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+            ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  widget.emoji,
+                  style: const TextStyle(fontSize: 32),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
                 ),
               ],
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.emoji,
-                    style: const TextStyle(fontSize: 32),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
+}
 
-  class _CourseCard extends StatelessWidget {
+class _CourseCard extends StatelessWidget {
   final String title;
   final String summary;
   final String domain;

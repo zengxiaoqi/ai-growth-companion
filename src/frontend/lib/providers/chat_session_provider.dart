@@ -34,6 +34,14 @@ class ChatSessionSummary {
 
   static String _extractTitleFromFirstMessage(Map<String, dynamic> json) {
     final firstMsg = json['firstMessage'];
+    // 后端返回字符串格式（直接是消息内容）
+    if (firstMsg is String && firstMsg.isNotEmpty) {
+      if (firstMsg.length > 30) {
+        return '${firstMsg.substring(0, 30)}...';
+      }
+      return firstMsg;
+    }
+    // 兼容旧格式：Map 包含 content 字段
     if (firstMsg is Map && firstMsg['content'] != null) {
       final text = firstMsg['content'].toString();
       if (text.length > 30) {

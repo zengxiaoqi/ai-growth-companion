@@ -334,8 +334,10 @@ export class ConversationManager {
 
     const sessionIds = list.map((item) => item.id);
     const messageCountMap = new Map<number, number>();
+    const firstMessageMap = new Map<number, string>();
 
     if (sessionIds.length > 0) {
+      // 消息数统计
       const rows = await this.messageRepo
         .createQueryBuilder('m')
         .select('m.conversationId', 'conversationId')
@@ -346,6 +348,31 @@ export class ConversationManager {
 
       for (const row of rows) {
         messageCountMap.set(Number(row.conversationId), Number(row.count));
+      }
+
+      // 获取每个会话的第一条用户消息（用于标题展示）
+      const firstMessages = await this.messageRepo
+        .createQueryBuilder('m')
+        .select('m.conversationId', 'conversationId')
+        .addSelect('m.content', 'content')
+        .where('m.conversationId IN (:...ids)', { ids: sessionIds })
+        .andWhere('m.role = :role', { role: 'user' })
+        .andWhere((qb) => {
+          // 子查询：取每个会话中 role='user' 的 createdAt 最小值
+          const subQuery = qb
+            .subQuery()
+            .select('MIN(sub.createdAt)')
+            .from('conversation_messages', 'sub')
+            .where('sub.conversationId = m.conversationId')
+            .andWhere('sub.role = :subRole', { subRole: 'user' })
+            .getQuery();
+          return 'm.createdAt = ' + subQuery;
+        })
+        .setParameter('subRole', 'user')
+        .getRawMany();
+
+      for (const row of firstMessages) {
+        firstMessageMap.set(Number(row.conversationId), row.content);
       }
     }
 
@@ -359,6 +386,7 @@ export class ConversationManager {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         messageCount: messageCountMap.get(item.id) || 0,
+        firstMessage: firstMessageMap.get(item.id) || null,
       })),
       total,
       page,

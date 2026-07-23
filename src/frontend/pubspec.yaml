@@ -26,6 +26,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
+  share_plus: ^10.0.0
   
   # UI 组件
   cupertino_icons: ^1.0.6

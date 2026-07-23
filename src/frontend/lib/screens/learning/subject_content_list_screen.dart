@@ -148,8 +148,8 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
   }
 
   void _navigateToCourse(BuildContext context, Map<String, dynamic> course) {
-    final contentId = (course['contentId'] ?? course['id']) as int? ?? 0;
-    final type = course['type'] as String? ?? 'normal';
+    final courseId = (course['contentId'] ?? course['id']) as int? ?? 0;
+    final type = (course['contentType'] as String? ?? 'normal') as String;
 
     int? effectiveChildId = childId;
     if (effectiveChildId == null) {
@@ -160,11 +160,11 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
     }
 
     final args = <String, dynamic>{
-      'contentId': contentId,
+      'contentId': courseId,
       if (effectiveChildId != null) 'childId': effectiveChildId,
     };
 
-    if (type == 'structured') {
+    if (type == 'structured_lesson') {
       Navigator.pushNamed(context, '/learning/structuredLesson', arguments: args);
     } else {
       Navigator.pushNamed(context, '/learning/contentDetail', arguments: args);
@@ -203,7 +203,7 @@ class _CourseCard extends StatelessWidget {
     required this.onTap,
   });
 
-  bool get _isStructured => type == 'structured';
+  bool get _isStructured => type == 'structured_lesson';
 
   @override
   Widget build(BuildContext context) {

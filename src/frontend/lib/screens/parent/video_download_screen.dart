@@ -484,7 +484,7 @@ class _DownloadCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                       ),
-                    if (isCompleted && kIsWeb && item.filePath != null)
+                    if (isCompleted && item.filePath != null)
                       OutlinedButton.icon(
                         onPressed: () => _downloadToLocal(context, item),
                         icon: const Icon(Icons.file_download, size: 18),
@@ -646,8 +646,8 @@ class _DownloadCard extends StatelessWidget {
     );
   }
 
-  /// Download video file to user's local device via browser download
-  void _downloadToLocal(BuildContext context, VideoDownloadItem item) {
+  /// Download video file to user's local device
+  Future<void> _downloadToLocal(BuildContext context, VideoDownloadItem item) async {
     try {
       final provider = context.read<VideoDownloadProvider>();
       final url = provider.getVideoUrl(item);
@@ -660,8 +660,8 @@ class _DownloadCard extends StatelessWidget {
       final ext = item.filePath!.endsWith('.mp4') ? '.mp4' : '.mp4';
       final filename = '${safeTitle}_无水印$ext';
 
-      // Use HTML5 download attribute to trigger browser save-as
-      triggerBrowserDownload(url, filename);
+      // Download via platform-specific implementation
+      await downloadToLocal(url, filename);
 
       // Show success feedback
       if (context.mounted) {

@@ -397,6 +397,8 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                   final colorIndex = index % AppTheme.childColors.length;
                   final color = AppTheme.childColors[colorIndex];
 
+                  final contentType = course['contentType']?.toString() ?? '';
+                  final isStructured = contentType == 'structured_lesson';
                   return _CourseCard(
                     title: title,
                     summary: summary,
@@ -405,7 +407,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                     onTap: () {
                       Navigator.pushNamed(
                         context,
-                        '/learning/structuredLesson',
+                        isStructured ? '/learning/structuredLesson' : '/learning/contentDetail',
                         arguments: {
                           'contentId': courseId,
                           'childId': childId,

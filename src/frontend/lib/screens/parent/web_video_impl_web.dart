@@ -29,3 +29,8 @@ void triggerBrowserDownload(String url, String filename) {
   anchor.click();
   html.document.body?.children.remove(anchor);
 }
+
+/// Download a file to local storage (Web: triggers browser save-as).
+Future<void> downloadToLocal(String url, String filename) async {
+  triggerBrowserDownload(url, filename);
+}

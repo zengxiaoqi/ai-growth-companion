@@ -152,30 +152,36 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   void _parseQuizSections() {
-    if (_content == null) return;
-    
-    final raw = _content!['content'];
-    if (raw == null) return;
+      if (_content == null) return;
 
-    try {
-      dynamic parsed;
-      if (raw is String) {
-        parsed = jsonDecode(raw);
-      } else {
-        parsed = raw;
-      }
+      final raw = _content!['content'];
+      if (raw == null) return;
 
-      if (parsed is List) {
-        _quizSections = parsed
-            .where((item) => item is Map && item['questions'] is List)
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .toList();
+      try {
+        dynamic parsed;
+        if (raw is String) {
+          parsed = jsonDecode(raw);
+        } else {
+          parsed = raw;
+        }
+
+        // lesson_pack 结构: { type: "lesson_pack", content: [...] }
+        // 取嵌套的 content 数组
+        if (parsed is Map && parsed['content'] is List) {
+          parsed = parsed['content'];
+        }
+
+        if (parsed is List) {
+          _quizSections = parsed
+              .where((item) => item is Map && item['questions'] is List)
+              .map((item) => Map<String, dynamic>.from(item as Map))
+              .toList();
+        }
+      } catch (e) {
+        _log.warning('Parse quiz sections error: $e');
+        _quizSections = [];
       }
-    } catch (e) {
-      _log.warning('Parse quiz sections error: $e');
-      _quizSections = [];
     }
-  }
 
   bool get _hasInteractiveContent => _quizSections.isNotEmpty;
 
@@ -194,6 +200,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       }
 
       if (parsed is String) return parsed;
+
+      // lesson_pack 结构: { type: "lesson_pack", content: [...] }
+      if (parsed is Map && parsed['content'] is List) {
+        parsed = parsed['content'];
+      }
 
       if (parsed is List) {
         // 尝试提取文本内容（过滤 quiz sections）
@@ -488,6 +499,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             
             // 媒体资源
             if (_content!['mediaUrls'] != null &&
+                _content!['mediaUrls'] is List &&
                 (_content!['mediaUrls'] as List).isNotEmpty)
               _buildMediaSection(),
             

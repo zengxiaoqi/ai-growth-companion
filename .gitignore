@@ -40,3 +40,6 @@ src/video-remotion/src/GeneratedLesson.tsx
 
 # CodeGraph index (local code intelligence cache)
 .codegraph/
+check_pw.js
+*.db-shm
+*.db-wal

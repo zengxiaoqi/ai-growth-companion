@@ -87,10 +87,14 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
         const driver = resolveSqliteDriver();
 
         if (driver === 'sqljs') {
+          const dbPath = configService.get('DB_PATH', 'lingxi.db');
+          Logger.log(`sql.js fallback: using file-based database at ${dbPath}`, 'AppModule');
           return {
             type: 'sqljs',
+            database: dbPath,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             synchronize: true,
+            autoSave: true,
             logging: ['error', 'warn'],
           };
         }

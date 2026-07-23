@@ -1,0 +1,30 @@
+{
+  "date": "2026-07-24",
+  "source": "daily-evolution-report-#64",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P2",
+      "task": "Flutter Web 重部署 — 5个新Flutter提交尚未部署到线上（mobile video download, share sheet, lesson_pack fix, sql.js fix, learning screen refactor）。线上仍是 v4.js，本地是 v5.js",
+      "type": "frontend_deploy",
+      "detail": "cd src/frontend && flutter build web --release && bash post-build-web.sh",
+      "tier": 2
+    },
+    {
+      "id": "s2",
+      "priority": "P3",
+      "task": "清理 backend/public/ 中死重的 Flutter Web 构建产物（97MB — canvaskit + assets 等）—— nginx 从 frontend/build/web/ 直接提供文件，backend/public/ 完全是冗余的",
+      "type": "housekeeping",
+      "detail": "rm -rf src/backend/public/{assets,canvaskit,*.js,*.html,*.gz,manifest.json,version.json,favicon.png} && rm -rf src/backend/public/icons/",
+      "tier": 1
+    },
+    {
+      "id": "s3",
+      "priority": "P3",
+      "task": "更新 AGENTS.md 中 backend 部署部分 — 实际运行的是 nvm node v22，不是 system node v24。systemd 服务也使用 nvm v22。已手动修正",
+      "type": "docs",
+      "detail": "已完成 — 修正了后端部署说明，补充了 sql.js fallback fix 文档",
+      "tier": 1
+    }
+  ]
+}

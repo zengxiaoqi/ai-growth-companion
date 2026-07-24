@@ -63,11 +63,11 @@
         cancelTimeout: function() { if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; } }
       };
 
-      // 180s 超时检测（极慢网环境，如 9KB/s）
-                  timeoutId = setTimeout(function() {
-                    window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
-                  }, 180000);
-    })();
+      // 300s 超时检测（极慢网环境，如 9KB/s 下 1.4MB JS 需要约 160s）
+            timeoutId = setTimeout(function() {
+              window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
+            }, 300000);
+          })();
 
     // ── Web Speech API helper ──
     (function() {

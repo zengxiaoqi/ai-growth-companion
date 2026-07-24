@@ -147,7 +147,7 @@ class AppTheme {
   static ThemeData get lightTheme {
       return ThemeData(
         useMaterial3: true,
-        fontFamily: 'NotoSansCJK',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif',
         colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: Brightness.light,

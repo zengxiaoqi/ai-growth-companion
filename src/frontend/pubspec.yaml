@@ -1,7 +1,7 @@
 name: lingxi_companion
 description: 灵犀伴学 - AI 儿童成长伙伴
 publish_to: 'none'
-version: 1.0.0+20260720
+version: 1.0.0+2026072501
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -79,15 +79,9 @@ flutter:
     - assets/images/
     - assets/audios/
     - assets/animations/
-    - assets/fonts/
-  
-  fonts:
-    - family: NotoSansCJK
-      fonts:
-        - asset: assets/fonts/NotoSansCJK-Regular.ttc
-          weight: 400
-        - asset: assets/fonts/NotoSansCJK-Bold.ttc
-          weight: 700
+  # 不使用 assets/fonts/（38MB 字体文件，改用系统字体避免 Web 加载超时）
+
+  # fonts: 使用系统字体（避免打包 38MB TTC 文件导致 Web 加载超时）
 
 flutter_launcher_icons:
   android: true
@@ -99,5 +93,3 @@ flutter_launcher_icons:
 
 dependency_overrides:
   http: ^1.1.0
-
-

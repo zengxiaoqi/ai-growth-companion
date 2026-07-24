@@ -63,10 +63,10 @@
         cancelTimeout: function() { if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; } }
       };
 
-      // 30s 超时检测
-      timeoutId = setTimeout(function() {
-        window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
-      }, 30000);
+      // 60s 超时检测（慢网环境）
+            timeoutId = setTimeout(function() {
+              window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
+            }, 60000);
     })();
 
     // ── Web Speech API helper ──

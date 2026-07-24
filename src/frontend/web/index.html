@@ -63,10 +63,10 @@
         cancelTimeout: function() { if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; } }
       };
 
-      // 60s 超时检测（慢网环境）
-            timeoutId = setTimeout(function() {
-              window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
-            }, 60000);
+      // 180s 超时检测（极慢网环境，如 9KB/s）
+                  timeoutId = setTimeout(function() {
+                    window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
+                  }, 180000);
     })();
 
     // ── Web Speech API helper ──
@@ -103,6 +103,6 @@
     })();
   </script>
 
-  <script src="flutter_bootstrap.js"></script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

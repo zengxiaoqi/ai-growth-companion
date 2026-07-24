@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-24",
-  "analysis_count": 64,
-  "commit_count": 500,
-  "last_commit": "2026-07-23T20:19:36+08:00",
-  "last_commit_hash": "b162bf3",
+  "last_analysis": "2026-07-25",
+  "analysis_count": 65,
+  "commit_count": 509,
+  "last_commit": "2026-07-25T01:47:03+08:00",
+  "last_commit_hash": "34558e5",
   "commits_ahead_remote": 0,
-  "remote_head": "b162bf3",
-  "remote_head_date": "2026-07-23T20:19:36+08:00",
+  "remote_head": "34558e5",
+  "remote_head_date": "2026-07-25T01:47:03+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -71,7 +71,16 @@
     "2026-07-23: Mobile video download — downloadToLocal() for Android, WRITE_EXTERNAL_STORAGE permission, course type fixes (53fca4c)",
     "2026-07-23: Mobile share sheet after video download — share_plus plugin integration (b162bf3)",
     "2026-07-24: Cleaned 6 stale .gz files (main.dart.v2/v3/v4.js.gz) from build/web/ and backend/public/ (saved ~6MB)",
-    "2026-07-24: Updated AGENTS.md — corrected backend deploy section to reflect actual nvm v22 node usage, documented sql.js fallback fix"
+    "2026-07-24: Updated AGENTS.md — corrected backend deploy section to reflect actual nvm v22 node usage, documented sql.js fallback fix",
+    "2026-07-24: Added deploy.sh (one-click deploy script) + post-build gzip regeneration (c640a2d)",
+    "2026-07-24: Global error handling + loading UI + loading error recovery — runZonedGuarded, FlutterError.onError, index.html loading spinner + timeout (0915ae4)",
+    "2026-07-24: Improved _displayText content extraction for diverse content structures — story/poem/lesson_pack formats (035cf44)",
+    "2026-07-24: Fixed ErrorWidget builder — use print() instead of debugPrint for release mode visibility (b591572)",
+    "2026-07-24: Increased loading timeout from 30s→60s for slow networks (f2bb898)",
+    "2026-07-25: Switched to HTML renderer (eliminates 7MB WASM canvaskit) + Python post-build script (2523472)",
+    "2026-07-25: Removed 38MB NotoSansCJK font — use system fonts instead, loading timeout 180s→300s (34558e5)",
+    "2026-07-25: Cleaned 97MB stale Flutter Web artifacts from backend/public/ (canvaskit + assets + JS/HTML) — only uploads/ remains",
+    "2026-07-25: Fixed AGENTS.md formatting — dangling `|-` bullet point in backend deploy section"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -89,14 +98,16 @@
     "sql.js fallback with autoSave: true + explicit database path now prevents data loss when better-sqlite3 fails to load. The old in-memory-only sql.js config caused registered users to vanish and API-created data to be invisible.",
     "lesson_pack nested content structure appears in curriculum JSON — content_detail screen must unwrap { type: 'lesson_pack', content: [...] } to access quizzes and text sections.",
     "Mobile video download on Android requires WRITE_EXTERNAL_STORAGE with maxSdkVersion=28 (scoped storage in Android 10+). share_plus plugin enables native share sheet after download.",
-    "The deployed Flutter Web (main.dart.v4.js) is out of date — local build is v5.js with 5 new Flutter commits since last deploy. bootstrap.js references v4 on CDN, v5 locally."
+    "The deployed Flutter Web (main.dart.v4.js) is out of date — local build is v5.js with 5 new Flutter commits since last deploy. bootstrap.js references v4 on CDN, v5 locally.",
+    "HTML renderer + system fonts = no 7MB WASM canvaskit + no 38MB NotoSansCJK font = fast Flutter Web loading. Loading timeout increased to 300s (5 min) for extreme slow networks.",
+    "backend/public/ Flutter artifacts are completely unused — nginx serves from frontend/build/web/. The 97MB of stale data there (canvaskit + assets + JS/HTML) was pure waste. Only uploads/ and icons/ need to remain."
   ],
   "metrics": {
     "backend_files": 236,
-    "backend_test_files": 79,
+    "backend_test_files": 87,
     "flutter_files": 115,
-    "web_files": 100,
+    "web_files": 101,
     "content_files": 46,
-    "total_lines": 189847
+    "total_lines": 128104
   }
 }

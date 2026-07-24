@@ -29,8 +29,11 @@ void main() async {
 
   // 让 release 模式下的 build 异常可见（默认 ErrorWidget 在 release 模式渲染为 0x0 不可见框）
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    debugPrint('🔥 [ErrorWidget] ${details.exception}');
-    debugPrint('🔥 [ErrorWidget] STACK: ${details.stack}');
+    // debugPrint uses assert — silent in release mode. Use print() instead.
+    // ignore: avoid_print
+    print('🔥 [ErrorWidget] ${details.exception}');
+    // ignore: avoid_print
+    print('🔥 [ErrorWidget] STACK: ${details.stack}');
     return Material(
       child: Container(
         color: Colors.red.shade50,

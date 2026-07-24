@@ -57,10 +57,25 @@ done
 echo "       Versioned: main.dart.v${NEXT_V}.js"
 echo "       Bootstrap references: main.dart.v${NEXT_V}.js"
 
-# --- Step 3: Verify ---
-echo "[3/3] Verifying..."
+# --- Step 3: Rebuild gzip pre-compression ---
+# Flutter's build step creates .gz files, but our modifications to index.html
+# and bootstrap.js invalidate them. Regenerate to prevent nginx gzip_static
+# serving stale pre-compressed files.
+echo "[3/3] Rebuilding gzip pre-compression..."
+for f in "$BUILD_DIR"/index.html "$BUILD_DIR"/flutter_bootstrap.js "$BUILD_DIR"/flutter_bootstrap.v*.js; do
+    [ -f "$f" ] && gzip -kf "$f" 2>/dev/null && echo "       ✓ gzipped $(basename "$f")"
+done
+echo "       Done"
+
+# --- Step 4: Verify ---
+echo "[4/4] Verifying..."
 grep -q 'useLocalCanvasKit' "$BOOTSTRAP_JS" && echo "       ✓ useLocalCanvasKit is set"
 grep -q "main.dart.v${NEXT_V}.js" "$BOOTSTRAP_JS" && echo "       ✓ Versioned main.dart.js referenced"
+# Verify .gz is newer than the original
+for f in "$BUILD_DIR"/index.html "$BUILD_DIR"/flutter_bootstrap.js "$BUILD_DIR"/flutter_bootstrap.v*.js; do
+    gz="$f.gz"
+    [ -f "$gz" ] && [ "$gz" -ot "$f" ] && echo "       ⚠ WARNING: $gz is stale!" || true
+done
 echo "       Done"
 
 echo "=== Post-build complete ==="

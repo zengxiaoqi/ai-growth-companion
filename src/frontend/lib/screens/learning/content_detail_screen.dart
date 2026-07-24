@@ -185,6 +185,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   bool get _hasInteractiveContent => _quizSections.isNotEmpty;
 
+  /// 提取内容文本用于显示，避免暴露原始 JSON
   String get _displayText {
     if (_content == null) return '';
     
@@ -201,30 +202,85 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
       if (parsed is String) return parsed;
 
-      // lesson_pack 结构: { type: "lesson_pack", content: [...] }
-      if (parsed is Map && parsed['content'] is List) {
-        parsed = parsed['content'];
+      // Case 1: 简单故事 { text: "...", moral: "..." }
+      if (parsed is Map && parsed.containsKey('text')) {
+        final text = parsed['text']?.toString() ?? '';
+        final moral = parsed['moral']?.toString() ?? '';
+        if (text.isNotEmpty) {
+          return moral.isNotEmpty ? '$text\n\n$moral' : text;
+        }
       }
 
-      if (parsed is List) {
-        // 尝试提取文本内容（过滤 quiz sections）
-        final textBlocks = parsed.where((item) {
-          if (item is Map && item['questions'] is List) return false;
-          return true;
-        }).map((item) {
-          if (item is String) return item;
+      // Case 2: lesson_pack { type: "lesson_pack", content: [...] }
+      if (parsed is Map && parsed['content'] is List) {
+        final items = parsed['content'] as List;
+        final textBlocks = <String>[];
+        for (final item in items) {
           if (item is Map) {
             final title = item['title']?.toString() ?? '';
             final text = item['text']?.toString() ?? '';
-            if (title.isNotEmpty && text.isNotEmpty) return '$title\n$text';
-            return title.isNotEmpty ? title : text;
+            final content = item['content']?.toString() ?? '';
+            final meaning = item['meaning']?.toString() ?? '';
+            final poet = item['poet']?.toString() ?? '';
+            
+            final parts = <String>[];
+            if (title.isNotEmpty) parts.add(title);
+            if (poet.isNotEmpty) parts.add(poet);
+            if (text.isNotEmpty) parts.add(text);
+            if (content.isNotEmpty) parts.add(content);
+            if (meaning.isNotEmpty) parts.add(meaning);
+            
+            if (parts.isNotEmpty) {
+              textBlocks.add(parts.join('\n'));
+            }
+          } else if (item is String && item.isNotEmpty) {
+            textBlocks.add(item);
           }
-          return item.toString();
-        }).where((t) => t.isNotEmpty).toList();
-
+        }
         if (textBlocks.isNotEmpty) {
           return textBlocks.join('\n\n');
         }
+      }
+
+      // Case 3: 普通列表
+      if (parsed is List) {
+        final textBlocks = <String>[];
+        for (final item in parsed) {
+          if (item is Map) {
+            final title = item['title']?.toString() ?? '';
+            final text = item['text']?.toString() ?? '';
+            final content = item['content']?.toString() ?? '';
+            final meaning = item['meaning']?.toString() ?? '';
+            
+            final parts = <String>[];
+            if (title.isNotEmpty) parts.add(title);
+            if (text.isNotEmpty) parts.add(text);
+            if (content.isNotEmpty) parts.add(content);
+            if (meaning.isNotEmpty) parts.add(meaning);
+            
+            if (parts.isNotEmpty) {
+              textBlocks.add(parts.join('\n'));
+            }
+          } else if (item is String && item.isNotEmpty) {
+            textBlocks.add(item);
+          }
+        }
+        if (textBlocks.isNotEmpty) {
+          return textBlocks.join('\n\n');
+        }
+      }
+
+      // Case 4: 其他 Map 类型，尝试提取常用文本字段
+      if (parsed is Map) {
+        final textFields = ['title', 'text', 'content', 'description', 'moral', 'meaning'];
+        final parts = <String>[];
+        for (final field in textFields) {
+          if (parsed.containsKey(field) && parsed[field] is String) {
+            final val = parsed[field].toString();
+            if (val.isNotEmpty) parts.add(val);
+          }
+        }
+        if (parts.isNotEmpty) return parts.join('\n\n');
       }
 
       return raw.toString();

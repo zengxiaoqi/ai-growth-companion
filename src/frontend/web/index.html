@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="/">
 
   <meta charset="UTF-8">
@@ -23,32 +10,72 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="lingxi_companion">
+  <meta name="apple-mobile-web-app-title" content="灵犀伴学">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>lingxi_companion</title>
+  <title>灵犀伴学</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    #lingxi-loader {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: fixed; inset: 0;
+      background: #f5f7fa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+    #lingxi-loader.hidden { opacity: 0; pointer-events: none; }
+    #lingxi-loader .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e0e0e0; border-top-color: #4a90d9;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #lingxi-loader p { margin-top: 20px; color: #666; font-size: 15px; }
+    #lingxi-loader .error { color: #e74c3c; font-size: 14px; margin-top: 8px; max-width: 320px; text-align: center; display: none; }
+    #lingxi-loader .error.show { display: block; }
+  </style>
+</head>
+<body>
+  <div id="lingxi-loader">
+    <div class="spinner"></div>
+    <p>灵犀伴学加载中…</p>
+    <div class="error" id="lingxi-error"></div>
+  </div>
+
   <script>
-    // ─── Web Speech API helper ─────────────────────────────────────────
-    // 浏览器原生语音识别，不依赖 speech_to_text 插件
-    // 用全局函数回调，避免 dart:js 属性赋值的兼容性问题
+    (function() {
+      var loader = document.getElementById('lingxi-loader');
+      var errorEl = document.getElementById('lingxi-error');
+      var timeoutId = null;
+
+      window._lingxiLoader = {
+        hide: function() { loader.classList.add('hidden'); },
+        error: function(msg) {
+          errorEl.textContent = msg;
+          errorEl.classList.add('show');
+          loader.querySelector('.spinner').style.animation = 'none';
+        },
+        cancelTimeout: function() { if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; } }
+      };
+
+      // 30s 超时检测
+      timeoutId = setTimeout(function() {
+        window._lingxiLoader.error('加载超时，请检查网络后刷新重试');
+      }, 30000);
+    })();
+
+    // ── Web Speech API helper ──
     (function() {
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       var _rec = null;
-
-      // Dart 端设置这些全局回调
-      // window._lingxiOnResult(finalText, interimText)
-      // window._lingxiOnEnd()
-      // window._lingxiOnError(errorStr)
-
       window._lingxiSpeech = {
         supported: !!SR,
-
         start: function(lang) {
-          console.log('[lingxi-speech] start called, SR=' + !!SR);
           if (!SR) { if (window._lingxiOnError) window._lingxiOnError('not_supported'); return; }
           if (_rec) { try { _rec.stop(); } catch(e){} _rec = null; }
           var rec = new SR();
@@ -56,66 +83,26 @@
           rec.continuous = true;
           rec.interimResults = true;
           rec.maxAlternatives = 1;
-
           rec.onresult = function(ev) {
-            var finalText = '';
-            var interimText = '';
+            var finalText = '', interimText = '';
             for (var i = ev.resultIndex; i < ev.results.length; i++) {
               var r = ev.results[i];
               if (r.isFinal) finalText += r[0].transcript;
               else interimText += r[0].transcript;
             }
-            console.log('[lingxi-speech] onresult: final="' + finalText + '" interim="' + interimText + '"');
             if (window._lingxiOnResult) {
-              try { window._lingxiOnResult(finalText, interimText); }
-              catch(e) { console.error('[lingxi-speech] _onResult callback error: ' + e); }
-            } else {
-              console.warn('[lingxi-speech] _lingxiOnResult not set!');
+              try { window._lingxiOnResult(finalText, interimText); } catch(e) { console.error('[lingxi-speech] callback error: ' + e); }
             }
           };
-
-          rec.onerror = function(ev) {
-            console.error('[lingxi-speech] onerror: ' + (ev.error || 'unknown'));
-            if (window._lingxiOnError) window._lingxiOnError(ev.error || 'error');
-          };
-
-          rec.onend = function() {
-            console.log('[lingxi-speech] onend');
-            if (window._lingxiOnEnd) window._lingxiOnEnd();
-          };
-
-          try {
-            rec.start();
-            _rec = rec;
-            console.log('[lingxi-speech] recognition started');
-          } catch(e) {
-            console.error('[lingxi-speech] start failed: ' + e.message);
-            if (window._lingxiOnError) window._lingxiOnError('start_failed: ' + e.message);
-          }
+          rec.onerror = function(ev) { if (window._lingxiOnError) window._lingxiOnError(ev.error || 'error'); };
+          rec.onend = function() { if (window._lingxiOnEnd) window._lingxiOnEnd(); };
+          try { rec.start(); _rec = rec; } catch(e) { if (window._lingxiOnError) window._lingxiOnError('start_failed'); }
         },
-
-        stop: function() {
-          console.log('[lingxi-speech] stop called, _rec=' + !!_rec);
-          if (_rec) {
-            try { _rec.stop(); } catch(e){}
-            _rec = null;
-          }
-        }
+        stop: function() { if (_rec) { try { _rec.stop(); } catch(e){} _rec = null; } }
       };
-
-      console.log('[lingxi-speech] helper initialized, supported=' + !!SR);
     })();
   </script>
-</head>
-<body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js"></script>
 </body>
 </html>

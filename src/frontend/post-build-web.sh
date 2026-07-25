@@ -112,4 +112,4 @@ done
 
 echo ""
 echo "=== Post-build complete ==="
-echo "Next step: cd build/web && sudo cp -r * /var/www/lingxi/"
+echo "Next step: Files are served from build/web/ by nginx directly. No manual copy needed."

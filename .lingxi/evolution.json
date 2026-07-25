@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-25",
-  "analysis_count": 65,
-  "commit_count": 509,
-  "last_commit": "2026-07-25T01:47:03+08:00",
-  "last_commit_hash": "34558e5",
+  "last_analysis": "2026-07-26",
+  "analysis_count": 66,
+  "commit_count": 515,
+  "last_commit": "2026-07-25T16:47:04+08:00",
+  "last_commit_hash": "b4e88c0",
   "commits_ahead_remote": 0,
-  "remote_head": "34558e5",
-  "remote_head_date": "2026-07-25T01:47:03+08:00",
+  "remote_head": "b4e88c0",
+  "remote_head_date": "2026-07-25T16:47:04+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -80,7 +80,14 @@
     "2026-07-25: Switched to HTML renderer (eliminates 7MB WASM canvaskit) + Python post-build script (2523472)",
     "2026-07-25: Removed 38MB NotoSansCJK font — use system fonts instead, loading timeout 180s→300s (34558e5)",
     "2026-07-25: Cleaned 97MB stale Flutter Web artifacts from backend/public/ (canvaskit + assets + JS/HTML) — only uploads/ remains",
-    "2026-07-25: Fixed AGENTS.md formatting — dangling `|-` bullet point in backend deploy section"
+    "2026-07-25: Fixed AGENTS.md formatting — dangling `|-` bullet point in backend deploy section",
+    "2026-07-25: Video download cancel feature — backend endpoint + frontend provider + cancel button UI (bda1584)",
+    "2026-07-25: DownloadCard refactor StatefulWidget + expand/collapse (28cb8e0)",
+    "2026-07-25: lesson_pack content support in Flutter + React quiz engines (bb0e929)",
+    "2026-07-25: HTML loading indicator auto-hide on Flutter init (aa170b7)",
+    "2026-07-25: _displayText expanded for lesson_pack + quiz layout crash fix (b4e88c0)",
+    "2026-07-26: Cleaned stale build artifacts — 3 stale files (main.dart.js, v6.js, v6.js.gz, main.dart.js.gz) removed from build/web/",
+    "2026-07-26: Updated AGENTS.md — post-build-web.sh description now accurate (HTML renderer, .catch(), gzip pre-compress, keeps latest 2)"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -100,14 +107,20 @@
     "Mobile video download on Android requires WRITE_EXTERNAL_STORAGE with maxSdkVersion=28 (scoped storage in Android 10+). share_plus plugin enables native share sheet after download.",
     "The deployed Flutter Web (main.dart.v4.js) is out of date — local build is v5.js with 5 new Flutter commits since last deploy. bootstrap.js references v4 on CDN, v5 locally.",
     "HTML renderer + system fonts = no 7MB WASM canvaskit + no 38MB NotoSansCJK font = fast Flutter Web loading. Loading timeout increased to 300s (5 min) for extreme slow networks.",
-    "backend/public/ Flutter artifacts are completely unused — nginx serves from frontend/build/web/. The 97MB of stale data there (canvaskit + assets + JS/HTML) was pure waste. Only uploads/ and icons/ need to remain."
+    "backend/public/ Flutter artifacts are completely unused — nginx serves from frontend/build/web/. The 97MB of stale data there (canvaskit + assets + JS/HTML) was pure waste. Only uploads/ and icons/ need to remain.",
+    "post-build-web.sh last line still says 'sudo cp -r * /var/www/lingxi/' — outdated advice, should be removed or updated to reflect nginx direct serving from build/web/",
+    "video-download.service.ts has 0 unit test coverage — new cancel endpoint added without tests"
   ],
   "metrics": {
     "backend_files": 236,
-    "backend_test_files": 87,
+    "backend_test_files": 80,
     "flutter_files": 115,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 128104
+    "total_lines": 135282,
+    "backend_lines": 44007,
+    "flutter_lines": 56459,
+    "web_lines": 27194,
+    "content_lines": 7622
   }
 }

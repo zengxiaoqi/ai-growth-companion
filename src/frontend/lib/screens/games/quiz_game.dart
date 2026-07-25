@@ -368,23 +368,24 @@ class _QuizGameState extends State<QuizGame>
         ),
         const SizedBox(height: 14),
         // 选项列表 - 带交错入场
-        Expanded(
-          child: ListView.separated(
-            physics: const BouncingScrollPhysics(),
-            itemCount: options.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              return _QuizOption(
-                index: index,
-                text: options[index],
-                isSelected: _selectedIndex == index,
-                isCorrect: index == correctIndex,
-                revealed: _revealed,
-                onTap: _revealed ? null : () => _selectOption(index),
-                animBase: _questionController,
-              );
-            },
-          ),
+        // 使用 shrinkWrap: true 避免嵌套在 SingleChildScrollView 中
+        // Expanded 导致布局崩溃（constraints unbounded）
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: options.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            return _QuizOption(
+              index: index,
+              text: options[index],
+              isSelected: _selectedIndex == index,
+              isCorrect: index == correctIndex,
+              revealed: _revealed,
+              onTap: _revealed ? null : () => _selectOption(index),
+              animBase: _questionController,
+            );
+          },
         ),
         if (_revealed)
           AnimatedContainer(

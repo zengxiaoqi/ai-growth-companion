@@ -211,25 +211,73 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         }
       }
 
-      // Case 2: lesson_pack { type: "lesson_pack", content: [...] }
+            // Case 2: lesson_pack { type: "lesson_pack", content: [...] }
       if (parsed is Map && parsed['content'] is List) {
         final items = parsed['content'] as List;
         final textBlocks = <String>[];
         for (final item in items) {
           if (item is Map) {
-            final title = item['title']?.toString() ?? '';
-            final text = item['text']?.toString() ?? '';
-            final content = item['content']?.toString() ?? '';
-            final meaning = item['meaning']?.toString() ?? '';
-            final poet = item['poet']?.toString() ?? '';
-            
             final parts = <String>[];
-            if (title.isNotEmpty) parts.add(title);
-            if (poet.isNotEmpty) parts.add(poet);
+
+            final title = item['title']?.toString() ?? '';
+            if (title.isNotEmpty) parts.add('📖 $title');
+
+            final poet = item['poet']?.toString() ?? '';
+            if (poet.isNotEmpty) parts.add('作者：$poet');
+
+            final text = item['text']?.toString() ?? '';
             if (text.isNotEmpty) parts.add(text);
+
+            final content = item['content']?.toString() ?? '';
             if (content.isNotEmpty) parts.add(content);
-            if (meaning.isNotEmpty) parts.add(meaning);
-            
+
+            final meaning = item['meaning']?.toString() ?? '';
+            if (meaning.isNotEmpty) parts.add('📝 $meaning');
+
+            final description = item['description']?.toString() ?? '';
+            if (description.isNotEmpty) parts.add(description);
+
+            final result = item['result']?.toString() ?? '';
+            if (result.isNotEmpty) parts.add('🎯 结果：$result');
+
+            final instructions = item['instructions']?.toString() ?? '';
+            if (instructions.isNotEmpty) parts.add(instructions);
+
+            final lyrics = item['lyrics']?.toString() ?? '';
+            if (lyrics.isNotEmpty) parts.add(lyrics);
+
+            // 列表字段
+            final steps = item['steps'];
+            if (steps is List && steps.isNotEmpty) {
+              parts.add('步骤：');
+              for (var i = 0; i < steps.length; i++) {
+                parts.add('  ${i + 1}. ${steps[i].toString()}');
+              }
+            }
+
+            final materials = item['materials'];
+            if (materials is List && materials.isNotEmpty) {
+              parts.add('材料：${materials.join('、')}');
+            }
+
+            final tasks = item['tasks'];
+            if (tasks is List && tasks.isNotEmpty) {
+              parts.add('任务：');
+              for (final t in tasks) {
+                parts.add('  \u2022 ${t.toString()}');
+              }
+            }
+
+            final examples = item['examples'];
+            if (examples is List && examples.isNotEmpty) {
+              parts.add('示例：${examples.join('、')}');
+            }
+
+            final activities = item['activities'];
+            if (activities is List && activities.isNotEmpty) {
+              parts.add(activities.join('\n'));
+            }
+
             if (parts.isNotEmpty) {
               textBlocks.add(parts.join('\n'));
             }
@@ -308,8 +356,10 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   void _onContentScroll() {
-    if (_contentScrollController.position.pixels >=
-        _contentScrollController.position.maxScrollExtent - 8) {
+    // Only mark as scrolled if there's actually scrollable content
+    if (_contentScrollController.position.maxScrollExtent > 0 &&
+        _contentScrollController.position.pixels >=
+            _contentScrollController.position.maxScrollExtent - 8) {
       if (!_hasScrolledThroughContent) {
         setState(() => _hasScrolledThroughContent = true);
       }

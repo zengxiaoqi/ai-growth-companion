@@ -361,7 +361,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: provider.hasInProgress ? null : _submitDownload,
+                onPressed: _submitDownload,
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('开始下载'),
                 style: ElevatedButton.styleFrom(
@@ -379,7 +379,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
   }
 }
 
-class _DownloadCard extends StatelessWidget {
+class _DownloadCard extends StatefulWidget {
   final VideoDownloadItem item;
   final VoidCallback? onPlay;
   final VoidCallback? onTogglePublish;
@@ -397,6 +397,20 @@ class _DownloadCard extends StatelessWidget {
   });
 
   @override
+  State<_DownloadCard> createState() => _DownloadCardState();
+}
+
+class _DownloadCardState extends State<_DownloadCard> {
+  bool _expanded = false;
+
+  VideoDownloadItem get item => widget.item;
+  VoidCallback? get onPlay => widget.onPlay;
+  VoidCallback? get onTogglePublish => widget.onTogglePublish;
+  VoidCallback? get onRetry => widget.onRetry;
+  VoidCallback? get onCancel => widget.onCancel;
+  VoidCallback? get onDelete => widget.onDelete;
+
+  @override
   Widget build(BuildContext context) {
     final isFailed = item.status == 'failed';
     final isCompleted = item.status == 'completed';
@@ -405,99 +419,117 @@ class _DownloadCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        title: Row(
-          children: [
-            // Thumbnail or status icon
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 56,
-                height: 56,
-                child: isCompleted && item.thumbnail != null
-                    ? Image.network(
-                        item.thumbnail!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholderIcon(),
-                      )
-                    : _buildPlaceholderIcon(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  // Thumbnail or status icon
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: isCompleted && item.thumbnail != null
+                          ? Image.network(
+                              item.thumbnail!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildPlaceholderIcon(),
+                            )
+                          : _buildPlaceholderIcon(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title ?? item.sourceUrl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            _buildPlatformChip(),
+                            const SizedBox(width: 6),
+                            _buildStatusChip(),
+                            if (item.duration != null && item.duration! > 0) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                item.durationDisplay,
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
+          ),
+          if (_expanded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title ?? item.sourceUrl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+                  // Video metadata
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 4,
                     children: [
-                      _buildPlatformChip(),
-                      const SizedBox(width: 6),
-                      _buildStatusChip(),
-                      if (item.duration != null && item.duration! > 0) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          item.durationDisplay,
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
+                      if (item.uploader != null)
+                        _metaRow(Icons.person_outline, item.uploader!),
+                      if (item.fileSize != null && item.fileSize! > 0)
+                        _metaRow(Icons.storage, item.fileSizeDisplay),
+                      _metaRow(Icons.link, item.sourceUrl.length > 40
+                          ? '${item.sourceUrl.substring(0, 37)}...'
+                          : item.sourceUrl),
                     ],
                   ),
+                  if (isFailed && item.errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        item.errorMessage!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, color: Colors.red.shade700),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
-        ),
-        trailing: const SizedBox.shrink(),
-        children: [
+          // Action buttons — always visible
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                // Video metadata
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 4,
-                  children: [
-                    if (item.uploader != null)
-                      _metaRow(Icons.person_outline, item.uploader!),
-                    if (item.fileSize != null && item.fileSize! > 0)
-                      _metaRow(Icons.storage, item.fileSizeDisplay),
-                    _metaRow(Icons.link, item.sourceUrl.length > 40
-                        ? '${item.sourceUrl.substring(0, 37)}...'
-                        : item.sourceUrl),
-                  ],
-                ),
-                if (isFailed && item.errorMessage != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      item.errorMessage!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: Colors.red.shade700),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                // Action buttons
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
                     if (onPlay != null)
                       ElevatedButton.icon(
                         onPressed: onPlay,

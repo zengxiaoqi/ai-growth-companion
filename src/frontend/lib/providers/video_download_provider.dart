@@ -118,6 +118,22 @@ class VideoDownloadProvider extends ChangeNotifier {
     }
   }
 
+  /// Cancel a stuck download (pending/downloading → failed)
+  Future<void> cancelDownload(int id) async {
+    try {
+      final response = await _apiService.dio.post('/video-download/$id/cancel');
+      final updated = VideoDownloadItem.fromJson(
+          response.data as Map<String, dynamic>);
+      final idx = _downloads.indexWhere((d) => d.id == id);
+      if (idx >= 0) {
+        _downloads[idx] = updated;
+        notifyListeners();
+      }
+    } catch (e) {
+      _log.warning('cancelDownload error: $e');
+    }
+  }
+
   /// Delete a download
   Future<void> deleteDownload(int id) async {
     try {

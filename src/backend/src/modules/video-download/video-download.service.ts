@@ -289,6 +289,23 @@ export class VideoDownloadService {
     return this.findById(id);
   }
 
+  /**
+   * Cancel a stuck download (pending or downloading → failed)
+   */
+  async cancelDownload(id: number): Promise<VideoDownload> {
+    const task = await this.findById(id);
+    if (task.status !== 'pending' && task.status !== 'downloading') {
+      throw new Error('Only pending or downloading tasks can be cancelled');
+    }
+
+    await this.repo.update(id, {
+      status: 'failed',
+      errorMessage: '用户已取消下载',
+    });
+
+    return this.findById(id);
+  }
+
   // ============ Douyin (TikTok China) specific methods ============
 
   /**

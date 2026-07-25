@@ -53,6 +53,12 @@ export class VideoDownloadController {
     return this.service.togglePublish(+id);
   }
 
+  @Post(':id/cancel')
+  @ApiOperation({ summary: '取消卡住的下载任务（pending/downloading → failed）' })
+  async cancelDownload(@Param('id') id: string) {
+    return this.service.cancelDownload(+id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: '删除下载任务及文件' })
   async deleteDownload(@Param('id') id: string) {

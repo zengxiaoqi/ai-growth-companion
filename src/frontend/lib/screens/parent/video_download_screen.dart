@@ -131,6 +131,27 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
     );
   }
 
+  void _cancelDownload(VideoDownloadItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('取消下载'),
+        content: Text('确定要取消 "${item.title ?? '此视频'}" 的下载吗？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('继续下载')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<VideoDownloadProvider>().cancelDownload(item.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('取消下载'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _urlController.dispose();
@@ -165,12 +186,14 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       if (index >= provider.inProgress.length) return null;
+                      final item = provider.inProgress[index];
                       return _DownloadCard(
-                        item: provider.inProgress[index],
+                        item: item,
                         onPlay: null,
                         onTogglePublish: null,
                         onRetry: null,
-                        onDelete: null,
+                        onCancel: () => _cancelDownload(item),
+                        onDelete: () => _confirmDelete(item),
                       );
                     },
                     childCount: provider.inProgress.length,
@@ -361,6 +384,7 @@ class _DownloadCard extends StatelessWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onTogglePublish;
   final VoidCallback? onRetry;
+  final VoidCallback? onCancel;
   final VoidCallback? onDelete;
 
   const _DownloadCard({
@@ -368,6 +392,7 @@ class _DownloadCard extends StatelessWidget {
     this.onPlay,
     this.onTogglePublish,
     this.onRetry,
+    this.onCancel,
     this.onDelete,
   });
 
@@ -530,6 +555,17 @@ class _DownloadCard extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
                           side: BorderSide(color: Colors.red.shade300),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    if (onCancel != null)
+                      OutlinedButton.icon(
+                        onPressed: onCancel,
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('取消下载'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: BorderSide(color: Colors.orange.shade300),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                       ),

@@ -68,46 +68,20 @@ done
 # --- Step 3: Add .catch() error handling to load() call ---
 echo ""
 echo "[3] Adding load() error handling..."
-
-# Strategy: remove the last line (the load() call), reconstruct it with .catch()
-# The load() call is the last line of the file
-# Pattern: _flutter.loader.load({...});
-# We need: _flutter.loader.load({...}).catch(function(err) { ... });
-
-# Find the last line that starts with _flutter.loader.load(
-LOAD_LINE=$(grep -nP '^_flutter\.loader\.load\(' "$BOOTSTRAP_JS" | tail -1 | cut -d: -f1 || true)
-
-if [ -n "$LOAD_LINE" ]; then
-    # Extract the full load call (may span multiple lines)
-    # Read the file, find the last }, and everything after it is the load call
-    # Simple approach: just replace the last line
-    sed -i '$d' "$BOOTSTRAP_JS"
-    # Now look for the closing }); of the load config
-    # The pattern is:   }); at the end of the file
-    # We need to catch it before the last closing
-    echo 'var _loadPromise = _flutter.loader.load({' >> "$BOOTSTRAP_JS"
-    # Extract the config part from the original... 
-    # Simpler: just append after the deleted line
-    # Actually let me re-read the file to see what's left
-    echo "  WARNING: Manual patch needed — load() call spans multiple lines"
-    echo "  I'll handle it via patch instead"
-else
-    echo "  Trying to find and patch the load() call..."
-    # The load() call is the last line(s) — let's just replace it
-    # First, save the original load call
-    # ... this is getting complex. Let me use a different approach
-fi
-
-# Actually, let me just use a targeted patch on the file
-# The file ends with: _flutter.loader.load({...});
-# Let me find where the _flutter.buildConfig variable ends, and insert after
-echo "  Using sed to add .catch()..."
-# The load() call is at the end: _flutter.loader.load({...});
-# The pattern ends with an empty build entry: ,{}];
-# Then the load call. Let me find the },{}]; line and insert after it
-sed -i '/,\{\}\]/a\
-var _loadPromise = _flutter.loader.load({' "$BOOTSTRAP_JS"
-echo "  Done — need to verify manually"
+python3 -c "
+import re
+with open('$BOOTSTRAP_JS', 'r') as f:
+    content = f.read()
+# Replace the last line containing '});' with .catch() version
+content = re.sub(
+    r'\)\s*;\s*$',
+    ').catch(function(err) { console.error(\"Flutter failed to load:\", err); var el = document.getElementById(\"loading-indicator\"); if (el) { el.textContent = \"加载失败，请刷新页面重试\"; el.style.color = \"red\"; } });',
+    content
+)
+with open('$BOOTSTRAP_JS', 'w') as f:
+    f.write(content)
+print('  ✓ .catch() added')
+"
 
 # --- Step 4: Copy updated index.html to build/web ---
 echo ""

@@ -603,8 +603,6 @@ class _DownloadCardState extends State<_DownloadCard> {
                       ),
                   ],
                 ),
-              ],
-            ),
           ),
         ],
       ),

@@ -59,6 +59,12 @@ export class VideoDownloadController {
     return this.service.cancelDownload(+id);
   }
 
+  @Post(':id/re-download')
+  @ApiOperation({ summary: '重新下载——文件被清理/丢失时从原始链接重新下载' })
+  async reDownload(@Param('id') id: string) {
+    return this.service.reDownload(+id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: '删除下载任务及文件' })
   async deleteDownload(@Param('id') id: string) {

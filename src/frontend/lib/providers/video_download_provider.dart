@@ -134,6 +134,23 @@ class VideoDownloadProvider extends ChangeNotifier {
     }
   }
 
+  /// Re-download a video — even if completed but file was cleaned/deleted
+  Future<void> reDownload(int id) async {
+    try {
+      final response = await _apiService.dio.post('/video-download/$id/re-download');
+      final updated = VideoDownloadItem.fromJson(
+          response.data as Map<String, dynamic>);
+      final idx = _downloads.indexWhere((d) => d.id == id);
+      if (idx >= 0) {
+        _downloads[idx] = updated;
+        notifyListeners();
+      }
+      _maybeStartPolling();
+    } catch (e) {
+      _log.warning('reDownload error: $e');
+    }
+  }
+
   /// Delete a download
   Future<void> deleteDownload(int id) async {
     try {

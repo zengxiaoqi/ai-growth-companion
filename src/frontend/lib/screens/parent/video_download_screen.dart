@@ -105,6 +105,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
         builder: (_) => _VideoPlayerScreen(
           url: url,
           title: item.title ?? '视频播放',
+          itemId: item.id,
         ),
       ),
     );
@@ -125,6 +126,27 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmReDownload(VideoDownloadItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('重新下载'),
+        content: Text('确定要重新下载 "${item.title ?? '此视频'}" 吗？\n\n如果原文件还在，将跳过下载。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<VideoDownloadProvider>().reDownload(item.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('重新下载'),
           ),
         ],
       ),
@@ -211,6 +233,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
                         onPlay: () => _playVideo(item),
                         onTogglePublish: () => provider.togglePublish(item.id),
                         onRetry: null,
+                        onReDownload: () => _confirmReDownload(item),
                         onDelete: () => _confirmDelete(item),
                       );
                     },
@@ -384,6 +407,7 @@ class _DownloadCard extends StatefulWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onTogglePublish;
   final VoidCallback? onRetry;
+  final VoidCallback? onReDownload;
   final VoidCallback? onCancel;
   final VoidCallback? onDelete;
 
@@ -392,6 +416,7 @@ class _DownloadCard extends StatefulWidget {
     this.onPlay,
     this.onTogglePublish,
     this.onRetry,
+    this.onReDownload,
     this.onCancel,
     this.onDelete,
   });
@@ -407,6 +432,7 @@ class _DownloadCardState extends State<_DownloadCard> {
   VoidCallback? get onPlay => widget.onPlay;
   VoidCallback? get onTogglePublish => widget.onTogglePublish;
   VoidCallback? get onRetry => widget.onRetry;
+  VoidCallback? get onReDownload => widget.onReDownload;
   VoidCallback? get onCancel => widget.onCancel;
   VoidCallback? get onDelete => widget.onDelete;
 
@@ -573,6 +599,17 @@ class _DownloadCardState extends State<_DownloadCard> {
                         onPressed: onRetry,
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text('重试'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange,
+                          side: BorderSide(color: Colors.orange.shade300),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    if (isCompleted && onReDownload != null)
+                      OutlinedButton.icon(
+                        onPressed: onReDownload,
+                        icon: const Icon(Icons.replay, size: 18),
+                        label: const Text('重新下载'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.orange,
                           side: BorderSide(color: Colors.orange.shade300),
@@ -767,8 +804,13 @@ class _DownloadCardState extends State<_DownloadCard> {
 class _VideoPlayerScreen extends StatefulWidget {
   final String url;
   final String title;
+  final int? itemId;
 
-  const _VideoPlayerScreen({required this.url, required this.title});
+  const _VideoPlayerScreen({
+    required this.url,
+    required this.title,
+    this.itemId,
+  });
 
   @override
   State<_VideoPlayerScreen> createState() => _VideoPlayerScreenState();
@@ -838,15 +880,42 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       ),
       backgroundColor: Colors.black,
       body: Center(
-        child: _hasError
-            ? const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, color: Colors.white54, size: 48),
-                  SizedBox(height: 16),
-                  Text('视频加载失败', style: TextStyle(color: Colors.white54)),
-                ],
-              )
+                child: _hasError
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.white54, size: 48),
+                          const SizedBox(height: 16),
+                          const Text('视频加载失败', style: TextStyle(color: Colors.white54)),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.url,
+                            style: const TextStyle(color: Colors.white30, fontSize: 12),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (widget.itemId != null) ...[
+                            const SizedBox(height: 24),
+                            Consumer<VideoDownloadProvider>(
+                              builder: (context, provider, _) {
+                                return ElevatedButton.icon(
+                                  onPressed: () {
+                                    provider.reDownload(widget.itemId!);
+                                    Navigator.of(context).pop();
+                                  },
+                                  icon: const Icon(Icons.refresh, size: 18),
+                                  label: const Text('重新下载'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      )
             : !_isInitialized
                 ? const CircularProgressIndicator(color: Colors.white)
                 : kIsWeb

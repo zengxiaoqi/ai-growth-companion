@@ -306,6 +306,50 @@ export class VideoDownloadService {
     return this.findById(id);
   }
 
+  /**
+   * Re-download a video — even if status is 'completed' but the file is missing.
+   * If the file already exists and is valid, returns the existing task as-is.
+   * If the file is missing (deleted/cleaned up), re-downloads from the original source URL.
+   */
+  async reDownload(id: number): Promise<VideoDownload> {
+    const task = await this.findById(id);
+
+    // Check if file already exists and is valid
+    if (task.filePath) {
+      const fullPath = path.join(PUBLIC_DIR, task.filePath.replace(/^\//, ''));
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).size > 10000) {
+        this.logger.log(`Re-download skipped: file already exists for task ${id}`);
+        return task;
+      }
+    }
+
+    // File is missing — re-download
+    this.logger.log(
+      `Re-downloading: task=${id} file missing, restarting download from ${task.sourceUrl}`,
+    );
+
+    await this.repo.update(id, {
+      status: 'pending',
+      filePath: null,
+      fileSize: null,
+      errorMessage: null,
+    });
+
+    // Re-download in background
+    const url = task.sourceUrl;
+    if (this.isDouyinUrl(url)) {
+      this.performDouyinDownload(id, url).catch((err) => {
+        this.logger.error(`Re-download (douyin) failed for task ${id}: ${err.message}`);
+      });
+    } else {
+      this.performDownload(id, url).catch((err) => {
+        this.logger.error(`Re-download failed for task ${id}: ${err.message}`);
+      });
+    }
+
+    return this.findById(id);
+  }
+
   // ============ Douyin (TikTok China) specific methods ============
 
   /**

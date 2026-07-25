@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js' as js;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,19 @@ void _logError(String label, Object error, StackTrace? stack) {
   print('$label $error');
   // ignore: avoid_print
   if (stack != null) print('$label STACK: $stack');
+}
+
+/// 隐藏 HTML 加载指示器（#lingxi-loader）
+void _hideLoader() {
+  try {
+    final loader = js.context['_lingxiLoader'];
+    if (loader != null) {
+      loader.callMethod('hide');
+      loader.callMethod('cancelTimeout');
+    }
+  } catch (_) {
+    // 非 Web 平台忽略
+  }
 }
 
 void main() async {
@@ -70,6 +84,9 @@ void main() async {
         ),
       );
     };
+
+    // 隐藏 HTML 加载指示器
+    _hideLoader();
 
     // 初始化本地存储
     final prefs = await SharedPreferences.getInstance();

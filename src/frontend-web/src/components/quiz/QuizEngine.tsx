@@ -36,16 +36,35 @@ interface FlattenedQuestion extends QuizQuestion {
 }
 
 function getAnswerIndex(question: QuizQuestion): number {
-  const raw = Number((question as unknown as { answer: unknown }).answer);
+  const raw = (question as unknown as { answer: unknown }).answer;
   const optionLength = Array.isArray(question.options) ? question.options.length : 0;
 
-  if (!Number.isFinite(raw) || optionLength === 0) return 0;
+  if (optionLength === 0) return 0;
 
-  const normalized = Math.trunc(raw);
-  if (normalized >= 0 && normalized < optionLength) return normalized;
+  // Try numeric index first (0-based, then 1-based)
+  if (typeof raw === 'number') {
+    const normalized = Math.trunc(raw);
+    if (normalized >= 0 && normalized < optionLength) return normalized;
+    const oneBased = normalized - 1;
+    if (oneBased >= 0 && oneBased < optionLength) return oneBased;
+  }
 
-  const oneBased = normalized - 1;
-  if (oneBased >= 0 && oneBased < optionLength) return oneBased;
+  if (typeof raw === 'string') {
+    // Try numeric parse
+    const num = Number(raw);
+    if (Number.isFinite(num)) {
+      const normalized = Math.trunc(num);
+      if (normalized >= 0 && normalized < optionLength) return normalized;
+      const oneBased = normalized - 1;
+      if (oneBased >= 0 && oneBased < optionLength) return oneBased;
+    }
+    // Try string match against options
+    const trimmed = raw.trim();
+    if (trimmed) {
+      const idx = question.options.indexOf(trimmed);
+      if (idx >= 0) return idx;
+    }
+  }
 
   return 0;
 }

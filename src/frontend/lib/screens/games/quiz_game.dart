@@ -114,20 +114,36 @@ class _QuizGameState extends State<QuizGame>
     return raw
         .whereType<Map>()
         .map((q) => q.map((k, v) => MapEntry(k.toString(), v)))
-        .where((q) => q['question'] != null && q['options'] is List)
+        .where((q) {
+      // Support both 'question' (QuizGame) and 'q' (lesson_pack) field names
+      final questionText = q['question']?.toString() ?? q['q']?.toString() ?? '';
+      return questionText.isNotEmpty && q['options'] is List;
+    })
         .map((q) {
       final options = (q['options'] as List)
           .map((e) => e.toString().trim())
           .where((e) => e.isNotEmpty)
           .toList();
-      var correctIndex = _toInt(q['correctIndex'] ?? q['correctAnswer']);
+      // Support both 'correctIndex'/'correctAnswer' (QuizGame) and 'answer' (lesson_pack) field names
+      var correctIndex = _toInt(q['correctIndex'] ?? q['correctAnswer'] ?? q['answer']);
+      // If answer is a string (e.g. "开心"), find its index in options
+      if (correctIndex < 0 || correctIndex >= options.length) {
+        final answerStr = q['answer']?.toString() ?? '';
+        if (answerStr.isNotEmpty) {
+          final idx = options.indexOf(answerStr);
+          if (idx >= 0) correctIndex = idx;
+        }
+      }
+      // Normalize answer field name to 'correctIndex' for downstream use
       if (correctIndex < 0 || correctIndex >= options.length) {
         final oneBased = correctIndex - 1;
         correctIndex =
             (oneBased >= 0 && oneBased < options.length) ? oneBased : 0;
       }
+      // Normalize question field name to 'question'
+      final questionText = q['question']?.toString() ?? q['q']?.toString() ?? '';
       return {
-        ...q,
+        'question': questionText,
         'options': options,
         'correctIndex': correctIndex,
       };

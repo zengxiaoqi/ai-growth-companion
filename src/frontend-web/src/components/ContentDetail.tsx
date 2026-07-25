@@ -68,10 +68,21 @@ const DOMAIN_META: Record<string, DomainMeta> = {
 
 const MIN_READING_SECONDS = 20;
 
-function parseSections(raw?: string): QuizSection[] {
-  if (!raw) return [];
+function parseSections(raw?: unknown): QuizSection[] {
+  if (raw == null) return [];
   try {
     const normalized = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    // lesson_pack structure: { type: "lesson_pack", content: [...] }
+    // Extract the nested content array
+    if (typeof normalized === 'object' && !Array.isArray(normalized) && normalized !== null) {
+      const obj = normalized as Record<string, unknown>;
+      if (obj.type === 'lesson_pack' && Array.isArray(obj.content)) {
+        return obj.content.filter((item: unknown) =>
+          Array.isArray((item as Record<string, unknown>).questions),
+        ) as QuizSection[];
+      }
+      return [];
+    }
     if (!Array.isArray(normalized)) return [];
     return normalized.filter((item) =>
       Array.isArray((item as Record<string, unknown>).questions),
@@ -170,11 +181,42 @@ function flattenValueToLines(value: unknown, depth = 0): string[] {
   return [];
 }
 
-function resolveDisplayText(raw?: string): string {
+function resolveDisplayText(raw?: unknown): string {
   const normalized = normalizeContent(raw);
   if (!normalized) return '';
 
   if (typeof normalized === 'string') return normalized;
+
+  // lesson_pack structure: { type: "lesson_pack", content: [...] }
+  // Extract the nested content array for display
+  if (typeof normalized === 'object' && !Array.isArray(normalized) && normalized !== null) {
+    const obj = normalized as Record<string, unknown>;
+    if (obj.type === 'lesson_pack' && Array.isArray(obj.content)) {
+      const items = obj.content as Array<Record<string, unknown>>;
+      const textBlocks: string[] = [];
+      for (const item of items) {
+        const title = typeof item.title === 'string' ? item.title.trim() : '';
+        const text = typeof item.text === 'string' ? item.text.trim() : '';
+        const itemContent = typeof item.content === 'string' ? item.content.trim() : '';
+        const meaning = typeof item.meaning === 'string' ? item.meaning.trim() : '';
+        const poet = typeof item.poet === 'string' ? item.poet.trim() : '';
+
+        const parts: string[] = [];
+        if (title) parts.push(title);
+        if (poet) parts.push(poet);
+        if (text) parts.push(text);
+        if (itemContent) parts.push(itemContent);
+        if (meaning) parts.push(meaning);
+
+        if (parts.length > 0) {
+          textBlocks.push(parts.join('\n'));
+        }
+      }
+      if (textBlocks.length > 0) {
+        return textBlocks.join('\n\n');
+      }
+    }
+  }
 
   if (Array.isArray(normalized)) {
     const blocks = normalized

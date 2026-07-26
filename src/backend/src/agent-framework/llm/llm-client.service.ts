@@ -12,6 +12,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai/index';
+import type { ChatCompletion } from 'openai/resources/chat/completions';
 import type { ILlmClient, LlmMessage, LlmResponse, LlmToolDefinition, LlmConfig } from '../core';
 import { stripThinking } from '../core';
 import { RetryStrategy } from './retry.strategy';
@@ -321,7 +322,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const TIMEOUT_MS = 60_000;
+    const TIMEOUT_MS = 180_000;
     const result = await Promise.race([
       this.models.complete(entry.model, context, {
         maxTokens: maxTokensOverride ?? entry.config.maxTokens,
@@ -549,15 +550,28 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     _forceToolChoice?: boolean,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
+      const TIMEOUT_MS = 180_000;
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
-      const response = await this.client.chat.completions.create({
-        model: this.config.model,
-        messages: this.toOpenAIMessages(messages),
-        tools: this.toOpenAITools(tools),
-        tool_choice: tools ? 'auto' : undefined,
-        max_tokens: effectiveMaxTokens,
-        temperature: this.config.temperature,
-      });
+      const response = (await Promise.race([
+        this.client.chat.completions.create(
+          {
+            model: this.config.model,
+            messages: this.toOpenAIMessages(messages),
+            tools: this.toOpenAITools(tools),
+            tool_choice: tools ? 'auto' : undefined,
+            max_tokens: effectiveMaxTokens,
+            temperature: this.config.temperature,
+          },
+          { timeout: TIMEOUT_MS },
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error(`LLM call timed out (${TIMEOUT_MS}ms) for ${this.config.model}`)),
+            TIMEOUT_MS,
+          ),
+        ),
+      ])) as ChatCompletion;
 
       const choice = response.choices[0];
       return {
@@ -616,12 +630,25 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       if (this.piAiEnabled) {
         return this.piAiChatCompletion(messages, undefined, maxTokens);
       }
-      const response = await this.client.chat.completions.create({
-        model: this.config.model,
-        messages: this.toOpenAIMessages(messages),
-        max_tokens: maxTokens,
-        temperature: this.config.temperature,
-      });
+      const TIMEOUT_MS = 180_000;
+      const response = (await Promise.race([
+        this.client.chat.completions.create(
+          {
+            model: this.config.model,
+            messages: this.toOpenAIMessages(messages),
+            max_tokens: maxTokens,
+            temperature: this.config.temperature,
+          },
+          { timeout: TIMEOUT_MS },
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error(`LLM call timed out (${TIMEOUT_MS}ms) for ${this.config.model}`)),
+            TIMEOUT_MS,
+          ),
+        ),
+      ])) as ChatCompletion;
 
       const choice = response.choices[0];
       return {

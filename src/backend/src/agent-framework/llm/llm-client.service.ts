@@ -325,6 +325,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       maxTokens: maxTokensOverride ?? entry.config.maxTokens,
       temperature: entry.config.temperature,
       timeoutMs: 60_000,
+      signal: AbortSignal.timeout(60_000),
     });
 
     return this.fromPiAiResponse(result);
@@ -357,6 +358,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       maxTokens: entry.config.maxTokens,
       temperature: entry.config.temperature,
       timeoutMs: 60_000,
+      signal: AbortSignal.timeout(60_000),
     });
 
     for await (const event of stream) {

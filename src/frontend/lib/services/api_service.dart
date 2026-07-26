@@ -836,6 +836,34 @@ class ApiService {
     }
   }
 
+  /// 获取快速视频生成历史任务列表
+  Future<List<Map<String, dynamic>>> getQuickGenerateTaskHistory(int childId, {int limit = 50, int offset = 0}) async {
+    try {
+      final response = await _dio.get('/learning/video/quick-generate/tasks', queryParameters: {
+        'childId': childId,
+        'limit': limit,
+        'offset': offset,
+      });
+      return (response.data as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      _log.warning('Get quick video task history error: $e');
+      return [];
+    }
+  }
+
+  /// 重试失败的快速视频生成任务
+  Future<Map<String, dynamic>?> retryQuickGenerateTask(int taskId, int childId) async {
+    try {
+      final response = await _dio.post('/learning/video/quick-generate/tasks/$taskId/retry', data: {
+        'childId': childId,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      _log.warning('Retry quick video task error: $e');
+      return null;
+    }
+  }
+
   /// 获取快速生成视频的播放 URL
   String getQuickVideoPlaybackUrl(int contentId, int childId, {int? taskId}) {
     final params = 'childId=$childId';

@@ -21,6 +21,54 @@ const _styleIcons = {
 /// 年龄组选项
 const _ageGroups = ['3-4', '4-5', '5-6', '6-7', '7-8'];
 
+/// 任务状态中文标签
+String _statusLabel(String status) {
+  switch (status) {
+    case 'pending':
+      return '排队中';
+    case 'processing':
+      return '生成中';
+    case 'completed':
+      return '已完成';
+    case 'failed':
+      return '失败';
+    default:
+      return status;
+  }
+}
+
+/// 任务状态颜色
+Color _statusColor(String status) {
+  switch (status) {
+    case 'pending':
+      return Colors.orange;
+    case 'processing':
+      return AppTheme.secondaryColor;
+    case 'completed':
+      return AppTheme.accentColor;
+    case 'failed':
+      return Colors.red;
+    default:
+      return Colors.grey;
+  }
+}
+
+/// 任务状态图标
+IconData _statusIcon(String status) {
+  switch (status) {
+    case 'pending':
+      return Icons.hourglass_empty_rounded;
+    case 'processing':
+      return Icons.sync_rounded;
+    case 'completed':
+      return Icons.check_circle_rounded;
+    case 'failed':
+      return Icons.error_rounded;
+    default:
+      return Icons.help_rounded;
+  }
+}
+
 class QuickVideoGeneratorScreen extends StatefulWidget {
   const QuickVideoGeneratorScreen({super.key});
 
@@ -29,14 +77,15 @@ class QuickVideoGeneratorScreen extends StatefulWidget {
       _QuickVideoGeneratorScreenState();
 }
 
-class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
+class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
+    with SingleTickerProviderStateMixin {
   final _topicController = TextEditingController();
   late final ApiService _api;
 
   VideoGenStatus _status = VideoGenStatus.idle;
   String _errorMessage = '';
   int _pollCount = 0;
-  static const _maxPollCount = 120; // 最多轮询 120 次 (约 10 分钟，AI agent pipeline 可能需要 7+ 分钟)
+  static const _maxPollCount = 120;
 
   // 表单状态
   String _ageGroup = '4-5';
@@ -53,11 +102,26 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
   List<Map<String, dynamic>> _children = [];
   bool _loadingChildren = false;
 
+  // 历史记录
+  List<Map<String, dynamic>> _historyTasks = [];
+  bool _loadingHistory = false;
+  String? _historyError;
+
+  // Tab 控制器
+  late TabController _tabController;
+
+  // 当前主题文字（用于历史记录显示）
+  String _currentTopic = '';
+
   @override
   void initState() {
     super.initState();
-    // 从 Provider 获取已注入 token 的 ApiService 实例，
-    // 不要 new ApiService() — 那样会丢失 token 导致所有 API 请求返回 401
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index == 1 && !_tabController.indexIsChanging) {
+        _loadHistory();
+      }
+    });
     _api = context.read<ApiService>();
     _loadChildren();
   }
@@ -66,6 +130,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
   void dispose() {
     _topicController.dispose();
     _pollTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -87,10 +152,24 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
               : jsonDecode(jsonEncode(c)) as Map<String, dynamic>)
           .toList();
       _loadingChildren = false;
-      // 自动选中第一个孩子
       if (_selectedChildId == null && _children.isNotEmpty) {
         _selectedChildId = _children.first['id'] as int?;
       }
+    });
+  }
+
+  Future<void> _loadHistory() async {
+    if (_selectedChildId == null) return;
+    setState(() {
+      _loadingHistory = true;
+      _historyError = null;
+    });
+    final tasks = await _api.getQuickGenerateTaskHistory(_selectedChildId!);
+    if (!mounted) return;
+    // 获取任务对应的 content 标题
+    setState(() {
+      _historyTasks = tasks;
+      _loadingHistory = false;
     });
   }
 
@@ -105,6 +184,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
       return;
     }
 
+    _currentTopic = topic;
     setState(() {
       _status = VideoGenStatus.generating;
       _errorMessage = '';
@@ -165,7 +245,6 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
       setState(() => _pollCount = newCount);
 
       if (status == null) {
-        // 网络错误，继续轮询
         if (newCount >= _maxPollCount) {
           setState(() {
             _status = VideoGenStatus.timeout;
@@ -196,7 +275,6 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
           _errorMessage = '视频生成超时，请稍后重试';
         });
       }
-      // else: 继续轮询
     });
   }
 
@@ -218,6 +296,38 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
     );
   }
 
+  /// 重试失败的历史任务
+  Future<void> _retryHistoryTask(Map<String, dynamic> task) async {
+    final taskId = task['taskId'] as int;
+    if (_selectedChildId == null) return;
+
+    final result = await _api.retryQuickGenerateTask(taskId, _selectedChildId!);
+    if (!mounted) return;
+
+    if (result != null) {
+      _showSnack('任务已重新加入队列');
+      _loadHistory();
+    } else {
+      _showSnack('重试失败，请稍后重试');
+    }
+  }
+
+  /// 查看历史任务视频
+  void _viewHistoryVideo(Map<String, dynamic> task) {
+    final contentId = task['contentId'] as int?;
+    if (contentId != null && _selectedChildId != null) {
+      Navigator.of(context).pushNamed(
+        '/learning/structuredLesson',
+        arguments: {
+          'contentId': contentId,
+          'childId': _selectedChildId,
+        },
+      );
+    } else {
+      _showSnack('课程信息缺失，无法查看');
+    }
+  }
+
   // ── UI ────────────────────────────────────────────────────
 
   @override
@@ -229,22 +339,46 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(icon: Icon(Icons.auto_awesome_rounded), text: '生成'),
+            Tab(icon: Icon(Icons.history_rounded), text: '历史记录'),
+          ],
+        ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              if (_status == VideoGenStatus.idle ||
-                  _status == VideoGenStatus.failed ||
-                  _status == VideoGenStatus.timeout)
-                ..._buildForm(),
-              _buildStatusArea(),
-            ],
-          ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildGenerateTab(),
+          _buildHistoryTab(),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  生成 Tab
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildGenerateTab() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 24),
+            if (_status == VideoGenStatus.idle ||
+                _status == VideoGenStatus.failed ||
+                _status == VideoGenStatus.timeout)
+              ..._buildForm(),
+            _buildStatusArea(),
+          ],
         ),
       ),
     );
@@ -288,25 +422,18 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
 
   List<Widget> _buildForm() {
     return [
-      // 孩子选择
       _buildChildSelector(),
       const SizedBox(height: 16),
-      // 主题输入
       _buildTopicField(),
       const SizedBox(height: 16),
-      // 年龄组
       _buildAgeGroupSelector(),
       const SizedBox(height: 16),
-      // 时长滑块
       _buildDurationSlider(),
       const SizedBox(height: 16),
-      // 风格选择
       _buildStyleSelector(),
       const SizedBox(height: 24),
-      // 生成按钮 / 重试
       _buildActionButton(),
-      if (_status == VideoGenStatus.failed ||
-          _status == VideoGenStatus.timeout)
+      if (_status == VideoGenStatus.failed || _status == VideoGenStatus.timeout)
         _buildErrorDisplay(),
     ];
   }
@@ -604,7 +731,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
             width: 60,
             height: 60,
             child: CircularProgressIndicator(
-              value: null, // indeterminate until we have real progress
+              value: null,
               strokeWidth: 4,
               color: AppTheme.secondaryColor,
             ),
@@ -668,7 +795,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '主题：${_topicController.text}',
+            '主题：$_currentTopic',
             style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 20),
@@ -717,6 +844,256 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  历史记录 Tab
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildHistoryTab() {
+    if (_selectedChildId == null) {
+      return const Center(
+        child: Text('请先在「生成」页面选择孩子',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
+      );
+    }
+
+    if (_loadingHistory) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_historyError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48, color: AppTheme.textSecondary),
+            const SizedBox(height: 12),
+            Text(_historyError!, style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadHistory,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_historyTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.video_library_rounded, size: 64, color: AppTheme.textSecondary),
+            const SizedBox(height: 16),
+            const Text(
+              '暂无历史记录',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '在「生成」页面创建视频任务后，\n历史记录将显示在这里',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _tabController.animateTo(0),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('去生成视频'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadHistory();
+      },
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _historyTasks.length + 1, // +1 for header
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 4),
+              child: Text(
+                '共 ${_historyTasks.length} 条记录',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            );
+          }
+          return _buildHistoryTaskCard(_historyTasks[index - 1]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildHistoryTaskCard(Map<String, dynamic> task) {
+    final status = task['status'] as String? ?? 'unknown';
+    final progress = task['progress'] as int? ?? 0;
+    final errorMsg = task['errorMessage'] as String?;
+    final createdAt = task['createdAt'] as String?;
+    final hasVideo = task['hasVideo'] as bool? ?? false;
+    final isFailed = status == 'failed';
+    final isProcessing = status == 'processing';
+    final isPending = status == 'pending';
+
+    // 格式化时间
+    String timeStr = '';
+    if (createdAt != null) {
+      try {
+        final dt = DateTime.parse(createdAt);
+        timeStr =
+            '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {
+        timeStr = createdAt;
+      }
+    }
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 第一行：状态 + 时间
+            Row(
+              children: [
+                Icon(_statusIcon(status), color: _statusColor(status), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  _statusLabel(status),
+                  style: TextStyle(
+                    color: _statusColor(status),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  timeStr,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 进度条（仅 processing/pending 显示）
+            if (isProcessing || isPending) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress / 100.0,
+                  minHeight: 4,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation(_statusColor(status)),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '进度: $progress%',
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // 错误信息（仅 failed 显示）
+            if (isFailed && errorMsg != null && errorMsg.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        errorMsg,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // 操作按钮
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isFailed)
+                  TextButton.icon(
+                    onPressed: () => _retryHistoryTask(task),
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('重试'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                    ),
+                  ),
+                if (hasVideo) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _viewHistoryVideo(task),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('查看视频'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+                if (isProcessing || isPending)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _statusColor(status),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

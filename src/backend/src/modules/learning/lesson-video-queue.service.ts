@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Inject,
   Logger,
@@ -320,6 +321,67 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       where: { contentId, childId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * 获取指定孩子的所有视频生成任务（按创建时间倒序）
+   */
+  async getTasksByChildId(childId: number, limit = 50, offset = 0): Promise<VideoGenerationTask[]> {
+    return this.taskRepo.find({
+      where: { childId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+  }
+
+  /**
+   * 查询所有 quick-generate 视频任务（关联 Content source=quick_generate）
+   */
+  async getQuickGenerateTasks(
+    childId: number,
+    limit = 50,
+    offset = 0,
+  ): Promise<VideoGenerationTask[]> {
+    const qb = this.taskRepo
+      .createQueryBuilder('task')
+      .innerJoin(Content, 'content', 'task.contentId = content.id')
+      .where('task.childId = :childId', { childId })
+      .andWhere('content.source = :source', { source: 'quick_generate' })
+      .orderBy('task.createdAt', 'DESC')
+      .take(limit)
+      .skip(offset);
+    return qb.getMany();
+  }
+
+  /**
+   * 重试失败的任务：重置为 pending，清除错误信息，清除本地视频路径
+   */
+  async retryTask(taskId: number, childId: number, _force = true): Promise<VideoGenerationTask> {
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, childId },
+    });
+    if (!task) throw new NotFoundException('Video task not found');
+    if (task.status !== 'failed') {
+      throw new BadRequestException('Only failed tasks can be retried');
+    }
+
+    task.status = 'pending';
+    task.progress = 0;
+    task.errorMessage = null;
+    task.localVideoPath = null;
+    task.sourceVideoUrl = null;
+    task.providerTaskId = null;
+    task.startedAt = null;
+    task.completedAt = null;
+    task.expiresAt = null;
+    task.approvalStatus = 'pending_approval';
+    task.rejectionReason = null;
+    // Reset attempt count so it gets full retry budget
+    task.attemptCount = 0;
+    await this.taskRepo.save(task);
+    this.logger.log(`Video task retried: taskId=${taskId}, contentId=${task.contentId}`);
+    return task;
   }
 
   async readVideoBuffer(task: VideoGenerationTask): Promise<Buffer> {

@@ -691,4 +691,66 @@ export class LearningController {
       renderEngine: dto.renderEngine as VideoRenderEngine,
     });
   }
+
+  // ─── GET /learning/video/quick-generate/tasks ────────────
+  // 获取快速视频生成的历史任务列表
+
+  @Get('video/quick-generate/tasks')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取快速视频生成历史任务列表' })
+  async getQuickGenerateTaskList(
+    @Request() req: any,
+    @Query('childId') childId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const resolvedChildId = this.resolveChildId(req, childId);
+    await this.assertAccessToChild(req, resolvedChildId);
+    const tasks = await this.lessonVideoQueue.getQuickGenerateTasks(
+      resolvedChildId,
+      limit ? Math.min(+limit, 100) : 50,
+      offset ? +offset : 0,
+    );
+    return tasks.map((task) => ({
+      taskId: task.id,
+      contentId: task.contentId,
+      status: task.status,
+      progress: task.progress,
+      errorMessage: task.errorMessage || null,
+      ready: task.status === 'completed',
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      completedAt: task.completedAt,
+      startedAt: task.startedAt,
+      attemptCount: task.attemptCount,
+      hasVideo: !!(task.status === 'completed' && task.localVideoPath),
+    }));
+  }
+
+  // ─── POST /learning/video/quick-generate/tasks/:taskId/retry ──
+  // 重试失败的任务
+
+  @Post('video/quick-generate/tasks/:taskId/retry')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '重试失败的快速视频生成任务' })
+  async retryQuickGenerateTask(
+    @Request() req: any,
+    @Param('taskId') taskId: string,
+    @Body('childId') childId: number,
+  ) {
+    await this.assertAccessToChild(req, childId);
+    const numericTaskId = Number(taskId);
+    if (!Number.isInteger(numericTaskId) || numericTaskId <= 0) {
+      throw new BadRequestException('taskId is invalid');
+    }
+    const task = await this.lessonVideoQueue.retryTask(numericTaskId, childId);
+    return {
+      taskId: task.id,
+      contentId: task.contentId,
+      status: task.status,
+      message: '任务已重新加入队列',
+    };
+  }
 }

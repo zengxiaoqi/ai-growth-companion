@@ -599,6 +599,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
   ): AsyncGenerator<string> {
+    const TIMEOUT_MS = 180_000;
     try {
       const stream = await this.client.chat.completions.create({
         model: this.config.model,
@@ -610,8 +611,22 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         stream: true,
       });
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content;
+      const iterator = stream[Symbol.asyncIterator]();
+      while (true) {
+        const { value, done } = await Promise.race([
+          iterator.next(),
+          new Promise<IteratorResult<any>>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(`LLM stream timed out (${TIMEOUT_MS}ms) for ${this.config.model}`),
+                ),
+              TIMEOUT_MS,
+            ),
+          ),
+        ]);
+        if (done) break;
+        const content = value.choices[0]?.delta?.content;
         if (content) {
           yield content;
         }

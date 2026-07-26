@@ -2,7 +2,6 @@ import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import OpenAI from 'openai/index';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { PoetryService } from './poetry.service';
 import { PoemAnnotationRecord } from './entities/poem-annotation.entity';
@@ -38,8 +37,6 @@ export interface PoemAnnotation {
 @Injectable()
 export class PoetryAnnotationService implements OnModuleInit {
   private readonly logger = new Logger(PoetryAnnotationService.name);
-  private fastClient: OpenAI | null = null;
-  private fastModel = 'deepseek-v4-flash';
 
   constructor(
     @InjectRepository(PoemAnnotationRecord)
@@ -50,24 +47,11 @@ export class PoetryAnnotationService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    // 诗词注解用独立的 flash 模型客户端，不共用全局 pro 模型
-    // flash 不支持 function calling，但注解任务不需要 FC
-    const baseUrl = this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1');
-    const apiKey = this.configService.get<string>('LLM_API_KEY', 'unused');
-    const annotationModel = this.configService.get<string>(
-      'POETRY_ANNOTATION_MODEL',
-      this.fastModel,
-    );
-
-    if (baseUrl && annotationModel) {
-      this.fastClient = new OpenAI({ baseURL: baseUrl, apiKey: apiKey || 'unused' });
-      this.fastModel = annotationModel;
-      this.logger.log(
-        `Poetry annotation LLM client initialized: model=${annotationModel}, baseUrl=${baseUrl}`,
-      );
+    if (this.llmClient?.isConfigured) {
+      this.logger.log('Poetry annotation using LlmClientService (pi-ai unified path)');
     } else {
       this.logger.warn(
-        'Poetry annotation LLM client not configured — will fall back to global LlmClient or placeholder',
+        'LlmClientService not configured — will fall back to placeholder annotation',
       );
     }
   }
@@ -95,7 +79,7 @@ export class PoetryAnnotationService implements OnModuleInit {
     const poem = await this.poetryService.findById(poemId, lang);
     if (!poem) return null;
 
-    if (!this.fastClient && (!this.llmClient || !this.llmClient.isConfigured)) {
+    if (!this.llmClient || !this.llmClient.isConfigured) {
       const fallback = this.buildFallback(poemId, poem);
       await this.saveAnnotation(poemId, fallback);
       return fallback;
@@ -149,7 +133,7 @@ export class PoetryAnnotationService implements OnModuleInit {
       notes: JSON.stringify(ann.notes),
       appreciation: ann.appreciation,
       source: ann.source,
-      model: this.fastClient ? this.fastModel : 'global',
+      model: 'global',
       updatedAt: new Date(),
     };
     await this.annotationRepo.save(record);
@@ -187,24 +171,11 @@ ${poemDesc}
 - 全部用简体中文
 - 输出必须是合法JSON`;
 
-    // 优先用 flash 专用客户端（快 3 倍），否则回退到全局 LlmClient
-    let raw: string;
-    if (this.fastClient) {
-      const resp = await this.fastClient.chat.completions.create({
-        model: this.fastModel,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        max_tokens: 4096,
-        temperature: 0.7,
-      });
-      raw = resp.choices[0]?.message?.content ?? '';
-    } else if (this.llmClient?.isConfigured) {
-      raw = await this.llmClient.generate(userPrompt, systemPrompt);
-    } else {
+    // 通过 LlmClientService 统一路由（pi-ai 多 provider 支持、超时、重试）
+    if (!this.llmClient?.isConfigured) {
       throw new Error('No LLM client available for annotation generation');
     }
+    const raw = await this.llmClient.generate(userPrompt, systemPrompt);
 
     const jsonText = this.extractJson(raw);
     const parsed = JSON.parse(jsonText);

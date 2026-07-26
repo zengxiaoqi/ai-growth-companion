@@ -321,12 +321,24 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const result = await this.models.complete(entry.model, context, {
-      maxTokens: maxTokensOverride ?? entry.config.maxTokens,
-      temperature: entry.config.temperature,
-      timeoutMs: 60_000,
-      signal: AbortSignal.timeout(60_000),
-    });
+    const TIMEOUT_MS = 60_000;
+    const result = await Promise.race([
+      this.models.complete(entry.model, context, {
+        maxTokens: maxTokensOverride ?? entry.config.maxTokens,
+        temperature: entry.config.temperature,
+        timeoutMs: TIMEOUT_MS,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(`LLM call timed out (${TIMEOUT_MS}ms) for provider ${entry.config.id}`),
+            ),
+          TIMEOUT_MS,
+        ),
+      ),
+    ]);
 
     return this.fromPiAiResponse(result);
   }
@@ -354,16 +366,31 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
+    const TIMEOUT_MS = 60_000;
     const stream = this.models.stream(entry.model, context, {
       maxTokens: entry.config.maxTokens,
       temperature: entry.config.temperature,
-      timeoutMs: 60_000,
-      signal: AbortSignal.timeout(60_000),
+      timeoutMs: TIMEOUT_MS,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
-    for await (const event of stream) {
-      if (event.type === 'text_delta') {
-        yield event.delta;
+    const iterator = stream[Symbol.asyncIterator]();
+    while (true) {
+      const { value, done } = await Promise.race([
+        iterator.next(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(`LLM stream timed out (${TIMEOUT_MS}ms) for provider ${entry.config.id}`),
+              ),
+            TIMEOUT_MS,
+          ),
+        ),
+      ]);
+      if (done) break;
+      if (value.type === 'text_delta') {
+        yield value.delta;
       }
     }
   }

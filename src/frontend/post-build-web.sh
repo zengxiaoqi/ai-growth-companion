@@ -30,12 +30,13 @@ else
     sed -i 's/"engineRevision":"[^"]*"/&,"useLocalCanvasKit":true/' "$BOOTSTRAP_JS"
 fi
 
-# 1b: renderer: canvaskit → html
-if grep -qP '"renderer"\s*:\s*"canvaskit"' "$BOOTSTRAP_JS"; then
-    echo "  [1b] Switching renderer: canvaskit → html"
-    sed -i 's/"renderer":"canvaskit"/"renderer":"html"/g' "$BOOTSTRAP_JS"
+# 1b: renderer: keep canvaskit (Flutter 3.41+ builds for canvaskit by default)
+# NOTE: Do NOT switch to "html" — modern Flutter Web builds target canvaskit
+# and the loader will fail to find a matching build
+if grep -qP '"renderer"\s*:\s*"html"' "$BOOTSTRAP_JS"; then
+    echo "  [1b] renderer is html — keeping as-is (canvaskit is preferred)"
 else
-    echo "  [1b] renderer already html — skipping"
+    echo "  [1b] renderer already canvaskit — skipping"
 fi
 
 # --- Step 2: Cache-bust main.dart.js ---

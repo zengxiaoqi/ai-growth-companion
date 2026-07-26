@@ -336,22 +336,19 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 查询所有 quick-generate 视频任务（关联 Content source=quick_generate）
+   * 查询所有 quick-generate 视频任务（按创建时间倒序）
    */
   async getQuickGenerateTasks(
     childId: number,
     limit = 50,
     offset = 0,
   ): Promise<VideoGenerationTask[]> {
-    const qb = this.taskRepo
-      .createQueryBuilder('task')
-      .innerJoin(Content, 'content', 'task.contentId = content.id')
-      .where('task.childId = :childId', { childId })
-      .andWhere('content.source = :source', { source: 'quick_generate' })
-      .orderBy('task.createdAt', 'DESC')
-      .take(limit)
-      .skip(offset);
-    return qb.getMany();
+    return this.taskRepo.find({
+      where: { childId },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
   }
 
   /**

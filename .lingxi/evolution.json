@@ -1,18 +1,18 @@
 {
-  "last_analysis": "2026-07-26",
-  "analysis_count": 66,
-  "commit_count": 515,
-  "last_commit": "2026-07-25T16:47:04+08:00",
-  "last_commit_hash": "b4e88c0",
+  "last_analysis": "2026-07-27",
+  "analysis_count": 67,
+  "commit_count": 529,
+  "last_commit": "2026-07-27T00:17:07+08:00",
+  "last_commit_hash": "604d512",
   "commits_ahead_remote": 0,
-  "remote_head": "b4e88c0",
-  "remote_head_date": "2026-07-25T16:47:04+08:00",
+  "remote_head": "604d512",
+  "remote_head_date": "2026-07-27T00:17:07+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
-    "parent_dashboard": 98,
-    "content_system": 94,
-    "infrastructure": 97,
+    "parent_dashboard": 99,
+    "content_system": 95,
+    "infrastructure": 98,
     "code_quality": 99
   },
   "active_plans": [],
@@ -87,7 +87,13 @@
     "2026-07-25: HTML loading indicator auto-hide on Flutter init (aa170b7)",
     "2026-07-25: _displayText expanded for lesson_pack + quiz layout crash fix (b4e88c0)",
     "2026-07-26: Cleaned stale build artifacts — 3 stale files (main.dart.js, v6.js, v6.js.gz, main.dart.js.gz) removed from build/web/",
-    "2026-07-26: Updated AGENTS.md — post-build-web.sh description now accurate (HTML renderer, .catch(), gzip pre-compress, keeps latest 2)"
+    "2026-07-26: Updated AGENTS.md — post-build-web.sh description now accurate (HTML renderer, .catch(), gzip pre-compress, keeps latest 2)",
+    "2026-07-26: LLM timeout hardening — 6 commits (60s→180s→300s, AbortSignal, Promise.race, fallback storyboard on agent timeout)",
+    "2026-07-26: Quick video generation task management — Flutter task list screen (+441 lines), backend endpoint, task polling, simplify query",
+    "2026-07-26: Feishu APK upload helper script + dart:js loader refactor into platform-abstracted helper",
+    "2026-07-26: Video download enhancements — batch download, edit URL for failed downloads, copy link, re-download lost files, cancel stuck tasks, share sheet→file picker for mobile",
+    "2026-07-27: AGENTS.md audit — fixed Flutter Web deploy descriptions (post-build-web.sh, canvaskit renderer, no html switch)",
+    "2026-07-27: Cleaned stale build artifacts — 3 .gz files (v1-v3), bare main.dart.js, 914MB APK build artifacts removed"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -109,17 +115,19 @@
     "HTML renderer + system fonts = no 7MB WASM canvaskit + no 38MB NotoSansCJK font = fast Flutter Web loading. Loading timeout increased to 300s (5 min) for extreme slow networks.",
     "backend/public/ Flutter artifacts are completely unused — nginx serves from frontend/build/web/. The 97MB of stale data there (canvaskit + assets + JS/HTML) was pure waste. Only uploads/ and icons/ need to remain.",
     "post-build-web.sh last line still says 'sudo cp -r * /var/www/lingxi/' — outdated advice, should be removed or updated to reflect nginx direct serving from build/web/",
-    "video-download.service.ts has 0 unit test coverage — new cancel endpoint added without tests"
+    "video-download.service.ts has 0 unit test coverage — new cancel endpoint added without tests",
+    "LLM timeout hardening required 6 iterations (d3730f2→604d512) — AbortSignal.timeout was missing from the pi-ai client, Promise.race was needed for streaming, and the final 300s timeout resolved video agent storyboard generation timeouts",
+    "Video download enhancements shipped 4 new features in one day: batch download, re-download lost files, cancel stuck tasks, and file picker for mobile — all in video-download.service.ts which still has 0 test coverage"
   ],
   "metrics": {
     "backend_files": 236,
     "backend_test_files": 80,
-    "flutter_files": 115,
-    "web_files": 101,
+    "flutter_files": 118,
+    "web_files": 100,
     "content_files": 46,
-    "total_lines": 135282,
-    "backend_lines": 44007,
-    "flutter_lines": 56459,
+    "total_lines": 136311,
+    "backend_lines": 44374,
+    "flutter_lines": 57121,
     "web_lines": 27194,
     "content_lines": 7622
   }

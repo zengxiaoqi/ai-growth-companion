@@ -545,6 +545,30 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn(
             `[generateVideoBuffer] taskId=${task.id} agent pipeline failed, falling back: ${error?.message || 'unknown'}`,
           );
+          // Fallback: use generateVideoData tool directly (no agent loop) to
+          // produce a quick storyboard, then enrich payload for engine rendering
+          try {
+            const fallbackStoryboard = await this.videoGenerationAgent.generateFallbackStoryboard(
+              topic,
+              payload?.domain,
+              payload?.ageGroup,
+            );
+            if (fallbackStoryboard) {
+              this.logger.log(
+                `[generateVideoBuffer] taskId=${task.id} fallback storyboard generated: ${fallbackStoryboard.scenes?.length || 0} scenes`,
+              );
+              const enrichedPayload = this.enrichPayloadWithStoryboard(
+                payload,
+                fallbackStoryboard,
+                { passed: true, score: 70 },
+              );
+              return this.generateVideoBufferWithEngines(task, enrichedPayload);
+            }
+          } catch (fallbackError: any) {
+            this.logger.warn(
+              `[generateVideoBuffer] taskId=${task.id} fallback storyboard also failed: ${fallbackError?.message || 'unknown'}`,
+            );
+          }
           // Fall through to legacy path
         }
       }

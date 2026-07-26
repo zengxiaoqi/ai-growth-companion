@@ -322,7 +322,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const TIMEOUT_MS = 180_000;
+    const TIMEOUT_MS = 300_000;
     const result = await Promise.race([
       this.models.complete(entry.model, context, {
         maxTokens: maxTokensOverride ?? entry.config.maxTokens,
@@ -367,7 +367,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       tools: tools?.map((t) => this.toPiAiTool(t)),
     };
 
-    const TIMEOUT_MS = 60_000;
+    const TIMEOUT_MS = 300_000;
     const stream = this.models.stream(entry.model, context, {
       maxTokens: entry.config.maxTokens,
       temperature: entry.config.temperature,
@@ -550,7 +550,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     _forceToolChoice?: boolean,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
-      const TIMEOUT_MS = 180_000;
+      const TIMEOUT_MS = 300_000;
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
       const response = (await Promise.race([
         this.client.chat.completions.create(
@@ -599,7 +599,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
   ): AsyncGenerator<string> {
-    const TIMEOUT_MS = 180_000;
+    const TIMEOUT_MS = 300_000;
     try {
       const stream = await this.client.chat.completions.create({
         model: this.config.model,
@@ -645,7 +645,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       if (this.piAiEnabled) {
         return this.piAiChatCompletion(messages, undefined, maxTokens);
       }
-      const TIMEOUT_MS = 180_000;
+      const TIMEOUT_MS = 300_000;
       const response = (await Promise.race([
         this.client.chat.completions.create(
           {

@@ -357,8 +357,72 @@ export class VideoGenerationAgentService {
   }
 
   /**
-   * Step 5 only: Review quality of generated content via LLM tool.
+   * Generate a fallback storyboard using the video data tool directly (no agent loop).
+   * Called when the full agent pipeline times out — provides a quick storyboard
+   * so the engine renderers (especially dynamic-remotion) can still produce a video.
    */
+  async generateFallbackStoryboard(
+    topic: string,
+    domain?: string,
+    ageGroup?: string,
+  ): Promise<VideoStoryboard | null> {
+    const ageSanitized: '3-4' | '5-6' = ageGroup === '3-4' ? '3-4' : '5-6';
+    try {
+      if (typeof (this as any).generateVideoContentTool?.execute === 'function') {
+        const result = await (this as any).generateVideoContentTool.execute(
+          { topic, ageGroup: ageSanitized, slideCount: 5 },
+          {} as any,
+        );
+        if (result?.data) {
+          return result.data as VideoStoryboard;
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(
+        `[generateFallbackStoryboard] generateVideoContentTool failed: ${e.message}`,
+      );
+    }
+
+    try {
+      if (typeof (this as any).generateVideoDataTool?.execute === 'function') {
+        const result = await (this as any).generateVideoDataTool.execute(
+          { topic, ageGroup: ageSanitized, slideCount: 5 },
+          {} as any,
+        );
+        if (result?.data?.slides) {
+          const scenes = result.data.slides.map((slide: any, i: number) => ({
+            sequence: i + 1,
+            title: slide.title || `场景${i + 1}`,
+            narration: slide.narration || `我们来学习${topic}的第${i + 1}个知识点`,
+            onScreenText: slide.subtitle || slide.title || '',
+            visualDescription: `${topic}场景：${slide.title || ''}，卡通教育风格`,
+            durationSec: 6,
+            accentColor: slide.accentColor || '#4D96FF',
+            bgColor: slide.bgColor || '#EBF5FF',
+          }));
+          return {
+            topic,
+            title: result.data.title || `认识${topic}`,
+            domain: domain || 'general',
+            totalDurationSec: scenes.length * 6,
+            sceneCount: scenes.length,
+            scenes,
+            visualTheme: {
+              primaryPalette: '#4A90D9',
+              accentColor: '#FF6B35',
+              mood: 'playful' as const,
+            },
+            narrativeArc: `介绍和学习${topic}的相关知识`,
+          };
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`[generateFallbackStoryboard] generateVideoDataTool failed: ${e.message}`);
+    }
+
+    return null;
+  }
+
   async reviewQuality(
     topic: string,
     scenes: Array<Record<string, any>>,

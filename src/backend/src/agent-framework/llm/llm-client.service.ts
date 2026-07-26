@@ -324,6 +324,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     const result = await this.models.complete(entry.model, context, {
       maxTokens: maxTokensOverride ?? entry.config.maxTokens,
       temperature: entry.config.temperature,
+      timeoutMs: 60_000,
     });
 
     return this.fromPiAiResponse(result);
@@ -355,6 +356,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     const stream = this.models.stream(entry.model, context, {
       maxTokens: entry.config.maxTokens,
       temperature: entry.config.temperature,
+      timeoutMs: 60_000,
     });
 
     for await (const event of stream) {

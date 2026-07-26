@@ -570,6 +570,61 @@ export class VideoDownloadService {
   }
 
   /**
+   * Update a failed download's source URL and restart download
+   */
+  async updateUrl(id: number, newUrl: string): Promise<VideoDownload> {
+    const task = await this.findById(id);
+    if (task.status !== 'failed') {
+      throw new BadRequestException('Only failed downloads can be updated');
+    }
+
+    // Extract URL from possible share text (same as createDownload)
+    const url = this.extractUrlFromText(newUrl);
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      throw new BadRequestException('请输入有效的视频链接');
+    }
+
+    // Re-extract metadata for the new URL
+    let info: Partial<VideoDownload> = {};
+    try {
+      if (this.isDouyinUrl(url)) {
+        info = await this.extractDouyinInfo(url);
+      } else {
+        info = await this.extractInfo(url);
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to extract info for updated URL ${url}: ${(err as Error).message}`);
+    }
+
+    // Update the record
+    await this.repo.update(id, {
+      sourceUrl: url,
+      title: info.title || url,
+      thumbnail: info.thumbnail || null,
+      uploader: info.uploader || null,
+      duration: info.duration || null,
+      platform: info.platform || this.detectPlatform(url),
+      status: 'pending',
+      errorMessage: null,
+      filePath: null,
+      fileSize: null,
+    });
+
+    // Restart download in background
+    if (this.isDouyinUrl(url)) {
+      this.performDouyinDownload(id, url).catch((err) => {
+        this.logger.error(`Update-url douyin download failed for task ${id}: ${err.message}`);
+      });
+    } else {
+      this.performDownload(id, url).catch((err) => {
+        this.logger.error(`Update-url download failed for task ${id}: ${err.message}`);
+      });
+    }
+
+    return this.findById(id);
+  }
+
+  /**
    * Detect platform from URL
    */
   private detectPlatform(url: string): string {

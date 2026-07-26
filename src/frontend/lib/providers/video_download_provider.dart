@@ -151,6 +151,27 @@ class VideoDownloadProvider extends ChangeNotifier {
     }
   }
 
+  /// Update source URL for a failed download and restart it
+  Future<void> updateUrl(int id, String newUrl) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/video-download/$id/update-url',
+        data: {'url': newUrl},
+      );
+      final updated = VideoDownloadItem.fromJson(
+          response.data as Map<String, dynamic>);
+      final idx = _downloads.indexWhere((d) => d.id == id);
+      if (idx >= 0) {
+        _downloads[idx] = updated;
+        notifyListeners();
+      }
+      _maybeStartPolling();
+    } catch (e) {
+      _log.warning('updateUrl error: $e');
+      rethrow;
+    }
+  }
+
   /// Delete a download
   Future<void> deleteDownload(int id) async {
     try {

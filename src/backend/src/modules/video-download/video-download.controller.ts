@@ -65,6 +65,15 @@ export class VideoDownloadController {
     return this.service.reDownload(+id);
   }
 
+  @Post(':id/update-url')
+  @ApiOperation({ summary: '修改失败下载任务的链接并重新下载' })
+  async updateUrl(@Param('id') id: string, @Body() body: { url: string }) {
+    if (!body?.url) {
+      throw new BadRequestException('URL is required');
+    }
+    return this.service.updateUrl(+id, body.url);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: '删除下载任务及文件' })
   async deleteDownload(@Param('id') id: string) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -64,34 +65,65 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
   }
 
   Future<void> _submitDownload() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) {
+    final raw = _urlController.text.trim();
+    if (raw.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请输入视频链接'), backgroundColor: Colors.red),
       );
       return;
     }
 
-    final provider = context.read<VideoDownloadProvider>();
-    final error = await provider.createDownload(url, childId: _selectedChildId);
+    // Parse multiple URLs: split by whitespace/newlines
+    final urls = raw
+        .split(RegExp(r'[\s\n]+'))
+        .where((u) => u.startsWith('http://') || u.startsWith('https://'))
+        .toList();
 
-    if (error != null && mounted) {
+    if (urls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('未找到有效的视频链接'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final provider = context.read<VideoDownloadProvider>();
+    int successCount = 0;
+    int failCount = 0;
+
+    for (final url in urls) {
+      final error = await provider.createDownload(url, childId: _selectedChildId);
+      if (error != null) {
+        failCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    _urlController.clear();
+
+    if (!mounted) return;
+
+    if (failCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('下载失败: $error'),
-          backgroundColor: Colors.red,
+          content: Text('已创建 $successCount 个下载任务'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (successCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('成功 $successCount 个，失败 $failCount 个'),
+          backgroundColor: Colors.orange,
         ),
       );
     } else {
-      _urlController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('下载任务已创建，正在后台下载...'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('下载失败: $failCount 个任务均创建失败'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -174,6 +206,76 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
     );
   }
 
+  void _showEditUrlDialog(VideoDownloadItem item) {
+    final urlController = TextEditingController(text: item.sourceUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('修改链接'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('当前链接下载失败，请输入新的链接重新下载：', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlController,
+              decoration: InputDecoration(
+                hintText: '粘贴新的视频链接...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              keyboardType: TextInputType.url,
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newUrl = urlController.text.trim();
+              if (newUrl.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await context.read<VideoDownloadProvider>().updateUrl(item.id, newUrl);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('链接已更新，正在重新下载...'), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('保存并重新下载'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyDownloadLink(VideoDownloadItem item) {
+    final provider = context.read<VideoDownloadProvider>();
+    final url = provider.getVideoUrl(item);
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('下载链接不可用'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('下载链接已复制到剪贴板'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
+    );
+  }
+
   @override
   void dispose() {
     _urlController.dispose();
@@ -216,6 +318,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
                         onRetry: null,
                         onCancel: () => _cancelDownload(item),
                         onDelete: () => _confirmDelete(item),
+                        onEditUrl: null,
+                        onCopyLink: null,
                       );
                     },
                     childCount: provider.inProgress.length,
@@ -235,6 +339,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
                         onRetry: null,
                         onReDownload: () => _confirmReDownload(item),
                         onDelete: () => _confirmDelete(item),
+                        onEditUrl: null,
+                        onCopyLink: () => _copyDownloadLink(item),
                       );
                     },
                     childCount: provider.completed.length,
@@ -253,6 +359,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
                         onTogglePublish: null,
                         onRetry: () => provider.retryDownload(item.id),
                         onDelete: () => _confirmDelete(item),
+                        onEditUrl: () => _showEditUrlDialog(item),
+                        onCopyLink: null,
                       );
                     },
                     childCount: provider.failed.length,
@@ -323,7 +431,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              '支持抖音、头条、B站、快手、小红书、优酷、爱奇艺等平台',
+              '支持抖音、头条、B站、快手、小红书、优酷、爱奇艺等平台\n支持批量粘贴，每行一个链接',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 12),
@@ -410,6 +518,8 @@ class _DownloadCard extends StatefulWidget {
   final VoidCallback? onReDownload;
   final VoidCallback? onCancel;
   final VoidCallback? onDelete;
+  final VoidCallback? onEditUrl;
+  final VoidCallback? onCopyLink;
 
   const _DownloadCard({
     required this.item,
@@ -419,6 +529,8 @@ class _DownloadCard extends StatefulWidget {
     this.onReDownload,
     this.onCancel,
     this.onDelete,
+    this.onEditUrl,
+    this.onCopyLink,
   });
 
   @override
@@ -435,6 +547,8 @@ class _DownloadCardState extends State<_DownloadCard> {
   VoidCallback? get onReDownload => widget.onReDownload;
   VoidCallback? get onCancel => widget.onCancel;
   VoidCallback? get onDelete => widget.onDelete;
+  VoidCallback? get onEditUrl => widget.onEditUrl;
+  VoidCallback? get onCopyLink => widget.onCopyLink;
 
   @override
   Widget build(BuildContext context) {
@@ -602,6 +716,28 @@ class _DownloadCardState extends State<_DownloadCard> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.orange,
                           side: BorderSide(color: Colors.orange.shade300),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    if (isFailed && onEditUrl != null)
+                      OutlinedButton.icon(
+                        onPressed: onEditUrl,
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('编辑链接'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          side: BorderSide(color: Colors.blue.shade300),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    if (isCompleted && item.filePath != null && onCopyLink != null)
+                      OutlinedButton.icon(
+                        onPressed: onCopyLink,
+                        icon: const Icon(Icons.copy, size: 18),
+                        label: const Text('复制链接'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.teal,
+                          side: BorderSide(color: Colors.teal.shade300),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                       ),

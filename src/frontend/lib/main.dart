@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:js' as js;
+import 'utils/loader_helper.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -30,11 +30,7 @@ void _logError(String label, Object error, StackTrace? stack) {
 /// 隐藏 HTML 加载指示器（#lingxi-loader）
 void _hideLoader() {
   try {
-    final loader = js.context['_lingxiLoader'];
-    if (loader != null) {
-      loader.callMethod('hide');
-      loader.callMethod('cancelTimeout');
-    }
+    hideLoader();
   } catch (_) {
     // 非 Web 平台忽略
   }

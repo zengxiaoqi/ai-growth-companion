@@ -1,7 +1,7 @@
 name: lingxi_companion
 description: 灵犀伴学 - AI 儿童成长伙伴
 publish_to: 'none'
-version: 1.0.0+2026072501
+version: 1.0.0+2026072601
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 
 /// Mobile (non-Web) stub for web video player.
 /// Does nothing — on mobile, video_player package is used directly.
@@ -13,15 +12,20 @@ void triggerBrowserDownload(String url, String filename) {
   // No-op on mobile — use downloadToLocal instead
 }
 
-/// Download a file to local storage, then open system share sheet
-/// so the user can save to Photos / Downloads / Files.
+/// Download a file to a user-chosen directory via file picker.
+/// On mobile, shows a native directory picker, then downloads the file there.
 Future<void> downloadToLocal(String url, String filename) async {
-  final dir = await getApplicationDocumentsDirectory();
-  final filePath = '${dir.path}/$filename';
+  // Step 1: Let user pick a save directory
+  final saveDir = await FilePicker.platform.getDirectoryPath(
+    dialogTitle: '选择保存目录',
+  );
+  if (saveDir == null) {
+    // User cancelled
+    return;
+  }
+
+  // Step 2: Download file directly to the chosen directory
+  final filePath = '$saveDir/$filename';
   final dio = Dio();
   await dio.download(url, filePath);
-
-  // Show system share sheet (save to Photos, Downloads, Files, etc.)
-  final xFile = XFile(filePath);
-  await Share.shareXFiles([xFile], text: filename);
 }

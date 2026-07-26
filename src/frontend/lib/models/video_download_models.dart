@@ -43,7 +43,7 @@ class VideoDownloadItem {
       thumbnail: json['thumbnail'] as String?,
       platform: json['platform'] as String?,
       uploader: json['uploader'] as String?,
-      duration: json['duration'] as int?,
+      duration: json['duration'] != null ? (json['duration'] as num).toInt() : null,
       filePath: json['filePath'] as String?,
       fileSize: json['fileSize'] as int?,
       status: json['status'] as String,

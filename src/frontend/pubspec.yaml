@@ -39,6 +39,9 @@ dependencies:
   # 音频
   audioplayers: ^6.7.1
 
+  # 文件操作
+  file_picker: ^8.0.0
+
   # 视频播放
   video_player: ^2.9.2
 

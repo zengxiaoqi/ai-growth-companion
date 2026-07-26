@@ -770,7 +770,7 @@ class _DownloadCardState extends State<_DownloadCard> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已开始下载: $filename'),
+            content: Text('下载完成: $filename'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),

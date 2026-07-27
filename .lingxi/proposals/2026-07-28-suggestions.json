@@ -1,0 +1,26 @@
+{
+  "date": "2026-07-28",
+  "source_analysis": "#68",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "视频下载服务测试覆盖 — video-download.service.ts",
+      "description": "video-download.service.ts (647行) 仍有 0 测试覆盖，2026-07-25 起新增了 cancel、batch download、re-download、edit URL、batch download multiple ops 等 5 个新功能，全部无测试。这是代码库中最大的测试缺口。",
+      "tier": 1,
+      "details": {
+        "service_file": "src/backend/src/modules/video-download/video-download.service.ts",
+        "service_lines": 647,
+        "existing_tests": "none",
+        "new_features_untested": ["cancel", "batch download", "re-download", "edit URL", "cancel stuck tasks"]
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P2",
+      "title": "React Web 前端构建状态检查",
+      "description": "检查 src/frontend-web/ 的构建状态和 dist/ 产出是否最新",
+      "tier": 1
+    }
+  ]
+}

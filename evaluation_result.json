@@ -1,0 +1,21 @@
+{
+  "evaluations": [
+    {
+      "id": "s1",
+      "title": "video-download.service.ts test coverage",
+      "worth_implementing": true,
+      "feasible": true,
+      "risk_level": "low",
+      "reasoning": "The service has 647 lines with 0 test coverage despite 5+ new features since July 25. 79 existing unit tests demonstrate the project already uses Test.createTestingModule with mocked repos. Public methods (findById, findByParent, deleteDownload, togglePublish, cancelDownload, retryDownload, reDownload, updateUrl, createDownload) are deterministic or controllable with mocks. Private methods like extractUrlFromText, detectPlatform, isDouyinUrl are pure functions easily tested. Background downloads need jest.useFakeTimers() but are feasible. Tests add safety net for regression without altering production code."
+    },
+    {
+      "id": "s2",
+      "title": "React Web frontend build check",
+      "worth_implementing": true,
+      "feasible": true,
+      "risk_level": "low",
+      "reasoning": "dist/ was last built on Jul 25 (~2 days ago), no source files are newer than dist/, confirming current deploy is fresh. A pre-deploy check comparing dist/ vs src/ timestamps prevents serving stale builds after source changes. Implementation: simple shell script checking find -newer dist/index.html src/, or a CI step. Non-invasive read-only check with no runtime impact. Current nginx on :8081 serves lingxi-web.chataifree.eu.org — a stale-build guard catches manual deployment oversights."
+    }
+  ],
+  "summary": "Both suggestions pass the evaluation criteria (worth_implementing=true, feasible=true, risk_level!=high). S1 addresses a real reliability gap — a 647-line critical download service with zero tests poses regression risk. The existing test infrastructure (79 unit tests, documented patterns) makes implementation straightforward. S2 addresses a deployment hygiene gap — ensuring dist/ stays in sync with src/ prevents stale content delivery. Both should be implemented."
+}

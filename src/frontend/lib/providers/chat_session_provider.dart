@@ -608,10 +608,10 @@ class ChatSessionProvider extends ChangeNotifier {
 
       try {
       await for (final event in stream.timeout(
-        const Duration(seconds: 90),
+        const Duration(seconds: 240),
         onTimeout: (sink) {
-          debugPrint('⚠️ [ChatProvider] stream timeout (90s), aborting');
-          sink.add({'type': 'error', 'message': 'AI响应超时（90秒），请稍后重试~'});
+          debugPrint('⚠️ [ChatProvider] stream timeout (240s), aborting');
+          sink.add({'type': 'error', 'message': 'AI响应超时，请稍后重试~'});
           sink.close();
         },
       )) {

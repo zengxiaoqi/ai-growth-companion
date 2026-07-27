@@ -1408,7 +1408,10 @@ class ApiService {
         'message': message,
         if (childId != null) 'childId': childId,
         if (sessionId != null) 'sessionId': sessionId,
-      });
+      }, options: Options(
+        receiveTimeout: const Duration(seconds: 200),
+        sendTimeout: const Duration(seconds: 10),
+      ));
       return response.data as Map<String, dynamic>;
     } catch (e) {
       _log.warning('AI chat error: $e');

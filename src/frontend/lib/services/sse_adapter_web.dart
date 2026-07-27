@@ -121,8 +121,8 @@ Stream<Map<String, dynamic>> _fetchSseStream({
     // 检查是否已收到首 chunk 但长时间无实际事件
     if (!gotFirstRealEvent && firstChunkTime != null) {
       final elapsed = DateTime.now().difference(firstChunkTime);
-      if (elapsed.inSeconds > 45) {
-        debugPrint('⚠️ [SSE] no real events in 45s after first chunk, aborting');
+      if (elapsed.inSeconds > 120) {
+        debugPrint('⚠️ [SSE] no real events in 120s after first chunk, aborting');
         yield {'type': 'error', 'message': 'AI响应超时，请稍后重试~'};
         return;
       }
@@ -211,7 +211,7 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
       data: body,
       options: Options(
         headers: headers,
-        receiveTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 200),
       ),
     );
 

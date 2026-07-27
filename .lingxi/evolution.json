@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-07-27",
-  "analysis_count": 67,
-  "commit_count": 529,
-  "last_commit": "2026-07-27T00:17:07+08:00",
-  "last_commit_hash": "604d512",
+  "last_analysis": "2026-07-28",
+  "analysis_count": 68,
+  "commit_count": 534,
+  "last_commit": "2026-07-28T01:47:02+08:00",
+  "last_commit_hash": "0d5549a",
   "commits_ahead_remote": 0,
-  "remote_head": "604d512",
-  "remote_head_date": "2026-07-27T00:17:07+08:00",
+  "remote_head": "0d5549a",
+  "remote_head_date": "2026-07-28T01:47:02+08:00",
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -93,7 +93,9 @@
     "2026-07-26: Feishu APK upload helper script + dart:js loader refactor into platform-abstracted helper",
     "2026-07-26: Video download enhancements — batch download, edit URL for failed downloads, copy link, re-download lost files, cancel stuck tasks, share sheet→file picker for mobile",
     "2026-07-27: AGENTS.md audit — fixed Flutter Web deploy descriptions (post-build-web.sh, canvaskit renderer, no html switch)",
-    "2026-07-27: Cleaned stale build artifacts — 3 .gz files (v1-v3), bare main.dart.js, 914MB APK build artifacts removed"
+    "2026-07-27: Cleaned stale build artifacts — 3 .gz files (v1-v3), bare main.dart.js, 914MB APK build artifacts removed",
+    "2026-07-28: Cleaned stale build artifacts — 4 .gz files (v4-v7), bare main.dart.js from build/web/ (saved ~11MB)",
+    "2026-07-28: Assignment draft preview card + orchestrator publish improvements + SSE/chat timeout increases for deep reasoning models (4 commits, 7 files, +243/-51 lines)"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -117,17 +119,19 @@
     "post-build-web.sh last line still says 'sudo cp -r * /var/www/lingxi/' — outdated advice, should be removed or updated to reflect nginx direct serving from build/web/",
     "video-download.service.ts has 0 unit test coverage — new cancel endpoint added without tests",
     "LLM timeout hardening required 6 iterations (d3730f2→604d512) — AbortSignal.timeout was missing from the pi-ai client, Promise.race was needed for streaming, and the final 300s timeout resolved video agent storyboard generation timeouts",
-    "Video download enhancements shipped 4 new features in one day: batch download, re-download lost files, cancel stuck tasks, and file picker for mobile — all in video-download.service.ts which still has 0 test coverage"
+    "Video download enhancements shipped 4 new features in one day: batch download, re-download lost files, cancel stuck tasks, and file picker for mobile — all in video-download.service.ts which still has 0 test coverage",
+    "post-build-web.sh is now clean — no stale `sudo cp` advice. Verified during analysis #68.",
+    "Deep reasoning models require 240s+ for SSE streams and 200s+ for non-streaming fallback — the 90s→240s/30s→200s timeouts now accommodate this."
   ],
   "metrics": {
     "backend_files": 236,
-    "backend_test_files": 80,
+    "backend_test_files": 79,
     "flutter_files": 118,
-    "web_files": 100,
+    "web_files": 101,
     "content_files": 46,
-    "total_lines": 136311,
+    "total_lines": 154806,
     "backend_lines": 44374,
-    "flutter_lines": 57121,
+    "flutter_lines": 57305,
     "web_lines": 27194,
     "content_lines": 7622
   }

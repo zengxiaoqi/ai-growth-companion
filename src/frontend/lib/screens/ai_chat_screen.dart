@@ -432,6 +432,135 @@ class _InlineGameCardState extends State<_InlineGameCard> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 作业草稿预览卡片 Widget — 显示 assignActivity 生成的草稿，附带发布按钮
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DraftPreviewCard extends StatelessWidget {
+  final List<Map<String, dynamic>> drafts;
+  final VoidCallback onPublish;
+
+  const _DraftPreviewCard({
+    required this.drafts,
+    required this.onPublish,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade200, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text('📋', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              const Text(
+                '作业草稿',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${drafts.length} 个',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...drafts.map((draft) => _DraftItem(draft: draft)),
+          const SizedBox(height: 10),
+          // 发布按钮
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onPublish,
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: const Text('确认发布全部作业', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DraftItem extends StatelessWidget {
+  final Map<String, dynamic> draft;
+
+  const _DraftItem({required this.draft});
+
+  @override
+  Widget build(BuildContext context) {
+    final topic = draft['topic']?.toString() ?? '';
+    final typeLabel = draft['activityTypeLabel']?.toString() ?? draft['activityType']?.toString() ?? '';
+    final difficulty = draft['difficulty'];
+    final domain = draft['domain']?.toString() ?? '';
+    final difficultyStars = difficulty is num ? '⭐' * difficulty.toInt() : '⭐';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                typeLabel,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                topic,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (domain.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(domain, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            ],
+            const SizedBox(width: 4),
+            Text(difficultyStars, style: const TextStyle(fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 会话抽屉面板
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -952,6 +1081,18 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           gameData: message.gameDatas[i],
         ));
       }
+    }
+
+    // ── 作业草稿预览卡片（含发布按钮）──
+    if (!isUser && message.drafts.isNotEmpty) {
+      debugPrint('🔍 [UI] buildInner idx=$index: adding ${message.drafts.length} draft preview card(s)');
+      columnChildren.add(const SizedBox(height: 12));
+      columnChildren.add(_DraftPreviewCard(
+        drafts: message.drafts,
+        onPublish: () {
+          context.read<ChatSessionProvider>().sendMessage('确认发布');
+        },
+      ));
     }
 
     // ── Speak button ──

@@ -88,6 +88,10 @@ class ChatMessageEntry {
   final List<String> gameTypes;           // 游戏类型列表
   final List<Map<String, dynamic>> gameDatas; // 游戏原始数据列表
 
+  // ── 作业草稿数据（assignActivity 工具生成的 draft_ready 数据）──
+  // 每条 draft 包含 {childId, activityType, activityTypeLabel, topic, difficulty, ...}
+  final List<Map<String, dynamic>> drafts; // 作业草稿列表
+
   // 兼容旧代码的单值访问器
   String? get gameType => gameTypes.isNotEmpty ? gameTypes.first : null;
   Map<String, dynamic>? get gameData => gameDatas.isNotEmpty ? gameDatas.first : null;
@@ -102,8 +106,10 @@ class ChatMessageEntry {
     this.isThinkingExpanded = false,
     List<String>? gameTypes,
     List<Map<String, dynamic>>? gameDatas,
+    List<Map<String, dynamic>>? drafts,
   }) : gameTypes = gameTypes ?? const [],
-       gameDatas = gameDatas ?? const [];
+       gameDatas = gameDatas ?? const [],
+       drafts = drafts ?? const [];
 
   factory ChatMessageEntry.fromJson(Map<String, dynamic> json) {
     final content = json['content']?.toString() ?? '';
@@ -583,6 +589,7 @@ class ChatSessionProvider extends ChangeNotifier {
       String? newSessionId;
       final List<String> pendingGameTypes = [];
       final List<Map<String, dynamic>> pendingGameDatas = [];
+      final List<Map<String, dynamic>> pendingDrafts = [];
 
       debugPrint('🔍 [ChatProvider] SSE stream starting...');
 
@@ -680,6 +687,31 @@ class ChatSessionProvider extends ChangeNotifier {
             }
           }
           notifyListeners();
+        } else if (type == 'tool_result') {
+          // 捕获 assignActivity 工具返回的草稿数据
+          final toolName = event['toolName'] as String? ?? '';
+          if (toolName == 'assignActivity') {
+            final resultStr = event['toolResult'] as String? ?? '';
+            if (resultStr.isNotEmpty) {
+              try {
+                final result = jsonDecode(resultStr) as Map<String, dynamic>;
+                final status = result['status'] as String?;
+                if (status == 'draft_ready' && result['draft'] is Map) {
+                  final draft = result['draft'] as Map<String, dynamic>;
+                  pendingDrafts.add(draft.map((k, v) => MapEntry(k.toString(), v)));
+                  // 草稿多了，更新显示文本
+                  if (fullReply.isEmpty) {
+                    fullReply = '📋 已生成作业草稿，可以预览后发布~';
+                    aiMsg.content = fullReply;
+                    aiMsg.displayText = fullReply;
+                  } else {
+                    aiMsg.displayText = '📋 已生成 ${pendingDrafts.length} 个作业草稿...';
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+          notifyListeners();
         } else if (type == 'done') {
           thinkingTimer.cancel();
           newSessionId = event['sessionId'] as String?;
@@ -731,6 +763,7 @@ class ChatSessionProvider extends ChangeNotifier {
         isThinkingExpanded: false,
         gameTypes: List.from(pendingGameTypes),
         gameDatas: List.from(pendingGameDatas),
+        drafts: List.from(pendingDrafts),
       );
       _localMessages[_localMessages.length - 1] = finalizedMsg;
 

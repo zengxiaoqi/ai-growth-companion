@@ -401,16 +401,16 @@ describe('cancelDownload', () => {
 // ====================== retryDownload ======================
 
 describe('retryDownload', () => {
-  const repo = createRepo({
-        findOne: jest
-          .fn()
-          .mockResolvedValueOnce(oldTask) // first findById
-          .mockResolvedValue(updatedTask), // all subsequent (performDownload + return)
-        update: jest.fn().mockResolvedValue({ affected: 1 }),
-      });
-      const service = createService(repo);
-      succeedDownload();
-      const result = await service.retryDownload(1);
+  it('retries a failed download', async () => {
+    const task = makeTask({ status: 'failed', sourceUrl: 'https://www.bilibili.com/video/BV123' });
+    const updatedTask = { ...task, status: 'pending', errorMessage: null };
+    const repo = createRepo({
+      findOne: jest.fn().mockResolvedValueOnce(task).mockResolvedValue(updatedTask), // all subsequent (performDownload + return)
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    });
+    const service = createService(repo);
+    succeedDownload();
+    const result = await service.retryDownload(1);
     expect(result.status).toBe('pending');
     expect(repo.update).toHaveBeenCalledWith(1, { status: 'pending', errorMessage: null });
   });
@@ -494,7 +494,7 @@ describe('updateUrl', () => {
       platform: 'bilibili',
     });
     const repo = createRepo({
-      findOne: jest.fn().mockResolvedValueOnce(oldTask).mockResolvedValueOnce(updatedTask),
+      findOne: jest.fn().mockResolvedValueOnce(oldTask).mockResolvedValue(updatedTask), // all subsequent (performDownload + return)
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     });
     const service = createService(repo);

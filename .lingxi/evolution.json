@@ -1,19 +1,18 @@
 {
   "last_analysis": "2026-07-28",
-  "analysis_count": 68,
-  "commit_count": 534,
-  "last_commit": "2026-07-28T01:47:02+08:00",
-  "last_commit_hash": "0d5549a",
-  "commits_ahead_remote": 0,
+  "analysis_count": 69,
+  "commit_count": 535,
+  "last_commit": "2026-07-28T03:20:00+08:00",
   "remote_head": "0d5549a",
   "remote_head_date": "2026-07-28T01:47:02+08:00",
+  "commits_ahead_remote": 1,
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 99,
     "content_system": 95,
     "infrastructure": 98,
-    "code_quality": 99
+    "code_quality": 100
   },
   "active_plans": [],
   "completed_actions": [
@@ -95,7 +94,8 @@
     "2026-07-27: AGENTS.md audit — fixed Flutter Web deploy descriptions (post-build-web.sh, canvaskit renderer, no html switch)",
     "2026-07-27: Cleaned stale build artifacts — 3 .gz files (v1-v3), bare main.dart.js, 914MB APK build artifacts removed",
     "2026-07-28: Cleaned stale build artifacts — 4 .gz files (v4-v7), bare main.dart.js from build/web/ (saved ~11MB)",
-    "2026-07-28: Assignment draft preview card + orchestrator publish improvements + SSE/chat timeout increases for deep reasoning models (4 commits, 7 files, +243/-51 lines)"
+    "2026-07-28: Assignment draft preview card + orchestrator publish improvements + SSE/chat timeout increases for deep reasoning models (4 commits, 7 files, +243/-51 lines)",
+    "2026-07-28: Created video-download.service.spec.ts — 61 unit tests for 0-coverage module (cancel, batch, re-download, retry, updateUrl, createDownload, findById, etc.)"
   ],
   "lessons_learned": [
     "Always run targeted tests after any DI change — new dependencies break existing tests silently",
@@ -125,7 +125,7 @@
   ],
   "metrics": {
     "backend_files": 236,
-    "backend_test_files": 79,
+    "backend_test_files": 80,
     "flutter_files": 118,
     "web_files": 101,
     "content_files": 46,

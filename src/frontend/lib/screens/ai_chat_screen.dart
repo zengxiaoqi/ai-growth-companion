@@ -611,16 +611,18 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       if (childId != null) {
         provider.setChildId(childId);
       }
-      // 加载会话列表
-      provider.loadSessions();
 
-      // 如果有活跃会话就恢复它（加载历史消息）
-      if (provider.activeSession != null) {
-        provider.switchToSession(provider.activeSession!);
-      } else {
-        // 没有活跃会话，添加默认开场白
-        provider.resetGreeting();
-      }
+      // 加载会话列表后，自动选中最近会话
+      // 避免浏览器切换/页面重建后每次创建新会话
+      provider.loadSessions().then((_) {
+        if (provider.sessions.isNotEmpty) {
+          // 自动选中最近会话（第一个 = 最新）
+          final latest = provider.sessions.first;
+          provider.switchToSession(latest);
+        } else {
+          provider.resetGreeting();
+        }
+      });
     });
   }
 

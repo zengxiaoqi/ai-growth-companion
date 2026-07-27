@@ -100,8 +100,8 @@ export class OrchestratorService implements OnApplicationBootstrap {
   ];
 
   private static readonly ASSIGNMENT_PATTERNS: Array<[RegExp, number]> = [
-    [/\u4F5C\u4E1A|\u5E03\u7F6E|\u4EFB\u52A1|\u7EC3\u4E60\u5B89\u6392/i, 2],
-    [/\bassignment\b|\bassign\b|\bhomework\b/i, 2],
+    [/\u4F5C\u4E1A|\u5E03\u7F6E|\u4EFB\u52A1|\u7EC3\u4E60\u5B89\u6392|\u53D1\u5E03/i, 2],
+    [/\bassignment\b|\bassign\b|\bhomework\b|\bpublish\b/i, 2],
   ];
 
   private static readonly VIDEO_PATTERNS: Array<[RegExp, number]> = [
@@ -113,7 +113,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
   ];
 
   private static readonly ASSIGNMENT_PUBLISH_PATTERNS: RegExp[] = [
-    /\u786e\u8ba4\u53d1\u5e03|\u53d1\u5e03\u4f5c\u4e1a|\u5c31\u6309\u8fd9\u4e2a\u53d1\u5e03/i,
+    /\u786e\u8ba4\u53d1\u5e03|\u53d1\u5e03\u4f5c\u4e1a|\u5c31\u6309\u8fd9\u4e2a\u53d1\u5e03|\u53d1\u5e03\u8bfe\u7a0b/i,
     /\bconfirm\s*publish\b|\bpublish\s*assignment\b/i,
   ];
 
@@ -295,21 +295,12 @@ export class OrchestratorService implements OnApplicationBootstrap {
           signals,
         };
       }
-      if (signals.course >= 3 && signals.activity >= 3) {
+      if (signals.course >= 3 && signals.activity >= 3 && !wantsAssignmentPublish) {
         return {
           mode: 'coordinated',
           primaryAgent: 'parent-advisor',
           collaborators: ['course-designer', 'activity-generator'],
           reason: 'parent composite plan: course + activity',
-          signals,
-        };
-      }
-      if (signals.course >= 3) {
-        return {
-          mode: 'coordinated',
-          primaryAgent: 'parent-advisor',
-          collaborators: ['course-designer'],
-          reason: 'parent asks for structured course planning',
           signals,
         };
       }
@@ -329,6 +320,15 @@ export class OrchestratorService implements OnApplicationBootstrap {
           primaryAgent: 'parent-advisor',
           collaborators: ['activity-generator'],
           reason: 'parent requests assignment drafting',
+          signals,
+        };
+      }
+      if (signals.course >= 3) {
+        return {
+          mode: 'coordinated',
+          primaryAgent: 'parent-advisor',
+          collaborators: ['course-designer'],
+          reason: 'parent asks for structured course planning',
           signals,
         };
       }

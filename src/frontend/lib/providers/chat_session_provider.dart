@@ -637,8 +637,10 @@ class ChatSessionProvider extends ChangeNotifier {
         } else if (type == 'tool_start') {
           thinkingTimer.cancel();
           final toolName = event['toolName'] as String? ?? '';
-          if (toolName == 'generateActivity' || toolName == 'generateQuiz') {
-            aiMsg.displayText = fullReply.isEmpty ? '🎨 正在生成互动题目...' : fullReply;
+          if (toolName == 'generateActivity' || toolName == 'generateQuiz' || toolName == 'assignActivity') {
+            final doneCount = pendingGameDatas.length;
+            final progress = doneCount > 0 ? '（已完成 $doneCount 个）' : '';
+            aiMsg.displayText = fullReply.isEmpty ? '🎨 正在生成互动题目$progress...' : fullReply;
           } else {
             aiMsg.displayText = fullReply.isEmpty ? '🔍 正在查找信息...' : fullReply;
           }
@@ -657,11 +659,14 @@ class ChatSessionProvider extends ChangeNotifier {
                   : _inferActivityType(gameMap);
               pendingGameTypes.add(resolvedType);
               pendingGameDatas.add(gameMap);
+              final label = _gameTypeLabel(resolvedType);
+              final count = pendingGameDatas.length;
               if (fullReply.isEmpty) {
-                final label = _gameTypeLabel(resolvedType);
                 fullReply = '来玩个$label吧！🎮';
                 aiMsg.content = fullReply;
                 aiMsg.displayText = fullReply;
+              } else {
+                aiMsg.displayText = '🎨 已生成 $count 个互动题目，继续生成中...';
               }
             } catch (_) {
               // JSON 解析失败，降级为从文本解析 quiz

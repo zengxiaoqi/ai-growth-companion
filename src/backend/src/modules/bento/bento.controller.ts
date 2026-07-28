@@ -21,6 +21,7 @@ import {
   PoetryData,
   ContentSlideData,
   AchievementData,
+  SemesterData,
 } from './interfaces/bento-template.interface';
 import { Slide, Theme } from './interfaces/bento-document.interface';
 
@@ -87,6 +88,19 @@ export class BentoController {
     return {
       fileId,
       fileName: `achievement-${fileId.slice(0, 8)}.bento.html`,
+      url: `/api/bento/${fileId}`,
+    };
+  }
+
+  @Post('semester')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '生成学期纪念册幻灯片' })
+  async generateSemesterReport(@Body() semesterData: SemesterData) {
+    const fileId = await this.bentoService.generateSemesterReport(semesterData);
+    return {
+      fileId,
+      fileName: `semester-${fileId.slice(0, 8)}.bento.html`,
       url: `/api/bento/${fileId}`,
     };
   }

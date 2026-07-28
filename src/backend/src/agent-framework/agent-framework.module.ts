@@ -34,6 +34,7 @@ import { ReadFileTool, WriteFileTool } from './tools/impl/file-operations';
 import { RenderHyperframesTool } from './tools/impl/render-hyperframes';
 import { RenderRemotionTool } from './tools/impl/render-remotion';
 import { LoadSkillTool } from './tools/impl/load-skill';
+import { GenerateBentoDocumentTool } from './tools/impl/generate-bento-document';
 
 // Agent definitions
 import { childCompanionDefinition } from './agents/definitions/child-companion.agent';
@@ -83,6 +84,7 @@ import { rewardAdvisorDefinition } from './agents/definitions/reward-advisor.age
     RenderHyperframesTool,
     RenderRemotionTool,
     LoadSkillTool,
+    GenerateBentoDocumentTool,
   ],
   exports: [
     OrchestratorService,

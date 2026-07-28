@@ -9,11 +9,13 @@ import { ReportMonthlyTemplate } from './templates/report-monthly';
 import { PoetryTemplate } from './templates/poetry';
 import { LessonPackTemplate } from './templates/lesson-pack';
 import { AchievementTemplate } from './templates/achievement';
+import { SemesterReportTemplate } from './templates/semester-report';
 import {
   ReportData,
   PoetryData,
   ContentSlideData,
   AchievementData,
+  SemesterData,
 } from './interfaces/bento-template.interface';
 import { Slide, Theme } from './interfaces/bento-document.interface';
 
@@ -42,6 +44,7 @@ export class BentoService implements OnModuleDestroy {
     private readonly poetryTemplate: PoetryTemplate,
     private readonly lessonPackTemplate: LessonPackTemplate,
     private readonly achievementTemplate: AchievementTemplate,
+    private readonly semesterReportTemplate: SemesterReportTemplate,
   ) {
     // 启动时清理陈旧文件，每小时运行一次
     this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000);
@@ -121,11 +124,21 @@ export class BentoService implements OnModuleDestroy {
     return fileId;
   }
 
-  async generateAchievementSlide(achievementData: AchievementData): Promise<string> {
+  async generateAchievementSlide(
+    achievementData: AchievementData,
+    options?: {
+      accentColor?: string;
+      backgroundColor?: string;
+      fontFamily?: string;
+    },
+  ): Promise<string> {
     const fileId = uuidv4();
     const fileName = `achievement-${achievementData.childName}-${fileId.slice(0, 8)}.bento.html`;
 
     const theme = this.achievementTemplate.defaultTheme();
+    if (options?.accentColor) theme.accent = options.accentColor;
+    if (options?.backgroundColor) theme.background = options.backgroundColor;
+    if (options?.fontFamily) theme.fontFamily = options.fontFamily;
     const slides = this.achievementTemplate.toSlides(achievementData, theme);
 
     const doc = this.bentoJsonGenerator.assemble(
@@ -141,7 +154,37 @@ export class BentoService implements OnModuleDestroy {
     return fileId;
   }
 
-  /** 从任意模板生成 Bento 文档（通用方法） */
+  async generateSemesterReport(
+    semesterData: SemesterData,
+    options?: {
+      accentColor?: string;
+      backgroundColor?: string;
+      fontFamily?: string;
+    },
+  ): Promise<string> {
+    const fileId = uuidv4();
+    const fileName = `semester-${semesterData.childName}-${fileId.slice(0, 8)}.bento.html`;
+
+    const theme = this.semesterReportTemplate.defaultTheme();
+    if (options?.accentColor) theme.accent = options.accentColor;
+    if (options?.backgroundColor) theme.background = options.backgroundColor;
+    if (options?.fontFamily) theme.fontFamily = options.fontFamily;
+    const slides = this.semesterReportTemplate.toSlides(semesterData, theme);
+
+    const doc = this.bentoJsonGenerator.assemble(
+      fileId,
+      `${semesterData.childName} 的 ${semesterData.semesterLabel} 纪念册`,
+      slides,
+      theme,
+      { readonly: true, meta: { subject: '学期纪念册' } },
+    );
+
+    const filePath = await this.bentoFileGenerator.generate(doc, fileName);
+    this.registerFile(fileId, fileName, filePath);
+    return fileId;
+  }
+
+  /** 从任意模板生成 Bento 文档（通用方法，支持主题可配置） */
   async generateFromTemplate(
     title: string,
     slides: Slide[],

@@ -92,3 +92,38 @@ export interface AchievementData {
     totalRequired: number;
   }>;
 }
+
+/** 学期纪念册数据 */
+export interface SemesterData {
+  childName: string;
+  semesterLabel: string; // "2026年春季学期"
+  startDate: string;
+  endDate: string;
+  summary: string; // AI 班主任寄语
+  monthSummaries: Array<{
+    month: string; // "3月"
+    totalTime: number; // 秒
+    completedLessons: number;
+    averageScore: number;
+    highlight: string;
+    skills: Record<string, number>; // {language: 80, math: 65, ...}
+  }>;
+  learnedPoems: Array<{
+    title: string;
+    author: string;
+  }>;
+  learnedLessons: Array<{
+    title: string;
+    domain: string;
+  }>;
+  achievements: Array<{
+    name: string;
+    tier: string;
+    unlockedAt: string;
+  }>;
+  totalLearningTime: number;
+  totalLessonsCompleted: number;
+  averageScore: number;
+  totalDaysStudied: number;
+  skillGrowth: Record<string, { start: number; end: number }>;
+}

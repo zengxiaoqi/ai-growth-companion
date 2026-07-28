@@ -10,6 +10,7 @@ import { ReportMonthlyTemplate } from './templates/report-monthly';
 import { PoetryTemplate } from './templates/poetry';
 import { LessonPackTemplate } from './templates/lesson-pack';
 import { AchievementTemplate } from './templates/achievement';
+import { SemesterReportTemplate } from './templates/semester-report';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AchievementTemplate } from './templates/achievement';
     PoetryTemplate,
     LessonPackTemplate,
     AchievementTemplate,
+    SemesterReportTemplate,
   ],
   controllers: [BentoController],
   exports: [BentoService],

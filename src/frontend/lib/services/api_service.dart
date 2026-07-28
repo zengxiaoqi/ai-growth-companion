@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:path_provider/path_provider.dart';
 
 import '../utils/app_logger.dart';
 import 'api_result.dart';
@@ -1568,6 +1570,38 @@ class ApiService {
   /// 获取 Bento 文件 URL（携带 token 用于浏览器新标签页打开）
   String getBentoFileUrl(String fileId, String token) {
     return '${getApiBaseUrl()}/bento/$fileId?token=$token';
+  }
+
+  /// 下载 Bento 文件到本地临时目录（用于分享）
+  Future<String> downloadBentoFile(String fileId, String token) async {
+    final url = getBentoFileUrl(fileId, token);
+    final response = await _dio.get<Uint8List>(
+      '/bento/$fileId',
+      queryParameters: {'token': token},
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    final dir = await getTemporaryDirectory();
+    final filePath = '${dir.path}/bento_${fileId.substring(0, 8)}.bento.html';
+    final file = File(filePath);
+    await file.writeAsBytes(response.data!);
+    return filePath;
+  }
+
+  /// 生成诗词 Bento 幻灯片
+  Future<Map<String, dynamic>> generatePoetryBento(
+    int poetryId, Map<String, dynamic> poetryData,
+  ) async {
+    final response = await _dio.post('/bento/poetry/$poetryId', data: poetryData);
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// 生成课程内容 Bento 幻灯片
+  Future<Map<String, dynamic>> generateLessonBento(
+    int contentId, Map<String, dynamic> contentData,
+  ) async {
+    final response = await _dio.post('/bento/lesson/$contentId', data: contentData);
+    return response.data as Map<String, dynamic>;
   }
 }
 

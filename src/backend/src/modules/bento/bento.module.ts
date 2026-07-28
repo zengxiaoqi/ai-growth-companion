@@ -4,7 +4,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BentoService } from './bento.service';
 import { BentoController } from './bento.controller';
 import { BentoFileGenerator } from './generators/bento-file.generator';
+import { BentoJsonGenerator } from './generators/bento-json.generator';
 import { ReportWeeklyTemplate } from './templates/report-weekly';
+import { ReportMonthlyTemplate } from './templates/report-monthly';
+import { PoetryTemplate } from './templates/poetry';
+import { LessonPackTemplate } from './templates/lesson-pack';
+import { AchievementTemplate } from './templates/achievement';
 
 @Module({
   imports: [
@@ -17,7 +22,16 @@ import { ReportWeeklyTemplate } from './templates/report-weekly';
       inject: [ConfigService],
     }),
   ],
-  providers: [BentoService, BentoFileGenerator, ReportWeeklyTemplate],
+  providers: [
+    BentoService,
+    BentoFileGenerator,
+    BentoJsonGenerator,
+    ReportWeeklyTemplate,
+    ReportMonthlyTemplate,
+    PoetryTemplate,
+    LessonPackTemplate,
+    AchievementTemplate,
+  ],
   controllers: [BentoController],
   exports: [BentoService],
 })

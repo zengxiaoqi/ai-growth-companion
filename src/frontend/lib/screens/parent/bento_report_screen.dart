@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -96,6 +100,38 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
         _error = '生成报告失败：$e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _shareFile() async {
+    if (_bentoUrl == null) return;
+
+    try {
+      setState(() => _isLoading = true);
+      final api = context.read<ApiService>();
+      final token = api.token;
+      if (token == null || token.isEmpty) {
+        throw Exception('未登录');
+      }
+
+      // 从 URL 提取 fileId
+      final uri = Uri.parse(_bentoUrl!);
+      final segments = uri.pathSegments;
+      final fileId = segments.isNotEmpty ? segments.last : '';
+      if (fileId.isEmpty) throw Exception('无法识别文件 ID');
+
+      final filePath = await api.downloadBentoFile(fileId, token);
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: '我的学习报告，快来看看吧！',
+        subject: '学习报告',
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = '分享失败：$e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -333,6 +369,24 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
               ),
             ),
             const SizedBox(height: 24),
+            // 分享按钮
+            FilledButton.icon(
+              onPressed: _shareFile,
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('分享报告'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () async {
                 final uri = Uri.parse(_bentoUrl!);

@@ -739,6 +739,11 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       final childId = userProvider.activeChildId;
       if (childId != null) {
         provider.setChildId(childId);
+      } else if (widget.isParentMode && userProvider.currentUser?['id'] != null) {
+        // 家长模式：后端忽略 childId 参数，改用 viewerId 查询家长自己的会话
+        // 用家长自己的用户 ID 让前端守卫通过，防止 refresh 后 activeChildId 未加载导致历史记录消失
+        final parentId = userProvider.currentUser!['id'] as int;
+        provider.setChildId(parentId);
       }
 
       // 加载会话列表后，自动选中最近会话

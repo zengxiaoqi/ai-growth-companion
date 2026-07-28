@@ -235,7 +235,8 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
     }
 
     // 发 token 事件（整段文本作为一个 token）
-    final content = data['content'] ?? data['message'] ?? '';
+    // 后端非流式端点返回 'reply'，流式端点返回 'content'，都要兼容
+    final content = data['reply'] ?? data['content'] ?? data['message'] ?? '';
     if (content.isNotEmpty) {
       yield {'type': 'token', 'content': content};
     }

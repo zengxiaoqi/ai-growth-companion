@@ -1,18 +1,13 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 
-/// Bento 报告幻灯片预览页面
+/// Bento 报告幻灯片页面
 ///
-/// 通过 WebView 加载 Bento 生成的幻灯片报告，支持日报/周报/月报。
-/// Web 平台使用 iframe 方式嵌入，其他平台使用 webview_flutter。
-///
-/// 需要依赖：
-/// - webview_flutter（非 Web 平台预览）
-/// - url_launcher（可选，Web 平台在新窗口打开）
+/// 生成 Bento 幻灯片报告，然后在新标签页打开。
+/// 不再使用 WebView 内嵌（Bento 是全屏自包含应用，UI 风格不匹配）。
 class BentoReportScreen extends StatefulWidget {
   final int childId;
   final String period; // 'daily', 'weekly', 'monthly'
@@ -29,10 +24,9 @@ class BentoReportScreen extends StatefulWidget {
 
 class _BentoReportScreenState extends State<BentoReportScreen> {
   bool _isLoading = false;
-  bool _isLoaded = false;
+  bool _isDone = false;
   String? _error;
   String? _bentoUrl;
-  WebViewController? _webViewController;
 
   String get _periodLabel {
     switch (widget.period) {
@@ -50,25 +44,22 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _generateReport());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _generateAndOpen());
   }
 
-  @override
-  void dispose() {
-    _webViewController?.clearCache();
-    super.dispose();
-  }
-
-  Future<void> _generateReport() async {
+  Future<void> _generateAndOpen() async {
     setState(() {
       _isLoading = true;
-      _isLoaded = false;
       _error = null;
-      _bentoUrl = null;
     });
 
     try {
       final api = context.read<ApiService>();
+      final token = api.token;
+      if (token == null || token.isEmpty) {
+        throw Exception('未登录，请重新登录后重试');
+      }
+
       final result = await api.generateBentoReport(widget.childId, widget.period);
 
       if (!mounted) return;
@@ -77,36 +68,27 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
           result['fileId']?.toString() ??
           result['file_id']?.toString();
 
+      String url;
       if (fileId != null && fileId.isNotEmpty) {
-        final url = api.getBentoFileUrl(fileId);
-        setState(() {
-          _bentoUrl = url;
-          _isLoaded = true;
-          _isLoading = false;
-        });
-
-        // 非 Web 平台：初始化 WebView
-        if (!kIsWeb) {
-          _initWebView(url);
-        }
+        url = api.getBentoFileUrl(fileId, token);
       } else {
-        // 尝试直接使用返回的 url
-        final directUrl = result['url']?.toString();
-        if (directUrl != null && directUrl.isNotEmpty) {
-          setState(() {
-            _bentoUrl = directUrl;
-            _isLoaded = true;
-            _isLoading = false;
-          });
-          if (!kIsWeb) {
-            _initWebView(directUrl);
-          }
-        } else {
-          setState(() {
-            _error = '未能获取报告文件，请重试';
-            _isLoading = false;
-          });
-        }
+        throw Exception('未能获取报告文件');
+      }
+
+      setState(() {
+        _bentoUrl = url;
+        _isLoading = false;
+        _isDone = true;
+      });
+
+      // 在新标签页打开
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        setState(() {
+          _error = '无法打开浏览器，请手动复制链接';
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -114,39 +96,6 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
         _error = '生成报告失败：$e';
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _initWebView(String url) async {
-    try {
-      _webViewController = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageStarted: (_) {
-              // WebView 加载中
-            },
-            onPageFinished: (_) {
-              if (mounted) {
-                setState(() {}); // 刷新 UI
-              }
-            },
-            onWebResourceError: (error) {
-              if (mounted) {
-                setState(() {
-                  _error = '页面加载失败：${error.description}';
-                });
-              }
-            },
-          ),
-        )
-        ..loadRequest(Uri.parse(url));
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'WebView 初始化失败：$e';
-        });
-      }
     }
   }
 
@@ -184,9 +133,8 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
                       ),
                     ),
                   ),
-                  // 刷新按钮
                   IconButton(
-                    onPressed: _isLoading ? null : _generateReport,
+                    onPressed: _isLoading ? null : _generateAndOpen,
                     icon: const Icon(Icons.refresh_rounded),
                   ),
                 ],
@@ -237,9 +185,9 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
       return _buildErrorState(theme);
     }
 
-    // 加载完成
-    if (_isLoaded && _bentoUrl != null) {
-      return _buildBentoView(theme);
+    // 生成完成
+    if (_isDone && _bentoUrl != null) {
+      return _buildSuccessState(theme);
     }
 
     // 初始空白状态
@@ -300,7 +248,7 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _generateReport,
+              onPressed: _generateAndOpen,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('重新生成'),
               style: FilledButton.styleFrom(
@@ -321,100 +269,94 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
     );
   }
 
-  Widget _buildBentoView(ThemeData theme) {
-    if (kIsWeb) {
-      return _buildWebView(theme);
-    }
-
-    // 非 Web 平台：使用 WebView
-    if (_webViewController != null) {
-      return WebViewWidget(controller: _webViewController!);
-    }
-
-    // WebView 尚未初始化
+  Widget _buildSuccessState(ThemeData theme) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(
-            color: AppTheme.primaryColor,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '正在加载幻灯片...',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWebView(ThemeData theme) {
-    return Column(
-      children: [
-        // 提示条
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.secondaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppTheme.secondaryColor.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 18,
-                color: AppTheme.secondaryColor,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Web 平台暂不支持嵌入式预览，请复制下方链接在新窗口查看',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textColor,
-                    height: 1.4,
+              child: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 48,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              '报告已生成',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '幻灯片已在新标签页打开',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // 如果浏览器没打开，提供手动复制链接
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '如果浏览器没有自动打开，请复制链接手动打开：',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    _bentoUrl!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () async {
+                final uri = Uri.parse(_bentoUrl!);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('再次打开'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
                 ),
               ),
-            ],
-          ),
-        ),
-        // 预览 URL（可复制）
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: SelectableText(
-            _bentoUrl!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
-              fontSize: 12,
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 16),
-        // 提示使用 url_launcher 打开
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            '建议使用 url_launcher 或手动复制链接到浏览器打开',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -244,24 +244,25 @@ export class AiService {
 
       const suggestions = this.generateParentSuggestions();
 
-      for await (const event of this.executeRoutedChatStream({
-        sessionId: session.uuid,
-        message,
-        ageGroup: 'parent',
-        displayName: parentName,
-        executionContext: { parentId: viewerId, childId: targetChildId },
-        actorType: 'parent',
-        targetChildId,
-      })) {
-        if (event.type === 'done') {
+      try {
+        for await (const event of this.executeRoutedChatStream({
+          sessionId: session.uuid,
+          message,
+          ageGroup: 'parent',
+          displayName: parentName,
+          executionContext: { parentId: viewerId, childId: targetChildId },
+          actorType: 'parent',
+          targetChildId,
+        })) {
           yield {
             ...event,
             sessionId: session.uuid,
-            suggestions,
+            ...(event.type === 'done' ? { suggestions } : {}),
           };
-        } else {
-          yield event;
         }
+      } catch (error) {
+        this.logger.error(`Parent agent stream failed: ${error.message}`);
+        yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~', sessionId: session.uuid };
       }
       return;
     }
@@ -323,19 +324,17 @@ export class AiService {
               assistantReply: finalReply,
             });
           }
-
-          yield {
-            ...event,
-            sessionId: session.uuid,
-            suggestions,
-          };
-        } else {
-          yield event;
         }
+
+        yield {
+          ...event,
+          sessionId: session.uuid,
+          ...(event.type === 'done' ? { suggestions } : {}),
+        };
       }
     } catch (error) {
       this.logger.error(`Agent stream failed: ${error.message}`);
-      yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~' };
+      yield { type: 'error', message: 'AI暂时无法回答，请稍后再试~', sessionId: '' };
     }
   }
 
@@ -481,10 +480,12 @@ export class AiService {
 
     // Parent conversations are stored with childId = viewerId (parent's own ID),
     // not the child's ID. When a parent views history, use viewerId as childId.
+    // Don't filter by actorType for parent mode — old sessions may have been
+    // created with actorType='child' before the parent mode refactor.
     const effectiveChildId = params.viewerType === 'parent' ? params.viewerId : params.childId;
     return this.conversationManager.listSessions({
       childId: effectiveChildId,
-      actorType: params.viewerType === 'parent' ? 'parent' : 'child',
+      actorType: params.viewerType === 'parent' ? undefined : 'child',
       page: params.page,
       limit: params.limit,
     });

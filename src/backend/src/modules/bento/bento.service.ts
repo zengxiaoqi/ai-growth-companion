@@ -7,7 +7,7 @@ import { ReportWeeklyTemplate } from './templates/report-weekly';
 import { ReportData } from './interfaces/bento-template.interface';
 import { BentoDoc } from './interfaces/bento-document.interface';
 
-const OUTPUT_DIR = path.resolve(__dirname, '../../../../bento-output');
+const OUTPUT_DIR = path.resolve(process.cwd(), 'bento-output');
 
 interface FileRecord {
   fileId: string;
@@ -38,14 +38,15 @@ export class BentoService {
     const slides = this.reportWeeklyTemplate.toSlides(reportData, theme);
 
     const doc: BentoDoc = {
-      format: 'bento',
+      format: 'bento/slides',
       version: 1,
       docId: fileId,
       title: `${reportData.childName} 的学习报告 - ${reportData.period}`,
-      size: { w: 1280, h: 720 },
+      size: { width: 1280, height: 720 },
       theme,
       slides,
       assets: {},
+      modified: new Date().toISOString(),
     };
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);

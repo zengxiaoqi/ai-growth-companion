@@ -3,8 +3,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { BentoDoc } from '../interfaces/bento-document.interface';
 
-const TEMPLATE_PATH = path.resolve(__dirname, '../../../../templates/bento-shell.html');
-const OUTPUT_DIR = path.resolve(__dirname, '../../../../bento-output');
+const TEMPLATE_PATH = path.resolve(process.cwd(), 'templates/bento-shell.html');
+const OUTPUT_DIR = path.resolve(process.cwd(), 'bento-output');
 
 @Injectable()
 export class BentoFileGenerator {

@@ -1565,9 +1565,9 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  /// 获取 Bento 文件 URL
-  String getBentoFileUrl(String fileId) {
-    return '${getApiBaseUrl()}/bento/$fileId';
+  /// 获取 Bento 文件 URL（携带 token 用于浏览器新标签页打开）
+  String getBentoFileUrl(String fileId, String token) {
+    return '${getApiBaseUrl()}/bento/$fileId?token=$token';
   }
 }
 

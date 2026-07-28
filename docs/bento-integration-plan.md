@@ -647,7 +647,18 @@ NestJS 编译后 `__dirname` 指向 `dist/`，路径层级可能变化。`bento-
 | **加载状态全覆盖** | `bento_report_screen.dart` 有 loading/error/empty 三种状态处理 |
 | **API 服务层封装** | 两个方法职责清晰，URL 构建逻辑正确 |
 
-### 8.6 修复优先级排序
+### 8.7 修复完成状态（v2.0 + 实际代码修复）
+
+| 优先级 | 修复项 | 状态 | 说明 |
+|--------|--------|------|------|
+| P0 🔴 | 重写 `bento-document.interface.ts` 字段定义 | ✅ 已完成 | 完全对照 Bento `format.md` v1.0.6 规范重写 |
+| P0 🔴 | 重写 `report-weekly.ts` 使用正确字段名 | ✅ 已完成 | 使用 `html`、`align`、`shape`、`radius`，移除 `style` 字段，雷达图改用 `shape` 元素绘制进度条 |
+| P0 🔴 | 修正 `bento.service.ts` 的 `format` 和 `size` | ✅ 已完成 | `format: 'bento/slides'`, `size: { width, height }`, 添加 `modified` 必填字段 |
+| P0 🔴 | `GET /bento/:fileId` 改用 token 参数 | ✅ 已完成 | 移除 JWT Guard，改用 `?token=` 查询参数，`BentoModule` 导入 `JwtModule` |
+| P0 🔴 | 修改 `bento_report_screen.dart` 改用 `url_launcher` | ✅ 已完成 | 完全移除 WebView，改为新标签页打开，`pubspec.yaml` 添加 `url_launcher` 依赖 |
+| P1 🟡 | 文件路径改用 `process.cwd()` | ✅ 已完成 | 替换了 `bento-file.generator.ts` 和 `bento.service.ts` 中基于 `__dirname` 的路径 |
+| P1 🟡 | 添加 Bento 文档 `modified` 字段 | ✅ 已完成 | 生成文档时自动设置 `new Date().toISOString()` |
+| P2 | 持久化文件注册表、文件清理策略 | ⏳ 待办 | 需要后续添加 |
 
 | 优先级 | 修复项 | 预估工时 | 影响 |
 |--------|--------|---------|------|

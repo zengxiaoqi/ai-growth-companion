@@ -123,7 +123,9 @@ export class AiController {
 
       for await (const event of stream) {
         if (event.type === 'error') {
-          res.write(`event: error\ndata: ${JSON.stringify({ message: event.message })}\n\n`);
+          res.write(
+            `event: error\ndata: ${JSON.stringify({ message: event.message, sessionId: event.sessionId })}\n\n`,
+          );
           break;
         }
 

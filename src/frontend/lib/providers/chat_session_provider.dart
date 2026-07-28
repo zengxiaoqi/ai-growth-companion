@@ -624,6 +624,12 @@ class ChatSessionProvider extends ChangeNotifier {
       )) {
         final type = event['type'] as String?;
 
+        // Capture sessionId from every event so it's always available
+        final eventSessionId = event['sessionId'] as String?;
+        if (eventSessionId != null && eventSessionId.isNotEmpty) {
+          newSessionId = eventSessionId;
+        }
+
         if (type == 'token') {
           final chunk = event['content'] as String? ?? '';
           if (fullReply.isEmpty) {
@@ -734,9 +740,26 @@ class ChatSessionProvider extends ChangeNotifier {
         } else if (type == 'error') {
           thinkingTimer.cancel();
           final msg = event['message'] as String? ?? 'AI服务暂时不可用';
+          final errSessionId = event['sessionId'] as String?;
           aiMsg.content = msg;
           aiMsg.displayText = msg;
           aiMsg.isStreaming = false;
+          // 保存 sessionId，防止下次消息创建新会话
+          if (errSessionId != null && errSessionId.isNotEmpty) {
+            newSessionId = errSessionId;
+          }
+          // 更新 _activeSession 以便下次消息复用本会话
+          if (newSessionId != null && newSessionId.isNotEmpty) {
+            if (targetSession == null) {
+              _activeSession = ChatSessionSummary(
+                uuid: newSessionId,
+                title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              );
+              _sessions.insert(0, _activeSession!);
+            }
+          }
           notifyListeners();
           return _localMessages.length - 1;
         }

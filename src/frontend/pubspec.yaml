@@ -55,6 +55,7 @@ dependencies:
   uuid: ^4.2.1
   intl: ^0.20.2
   json_annotation: ^4.9.0
+  url_launcher: ^6.2.2
   
   # 日志
   logging: ^1.2.0

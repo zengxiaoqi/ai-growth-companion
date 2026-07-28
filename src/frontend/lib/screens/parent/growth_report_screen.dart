@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import 'bento_report_screen.dart';
 import 'child_selector.dart';
 
 /// 成长报告：展示孩子的学习统计、技能进度、成就和 AI 建议
@@ -352,12 +353,102 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
     );
   }
 
+  Widget _buildBentoEntry(ThemeData theme) {
+    final hasChild = _selectedChildId != null;
+
+    return GestureDetector(
+      onTap: hasChild
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BentoReportScreen(
+                    childId: _selectedChildId!,
+                    period: _period,
+                  ),
+                ),
+              );
+            }
+          : null,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              AppTheme.primaryColor,
+              Color(0xFFFFA5B9),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
+        ),
+        child: Row(
+          children: [
+            // 左侧图标
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.slideshow_rounded,
+                size: 32,
+                color: hasChild
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(width: 16),
+            // 中间文字
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '生成幻灯片报告',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasChild ? '精美动画，一键分享' : '请先选择孩子',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 右侧箭头
+            Icon(
+              hasChild
+                  ? Icons.arrow_forward_ios_rounded
+                  : Icons.lock_outline_rounded,
+              color: Colors.white.withValues(alpha: 0.8),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent(ThemeData theme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 幻灯片报告入口
+          _buildBentoEntry(theme),
+          const SizedBox(height: 16),
+
           // 统计卡片
           _buildStatCards(theme),
           const SizedBox(height: 16),

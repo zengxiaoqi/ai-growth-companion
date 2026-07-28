@@ -21,6 +21,7 @@ import { RewardModule } from './modules/reward/reward.module';
 import { VideoDownloadModule } from './modules/video-download/video-download.module';
 import { PoetryModule } from './modules/poetry/poetry.module';
 import { PublicApiModule } from './modules/public-api/public-api.module';
+import { BentoModule } from './modules/bento/bento.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 
 /**
@@ -131,6 +132,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     VideoDownloadModule,
     PoetryModule,
     PublicApiModule,
+    BentoModule,
     DatabaseSeederModule,
   ],
 })

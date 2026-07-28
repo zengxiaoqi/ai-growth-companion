@@ -1556,6 +1556,19 @@ class ApiService {
   // ==================== SSE ====================
 
   String get sseSubscribeUrl => '$baseUrl/sse/subscribe';
+
+  // ==================== Bento 报告 API ====================
+
+  /// 生成 Bento 报告幻灯片
+  Future<Map<String, dynamic>> generateBentoReport(int childId, String period) async {
+    final response = await _dio.post('/bento/report/$period/$childId');
+    return response.data as Map<String, dynamic>;
+  }
+
+  /// 获取 Bento 文件 URL
+  String getBentoFileUrl(String fileId) {
+    return '${getApiBaseUrl()}/bento/$fileId';
+  }
 }
 
 // ─── Auth Interceptor ─────────────────────────────────────────────────────

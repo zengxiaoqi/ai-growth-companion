@@ -114,15 +114,16 @@ Stream<Map<String, dynamic>> _fetchSseStream({
 
     if (!gotFirstChunk) {
       gotFirstChunk = true;
-      firstChunkTime = DateTime.now();
       debugPrint('🔍 [SSE] first chunk received');
     }
+    // 每次收到数据（包括心跳）都刷新计时器，防止 LLM 长时间思考被误杀
+    firstChunkTime = DateTime.now();
 
     // 检查是否已收到首 chunk 但长时间无实际事件
     if (!gotFirstRealEvent && firstChunkTime != null) {
       final elapsed = DateTime.now().difference(firstChunkTime);
-      if (elapsed.inSeconds > 120) {
-        debugPrint('⚠️ [SSE] no real events in 120s after first chunk, aborting');
+      if (elapsed.inSeconds > 240) {
+        debugPrint('⚠️ [SSE] no real events in 240s after first chunk, aborting');
         yield {'type': 'error', 'message': 'AI响应超时，请稍后重试~'};
         return;
       }

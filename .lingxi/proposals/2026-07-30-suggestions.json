@@ -1,0 +1,61 @@
+{
+  "date": "2026-07-30",
+  "source_analysis": "#71",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "Bento 模块单元测试 — bento.service.ts",
+      "description": "bento.service.ts (532行) 是上一轮大功能（Bento 智能文档模块）的核心，管理文件注册、内容缓存、清理、6种模板生成。0测试覆盖。这是代码库中最大的测试缺口。",
+      "tier": 1,
+      "details": {
+        "service_file": "src/backend/src/modules/bento/bento.service.ts",
+        "service_lines": 532,
+        "existing_tests": "none",
+        "key_methods": [
+          "generateDocument(生成文档+缓存)",
+          "getDocument(按ID获取)",
+          "listDocuments(按类型/日期筛选)",
+          "deleteDocument(删除+清理缓存)",
+          "computeContentHash(缓存键计算)",
+          "checkCache(缓存命中)",
+          "cleanup(过期文件清理)",
+          "persistIndex/restoreRegistry(索引持久化)"
+        ]
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P2",
+      "title": "Bento 模板单元测试 — 6个模板文件",
+      "description": "6个Bento模板文件（achievement/lesson-pack/poetry/report-weekly/report-monthly/semester-report）合计2694行，无测试覆盖。每个模板含 generate() 方法，测试需验证模板结构正确性。",
+      "tier": 1,
+      "details": {
+        "template_files": [
+          "templates/achievement.ts (356行)",
+          "templates/lesson-pack.ts (242行)",
+          "templates/poetry.ts (316行)",
+          "templates/report-weekly.ts (573行)",
+          "templates/report-monthly.ts (545行)",
+          "templates/semester-report.ts (662行)"
+        ],
+        "total_lines": 2694,
+        "existing_tests": "none"
+      }
+    },
+    {
+      "id": "s3",
+      "priority": "P2",
+      "title": "Flutter Web 构建部署 — Bento 模块上线",
+      "description": "Flutter Web 构建过时 — 2个源文件（bento_report_screen.dart, api_service.dart）比 main.dart.js 新。Bento 功能当前只在代码中，用户无法访问。需要重新构建并部署 Flutter Web。",
+      "tier": 1,
+      "details": {
+        "stale_files": [
+          "src/frontend/lib/screens/parent/bento_report_screen.dart",
+          "src/frontend/lib/services/api_service.dart"
+        ],
+        "build_freshness_check": "find src/frontend/lib/ -newer src/frontend/build/web/main.dart.js -type f"
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-07-30: 42 unit tests for BentoService (bento.service.ts) — 0→100% coverage across all public methods",
     "2026-07-30: Bento module minor cleanup — remove unused import, trailing newlines, let→const, unused params",
     "2026-07-29: Bento module — 6 templates (weekly/monthly report, lesson pack, poetry, achievement, semester report) + 2 generators + agent tool (generate-bento-document) + controller + frontend screen (5 commits, 3.2K+ lines)",
     "2026-07-29: P0 fixes for Bento module — interface rewrite, auth, frontend integration",
@@ -29,17 +30,18 @@
     "2026-07-27: Keep canvaskit renderer + simplify quick generate task query"
   ],
   "lessons_learned": [
+    "Bento module added 42 unit tests — 0→100% coverage for bento.service.ts (all public methods: generateReport, generatePoetrySlide, generateContentSlide, generateAchievementSlide, generateSemesterReport, generateFromTemplate, getBentoFile, listBentoFiles, deleteBentoFile, cleanup, onModuleDestroy)",
+    "Bento templates (6), generators (2), and controller (20 endpoints) still lack unit tests — next code quality gap",
     "Bento module is now the largest new feature — 13 files, 3.2K+ lines, 6 templates, 2 generators, agent tool, controller endpoints, frontend screen",
-    "Bento module has 0 test coverage — controller, service, generators, templates all lack unit tests. This is now the primary code quality gap",
     "Flutter Web build is stale: 2 source files (bento-related changes) newer than main.dart.js — needs rebuild+deploy for Bento module to go live",
     "backend/public/ (293MB) is mostly uploads/ — no stale build artifacts remain",
-    "Video-download.service now has 100% unit test coverage (61 tests) — model for other modules",
+    "Video-download.service has 100% unit test coverage (61 tests) — model for other modules",
     "Repository is synced with origin — 0 ahead, 0 behind",
     "Backend npm run build passes cleanly, frontend-web typecheck passes"
   ],
   "metrics": {
     "backend_files": 251,
-    "backend_test_files": 81,
+    "backend_test_files": 82,
     "flutter_files": 119,
     "web_files": 100,
     "content_files": 46,

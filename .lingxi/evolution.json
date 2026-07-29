@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-07-29",
-  "analysis_count": 70,
-  "commit_count": 544,
-  "last_commit": "2026-07-29T01:17:45+08:00",
-  "remote_head": "09a057d",
-  "remote_head_date": "2026-07-29T01:17:45+08:00",
+  "last_analysis": "2026-07-30",
+  "analysis_count": 71,
+  "commit_count": 545,
+  "last_commit": "2026-07-29T12:17:35+08:00",
+  "remote_head": "d7372fb",
+  "remote_head_date": "2026-07-29T12:17:35+08:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
@@ -16,27 +16,33 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-07-30: Bento module minor cleanup — remove unused import, trailing newlines, let→const, unused params",
     "2026-07-29: Bento module — 6 templates (weekly/monthly report, lesson pack, poetry, achievement, semester report) + 2 generators + agent tool (generate-bento-document) + controller + frontend screen (5 commits, 3.2K+ lines)",
     "2026-07-29: P0 fixes for Bento module — interface rewrite, auth, frontend integration",
     "2026-07-29: Parent mode session history fix on refresh + SSE non-streaming reply field",
-    "2026-07-29: Cleaned 4 stale build artifacts (v3/v4.js + 4 .gz files) from build/web/",
-    "2026-07-29: Updated AGENTS.md — added bento module to module listing"
+    "2026-07-28: 61 unit tests for video-download.service (0→100% coverage)",
+    "2026-07-28: Assignment draft preview card with publish button",
+    "2026-07-28: Orchestrator assignment publish improvements + session auto-resume",
+    "2026-07-28: Increase frontend chat/SSE timeouts for deep reasoning models",
+    "2026-07-27: LLM timeout 180s→300s + fallback storyboard on agent timeout",
+    "2026-07-27: Quick video generation task management UI",
+    "2026-07-27: Keep canvaskit renderer + simplify quick generate task query"
   ],
   "lessons_learned": [
-    "Bento module is the most significant new feature — 13 files, 3.2K+ lines, agent tool, 6 templates, 2 generators, frontend screen",
-    "Bento module has 0 test coverage — controller, service, generators, templates all lack unit tests",
-    "Deployed build (v1785254896) is canvaskit renderer, local build is also canvaskit — the HTML renderer switch was reverted",
-    "Flutter Web build is stale — 2 source files (bento_report_screen.dart, api_service.dart) newer than main.dart.js, needs rebuild+deploy",
-    "backend/public/ (77MB) now only contains uploads/ — no stale Flutter artifacts remain",
+    "Bento module is now the largest new feature — 13 files, 3.2K+ lines, 6 templates, 2 generators, agent tool, controller endpoints, frontend screen",
+    "Bento module has 0 test coverage — controller, service, generators, templates all lack unit tests. This is now the primary code quality gap",
+    "Flutter Web build is stale: 2 source files (bento-related changes) newer than main.dart.js — needs rebuild+deploy for Bento module to go live",
+    "backend/public/ (293MB) is mostly uploads/ — no stale build artifacts remain",
+    "Video-download.service now has 100% unit test coverage (61 tests) — model for other modules",
     "Repository is synced with origin — 0 ahead, 0 behind",
-    "Backend npm run build passes cleanly"
+    "Backend npm run build passes cleanly, frontend-web typecheck passes"
   ],
   "metrics": {
-    "backend_files": 250,
-    "backend_test_files": 80,
+    "backend_files": 251,
+    "backend_test_files": 81,
     "flutter_files": 119,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 140596
+    "total_lines": 160213
   }
 }

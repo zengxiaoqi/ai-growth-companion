@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { BentoFileGenerator } from './generators/bento-file.generator';
 import { BentoJsonGenerator } from './generators/bento-json.generator';
@@ -20,6 +21,7 @@ import {
 import { Slide, Theme } from './interfaces/bento-document.interface';
 
 const OUTPUT_DIR = path.resolve(process.cwd(), 'bento-output');
+const INDEX_PATH = path.resolve(OUTPUT_DIR, '.index.json');
 /** 文件保留时间：7 天 */
 const FILE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -27,14 +29,24 @@ interface FileRecord {
   fileId: string;
   fileName: string;
   path: string;
-  createdAt: Date;
+  createdAt: string; // ISO string
+}
+
+interface ContentHashEntry {
+  hash: string;
+  fileId: string;
+  template: string;
+  createdAt: string;
 }
 
 @Injectable()
 export class BentoService implements OnModuleDestroy {
   private readonly logger = new Logger(BentoService.name);
   private readonly fileRegistry = new Map<string, FileRecord>();
+  /** contentHash → fileId */
+  private readonly cacheIndex = new Map<string, ContentHashEntry>();
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private indexLoaded = false;
 
   constructor(
     private readonly bentoFileGenerator: BentoFileGenerator,
@@ -46,19 +58,97 @@ export class BentoService implements OnModuleDestroy {
     private readonly achievementTemplate: AchievementTemplate,
     private readonly semesterReportTemplate: SemesterReportTemplate,
   ) {
-    // 启动时清理陈旧文件，每小时运行一次
-    this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000);
-    // 首次启动延迟 10 秒后清理
-    setTimeout(() => this.cleanup(), 10_000);
+    // 启动时从磁盘恢复索引
+    this.restoreRegistry().then(() => {
+      // 索引加载后执行首次清理，每小时再执行一次
+      this.cleanup();
+      this.cleanupInterval = setInterval(() => this.cleanup(), 60 * 60 * 1000);
+    });
   }
 
-  // ── 报告生成 ──
+  // ── 索引持久化 ──
+
+  private async restoreRegistry(): Promise<void> {
+    try {
+      await fs.mkdir(OUTPUT_DIR, { recursive: true });
+      const raw = await fs.readFile(INDEX_PATH, 'utf-8');
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.files)) {
+        for (const rec of data.files) {
+          this.fileRegistry.set(rec.fileId, rec);
+        }
+      }
+      if (Array.isArray(data.cache)) {
+        for (const entry of data.cache) {
+          this.cacheIndex.set(entry.hash, entry);
+        }
+      }
+      this.logger.log(
+        `Restored registry: ${this.fileRegistry.size} files, ${this.cacheIndex.size} cache entries`,
+      );
+    } catch {
+      this.logger.log('No existing index found, starting fresh');
+    }
+    this.indexLoaded = true;
+  }
+
+  private async persistIndex(): Promise<void> {
+    const data = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      files: Array.from(this.fileRegistry.values()),
+      cache: Array.from(this.cacheIndex.values()),
+    };
+    await fs.writeFile(INDEX_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  }
+
+  // ── 缓存 ──
+
+  private computeContentHash(template: string, data: unknown): string {
+    const hash = createHash('sha256');
+    hash.update(template);
+    hash.update(JSON.stringify(data, Object.keys(data as object).sort()));
+    return hash.digest('hex').slice(0, 16);
+  }
+
+  private async checkCache(
+    template: string,
+    data: unknown,
+    _childId?: number,
+  ): Promise<string | null> {
+    const hash = this.computeContentHash(template, data);
+    const entry = this.cacheIndex.get(hash);
+    if (!entry) return null;
+
+    // 验证文件仍然存在
+    const record = this.fileRegistry.get(entry.fileId);
+    if (!record) {
+      this.cacheIndex.delete(hash);
+      return null;
+    }
+    try {
+      await fs.access(record.path);
+    } catch {
+      this.cacheIndex.delete(hash);
+      this.fileRegistry.delete(entry.fileId);
+      return null;
+    }
+
+    this.logger.debug(`Cache hit for ${template} (hash=${hash}) → ${entry.fileId}`);
+    return entry.fileId;
+  }
+
+  // ── 报告生成（带缓存） ──
 
   async generateReport(
     childId: number,
     period: 'daily' | 'weekly' | 'monthly',
     reportData: ReportData,
   ): Promise<string> {
+    // 检查缓存
+    const cached = await this.checkCache(`report:${period}`, reportData, childId);
+    if (cached) return cached;
+
     const fileId = uuidv4();
     const fileName = `report-${childId}-${period}-${fileId.slice(0, 8)}.bento.html`;
 
@@ -77,18 +167,28 @@ export class BentoService implements OnModuleDestroy {
       );
 
       const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-      this.registerFile(fileId, fileName, filePath);
+      await this.registerFile(fileId, fileName, filePath);
+      this.cacheIndex.set(this.computeContentHash(`report:${period}`, reportData), {
+        hash: this.computeContentHash(`report:${period}`, reportData),
+        fileId,
+        template: `report:${period}`,
+        createdAt: new Date().toISOString(),
+      });
+      await this.persistIndex();
       return fileId;
     } catch (err: any) {
       this.logger.warn(`Bento generation failed, falling back to plain HTML: ${err.message}`);
-      // 降级：生成纯 HTML 报告
       const fallbackPath = await this.generateFallbackHtml(reportData, fileName);
-      this.registerFile(fileId, fileName, fallbackPath);
+      await this.registerFile(fileId, fileName, fallbackPath);
+      await this.persistIndex();
       return fileId;
     }
   }
 
   async generatePoetrySlide(poetryData: PoetryData): Promise<string> {
+    const cached = await this.checkCache('poetry', poetryData);
+    if (cached) return cached;
+
     const fileId = uuidv4();
     const fileName = `poetry-${poetryData.poemId}-${fileId.slice(0, 8)}.bento.html`;
 
@@ -104,11 +204,21 @@ export class BentoService implements OnModuleDestroy {
     );
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-    this.registerFile(fileId, fileName, filePath);
+    await this.registerFile(fileId, fileName, filePath);
+    this.cacheIndex.set(this.computeContentHash('poetry', poetryData), {
+      hash: this.computeContentHash('poetry', poetryData),
+      fileId,
+      template: 'poetry',
+      createdAt: new Date().toISOString(),
+    });
+    await this.persistIndex();
     return fileId;
   }
 
   async generateContentSlide(contentData: ContentSlideData): Promise<string> {
+    const cached = await this.checkCache('lesson', contentData);
+    if (cached) return cached;
+
     const fileId = uuidv4();
     const fileName = `lesson-${fileId.slice(0, 8)}.bento.html`;
 
@@ -120,7 +230,14 @@ export class BentoService implements OnModuleDestroy {
     });
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-    this.registerFile(fileId, fileName, filePath);
+    await this.registerFile(fileId, fileName, filePath);
+    this.cacheIndex.set(this.computeContentHash('lesson', contentData), {
+      hash: this.computeContentHash('lesson', contentData),
+      fileId,
+      template: 'lesson',
+      createdAt: new Date().toISOString(),
+    });
+    await this.persistIndex();
     return fileId;
   }
 
@@ -132,6 +249,10 @@ export class BentoService implements OnModuleDestroy {
       fontFamily?: string;
     },
   ): Promise<string> {
+    const cacheKey = { ...achievementData, ...options };
+    const cached = await this.checkCache('achievement', cacheKey);
+    if (cached) return cached;
+
     const fileId = uuidv4();
     const fileName = `achievement-${achievementData.childName}-${fileId.slice(0, 8)}.bento.html`;
 
@@ -150,7 +271,14 @@ export class BentoService implements OnModuleDestroy {
     );
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-    this.registerFile(fileId, fileName, filePath);
+    await this.registerFile(fileId, fileName, filePath);
+    this.cacheIndex.set(this.computeContentHash('achievement', cacheKey), {
+      hash: this.computeContentHash('achievement', cacheKey),
+      fileId,
+      template: 'achievement',
+      createdAt: new Date().toISOString(),
+    });
+    await this.persistIndex();
     return fileId;
   }
 
@@ -162,6 +290,10 @@ export class BentoService implements OnModuleDestroy {
       fontFamily?: string;
     },
   ): Promise<string> {
+    const cacheKey = { ...semesterData, ...options };
+    const cached = await this.checkCache('semester', cacheKey);
+    if (cached) return cached;
+
     const fileId = uuidv4();
     const fileName = `semester-${semesterData.childName}-${fileId.slice(0, 8)}.bento.html`;
 
@@ -180,7 +312,14 @@ export class BentoService implements OnModuleDestroy {
     );
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-    this.registerFile(fileId, fileName, filePath);
+    await this.registerFile(fileId, fileName, filePath);
+    this.cacheIndex.set(this.computeContentHash('semester', cacheKey), {
+      hash: this.computeContentHash('semester', cacheKey),
+      fileId,
+      template: 'semester',
+      createdAt: new Date().toISOString(),
+    });
+    await this.persistIndex();
     return fileId;
   }
 
@@ -200,7 +339,8 @@ export class BentoService implements OnModuleDestroy {
     });
 
     const filePath = await this.bentoFileGenerator.generate(doc, fileName);
-    this.registerFile(fileId, fileName, filePath);
+    await this.registerFile(fileId, fileName, filePath);
+    await this.persistIndex();
     return fileId;
   }
 
@@ -255,27 +395,49 @@ export class BentoService implements OnModuleDestroy {
   async getBentoFile(fileId: string): Promise<{ path: string; name: string }> {
     const record = this.fileRegistry.get(fileId);
     if (!record) {
-      // 重启后扫描磁盘恢复
-      try {
-        const files = await fs.readdir(OUTPUT_DIR);
-        const matched = files.find((f) => f.includes(fileId));
-        if (matched) {
-          const fullPath = path.join(OUTPUT_DIR, matched);
-          const stats = await fs.stat(fullPath);
-          this.fileRegistry.set(fileId, {
-            fileId,
-            fileName: matched,
-            path: fullPath,
-            createdAt: stats.birthtime || new Date(),
-          });
-          return { path: fullPath, name: matched };
-        }
-      } catch {
-        // ignore
-      }
       throw new NotFoundException(`Bento file not found: ${fileId}`);
     }
+
+    // 验证文件仍然存在于磁盘上
+    try {
+      await fs.access(record.path);
+    } catch {
+      this.fileRegistry.delete(fileId);
+      throw new NotFoundException(`Bento file not found (deleted): ${fileId}`);
+    }
+
     return { path: record.path, name: record.fileName };
+  }
+
+  /** 获取文件列表（含分页） */
+  async listBentoFiles(
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    files: Array<{ fileId: string; fileName: string; createdAt: string }>;
+    total: number;
+  }> {
+    const all = Array.from(this.fileRegistry.values());
+
+    // 过滤掉已删除的文件
+    const valid: Array<{ fileId: string; fileName: string; createdAt: string }> = [];
+    for (const rec of all) {
+      try {
+        await fs.access(rec.path);
+        valid.push({ fileId: rec.fileId, fileName: rec.fileName, createdAt: rec.createdAt });
+      } catch {
+        this.fileRegistry.delete(rec.fileId);
+      }
+    }
+
+    // 按创建时间倒序
+    valid.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const start = (page - 1) * limit;
+    return {
+      files: valid.slice(start, start + limit),
+      total: valid.length,
+    };
   }
 
   async deleteBentoFile(fileId: string): Promise<void> {
@@ -287,6 +449,16 @@ export class BentoService implements OnModuleDestroy {
         this.logger.warn(`Failed to delete file ${record.path}: ${err.message}`);
       }
       this.fileRegistry.delete(fileId);
+
+      // 清理缓存索引
+      for (const [hash, entry] of this.cacheIndex.entries()) {
+        if (entry.fileId === fileId) {
+          this.cacheIndex.delete(hash);
+          break;
+        }
+      }
+
+      await this.persistIndex();
     } else {
       throw new NotFoundException(`Bento file not found: ${fileId}`);
     }
@@ -296,7 +468,7 @@ export class BentoService implements OnModuleDestroy {
 
   /**
    * 清理超过 7 天的陈旧文件
-   * 每小时执行一次（通过 constructor 中的 setInterval）
+   * 每小时执行一次
    */
   async cleanup(): Promise<void> {
     try {
@@ -306,7 +478,8 @@ export class BentoService implements OnModuleDestroy {
       let cleaned = 0;
 
       for (const file of files) {
-        if (!file.endsWith('.bento.html')) continue;
+        if (file.startsWith('.index')) continue; // 跳过索引文件
+        if (!file.endsWith('.bento.html') && !file.endsWith('.html')) continue;
         const filePath = path.join(OUTPUT_DIR, file);
         try {
           const stats = await fs.stat(filePath);
@@ -331,6 +504,7 @@ export class BentoService implements OnModuleDestroy {
 
       if (cleaned > 0) {
         this.logger.log(`Cleaned ${cleaned} expired bento files`);
+        await this.persistIndex();
       }
     } catch (err: any) {
       this.logger.error(`Cleanup failed: ${err.message}`);
@@ -339,12 +513,12 @@ export class BentoService implements OnModuleDestroy {
 
   // ── 私有方法 ──
 
-  private registerFile(fileId: string, fileName: string, filePath: string): void {
+  private async registerFile(fileId: string, fileName: string, filePath: string): Promise<void> {
     this.fileRegistry.set(fileId, {
       fileId,
       fileName,
       path: filePath,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     });
   }
 
@@ -353,5 +527,6 @@ export class BentoService implements OnModuleDestroy {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
+    await this.persistIndex();
   }
 }

@@ -38,6 +38,9 @@ src/backend/public/
 # AI-generated video component (dynamically generated at runtime)
 src/video-remotion/src/GeneratedLesson.tsx
 
+# Bento generated slide output
+bento-output/
+
 # CodeGraph index (local code intelligence cache)
 .codegraph/
 check_pw.js

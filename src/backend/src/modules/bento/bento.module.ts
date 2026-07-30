@@ -11,6 +11,8 @@ import { PoetryTemplate } from './templates/poetry';
 import { LessonPackTemplate } from './templates/lesson-pack';
 import { AchievementTemplate } from './templates/achievement';
 import { SemesterReportTemplate } from './templates/semester-report';
+import { ReportModule } from '../report/report.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { SemesterReportTemplate } from './templates/semester-report';
       }),
       inject: [ConfigService],
     }),
+    ReportModule,
+    UsersModule,
   ],
   providers: [
     BentoService,

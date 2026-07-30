@@ -21,8 +21,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as path from 'path';
 import { BentoService } from './bento.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ReportService } from '../report/report.service';
+import { UsersService } from '../users/users.service';
 import {
-  GenerateReportDto,
   GeneratePoetryDto,
   GenerateContentSlideDto,
   GenerateAchievementDto,
@@ -37,6 +38,8 @@ export class BentoController {
   constructor(
     private readonly bentoService: BentoService,
     private readonly jwtService: JwtService,
+    private readonly reportService: ReportService,
+    private readonly usersService: UsersService,
   ) {}
 
   @Post('report/:period/:childId')
@@ -46,9 +49,39 @@ export class BentoController {
   async generateReport(
     @Param('childId') childId: string,
     @Param('period') period: 'daily' | 'weekly' | 'monthly',
-    @Body() reportData: GenerateReportDto,
+    @Body() body: Record<string, any>,
   ) {
-    const fileId = await this.bentoService.generateReport(+childId, period, reportData);
+    // 如果前端没有传 body，则从数据库自动获取报告数据
+    if (!body || Object.keys(body).length === 0) {
+      // 从 ReportService 获取数据
+      const rawReport = await this.reportService.generateReport({
+        userId: +childId,
+        period,
+      });
+      // 获取孩子姓名
+      const child = await this.usersService.findById(+childId);
+      const childName = child?.name || '小朋友';
+      body = {
+        childName,
+        period,
+        startDate: rawReport.startDate || '',
+        endDate: rawReport.endDate || '',
+        totalLearningTime: rawReport.totalLearningTime || 0,
+        totalLessonsCompleted: rawReport.totalLessonsCompleted || 0,
+        averageScore: rawReport.averageScore || 0,
+        dailyStats: rawReport.dailyStats || [],
+        skillProgress: rawReport.skillProgress || {},
+        achievements: (rawReport.achievements || []).map((a: any) => ({
+          name: a.name || a.title || '成就',
+          description: a.description || '',
+          earnedAt: a.earnedAt || a.unlockedAt || '',
+        })),
+        insights: rawReport.insights || [],
+        streak: rawReport.streak || 0,
+        encouragement: rawReport.encouragement || '继续加油！🌟',
+      };
+    }
+    const fileId = await this.bentoService.generateReport(+childId, period, body as any);
     return {
       fileId,
       fileName: `report-${childId}-${period}-${fileId.slice(0, 8)}.bento.html`,

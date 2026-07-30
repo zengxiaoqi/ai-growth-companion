@@ -145,6 +145,16 @@ export class BentoService implements OnModuleDestroy {
     period: 'daily' | 'weekly' | 'monthly',
     reportData: ReportData,
   ): Promise<string> {
+    // 防御性处理：确保 skillProgress 等字段不为空
+    if (!reportData.skillProgress) reportData.skillProgress = {};
+    if (!reportData.dailyStats) reportData.dailyStats = [];
+    if (!reportData.achievements) reportData.achievements = [];
+    if (!reportData.insights) reportData.insights = [];
+    if (!reportData.encouragement) reportData.encouragement = '继续加油！🌟';
+    if (!reportData.childName) reportData.childName = '小朋友';
+    if (!reportData.period) reportData.period = period;
+    if (!reportData.startDate) reportData.startDate = '';
+    if (!reportData.endDate) reportData.endDate = '';
     // 检查缓存
     const cached = await this.checkCache(`report:${period}`, reportData, childId);
     if (cached) return cached;

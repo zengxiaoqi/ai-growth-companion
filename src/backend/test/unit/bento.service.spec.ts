@@ -138,7 +138,9 @@ const sampleSemesterData = () => ({
   ],
   learnedPoems: [{ title: '静夜思', author: '李白' }],
   learnedLessons: [{ title: '认识数字', domain: '数学' }],
-  achievements: [{ name: '全勤宝宝', tier: 'gold' as const, unlockedAt: '2026-03-31T00:00:00.000Z' }],
+  achievements: [
+    { name: '全勤宝宝', tier: 'gold' as const, unlockedAt: '2026-03-31T00:00:00.000Z' },
+  ],
   totalLearningTime: 43200,
   totalLessonsCompleted: 60,
   averageScore: 87,
@@ -232,7 +234,10 @@ describe('generateReport', () => {
 
     expect(fileId).toBe('mock-uuid-12345678');
     expect(mockWeeklyTemplate.defaultTheme).toHaveBeenCalled();
-    expect(mockWeeklyTemplate.toSlides).toHaveBeenCalledWith(sampleReportData(), expect.any(Object));
+    expect(mockWeeklyTemplate.toSlides).toHaveBeenCalledWith(
+      sampleReportData(),
+      expect.any(Object),
+    );
     expect(mockBentoJsonGenerator.assemble).toHaveBeenCalled();
     expect(mockBentoFileGenerator.generate).toHaveBeenCalled();
     // persistIndex → 1 writeFile call
@@ -241,7 +246,12 @@ describe('generateReport', () => {
   });
 
   it('should generate monthly report using monthly template', async () => {
-    const data = { ...sampleReportData(), weekSummaries: [], trendHistory: [], monthlyHighlight: 'Great!' };
+    const data = {
+      ...sampleReportData(),
+      weekSummaries: [],
+      trendHistory: [],
+      monthlyHighlight: 'Great!',
+    };
     await bentoService.generateReport(1, 'monthly', data as any);
 
     expect(mockMonthlyTemplate.defaultTheme).toHaveBeenCalled();
@@ -280,7 +290,10 @@ describe('generatePoetrySlide', () => {
 
     expect(fileId).toBe('mock-uuid-12345678');
     expect(mockPoetryTemplate.defaultTheme).toHaveBeenCalled();
-    expect(mockPoetryTemplate.toSlides).toHaveBeenCalledWith(samplePoetryData(), expect.any(Object));
+    expect(mockPoetryTemplate.toSlides).toHaveBeenCalledWith(
+      samplePoetryData(),
+      expect.any(Object),
+    );
     expect(mockBentoJsonGenerator.assemble).toHaveBeenCalled();
     expect(mockBentoFileGenerator.generate).toHaveBeenCalled();
   });
@@ -312,7 +325,10 @@ describe('generateContentSlide', () => {
 
     expect(fileId).toBe('mock-uuid-12345678');
     expect(mockLessonPackTemplate.defaultTheme).toHaveBeenCalled();
-    expect(mockLessonPackTemplate.toSlides).toHaveBeenCalledWith(sampleContentData(), expect.any(Object));
+    expect(mockLessonPackTemplate.toSlides).toHaveBeenCalledWith(
+      sampleContentData(),
+      expect.any(Object),
+    );
     expect(mockBentoJsonGenerator.assemble).toHaveBeenCalledWith(
       'mock-uuid-12345678',
       sampleContentData().title,
@@ -724,7 +740,7 @@ describe('onModuleDestroy', () => {
 describe('cache index integrity', () => {
   it('should invalidate cache entry when file is deleted from disk between calls', async () => {
     // First call creates a cache entry + file
-    const fileId1 = await bentoService.generateReport(1, 'weekly', sampleReportData());
+    const _fileId1x = await bentoService.generateReport(1, 'weekly', sampleReportData());
     expect(getCacheIndex().size).toBe(1);
     const hash = Array.from(getCacheIndex().keys())[0];
 
@@ -746,7 +762,7 @@ describe('cache index integrity', () => {
 
   it('should remove stale cache entry and registry entry when file missing on disk', async () => {
     // First generate to create cache entry
-    const fileId = await bentoService.generateReport(1, 'weekly', sampleReportData());
+    const _fileId = await bentoService.generateReport(1, 'weekly', sampleReportData());
 
     // Now corrupt the cache: point the entry to a non-existent file path
     const idx = getCacheIndex();

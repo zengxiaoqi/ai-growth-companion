@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../utils/bento_url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -86,10 +86,8 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
       });
 
       // 在新标签页打开
-      final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
+      final opened = await openBentoUrl(url);
+      if (!opened) {
         setState(() {
           _error = '无法打开浏览器，请手动复制链接';
         });
@@ -389,10 +387,7 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () async {
-                final uri = Uri.parse(_bentoUrl!);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
+                await openBentoUrl(_bentoUrl!);
               },
               icon: const Icon(Icons.open_in_new_rounded),
               label: const Text('再次打开'),

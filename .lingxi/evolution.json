@@ -1,11 +1,11 @@
 {
-  "last_analysis": "2026-07-30",
-  "analysis_count": 71,
-  "commit_count": 545,
-  "last_commit": "2026-07-29T12:17:35+08:00",
-  "remote_head": "d7372fb",
-  "remote_head_date": "2026-07-29T12:17:35+08:00",
-  "commits_ahead_remote": 0,
+  "last_analysis": "2026-07-31",
+  "analysis_count": 72,
+  "commit_count": 547,
+  "last_commit": "2026-07-31T09:00:00+08:00",
+  "remote_head": "7d69a61",
+  "remote_head_date": "2026-07-31T09:00:00+08:00",
+  "commits_ahead_remote": 1,
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -16,35 +16,36 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-07-31: Bento report auto-fetch from DB (ReportService + UsersService) when frontend sends empty body",
+    "2026-07-31: Mobile zoom toggle + scroll support for bento-shell.html (responsive report viewing)",
+    "2026-07-31: Cross-platform URL launcher (bento_url_launcher) replacing url_launcher for Flutter Web compatibility",
+    "2026-07-31: Fixed 2 lint errors in bento.service.spec.ts (unused variables)",
+    "2026-07-31: Committed 10 files with Bento improvements + lint fix",
     "2026-07-30: 42 unit tests for BentoService (bento.service.ts) — 0→100% coverage across all public methods",
     "2026-07-30: Bento module minor cleanup — remove unused import, trailing newlines, let→const, unused params",
-    "2026-07-29: Bento module — 6 templates (weekly/monthly report, lesson pack, poetry, achievement, semester report) + 2 generators + agent tool (generate-bento-document) + controller + frontend screen (5 commits, 3.2K+ lines)",
+    "2026-07-29: Bento module — 6 templates + 2 generators + agent tool + controller + frontend screen",
     "2026-07-29: P0 fixes for Bento module — interface rewrite, auth, frontend integration",
     "2026-07-29: Parent mode session history fix on refresh + SSE non-streaming reply field",
     "2026-07-28: 61 unit tests for video-download.service (0→100% coverage)",
     "2026-07-28: Assignment draft preview card with publish button",
     "2026-07-28: Orchestrator assignment publish improvements + session auto-resume",
     "2026-07-28: Increase frontend chat/SSE timeouts for deep reasoning models",
-    "2026-07-27: LLM timeout 180s→300s + fallback storyboard on agent timeout",
-    "2026-07-27: Quick video generation task management UI",
-    "2026-07-27: Keep canvaskit renderer + simplify quick generate task query"
+    "2026-07-27: LLM timeout 180s→300s + fallback storyboard on agent timeout"
   ],
   "lessons_learned": [
-    "Bento module added 42 unit tests — 0→100% coverage for bento.service.ts (all public methods: generateReport, generatePoetrySlide, generateContentSlide, generateAchievementSlide, generateSemesterReport, generateFromTemplate, getBentoFile, listBentoFiles, deleteBentoFile, cleanup, onModuleDestroy)",
-    "Bento templates (6), generators (2), and controller (20 endpoints) still lack unit tests — next code quality gap",
-    "Bento module is now the largest new feature — 13 files, 3.2K+ lines, 6 templates, 2 generators, agent tool, controller endpoints, frontend screen",
-    "Flutter Web build is stale: 2 source files (bento-related changes) newer than main.dart.js — needs rebuild+deploy for Bento module to go live",
-    "backend/public/ (293MB) is mostly uploads/ — no stale build artifacts remain",
-    "Video-download.service has 100% unit test coverage (61 tests) — model for other modules",
-    "Repository is synced with origin — 0 ahead, 0 behind",
-    "Backend npm run build passes cleanly, frontend-web typecheck passes"
+    "Bento report auto-fetch pattern: when frontend sends empty body, controller auto-fetches from ReportService(generateReport) + UsersService(findById) — eliminates double backend calls",
+    "Mobile zoom toggle in bento-shell is essential for report readability on mobile: CSS viewport zoom + dynamic --slide-scale override",
+    "Cross-platform URL launcher: Flutter Web's url_launcher canLaunchUrl always returns false on some environments — custom platform-specific implementation is more reliable",
+    "Bento service test coverage is now 100% (42 tests) — all public methods covered including cache integrity, fallback, and cleanup",
+    "Backend build and lint both pass cleanly — 0 errors, 0 warnings",
+    "Repository has 1 commit ahead of remote (unpushed Bento improvements)"
   ],
   "metrics": {
     "backend_files": 251,
     "backend_test_files": 82,
-    "flutter_files": 119,
+    "flutter_files": 122,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 160213
+    "total_lines": 160420
   }
 }

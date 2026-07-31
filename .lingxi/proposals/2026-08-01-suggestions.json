@@ -1,0 +1,32 @@
+{
+  "date": "2026-08-01",
+  "source_analysis": "#73",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "Bento 模板单元测试 — 6个模板文件",
+      "description": "6个Bento模板文件（achievement/lesson-pack/poetry/report-weekly/report-monthly/semester-report）合计2694行，无测试覆盖。每个模板含 generate() 方法，测试需验证模板结构正确性。bento.service.ts 已有42个测试达到100%覆盖，但模板层仍是代码库中最大的测试缺口。",
+      "tier": 1,
+      "details": {
+        "template_files": [
+          "templates/achievement.ts (356行)",
+          "templates/lesson-pack.ts (242行)",
+          "templates/poetry.ts (316行)",
+          "templates/report-weekly.ts (573行)",
+          "templates/report-monthly.ts (545行)",
+          "templates/semester-report.ts (662行)"
+        ],
+        "total_lines": 2694,
+        "existing_tests": "none",
+        "test_file_to_create": "test/unit/bento-templates.spec.ts",
+        "key_methods": [
+          "generate(userId, options) — 每个模板的 generate 方法",
+          "模板结构验证（DOM/HTML结构完整性）",
+          "数据填充正确性（标题、日期、内容占位）",
+          "边界情况（空用户数据、缺失字段）"
+        ]
+      }
+    }
+  ]
+}

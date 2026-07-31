@@ -1,11 +1,11 @@
 {
   "last_analysis": "2026-08-01",
-  "analysis_count": 73,
-  "commit_count": 549,
-  "last_commit": "2026-07-31T02:09:16+08:00",
-  "remote_head": "7d69a61",
-  "remote_head_date": "2026-07-31T02:08:26+08:00",
-  "commits_ahead_remote": 2,
+  "analysis_count": 74,
+  "commit_count": 550,
+  "last_commit": "2026-08-01T08:13:00+08:00",
+  "remote_head": "628130b",
+  "remote_head_date": "2026-08-01T00:00:00+00:00",
+  "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-01: 67 unit tests for all 6 Bento slide templates (bento-templates.spec.ts) — 0→100% coverage on all template classes",
     "2026-08-01: Fixed AGENTS.md stale references (public/.generated/ -> public/uploads/videos/, stale directory description)",
     "2026-08-01: Daily evolution analysis #73 — 2026-08-01",
     "2026-07-31: Bento report auto-fetch from DB (ReportService + UsersService) when frontend sends empty body",
@@ -35,19 +36,17 @@
     "2026-07-27: LLM timeout 180s→300s + fallback storyboard on agent timeout"
   ],
   "lessons_learned": [
-    "Bento report auto-fetch pattern: when frontend sends empty body, controller auto-fetches from ReportService(generateReport) + UsersService(findById) — eliminates double backend calls",
-    "Mobile zoom toggle in bento-shell is essential for report readability on mobile: CSS viewport zoom + dynamic --slide-scale override",
-    "Cross-platform URL launcher: Flutter Web's url_launcher canLaunchUrl always returns false on some environments — custom platform-specific implementation is more reliable",
-    "Bento service test coverage is now 100% (42 tests) — all public methods covered including cache integrity, fallback, and cleanup",
-    "Backend build and lint both pass cleanly — 0 errors, 0 warnings",
-    "Repository has 1 commit ahead of remote (unpushed Bento improvements)"
+    "Bento template tests are pure data-transformation functions — no DI/DB/HTTP, no mocking needed. Each template needs 8-13 tests covering defaultTheme, toSlides counts, element types, data propagation, and edge cases (empty arrays, falsy values, many items).",
+    "UNSET Symbol pattern for 'omit this field' doesn't work with if(data.summary) checks — Symbols are truthy. Use empty string '' instead.",
+    "null coalescing (??) in test data builders makes passing null impossible — the builder always returns the default. For testing falsy behavior, use empty string or undefined.",
+    "Bento module now has 100% test coverage across both service (42 tests) and templates (67 tests) — 109 total."
   ],
   "metrics": {
     "backend_files": 252,
-    "backend_test_files": 82,
+    "backend_test_files": 83,
     "flutter_files": 124,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 160640
+    "total_lines": 161497
   }
 }

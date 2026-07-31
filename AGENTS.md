@@ -87,8 +87,8 @@ JSON curriculum files organized by age group: `3-4-years/` (18 topics) and `5-6-
 - **JWT auth** with 7-day expiry, bcrypt hashing. All protected endpoints use `@UseGuards(JwtAuthGuard)`.
 - **Database resets:** Delete `lingxi.db` and restart backend to reset. The seeder runs automatically when the DB is empty.
 - **API prefix:** All backend routes are under `/api/`.
-- **Video generation:** Uses Remotion (Node.js video rendering framework). Chrome/Chromium auto-discovery. Scene components are modular (NumberScene, etc.). Generated assets cached in `public/.generated/`.
-- **Flutter Web deploy:** Build output stays at `src/frontend/build/web/` and is served directly by nginx. No rsync to `backend/public/` — that directory is stale and unused. After rebuild, run `bash post-build-web.sh` which handles version-caching, `.gz` pre-compression, `.catch()` error handling, and `flutter_bootstrap.js` updates.
+- **Video generation:** Uses Remotion (Node.js video rendering framework). Chrome/Chromium auto-discovery. Scene components are modular (NumberScene, etc.). Generated videos cached in `public/uploads/videos/`.
+- **Flutter Web deploy:** Build output stays at `src/frontend/build/web/` and is served directly by nginx. No rsync to `backend/public/` — that directory only contains `uploads/` (served by backend for uploaded files). After rebuild, run `bash post-build-web.sh` which handles version-caching, `.gz` pre-compression, `.catch()` error handling, and `flutter_bootstrap.js` updates.
 - **Agent tools:** AI agent tools are in `src/backend/src/modules/ai/agent/tools/` — each tool is a standalone module with Zod schemas for parameter validation.
 
 ## Task Closure

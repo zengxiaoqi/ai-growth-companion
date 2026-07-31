@@ -1,11 +1,11 @@
 {
-  "last_analysis": "2026-07-31",
-  "analysis_count": 72,
-  "commit_count": 547,
-  "last_commit": "2026-07-31T09:00:00+08:00",
+  "last_analysis": "2026-08-01",
+  "analysis_count": 73,
+  "commit_count": 549,
+  "last_commit": "2026-07-31T02:09:16+08:00",
   "remote_head": "7d69a61",
-  "remote_head_date": "2026-07-31T09:00:00+08:00",
-  "commits_ahead_remote": 1,
+  "remote_head_date": "2026-07-31T02:08:26+08:00",
+  "commits_ahead_remote": 2,
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -16,6 +16,8 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-01: Fixed AGENTS.md stale references (public/.generated/ -> public/uploads/videos/, stale directory description)",
+    "2026-08-01: Daily evolution analysis #73 — 2026-08-01",
     "2026-07-31: Bento report auto-fetch from DB (ReportService + UsersService) when frontend sends empty body",
     "2026-07-31: Mobile zoom toggle + scroll support for bento-shell.html (responsive report viewing)",
     "2026-07-31: Cross-platform URL launcher (bento_url_launcher) replacing url_launcher for Flutter Web compatibility",
@@ -41,11 +43,11 @@
     "Repository has 1 commit ahead of remote (unpushed Bento improvements)"
   ],
   "metrics": {
-    "backend_files": 251,
+    "backend_files": 252,
     "backend_test_files": 82,
-    "flutter_files": 122,
+    "flutter_files": 124,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 160420
+    "total_lines": 160640
   }
 }

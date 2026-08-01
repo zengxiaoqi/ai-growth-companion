@@ -1,16 +1,16 @@
 {
-  "last_analysis": "2026-08-01",
-  "analysis_count": 74,
-  "commit_count": 550,
-  "last_commit": "2026-08-01T08:13:00+08:00",
-  "remote_head": "628130b",
+  "last_analysis": "2026-08-02",
+  "analysis_count": 75,
+  "commit_count": 553,
+  "last_commit": "2026-08-01T03:16:14+08:00",
+  "remote_head": "7a01e49",
   "remote_head_date": "2026-08-01T00:00:00+00:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
-    "content_system": 95,
+    "content_system": 96,
     "infrastructure": 98,
     "code_quality": 100
   },
@@ -39,14 +39,23 @@
     "Bento template tests are pure data-transformation functions — no DI/DB/HTTP, no mocking needed. Each template needs 8-13 tests covering defaultTheme, toSlides counts, element types, data propagation, and edge cases (empty arrays, falsy values, many items).",
     "UNSET Symbol pattern for 'omit this field' doesn't work with if(data.summary) checks — Symbols are truthy. Use empty string '' instead.",
     "null coalescing (??) in test data builders makes passing null impossible — the builder always returns the default. For testing falsy behavior, use empty string or undefined.",
-    "Bento module now has 100% test coverage across both service (42 tests) and templates (67 tests) — 109 total."
+    "Bento module now has 100% test coverage across both service (42 tests) and templates (67 tests) — 109 total.",
+    "Poetry annotation service now has 19 tests (no longer 0 coverage) — the lingxi-evolution skill's Phase Roadmap (Ph11) is stale and should be updated."
   ],
   "metrics": {
-    "backend_files": 252,
+    "backend_files": 251,
     "backend_test_files": 83,
-    "flutter_files": 124,
+    "backend_test_lines": 20632,
+    "flutter_files": 122,
     "web_files": 100,
     "content_files": 46,
-    "total_lines": 161497
+    "backend_lines": 48909,
+    "flutter_lines": 57920,
+    "web_lines": 26828,
+    "content_lines": 7622,
+    "total_lines": 161979,
+    "unit_test_suites": 31,
+    "unit_test_count": 661,
+    "e2e_test_suites": 1
   }
 }

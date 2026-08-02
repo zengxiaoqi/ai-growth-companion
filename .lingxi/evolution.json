@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-08-02",
-  "analysis_count": 75,
-  "commit_count": 553,
-  "last_commit": "2026-08-01T03:16:14+08:00",
-  "remote_head": "7a01e49",
-  "remote_head_date": "2026-08-01T00:00:00+00:00",
+  "last_analysis": "2026-08-03",
+  "analysis_count": 76,
+  "commit_count": 554,
+  "last_commit": "2026-08-02T02:09:55+08:00",
+  "remote_head": "d9c3343",
+  "remote_head_date": "2026-08-02T00:00:00+00:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
@@ -16,6 +16,8 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-03: Pushed analysis #74 commit to remote (d9c3343)",
+    "2026-08-02: Daily evolution analysis #74 — 2026-08-02",
     "2026-08-01: 67 unit tests for all 6 Bento slide templates (bento-templates.spec.ts) — 0→100% coverage on all template classes",
     "2026-08-01: Fixed AGENTS.md stale references (public/.generated/ -> public/uploads/videos/, stale directory description)",
     "2026-08-01: Daily evolution analysis #73 — 2026-08-01",
@@ -51,11 +53,11 @@
     "content_files": 46,
     "backend_lines": 48909,
     "flutter_lines": 57920,
-    "web_lines": 26828,
+    "web_lines": 27194,
     "content_lines": 7622,
     "total_lines": 161979,
     "unit_test_suites": 31,
-    "unit_test_count": 661,
+    "unit_test_count": 1161,
     "e2e_test_suites": 1
   }
 }

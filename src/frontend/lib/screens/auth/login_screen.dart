@@ -514,9 +514,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             final token = result['access_token'] ?? result['token'];
                             if (token != null) {
                               final storage = context.read<StorageService>();
-                              if (_rememberMe) {
-                                await storage.saveToken(token.toString());
-                              }
+await storage.saveToken(token.toString());
                               if (!mounted) return;
                               context.read<ApiService>().setToken(token.toString());
                             }

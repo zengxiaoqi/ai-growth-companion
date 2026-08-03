@@ -14,7 +14,7 @@ module.exports = {
   },
   roots: ['<rootDir>/src/', '<rootDir>/test/'],
   setupFilesAfterEnv: ['<rootDir>/test/setup-logger.ts'],
-  // Prevent test suite hanging by limiting workers
+    // Prevent test suite hanging by limiting workers
   // See: https://github.com/zengxiaoqi/ai-growth-companion/issues/93
   maxWorkers: '50%',
   testTimeout: 15000, // 15 seconds per test

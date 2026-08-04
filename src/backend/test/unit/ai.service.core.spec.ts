@@ -134,9 +134,13 @@ describe('AiService core public methods', () => {
         limit: 10,
       });
       expect(usersService.canAccessChild).toHaveBeenCalledWith(1, 'parent', 2);
+      // Parent conversations are stored with childId = viewerId (parent's own ID),
+      // not the child's ID. When a parent views history, use viewerId as childId.
+      // Don't filter by actorType for parent mode — old sessions may have been
+      // created with actorType='child' before the parent mode refactor.
       expect(conversationManager.listSessions).toHaveBeenCalledWith({
         childId: 1,
-        actorType: 'parent',
+        actorType: undefined,
         page: 1,
         limit: 10,
       });

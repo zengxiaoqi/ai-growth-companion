@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-08-03",
-  "analysis_count": 76,
-  "commit_count": 554,
-  "last_commit": "2026-08-02T02:09:55+08:00",
-  "remote_head": "d9c3343",
-  "remote_head_date": "2026-08-02T00:00:00+00:00",
+  "last_analysis": "2026-08-04",
+  "analysis_count": 78,
+  "commit_count": 571,
+  "last_commit": "2026-08-04T10:06:00+08:00",
+  "remote_head": "d88a1a0",
+  "remote_head_date": "2026-08-04T00:00:00+00:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
@@ -16,6 +16,10 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-04: Fixed stale test expectation in ai.service.core.spec.ts — actorType should be undefined for parent mode (test-vs-code mismatch, not a bug)",
+    "2026-08-04: Verified all 354 unit tests pass (ai/learning/orchestrator/agent-executor/poetry suites)",
+    "2026-08-04: Deploy health check — 200 OK on both Flutter Web and React Web (Cloudflare tunnel reconnected after brief 530)",
+    "2026-08-04: Bento template tests confirmed complete — 67 tests in bento-templates.spec.ts, all passing",
     "2026-08-03: Pushed analysis #74 commit to remote (d9c3343)",
     "2026-08-02: Daily evolution analysis #74 — 2026-08-02",
     "2026-08-01: 67 unit tests for all 6 Bento slide templates (bento-templates.spec.ts) — 0→100% coverage on all template classes",
@@ -42,7 +46,8 @@
     "UNSET Symbol pattern for 'omit this field' doesn't work with if(data.summary) checks — Symbols are truthy. Use empty string '' instead.",
     "null coalescing (??) in test data builders makes passing null impossible — the builder always returns the default. For testing falsy behavior, use empty string or undefined.",
     "Bento module now has 100% test coverage across both service (42 tests) and templates (67 tests) — 109 total.",
-    "Poetry annotation service now has 19 tests (no longer 0 coverage) — the lingxi-evolution skill's Phase Roadmap (Ph11) is stale and should be updated."
+    "Poetry annotation service now has 19 tests (no longer 0 coverage) — the lingxi-evolution skill's Phase Roadmap (Ph11) is stale and should be updated.",
+    "Test-vs-code mismatch in ai.service.core.spec.ts — the test expected actorType='parent' but the code intentionally passes undefined for parent mode (see comment at ai.service.ts:483-484). Always read the source comment before 'fixing' a failing test."
   ],
   "metrics": {
     "backend_files": 251,

@@ -1,0 +1,39 @@
+{
+  "date": "2026-08-04",
+  "source_analysis": "#78",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P2",
+      "title": "Test suite timeout investigation — full suite hangs at 300s",
+      "description": "The full unit test suite (`npx jest --testPathPattern='unit/'`) times out at 300s even with --forceExit and maxWorkers=2. Individual subsets (auth/contents/users, emergency/game/notification, learning/ai/orchestrator) all pass. The full run hits a timeout due to accumulated test time + open handles. Consider: (1) splitting into separate CI jobs, (2) investigating open handles with --detectOpenHandles, (3) adding global teardown to close DB connections.",
+      "tier": 2,
+      "details": {
+        "symptom": "300s timeout on full suite, but subsets pass",
+        "affected_subsets_pass": [
+          "auth/contents/users (186 tests, 21s)",
+          "emergency/game/notification/parent/recommend/report/reward/sse/voice (266 tests, 10s)",
+          "learning/ai/orchestrator/agent-executor/poetry (354 tests, 19s)"
+        ],
+        "total_individual_tests": "806+",
+        "root_cause_candidates": [
+          "test suites not cleaning up timers/DB connections",
+          "accumulated worker memory pressure",
+          "maxWorkers=50% insufficient for 80 test files"
+        ]
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P2",
+      "title": "Add --detectOpenHandles to test script for leak diagnosis",
+      "description": "Multiple test suites warn 'A worker process has failed to exit gracefully and has been force exited.' This indicates leaked handles (open DB connections, active timers). Adding --detectOpenHandles to the test script (or as a one-off diagnostic run) would identify which suites have leaks. This is prerequisite for fixing the full-suite timeout.",
+      "tier": 1,
+      "details": {
+        "command": "npx jest --testPathPattern='unit/' --no-coverage --forceExit --detectOpenHandles",
+        "expected_output": "stack traces of leaked handles per test suite",
+        "fix_approach": "add globalTeardown to close TypeORM connections, unref() active timers"
+      }
+    }
+  ]
+}

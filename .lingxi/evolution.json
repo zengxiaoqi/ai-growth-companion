@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-08-04",
-  "analysis_count": 78,
-  "commit_count": 571,
+  "last_analysis": "2026-08-05",
+  "analysis_count": 79,
+  "commit_count": 573,
   "last_commit": "2026-08-04T10:06:00+08:00",
-  "remote_head": "d88a1a0",
+  "remote_head": "fc94bd0",
   "remote_head_date": "2026-08-04T00:00:00+00:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-05: Daily evolution analysis #79 — deploy health 200 OK, 1175 unit tests pass, 0 local changes, fully synced with remote",
     "2026-08-04: Fixed stale test expectation in ai.service.core.spec.ts — actorType should be undefined for parent mode (test-vs-code mismatch, not a bug)",
     "2026-08-04: Verified all 354 unit tests pass (ai/learning/orchestrator/agent-executor/poetry suites)",
     "2026-08-04: Deploy health check — 200 OK on both Flutter Web and React Web (Cloudflare tunnel reconnected after brief 530)",
@@ -24,22 +25,7 @@
     "2026-08-02: Daily evolution analysis #74 — 2026-08-02",
     "2026-08-01: 67 unit tests for all 6 Bento slide templates (bento-templates.spec.ts) — 0→100% coverage on all template classes",
     "2026-08-01: Fixed AGENTS.md stale references (public/.generated/ -> public/uploads/videos/, stale directory description)",
-    "2026-08-01: Daily evolution analysis #73 — 2026-08-01",
-    "2026-07-31: Bento report auto-fetch from DB (ReportService + UsersService) when frontend sends empty body",
-    "2026-07-31: Mobile zoom toggle + scroll support for bento-shell.html (responsive report viewing)",
-    "2026-07-31: Cross-platform URL launcher (bento_url_launcher) replacing url_launcher for Flutter Web compatibility",
-    "2026-07-31: Fixed 2 lint errors in bento.service.spec.ts (unused variables)",
-    "2026-07-31: Committed 10 files with Bento improvements + lint fix",
-    "2026-07-30: 42 unit tests for BentoService (bento.service.ts) — 0→100% coverage across all public methods",
-    "2026-07-30: Bento module minor cleanup — remove unused import, trailing newlines, let→const, unused params",
-    "2026-07-29: Bento module — 6 templates + 2 generators + agent tool + controller + frontend screen",
-    "2026-07-29: P0 fixes for Bento module — interface rewrite, auth, frontend integration",
-    "2026-07-29: Parent mode session history fix on refresh + SSE non-streaming reply field",
-    "2026-07-28: 61 unit tests for video-download.service (0→100% coverage)",
-    "2026-07-28: Assignment draft preview card with publish button",
-    "2026-07-28: Orchestrator assignment publish improvements + session auto-resume",
-    "2026-07-28: Increase frontend chat/SSE timeouts for deep reasoning models",
-    "2026-07-27: LLM timeout 180s→300s + fallback storyboard on agent timeout"
+    "2026-08-01: Daily evolution analysis #73 — 2026-08-01"
   ],
   "lessons_learned": [
     "Bento template tests are pure data-transformation functions — no DI/DB/HTTP, no mocking needed. Each template needs 8-13 tests covering defaultTheme, toSlides counts, element types, data propagation, and edge cases (empty arrays, falsy values, many items).",
@@ -47,22 +33,23 @@
     "null coalescing (??) in test data builders makes passing null impossible — the builder always returns the default. For testing falsy behavior, use empty string or undefined.",
     "Bento module now has 100% test coverage across both service (42 tests) and templates (67 tests) — 109 total.",
     "Poetry annotation service now has 19 tests (no longer 0 coverage) — the lingxi-evolution skill's Phase Roadmap (Ph11) is stale and should be updated.",
-    "Test-vs-code mismatch in ai.service.core.spec.ts — the test expected actorType='parent' but the code intentionally passes undefined for parent mode (see comment at ai.service.ts:483-484). Always read the source comment before 'fixing' a failing test."
+    "Test-vs-code mismatch in ai.service.core.spec.ts — the test expected actorType='parent' but the code intentionally passes undefined for parent mode (see comment at ai.service.ts:483-484). Always read the source comment before 'fixing' a failing test.",
+    "Smoke test (AppModule bootstrap) fails in test env with sqljs DriverOptionNotSetError — this is a pre-existing test config issue, not a runtime bug. The unit tests don't depend on AppModule bootstrap and all pass."
   ],
   "metrics": {
     "backend_files": 251,
-    "backend_test_files": 83,
-    "backend_test_lines": 20632,
+    "backend_test_files": 82,
+    "backend_test_lines": 20587,
     "flutter_files": 122,
-    "web_files": 100,
+    "web_files": 101,
     "content_files": 46,
     "backend_lines": 48909,
-    "flutter_lines": 57920,
+    "flutter_lines": 58254,
     "web_lines": 27194,
     "content_lines": 7622,
     "total_lines": 161979,
-    "unit_test_suites": 31,
-    "unit_test_count": 1161,
+    "unit_test_suites": 80,
+    "unit_test_count": 1175,
     "e2e_test_suites": 1
   }
 }

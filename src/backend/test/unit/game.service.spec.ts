@@ -98,6 +98,58 @@ describe('GameService', () => {
       expect(result.gameType).toBe('riddle');
       expect(result.questions.length).toBeGreaterThanOrEqual(2);
     });
+
+    it('should generate a shape_match game with correct structure', () => {
+      const result = service.generateGame('shape_match', 1) as any;
+      expect(result.gameType).toBe('match');
+      expect(result.title).toBe('形状配对');
+      expect(result.items.length).toBeGreaterThanOrEqual(2);
+      expect(result.targets.length).toBe(result.items.length);
+      expect(result.timeLimit).toBe(60);
+    });
+
+    it('should generate an animal_sound game with correct structure', () => {
+      const result = service.generateGame('animal_sound', 1) as any;
+      expect(result.gameType).toBe('quiz');
+      expect(result.title).toBe('动物叫声');
+      expect(result.questions.length).toBeGreaterThanOrEqual(3);
+      for (const q of result.questions) {
+        expect(q.options).toHaveLength(4);
+        expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+        expect(q.correctAnswer).toBeLessThan(4);
+      }
+      expect(result.timeLimit).toBe(120);
+    });
+
+    it('should generate a count_simple game with correct structure', () => {
+      const result = service.generateGame('count_simple', 1) as any;
+      expect(result.gameType).toBe('count');
+      expect(result.title).toBe('数一数');
+      expect(result.questions).toHaveLength(5);
+      for (const q of result.questions) {
+        expect(q.options).toHaveLength(3);
+        expect(q.correctAnswer).toBeGreaterThanOrEqual(0);
+        expect(q.correctAnswer).toBeLessThan(3);
+      }
+      expect(result.timeLimit).toBe(120);
+    });
+
+    it('should generate a word_match game with correct structure', () => {
+      const result = service.generateGame('word_match', 1) as any;
+      expect(result.gameType).toBe('match');
+      expect(result.title).toBe('汉字配对');
+      expect(result.items.length).toBeGreaterThanOrEqual(2);
+      expect(result.targets.length).toBe(result.items.length);
+      expect(result.timeLimit).toBe(90);
+    });
+
+    it('should generate a sequence game with correct structure', () => {
+      const result = service.generateGame('sequence', 1) as any;
+      expect(result.gameType).toBe('sequence');
+      expect(result.title).toBe('找规律');
+      expect(result.questions.length).toBeGreaterThanOrEqual(2);
+      expect(result.timeLimit).toBe(120);
+    });
   });
 
   describe('saveGameResult', () => {

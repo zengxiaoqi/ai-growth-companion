@@ -1,0 +1,43 @@
+{
+  "date": "2026-08-06",
+  "source_analysis": "#80",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "Fix open handle leak in game.service.spec.ts — add module.close() in afterAll",
+      "description": "game.service.spec.ts uses Test.createTestingModule() in beforeEach but never calls module.close(). This leaves active TypeORM repository timers, causing 'A worker process has failed to exit gracefully' warnings. The test also times out at 300s Jest default when run without --testTimeout=10000. Fix: (1) add module.close() in afterAll, (2) keep --testTimeout=10000 as safety net, (3) move module creation to beforeAll for performance.",
+      "tier": 1,
+      "details": {
+        "symptom": "11 test cases pass in 4.9s, but 'Force exiting Jest' warning appears",
+        "root_cause": "Test.createTestingModule opens TypeORM mock connections without cleanup",
+        "fix_approach": "store module ref, call module.close() in afterAll",
+        "file": "test/unit/game.service.spec.ts"
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "Add unit tests for remaining 5 game generators (shape_match, animal_sound, count_simple, word_match, sequence)",
+      "description": "GameService has 8 game generators (color_match, shape_match, animal_sound, count_simple, word_match, math_quiz, sequence, riddle). Current tests only cover 3 (color_match, math_quiz, riddle). Missing coverage for 5 generators. Each generator returns structured game data with specific fields — tests should verify structure, gameType, items/targets/questions, and timeLimit.",
+      "tier": 1,
+      "details": {
+        "existing_coverage": "color_match, math_quiz, riddle (3/8)",
+        "missing": "shape_match, animal_sound, count_simple, word_match, sequence",
+        "test_pattern": "generate a {game_id} game with correct structure → verify gameType, title, items/targets/questions length, timeLimit",
+        "file": "test/unit/game.service.spec.ts"
+      }
+    },
+    {
+      "id": "s3",
+      "priority": "P2",
+      "title": "AGENTS.md accuracy audit",
+      "description": "Standard periodic audit of AGENTS.md for stale port numbers, dead tool references, and missing module listings. Last audit was 2026-08-05.",
+      "tier": 1,
+      "details": {
+        "last_audit": "2026-08-05",
+        "file": "AGENTS.md"
+      }
+    }
+  ]
+}

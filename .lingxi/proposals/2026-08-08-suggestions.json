@@ -1,0 +1,48 @@
+{
+  "date": "2026-08-08",
+  "source_analysis": "#81 (autonomous pipeline)",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "Add unit tests for content-safety.ts (93 lines, pure functions, 0 tests)",
+      "description": "Content Safety utilities (src/agent-framework/core/utils/content-safety.ts) are critical for children's safety: they filter prohibited words, redact PII, and inject encouragement text. Currently 0 test coverage. These are pure functions with no DI — easy to test exhaustively. Test cases: filterProhibitedWords (basic, edge cases: empty string, special chars, mixed content), redactPii (phone patterns, ID patterns, password patterns), isContentSafe (safe content, unsafe content, boundary cases), filterContent (full pipeline, wasFiltered flag, encouragement text injection).",
+      "tier": 1,
+      "details": {
+        "file": "src/agent-framework/core/utils/content-safety.ts",
+        "test_file": "test/unit/content-safety.spec.ts",
+        "lines": 93,
+        "functions": ["filterProhibitedWords", "redactPii", "isContentSafe", "filterContent"],
+        "estimated_tests": 15
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "Add unit tests for json-extraction.ts (115 lines, pure functions, 0 tests)",
+      "description": "JSON Extraction utilities (src/agent-framework/core/utils/json-extraction.ts) are central to LLM output parsing — used by agent-executor, generate-activity, generate-quiz, and generate-video-data. Currently 0 test coverage. Pure functions, no DI. Test cases: extractJsonObject (direct parse, json code block, generic code block, brace slice, edge cases: null, empty, nested objects, malformed JSON, multiple blocks), extractJsonArray (direct parse, code block, bracket slice, edge cases), containsJson (positive cases, negative cases, edge cases).",
+      "tier": 1,
+      "details": {
+        "file": "src/agent-framework/core/utils/json-extraction.ts",
+        "test_file": "test/unit/json-extraction.spec.ts",
+        "lines": 115,
+        "functions": ["extractJsonObject", "extractJsonArray", "containsJson"],
+        "estimated_tests": 20
+      }
+    },
+    {
+      "id": "s3",
+      "priority": "P1",
+      "title": "Add unit tests for thinking-parser.ts (42 lines, pure functions, 0 tests)",
+      "description": "Thinking Parser (src/agent-framework/core/utils/thinking-parser.ts) handles MiniMax reasoning format and standard <think> blocks. Used by both agent-executor (stripThinking) and llm-client (stripThinking). 0 tests. Pure function, no DI. Test cases: stripThinking (standard format, MiniMax format, unclosed think, nested content, no think block, empty string, null), extractThinking (standard, MiniMax, unclosed, no match), hasThinkingBlock (positive, negative, edge cases like partial word matches).",
+      "tier": 1,
+      "details": {
+        "file": "src/agent-framework/core/utils/thinking-parser.ts",
+        "test_file": "test/unit/thinking-parser.spec.ts",
+        "lines": 42,
+        "functions": ["stripThinking", "extractThinking", "hasThinkingBlock"],
+        "estimated_tests": 12
+      }
+    }
+  ]
+}

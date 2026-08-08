@@ -120,7 +120,7 @@ Stream<Map<String, dynamic>> _fetchSseStream({
     firstChunkTime = DateTime.now();
 
     // 检查是否已收到首 chunk 但长时间无实际事件
-    if (!gotFirstRealEvent && firstChunkTime != null) {
+    if (!gotFirstRealEvent) {
       final elapsed = DateTime.now().difference(firstChunkTime);
       if (elapsed.inSeconds > 240) {
         debugPrint('⚠️ [SSE] no real events in 240s after first chunk, aborting');

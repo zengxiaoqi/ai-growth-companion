@@ -196,7 +196,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -235,7 +235,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1565C0).withOpacity(0.3),
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -314,7 +314,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
         border: Border.all(color: borderColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -334,7 +334,7 @@ class _SolitaireGameScreenState extends State<SolitaireGameScreen>
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: borderColor.withOpacity(0.1),
+                    color: borderColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   alignment: Alignment.center,

@@ -9,7 +9,7 @@ const noop = () => {};
 const originalWarn = console.warn;
 const originalLog = console.log;
 
-console.warn = (...args: any[]) => {
+console.warn = (...args: unknown[]) => {
   const msg = typeof args[0] === 'string' ? args[0] : '';
   // Allow React act() warnings and deprecation notices through
   if (

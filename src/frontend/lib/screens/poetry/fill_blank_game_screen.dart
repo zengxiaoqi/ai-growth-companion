@@ -248,7 +248,7 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -430,7 +430,7 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
     final correct = _answerStatus.values.where((v) => v).length;
 
     // 朗读完成结果
-    speak('全部完成！答对${correct}题，共${total}题。');
+    speak('全部完成！答对$correct题，共$total题。');
 
     return Container(
       margin: const EdgeInsets.only(top: 20),
@@ -444,7 +444,7 @@ class _FillBlankGameScreenState extends State<FillBlankGameScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2E7D32).withOpacity(0.3),
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

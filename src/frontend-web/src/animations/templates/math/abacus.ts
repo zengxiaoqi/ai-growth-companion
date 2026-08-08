@@ -283,9 +283,7 @@ registerP5Sketch('math.abacus', (p: p5, params: Record<string, unknown>) => {
 
     // ── Total display ──
     let totalAppeared = 0;
-    let totalTarget = 0;
     for (const bead of beads) {
-      totalTarget++;
       if (bead.appeared) totalAppeared++;
     }
 

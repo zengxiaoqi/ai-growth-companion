@@ -1575,7 +1575,6 @@ class ApiService {
 
   /// 下载 Bento 文件到本地临时目录（用于分享）
   Future<String> downloadBentoFile(String fileId, String token) async {
-    final url = getBentoFileUrl(fileId, token);
     final response = await _dio.get<Uint8List>(
       '/bento/$fileId',
       queryParameters: {'token': token},

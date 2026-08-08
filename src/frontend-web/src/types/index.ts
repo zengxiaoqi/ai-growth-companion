@@ -228,6 +228,7 @@ export type ActivityType =
 export interface ActivityData {
   type: ActivityType;
   title: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -244,6 +245,7 @@ export interface ActivityResult {
       isCorrect: boolean;
       explanation?: string;
     }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 }
@@ -276,7 +278,7 @@ export interface Assignment {
   status: 'pending' | 'in_progress' | 'completed';
   completedAt?: string;
   score?: number;
-  resultData?: any;
+  resultData?: unknown;
   createdAt: string;
 }
 
@@ -366,7 +368,7 @@ export interface SceneVisual {
   effects?: string[];
   caption?: string;
   templateId?: string;
-  templateParams?: Record<string, any>;
+  templateParams?: Record<string, unknown>;
 }
 
 export interface SceneTimelineAction {
@@ -450,7 +452,7 @@ export interface LearningPoint {
   source: 'chat_summary' | 'activity';
   lastLearnedAt: string;
   cooldownUntil: string;
-  evidence?: Record<string, any>;
+  evidence?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -480,7 +482,7 @@ export interface StudyPlanRecord {
   sourceType: 'ai_generated' | 'parent_assignment' | string;
   sourceId?: number;
   title: string;
-  planContent?: Record<string, any>;
+  planContent?: Record<string, unknown>;
   status: string;
   sessionId?: string;
   createdAt: string;
@@ -518,7 +520,7 @@ export type CoursePackExportFormat =
 
 export interface SaveCoursePackVersionRequest {
   title?: string;
-  planContent?: Record<string, any>;
+  planContent?: Record<string, unknown>;
   note?: string;
   sessionId?: string;
 }
@@ -550,7 +552,7 @@ export interface ConversationSession {
   uuid: string;
   childId: number;
   status: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   messageCount: number;
   createdAt: string;
   updatedAt: string;
@@ -561,8 +563,8 @@ export interface ConversationMessageHistory {
   conversationId: number;
   role: 'system' | 'user' | 'assistant' | 'tool' | string;
   content: string;
-  toolCalls?: any[];
-  toolResult?: any;
+  toolCalls?: unknown[];
+  toolResult?: unknown;
   toolCallId?: string;
   toolName?: string;
   createdAt: string;
@@ -577,6 +579,7 @@ export interface StructuredLessonStep {
   module: {
     type: 'video' | 'reading' | 'writing' | 'game';
     scene?: LessonSceneDocument;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
   assignmentId?: number;

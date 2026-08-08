@@ -153,7 +153,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
                       borderRadius: BorderRadius.circular(25),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -204,7 +204,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
                           fontWeight: FontWeight.w600,
                         ),
                         side: BorderSide(
-                          color: const Color(0xFF6A1B9A).withOpacity(0.3),
+                          color: const Color(0xFF6A1B9A).withValues(alpha: 0.3),
                           width: 1,
                         ),
                       );
@@ -283,7 +283,7 @@ class _FlyingFlowerGameScreenState extends State<FlyingFlowerGameScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

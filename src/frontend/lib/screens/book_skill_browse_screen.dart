@@ -1,6 +1,7 @@
 // 知识书浏览 — 孩子查看已提取的知识书内容
 // 支持按章节浏览、查看术语表、查看模式列表
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
@@ -410,31 +411,7 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
                     const SizedBox(height: 12),
                     // Key points if available
                     if (ch['keyPoints'] != null && (ch['keyPoints'] as String).isNotEmpty)
-                      ...(() {
-                        try {
-                          final points = List<dynamic>.from(
-                            (ch['keyPoints'] as String).contains('[')
-                                ? (ch['keyPoints'] as String).startsWith('[')
-                                    ? List<dynamic>.from(
-                                        (ch['keyPoints'] as String).contains('"')
-                                            ? []
-                                            : ch['keyPoints'].toString().split(','))
-                                    : []
-                                : ch['keyPoints'].toString().split('\n'));
-                          return points.take(5).map((p) => Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('• ', style: TextStyle(color: AppTheme.primaryColor)),
-                                    Expanded(child: Text(p.toString(), style: const TextStyle(fontSize: 13))),
-                                  ],
-                                ),
-                              ));
-                        } catch (_) {
-                          return <Widget>[];
-                        }
-                      })(),
+                      ..._buildKeyPoints(ch['keyPoints'] as String),
                   ],
                 ),
               ),
@@ -443,6 +420,35 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
         );
       },
     );
+  }
+
+  /// Parse keyPoints string and return bullet-point widgets
+  List<Widget> _buildKeyPoints(String raw) {
+    try {
+      List<String> points;
+      if (raw.startsWith('[')) {
+        try {
+          final parsed = List<dynamic>.from(jsonDecode(raw));
+          points = parsed.map((e) => e.toString()).toList();
+        } catch (_) {
+          points = raw.replaceAll(RegExp(r'[\[\]"]'), '').split(',').where((s) => s.trim().isNotEmpty).toList();
+        }
+      } else {
+        points = raw.split('\n').where((s) => s.trim().isNotEmpty).toList();
+      }
+      return points.take(5).map((p) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('• ', style: TextStyle(color: AppTheme.primaryColor)),
+            Expanded(child: Text(p.toString(), style: const TextStyle(fontSize: 13))),
+          ],
+        ),
+      )).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Widget _buildTermsTab() {

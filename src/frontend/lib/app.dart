@@ -30,6 +30,7 @@ import 'screens/child/emergency_call_screen.dart';
 import 'screens/learning/animation_scene_player.dart';
 import 'screens/learning/assignment_play_screen.dart';
 import 'screens/learning/content_detail_screen.dart';
+import 'screens/ai_chat_screen.dart';
 import 'screens/learning/structured_lesson_screen.dart';
 import 'screens/learning/lesson_scene_player.dart';
 import 'screens/learning/subject_content_list_screen.dart';
@@ -249,6 +250,16 @@ class LingxiApp extends StatelessWidget {
             return page(
               (_) => BookSkillDetailScreen(
                 bookId: args?['bookId'] as int? ?? 0,
+              ),
+              slideFromRight,
+            );
+
+          // ── AI Chat → slideFromRight ──
+          case '/ai/chat':
+            return page(
+              (_) => AIChatScreen(
+                bookId: args?['context']?['bookId'] as int?,
+                bookTitle: args?['context']?['bookTitle'] as String?,
               ),
               slideFromRight,
             );

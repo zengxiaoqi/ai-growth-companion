@@ -700,8 +700,10 @@ class _SessionDrawer extends StatelessWidget {
 
 class AIChatScreen extends StatefulWidget {
   final bool isParentMode;
+  final int? bookId;
+  final String? bookTitle;
 
-  const AIChatScreen({super.key, this.isParentMode = false});
+  const AIChatScreen({super.key, this.isParentMode = false, this.bookId, this.bookTitle});
 
   @override
   State<AIChatScreen> createState() => _AIChatScreenState();
@@ -710,8 +712,8 @@ class AIChatScreen extends StatefulWidget {
 class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ApiService _api = ApiService();
 
+  ApiService get _api => context.read<ApiService>();
   final bool _autoPlay = true;
   bool _isListening = false;
   int? _speakingMessageIndex;

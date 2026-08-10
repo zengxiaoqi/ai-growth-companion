@@ -35,7 +35,16 @@ export class BookSkillExtractorService {
 
     try {
       // Try Python extractor first (if available)
-      const pythonScript = join(__dirname, '..', '..', '..', '..', 'scripts', 'book-extract.py');
+      const pythonScript = join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        '..',
+        '..',
+        'scripts',
+        'book-extract.py',
+      );
       if (existsSync(pythonScript)) {
         await this.extractWithPython(bookId, absoluteFilePath, pythonScript);
         return;

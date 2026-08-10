@@ -59,7 +59,7 @@ cp "$BUILD_DIR/main.dart.js" "$BUILD_DIR/main.dart.v${NEXT_V}.js"
 echo "  Created: main.dart.v${NEXT_V}.js"
 
 # Update bootstrap to reference versioned JS
-sed -i "s/\"mainJsPath\":\"main\.dart\.js\"/\"mainJsPath\":\"main.dart.v${NEXT_V}.js\"/" "$BOOTSTRAP_JS"
+sed -i 's/"mainJsPath":"[^"]*"/"mainJsPath":"main.dart.v'"${NEXT_V}"'.js"/' "$BOOTSTRAP_JS"
 
 # Clean old versioned files (keep latest 2)
 ls -1t "$BUILD_DIR"/main.dart.v*.js 2>/dev/null | tail -n +3 | while read -r old; do
@@ -76,7 +76,7 @@ with open('$BOOTSTRAP_JS', 'r') as f:
 # Replace the last line containing '});' with .catch() version
 content = re.sub(
     r'\)\s*;\s*$',
-    ').catch(function(err) { console.error(\"Flutter failed to load:\", err); var el = document.getElementById(\"loading-indicator\"); if (el) { el.textContent = \"加载失败，请刷新页面重试\"; el.style.color = \"red\"; } });',
+    ').catch(function(err) { console.error(\"Flutter failed to load:\", err); var el = document.getElementById(\"lingxi-loader\"); if (el) { el.querySelector(\"p\").textContent = \"\\u52a0\\u8f7d\\u5931\\u8d25\\uff0c\\u8bf7\\u5237\\u65b0\\u9875\\u9762\\u91cd\\u8bd5\"; el.querySelector(\"p\").style.color = \"red\"; } var errEl = document.getElementById(\"lingxi-error\"); if (errEl) { errEl.textContent = err.message || \"\\u672a\\u77e5\\u9519\\u8bef\"; errEl.classList.add(\"show\"); } });',
     content
 )
 with open('$BOOTSTRAP_JS', 'w') as f:

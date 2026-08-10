@@ -1,8 +1,11 @@
 // 知识书管理 — 家长上传、查看、删除知识书
 // 家长可以上传 PDF/EPUB/DOCX/TXT 等书籍文件，系统自动提取内容生成结构化知识
 
+import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -43,6 +46,63 @@ class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
   }
 
   Future<void> _pickAndUpload() async {
+    try {
+      if (kIsWeb) {
+        await _pickAndUploadWeb();
+      } else {
+        await _pickAndUploadNative();
+      }
+    } catch (e) {
+      if (mounted) _showSnack('操作失败: $e');
+    }
+  }
+
+  /// Web 文件选择：使用 dart:html FileUploadInputElement
+  Future<void> _pickAndUploadWeb() async {
+    final completer = Completer<void>();
+    final input = html.FileUploadInputElement()
+      ..accept = '.pdf,.epub,.docx,.txt,.md,.rtf'
+      ..multiple = false;
+    input.click();
+    input.onChange.listen((_) async {
+      final files = input.files;
+      if (files == null || files.isEmpty) {
+        completer.complete();
+        return;
+      }
+      final file = files[0];
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      reader.onLoadEnd.listen((_) async {
+        setState(() => _uploading = true);
+        try {
+          final bytes = reader.result as Uint8List;
+          String title = (file.name ?? '').replaceAll(RegExp(r'\.[^.]+$'), '');
+          if (title.isEmpty) title = '未命名';
+          await _api.uploadFile(
+            '/book-skill/upload',
+            '',
+            file.name ?? 'file',
+            fileBytes: bytes,
+            fields: {'title': title},
+          );
+          if (mounted) {
+            _showSnack('上传成功，正在提取内容...');
+            await _loadBooks();
+          }
+        } catch (e) {
+          if (mounted) _showSnack('上传失败: $e');
+        } finally {
+          if (mounted) setState(() => _uploading = false);
+        }
+        completer.complete();
+      });
+    });
+    return completer.future;
+  }
+
+  /// Native 文件选择
+  Future<void> _pickAndUploadNative() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'epub', 'docx', 'txt', 'md', 'rtf'],
@@ -53,22 +113,16 @@ class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
 
     final file = result.files.first;
     if (file.path == null) {
-      if (mounted) _showSnack('无法访问文件路径');
+      if (mounted) _showSnack('无法读取文件');
       return;
     }
 
     setState(() => _uploading = true);
 
     try {
-      final response = await _api.uploadFile(
-        '/book-skill/upload',
-        file.path!,
-        file.name,
-        fields: {
-          'title': file.name.replaceAll(RegExp(r'\.[^.]+$'), ''),
-        },
-      );
-
+      String title = file.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+      if (title.isEmpty) title = '未命名';
+      await _api.uploadFile('/book-skill/upload', file.path!, file.name, fields: {'title': title});
       if (mounted) {
         _showSnack('上传成功，正在提取内容...');
         await _loadBooks();

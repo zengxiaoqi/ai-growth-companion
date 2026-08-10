@@ -1550,9 +1550,13 @@ class ApiService {
     String filePath,
     String fileName, {
     Map<String, String>? fields,
+    Uint8List? fileBytes,
   }) async {
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      if (fileBytes != null)
+        'file': MultipartFile.fromBytes(fileBytes, filename: fileName)
+      else
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
       if (fields != null) ...fields,
     });
     final response = await _dio.post(path, data: formData);

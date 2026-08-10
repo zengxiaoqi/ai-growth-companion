@@ -16,15 +16,16 @@ class BookSkillBrowseScreen extends StatefulWidget {
 }
 
 class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
-  final _api = ApiService();
   List<Map<String, dynamic>> _books = [];
   bool _loading = true;
   String? _ageFilter;
 
+  ApiService get _api => context.read<ApiService>();
+
   @override
   void initState() {
     super.initState();
-    _loadBooks();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBooks());
   }
 
   Future<void> _loadBooks() async {
@@ -266,7 +267,6 @@ class BookSkillDetailScreen extends StatefulWidget {
 
 class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
     with SingleTickerProviderStateMixin {
-  final _api = ApiService();
   Map<String, dynamic>? _book;
   List<Map<String, dynamic>> _chapters = [];
   List<Map<String, dynamic>> _terms = [];
@@ -274,11 +274,13 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
   bool _loading = true;
   late TabController _tabController;
 
+  ApiService get _api => context.read<ApiService>();
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadBook();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBook());
   }
 
   @override

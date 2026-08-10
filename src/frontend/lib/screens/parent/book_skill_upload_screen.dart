@@ -21,15 +21,16 @@ class BookSkillUploadScreen extends StatefulWidget {
 }
 
 class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
-  final _api = ApiService();
   List<Map<String, dynamic>> _books = [];
   bool _loading = true;
   bool _uploading = false;
 
+  ApiService get _api => context.read<ApiService>();
+
   @override
   void initState() {
     super.initState();
-    _loadBooks();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBooks());
   }
 
   Future<void> _loadBooks() async {

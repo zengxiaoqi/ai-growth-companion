@@ -39,6 +39,8 @@ import 'screens/poetry/poetry_game_screen.dart';
 import 'screens/poetry/fill_blank_game_screen.dart';
 import 'screens/poetry/flying_flower_game_screen.dart';
 import 'screens/poetry/solitaire_game_screen.dart';
+import 'screens/parent/book_skill_upload_screen.dart';
+import 'screens/book_skill_browse_screen.dart';
 // AnimationScene 已在 animation_scene_player.dart 中导出
 
 /// 全局 Navigator Key，供 ApiService 在 401 时跳转登录页
@@ -237,6 +239,19 @@ class LingxiApp extends StatelessWidget {
             return page((_) => const FlyingFlowerGameScreen(), slideFromRight);
           case '/poetry/game/solitaire':
             return page((_) => const SolitaireGameScreen(), slideFromRight);
+
+          // ── Book skill → slideFromRight ──
+          case '/book-skill/upload':
+            return page((_) => const BookSkillUploadScreen(), slideFromRight);
+          case '/book-skill/browse':
+            return page((_) => const BookSkillBrowseScreen(), slideFromRight);
+          case '/book-skill/detail':
+            return page(
+              (_) => BookSkillDetailScreen(
+                bookId: args?['bookId'] as int? ?? 0,
+              ),
+              slideFromRight,
+            );
 
           // ── Games / interactive play → childFriendly ──
           case '/learning/assignmentPlay':

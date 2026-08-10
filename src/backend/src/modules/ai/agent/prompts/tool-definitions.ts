@@ -430,4 +430,40 @@ export const toolDefinitions: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'queryBookSkill',
+      description:
+        '搜索已上传的知识书内容（章节、术语、模式）。当孩子问一个需要书本知识才能回答的问题时，调用此工具搜索相关知识点。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '搜索关键词，如"光合作用""恐龙灭绝""分数运算"等' },
+          bookId: { type: 'number', description: '可选，限定在某本书中搜索' },
+          limit: { type: 'number', description: '返回结果数量上限' },
+          ageGroup: { type: 'string', enum: ['3-4', '5-6'], description: '可选，按年龄组筛选' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generateBookLesson',
+      description:
+        '基于知识书内容生成互动课程。当家长或孩子想用一本书来学习时调用，生成包含章节内容、术语、模式的课程。',
+      parameters: {
+        type: 'object',
+        properties: {
+          bookId: { type: 'number', description: '知识书 ID' },
+          chapterIndex: { type: 'number', description: '可选，指定章节' },
+          childId: { type: 'number', description: '孩子用户 ID' },
+          difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'], description: '难度' },
+        },
+        required: ['bookId', 'childId'],
+      },
+    },
+  },
 ];

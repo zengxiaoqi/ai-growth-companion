@@ -4,6 +4,8 @@
   Controller,
   ForbiddenException,
   Get,
+  HttpException,
+  HttpStatus,
   Logger,
   NotFoundException,
   Patch,
@@ -12,8 +14,14 @@
   Query,
   Request,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -279,6 +287,58 @@ export class AiController {
     } finally {
       res.end();
     }
+  }
+
+  @Post('chat/upload')
+  @ApiOperation({ summary: 'AI 对话中上传文件' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req: any, file: any, cb: any) => {
+          const uploadDir = join(__dirname, '..', '..', '..', 'public', 'uploads', 'chat');
+          if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        },
+        filename: (req: any, file: any, cb: any) => {
+          const ext = extname(file.originalname).toLowerCase();
+          const base = file.originalname
+            .replace(ext, '')
+            .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_');
+          cb(null, `chat_${Date.now()}_${base}${ext}`);
+        },
+      }),
+      limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
+      fileFilter: (req: any, file: any, cb: any) => {
+        const allowed = [
+          '.pdf',
+          '.epub',
+          '.docx',
+          '.txt',
+          '.md',
+          '.rtf',
+          '.png',
+          '.jpg',
+          '.jpeg',
+          '.gif',
+          '.webp',
+        ];
+        const ext = extname(file.originalname).toLowerCase();
+        if (!allowed.includes(ext)) {
+          return cb(new HttpException('不支持的文件格式', HttpStatus.BAD_REQUEST), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadChatFile(@Request() req: any, @UploadedFile() file: any) {
+    if (!file) throw new HttpException('请选择文件', HttpStatus.BAD_REQUEST);
+    return {
+      fileId: file.filename,
+      fileUrl: `/uploads/chat/${file.filename}`,
+      fileName: file.originalname,
+      fileType: extname(file.originalname).toLowerCase().replace('.', ''),
+      fileSize: file.size,
+    };
   }
 
   @Post('chat/sessions')

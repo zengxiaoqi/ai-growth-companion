@@ -539,6 +539,26 @@ class ApiService {
     });
   }
 
+  // ==================== 通用 API 方法 ====================
+
+  /** Generic GET request */
+  async get(path: string): Promise<any> {
+    return this.request<any>(path);
+  }
+
+  /** Generic DELETE request */
+  async delete(path: string): Promise<any> {
+    return this.request<any>(path, { method: 'DELETE' });
+  }
+
+  /** Generic POST request */
+  async post(path: string, data?: any): Promise<any> {
+    return this.request<any>(path, {
+      method: 'POST',
+      ...(data ? { body: JSON.stringify(data) } : {}),
+    });
+  }
+
   // Assignments
   async createAssignment(data: {
     parentId: number;

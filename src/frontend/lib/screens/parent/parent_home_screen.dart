@@ -574,6 +574,13 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         ),
         _MenuTile(
           icon: Icons.menu_book_rounded,
+          title: '知识书',
+          subtitle: '上传书籍，AI 自动提取知识内容',
+          color: const Color(0xFF5C6BC0),
+          onTap: () => Navigator.pushNamed(context, '/book-skill/upload'),
+        ),
+        _MenuTile(
+          icon: Icons.menu_book_rounded,
           title: '诗词鉴赏',
           subtitle: '37万首古诗词，带注解翻译与朗读',
           color: const Color(0xFFE57373),

@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Trophy,
+  BookOpen,
 } from '@/icons';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,6 +50,7 @@ import ChildSelector from './ChildSelector';
 import { DOMAIN_CONFIG, fallbackAbilities, fallbackTrendData } from './constants';
 import GrowthReportSection from './GrowthReportSection';
 import ParentalControls from './ParentalControls';
+import BookSkillPanel from './BookSkillPanel';
 
 interface ParentDashboardProps {
   onBack: () => void;
@@ -57,6 +59,7 @@ interface ParentDashboardProps {
 const tabs = [
   { key: 'chat' as const, label: '对话', Icon: MessageCircle },
   { key: 'report' as const, label: '报告', Icon: BarChart3 },
+  { key: 'books' as const, label: '知识书', Icon: BookOpen },
   { key: 'settings' as const, label: '设置', Icon: Settings },
   { key: 'assignments' as const, label: '作业', Icon: ClipboardList },
 ];
@@ -647,6 +650,12 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 ) : null}
               </div>
             )}
+          </div>
+        ) : null}
+
+        {activeTab === 'books' ? (
+          <div className="panel-card content-visibility-auto min-h-0 flex-1 overflow-y-auto p-3 md:p-4">
+            <BookSkillPanel />
           </div>
         ) : null}
 

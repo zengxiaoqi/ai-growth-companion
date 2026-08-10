@@ -1,12 +1,15 @@
 // AI 对话升级 — 添加会话管理和上下文摘要
 // 原始功能（内联测验、TTS朗读、语音输入）已完整保留
 
+import 'dart:async';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/tts_service.dart';
+import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../components/speech_input_widget.dart';
@@ -707,6 +710,7 @@ class AIChatScreen extends StatefulWidget {
 class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ApiService _api = ApiService();
 
   final bool _autoPlay = true;
   bool _isListening = false;
@@ -898,6 +902,88 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 
   void _onListeningChange(bool isListening) {
     setState(() => _isListening = isListening);
+  }
+
+  /// 选择并上传聊天文件（PDF/图片等），然后以消息形式发送
+  Future<void> _pickChatFile() async {
+    try {
+      // Use platform file picker
+      final result = await _pickFile();
+      if (result == null) return;
+
+      // Upload to server
+      final uploadResult = await _api.uploadFile(
+        '/ai/chat/upload',
+        result.path,
+        result.name,
+      );
+
+      if (uploadResult == null || uploadResult['fileUrl'] == null) {
+        _showSnack('文件上传失败');
+        return;
+      }
+
+      final fileUrl = uploadResult['fileUrl'] as String;
+      final fileName = uploadResult['fileName'] as String? ?? result.name;
+      final fileType = uploadResult['fileType'] as String? ?? '';
+
+      // Send message with file reference
+      final isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(fileType);
+      if (isImage) {
+        _sendMessage(text: '我上传了一张图片: $fileName [$fileUrl]');
+      } else {
+        _sendMessage(text: '我上传了一个文件: $fileName [$fileUrl] 请帮我看看这个文件的内容');
+      }
+    } catch (e) {
+      debugPrint('File pick error: $e');
+      _showSnack('选择文件失败');
+    }
+  }
+
+  /// Simple file picker abstraction
+  Future<({String path, String name})?> _pickFile() async {
+    try {
+      // Dynamic import to avoid hard dependency
+      // For Flutter Web, we use a file input element
+      final comp = await _pickFileWeb();
+      return comp;
+    } catch (e) {
+      debugPrint('_pickFile fallback: $e');
+      return null;
+    }
+  }
+
+  /// Web file picker using JS interop
+  Future<({String path, String name})?> _pickFileWeb() async {
+    final completer = Completer<({String path, String name})?>();
+    // Use dart:html FileReader on web
+    try {
+      // Create a hidden file input
+      final input = html.FileUploadInputElement()..accept = '.pdf,.epub,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp';
+      input.click();
+      input.onChange.listen((_) {
+        final files = input.files;
+        if (files != null && files.isNotEmpty) {
+          final file = files[0];
+          final reader = html.FileReader();
+          reader.readAsDataUrl(file);
+          reader.onLoadEnd.listen((_) {
+            final dataUrl = reader.result as String;
+            completer.complete((path: dataUrl, name: file.name ?? 'file'));
+          });
+        } else {
+          completer.complete(null);
+        }
+      });
+    } catch (e) {
+      completer.complete(null);
+    }
+    return completer.future;
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   // ─── 构建 ──────────────────────────────────────────────────────────
@@ -1393,6 +1479,20 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.chat_rounded, size: 20, color: AppTheme.primaryColor),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // 文件上传按钮
+        GestureDetector(
+          onTap: _isLoading ? null : _pickChatFile,
+          child: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+            ),
+            child: const Icon(Icons.attach_file_rounded, size: 20, color: AppTheme.primaryColor),
           ),
         ),
         const SizedBox(width: 8),

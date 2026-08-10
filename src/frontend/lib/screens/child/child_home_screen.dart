@@ -666,6 +666,63 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
           ),
         ),
         const SizedBox(height: 16),
+        // 知识书入口
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, '/book-skill/browse');
+          },
+          child: AppCard(
+            padding: const EdgeInsets.all(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF5C6BC0), Color(0xFF7986CB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: AppTheme.softShadow(const Color(0xFF5C6BC0)),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('📚', style: TextStyle(fontSize: 32)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '知识书',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '探索书籍中的知识世界',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         // 积分奖惩入口
         GestureDetector(
           onTap: () {

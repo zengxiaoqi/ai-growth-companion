@@ -1530,6 +1530,35 @@ class ApiService {
     }
   }
 
+  // ==================== 通用 API 方法 ====================
+
+  /// Generic GET request
+  Future<dynamic> get(String path, {Map<String, String>? queryParams}) async {
+    final response = await _dio.get(path, queryParameters: queryParams);
+    return response.data;
+  }
+
+  /// Generic DELETE request
+  Future<dynamic> delete(String path) async {
+    final response = await _dio.delete(path);
+    return response.data;
+  }
+
+  /// Upload a file via multipart POST
+  Future<Map<String, dynamic>> uploadFile(
+    String path,
+    String filePath,
+    String fileName, {
+    Map<String, String>? fields,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      if (fields != null) ...fields,
+    });
+    final response = await _dio.post(path, data: formData);
+    return response.data as Map<String, dynamic>;
+  }
+
   // ==================== 语音 ====================
 
   /// 删除课程草稿

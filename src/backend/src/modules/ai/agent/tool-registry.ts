@@ -17,6 +17,8 @@ import { UpdateParentControlTool } from './tools/update-parent-control';
 import { ListAssignmentsTool } from './tools/list-assignments';
 import { GenerateCoursePackTool } from './tools/generate-course-pack';
 import { EnqueueTeachingVideoTool } from './tools/enqueue-teaching-video';
+import { QueryBookSkillTool } from './tools/query-book-skill';
+import { GenerateBookLessonTool } from './tools/generate-book-lesson';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
 
 @Injectable()
@@ -42,6 +44,8 @@ export class ToolRegistry {
     private readonly listAssignmentsTool: ListAssignmentsTool,
     private readonly generateCoursePackTool: GenerateCoursePackTool,
     private readonly enqueueTeachingVideoTool: EnqueueTeachingVideoTool,
+    private readonly queryBookSkillTool: QueryBookSkillTool,
+    private readonly generateBookLessonTool: GenerateBookLessonTool,
   ) {
     this.handlers = new Map([
       ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
@@ -61,6 +65,8 @@ export class ToolRegistry {
       ['listAssignments', (args) => this.listAssignmentsTool.execute(args)],
       ['generateCoursePack', (args) => this.generateCoursePackTool.execute(args)],
       ['enqueueTeachingVideo', (args) => this.enqueueTeachingVideoTool.execute(args)],
+      ['queryBookSkill', (args) => this.queryBookSkillTool.execute(args)],
+      ['generateBookLesson', (args) => this.generateBookLessonTool.execute(args)],
     ]);
   }
 

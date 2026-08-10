@@ -32,7 +32,10 @@ import { UpdateParentControlTool } from './agent/tools/update-parent-control';
 import { ListAssignmentsTool } from './agent/tools/list-assignments';
 import { EnqueueTeachingVideoTool } from './agent/tools/enqueue-teaching-video';
 import { GenerateCoursePackTool as LegacyGenerateCoursePackTool } from './agent/tools/generate-course-pack';
+import { QueryBookSkillTool } from './agent/tools/query-book-skill';
+import { GenerateBookLessonTool } from './agent/tools/generate-book-lesson';
 import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
+import { BookSkillModule } from '../book-skill/book-skill.module';
 import { ReportModule } from '../report/report.module';
 import { VoiceModule } from '../voice/voice.module';
 import { RewardModule } from '../reward/reward.module';
@@ -87,6 +90,8 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
     // New agent framework
     AgentFrameworkModule,
+    // Book-skill module (for agent tools)
+    BookSkillModule,
   ],
   providers: [
     AiService,
@@ -117,6 +122,9 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     GenerateVideoDataTool,
     // Reward tools
     GetPointsSummaryTool,
+    // Book-skill tool
+    QueryBookSkillTool,
+    GenerateBookLessonTool,
     GetPointRecordsTool,
     GetTodayRecordsTool,
     GetWeeklyStatsTool,

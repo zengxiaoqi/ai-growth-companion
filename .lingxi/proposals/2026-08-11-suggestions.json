@@ -1,0 +1,38 @@
+{
+  "date": "2026-08-11",
+  "source": "daily_evolution_report_86",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P0",
+      "title": "git push origin main",
+      "description": "Push 6 local commits (book-to-skill system + 5 fixes) to remote",
+      "tier": 3,
+      "auto_execute": true
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "知识书系统测试覆盖",
+      "description": "为 book-skill 模块添加单元测试 — BookSkillService (260行, 依赖DB+AI Agent) 需要mock测试覆盖",
+      "tier": 1,
+      "auto_execute": true
+    },
+    {
+      "id": "s3",
+      "priority": "P2",
+      "title": "Jest超时问题诊断",
+      "description": "npm test 全量运行 >7分钟，怀疑 content-safety/thinking-parser/json-extraction 测试套件或 smoke 初始化导致",
+      "tier": 2,
+      "auto_execute": true
+    },
+    {
+      "id": "s4",
+      "priority": "P2",
+      "title": "Flutter构建部署",
+      "description": "确认 Flutter 构建是否包含新的 book-skill 页面，构建新鲜度检查通过（无过时文件）",
+      "tier": 3,
+      "auto_execute": false
+    }
+  ]
+}

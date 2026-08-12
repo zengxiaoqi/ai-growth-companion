@@ -57,10 +57,18 @@ describe('AiService viewer routing', () => {
       targetChildId: 2,
     });
 
-    expect(agentExecutor.execute).toHaveBeenCalledWith('session-1', '布置作业', 'parent', '家长A', {
-      parentId: 1,
-      childId: 2,
-    });
+    expect(agentExecutor.execute).toHaveBeenCalledWith(
+      'session-1',
+      '布置作业',
+      'parent',
+      '家长A',
+      {
+        parentId: 1,
+        childId: 2,
+      },
+      undefined,
+      undefined,
+    );
   });
 
   it('routes child viewer to child mode and ignores spoofed target child', async () => {
@@ -77,6 +85,8 @@ describe('AiService viewer routing', () => {
       '5-6',
       '小朋友B',
       { childId: 2, parentId: 1 },
+      undefined,
+      undefined,
     );
   });
 });

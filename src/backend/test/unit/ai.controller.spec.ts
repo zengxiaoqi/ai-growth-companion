@@ -669,4 +669,105 @@ describe('AiController', () => {
       expect(service.generateSuggestion).toHaveBeenCalledWith(null, 5);
     });
   });
+
+  // ─── POST /ai/chat/stream (chatStreamPost) ──────────────────────
+  describe('chatStreamPost with bookId/bookTitle', () => {
+    function mockRes() {
+      return {
+        setHeader: jest.fn(),
+        flushHeaders: jest.fn(),
+        write: jest.fn(),
+        end: jest.fn(),
+        on: jest.fn(),
+      } as any;
+    }
+
+    it('passes bookId and bookTitle from body to aiService.chatStream', async () => {
+      const res = mockRes();
+      const events = [
+        { type: 'done', sessionId: 's1', wasFiltered: false, suggestions: [], toolCalls: [] },
+      ];
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
+
+      const body = {
+        message: '读了这本书的哪一章？',
+        sessionId: 'sess-1',
+        childId: 2,
+        bookId: 5,
+        bookTitle: '小王子',
+      };
+
+      await controller.chatStreamPost(parentReq as any, body, res);
+
+      expect(service.chatStream).toHaveBeenCalledWith({
+        message: '读了这本书的哪一章？',
+        sessionId: 'sess-1',
+        viewerId: 1,
+        viewerType: 'parent',
+        targetChildId: 2,
+        context: undefined,
+        bookId: 5,
+        bookTitle: '小王子',
+      });
+    });
+
+    it('handles bookId without bookTitle', async () => {
+      const res = mockRes();
+      const events = [
+        { type: 'done', sessionId: 's2', wasFiltered: false, suggestions: [], toolCalls: [] },
+      ];
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
+
+      const body = {
+        message: '问题',
+        sessionId: 'sess-2',
+        bookId: 42,
+      };
+
+      await controller.chatStreamPost(childReq as any, body, res);
+
+      expect(service.chatStream).toHaveBeenCalledWith({
+        message: '问题',
+        sessionId: 'sess-2',
+        viewerId: 2,
+        viewerType: 'student',
+        targetChildId: undefined,
+        context: undefined,
+        bookId: 42,
+        bookTitle: undefined,
+      });
+    });
+
+    it('omits bookId/bookTitle when not provided in body', async () => {
+      const res = mockRes();
+      const events = [
+        { type: 'done', sessionId: 's3', wasFiltered: false, suggestions: [], toolCalls: [] },
+      ];
+      service.chatStream!.mockReturnValue(
+        (async function* () {
+          for (const e of events) yield e;
+        })(),
+      );
+
+      const body = {
+        message: '普通问题',
+        sessionId: 'sess-3',
+      };
+
+      await controller.chatStreamPost(parentReq as any, body, res);
+
+      // bookId and bookTitle should be undefined in the call
+      const callArgs = (service.chatStream as jest.Mock).mock.calls[0][0];
+      expect(callArgs.bookId).toBeUndefined();
+      expect(callArgs.bookTitle).toBeUndefined();
+    });
+  });
 });

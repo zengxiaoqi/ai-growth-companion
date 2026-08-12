@@ -1444,6 +1444,8 @@ class ApiService {
     int? childId,
     int? parentId,
     String? sessionId,
+    int? bookId,
+    String? bookTitle,
   }) {
     // Web: 需要完整路径给 fetch()（Dio 不参与 Web SSE）
     // 非 Web: 只给相对路径，Dio 的 baseUrl 会自动拼接
@@ -1463,6 +1465,8 @@ class ApiService {
       if (childId != null) 'childId': childId,
       if (parentId != null) 'parentId': parentId,
       if (sessionId != null) 'sessionId': sessionId,
+      if (bookId != null) 'bookId': bookId,
+      if (bookTitle != null) 'bookTitle': bookTitle,
     };
 
     return fetchSseStream(

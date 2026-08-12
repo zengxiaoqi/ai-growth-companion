@@ -276,6 +276,10 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 是否为家长模式
   bool _isParentMode = false;
 
+  /// 知识书上下文（从知识书详情页进入时设置）
+  int? _bookId;
+  String? _bookTitle;
+
   // Getters
   ChatSessionSummary? get activeSession => _activeSession;
   bool get isCreatingSession => _isCreatingSession;
@@ -286,6 +290,8 @@ class ChatSessionProvider extends ChangeNotifier {
   List<ChatMessageEntry> get localMessages => _localMessages;
   int? get childId => _childId;
   bool get isParentMode => _isParentMode;
+  int? get bookId => _bookId;
+  String? get bookTitle => _bookTitle;
 
   ChatSessionProvider(this._apiService);
 
@@ -297,6 +303,12 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 设置家长模式
   void setParentMode(bool value) {
     _isParentMode = value;
+  }
+
+  /// 设置知识书上下文（来自知识书详情页的 AI 提问按钮）
+  void setBookContext(int? bookId, String? bookTitle) {
+    _bookId = bookId;
+    _bookTitle = bookTitle;
   }
 
   // ─── 会话管理 ──────────────────────────────────────────────────────
@@ -582,6 +594,8 @@ class ChatSessionProvider extends ChangeNotifier {
         childId: _childId,
         parentId: _isParentMode ? _childId : null,
         sessionId: sessionUuid,
+        bookId: _bookId,
+        bookTitle: _bookTitle,
       );
 
       String fullReply = '';

@@ -71,7 +71,8 @@ export class AiService {
 
   /** Main chat endpoint — uses Agent with function calling */
   async chat(params: ChatRequest): Promise<ChatResponse> {
-    const { message, sessionId, context, viewerId, viewerType, targetChildId } = params;
+    const { message, sessionId, context, viewerId, viewerType, targetChildId, bookId, bookTitle } =
+      params;
 
     // Parent mode: always routed by authenticated viewer type
     if (viewerType === 'parent') {
@@ -111,6 +112,8 @@ export class AiService {
         executionContext: { parentId: viewerId, childId: targetChildId },
         actorType: 'parent',
         targetChildId,
+        bookId,
+        bookTitle,
       });
 
       // Generate parent suggestions
@@ -168,6 +171,8 @@ export class AiService {
         executionContext: { childId: viewerId, parentId: user.parentId },
         actorType: 'child',
         targetChildId: viewerId,
+        bookId,
+        bookTitle,
       });
 
       void this.learningArchiveService.recordChatTurnSummary({
@@ -212,7 +217,8 @@ export class AiService {
     gameData?: string;
     domain?: string;
   }> {
-    const { message, sessionId, context, viewerId, viewerType, targetChildId } = params;
+    const { message, sessionId, context, viewerId, viewerType, targetChildId, bookId, bookTitle } =
+      params;
 
     // Parent mode: always routed by authenticated viewer type
     if (viewerType === 'parent') {
@@ -253,6 +259,8 @@ export class AiService {
           executionContext: { parentId: viewerId, childId: targetChildId },
           actorType: 'parent',
           targetChildId,
+          bookId,
+          bookTitle,
         })) {
           yield {
             ...event,
@@ -309,6 +317,8 @@ export class AiService {
         executionContext: { childId: viewerId, parentId: user.parentId },
         actorType: 'child',
         targetChildId: viewerId,
+        bookId,
+        bookTitle,
       })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
@@ -375,6 +385,8 @@ export class AiService {
     executionContext: { childId?: number; parentId?: number };
     actorType?: 'parent' | 'child';
     targetChildId?: number;
+    bookId?: number;
+    bookTitle?: string;
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const context = this.buildAgentContext({
@@ -396,6 +408,8 @@ export class AiService {
       params.ageGroup,
       params.displayName,
       params.executionContext,
+      params.bookId,
+      params.bookTitle,
     );
     return {
       reply: legacy.reply,
@@ -411,6 +425,8 @@ export class AiService {
     executionContext: { childId?: number; parentId?: number };
     actorType?: 'parent' | 'child';
     targetChildId?: number;
+    bookId?: number;
+    bookTitle?: string;
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
     content?: string;
@@ -443,6 +459,8 @@ export class AiService {
       params.ageGroup,
       params.displayName,
       params.executionContext,
+      params.bookId,
+      params.bookTitle,
     )) {
       yield event as any;
     }

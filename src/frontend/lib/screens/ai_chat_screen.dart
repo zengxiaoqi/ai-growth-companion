@@ -752,6 +752,11 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         provider.setChildId(parentId);
       }
 
+      // 传递知识书上下文（从知识书详情页 AI 提问按钮进入时）
+      if (widget.bookId != null) {
+        provider.setBookContext(widget.bookId, widget.bookTitle);
+      }
+
       // 加载会话列表后，自动选中最近会话
       // 避免浏览器切换/页面重建后每次创建新会话
       provider.loadSessions().then((_) {

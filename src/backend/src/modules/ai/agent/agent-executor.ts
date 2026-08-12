@@ -114,6 +114,8 @@ export class AgentExecutor {
     ageGroup: AgeGroup | 'parent',
     childName: string,
     executionContext?: { childId?: number; parentId?: number },
+    bookId?: number,
+    bookTitle?: string,
   ): string {
     const contextHints = [
       '## Runtime Context',
@@ -122,6 +124,12 @@ export class AgentExecutor {
       '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
       '- If childId is already known, do not call listChildren only to discover childId.',
       '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
+      bookId != null && bookTitle != null
+        ? `\n## 当前知识书上下文\n用户正在查看"${bookTitle}"这本书，请优先回答与这本书内容相关的问题。\n你可以使用 queryBookSkill 工具搜索这本书中的章节、术语和模式。\n当用户问到书中角色、情节、知识点时，请用 queryBookSkill 搜索相关章节来回答。\n如果用户没有明确指定书本，但问题与当前上下文相关，也请优先搜索这本书。\n- bookId: ${bookId}`
+        : '',
+      bookId != null && bookTitle == null
+        ? `\n## 当前知识书上下文\n用户正在查看一本书（ID: ${bookId}），请优先回答与这本书内容相关的问题。\n你可以使用 queryBookSkill 工具搜索这本书中的内容。\n- bookId: ${bookId}`
+        : '',
     ]
       .filter(Boolean)
       .join('\n');
@@ -141,12 +149,20 @@ export class AgentExecutor {
     ageGroup: AgeGroup | 'parent',
     childName: string,
     executionContext?: { childId?: number; parentId?: number },
+    bookId?: number,
+    bookTitle?: string,
   ): Promise<{ reply: string; toolCalls: ToolCallInfo[] }> {
     // Save user message
     await this.conversationManager.addMessage(sessionId, 'user', userMessage);
 
     // Build system prompt
-    const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
+    const systemPrompt = this.buildSystemPrompt(
+      ageGroup,
+      childName,
+      executionContext,
+      bookId,
+      bookTitle,
+    );
 
     // Load conversation history
     const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
@@ -267,6 +283,8 @@ export class AgentExecutor {
     ageGroup: AgeGroup | 'parent',
     childName: string,
     executionContext?: { childId?: number; parentId?: number },
+    bookId?: number,
+    bookTitle?: string,
   ): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error' | 'game_data';
     content?: string;
@@ -281,7 +299,13 @@ export class AgentExecutor {
     // Save user message
     await this.conversationManager.addMessage(sessionId, 'user', userMessage);
 
-    const systemPrompt = this.buildSystemPrompt(ageGroup, childName, executionContext);
+    const systemPrompt = this.buildSystemPrompt(
+      ageGroup,
+      childName,
+      executionContext,
+      bookId,
+      bookTitle,
+    );
     const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
     const messages: LlmMessage[] = [
       { role: 'system', content: systemPrompt },

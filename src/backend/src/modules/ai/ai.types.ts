@@ -8,6 +8,8 @@ export interface ChatRequest {
   viewerId: number;
   viewerType: 'parent' | 'child' | string;
   targetChildId?: number;
+  bookId?: number;
+  bookTitle?: string;
   context?: {
     age?: number;
     currentPage?: string;

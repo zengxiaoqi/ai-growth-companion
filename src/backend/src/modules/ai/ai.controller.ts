@@ -83,6 +83,8 @@ export class AiController {
       parentId?: number;
       sessionId?: string;
       context?: any;
+      bookId?: number;
+      bookTitle?: string;
     },
     @Res() res: Response,
   ) {
@@ -127,6 +129,8 @@ export class AiController {
         viewerType,
         targetChildId,
         context: body.context,
+        bookId: body.bookId,
+        bookTitle: body.bookTitle,
       });
 
       for await (const event of stream) {

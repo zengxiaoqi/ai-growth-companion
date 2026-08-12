@@ -1,0 +1,26 @@
+[
+  {
+    "suggestion": "Complete and commit WIP bookId/bookTitle context passing",
+    "worth_implementing": true,
+    "feasible": true,
+    "risk_level": "low",
+    "effort_estimate": "10-15 minutes — verify 8 unstaged diffs, resolve any conflicts, commit with descriptive message",
+    "rationale": "Code is already written across exactly 8 files (4 backend + 3 frontend + evolution.json). All changes are staged/unstaged in the working tree ready to commit. This is a foundational feature enabling book-aware AI responses for children aged 3-6. Zero test risk since it's committing existing code."
+  },
+  {
+    "suggestion": "Add unit tests for bookId/bookTitle context",
+    "worth_implementing": true,
+    "feasible": true,
+    "risk_level": "low",
+    "effort_estimate": "30-45 minutes — write spec files testing AgentExecutor.buildSystemPrompt() injection and AiController SSE parameter passthrough; follow existing test patterns from src/backend/test/unit/agent-executor.service.spec.ts",
+    "rationale": "Critical safety gap: no tests exist for this new parameter flow. The project has an established test infrastructure (86 test files, 261 backend sources) with patterns to follow. Missing coverage on bookId/bookTitle could lead to silent failures in educational content delivery. Low risk since tests are non-breaking additions."
+  },
+  {
+    "suggestion": "Build and deploy Flutter Web",
+    "worth_implementing": false,
+    "feasible": true,
+    "risk_level": "high",
+    "effort_estimate": "~30 minutes — flutter build web --release + deployment, but blocks if build fails",
+    "rationale": "Production deployment is a Tier 3 action requiring explicit authorization per safety rules. Code quality is at 100% but Suggestion 1 hasn't been committed yet and Suggestion 2's tests don't exist — deploying untested changes violates best practices. All 586 commits are pushed; no urgent hotfix needed. Skip until post-commit testing validates the feature."
+  }
+]

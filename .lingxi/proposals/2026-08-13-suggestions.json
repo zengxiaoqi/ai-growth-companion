@@ -1,0 +1,30 @@
+{
+  "date": "2026-08-13",
+  "source": "daily_evolution_report_88",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P0",
+      "title": "完成并提交 WIP 知识书上下文功能",
+      "description": "8 个未提交文件包含了 bookId/bookTitle 从 Flutter AI 聊天屏幕传递到后端 agent executor 的集成。验证代码完整，提交并推送。",
+      "tier": 2,
+      "auto_execute": true
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "知识书上下文功能单元测试",
+      "description": "为 bookId/bookTitle 在 agent executor 的 buildSystemPrompt() 中的正确注入和 SSE 控制器处理新字段添加单元测试",
+      "tier": 1,
+      "auto_execute": true
+    },
+    {
+      "id": "s3",
+      "priority": "P1",
+      "title": "构建并部署 Flutter Web",
+      "description": "提交后，运行 flutter build web --release 部署新代码到生产环境",
+      "tier": 3,
+      "auto_execute": false
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-08-13",
-  "analysis_count": 88,
-  "commit_count": 589,
-  "last_commit": "2026-08-13T13:00:00+08:00",
-  "remote_head": "cf96c5a",
+  "last_analysis": "2026-08-15",
+  "analysis_count": 90,
+  "commit_count": 591,
+  "last_commit": "2026-08-13T03:08:11+08:00",
+  "remote_head": "c2e52e6",
   "remote_head_date": "2026-08-13T13:00:00+08:00",
   "commits_ahead_remote": 0,
-  "stale_days": 0,
+  "stale_days": 2,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -16,6 +16,8 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-15: Autonomous eval pipeline #89 — 3 suggestions evaluated (2 implemented, 1 skipped). S1: cleaned experiment files + updated .gitignore. S2: fixed Puppeteer hardcoded require path. S3: skipped (Puppeteer tests too brittle). 591 total commits. deploy 200 OK.",
+    "2026-08-15: Daily evolution analysis #89 — 589 commits, 0 new commits since #88, deploy 200 OK. Working tree has Puppeteer Douyin download refactor (unstaged: video-download.service.ts, package.json). All 100% capabilities.",
     "2026-08-13: Autonomous eval pipeline — 3 suggestions evaluated (2 implemented, 1 skipped Tier 3). S1: 8 WIP files committed (bookId/bookTitle context). S2: 17 new unit tests (agent-executor.book-context + ai.controller spec). S3: Flutter Web deploy skipped (Tier 3). 3 commits pushed. 589 total commits.",
     "2026-08-13: Daily evolution analysis #88 — 586 commits, 8 new commits since #83 (book-to-skill 知识书系统 + fixes + 28 book-skill tests), deploy 200 OK. 8 uncommitted files (WIP: bookId/bookTitle AI chat context passing — agent prompt injection with book context).",
     "2026-08-12: Daily evolution analysis #87 — 586 commits, 9 new commits since #83 (book-to-skill 知识书系统 + related fixes + 28 book-skill tests), deploy 200 OK. 7 uncommitted files (WIP: bookId/bookTitle AI chat context passing).",

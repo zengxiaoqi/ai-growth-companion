@@ -38,6 +38,11 @@ src/backend/public/
 # AI-generated video component (dynamically generated at runtime)
 src/video-remotion/src/GeneratedLesson.tsx
 
+# Experiment / scratch files
+data/
+scripts/
+src/backend/chrome/
+
 # Bento generated slide output
 bento-output/
 

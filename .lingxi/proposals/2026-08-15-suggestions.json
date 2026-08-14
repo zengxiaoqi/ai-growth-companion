@@ -1,0 +1,30 @@
+{
+  "date": "2026-08-15",
+  "source": "daily_evolution_report_89",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "清理实验文件 + 更新 .gitignore",
+      "description": "未跟踪的实验文件 (data/douyin_cookies.txt, scripts/douyin-downloader.js, scripts/fetch-douyin-cookies.sh, src/backend/chrome/) 不应提交到仓库。添加 .gitignore 规则，删除这些文件。",
+      "tier": 1,
+      "auto_execute": true
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "修复 video-download.service.ts 中 Puppeteer 硬编码 require 路径",
+      "description": "fetchDouyinVideoData 方法使用 require(path.join(__dirname, '..', '..', '..', 'node_modules', 'puppeteer-extra')) 硬编码路径。编译后 __dirname 指向 dist/，路径可能不对。应使用标准 import 或动态解析。",
+      "tier": 2,
+      "auto_execute": true
+    },
+    {
+      "id": "s3",
+      "priority": "P1",
+      "title": "添加 Puppeteer Douyin 提取的单元测试",
+      "description": "fetchDouyinVideoData 方法没有单元测试。添加测试覆盖：正常返回、API 错误、videoId 解析失败、Chromium 不可用等情况。遵循现有 61 个 video-download 测试的模式。",
+      "tier": 1,
+      "auto_execute": true
+    }
+  ]
+}

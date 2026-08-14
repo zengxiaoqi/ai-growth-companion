@@ -13,6 +13,7 @@ const execFileAsync = promisify(execFile);
 
 const YTDLP_BIN = process.env.YTDLP_BIN || '/home/zxq/.local/bin/yt-dlp';
 const FFMPEG_DIR = process.env.FFMPEG_DIR || '/usr/bin';
+const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/snap/bin/chromium';
 
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
@@ -472,37 +473,33 @@ export class VideoDownloadService {
   }
 
   /**
-   * Extract Douyin video metadata without yt-dlp (bypasses cookie requirement)
+   * Extract Douyin video metadata using Puppeteer in-process (headless Chromium).
+   * Calls the Douyin API from a real browser context to bypass X-Bogus requirement.
    */
   private async extractDouyinInfo(url: string): Promise<Partial<VideoDownload>> {
-    const videoId = await this.resolveDouyinUrl(url);
-    const shareUrl = `https://www.iesdouyin.com/share/video/${videoId}/`;
-
-    const html = await this.fetchUrl(shareUrl, {
-      Referer: 'https://www.iesdouyin.com/',
-    });
-
-    // Extract video info from the embedded JSON in the page
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/);
-    const descMatch = html.match(/"desc":"([^"]+)"/);
-    const uploaderMatch = html.match(/"nickname":"([^"]+)"/);
-
-    const title = descMatch?.[1] || titleMatch?.[1] || url;
-    const uploader = uploaderMatch?.[1] || null;
-
-    this.logger.log(`Douyin info extracted: videoId=${videoId} title=${title}`);
-
-    return {
-      title,
-      uploader,
-      platform: 'douyin',
-      // thumbnail can also be extracted if needed
-    };
+    try {
+      const videoData = await this.fetchDouyinVideoData(url);
+      this.logger.log(`Douyin info extracted via puppeteer: title=${videoData.desc}`);
+      return {
+        title: videoData.desc || url,
+        thumbnail: videoData.thumbnail || null,
+        uploader: videoData.author || null,
+        duration: videoData.duration || null,
+        platform: 'douyin',
+      };
+    } catch (err) {
+      this.logger.warn(`Puppeteer extractDouyinInfo failed for ${url}: ${(err as Error).message}`);
+      const videoId = await this.resolveDouyinUrl(url).catch(() => null);
+      return {
+        title: videoId ? `抖音视频 ${videoId}` : url,
+        uploader: null,
+        platform: 'douyin',
+      };
+    }
   }
 
   /**
-   * Download Douyin video without watermark using mobile share API
-   * Bypasses yt-dlp cookie requirement
+   * Download Douyin video using Puppeteer in-process (headless Chromium).
    */
   private async performDouyinDownload(taskId: number, url: string): Promise<void> {
     const task = await this.repo.findOne({ where: { id: taskId } });
@@ -511,36 +508,25 @@ export class VideoDownloadService {
     try {
       await this.repo.update(taskId, { status: 'downloading' });
 
-      const videoId = await this.resolveDouyinUrl(url);
-      this.logger.log(`Douyin download: task=${taskId} videoId=${videoId}`);
-
-      // Get the share page to extract video URI
-      const shareUrl = `https://www.iesdouyin.com/share/video/${videoId}/`;
-      const html = await this.fetchUrl(shareUrl, {
-        Referer: 'https://www.iesdouyin.com/',
-      });
-
-      // Extract video URI
-      const uriMatch = html.match(/"play_addr":\{"uri":"([^"]+)"/);
-      if (!uriMatch) {
-        throw new Error('Could not extract video URI from Douyin share page');
-      }
-      const videoUri = uriMatch[1];
-
-      // Build no-watermark URL: use /play/ instead of /playwm/
-      const noWatermarkUrl = `https://aweme.snssdk.com/aweme/v1/play/?line=0&ratio=720p&video_id=${videoUri}`;
-
       const filename = `video_${taskId}_${Date.now()}.mp4`;
       const outputPath = path.join(UPLOADS_DIR, filename);
       const relativePath = `/uploads/videos/${filename}`;
 
-      this.logger.log(`Downloading douyin video: task=${taskId} → ${outputPath}`);
+      this.logger.log(`Starting douyin download via puppeteer: task=${taskId} url=${url}`);
 
-      await this.downloadFile(noWatermarkUrl, outputPath, {
-        Referer: 'https://www.iesdouyin.com/',
+      const videoData = await this.fetchDouyinVideoData(url);
+      const downloadUrl = videoData.play_addr || videoData.bit_rate;
+      if (!downloadUrl) {
+        throw new Error('No playable URL found from Douyin API');
+      }
+
+      this.logger.log(`Downloading from CDN: ${downloadUrl.slice(0, 80)}...`);
+      await this.downloadFile(downloadUrl, outputPath, {
+        Referer: 'https://www.douyin.com/',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
       });
 
-      // Verify file exists and has content
       if (!fs.existsSync(outputPath)) {
         throw new Error('Download completed but file not found');
       }
@@ -566,6 +552,86 @@ export class VideoDownloadService {
         status: 'failed',
         errorMessage: errorMsg,
       });
+    }
+  }
+
+  /**
+   * Launch headless Chromium, navigate to Douyin video page, call internal API, return video data.
+   */
+  private async fetchDouyinVideoData(url: string): Promise<{
+    desc: string;
+    play_addr: string;
+    bit_rate: string;
+    thumbnail: string;
+    author: string;
+    duration: number;
+    width: number;
+    height: number;
+    has_watermark: boolean;
+  }> {
+    const videoId = await this.resolveDouyinUrl(url).catch(() => null);
+    const videoUrl = videoId ? `https://www.douyin.com/video/${videoId}` : url;
+
+    // Dynamic import — puppeteer-extra with stealth plugin bypasses Douyin's headless detection
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const puppeteer = require('puppeteer-extra');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+    puppeteer.use(StealthPlugin());
+
+    const browser = await puppeteer.launch({
+      executablePath: CHROMIUM_PATH,
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+      ],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1920, height: 1080 });
+
+      // Navigate and wait for page to settle
+      await page.goto(videoUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      });
+
+      // Wait for the page to fully initialize and trigger API calls
+      await new Promise((r) => setTimeout(r, 6000));
+
+      // Call the API from the browser context (with credentials from the page session)
+      const json = await page.evaluate(async (id) => {
+        const r = await fetch(`https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id=${id}`, {
+          credentials: 'include',
+          headers: { Accept: 'application/json, text/plain, */*' },
+        });
+        return r.json();
+      }, videoId);
+
+      const item = json.aweme_detail;
+      if (!item) {
+        throw new Error(`API error: no aweme_detail, status_code=${json.status_code}`);
+      }
+      const v = item.video;
+      const author = item.author || {};
+      return {
+        desc: item.desc || '',
+        play_addr: v.play_addr?.url_list?.[0] || '',
+        bit_rate: v.bit_rate?.[0]?.play_addr?.url_list?.[0] || '',
+        has_watermark: !!v.has_watermark,
+        width: v.width || 0,
+        height: v.height || 0,
+        duration: v.duration || 0,
+        thumbnail: v.origin_cover?.url_list?.[0] || v.dynamic_cover?.url_list?.[0] || '',
+        author: author.nickname || '',
+      };
+    } finally {
+      await browser.close().catch(() => {});
     }
   }
 

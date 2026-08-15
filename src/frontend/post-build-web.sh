@@ -30,14 +30,11 @@ else
     sed -i 's/"engineRevision":"[^"]*"/&,"useLocalCanvasKit":true/' "$BOOTSTRAP_JS"
 fi
 
-# 1b: renderer: keep canvaskit (Flutter 3.41+ builds for canvaskit by default)
-# NOTE: Do NOT switch to "html" — modern Flutter Web builds target canvaskit
-# and the loader will fail to find a matching build
-if grep -qP '"renderer"\s*:\s*"html"' "$BOOTSTRAP_JS"; then
-    echo "  [1b] renderer is html — keeping as-is (canvaskit is preferred)"
-else
-    echo "  [1b] renderer already canvaskit — skipping"
-fi
+# 1b: renderer: switch to html (avoid Google Fonts CDN failure in China)
+# CanvasKit downloads fonts from fonts.gstatic.com which is blocked
+# HTML renderer uses system fonts, no external downloads
+sed -i 's/"renderer":"canvaskit"/"renderer":"html"/' "$BOOTSTRAP_JS"
+echo "  [1b] Switched renderer to html (avoids blocked Google Fonts CDN)"
 
 # --- Step 2: Cache-bust main.dart.js ---
 echo ""

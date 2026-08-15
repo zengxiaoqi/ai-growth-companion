@@ -47,10 +47,29 @@ export class VideoDownloadController {
     return this.service.retryDownload(+id);
   }
 
+  @Post('batch/delete')
+  @ApiOperation({ summary: '批量删除下载任务' })
+  async batchDeleteDownload(@Body() body: { ids: number[] }) {
+    await this.service.batchDelete(body.ids);
+    return { success: true };
+  }
+
+  @Post('batch/retry')
+  @ApiOperation({ summary: '批量重试失败下载' })
+  async batchRetryDownload(@Body() body: { ids: number[] }) {
+    return this.service.batchRetry(body.ids);
+  }
+
+  @Post('batch/toggle-publish')
+  @ApiOperation({ summary: '批量发布给孩子' })
+  async batchTogglePublish(@Body() body: { ids: number[]; childId: number }) {
+    return this.service.batchTogglePublish(body.ids, body.childId);
+  }
+
   @Post(':id/toggle-publish')
-  @ApiOperation({ summary: '切换是否发布给孩子观看' })
-  async togglePublish(@Param('id') id: string) {
-    return this.service.togglePublish(+id);
+  @ApiOperation({ summary: '切换是否发布给孩子观看，可选 childId' })
+  async togglePublish(@Param('id') id: string, @Body() body: { childId?: number }) {
+    return this.service.togglePublish(+id, body.childId);
   }
 
   @Post(':id/cancel')

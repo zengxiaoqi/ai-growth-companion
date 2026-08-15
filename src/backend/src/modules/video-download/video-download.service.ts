@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as path from 'path';
 import * as fs from 'fs';
 import { execFile } from 'child_process';
@@ -239,12 +239,69 @@ export class VideoDownloadService {
   }
 
   /**
-   * Toggle publish-to-child flag
+   * Toggle publish-to-child flag, optionally set childId
    */
-  async togglePublish(id: number): Promise<VideoDownload> {
+  async togglePublish(id: number, childId?: number): Promise<VideoDownload> {
     const task = await this.findById(id);
     task.publishedToChild = !task.publishedToChild;
+    if (childId != null) {
+      task.childId = childId;
+    }
     return this.repo.save(task);
+  }
+
+  /**
+   * Batch delete downloads
+   */
+  async batchDelete(ids: number[]): Promise<void> {
+    // Delete files first
+    for (const id of ids) {
+      const task = await this.repo.findOne({ where: { id } });
+      if (task?.filePath) {
+        const fullPath = path.join(PUBLIC_DIR, task.filePath.replace(/^\//, ''));
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      }
+    }
+    await this.repo.delete(ids);
+    this.logger.log(`Batch deleted ${ids.length} downloads`);
+  }
+
+  /**
+   * Batch retry failed downloads
+   */
+  async batchRetry(ids: number[]): Promise<VideoDownload[]> {
+    const results: VideoDownload[] = [];
+    for (const id of ids) {
+      const task = await this.repo.findOne({ where: { id } });
+      if (!task || task.status !== 'failed') continue;
+      await this.repo.update(id, { status: 'pending', errorMessage: null });
+      if (this.isDouyinUrl(task.sourceUrl)) {
+        this.performDouyinDownload(id, task.sourceUrl).catch((err) => {
+          this.logger.error(`Batch retry douyin failed for task ${id}: ${err.message}`);
+        });
+      } else {
+        this.performDownload(id, task.sourceUrl).catch((err) => {
+          this.logger.error(`Batch retry failed for task ${id}: ${err.message}`);
+        });
+      }
+      const updated = await this.repo.findOne({ where: { id } });
+      if (updated) results.push(updated);
+    }
+    return results;
+  }
+
+  /**
+   * Batch toggle publish to a specific child
+   */
+  async batchTogglePublish(ids: number[], childId: number): Promise<VideoDownload[]> {
+    // Set all to published=true, and set childId
+    await this.repo.update(ids, { publishedToChild: true, childId });
+    // Return the updated records
+    const updated = await this.repo.find({ where: { id: In(ids) } });
+    this.logger.log(`Batch published ${ids.length} videos to child ${childId}`);
+    return updated;
   }
 
   /**
@@ -536,10 +593,16 @@ export class VideoDownloadService {
         throw new Error(`Downloaded file too small: ${stats.size} bytes`);
       }
 
+      // Update uploader/title/thumbnail from the fresh video data,
+      // in case the initial metadata extraction (extractDouyinInfo) failed
       await this.repo.update(taskId, {
         status: 'completed',
         filePath: relativePath,
         fileSize: stats.size,
+        uploader: videoData.author || null,
+        title: videoData.desc || task.title,
+        thumbnail: videoData.thumbnail || task.thumbnail,
+        duration: videoData.duration || task.duration,
       });
 
       this.logger.log(

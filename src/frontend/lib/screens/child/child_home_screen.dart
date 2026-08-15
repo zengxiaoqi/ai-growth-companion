@@ -22,6 +22,7 @@ import '../learning/learning_home_screen.dart';
 import '../achievement/achievement_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reward/reward_home_screen.dart';
+import 'child_video_screen.dart';
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
 
@@ -784,6 +785,69 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        // 视频观看入口
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ChildVideoScreen(),
+              ),
+            );
+          },
+          child: AppCard(
+            padding: const EdgeInsets.all(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF6B6B), Color(0xFFFF8E8E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: AppTheme.softShadow(const Color(0xFFFF6B6B)),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('🎬', style: TextStyle(fontSize: 32)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '视频学习',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '爸爸妈妈分享的视频在这里',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

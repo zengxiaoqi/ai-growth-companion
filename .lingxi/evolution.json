@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-08-15",
-  "analysis_count": 90,
-  "commit_count": 591,
-  "last_commit": "2026-08-13T03:08:11+08:00",
-  "remote_head": "c2e52e6",
-  "remote_head_date": "2026-08-13T13:00:00+08:00",
+  "last_analysis": "2026-08-16",
+  "analysis_count": 91,
+  "commit_count": 594,
+  "last_commit": "2026-08-15T21:10:03+08:00",
+  "remote_head": "629ce59",
+  "remote_head_date": "2026-08-15T21:10:03+08:00",
   "commits_ahead_remote": 0,
-  "stale_days": 2,
+  "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-16: Daily evolution analysis #90 — 3 new commits since #89 (Puppeteer Douyin cleanup + video download refactor + child video screen). 594 total commits, 0 ahead/behind remote, deploy 200 OK. Flutter Web build deployed (v1785254919).",
     "2026-08-15: Autonomous eval pipeline #89 — 3 suggestions evaluated (2 implemented, 1 skipped). S1: cleaned experiment files + updated .gitignore. S2: fixed Puppeteer hardcoded require path. S3: skipped (Puppeteer tests too brittle). 591 total commits. deploy 200 OK.",
     "2026-08-15: Daily evolution analysis #89 — 589 commits, 0 new commits since #88, deploy 200 OK. Working tree has Puppeteer Douyin download refactor (unstaged: video-download.service.ts, package.json). All 100% capabilities.",
     "2026-08-13: Autonomous eval pipeline — 3 suggestions evaluated (2 implemented, 1 skipped Tier 3). S1: 8 WIP files committed (bookId/bookTitle context). S2: 17 new unit tests (agent-executor.book-context + ai.controller spec). S3: Flutter Web deploy skipped (Tier 3). 3 commits pushed. 589 total commits.",
@@ -94,8 +95,11 @@
     "2026-05-26: Initial evolution setup — 1 commit: AGENTS.md audit + evolution state."
   ],
   "lessons_learned": [
+    "Google Fonts 被墙时，自托管字体 + CanvasKit 渲染器 + nginx 自定义路径是唯一可靠方案",
+    "视频下载页面重构为页签模式（下载中/已完成/失败）+ 批量选择模式显著提升 UX",
+    "孩子端视频观看需要独立入口卡片（child_home_screen）+ 专用视频列表页面",
+    "Puppeteer 集成时，extractDouyinInfo 和 performDouyinDownload 需要 headless Chromium 环境",
     "bookId/bookTitle context must be passed from Flutter AI chat screen through SSE to backend agent executor for context-aware responses — verified with 17 unit tests (3 test files, 70 tests total)",
-    "bookId/bookTitle context must be passed from Flutter AI chat screen through SSE to backend agent executor for context-aware responses",
     "book-to-skill system requires a multi-layer architecture: upload (Flutter) → extract (Python script) → store (NestJS BookSkill entity) → query (AI agent tool)",
     "nginx client_max_body_size must be set for file uploads >1MB, otherwise 502 Bad Gateway",
     "Flutter Web FileReader via dart:html is the only reliable way to read file contents on Web (file_picker path is null on Web)",

@@ -1,0 +1,43 @@
+{
+  "date": "2026-08-18",
+  "source": "daily_evolution_report_91_next_steps + autonomous_eval_2026-08-15_pending_items",
+  "note": "Daily report #91 (2026-08-18) was a quiet day with no new code commits and no explicit Tier-1 todos. Suggestions extracted from its observation points plus the 下一步规划 of the 2026-08-15 eval report.",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "抖音 Puppeteer 下载端到端冒烟验证",
+      "description": "2026-08-15 评估报告遗留项：在测试环境运行一次端到端验证，确认 CHROMIUM_PATH (/snap/bin/chromium) 可启动、stealth 插件加载、能从抖音分享页提取 videoId。产出可复用的验证脚本（Tier 1：验证脚本，不改生产代码）。",
+      "tier": 1,
+      "auto_execute": true,
+      "already_implemented_check": {
+        "status": "NOT_DONE",
+        "evidence": "grep 无任何 douyin/puppeteer 冒烟验证脚本或执行记录；video-download.service.spec.ts 仅覆盖 extractUrlFromText/isDouyinUrl 纯函数，未覆盖 Chromium 启动路径"
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "部署 Flutter Web",
+      "description": "2026-08-15 评估报告遗留项：重建并部署 Flutter Web。",
+      "tier": 3,
+      "auto_execute": false,
+      "already_implemented_check": {
+        "status": "ALREADY_DONE",
+        "evidence": "find src/frontend/lib/ -newer build/web/main.dart.js → 空（构建新鲜）；main.dart.js 包含 '视频学习'/'我的视频'（child_video_screen 已编译进产物）；线上 main.dart.v1785254919.js 正常服务，健康检查 200"
+      }
+    },
+    {
+      "id": "s3",
+      "priority": "P2",
+      "title": "知识书上下文 (bookId/bookTitle) 测试覆盖",
+      "description": "2026-08-15 评估报告遗留项：验证 bookId/bookTitle 从 Flutter AI 聊天→SSE→后端 agent executor 的完整链路。",
+      "tier": 1,
+      "auto_execute": true,
+      "already_implemented_check": {
+        "status": "ALREADY_DONE",
+        "evidence": "test/unit/agent-executor.book-context.spec.ts (13 tests)、ai.controller.spec.ts (53 tests)、book-skill.service.spec.ts (28 tests) 已覆盖 bookId/bookTitle 注入链路；完整 SSE+LLM 在线 E2E 依赖外部 LLM、脆弱且成本高，不值得做"
+      }
+    }
+  ]
+}

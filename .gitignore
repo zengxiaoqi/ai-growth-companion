@@ -40,7 +40,7 @@ src/video-remotion/src/GeneratedLesson.tsx
 
 # Experiment / scratch files
 data/
-scripts/
+/scripts/
 src/backend/chrome/
 
 # Bento generated slide output

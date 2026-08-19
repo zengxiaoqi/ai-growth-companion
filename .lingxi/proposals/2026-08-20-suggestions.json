@@ -1,0 +1,43 @@
+{
+  "date": "2026-08-20",
+  "source": "coverage_audit_2026-08-20 (daily report #94 was a quiet day with no 下一步建议 table; suggestions derived from a Tier-1 unit-test coverage audit of src/backend)",
+  "note": "Audit found 8 backend services with no .spec.ts. Top 3 by value/testability selected (all pure logic, small, Tier 1).",
+  "suggestions": [
+    {
+      "id": "s1",
+      "priority": "P1",
+      "title": "MessageBuilderService 单元测试",
+      "description": "为 src/agent-framework/conversation/message-builder.service.ts (130 行纯逻辑) 添加单元测试：tool-call block 原子性（assistant tool_calls 与 tool results 不拆分）、incomplete block 丢弃、dangling tool 消息丢弃、system/user/assistant 直传、maxMessages 尾部保留逻辑。",
+      "tier": 1,
+      "auto_execute": true,
+      "already_implemented_check": {
+        "status": "NOT_DONE",
+        "evidence": "grep -rln 'MessageBuilderService|message-builder' test/ src --include='*.spec.ts' → 空"
+      }
+    },
+    {
+      "id": "s2",
+      "priority": "P1",
+      "title": "PromptProviderService 单元测试",
+      "description": "为 src/agent-framework/prompts/prompt-provider.service.ts (124 行) 添加单元测试：getSystemPrompt 三段组装（base + runtime + tools）、registerTemplate 覆盖内置模板、buildToolInstructions 空列表/列表、buildRuntimeSection 过滤 null/undefined。",
+      "tier": 1,
+      "auto_execute": true,
+      "already_implemented_check": {
+        "status": "NOT_DONE",
+        "evidence": "grep -rln 'PromptProviderService|prompt-provider' test/ src --include='*.spec.ts' → 空"
+      }
+    },
+    {
+      "id": "s3",
+      "priority": "P2",
+      "title": "ToolRegistryService 单元测试",
+      "description": "为 src/agent-framework/tools/tool-registry.service.ts (153 行) 添加单元测试：register/registerAll/get/getAll/has、getToolDefinitions 过滤、execute 未知工具返回 {success:false}、execute 异常捕获、executeToString JSON 序列化。DiscoveryService/ModuleRef 用 mock。",
+      "tier": 1,
+      "auto_execute": true,
+      "already_implemented_check": {
+        "status": "NOT_DONE",
+        "evidence": "grep -rln 'ToolRegistryService|tool-registry' test/ src --include='*.spec.ts' → 空"
+      }
+    }
+  ]
+}

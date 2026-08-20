@@ -13,7 +13,10 @@ const execFileAsync = promisify(execFile);
 
 const YTDLP_BIN = process.env.YTDLP_BIN || '/home/zxq/.local/bin/yt-dlp';
 const FFMPEG_DIR = process.env.FFMPEG_DIR || '/usr/bin';
+const FFMPEG_BIN = process.env.FFMPEG_BIN || path.join(FFMPEG_DIR, 'ffmpeg');
 const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/snap/bin/chromium';
+// Higgsfield HLS 默认清晰度（长片默认 720p，体积/下载时间平衡；可用 quality 覆盖）
+const HIGGSFIELD_DEFAULT_QUALITY = '720p';
 
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
@@ -89,6 +92,7 @@ export class VideoDownloadService {
     parentId: number,
     rawInput: string,
     childId?: number,
+    quality?: string,
   ): Promise<VideoDownload> {
     // Extract URL from possible share text (Douyin/Bilibili share messages contain extra text)
     const url = this.extractUrlFromText(rawInput);
@@ -99,12 +103,15 @@ export class VideoDownloadService {
     }
 
     const isDouyin = this.isDouyinUrl(url);
+    const isHiggsfield = this.isHiggsfieldUrl(url);
 
     // First extract metadata
     let info: Partial<VideoDownload> = {};
     try {
       if (isDouyin) {
         info = await this.extractDouyinInfo(url);
+      } else if (isHiggsfield) {
+        info = await this.extractHiggsfieldInfo(url);
       } else {
         info = await this.extractInfo(url);
       }
@@ -130,6 +137,12 @@ export class VideoDownloadService {
     if (isDouyin) {
       this.performDouyinDownload(saved.id, url).catch((err) => {
         this.logger.error(`Background douyin download failed for task ${saved.id}: ${err.message}`);
+      });
+    } else if (isHiggsfield) {
+      this.performHiggsfieldDownload(saved.id, url, quality).catch((err) => {
+        this.logger.error(
+          `Background higgsfield download failed for task ${saved.id}: ${err.message}`,
+        );
       });
     } else {
       this.performDownload(saved.id, url).catch((err) => {
@@ -281,6 +294,10 @@ export class VideoDownloadService {
         this.performDouyinDownload(id, task.sourceUrl).catch((err) => {
           this.logger.error(`Batch retry douyin failed for task ${id}: ${err.message}`);
         });
+      } else if (this.isHiggsfieldUrl(task.sourceUrl)) {
+        this.performHiggsfieldDownload(id, task.sourceUrl).catch((err) => {
+          this.logger.error(`Batch retry higgsfield failed for task ${id}: ${err.message}`);
+        });
       } else {
         this.performDownload(id, task.sourceUrl).catch((err) => {
           this.logger.error(`Batch retry failed for task ${id}: ${err.message}`);
@@ -337,6 +354,10 @@ export class VideoDownloadService {
     if (this.isDouyinUrl(task.sourceUrl)) {
       this.performDouyinDownload(id, task.sourceUrl).catch((err) => {
         this.logger.error(`Retry douyin download failed for task ${id}: ${err.message}`);
+      });
+    } else if (this.isHiggsfieldUrl(task.sourceUrl)) {
+      this.performHiggsfieldDownload(id, task.sourceUrl).catch((err) => {
+        this.logger.error(`Retry higgsfield download failed for task ${id}: ${err.message}`);
       });
     } else {
       this.performDownload(id, task.sourceUrl).catch((err) => {
@@ -399,6 +420,10 @@ export class VideoDownloadService {
       this.performDouyinDownload(id, url).catch((err) => {
         this.logger.error(`Re-download (douyin) failed for task ${id}: ${err.message}`);
       });
+    } else if (this.isHiggsfieldUrl(url)) {
+      this.performHiggsfieldDownload(id, url).catch((err) => {
+        this.logger.error(`Re-download (higgsfield) failed for task ${id}: ${err.message}`);
+      });
     } else {
       this.performDownload(id, url).catch((err) => {
         this.logger.error(`Re-download failed for task ${id}: ${err.message}`);
@@ -420,6 +445,13 @@ export class VideoDownloadService {
       lower.includes('iesdouyin.com') ||
       lower.includes('v.douyin.com')
     );
+  }
+
+  /**
+   * Check if URL is a Higgsfield link
+   */
+  private isHiggsfieldUrl(url: string): boolean {
+    return url.toLowerCase().includes('higgsfield.ai');
   }
 
   /**
@@ -698,6 +730,205 @@ export class VideoDownloadService {
     }
   }
 
+  // ============ Higgsfield (higgsfield.ai) specific methods ============
+
+  /**
+   * Fetch a Higgsfield project page and parse the embedded video source + metadata.
+   * Higgsfield is a TanStack SSR app — the HLS (.m3u8) URL and metadata are embedded
+   * in the server-rendered HTML, so a plain HTTP GET (no browser) is sufficient.
+   */
+  private async fetchHiggsfieldVideoData(url: string): Promise<{
+    m3u8: string;
+    title: string;
+    thumbnail: string;
+    uploader: string;
+    duration: number;
+    width: number;
+    height: number;
+  }> {
+    const html = await this.fetchUrl(url, {});
+
+    const m3u8Match = html.match(/https:\/\/cdn\.higgsfield\.ai\/hls\/[^"\\]+\.m3u8/);
+    if (!m3u8Match) {
+      throw new Error('未在页面中找到视频源（该项目可能不是视频，或需要登录后才能查看）');
+    }
+
+    // Title: the video object's name field immediately precedes kind:"video"
+    let title = '';
+    const nameVideo = html.match(/name:"([^"]+)",kind:"video"/);
+    if (nameVideo) title = nameVideo[1];
+    if (!title) {
+      const titleMatch = html.match(/title:"([^"]+)"/);
+      if (titleMatch) title = titleMatch[1].split(' | ')[0];
+    }
+
+    const thumbMatch = html.match(/thumbnail:"([^"]+)"/);
+    const userMatch = html.match(/username:"([^"]+)"/);
+    const durMatch = html.match(/durationSeconds:([\d.]+)/);
+    const whMatch = html.match(/width:(\d+),height:(\d+)/);
+
+    return {
+      m3u8: m3u8Match[0],
+      title: title || url,
+      thumbnail: thumbMatch ? thumbMatch[1] : '',
+      uploader: userMatch ? userMatch[1] : '',
+      duration: durMatch ? parseFloat(durMatch[1]) : null,
+      width: whMatch ? parseInt(whMatch[1], 10) : 0,
+      height: whMatch ? parseInt(whMatch[2], 10) : 0,
+    };
+  }
+
+  /**
+   * Fetch the HLS master playlist and select a variant by requested quality.
+   * quality: 'best' | '2160p' | '1716p' | '1440p' | '1080p' | '720p' | '480p'
+   */
+  private async selectHiggsfieldVariant(masterM3u8: string, quality?: string): Promise<string> {
+    const playlist = await this.fetchUrl(masterM3u8, {});
+    const lines = playlist.split('\n').map((l) => l.trim());
+
+    interface Variant {
+      bandwidth: number;
+      resolution: string;
+      height: number;
+      url: string;
+    }
+    const variants: Variant[] = [];
+    let current: { bandwidth: number; resolution: string; height: number } | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith('#EXT-X-STREAM-INF')) {
+        const bw = parseInt(line.match(/BANDWIDTH=(\d+)/)?.[1] || '0', 10);
+        const res = line.match(/RESOLUTION=(\d+)x(\d+)/);
+        current = {
+          bandwidth: bw,
+          resolution: res ? `${res[1]}x${res[2]}` : '',
+          height: res ? parseInt(res[2], 10) : 0,
+        };
+      } else if (line && !line.startsWith('#') && current) {
+        const base = masterM3u8.slice(0, masterM3u8.lastIndexOf('/') + 1);
+        variants.push({ ...current, url: new URL(line, base).toString() });
+        current = null;
+      }
+    }
+
+    if (variants.length === 0) {
+      // Single-quality stream (no master variants) — download it directly
+      return masterM3u8;
+    }
+
+    // Highest bitrate first
+    variants.sort((a, b) => b.bandwidth - a.bandwidth);
+
+    const q = (quality || HIGGSFIELD_DEFAULT_QUALITY).toLowerCase();
+    if (!q || q === 'best') {
+      return variants[0].url;
+    }
+
+    const targetHeight = parseInt(q.replace(/[^\d]/g, ''), 10);
+    if (!targetHeight) return variants[0].url;
+
+    // Prefer a variant at or below the requested height, closest to it
+    const chosen = variants.find((v) => v.height > 0 && v.height <= targetHeight);
+    return chosen ? chosen.url : variants[variants.length - 1].url;
+  }
+
+  /**
+   * Extract Higgsfield metadata (used for the pre-download DB record).
+   */
+  private async extractHiggsfieldInfo(url: string): Promise<Partial<VideoDownload>> {
+    try {
+      const videoData = await this.fetchHiggsfieldVideoData(url);
+      this.logger.log(`Higgsfield info extracted: title=${videoData.title}`);
+      return {
+        title: videoData.title || url,
+        thumbnail: videoData.thumbnail || null,
+        uploader: videoData.uploader || null,
+        duration: videoData.duration || null,
+        platform: 'higgsfield',
+      };
+    } catch (err) {
+      this.logger.warn(`Higgsfield extractInfo failed for ${url}: ${(err as Error).message}`);
+      return { title: url, platform: 'higgsfield' };
+    }
+  }
+
+  /**
+   * Download a Higgsfield HLS video to mp4 using ffmpeg (container copy, no re-encode).
+   */
+  private async performHiggsfieldDownload(
+    taskId: number,
+    url: string,
+    quality?: string,
+  ): Promise<void> {
+    const task = await this.repo.findOne({ where: { id: taskId } });
+    if (!task) return;
+
+    try {
+      await this.repo.update(taskId, { status: 'downloading' });
+
+      const videoData = await this.fetchHiggsfieldVideoData(url);
+      const targetM3u8 = await this.selectHiggsfieldVariant(videoData.m3u8, quality);
+
+      const filename = `video_${taskId}_${Date.now()}.mp4`;
+      const outputPath = path.join(UPLOADS_DIR, filename);
+      const relativePath = `/uploads/videos/${filename}`;
+
+      this.logger.log(
+        `Starting higgsfield download: task=${taskId} quality=${
+          quality || HIGGSFIELD_DEFAULT_QUALITY
+        } → ${targetM3u8}`,
+      );
+
+      // Copy HLS segments into an mp4 container without re-encoding
+      await execFileAsync(
+        FFMPEG_BIN,
+        [
+          '-y',
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-i',
+          targetM3u8,
+          '-c',
+          'copy',
+          '-bsf:a',
+          'aac_adtstoasc',
+          '-movflags',
+          '+faststart',
+          outputPath,
+        ],
+        { timeout: 30 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 },
+      );
+
+      if (!fs.existsSync(outputPath)) {
+        throw new Error('Download completed but file not found');
+      }
+
+      const stats = fs.statSync(outputPath);
+      if (stats.size < 10000) {
+        throw new Error(`Downloaded file too small: ${stats.size} bytes`);
+      }
+
+      await this.repo.update(taskId, {
+        status: 'completed',
+        filePath: relativePath,
+        fileSize: stats.size,
+        uploader: videoData.uploader || task.uploader || null,
+        title: videoData.title || task.title,
+        thumbnail: videoData.thumbnail || task.thumbnail || null,
+        duration: videoData.duration || task.duration || null,
+      });
+
+      this.logger.log(
+        `Higgsfield download completed: task=${taskId} size=${stats.size} → ${relativePath}`,
+      );
+    } catch (err) {
+      const errorMsg = (err as Error).message.slice(0, 1000);
+      this.logger.error(`Higgsfield download failed for task ${taskId}: ${errorMsg}`);
+      await this.repo.update(taskId, { status: 'failed', errorMessage: errorMsg });
+    }
+  }
+
   /**
    * Update a failed download's source URL and restart download
    */
@@ -718,6 +949,8 @@ export class VideoDownloadService {
     try {
       if (this.isDouyinUrl(url)) {
         info = await this.extractDouyinInfo(url);
+      } else if (this.isHiggsfieldUrl(url)) {
+        info = await this.extractHiggsfieldInfo(url);
       } else {
         info = await this.extractInfo(url);
       }
@@ -744,6 +977,10 @@ export class VideoDownloadService {
       this.performDouyinDownload(id, url).catch((err) => {
         this.logger.error(`Update-url douyin download failed for task ${id}: ${err.message}`);
       });
+    } else if (this.isHiggsfieldUrl(url)) {
+      this.performHiggsfieldDownload(id, url).catch((err) => {
+        this.logger.error(`Update-url higgsfield download failed for task ${id}: ${err.message}`);
+      });
     } else {
       this.performDownload(id, url).catch((err) => {
         this.logger.error(`Update-url download failed for task ${id}: ${err.message}`);
@@ -759,6 +996,7 @@ export class VideoDownloadService {
   private detectPlatform(url: string): string {
     const lower = url.toLowerCase();
     if (lower.includes('douyin') || lower.includes('iesdouyin')) return 'douyin';
+    if (lower.includes('higgsfield')) return 'higgsfield';
     if (lower.includes('bilibili') || lower.includes('b23.tv')) return 'bilibili';
     if (lower.includes('v.qq.com') || lower.includes('tencent')) return 'tencent';
     if (lower.includes('youtube') || lower.includes('youtu.be')) return 'youtube';

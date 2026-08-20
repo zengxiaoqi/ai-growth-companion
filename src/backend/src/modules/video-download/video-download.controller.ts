@@ -22,11 +22,14 @@ export class VideoDownloadController {
 
   @Post()
   @ApiOperation({ summary: '创建视频下载任务（传入链接，后台下载无水印视频）' })
-  async createDownload(@Request() req, @Body() body: { url: string; childId?: number }) {
+  async createDownload(
+    @Request() req,
+    @Body() body: { url: string; childId?: number; quality?: string },
+  ) {
     if (!body?.url) {
       throw new BadRequestException('URL is required');
     }
-    return this.service.createDownload(req.user.sub, body.url, body.childId);
+    return this.service.createDownload(req.user.sub, body.url, body.childId, body.quality);
   }
 
   @Get()

@@ -18,6 +18,7 @@ import { RemotionRenderService } from './remotion-render.service';
 import { HyperframesRenderService } from './hyperframes-render.service';
 import { VideoGenerationAgentService } from './video-generation-agent.service';
 import { QuickVideoService } from './quick-video.service';
+import { DshBridgeService } from './dsh-bridge.service';
 import { VisualAssetService } from './visual-asset.service';
 import { CourseGenerationAgentService } from './course-generation-agent.service';
 import { LearningController } from './learning.controller';
@@ -60,6 +61,7 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
     LearningArchiveService,
     LessonContentService,
     LessonVideoQueueService,
+    DshBridgeService,
     RemotionRenderService,
     HyperframesRenderService,
     VideoGenerationAgentService,

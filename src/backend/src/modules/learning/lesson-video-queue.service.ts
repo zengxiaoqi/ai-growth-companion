@@ -23,6 +23,7 @@ import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
 import { AiService } from '../ai/ai.service';
 import { RemotionRenderService } from './remotion-render.service';
 import { HyperframesRenderService } from './hyperframes-render.service';
+import { DshBridgeService } from './dsh-bridge.service';
 import { VideoGenerationAgentService } from './video-generation-agent.service';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
@@ -140,6 +141,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly aiService: AiService,
     private readonly remotionRender: RemotionRenderService,
     private readonly hyperframesRender: HyperframesRenderService,
+    private readonly dshBridge: DshBridgeService,
     @Optional()
     @Inject(VideoGenerationAgentService)
     private readonly videoGenerationAgent?: VideoGenerationAgentService,
@@ -675,6 +677,36 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           errors.push('hyperframes returned empty buffer');
           this.logger.warn(
             `[generateVideoBuffer] taskId=${task.id} engine=${engine} returned empty buffer after ${Date.now() - engineStart}ms`,
+          );
+          continue;
+        }
+
+        if (engine === 'dsh') {
+          await this.taskRepo.update(task.id, {
+            provider: this.resolveProviderName('dsh'),
+            renderEngine: task.renderEngine || requestedEngine,
+          } as any);
+          const dshBuffer = await this.dshBridge.renderWithDsh(task, payload);
+          if (dshBuffer) {
+            this.logger.log(
+              '[generateVideoBuffer] taskId=' +
+                task.id +
+                ' engine=' +
+                engine +
+                ' succeeded in ' +
+                (Date.now() - engineStart) +
+                'ms, size=' +
+                dshBuffer.length,
+            );
+            return { buffer: dshBuffer, providerTaskId: null, sourceVideoUrl: null };
+          }
+          errors.push('dsh returned empty buffer');
+          this.logger.warn(
+            '[generateVideoBuffer] taskId=' +
+              task.id +
+              ' engine=' +
+              engine +
+              ' returned empty buffer, falling back',
           );
           continue;
         }
@@ -1689,6 +1721,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     if (engine === 'remotion') {
       return 'remotion';
     }
+    if (engine === 'dsh') {
+      return 'dsh';
+    }
     return String(process.env.VIDEO_PROVIDER_NAME || 'third_party').trim();
   }
 
@@ -1698,12 +1733,14 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       .toLowerCase();
     if (raw === 'hyperframes') return 'hyperframes';
     if (raw === 'remotion') return 'remotion';
+    if (raw === 'dsh') return 'dsh';
     return 'auto';
   }
 
   private resolveEngineOrder(engine: VideoRenderEngine): RenderAttemptEngine[] {
     if (engine === 'hyperframes') return ['hyperframes'];
     if (engine === 'remotion') return ['dynamic-remotion', 'remotion'];
+    if (engine === 'dsh') return ['dsh', 'dynamic-remotion', 'remotion', 'hyperframes'];
     return [...FALLBACK_RENDER_ENGINES];
   }
 

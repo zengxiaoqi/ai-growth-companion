@@ -394,7 +394,10 @@ export class QuickVideoGenerateDto {
   @IsBoolean()
   force?: boolean;
 
-  @ApiPropertyOptional({ description: '渲染引擎', enum: ['auto', 'hyperframes', 'remotion'] })
+  @ApiPropertyOptional({
+    description: '渲染引擎',
+    enum: ['auto', 'hyperframes', 'remotion', 'dsh'],
+  })
   @IsOptional()
   @IsString()
   renderEngine?: string;

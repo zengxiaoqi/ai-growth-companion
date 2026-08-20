@@ -37,6 +37,10 @@ src/backend/public/
 
 # AI-generated video component (dynamically generated at runtime)
 src/video-remotion/src/GeneratedLesson.tsx
+src/video-remotion/src/compositions/TeachingLesson.tsx
+
+# DSH enhanced render runtime output (mp4 + manifest per render)
+storage/
 
 # Experiment / scratch files
 data/
@@ -45,6 +49,9 @@ src/backend/chrome/
 
 # Bento generated slide output
 bento-output/
+
+# DSH project-level skill symlink farm (machine-local; see docs/video design doc P0)
+.dsh/
 
 # CodeGraph index (local code intelligence cache)
 .codegraph/

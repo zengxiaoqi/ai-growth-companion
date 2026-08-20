@@ -1,4 +1,4 @@
-﻿import { promises as fs } from 'fs';
+import { promises as fs } from 'fs';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
 
 describe('LessonVideoQueueService', () => {
@@ -13,6 +13,9 @@ describe('LessonVideoQueueService', () => {
   };
   let hyperframesRender: {
     renderLessonVideo: jest.Mock;
+  };
+  let dshBridge: {
+    renderWithDsh: jest.Mock;
   };
 
   beforeEach(() => {
@@ -37,12 +40,17 @@ describe('LessonVideoQueueService', () => {
       renderLessonVideo: jest.fn(),
     };
 
+    dshBridge = {
+      renderWithDsh: jest.fn().mockResolvedValue(null),
+    };
+
     service = new LessonVideoQueueService(
       taskRepo as any,
       {} as any,
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
+      dshBridge as any,
     );
   });
 
@@ -125,6 +133,7 @@ describe('LessonVideoQueueService', () => {
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
+      dshBridge as any,
       videoAgent as any,
     );
   }
@@ -362,6 +371,7 @@ describe('LessonVideoQueueService', () => {
       aiService as any,
       remotionRender as any,
       hyperframesRender as any,
+      dshBridge as any,
       videoAgent as any,
     );
     remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
@@ -412,6 +422,27 @@ describe('LessonVideoQueueService', () => {
     );
     expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from('video'));
+  });
+
+  it('renders via DSH without touching other engines when renderEngine is dsh', async () => {
+    dshBridge.renderWithDsh.mockResolvedValue(Buffer.from('dsh-video'));
+    const result = await (service as any).generateVideoBufferWithEngines(
+      { id: 20, cacheKey: 'dsh-cache', renderEngine: 'dsh' },
+      {
+        topic: '水循环',
+        ageGroup: '5-6',
+        domain: 'science',
+        videoLesson: { shots: [{ narration: '水变成水蒸气。' }] },
+      },
+    );
+    expect(dshBridge.renderWithDsh).toHaveBeenCalledTimes(1);
+    expect(dshBridge.renderWithDsh).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 20, renderEngine: 'dsh' }),
+      expect.objectContaining({ topic: '水循环' }),
+    );
+    expect(result.buffer).toEqual(Buffer.from('dsh-video'));
+    expect(remotionRender.renderGeneratedComposition).not.toHaveBeenCalled();
+    expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
   });
 
   it('repairs generated-code dynamic Remotion failures once before fallback', async () => {

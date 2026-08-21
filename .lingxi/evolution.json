@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-08-21",
-  "analysis_count": 95,
-  "commit_count": 605,
-  "last_commit": "2026-08-21T01:15:52+08:00",
-  "remote_head": "4bf4457",
-  "remote_head_date": "2026-08-21T01:15:52+08:00",
+  "last_analysis": "2026-08-22",
+  "analysis_count": 96,
+  "commit_count": 609,
+  "last_commit": "2026-08-22T01:11:48+08:00",
+  "remote_head": "39099af",
+  "remote_head_date": "2026-08-22T01:11:48+08:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-22: Daily evolution analysis #96 — 3 new commits since #95 (80c0a37, a204863, 39099af), all 跨境视频下载 (cross-border video download). 80c0a37 perf(video): skip agent pipeline for dsh engine (avoid double LLM, lesson-video-queue.service.ts +12). a204863 feat(video-download): 支持 X/YouTube/TikTok 等跨境平台下载 — yt-dlp 加 --proxy(默认 v2rayA 规则口 20172, env YTDLP_PROXY 可覆盖) + 强制 h264(avc1)+aac 封装兼容手机 Safari + 放宽 socket 超时 60s/重试 + detectPlatform 增加 twitter(x.com/t.co) & tiktok 标签 (video-download.service.ts +58/-35). 39099af feat(frontend): 视频下载平台显示名新增 Twitter/TikTok/Higgsfield (video_download_models.dart +6). 3 commits 已 push (3243616..39099af)。部署验证：external 200 OK, tunnel + backend systemd active (node v22 PID 312041 重启于 00:22:54, 与 dist 00:22:53 一致), better-sqlite3 OK (node v22, 无 sql.js fallback)。backend 无跨平台下载可用性验证：日志显示 task=95 下载 x.com/netflix 成功 (8.6MB)。Flutter Web v1785254920 新鲜（无 stale lib/）。test files 91, source files 262。",
     "2026-08-21: Daily evolution analysis #95 — 4 new commits since #94. eb11dbd feat(video-download): Higgsfield (higgsfield.ai) 视频下载支持 (video-download.service.ts +238 lines). 4bf4457 feat(video): DSH 增强渲染后端 (renderEngine=dsh) — dsh-bridge.service.ts (289 lines) + entity/learning.module wiring + 76-line spec. f7343d5/f1f6ac2 已计入 pipeline。部署验证：Flutter main page 200 OK, tunnel + backend systemd active (node v22 PID 288342, 重启于 00:47)。build 通过，test files 91, source files 262。2 commits 本地领先已 push (f7343d5..4bf4457)。Flutter Web v1785254919 新鲜（无 stale lib/）。",
     "2026-08-20: Autonomous eval pipeline — quiet-day coverage audit found 8 backend services without specs. Implemented 3 Tier-1 test suites (46 tests total): MessageBuilderService (tool-call block atomicity, dangling/incomplete block handling, maxMessages tail selection), PromptProviderService (prompt assembly, registerTemplate override, runtime/tools sections), ToolRegistryService (register/execute/getToolDefinitions/onModuleInit discovery). Subagent impl timed out at final run; main agent fixed 2 wrong expectations + TS errors + lint unused var. All 46 pass, npm run build clean. Commit f1f6ac2 pushed.",
     "2026-08-20: Daily evolution analysis #94 — 0 new commits since #93, quiet day. 600 total commits, 0 ahead/behind remote, deploy 200 OK (Flutter main page + React web). API login 201 via tunnel. Flutter Web v1785254919 serving fresh (no stale lib/ files). better-sqlite3 OK (no sql.js fallback). Backend node v22 PID 117077 running since Aug 15.",

@@ -1,0 +1,27 @@
+{
+  "date": "2026-08-22",
+  "source": "Daily report #96 (stable day, no Tier-2 items) + coverage audit vs test/unit/",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Add unit tests for LlmClientService (chatCompletion core paths)",
+      "target": "src/agent-framework/llm/llm-client.service.ts (717 lines, 0 specs)",
+      "rationale": "Most-depended-on service in AI pipeline (lesson-content, poetry-annotation, report services all consume it). Core paths — config defaults, OpenAI fallback mapping, maxTokensOverride, stripThinking, retry/fallback — have zero direct coverage."
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Add unit tests for ConversationService + AgentRegistryService",
+      "target": "src/agent-framework/conversation/conversation.service.ts (237) + src/agent-framework/agents/agent-registry.service.ts (163), 0 specs each",
+      "rationale": "Small, dependency-light agent-framework services. Conversation history management and agent registry are core to chat reliability."
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Add unit tests for SeederService (or BookSkillExtractorService)",
+      "target": "src/database/seeds/seeder.service.ts (274) and src/modules/book-skill/book-skill-extractor.service.ts (177), 0 specs each",
+      "rationale": "Seeder correctness determines first-run DB state; extractor parsing logic is pure and testable. Cover whichever is most testable."
+    }
+  ]
+}

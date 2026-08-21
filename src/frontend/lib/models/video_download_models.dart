@@ -63,6 +63,12 @@ class VideoDownloadItem {
         return '腾讯视频';
       case 'youtube':
         return 'YouTube';
+      case 'twitter':
+        return 'X / 推特';
+      case 'tiktok':
+        return 'TikTok';
+      case 'higgsfield':
+        return 'Higgsfield';
       case 'weibo':
         return '微博';
       case 'kuaishou':

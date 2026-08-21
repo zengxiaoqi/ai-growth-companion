@@ -17,6 +17,9 @@ const FFMPEG_BIN = process.env.FFMPEG_BIN || path.join(FFMPEG_DIR, 'ffmpeg');
 const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/snap/bin/chromium';
 // Higgsfield HLS 默认清晰度（长片默认 720p，体积/下载时间平衡；可用 quality 覆盖）
 const HIGGSFIELD_DEFAULT_QUALITY = '720p';
+// 跨境平台(YouTube/X/Twitter/TikTok等)直连被 GFW 阻断，yt-dlp 必须走代理才能访问。
+// 20172 是 v2rayA 规则口(国内直连+海外代理)；设为空字符串禁用代理。
+const YTDLP_PROXY = process.env.YTDLP_PROXY || 'http://127.0.0.1:20172';
 
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
@@ -46,18 +49,19 @@ export class VideoDownloadService {
    * Extract video metadata (title, thumbnail, etc.) without downloading
    */
   async extractInfo(url: string): Promise<Partial<VideoDownload>> {
-    const { stdout } = await execFileAsync(
-      YTDLP_BIN,
-      ['--dump-json', '--no-warnings', '--no-playlist', '--ffmpeg-location', FFMPEG_DIR, url],
-      {
-        timeout: 30000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: {
-          ...process.env,
-          PATH: `/usr/bin:${process.env.HOME}/.local/bin:${process.env.PATH}`,
-        },
+    const args = ['--dump-json', '--no-warnings', '--no-playlist', '--ffmpeg-location', FFMPEG_DIR];
+    // 跨境走代理慢/易抖，放宽 socket 超时 + 重试
+    args.push('--socket-timeout', '60', '--retries', '10');
+    if (YTDLP_PROXY) args.push('--proxy', YTDLP_PROXY);
+    args.push(url);
+    const { stdout } = await execFileAsync(YTDLP_BIN, args, {
+      timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PATH: `/usr/bin:${process.env.HOME}/.local/bin:${process.env.PATH}`,
       },
-    );
+    });
 
     const info = JSON.parse(stdout);
     return {
@@ -169,31 +173,41 @@ export class VideoDownloadService {
 
       this.logger.log(`Starting download: task=${taskId} url=${url} → ${outputPath}`);
 
-      const { stderr } = await execFileAsync(
-        YTDLP_BIN,
-        [
-          '--no-warnings',
-          '--no-playlist',
-          '-f',
-          'bestvideo+bestaudio/best',
-          '--merge-output-format',
-          'mp4',
-          '--ffmpeg-location',
-          FFMPEG_DIR,
-          '-o',
-          outputPath,
-          '--no-part',
-          url,
-        ],
-        {
-          timeout: 300000, // 5 min max per video
-          maxBuffer: 10 * 1024 * 1024,
-          env: {
-            ...process.env,
-            PATH: `/usr/bin:${process.env.HOME}/.local/bin:${process.env.PATH}`,
-          },
+      const args = [
+        '--no-warnings',
+        '--no-playlist',
+        '--socket-timeout',
+        '60',
+        '--retries',
+        '10',
+        '--fragment-retries',
+        '10',
+        '-f',
+        // 强制选 h264(avc1) 视频，兼容手机 Safari/所有浏览器播放。
+        // yt-dlp 默认 best 会优先选 av1/vp9(更"高效"但 iOS 不一定能硬解)。
+        // 音频优先 aac(mp4a)，拿不到(如推特 HLS 音频 codec 报 unknown)则回退任意。
+        // 用 bv(视频-only, 不带*)而非 bv*——后者会匹配到合并格式(如 YT 的 18 流)，
+        // 而这些 progressive 合并流常被 403 直接下载失败；DASH/HLS 分轨下载稳定。
+        'bv[vcodec^=avc1]+(ba[acodec^=mp4a]/ba)/b[vcodec^=avc1]/best',
+        '--merge-output-format',
+        'mp4',
+        '--ffmpeg-location',
+        FFMPEG_DIR,
+        '-o',
+        outputPath,
+        '--no-part',
+      ];
+      if (YTDLP_PROXY) args.push('--proxy', YTDLP_PROXY);
+      args.push(url);
+
+      const { stderr } = await execFileAsync(YTDLP_BIN, args, {
+        timeout: 30 * 60 * 1000, // 30 min（跨境视频走代理，速度慢）
+        maxBuffer: 10 * 1024 * 1024,
+        env: {
+          ...process.env,
+          PATH: `/usr/bin:${process.env.HOME}/.local/bin:${process.env.PATH}`,
         },
-      );
+      });
 
       if (stderr) {
         this.logger.debug(`yt-dlp stderr for task ${taskId}: ${stderr.slice(0, 500)}`);
@@ -1000,6 +1014,15 @@ export class VideoDownloadService {
     if (lower.includes('bilibili') || lower.includes('b23.tv')) return 'bilibili';
     if (lower.includes('v.qq.com') || lower.includes('tencent')) return 'tencent';
     if (lower.includes('youtube') || lower.includes('youtu.be')) return 'youtube';
+    if (
+      lower.includes('x.com') ||
+      lower.includes('twitter.com') ||
+      lower.includes('t.co') ||
+      lower.includes('fixupx.com') ||
+      lower.includes('vxtwitter.com')
+    )
+      return 'twitter';
+    if (lower.includes('tiktok.com')) return 'tiktok';
     if (lower.includes('weibo')) return 'weibo';
     if (lower.includes('kuaishou')) return 'kuaishou';
     if (lower.includes('toutiao')) return 'toutiao';

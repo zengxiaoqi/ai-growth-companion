@@ -12,7 +12,7 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 100,
-    "code_quality": 102
+    "code_quality": 100
   },
   "active_plans": [],
   "completed_actions": [

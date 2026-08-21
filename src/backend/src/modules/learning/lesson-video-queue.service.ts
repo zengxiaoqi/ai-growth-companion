@@ -498,6 +498,18 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     providerTaskId?: string | null;
     sourceVideoUrl?: string | null;
   }> {
+    // --- DSH fast path: skip the backend agent pipeline. The DSH headless
+    // agent authors its own topic-specific storyboard, so running the backend
+    // video-generator agent first would be a redundant (slow) double-LLM. ---
+    if (this.normalizeRenderEngine(task.renderEngine) === 'dsh') {
+      this.logger.log(
+        '[generateVideoBuffer] taskId=' +
+          task.id +
+          ' engine=dsh: skipping agent pipeline, delegating to DSH',
+      );
+      return this.generateVideoBufferWithEngines(task, payload);
+    }
+
     // --- Agent-first path: use VideoGenerationAgentService when available ---
     if (this.videoGenerationAgent) {
       const topic = payload?.topic || '';

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -13,6 +14,7 @@ import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_logger.dart';
 import '../games/game_renderer.dart';
+import '../parent/web_video_impl.dart';
 import 'animation_scene_player.dart';
 import 'trace_path_canvas.dart';
 import 'lesson_scene_models.dart';
@@ -2684,16 +2686,50 @@ class LessonVideoPlayer extends StatefulWidget {
 }
 
 class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
-  late VideoPlayerController _controller;
+  static int _viewIdCounter = 0;
+
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String _errorMessage = '';
   bool _hasCompleted = false;
 
+  // Web-only
+  late String _viewType;
+
   @override
   void initState() {
     super.initState();
-    _initPlayer();
+    if (kIsWeb) {
+      _initWebPlayer();
+    } else {
+      _initPlayer();
+    }
+  }
+
+  /// Web 平台用原生 HTML5 `<video>`（带 controls + autoplay），完全绕过 video_player。
+  /// 原因：video_player_web 在移动端 Android Chrome 上对 mp4 会 duration=NaN、黑屏，
+  /// 原生 `video` 元素（与 raw 测试一致）能正常解码。
+  void _initWebPlayer() {
+    _viewType = 'lesson-video-${_viewIdCounter++}';
+    initWebVideoPlayer(
+      _viewType,
+      widget.videoUrl,
+      () {
+        _log.warning('LessonVideoPlayer: HTML5 video error');
+        if (mounted) setState(() => _hasError = true);
+      },
+      () {
+        if (mounted) setState(() => _isInitialized = true);
+      },
+      () {
+        // 原生 video 播放完毕 → 完成步骤
+        if (mounted && !_hasCompleted) {
+          _hasCompleted = true;
+          widget.onComplete(100);
+        }
+      },
+    );
   }
 
   Future<void> _initPlayer() async {
@@ -2704,23 +2740,23 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         httpHeaders['Authorization'] = 'Bearer ${widget.authToken}';
       }
       _controller = VideoPlayerController.networkUrl(uri, httpHeaders: httpHeaders);
-      await _controller.initialize();
+      await _controller!.initialize();
       if (!mounted) return;
 
       setState(() => _isInitialized = true);
 
       // Listen for playback completion
-      _controller.addListener(() {
+      _controller!.addListener(() {
         if (!mounted) return;
-        final position = _controller.value.position;
-        final duration = _controller.value.duration;
+        final position = _controller!.value.position;
+        final duration = _controller!.value.duration;
         if (position >= duration && duration > Duration.zero && !_hasCompleted) {
           _hasCompleted = true;
         }
       });
 
       // Auto-play
-      _controller.play();
+      _controller!.play();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -2732,9 +2768,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
 
   @override
   void dispose() {
-    if (_isInitialized) {
-      _controller.dispose();
-    }
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -2760,10 +2794,15 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
       );
     }
 
-    final position = _controller.value.position;
-    final duration = _controller.value.duration;
-    final isPlaying = _controller.value.isPlaying;
-    final isBuffering = _controller.value.isBuffering;
+    // Web：原生 HTML5 video（带原生 controls + autoplay），初始化完成即显示
+    if (kIsWeb) {
+      return _buildWebVideo();
+    }
+
+    final position = _controller!.value.position;
+    final duration = _controller!.value.duration;
+    final isPlaying = _controller!.value.isPlaying;
+    final isBuffering = _controller!.value.isBuffering;
     final progress = duration > Duration.zero
         ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
         : 0.0;
@@ -2775,15 +2814,15 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         ClipRRect(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           child: AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
+            aspectRatio: _controller!.value.aspectRatio,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                VideoPlayer(_controller),
+                VideoPlayer(_controller!),
                 // Play/pause overlay
                 if (!isPlaying && !isBuffering)
                   GestureDetector(
-                    onTap: () => _controller.play(),
+                    onTap: () => _controller!.play(),
                     child: Container(
                       color: Colors.black26,
                       child: const Icon(
@@ -2826,7 +2865,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
                   onChanged: (value) {
                     final targetMs =
                         (value * duration.inMilliseconds).round();
-                    _controller.seekTo(Duration(milliseconds: targetMs));
+                    _controller!.seekTo(Duration(milliseconds: targetMs));
                   },
                 ),
               ),
@@ -2849,7 +2888,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
               icon: const Icon(Icons.replay_10_rounded),
               onPressed: () {
                 final newPos = position - const Duration(seconds: 10);
-                _controller.seekTo(
+                _controller!.seekTo(
                   newPos < Duration.zero ? Duration.zero : newPos,
                 );
               },
@@ -2870,9 +2909,9 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
                 ),
                 onPressed: () {
                   if (isPlaying) {
-                    _controller.pause();
+                    _controller!.pause();
                   } else {
-                    _controller.play();
+                    _controller!.play();
                   }
                 },
               ),
@@ -2882,7 +2921,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
               icon: const Icon(Icons.forward_10_rounded),
               onPressed: () {
                 final newPos = position + const Duration(seconds: 10);
-                _controller.seekTo(
+                _controller!.seekTo(
                   newPos > duration ? duration : newPos,
                 );
               },
@@ -2900,9 +2939,42 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
           height: 48,
           child: FilledButton.icon(
             onPressed: () {
-              _controller.pause();
+              _controller!.pause();
               widget.onComplete(_hasCompleted ? 95 : 70);
             },
+            icon: const Icon(Icons.check_rounded),
+            label: Text(_hasCompleted ? '看完了，进入下一步' : '看好了，进入下一步'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWebVideo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            // 原生 HTML5 <video>，带浏览器自带的播放/进度控件
+            child: HtmlElementView(viewType: _viewType),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => widget.onComplete(_hasCompleted ? 95 : 70),
             icon: const Icon(Icons.check_rounded),
             label: Text(_hasCompleted ? '看完了，进入下一步' : '看好了，进入下一步'),
             style: FilledButton.styleFrom(

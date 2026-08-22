@@ -3,7 +3,7 @@ import 'package:file_picker/file_picker.dart';
 
 /// Mobile (non-Web) stub for web video player.
 /// Does nothing — on mobile, video_player package is used directly.
-void initWebVideoPlayer(String viewType, String url, void Function() onError, void Function() onReady) {
+void initWebVideoPlayer(String viewType, String url, void Function() onError, void Function() onReady, [void Function()? onEnded]) {
   // No-op on mobile
 }
 

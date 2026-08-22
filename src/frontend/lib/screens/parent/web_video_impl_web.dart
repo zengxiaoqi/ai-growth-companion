@@ -2,7 +2,7 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
 /// Registers an HTML5 `<video>` element as a Flutter platform view (Web only).
-void initWebVideoPlayer(String viewType, String url, void Function() onError, void Function() onReady) {
+void initWebVideoPlayer(String viewType, String url, void Function() onError, void Function() onReady, [void Function()? onEnded]) {
   ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
     final video = html.VideoElement()
       ..src = url
@@ -15,6 +15,9 @@ void initWebVideoPlayer(String viewType, String url, void Function() onError, vo
       ..setAttribute('preload', 'auto');
 
     video.onError.listen((event) => onError());
+    if (onEnded != null) {
+      video.onEnded.listen((event) => onEnded());
+    }
     return video;
   });
   onReady();

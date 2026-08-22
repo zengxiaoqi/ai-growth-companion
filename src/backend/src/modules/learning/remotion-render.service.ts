@@ -1644,8 +1644,7 @@ export class RemotionRenderService implements OnModuleInit {
       'node_modules',
       '@remotion',
       'cli',
-      'dist',
-      'index.js',
+      'remotion-cli.js',
     );
     if (!existsSync(cliPath)) {
       throw new Error(`remotion cli not found at ${cliPath}`);

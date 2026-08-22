@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, execFile, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
+import { promisify } from 'util';
 import * as path from 'path';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * DshBridgeService - renders a teaching video by delegating to DSH headless.
@@ -243,14 +246,102 @@ export class DshBridgeService {
         this.logger.warn('[DshBridge] produced empty video: ' + videoPath);
         return null;
       }
+
+      // DSH 用 Remotion 渲染的 mp4 常是 full-range YUV（pix_fmt=yuvj420p），
+      // iOS Safari / 多数 Web <video> 无法解码 → 画面停在首帧黑屏、时长 00:00。
+      // 检测并在必要时用 ffmpeg 转码为 limited-range yuv420p 保证浏览器兼容。
+      const compatiblePath = await this.ensureBrowserCompatible(videoPath);
+      const finalStat = await fs.stat(compatiblePath);
+
       this.logger.log(
-        '[DshBridge] read video ' + videoPath + ' (' + stat.size + ' bytes) for "' + topic + '"',
+        '[DshBridge] read video ' +
+          compatiblePath +
+          ' (' +
+          finalStat.size +
+          ' bytes) for "' +
+          topic +
+          '"',
       );
-      return await fs.readFile(videoPath);
+      return await fs.readFile(compatiblePath);
     } catch (error: any) {
       this.logger.warn('[DshBridge] manifest read failed: ' + (error?.message || error));
       return null;
     }
+  }
+
+  /**
+   * 确保视频是浏览器可解码的 limited-range yuv420p。
+   * DSH 用 Remotion/ffmpeg 渲染常输出 full-range yuvj420p，iOS Safari / Web <video>
+   * 无法解码（画面停在首帧黑屏、时长 00:00）。检测到 full-range 就用 ffmpeg
+   * 转码，否则原样返回。转码失败时降级返回原文件（不阻断渲染结果）。
+   */
+  private async ensureBrowserCompatible(videoPath: string): Promise<string> {
+    try {
+      const pixFmt = await this.detectPixFmt(videoPath);
+      if (!pixFmt) return videoPath;
+      const normalized = pixFmt.trim().toLowerCase();
+      // yuvj420p / yuvj422p / yuvj444p = full-range（j = JPEG range），需转码
+      if (!normalized.startsWith('yuvj')) return videoPath;
+
+      const outPath = videoPath.replace(/\.mp4$/i, '') + '.compat.mp4';
+      this.logger.log(
+        '[DshBridge] detected full-range ' + pixFmt + ' -> transcoding to yuv420p: ' + videoPath,
+      );
+      await this.transcodeToYuv420p(videoPath, outPath);
+      return outPath;
+    } catch (error: any) {
+      this.logger.warn(
+        '[DshBridge] ensureBrowserCompatible failed, returning original: ' +
+          (error?.message || error),
+      );
+      return videoPath;
+    }
+  }
+
+  private async detectPixFmt(videoPath: string): Promise<string | null> {
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v',
+        'error',
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=pix_fmt',
+        '-of',
+        'default=noprint_wrappers=1:nokey=1',
+        videoPath,
+      ]);
+      return String(stdout).trim() || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async transcodeToYuv420p(src: string, dst: string): Promise<void> {
+    // libx264 重编码为 limited-range yuv420p；音频直接拷贝避免二次损耗。
+    // -pix_fmt yuv420p + -color_range tv 保证 iOS Safari / 浏览器可解码。
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-v',
+      'error',
+      '-i',
+      src,
+      '-c:v',
+      'libx264',
+      '-crf',
+      '18',
+      '-preset',
+      'fast',
+      '-pix_fmt',
+      'yuv420p',
+      '-color_range',
+      'tv',
+      '-c:a',
+      'copy',
+      '-movflags',
+      '+faststart',
+      dst,
+    ]);
   }
 
   private async acquire(): Promise<void> {

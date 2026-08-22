@@ -206,7 +206,7 @@ export class QuickVideoService {
       contentId,
       params.childId,
       params.force || false,
-      params.renderEngine || 'remotion',
+      params.renderEngine || 'dsh',
     );
 
     return {

@@ -1337,7 +1337,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     await fs.mkdir(this.storageDir, { recursive: true });
     const target = path.join(this.storageDir, `${cacheKey}.mp4`);
     await fs.writeFile(target, buffer);
-    return target;
+    // 统一浏览器兼容转码：full-range yuvj420p → limited-range yuv420p bt709。
+    // 各引擎（remotion/hyperframes/dsh）输出编码不一，这里兜底一次，保证 Web 端可解码。
+    return this.dshBridge.ensureBrowserCompatible(target);
   }
 
   private async cleanupExpiredCache(): Promise<void> {

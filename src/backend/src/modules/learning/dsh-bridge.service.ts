@@ -42,7 +42,7 @@ export class DshBridgeService {
   private readonly enabled = this.toBool(process.env.VIDEO_DSH_ENABLED, true);
   private readonly hardTimeoutMs = this.toInt(
     process.env.VIDEO_DSH_TIMEOUT_MS,
-    15 * 60 * 1000,
+    25 * 60 * 1000,
     60_000,
     60 * 60 * 1000,
   );
@@ -329,8 +329,9 @@ export class DshBridgeService {
    * DSH 用 Remotion/ffmpeg 渲染常输出 full-range yuvj420p，iOS Safari / Web <video>
    * 无法解码（画面停在首帧黑屏、时长 00:00）。检测到 full-range 就用 ffmpeg
    * 转码，否则原样返回。转码失败时降级返回原文件（不阻断渲染结果）。
+   * public：供 LessonVideoQueueService 对任意引擎输出统一做兼容转码调用。
    */
-  private async ensureBrowserCompatible(videoPath: string): Promise<string> {
+  async ensureBrowserCompatible(videoPath: string): Promise<string> {
     try {
       const pixFmt = await this.detectPixFmt(videoPath);
       if (!pixFmt) return videoPath;

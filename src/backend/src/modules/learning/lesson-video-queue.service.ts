@@ -1403,6 +1403,24 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       return this.buildPayloadFromSteps(lesson, content, steps);
     }
 
+    // video_lesson format（quick-generate 产物）：直接带 videoLesson.shots / visualStory.scenes
+    const videoLesson = (lesson as any).videoLesson;
+    const visualStory = (lesson as any).visualStory;
+    if (
+      (videoLesson && typeof videoLesson === 'object') ||
+      (visualStory && typeof visualStory === 'object')
+    ) {
+      return {
+        title: content.title || lesson.title || '',
+        topic: content.topic || lesson.topic || '',
+        domain: lesson.domain || content.domain || undefined,
+        summary: lesson.summary || content.subtitle || '',
+        ageGroup: lesson.ageGroup || content.ageRange || undefined,
+        videoLesson: videoLesson || {},
+        visualStory: visualStory || {},
+      };
+    }
+
     // Legacy format: flat content[] array — derive video data from it
     return this.buildPayloadFromLegacyContent(lesson, content);
   }

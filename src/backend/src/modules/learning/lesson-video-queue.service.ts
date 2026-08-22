@@ -266,6 +266,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     childId: number,
     force = false,
     renderEngine: VideoRenderEngine = 'auto',
+    autoApprove = false,
   ): Promise<VideoGenerationTask> {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
@@ -302,6 +303,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       status: 'pending',
       progress: 0,
       attemptCount: 0,
+      // 家长主动发起的生成（如快速视频生成）可直接放行给孩子看，
+      // 否则默认待审批（pending_approval），需家长在 child 端审批通过。
+      approvalStatus: autoApprove ? 'approved' : 'pending_approval',
     });
     const saved = await this.taskRepo.save(task);
     this.logger.log(

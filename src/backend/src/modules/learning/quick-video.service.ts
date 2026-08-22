@@ -202,11 +202,13 @@ export class QuickVideoService {
     }
 
     // 4. 入队视频任务（复用现有队列）
+    // 快速视频生成是家长主动发起 → autoApprove 直接放行给孩子看，无需二次审批。
     const task = await this.lessonVideoQueue.enqueue(
       contentId,
       params.childId,
       params.force || false,
       params.renderEngine || 'dsh',
+      true,
     );
 
     return {

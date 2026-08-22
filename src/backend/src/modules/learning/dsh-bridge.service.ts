@@ -318,11 +318,11 @@ export class DshBridgeService {
   }
 
   private async transcodeToYuv420p(src: string, dst: string): Promise<void> {
-    // libx264 重编码为 limited-range bt709 yuv420p，音频直接拷贝避免二次损耗。
-    // 关键：DSH 源视频 color_primaries=unknown，若只指定 -pix_fmt/-color_range，
-    // libx264 会推导出错误的 matrix_coefficients=bt470bg（SD 矩阵），部分 Android
-    // MediaCodec 硬件解码器遇到 bt470bg+1080p 会解码失败。这里用 setparams 显式
-    // 指定 bt709 全套色彩元数据，保证移动端硬件解码兼容。
+    // 重编码为「720p + limited-range bt709 yuv420p + 低码率」，保证移动端在慢速网络
+    // （CF 免费 tunnel 国际带宽仅 ~0.2MB/s）下也能流畅加载播放。
+    // 关键：DSH 源视频是 full-range yuvj420p、color_primaries=unknown、1080p 高码率，
+    // 若不处理——(1) 移动端硬件解码器对 full-range 支持差；(2) libx264 会推导出错误
+    // 的 bt470bg 矩阵；(3) 18MB 高码率在慢速网络下加载不动。这里一次性全部归位。
     await execFileAsync('ffmpeg', [
       '-y',
       '-v',
@@ -330,17 +330,19 @@ export class DshBridgeService {
       '-i',
       src,
       '-vf',
-      'setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709',
+      'scale=1280:720,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709',
       '-c:v',
       'libx264',
       '-crf',
-      '18',
+      '23',
       '-preset',
       'fast',
       '-pix_fmt',
       'yuv420p',
       '-c:a',
-      'copy',
+      'aac',
+      '-b:a',
+      '96k',
       '-movflags',
       '+faststart',
       dst,

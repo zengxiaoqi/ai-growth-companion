@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import { promisify } from 'util';
 import * as path from 'path';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
+import { VoiceService } from '../voice/voice.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,6 +29,8 @@ const execFileAsync = promisify(execFile);
 @Injectable()
 export class DshBridgeService {
   private readonly logger = new Logger(DshBridgeService.name);
+
+  constructor(private readonly voiceService: VoiceService) {}
 
   // Paths (anchored on __dirname so dev/ts and dist builds agree)
   private readonly repoRoot = path.resolve(__dirname, '../../../../..');
@@ -65,10 +68,14 @@ export class DshBridgeService {
 
     const workDir = path.join(this.workRoot, task.cacheKey);
     await fs.mkdir(workDir, { recursive: true });
+
+    // 为每个场景的 narration 文本预生成 TTS 配音（DSH 只负责画面，不重新生成音频）
+    const narrationSrcPaths = await this.generateNarrationAudio(payload, workDir);
+
     const inputPath = path.join(workDir, 'input.json');
     await fs.writeFile(
       inputPath,
-      JSON.stringify(this.buildInput(payload, workDir), null, 2),
+      JSON.stringify(this.buildInput(payload, workDir, narrationSrcPaths), null, 2),
       'utf-8',
     );
 
@@ -119,7 +126,53 @@ export class DshBridgeService {
     }
   }
 
-  private buildInput(payload: Record<string, any>, workDir: string): Record<string, any> {
+  /**
+   * 为每个场景的 narration 文本调用 TTS 生成配音 mp3，返回绝对路径数组（与 shots 一一对应）。
+   * 单条配音失败时对应位置放空字符串（DSH 侧对该场景跳过配音）。
+   */
+  private async generateNarrationAudio(
+    payload: Record<string, any>,
+    workDir: string,
+  ): Promise<string[]> {
+    const shots = Array.isArray(payload?.videoLesson?.shots)
+      ? payload.videoLesson.shots
+      : Array.isArray(payload?.visualStory?.scenes)
+        ? payload.visualStory.scenes
+        : [];
+
+    const paths: string[] = [];
+    for (let i = 0; i < shots.length; i++) {
+      const narration = String(shots[i]?.narration ?? '').trim();
+      if (!narration) {
+        paths.push('');
+        continue;
+      }
+      try {
+        const buffer = await this.voiceService.textToSpeech(narration);
+        if (!buffer || buffer.length === 0) {
+          paths.push('');
+          continue;
+        }
+        const filename = `narration-${i + 1}.mp3`;
+        const filepath = path.join(workDir, filename);
+        await fs.writeFile(filepath, buffer);
+        paths.push(filepath);
+        this.logger.log(
+          `[DshBridge] narration generated for scene ${i + 1} (${buffer.length} bytes): ${filename}`,
+        );
+      } catch (error: any) {
+        this.logger.warn(`[DshBridge] TTS failed for scene ${i + 1}: ${error?.message || error}`);
+        paths.push('');
+      }
+    }
+    return paths;
+  }
+
+  private buildInput(
+    payload: Record<string, any>,
+    workDir: string,
+    narrationSrcPaths: string[],
+  ): Record<string, any> {
     const shots = Array.isArray(payload?.videoLesson?.shots)
       ? payload.videoLesson.shots
       : Array.isArray(payload?.visualStory?.scenes)
@@ -142,7 +195,9 @@ export class DshBridgeService {
       durationSec,
       sceneCount: Math.max(3, Math.min(8, sceneCount)),
       storyboard: shots.length > 0 ? { shots } : undefined,
-      narrationSrc: undefined,
+      narrationSrc: narrationSrcPaths.some((p) => p && p.length > 0)
+        ? narrationSrcPaths
+        : undefined,
       outputDir: workDir,
       width: payload?.width || 1920,
       height: payload?.height || 1080,

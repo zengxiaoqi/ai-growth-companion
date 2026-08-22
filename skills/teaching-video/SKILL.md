@@ -46,6 +46,8 @@ Derive `sceneCount` scenes, each with: title, narration (Chinese, child-appropri
 ### Step 3 — Write a topic-specific composition
 Under `src/video-remotion/src/compositions/` create `TeachingLesson.tsx` exporting a composition with a unique id `TeachingLesson-<slug>`. Make every scene a visually distinct, animated node — this is the whole point (do NOT fall back to plain text slides). Register it in `src/video-remotion/src/Root.tsx` and keep `index.ts` registering `Root`.
 
+**Audio (REQUIRED — do not skip):** when `input.json` provides `narrationSrc`, embed each scene's narration as the scene's background audio via Remotion's `<Audio src={narrationSrc[i]} />` (import `Audio` from `remotion`). The audio must play for the FULL duration of its scene, synchronized to that scene's visual. If `narrationSrc[i]` is missing/empty for a scene, render that scene silent. Never invent new narration text or re-synthesize audio — consume the provided mp3 files as-is. This is mandatory: a video with a silent audio track is a hard failure.
+
 ### Step 4 — Render
 Write `props.json` to the output dir, then:
 

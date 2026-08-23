@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-08-23",
-  "analysis_count": 98,
-  "commit_count": 623,
-  "last_commit": "2026-08-23T00:28:05+08:00",
-  "remote_head": "a2a45f4",
-  "remote_head_date": "2026-08-23T00:28:05+08:00",
+  "last_analysis": "2026-08-24",
+  "analysis_count": 99,
+  "commit_count": 625,
+  "last_commit": "2026-08-23T16:22:41+08:00",
+  "remote_head": "2abfffc",
+  "remote_head_date": "2026-08-23T16:22:41+08:00",
   "commits_ahead_remote": 0,
   "stale_days": 0,
   "capabilities": {
@@ -16,6 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-08-24: Daily evolution analysis #99 — 1 new code commit since #98 (2abfffc fix(learning): handle video_lesson content in complete-step, lesson-content.service.ts +11/-1: null-safe steps guard + synthesize 'watch' step for video_lesson/visual_story). video_lesson 课程类型端到端接线：后端 complete-step 兜底 + 前端 3 个 learning screen 将 video_lesson 路由到 structuredLesson + auto-speak 跳过 watch 步骤(视频自带配音避免双音)。625 total commits (was 623), local ahead 1 (2abfffc) 已 push → sync 0/0。部署验证：external 200 OK, login 201 via tunnel, tunnel active 2d, backend node v22 PID 399530 better-sqlite3 OK 无 sql.js fallback。Flutter Web v1787475193 新鲜。✅ npm run build 通过，dist 已含 videoLesson/visualStory 修复。⚠️ 后端 2abfffc 需 systemctl restart 才生效(dist 已构建但进程未重启)。⚠️ 4 个未提交 WIP: 3 Flutter learning screens(video_lesson 路由, 已编译进部署 build 但源码未提交) + Root.tsx 新增 TeachingLesson-sun composition(引用 gitignored TeachingLesson.tsx, 实验性, 不提交以免 fresh clone 断链)。",
     "2026-08-23: Daily evolution analysis #98 — 10 new commits since #97 (8745e0c..a2a45f4), all DSH 视频渲染流水线修复/增强 (video rendering pipeline). a2a45f4 提高 DSH 超时并统一转码引擎输出; e819dfa 识别 buildPackPayloadFromContent 中 video_lesson 内容格式; c6d9106 为 DSH 教学视频合成逐场景 TTS 旁白; 41e772a Web 端改用原生 HTML5 video (弃 video_player 插件); d315f52 DSH 视频转码 720p 低码率适配慢 CF 隧道; 87aa436 转码显式 bt709 色彩元数据; 92616f6 DSH full-range yuvj420p→limited-range yuv420p; 5e193ee 快速生成自动 approval 让孩子可看; 4cb9422 修 Remotion CLI 入口 (dist/index.js→remotion-cli.js); 8745e0c 快速生成默认引擎改 dsh。10 提交已 push (a9da423..a2a45f4)，本地与远端同步 (0/0)。部署验证：Flutter Web v1785254921（无 stale lib/），主站 200 OK，backend systemd active (node v22 PID 367856)，无 sql.js fallback。⚠️ 未提交 WIP：Root.tsx 新增 TeachingLesson-sun composition 引用被 .gitignore 忽略的 TeachingLesson.tsx（59KB 生成文件）——后端无引用，属实验性，未提交以免 fresh clone 构建断裂。",
     "2026-08-22: Daily evolution analysis #96 — 3 new commits since #95 (80c0a37, a204863, 39099af), all 跨境视频下载 (cross-border video download). 80c0a37 perf(video): skip agent pipeline for dsh engine (avoid double LLM, lesson-video-queue.service.ts +12). a204863 feat(video-download): 支持 X/YouTube/TikTok 等跨境平台下载 — yt-dlp 加 --proxy(默认 v2rayA 规则口 20172, env YTDLP_PROXY 可覆盖) + 强制 h264(avc1)+aac 封装兼容手机 Safari + 放宽 socket 超时 60s/重试 + detectPlatform 增加 twitter(x.com/t.co) & tiktok 标签 (video-download.service.ts +58/-35). 39099af feat(frontend): 视频下载平台显示名新增 Twitter/TikTok/Higgsfield (video_download_models.dart +6). 3 commits 已 push (3243616..39099af)。部署验证：external 200 OK, tunnel + backend systemd active (node v22 PID 312041 重启于 00:22:54, 与 dist 00:22:53 一致), better-sqlite3 OK (node v22, 无 sql.js fallback)。backend 无跨平台下载可用性验证：日志显示 task=95 下载 x.com/netflix 成功 (8.6MB)。Flutter Web v1785254920 新鲜（无 stale lib/）。test files 91, source files 262。",
     "2026-08-21: Daily evolution analysis #95 — 4 new commits since #94. eb11dbd feat(video-download): Higgsfield (higgsfield.ai) 视频下载支持 (video-download.service.ts +238 lines). 4bf4457 feat(video): DSH 增强渲染后端 (renderEngine=dsh) — dsh-bridge.service.ts (289 lines) + entity/learning.module wiring + 76-line spec. f7343d5/f1f6ac2 已计入 pipeline。部署验证：Flutter main page 200 OK, tunnel + backend systemd active (node v22 PID 288342, 重启于 00:47)。build 通过，test files 91, source files 262。2 commits 本地领先已 push (f7343d5..4bf4457)。Flutter Web v1785254919 新鲜（无 stale lib/）。",
@@ -134,11 +135,11 @@
     "IconPicker edit badge must be proportionally sized and positioned half-in/half-out to avoid occluding emoji"
   ],
   "metrics": {
-    "backend_files": 261,
-    "backend_test_files": 89,
+    "backend_files": 262,
+    "backend_test_files": 95,
     "backend_test_lines": 22000,
-    "flutter_files": 124,
-    "web_files": 102,
+    "flutter_files": 125,
+    "web_files": 101,
     "content_files": 46,
     "total_lines": 12014
   }

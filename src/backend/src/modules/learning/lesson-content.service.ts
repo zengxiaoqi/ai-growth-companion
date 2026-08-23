@@ -773,7 +773,17 @@ export class LessonContentService implements OnModuleInit {
     if (!content) throw new NotFoundException('Content not found');
 
     const lesson = content.content as unknown as StructuredLessonContent;
-    const step = lesson.steps.find((s) => s.id === stepId);
+    // video_lesson / visual_story 等非 structured_lesson 课程没有 steps 数组，
+    // 前端会合成一个 "watch" 步骤；后端在此兜底，避免 lesson.steps 为 undefined 导致崩溃。
+    const lessonSteps = Array.isArray((lesson as any)?.steps) ? (lesson as any).steps : [];
+    let step = lessonSteps.find((s: any) => s.id === stepId);
+    if (!step && lessonSteps.length === 0) {
+      const hasVideoModule =
+        (lesson as any)?.videoLesson || (lesson as any)?.visualStory || (lesson as any)?.scenes;
+      if (stepId === 'watch' && hasVideoModule) {
+        step = { id: 'watch' } as any; // 合成的 watch 步骤（无 assignmentId）
+      }
+    }
     if (!step) throw new NotFoundException(`Step "${stepId}" not found`);
 
     // Check if this step has an assignment (practice/assess)

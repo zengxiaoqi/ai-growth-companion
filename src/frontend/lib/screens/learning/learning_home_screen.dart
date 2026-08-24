@@ -398,7 +398,8 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                   final color = AppTheme.childColors[colorIndex];
 
                   final contentType = course['contentType']?.toString() ?? '';
-                  final isStructured = contentType == 'structured_lesson';
+                  final isStructured =
+                      contentType == 'structured_lesson' || contentType == 'video_lesson';
                   return _CourseCard(
                     title: title,
                     summary: summary,

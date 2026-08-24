@@ -164,7 +164,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
       if (effectiveChildId != null) 'childId': effectiveChildId,
     };
 
-    if (type == 'structured_lesson') {
+    if (type == 'structured_lesson' || type == 'video_lesson') {
       Navigator.pushNamed(context, '/learning/structuredLesson', arguments: args);
     } else {
       Navigator.pushNamed(context, '/learning/contentDetail', arguments: args);
@@ -203,7 +203,7 @@ class _CourseCard extends StatelessWidget {
     required this.onTap,
   });
 
-  bool get _isStructured => type == 'structured_lesson';
+  bool get _isStructured => type == 'structured_lesson' || type == 'video_lesson';
 
   @override
   Widget build(BuildContext context) {

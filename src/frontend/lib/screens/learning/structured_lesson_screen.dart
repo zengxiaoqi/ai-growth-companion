@@ -593,9 +593,14 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Future<void> _autoSpeakStep() async {
     if (_steps.isEmpty || _currentStepIndex >= _steps.length) return;
 
+    // watch 步骤的视频/动画已自带 narration 配音，自动朗读会造成「双音」。
+    // 仅对非 watch 步骤（read/write/practice）自动 TTS 朗读。
+    final step = _steps[_currentStepIndex];
+    if (step.type == 'watch') return;
+
     final tts = TtsService();
 
-    final text = _extractStepText(_steps[_currentStepIndex]);
+    final text = _extractStepText(step);
     if (text.isEmpty) return;
 
     // 短暂延迟让 UI 先渲染完成

@@ -1,0 +1,30 @@
+{
+  "date": "2026-08-25",
+  "source": "Daily report #100 was a silent day with no explicit next-step suggestions. Pipeline performed its own audit: (1) ran targeted jest suites, (2) grep-audited recent fix commits (2abfffc, e819dfa, c6d9106) for test coverage gaps.",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Fix broken dsh-bridge.service.spec.ts (regression from c6d9106)",
+      "target": "src/backend/test/unit/dsh-bridge.service.spec.ts",
+      "rationale": "Suite FAILS to compile: DshBridgeService constructor gained a VoiceService param (commit c6d9106, TTS narration) but spec still calls new DshBridgeService(); buildInput gained a 3rd narrationSrcPaths param. jest run produces TS2554 errors — this suite is red on every full run.",
+      "evidence": "npx jest --testPathPattern='unit/dsh-bridge' → 'Expected 1 arguments, but got 0' (TS2554) at spec lines 8/18"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Add unit tests for LessonContentService.completeStep video_lesson watch fallback",
+      "target": "src/backend/src/modules/learning/lesson-content.service.ts (completeStep, lines ~762-788)",
+      "rationale": "Commit 2abfffc added a fallback: content without steps array + stepId='watch' + has videoLesson/visualStory/scenes → synthetic {id:'watch'} step instead of NotFoundException. Zero test coverage — existing spec only covers modifyDraft.",
+      "evidence": "grep completeStep/videoLesson in test/unit/lesson-content.service.spec.ts → only modifyDraft watch-scene sync tests, no completeStep coverage"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Add unit test for buildPackPayloadFromContent video_lesson branch",
+      "target": "src/backend/src/modules/learning/lesson-video-queue.service.ts (buildPackPayloadFromContent)",
+      "rationale": "Commit e819dfa added a video_lesson format branch (lesson.videoLesson/visualStory without steps → passthrough payload). Existing spec only exercises the structured-lesson steps branch (regex scan of all buildPackPayloadFromContent calls: steps=True only).",
+      "evidence": "python regex scan: 1 call site in spec, always with steps array present; no test where content has videoLesson but no steps"
+    }
+  ]
+}

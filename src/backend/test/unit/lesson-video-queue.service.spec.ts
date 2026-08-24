@@ -564,4 +564,35 @@ describe('LessonVideoQueueService', () => {
     expect(remotionRender.resolveComposition).not.toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from('video-hf'));
   });
+
+  it('builds remotion payload from video_lesson content (no steps)', () => {
+    const payload = (service as any).buildPackPayloadFromContent({
+      id: 30,
+      title: '四季变化课程',
+      subtitle: '课程总结',
+      topic: '四季变化',
+      ageRange: '5-6',
+      domain: 'science',
+      content: {
+        topic: '四季变化',
+        domain: 'science',
+        summary: '先认识四季',
+        ageGroup: '5-6',
+        videoLesson: { title: '四季视频', shots: [{ shot: '春天', narration: '春天来了。' }] },
+        visualStory: { scenes: [{ scene: '春天' }] },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      title: '四季变化课程',
+      topic: '四季变化',
+      domain: 'science',
+      summary: '先认识四季',
+      ageGroup: '5-6',
+      videoLesson: { title: '四季视频', shots: [{ shot: '春天', narration: '春天来了。' }] },
+      visualStory: { scenes: [{ scene: '春天' }] },
+    });
+    expect(payload.watchScene).toBeUndefined();
+    expect(payload.modules).toBeUndefined();
+  });
 });

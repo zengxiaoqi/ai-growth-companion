@@ -1,11 +1,14 @@
 import { DshBridgeService } from '../../src/modules/learning/dsh-bridge.service';
+import { VoiceService } from '../../src/modules/voice/voice.service';
+
+const voiceService = { textToSpeech: jest.fn().mockResolvedValue(Buffer.from('audio')) } as unknown as VoiceService;
 
 describe('DshBridgeService', () => {
   let service: DshBridgeService;
 
   beforeEach(() => {
     delete process.env.VIDEO_DSH_ENABLED;
-    service = new DshBridgeService();
+    service = new DshBridgeService(voiceService);
   });
 
   afterEach(() => {
@@ -15,7 +18,7 @@ describe('DshBridgeService', () => {
   describe('renderWithDsh', () => {
     it('returns null when the bridge is disabled', async () => {
       process.env.VIDEO_DSH_ENABLED = 'false';
-      const disabled = new DshBridgeService();
+      const disabled = new DshBridgeService(voiceService);
       const task: any = { id: 1, cacheKey: 'k' };
       expect(await disabled.renderWithDsh(task, { topic: '水循环' })).toBeNull();
     });
@@ -31,6 +34,7 @@ describe('DshBridgeService', () => {
       const input = (service as any).buildInput(
         { topic: '兔子', ageGroup: '3-4', domain: 'science', videoLesson: { shots: [{}, {}, {}] } },
         '/tmp/w',
+        [],
       );
       expect(input.topic).toBe('兔子');
       expect(input.ageGroup).toBe('3-4');
@@ -42,8 +46,17 @@ describe('DshBridgeService', () => {
     });
 
     it('defaults sceneCount to 5 when there are no shots', () => {
-      const input = (service as any).buildInput({ topic: '水' }, '/tmp/w');
+      const input = (service as any).buildInput({ topic: '水' }, '/tmp/w', []);
       expect(input.sceneCount).toBe(5);
+    });
+
+    it('includes narrationSrc paths when provided', () => {
+      const input = (service as any).buildInput(
+        { topic: 'test', videoLesson: {} },
+        '/tmp/w',
+        ['/tmp/a.mp3'],
+      );
+      expect(input.narrationSrc).toEqual(['/tmp/a.mp3']);
     });
   });
 

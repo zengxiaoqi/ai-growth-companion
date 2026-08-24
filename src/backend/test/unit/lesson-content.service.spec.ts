@@ -13,6 +13,7 @@ import { AssignmentService } from '../../src/modules/assignment/assignment.servi
 import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
 import { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
+import { NotFoundException } from '@nestjs/common';
 
 describe('LessonContentService modifyDraft scene sync', () => {
   let service: LessonContentService;
@@ -482,5 +483,100 @@ describe('LessonContentService modifyDraft scene sync', () => {
     expect(prompt).toContain('"id": "write"');
     expect(prompt).toContain('"moduleType": "writing"');
     expect(prompt).toContain('Focus on step "write" first');
+  });
+});
+
+describe('LessonContentService completeStep', () => {
+  let service: any;
+  let contentRepo: any;
+  let llmClient: { generate: jest.Mock };
+  let learningTrackerMock: any;
+
+  beforeEach(async () => {
+    contentRepo = {
+      findOne: jest.fn(),
+      save: jest.fn((value) => Promise.resolve(value)),
+    };
+    llmClient = { generate: jest.fn() };
+    learningTrackerMock = {
+      recordActivity: jest.fn().mockResolvedValue({
+        learningRecord: { id: 99 },
+        abilityUpdated: false,
+        achievementsAwarded: [],
+      }),
+    };
+    const module = await Test.createTestingModule({
+      providers: [
+        LessonContentService,
+        { provide: getRepositoryToken(Content), useValue: contentRepo },
+        { provide: getRepositoryToken(LearningRecord), useValue: {} },
+        { provide: getRepositoryToken(Assignment), useValue: {} },
+        { provide: getRepositoryToken(StudyPlanRecord), useValue: {} },
+        { provide: ContentsService, useValue: {} },
+        { provide: GenerateCoursePackTool, useValue: {} },
+        { provide: GenerateActivityTool, useValue: {} },
+        { provide: AiService, useValue: {} },
+        { provide: AssignmentService, useValue: {} },
+        { provide: LearningTrackerService, useValue: learningTrackerMock },
+        { provide: LlmClientService, useValue: llmClient },
+        { provide: LessonVideoQueueService, useValue: { enqueue: jest.fn(), processQueue: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(LessonContentService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('completes a video_lesson step via synthetic "watch" step', async () => {
+    contentRepo.findOne.mockResolvedValue({
+      id: 5,
+      domain: 'science',
+      content: {
+        videoLesson: { shots: [{ shot: '春天' }] },
+        visualStory: { scenes: [] },
+      },
+    });
+
+    const result = await service.completeStep({ contentId: 5, childId: 2, stepId: 'watch' });
+
+    expect(result.success).toBe(true);
+    expect(result.recordId).toBe(99);
+    expect(learningTrackerMock.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'content_completion',
+        domain: 'science',
+      }),
+    );
+  });
+
+  it('throws NotFoundException when no steps and no video markers', async () => {
+    contentRepo.findOne.mockResolvedValue({
+      id: 6,
+      domain: 'language',
+      content: {},
+    });
+
+    await expect(
+      service.completeStep({ contentId: 6, childId: 2, stepId: 'watch' }),
+    ).rejects.toThrow('not found');
+  });
+
+  it('works with structured lesson steps', async () => {
+    contentRepo.findOne.mockResolvedValue({
+      id: 7,
+      domain: 'math',
+      content: {
+        steps: [{ id: 'watch', module: { type: 'video' } }],
+      },
+    });
+
+    const result = await service.completeStep({ contentId: 7, childId: 2, stepId: 'watch' });
+
+    expect(result.success).toBe(true);
+    expect(learningTrackerMock.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'content_completion', domain: 'math' }),
+    );
   });
 });

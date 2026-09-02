@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Loader2, BookOpen, X, ChevronRight, Plus } from '@/icons';
 import api from '../../services/api';
 import { Card, EmptyState } from '../ui';
-import { cn } from '../../lib/utils';
 
 interface BookSkill {
   id: number;

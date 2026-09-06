@@ -1,24 +1,27 @@
 {
-  "last_analysis": "2026-09-05",
-  "analysis_count": 107,
-  "commit_count": 635,
+  "last_analysis": "2026-09-07",
+  "analysis_count": 109,
+  "commit_count": 636,
   "last_commit": "2026-09-05T03:30:00+08:00",
-  "remote_head": "004ab3c",
+  "remote_head": "16aa75d",
   "remote_head_date": "2026-09-05T03:30:00+08:00",
   "commits_ahead_remote": 0,
-  "stale_days": 0,
+  "uncommitted_files": ["src/video-remotion/src/Root.tsx"],
+  "stale_days": 14,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 100,
-    "code_quality": 100
+    "infrastructure": 85,
+    "code_quality": 88
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-09-06: Autonomous evaluation #108 — Flutter Web stale (v1785254910 deployed, local build v1787475193). video_lesson routing fix (bc713e9) not deployed. Uncommitted: experimental TeachingLesson-sun composition in Root.tsx. Backend build clean, API healthy (HTTP 200). 636 total commits, local=remote sync.",
     "2026-09-05: Autonomous evaluation #107 — No new Tier 1 actions. 91 spec files, 87+ unit tests all passing. Backend build clean. Deploy healthy (HTTP 200, tunnel active). Uncommitted: experimental TeachingLesson-sun composition in Root.tsx (+18 lines, not ready for commit). Local=remote sync.",
-    "2026-09-04: Daily evolution analysis #106 — Backend build clean, Flutter build fresh (v1787475193, Aug 23). Deploy healthy (HTTP 200). 3 recent commits: reward test fix, BookSkillPanel unused import removal, evolution report updates. ⚠️ Uncommitted: src/video-remotion/src/Root.tsx (+18 lines, TeachingLesson-sun composition, experimental — not pushed). 634 total commits, local=remote sync.",
-    "2026-09-04: Daily evolution analysis #105 — Fixed stale reward.service.spec.ts test (recordedAt date 2026-07-15 > 30 days old, now 2026-08-31). Backend build clean (262 TS files, 93 test files). Deploy healthy (HTTP 200). Flutter build fresh (v1787475193, Aug 23). Uncommitted: src/video-remotion/src/Root.tsx (+18 lines, TeachingLesson-sun composition, experimental — not pushed). 631 total commits, local=remote sync."
+    "2026-09-04: Daily evolution analysis #106 — Backend build clean, Flutter build fresh (v1787475193, Aug 23). Deploy healthy (HTTP 200). 3 recent commits: reward test fix, BookSkillPanel unused import removal, evolution report updates. Uncommitted: src/video-remotion/src/Root.tsx (+18 lines, experimental — not pushed). 634 total commits, local=remote sync."
   ],
-  "lessons_learned": []
+  "lessons_learned": [
+    "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. User must rebuild Flutter Web to pick up recent changes."
+  ]
 }

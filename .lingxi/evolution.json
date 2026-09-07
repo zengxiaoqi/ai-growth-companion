@@ -1,13 +1,13 @@
 {
-  "last_analysis": "2026-09-07",
-  "analysis_count": 109,
-  "commit_count": 636,
+  "last_analysis": "2026-09-08",
+  "analysis_count": 110,
+  "commit_count": 634,
   "last_commit": "2026-09-05T03:30:00+08:00",
-  "remote_head": "16aa75d",
-  "remote_head_date": "2026-09-05T03:30:00+08:00",
+  "remote_head": "08398ca",
+  "remote_head_date": "2026-09-08T03:24:00+08:00",
   "commits_ahead_remote": 0,
   "uncommitted_files": ["src/video-remotion/src/Root.tsx"],
-  "stale_days": 14,
+  "stale_days": 3,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -17,11 +17,13 @@
   },
   "active_plans": [],
   "completed_actions": [
+    "2026-09-08: Daily evolution analysis #110 — Backend build clean, Flutter build fresh (v1787475193, Sep 5). Deploy healthy (HTTP 200, tunnel active 6 days). 634 total commits, local=remote sync. Uncommitted: experimental TeachingLesson-sun composition in Root.tsx (+18 lines). Backend: /usr/bin/node dist/main running. Reward tests 83 pass.",
+    "2026-09-07: Autonomous evaluation #109 — No new Tier 1 actions. 83 reward tests passing. Backend build clean. Deploy healthy (HTTP 200). Uncommitted: experimental TeachingLesson-sun composition in Root.tsx. 634 total commits, local=remote sync.",
     "2026-09-06: Autonomous evaluation #108 — Flutter Web stale (v1785254910 deployed, local build v1787475193). video_lesson routing fix (bc713e9) not deployed. Uncommitted: experimental TeachingLesson-sun composition in Root.tsx. Backend build clean, API healthy (HTTP 200). 636 total commits, local=remote sync.",
-    "2026-09-05: Autonomous evaluation #107 — No new Tier 1 actions. 91 spec files, 87+ unit tests all passing. Backend build clean. Deploy healthy (HTTP 200, tunnel active). Uncommitted: experimental TeachingLesson-sun composition in Root.tsx (+18 lines, not ready for commit). Local=remote sync.",
-    "2026-09-04: Daily evolution analysis #106 — Backend build clean, Flutter build fresh (v1787475193, Aug 23). Deploy healthy (HTTP 200). 3 recent commits: reward test fix, BookSkillPanel unused import removal, evolution report updates. Uncommitted: src/video-remotion/src/Root.tsx (+18 lines, experimental — not pushed). 634 total commits, local=remote sync."
+    "2026-09-05: Autonomous evaluation #107 — No new Tier 1 actions. 91 spec files, 87+ unit tests all passing. Backend build clean. Deploy healthy (HTTP 200, tunnel active). Uncommitted: experimental TeachingLesson-sun composition in Root.tsx (+18 lines, not ready for commit). Local=remote sync."
   ],
   "lessons_learned": [
-    "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. User must rebuild Flutter Web to pick up recent changes."
+    "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. User must rebuild Flutter Web to pick up recent changes.",
+    "TeachingLesson-sun experimental composition in Root.tsx remains uncommitted since Aug 23 — not ready for production; safe to leave as local experiment."
   ]
 }

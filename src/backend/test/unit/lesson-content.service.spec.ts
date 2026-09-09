@@ -13,7 +13,6 @@ import { AssignmentService } from '../../src/modules/assignment/assignment.servi
 import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
 import { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
-import { NotFoundException } from '@nestjs/common';
 
 describe('LessonContentService modifyDraft scene sync', () => {
   let service: LessonContentService;
@@ -519,7 +518,10 @@ describe('LessonContentService completeStep', () => {
         { provide: AssignmentService, useValue: {} },
         { provide: LearningTrackerService, useValue: learningTrackerMock },
         { provide: LlmClientService, useValue: llmClient },
-        { provide: LessonVideoQueueService, useValue: { enqueue: jest.fn(), processQueue: jest.fn() } },
+        {
+          provide: LessonVideoQueueService,
+          useValue: { enqueue: jest.fn(), processQueue: jest.fn() },
+        },
       ],
     }).compile();
     service = module.get(LessonContentService);

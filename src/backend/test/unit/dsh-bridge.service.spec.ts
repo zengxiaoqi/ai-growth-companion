@@ -1,7 +1,9 @@
 import { DshBridgeService } from '../../src/modules/learning/dsh-bridge.service';
 import { VoiceService } from '../../src/modules/voice/voice.service';
 
-const voiceService = { textToSpeech: jest.fn().mockResolvedValue(Buffer.from('audio')) } as unknown as VoiceService;
+const voiceService = {
+  textToSpeech: jest.fn().mockResolvedValue(Buffer.from('audio')),
+} as unknown as VoiceService;
 
 describe('DshBridgeService', () => {
   let service: DshBridgeService;
@@ -51,11 +53,9 @@ describe('DshBridgeService', () => {
     });
 
     it('includes narrationSrc paths when provided', () => {
-      const input = (service as any).buildInput(
-        { topic: 'test', videoLesson: {} },
-        '/tmp/w',
-        ['/tmp/a.mp3'],
-      );
+      const input = (service as any).buildInput({ topic: 'test', videoLesson: {} }, '/tmp/w', [
+        '/tmp/a.mp3',
+      ]);
       expect(input.narrationSrc).toEqual(['/tmp/a.mp3']);
     });
   });

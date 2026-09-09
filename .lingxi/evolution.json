@@ -1,13 +1,15 @@
 {
-  "last_analysis": "2026-09-09",
-  "analysis_count": 112,
+  "last_analysis": "2026-09-10",
+  "analysis_count": 114,
   "commit_count": 639,
-  "last_commit": "2026-09-09T02:08:00+08:00",
-  "remote_head": "44c93f6",
-  "remote_head_date": "2026-09-09T02:08:00+08:00",
+  "last_commit": "2026-09-09T02:05:14+08:00",
+  "remote_head": "2bf56a0",
+  "remote_head_date": "2026-09-09T02:05:14+08:00",
   "commits_ahead_remote": 0,
-  "uncommitted_files": ["src/video-remotion/src/Root.tsx"],
-  "stale_days": 0,
+  "uncommitted_files": [
+    "src/video-remotion/src/Root.tsx"
+  ],
+  "stale_days": 18,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -17,7 +19,9 @@
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-09-09: Daily evolution analysis #112 — All systems healthy. 639 commits, local=remote sync. Deploy HTTP 200. Build fresh. Only stale item: video-remotion Root.tsx experimental composition (not ready for prod)."
+    "2026-09-09: Daily evolution analysis #112 — All systems healthy. 639 commits, local=remote sync. Deploy HTTP 200. Build fresh. Only stale item: video-remotion Root.tsx experimental composition (not ready for prod).",
+    "2026-09-10: Daily evolution analysis #113 — No new commits since #112. Auth tests pass (30/30). Flutter Web build 18 days old but no source changes. Uncommitted Root.tsx unchanged. Deploy 200 on both domains.",
+    "2026-09-10: Autonomous evaluation #114 — Fixed lint error (unused NotFoundException import) + 9 Flutter unused imports. Backend build clean, auth tests pass (30/30). Deploy health 200."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",

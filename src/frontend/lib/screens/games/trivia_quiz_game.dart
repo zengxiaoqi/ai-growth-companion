@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
 import '../../utils/app_logger.dart';
 import '../../services/public_api_service.dart';
 import 'quiz_game.dart';

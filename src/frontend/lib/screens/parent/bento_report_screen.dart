@@ -1,10 +1,8 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../utils/bento_url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 

@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
-import '../../components/app_card.dart';
-import '../../components/shimmer_loading.dart';
 import '../games/game_completion_screen.dart';
 import '../games/game_renderer.dart';
 

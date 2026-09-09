@@ -2,7 +2,6 @@
 // 家长可以上传 PDF/EPUB/DOCX/TXT 等书籍文件，系统自动提取内容生成结构化知识
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/api_service.dart';
-import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 
 class BookSkillUploadScreen extends StatefulWidget {

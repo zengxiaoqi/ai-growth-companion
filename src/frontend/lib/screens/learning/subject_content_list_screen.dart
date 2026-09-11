@@ -149,7 +149,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
 
   void _navigateToCourse(BuildContext context, Map<String, dynamic> course) {
     final courseId = (course['contentId'] ?? course['id']) as int? ?? 0;
-    final type = (course['contentType'] as String? ?? 'normal') as String;
+    final type = course['contentType'] as String? ?? 'normal';
 
     int? effectiveChildId = childId;
     if (effectiveChildId == null) {

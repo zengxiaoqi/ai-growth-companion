@@ -1566,7 +1566,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
   // Mobile-only
   VideoPlayerController? _controller;
 
-  bool _isInitialized = false;
   bool _hasError = false;
 
   @override
@@ -1585,7 +1584,7 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
       _log.warning('HTML5 video error');
       if (mounted) setState(() => _hasError = true);
     }, () {
-      if (mounted) setState(() => _isInitialized = true);
+      // ignore: avoid_unused_setstate_calls
     });
   }
 
@@ -1593,7 +1592,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _controller!.initialize().then((_) {
       if (mounted) {
-        setState(() => _isInitialized = true);
         _controller!.setLooping(true);
         _controller!.play();
       }
@@ -1632,7 +1630,6 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                     onPressed: () {
                       setState(() {
                         _hasError = false;
-                        _isInitialized = false;
                       });
                       if (kIsWeb) {
                         _initWebPlayer();

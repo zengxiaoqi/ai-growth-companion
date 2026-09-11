@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-12",
+  "source": "Autonomous evaluation pipeline v2 — daily cron",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "修复 Flutter lint 警告 — video_download_provider.dart 不必要的 cast",
+      "description": "video_download_provider.dart 第 282/283/306/307/332/333/351/352 行有 cast_from_null_always_fails 和 invalid_null_aware_operator 警告，需移除不必要的 as VideoDownloadItem 转换和 ?. 操作符",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "修复 Flutter lint 警告 — ai_chat_screen.dart 空值比较",
+      "description": "ai_chat_screen.dart 第 928/979 行有 unnecessary_null_comparison 和 dead_null_aware_expression 警告，需修复空值判断逻辑",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "清理 Flutter 未使用导入和死代码",
+      "description": "learning_home_screen.dart 未使用的 vector_math_64.dart 导入；book_skill_upload_screen.dart 的死代码 null-aware 表达式；video_download_screen.dart 未使用的 _isInitialized 字段",
+      "status": "pending"
+    }
+  ]
+}

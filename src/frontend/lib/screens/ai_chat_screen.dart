@@ -925,7 +925,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         result.name,
       );
 
-      if (uploadResult == null || uploadResult['fileUrl'] == null) {
+      if (uploadResult['fileUrl'] == null) {
         _showSnack('文件上传失败');
         return;
       }
@@ -976,8 +976,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           reader.readAsDataUrl(file);
           reader.onLoadEnd.listen((_) {
             final dataUrl = reader.result as String;
-            completer.complete((path: dataUrl, name: file.name ?? 'file'));
-          });
+            completer.complete((path: dataUrl, name: file.name));          });
         } else {
           completer.complete(null);
         }

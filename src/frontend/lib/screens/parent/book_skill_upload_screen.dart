@@ -76,12 +76,12 @@ class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
         setState(() => _uploading = true);
         try {
           final bytes = reader.result as Uint8List;
-          String title = (file.name ?? '').replaceAll(RegExp(r'\.[^.]+$'), '');
+          String title = file.name.replaceAll(RegExp(r'\.[^.]+$'), '');
           if (title.isEmpty) title = '未命名';
           await _api.uploadFile(
             '/book-skill/upload',
             '',
-            file.name ?? 'file',
+            file.name,
             fileBytes: bytes,
             fields: {'title': title},
           );

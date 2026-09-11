@@ -1,7 +1,6 @@
 // UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
 
 import 'package:flutter/material.dart';
-import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../components/app_card.dart';

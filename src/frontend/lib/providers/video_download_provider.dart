@@ -279,8 +279,8 @@ class VideoDownloadProvider extends ChangeNotifier {
   /// Batch retry failed downloads
   Future<void> batchRetry() async {
     final ids = _selectedIds.where((id) {
-      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => null as VideoDownloadItem);
-      return item?.status == 'failed';
+      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => throw StateError('not found'));
+      return item.status == 'failed';
     }).toList();
     if (ids.isEmpty) return;
     try {
@@ -303,8 +303,8 @@ class VideoDownloadProvider extends ChangeNotifier {
   /// Batch publish to a specific child
   Future<void> batchPublish(int childId) async {
     final ids = _selectedIds.where((id) {
-      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => null as VideoDownloadItem);
-      return item?.status == 'completed';
+      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => throw StateError('not found'));
+      return item.status == 'completed';
     }).toList();
     if (ids.isEmpty) return;
     try {
@@ -329,8 +329,8 @@ class VideoDownloadProvider extends ChangeNotifier {
   /// Batch re-download completed items
   Future<void> batchReDownload() async {
     final ids = _selectedIds.where((id) {
-      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => null as VideoDownloadItem);
-      return item?.status == 'completed';
+      final item = _downloads.firstWhere((d) => d.id == id, orElse: () => throw StateError('not found'));
+      return item.status == 'completed';
     }).toList();
     if (ids.isEmpty) return;
     for (final id in ids) {
@@ -348,8 +348,8 @@ class VideoDownloadProvider extends ChangeNotifier {
   /// Get full video URLs for selected completed items
   List<String> getSelectedVideoUrls() {
     return _selectedIds
-        .map((id) => _downloads.firstWhere((d) => d.id == id, orElse: () => null as VideoDownloadItem))
-        .where((item) => item?.status == 'completed' && item.filePath != null)
+        .map((id) => _downloads.firstWhere((d) => d.id == id, orElse: () => throw StateError('not found')))
+        .where((item) => item.status == 'completed' && item.filePath != null)
         .map((item) => getVideoUrl(item))
         .toList();
   }

@@ -861,10 +861,9 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
       'cupuacu': '🍫', 'guava': '🟢', 'quince': '🍏',
       'starfruit': '⭐', 'carambola': '⭐',
       'boysenberry': '🫐', 'elderberry': '🫐',
-      'lingonberry': '🫐', 'melon': '🍈',
-      'pitahaya': '🌸', 'pitaya': '🌸',
+      'lingonberry': '🫐',
       'moru': '🟣', 'pumpkin': '🎃',
-      'annona': '🟢', 'horned': '🟢',
+      'annona': '🟢',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;
@@ -1020,10 +1019,9 @@ class _FruitTile extends StatelessWidget {
       'cupuacu': '🍫', 'guava': '🟢', 'quince': '🍏',
       'starfruit': '⭐', 'carambola': '⭐',
       'boysenberry': '🫐', 'elderberry': '🫐',
-      'lingonberry': '🫐', 'melon': '🍈',
-      'pitahaya': '🌸', 'pitaya': '🌸',
+      'lingonberry': '🫐',
       'moru': '🟣', 'pumpkin': '🎃',
-      'annona': '🟢', 'horned': '🟢',
+      'annona': '🟢',
     };
     for (final key in map.keys) {
       if (n.contains(key)) return map[key]!;

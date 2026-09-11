@@ -1,15 +1,16 @@
 {
-  "last_analysis": "2026-09-10",
-  "analysis_count": 114,
-  "commit_count": 640,
-  "last_commit": "2026-09-09T19:59:47.536+08:00",
-  "remote_head": "b23c8a7",
-  "remote_head_date": "2026-09-09T02:05:14+08:00",
+  "last_analysis": "2026-09-12",
+  "analysis_count": 116,
+  "commit_count": 643,
+  "last_commit": "2026-09-11T02:00:00+08:00",
+  "remote_head": "43141ef",
+  "remote_head_date": "2026-09-11T02:00:00+08:00",
   "commits_ahead_remote": 0,
   "uncommitted_files": [
+    ".lingxi/evolution.json",
     "src/video-remotion/src/Root.tsx"
   ],
-  "stale_days": 18,
+  "stale_days": 6,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -21,12 +22,22 @@
   "completed_actions": [
     "2026-09-09: Daily evolution analysis #112 — All systems healthy. 639 commits, local=remote sync. Deploy HTTP 200. Build fresh. Only stale item: video-remotion Root.tsx experimental composition (not ready for prod).",
     "2026-09-10: Daily evolution analysis #113 — No new commits since #112. Auth tests pass (30/30). Flutter Web build 18 days old but no source changes. Uncommitted Root.tsx unchanged. Deploy 200 on both domains.",
-    "2026-09-10: Autonomous evaluation #114 — Fixed lint error (unused NotFoundException import) + 9 Flutter unused imports. Backend build clean, auth tests pass (30/30). Deploy health 200.",
-    "2026-09-10: Autonomous evaluation #114 — Fixed backend lint error + 9 Flutter unused imports. 9 files changed, 53 insertions, 25 deletions. Deploy 200 on both domains."
+    "2026-09-10: Autonomous evaluation #114 — Fixed backend lint error + 9 Flutter unused imports. 9 files changed, 53 insertions, 25 deletions. Deploy 200 on both domains.",
+    "2026-09-11: Daily evolution analysis #115 — 2 new commits (lint fixes). Flutter build stale 6 days but changes are only unused imports. Deploy 200 on both domains. Backend build clean. Uncommitted Root.tsx unchanged.",
+    "2026-09-12: Daily evolution analysis #116 — No new source commits since #114. Flutter build stale but unchanged source. Deploy healthy on both domains. Backend service running (nvm node v22). 643 total commits."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
     "TeachingLesson-sun experimental composition in Root.tsx remains uncommitted since Aug 23 — not ready for production; safe to leave as local experiment.",
-    "Delegation provider 'custom:Qwen3.6 Flash' unavailable in this environment — fallback to direct main-agent evaluation for pipeline step 6.3."
-  ]
+    "Delegation provider 'custom:Qwen3.6 Flash' unavailable in this environment — fallback to direct main-agent evaluation for pipeline step 6.3.",
+    "Flutter build directory src/frontend/build/ is gitignored and can accumulate 67MB — clean periodically if disk space becomes tight."
+  ],
+  "metrics": {
+    "backend_files": 262,
+    "backend_test_files": 94,
+    "flutter_files": 125,
+    "web_files": 101,
+    "content_files": 46,
+    "total_lines": 169235
+  }
 }

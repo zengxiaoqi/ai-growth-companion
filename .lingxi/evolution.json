@@ -1,15 +1,15 @@
 {
-  "last_analysis": "2026-09-12",
-  "analysis_count": 117,
-  "commit_count": 644,
-  "last_commit": "2026-09-12T03:15:00+08:00",
-  "remote_head": "41d5ad7",
-  "remote_head_date": "2026-09-12T03:15:00+08:00",
+  "last_analysis": "2026-09-13",
+  "analysis_count": 118,
+  "commit_count": 646,
+  "last_commit": "2026-09-12T03:15:44+0800",
+  "remote_head": "d07aa63",
+  "remote_head_date": "2026-09-12T03:15:44+0800",
   "commits_ahead_remote": 0,
   "uncommitted_files": [
     "src/video-remotion/src/Root.tsx"
   ],
-  "stale_days": 7,
+  "stale_days": 8,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -22,7 +22,7 @@
     "2026-09-09: Daily evolution analysis #112 — All systems healthy. 639 commits, local=remote sync. Deploy HTTP 200. Build fresh. Only stale item: video-remotion Root.tsx experimental composition (not ready for prod).",
     "2026-09-10: Daily evolution analysis #113 — No new commits since #112. Auth tests pass (30/30). Flutter Web build 18 days old but no source changes. Uncommitted Root.tsx unchanged. Deploy 200 on both domains.",
     "2026-09-10: Autonomous evaluation #114 — Fixed backend lint error + 9 Flutter unused imports. 9 files changed, 53 insertions, 25 deletions. Deploy 200 on both domains.",
-    "2026-09-11: Daily evolution analysis #115 — 2 new commits (lint fixes). Flutter build stale 6 days but changes are only unused imports. Deploy 200 on both domains. Backend build clean. Uncommitted Root.tsx unchanged.",
+    "2026-09-11: Daily evolution analysis #115 — 2 new commits (lint fixes). Flutter build stale 6 days but changes are only unused imports. Deploy 200 on both domains. Backend service running (nvm node v22). Uncommitted Root.tsx unchanged.",
     "2026-09-12: Daily evolution analysis #116 — No new source commits since #114. Flutter build stale but unchanged source. Deploy healthy on both domains. Backend service running (nvm node v22). 643 total commits.",
     "2026-09-12: Autonomous evaluation #117 — Fixed Flutter lint warnings: video_download_provider.dart cast cleanup (4 locations), science_explore_section.dart duplicate map keys (pitahaya/pitaya removed), subject_content_list_screen.dart unnecessary cast, book_skill_upload_screen.dart dead null-aware expressions, ai_chat_screen.dart null checks cleaned, learning_home_screen.dart unused import removed, video_download_screen.dart unused field removed. 8 files changed, 45 insertions, 25 deletions. Deploy 200 on both domains."
   ],
@@ -39,6 +39,6 @@
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 169235
+    "total_lines": 145808
   }
 }

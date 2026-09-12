@@ -17,6 +17,11 @@ import {
 } from "./data/test-animation-data";
 import { CHINESE_CHARACTERS_VIDEO } from "./data/chinese-characters";
 import { MONKEY_VIDEO } from "./data/monkey-video";
+import {
+  TeachingLesson,
+  DEFAULT_TEACHING_LESSON_PROPS,
+  calcTeachingLessonFrames,
+} from "./compositions/TeachingLesson";
 
 // NumbersVideo: intro + 10*scene + outro - 11 transitions
 // = 90 + 10*210 + 90 - 11*12 = 2148
@@ -127,6 +132,19 @@ export const RemotionRoot = () => {
         defaultProps={MONKEY_VIDEO}
         calculateMetadata={async ({ props }) => ({
           durationInFrames: calcTopicVideoFrames(props),
+          props,
+        })}
+      />
+
+      <Composition
+        id="TeachingLesson-sun"
+        component={TeachingLesson}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={DEFAULT_TEACHING_LESSON_PROPS}
+        calculateMetadata={async ({ props }) => ({
+          durationInFrames: calcTeachingLessonFrames(props),
           props,
         })}
       />

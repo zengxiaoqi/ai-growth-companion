@@ -1,13 +1,13 @@
 {
-  "last_analysis": "2026-09-17",
-  "analysis_count": 120,
-  "commit_count": 648,
-  "last_commit": "2026-09-17T03:00:00+08:00",
-  "remote_head": "e52a355",
-  "remote_head_date": "2026-09-14T02:01:28+08:00",
+  "last_analysis": "2026-09-23",
+  "analysis_count": 121,
+  "commit_count": 650,
+  "last_commit": "2026-09-17T03:16:56+0800",
+  "remote_head": "d8af9e5",
+  "remote_head_date": "2026-09-17T03:16:56+0800",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
-  "stale_days": 3,
+  "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
@@ -25,19 +25,20 @@
     "2026-09-12: Autonomous evaluation #117 — Fixed Flutter lint warnings across 8 files. Deploy 200 on both domains.",
     "2026-09-13: Daily evolution analysis #118 — No new source commits. 646 total commits. Deploy 200 on both domains.",
     "2026-09-14: Daily evolution analysis #119 — No new source commits. 647 total commits. Deploy 200 on both domains.",
-    "2026-09-17: Autonomous evaluation #120 — Updated metrics, archived completed plans. Deploy 200."
+    "2026-09-17: Autonomous evaluation #120 — Updated metrics, archived completed plans. Deploy 200.",
+    "2026-09-23: Daily evolution analysis #121 — No new source commits. Deploy healthy. Flutter build fresh (v1787475194)."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
     "TeachingLesson-sun experimental composition in Root.tsx remains uncommitted since Aug 23 — not ready for production; safe to leave as local experiment.",
     "Delegation provider 'custom:Qwen3.6 Flash' unavailable in this environment — fallback to direct main-agent evaluation for pipeline step 6.3.",
-    "Flutter build directory src/frontend/build/ is gitignored but can accumulate 74MB — clean periodically if disk space becomes tight.",
-    "firstWhere with orElse returning null cast is an anti-pattern — use StateError throw instead to eliminate lint warnings."
+    "Flutter build directory src/frontend/build/ is gitignored but can accumulate 74MB on disk — check periodically and clean if stale.",
+    "Backend public/uploads/ directory accumulates 816MB of cached content — verify if this is expected or needs cleanup."
   ],
   "metrics": {
     "backend_files": 262,
     "backend_test_files": 91,
-    "flutter_files": 134,
+    "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
     "total_lines": 138246

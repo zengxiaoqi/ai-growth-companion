@@ -1,10 +1,10 @@
 {
   "last_analysis": "2026-09-24",
-  "analysis_count": 123,
-  "commit_count": 654,
-  "last_commit": "2026-09-23T13:35:00+08:00",
-  "remote_head": "843e1e5",
-  "remote_head_date": "2026-09-23T13:35:00+08:00",
+  "analysis_count": 124,
+  "commit_count": 655,
+  "last_commit": "2026-09-24T03:00:00+08:00",
+  "remote_head": "5dd8352",
+  "remote_head_date": "2026-09-24T03:00:00+08:00",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -13,7 +13,7 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 85,
-    "code_quality": 91
+    "code_quality": 92
   },
   "active_plans": [],
   "completed_actions": [
@@ -27,14 +27,16 @@
     "2026-09-14: Daily evolution analysis #119 — No new source commits. 647 total commits. Deploy 200 on both domains.",
     "2026-09-17: Autonomous evaluation #120 — Updated metrics, archived completed plans. Deploy 200.",
     "2026-09-23: Daily evolution analysis #121 — No new source commits. Deploy healthy. Flutter build fresh (v1787475194).",
-    "2026-09-23: Autonomous evaluation #122 — Fixed 5 Flutter lint warnings in video_download_screen.dart. Build deployed (v1787475195). Tests passing (249/249)."
+    "2026-09-23: Autonomous evaluation #122 — Fixed 5 Flutter lint warnings in video_download_screen.dart. Build deployed (v1787475195). Tests passing (249/249).",
+    "2026-09-24: Autonomous evaluation #124 — Fixed 4 lint warnings (withOpacity, brace interpolation, async context). Flutter build v1787475196 deployed. Tests 1390/1390 passing."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
     "TeachingLesson-sun experimental composition in Root.tsx remains uncommitted since Aug 23 — not ready for production; safe to leave as local experiment.",
     "Delegation provider 'custom:Qwen3.6 Flash' unavailable in this environment — fallback to direct main-agent evaluation for pipeline step 6.3.",
     "Flutter build directory src/frontend/build/ is gitignored but can accumulate ~75MB on disk — check periodically and clean if stale.",
-    "Backend public/uploads/ directory accumulates ~817MB of cached content — verify if this is expected or needs cleanup."
+    "Backend public/uploads/ directory accumulates ~817MB of cached content — verify if this is expected or needs cleanup.",
+    "game.service.spec.ts animal_sound test was flaky due to random difficulty=1 generating only 2 questions — fixed by ensuring minimum 3 questions."
   ],
   "metrics": {
     "backend_files": 262,
@@ -42,6 +44,6 @@
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 138246
+    "total_lines": 169187
   }
 }

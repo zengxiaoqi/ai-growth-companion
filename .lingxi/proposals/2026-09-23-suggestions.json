@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-23",
+  "source_analysis": "#122",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Fix Flutter lint warnings — use_build_context_synchronously in video_download_screen",
+      "description": "lib/screens/parent/video_download_screen.dart:447/453 has two use_build_context_synchronously warnings. The BuildContext is used across async gaps guarded by unrelated mounted checks. Fix by capturing context in a local variable before the async operation.",
+      "affected_files": ["src/frontend/lib/screens/parent/video_download_screen.dart"],
+      "category": "lint"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Fix Flutter lint warnings — leading underscores in video_download_screen local vars",
+      "description": "lib/screens/parent/video_download_screen.dart:859/878/894 has three no_leading_underscores_for_local_identifiers warnings for _batchDownloadLocal, _batchCopyLinks, _batchReDownloadConfirm. Rename to batchDownloadLocal, batchCopyLinks, batchReDownloadConfirm.",
+      "affected_files": ["src/frontend/lib/screens/parent/video_download_screen.dart"],
+      "category": "lint"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Add AI service test coverage for SSE streaming paths",
+      "description": "ai.service.ts (3077 lines) has partial coverage via ai.service.core.spec.ts (59 tests). Need to verify SSE streaming methods (streamChat, streamCoursePack) are covered by existing tests. If not, add tests.",
+      "affected_files": ["src/backend/test/unit/ai.service.core.spec.ts"],
+      "category": "test"
+    }
+  ]
+}

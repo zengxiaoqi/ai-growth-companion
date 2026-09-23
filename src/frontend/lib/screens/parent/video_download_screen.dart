@@ -444,15 +444,23 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
               try {
                 await context.read<VideoDownloadProvider>().updateUrl(item.id, newUrl);
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('链接已更新，正在重新下载...'), backgroundColor: Colors.green),
-                  );
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('链接已更新，正在重新下载...'), backgroundColor: Colors.green),
+                      );
+                    }
+                  });
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
-                  );
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  });
                 }
               }
             },
@@ -856,7 +864,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     }
 
     /// Batch download to local for all selected completed items
-    void _batchDownloadLocal() {
+    void batchDownloadLocal() {
       final urls = provider.getSelectedVideoUrls();
       if (urls.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -875,7 +883,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     }
 
     /// Batch copy video links
-    void _batchCopyLinks() {
+    void batchCopyLinks() {
       final urls = provider.getSelectedVideoUrls();
       if (urls.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -891,7 +899,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     }
 
     /// Batch re-download confirm
-    void _batchReDownloadConfirm() {
+    void batchReDownloadConfirm() {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -948,7 +956,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   icon: Icons.file_download,
                   label: '下载到本地',
                   color: AppTheme.primaryColor,
-                  onTap: _batchDownloadLocal,
+                  onTap: batchDownloadLocal,
                 ),
               ),
             if (hasCompleted)
@@ -958,7 +966,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   icon: Icons.copy,
                   label: '复制链接',
                   color: Colors.teal,
-                  onTap: _batchCopyLinks,
+                  onTap: batchCopyLinks,
                 ),
               ),
             if (hasCompleted)
@@ -968,7 +976,7 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   icon: Icons.replay,
                   label: '重新下载',
                   color: Colors.orange,
-                  onTap: _batchReDownloadConfirm,
+                  onTap: batchReDownloadConfirm,
                 ),
               ),
             if (hasCompleted)
@@ -1100,8 +1108,8 @@ class _DownloadCardState extends State<_DownloadCard>
     super.dispose();
   }
 
-  void _onTapDown(_) => _pressCtrl.forward();
-  void _onTapUp(_) {
+  void _onTapDown(TapDownDetails _) => _pressCtrl.forward();
+  void _onTapUp(TapUpDetails _) {
     _pressCtrl.reverse();
     if (widget.batchMode) {
       widget.onTap?.call();

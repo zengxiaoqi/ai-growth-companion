@@ -104,7 +104,7 @@ class VideoDownloadItem {
     if (duration == null) return '';
     final m = duration! ~/ 60;
     final s = duration! % 60;
-    return '${m}:${s.toString().padLeft(2, '0')}';
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   String get statusDisplay {

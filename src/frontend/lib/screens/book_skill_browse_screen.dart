@@ -151,7 +151,7 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                                         width: 48,
                                         height: 60,
                                         decoration: BoxDecoration(
-                                          color: AppTheme.primaryColor.withOpacity(0.1),
+                                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Icon(
@@ -386,7 +386,7 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
           margin: const EdgeInsets.only(bottom: 8),
           child: ExpansionTile(
             leading: CircleAvatar(
-              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
               child: Text('${ch['index'] ?? index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
             title: Text(ch['title'] as String? ?? '第${index + 1}章'),

@@ -275,7 +275,7 @@ class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
                             child: Icon(_fileIcon(fileType), color: AppTheme.primaryColor),
                           ),
                           title: Text(

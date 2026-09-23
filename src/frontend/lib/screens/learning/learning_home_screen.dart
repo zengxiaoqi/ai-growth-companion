@@ -77,9 +77,10 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
     }
     try {
       _lastLoadedChildId = childId;
-      final courses = await context.read<ApiService>().getContents(childId: childId);
+      final apiService = context.read<ApiService>();
+      final courses = await apiService.getContents(childId: childId);
       // 同时加载待完成作业
-      final assignments = await context.read<ApiService>().getAssignmentsByChild(childId);
+      final assignments = await apiService.getAssignmentsByChild(childId);
       if (mounted) {
         setState(() {
           _courses = courses;

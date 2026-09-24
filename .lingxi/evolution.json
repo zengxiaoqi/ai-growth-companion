@@ -1,6 +1,6 @@
 {
-  "last_analysis": "2026-09-24",
-  "analysis_count": 124,
+  "last_analysis": "2026-09-25",
+  "analysis_count": 125,
   "commit_count": 655,
   "last_commit": "2026-09-24T03:00:00+08:00",
   "remote_head": "5dd8352",
@@ -12,7 +12,7 @@
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 85,
+    "infrastructure": 88,
     "code_quality": 92
   },
   "active_plans": [],
@@ -28,7 +28,8 @@
     "2026-09-17: Autonomous evaluation #120 — Updated metrics, archived completed plans. Deploy 200.",
     "2026-09-23: Daily evolution analysis #121 — No new source commits. Deploy healthy. Flutter build fresh (v1787475194).",
     "2026-09-23: Autonomous evaluation #122 — Fixed 5 Flutter lint warnings in video_download_screen.dart. Build deployed (v1787475195). Tests passing (249/249).",
-    "2026-09-24: Autonomous evaluation #124 — Fixed 4 lint warnings (withOpacity, brace interpolation, async context). Flutter build v1787475196 deployed. Tests 1390/1390 passing."
+    "2026-09-24: Autonomous evaluation #124 — Fixed 4 lint warnings (withOpacity, brace interpolation, async context). Flutter build v1787475196 deployed. Tests 1390/1390 passing.",
+    "2026-09-25: Daily evolution analysis #125 — CRITICAL FIX: Rebuilt better-sqlite3 native addon for nvm node v22 (MODULE_VERSION 127). Backend was falling back to sql.js (in-memory DB, registered users couldn't login). Now running with proper better-sqlite3 connection to lingxi.db. Both Flutter Web and React Web return HTTP 200."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -36,7 +37,8 @@
     "Delegation provider 'custom:Qwen3.6 Flash' unavailable in this environment — fallback to direct main-agent evaluation for pipeline step 6.3.",
     "Flutter build directory src/frontend/build/ is gitignored but can accumulate ~75MB on disk — check periodically and clean if stale.",
     "Backend public/uploads/ directory accumulates ~817MB of cached content — verify if this is expected or needs cleanup.",
-    "game.service.spec.ts animal_sound test was flaky due to random difficulty=1 generating only 2 questions — fixed by ensuring minimum 3 questions."
+    "game.service.spec.ts animal_sound test was flaky due to random difficulty=1 generating only 2 questions — fixed by ensuring minimum 3 questions.",
+    "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version (v24 MODULE_VERSION 137 vs running v22 MODULE_VERSION 127). Caused sql.js fallback → in-memory DB → registered users couldn't login. Fix: rebuild with nvm node v22's node-gyp directly."
   ],
   "metrics": {
     "backend_files": 262,

@@ -1,11 +1,11 @@
 {
-  "last_analysis": "2026-09-28",
-  "analysis_count": 129,
-  "commit_count": 681,
-  "last_commit": "2026-09-27T02:15:00+08:00",
-  "remote_head": "ffff4e1",
+  "last_analysis": "2026-09-29",
+  "analysis_count": 130,
+  "commit_count": 662,
+  "last_commit": "2026-09-29T02:02:00+08:00",
+  "remote_head": "7da9e6f",
   "remote_head_date": "2026-09-27T02:15:00+08:00",
-  "commits_ahead_remote": 0,
+  "commits_ahead_remote": 1,
   "uncommitted_files": [],
   "stale_days": 0,
   "capabilities": {
@@ -32,7 +32,8 @@
     "2026-09-25: Daily evolution analysis #125 — CRITICAL FIX: Rebuilt better-sqlite3 native addon for nvm node v22 (MODULE_VERSION 127). Backend was falling back to sql.js (in-memory DB, registered users couldn't login). Now running with proper better-sqlite3 connection to lingxi.db. Both Flutter Web and React Web return HTTP 200.",
     "2026-09-26: Daily evolution analysis #127 — All systems healthy. 680 commits total. Flutter build fresh. Deploy HTTP 200 on both domains. No new commits since #125.",
     "2026-09-27: Daily evolution analysis #128 — All systems healthy. 681 commits. No new source commits. Deploy HTTP 200. Build fresh (v1787475196).",
-    "2026-09-28: Daily evolution analysis #129 — All systems healthy. 681 commits. No new source commits. Deploy HTTP 200. Build fresh (v1787475196). Better-sqlite3 stable."
+    "2026-09-28: Daily evolution analysis #129 — All systems healthy. 681 commits. No new source commits. Deploy HTTP 200. Build fresh (v1787475196). Better-sqlite3 stable.",
+    "2026-09-29: Daily evolution analysis #130 — All systems healthy. 662 commits. 1 commit ahead of remote (today's report). Deploy 200 on both domains. Flutter build v1787475196 fresh. Backend tests 1390/1390 passing."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",

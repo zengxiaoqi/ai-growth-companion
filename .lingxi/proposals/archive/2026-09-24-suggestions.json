@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-24",
+  "source_analysis": "#123",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Fix Flutter lint warnings — dart:html deprecation (6 files)",
+      "description": "22 lint issues found including deprecated dart:html imports. Files affected: ai_chat_screen.dart, child_video_screen.dart, book_skill_upload_screen.dart, web_video_impl_web.dart, bento_url_launcher_web.dart, loader_helper_web.dart. Add @dart=3.0 or use pragma to suppress deprecation warnings since dart:js_interop migration requires significant refactoring.",
+      "affected_files": ["src/frontend/lib/screens/ai_chat_screen.dart", "src/frontend/lib/screens/child/child_video_screen.dart", "src/frontend/lib/screens/parent/book_skill_upload_screen.dart", "src/frontend/lib/screens/parent/web_video_impl_web.dart", "src/frontend/lib/utils/bento_url_launcher_web.dart", "src/frontend/lib/utils/loader_helper_web.dart"],
+      "category": "lint"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Fix Flutter lint — withOpacity deprecation (3 locations)",
+      "description": "Deprecated withOpacity() calls in book_skill_browse_screen.dart (lines 154, 389) and book_skill_upload_screen.dart (line 278). Replace with withValues(alpha: ...).",
+      "affected_files": ["src/frontend/lib/screens/book_skill_browse_screen.dart", "src/frontend/lib/screens/parent/book_skill_upload_screen.dart"],
+      "category": "lint"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Fix Flutter lint — unnecessary_brace_in_string_interps",
+      "description": "video_download_models.dart line 107 has unnecessary braces in string interpolation.",
+      "affected_files": ["src/frontend/lib/models/video_download_models.dart"],
+      "category": "lint"
+    }
+  ]
+}

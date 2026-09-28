@@ -1,0 +1,33 @@
+{
+  "date": "2026-09-29",
+  "source_analysis": "#130",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Fix flaky animal_sound quiz test (game.service.ts)",
+      "description": "The for-loop in generateAnimalQuiz() with 'continue' on duplicate names could produce fewer than 3 questions when difficulty=1. Changed to while loop with targetCount = Math.min(3+difficulty, animals.length) to guarantee minimum questions.",
+      "affected_files": ["src/backend/src/modules/game/game.service.ts"],
+      "category": "test_fix",
+      "status": "implemented"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Archive completed proposal files",
+      "description": "Old suggestion files (2026-08-04 through 2026-09-12) are cluttering .lingxi/proposals/. Move to archive/.",
+      "affected_files": [".lingxi/proposals/2026-08-*.json", ".lingxi/proposals/2026-09-0*.json", ".lingxi/proposals/2026-09-12-suggestions.json"],
+      "category": "docs",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Clean up stale build artifacts",
+      "description": "src/frontend/build/ is 76MB and gitignored but persists on disk. Check if cleanup is needed.",
+      "affected_files": [],
+      "category": "cleanup",
+      "status": "pending"
+    }
+  ]
+}

@@ -251,8 +251,9 @@ export class GameService {
 
     const questions: QuizQuestion[] = [];
     const used = new Set<string>();
+    const targetCount = Math.min(3 + difficulty, animals.length);
 
-    for (let i = 0; i < 3 + difficulty; i++) {
+    while (questions.length < targetCount) {
       const correct = animals[Math.floor(Math.random() * animals.length)];
       if (used.has(correct.name)) continue;
       used.add(correct.name);

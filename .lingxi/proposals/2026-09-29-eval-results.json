@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-29",
+  "source_analysis": "#130",
+  "suggestions": [],
+  "evaluation": {
+    "already_implemented": [
+      {
+        "id": "S1",
+        "title": "Fix Flutter lint — dart:html deprecation",
+        "status": "skipped",
+        "reason": "dart:html imports in web-specific files are intentional platform-specific implementations, not deprecated usage"
+      },
+      {
+        "id": "S2",
+        "title": "Fix Flutter lint — withOpacity deprecation",
+        "status": "skipped",
+        "reason": "already_fixed",
+        "evidence": "commit 5dd8352 fixed withOpacity → withValues(alpha:) in book_skill_browse_screen.dart and book_skill_upload_screen.dart"
+      },
+      {
+        "id": "S3",
+        "title": "Fix Flutter lint — unnecessary_brace_in_string_interps",
+        "status": "skipped",
+        "reason": "already_fixed",
+        "evidence": "commit 5dd8352 fixed unnecessary braces in video_download_models.dart"
+      }
+    ],
+    "new_suggestions": []
+  }
+}

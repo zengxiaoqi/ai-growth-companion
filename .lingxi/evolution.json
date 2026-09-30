@@ -1,7 +1,7 @@
 {
-  "last_analysis": "2026-09-29",
-  "analysis_count": 131,
-  "commit_count": 665,
+  "last_analysis": "2026-10-01",
+  "analysis_count": 132,
+  "commit_count": 669,
   "last_commit": "2026-09-29T03:19:00+08:00",
   "remote_head": "749ad64",
   "remote_head_date": "2026-09-29T03:19:00+08:00",
@@ -44,7 +44,7 @@
     "Flutter build directory src/frontend/build/ is gitignored but can accumulate ~75MB on disk — check periodically and clean if stale.",
     "Backend public/uploads/ directory accumulates ~817MB of cached content — verify if this is expected or needs cleanup.",
     "game.service.spec.ts animal_sound test was flaky due to random difficulty=1 generating only 2 questions — fixed by ensuring minimum 3 questions via while loop.",
-    "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version (v24 MODULE_VERSION 137 vs running v22 MODULE_VERSION 127). Caused sql.js fallback → in-memory DB → registered users couldn't login. Fix: rebuild with nvm node v22's node-gyp directly."
+    "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version caused sql.js fallback → in-memory DB → registered users couldn't login. Fixed by rebuilding with nvm node v22 directly."
   ],
   "metrics": {
     "backend_files": 262,
@@ -52,6 +52,6 @@
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 63561
+    "total_lines": 115433
   }
 }

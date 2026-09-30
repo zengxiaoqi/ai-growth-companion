@@ -1,18 +1,18 @@
 {
   "last_analysis": "2026-10-01",
-  "analysis_count": 132,
+  "analysis_count": 133,
   "commit_count": 669,
   "last_commit": "2026-09-29T03:19:00+08:00",
-  "remote_head": "749ad64",
-  "remote_head_date": "2026-09-29T03:19:00+08:00",
+  "remote_head": "de4571f",
+  "remote_head_date": "2026-10-01T03:19:00+08:00",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
+  "uncommitted_files": [".lingxi/proposals/2026-10-01-suggestions.json"],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 90,
+    "infrastructure": 92,
     "code_quality": 94
   },
   "active_plans": [],
@@ -35,7 +35,8 @@
     "2026-09-28: Daily evolution analysis #129 — All systems healthy. 681 commits. No new source commits. Deploy HTTP 200. Build fresh (v1787475196). Better-sqlite3 stable.",
     "2026-09-29: Daily evolution analysis #130 — All systems healthy. 662 commits. 1 commit ahead of remote (today's report). Deploy 200 on both domains. Flutter build v1787475196 fresh. Backend tests 1390/1390 passing.",
     "2026-09-29: Autonomous evaluation #130 — All proposed fixes from Sep 24 already implemented. No new actions needed.",
-    "2026-09-29: Autonomous evaluation #131 — Fixed flaky animal_sound quiz test (while loop guarantees min 3 questions). Archived 18 old proposal files. Deploy 200."
+    "2026-09-29: Autonomous evaluation #131 — Fixed flaky animal_sound quiz test (while loop guarantees min 3 questions). Archived 18 old proposal files. Deploy 200.",
+    "2026-10-01: Autonomous evaluation #133 — Flutter Web versioning fixed (v1787475197). Backend restart pending approval."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -44,11 +45,12 @@
     "Flutter build directory src/frontend/build/ is gitignored but can accumulate ~75MB on disk — check periodically and clean if stale.",
     "Backend public/uploads/ directory accumulates ~817MB of cached content — verify if this is expected or needs cleanup.",
     "game.service.spec.ts animal_sound test was flaky due to random difficulty=1 generating only 2 questions — fixed by ensuring minimum 3 questions via while loop.",
-    "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version caused sql.js fallback → in-memory DB → registered users couldn't login. Fixed by rebuilding with nvm node v22 directly."
+    "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version caused sql.js fallback → in-memory DB → registered users couldn't login. Fixed by rebuilding with nvm node v22 directly.",
+    "Flutter Web flutter_bootstrap.js versioning was broken (bare reference instead of versioned). Fixed by running post-build-web.sh (Oct 1)."
   ],
   "metrics": {
     "backend_files": 262,
-    "backend_test_files": 93,
+    "backend_test_files": 91,
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,

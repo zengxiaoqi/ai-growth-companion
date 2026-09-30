@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-01",
+  "source_analysis": "#132",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 1,
+      "title": "Restart backend to apply rebuilt dist",
+      "description": "Backend dist/main.js was rebuilt Oct 1 03:06 but the running process (PID 36990) started Sep 25. The game.service.ts changes (animal_sound quiz fix) are not live.",
+      "affected_files": [],
+      "category": "deploy",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "Fix Flutter Web flutter_bootstrap.js versioning",
+      "description": "index.html references bare flutter_bootstrap.js but only versioned flutter_bootstrap.v1787475193.js exists in build/web/. Run post-build-web.sh to fix.",
+      "affected_files": ["src/frontend/build/web/index.html", "src/frontend/build/web/flutter_bootstrap.js"],
+      "category": "deploy",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "tier": 1,
+      "title": "Update evolution.json with current state",
+      "description": "Sync evolution state with current metrics after analysis #132.",
+      "affected_files": [".lingxi/evolution.json"],
+      "category": "docs",
+      "status": "pending"
+    }
+  ]
+}

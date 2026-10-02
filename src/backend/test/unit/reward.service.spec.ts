@@ -779,4 +779,116 @@ describe('RewardService', () => {
       expect(giftRepo.save).not.toHaveBeenCalled();
     });
   });
+
+  // ==================== 日历数据 ====================
+
+  describe('getCalendarData', () => {
+    it('should return calendar data with daily aggregation', async () => {
+      const records = [
+        { childId: 1, recordedAt: new Date(2026, 5, 1, 8, 0), points: 2, behaviorName: '起床洗漱' },
+        { childId: 1, recordedAt: new Date(2026, 5, 1, 12, 0), points: 1, behaviorName: '早餐' },
+        {
+          childId: 1,
+          recordedAt: new Date(2026, 5, 2, 8, 0),
+          points: 3,
+          behaviorName: '学习/作业',
+        },
+      ];
+      pointRecordRepo.find.mockResolvedValue(records);
+
+      const result = await service.getCalendarData(1, 2026, 6);
+
+      expect(result.year).toBe(2026);
+      expect(result.month).toBe(6);
+      expect(result.totalPoints).toBe(6);
+      expect(result.totalRecords).toBe(3);
+      expect(result.dailyData['2026-06-01']).toEqual({
+        points: 3,
+        count: 2,
+        behaviors: ['起床洗漱', '早餐'],
+      });
+      expect(result.dailyData['2026-06-02']).toEqual({
+        points: 3,
+        count: 1,
+        behaviors: ['学习/作业'],
+      });
+    });
+
+    it('should return empty data when no records exist', async () => {
+      pointRecordRepo.find.mockResolvedValue([]);
+
+      const result = await service.getCalendarData(1, 2026, 6);
+
+      expect(result.totalPoints).toBe(0);
+      expect(result.totalRecords).toBe(0);
+      expect(Object.keys(result.dailyData)).toHaveLength(0);
+    });
+
+    it('should group records by date key correctly', async () => {
+      const records = [
+        { childId: 1, recordedAt: new Date(2026, 11, 15, 10, 0), points: 5, behaviorName: '运动' },
+        {
+          childId: 1,
+          recordedAt: new Date(2026, 11, 15, 18, 0),
+          points: -2,
+          behaviorName: '发脾气',
+        },
+      ];
+      pointRecordRepo.find.mockResolvedValue(records);
+
+      const result = await service.getCalendarData(1, 2026, 12);
+
+      expect(result.dailyData['2026-12-15'].points).toBe(3);
+      expect(result.dailyData['2026-12-15'].count).toBe(2);
+    });
+  });
+
+  describe('getDayRecords', () => {
+    it('should return records for a specific date ordered DESC', async () => {
+      const records = [
+        {
+          childId: 1,
+          recordedAt: new Date(2026, 5, 15, 18, 0),
+          points: 2,
+          behaviorName: '晚上洗漱',
+        },
+        {
+          childId: 1,
+          recordedAt: new Date(2026, 5, 15, 8, 0),
+          points: 3,
+          behaviorName: '起床洗漱',
+        },
+      ];
+      pointRecordRepo.find.mockResolvedValue(records);
+
+      const result = await service.getDayRecords(1, '2026-06-15');
+
+      expect(result).toHaveLength(2);
+      expect(pointRecordRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ childId: 1 }),
+          order: { recordedAt: 'DESC' },
+        }),
+      );
+    });
+
+    it('should return empty array when no records for date', async () => {
+      pointRecordRepo.find.mockResolvedValue([]);
+
+      const result = await service.getDayRecords(1, '2026-06-15');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should query with correct date boundaries', async () => {
+      pointRecordRepo.find.mockResolvedValue([]);
+
+      await service.getDayRecords(1, '2026-06-15');
+
+      expect(pointRecordRepo.find).toHaveBeenCalled();
+      const callArgs = pointRecordRepo.find.mock.calls[0][0];
+      expect(callArgs.where.childId).toBe(1);
+      expect(callArgs.where.recordedAt).toBeDefined();
+    });
+  });
 });

@@ -1,17 +1,21 @@
 {
-  "last_analysis": "2026-10-03",
-  "analysis_count": 136,
-  "commit_count": 673,
-  "last_commit": "2026-10-03T03:43:00+08:00",
-  "remote_head": "e510f01",
+  "last_analysis": "2026-10-04",
+  "analysis_count": 137,
+  "commit_count": 675,
+  "last_commit": "2026-10-03T03:53:44+08:00",
+  "remote_head": "d586189",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
+  "uncommitted_files": [
+    ".lingxi/reports/2026-10-04-daily-analysis.md",
+    ".lingxi/reports/2026-10-03-autonomous-eval-v2.md",
+    ".lingxi/plans/archive/2026-09-23-flutter-lint-fix.md"
+  ],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 96,
+    "infrastructure": 94,
     "code_quality": 95
   },
   "active_plans": [],
@@ -22,14 +26,16 @@
     "2026-10-01: Autonomous evaluation #133 — Flutter Web versioning fixed (v1787475197). Backend restart applied. Infrastructure score improved to 95.",
     "2026-10-02: Daily evolution analysis #134 — All systems healthy. 671 commits. Deploy 200 on all endpoints. Backend running with correct node v22. Flutter build fresh v1787475197. Stale proposals cleaned up.",
     "2026-10-03: Daily evolution analysis #135 — All systems healthy. 671 commits. Deploy 200 on all endpoints. Fixed expired test (recordedAt date >30 days). Backend build clean. All unit tests passing (41/41 in reward module).",
-    "2026-10-03: Autonomous evaluation #136 — Backend restart applied (PID 157734 started 03:43). Added 7 new tests for getCalendarData (3) and getDayRecords (3) plus 1 boundary test. All tests passing (47/47 in reward.service). 11 stale version files cleaned. Build clean. Pushed to main."
+    "2026-10-03: Autonomous evaluation #136 — Backend restart applied (PID 157734 started 03:43). Added 7 new tests for getCalendarData (3) and getDayRecords (3) plus 1 boundary test. All tests passing (47/47 in reward.service). 11 stale version files cleaned. Build clean. Pushed to main.",
+    "2026-10-04: Daily evolution analysis #137 — Found better-sqlite3 binary missing, rebuilt with nvm node v22 (MODULE_VERSION 127). Binary now loads successfully. Flutter bootstrap.js versioning fixed (replaced 2 bare main.dart.js refs). Stale proposal archive cleaned. Backend has dual processes (old PID 157734 + new PID 175570) — needs single-process cleanup."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
     "CRITICAL (2026-09-25): better-sqlite3 native addon compiled for wrong Node.js version caused sql.js fallback. Fixed by rebuilding with system node v24 binary directly.",
     "Test staleness: Tests using hardcoded historical dates will fail as time passes. Always use relative or recent dates in tests that check time-based constraints (e.g., 30-day limit).",
     "Stale proposal files should be cleaned up promptly after their suggestions are implemented to avoid confusion in subsequent analyses.",
-    "Backend restart required after dist rebuild — PID 36990 started Sep 25, dist rebuilt Oct 1, confirmed running with correct node v22 after restart."
+    "Backend restart required after dist rebuild — PID 36990 started Sep 25, dist rebuilt Oct 1, confirmed running with correct node v22 after restart.",
+    "better-sqlite3 rebuild must use SAME node binary as running backend — nvm node v22 (MODULE_VERSION 127) not system node v24 (MODULE_VERSION 137). Use: /home/zxq/.nvm/versions/node/v22.22.0/bin/node /home/zxq/.nvm/versions/node/v22.22.0/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild"
   ],
   "metrics": {
     "backend_files": 262,
@@ -37,6 +43,6 @@
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 13895
+    "total_lines": 169350
   }
 }

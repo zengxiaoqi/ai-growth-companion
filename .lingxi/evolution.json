@@ -1,17 +1,19 @@
 {
-  "last_analysis": "2026-10-04",
-  "analysis_count": 137,
-  "commit_count": 676,
+  "last_analysis": "2026-10-05",
+  "analysis_count": 138,
+  "commit_count": 678,
   "last_commit": "2026-10-04T02:25:00+08:00",
-  "remote_head": "470f9d9",
+  "remote_head": "4f0e0c4",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
+  "uncommitted_files": [
+    "D .lingxi/plans/2026-09-23-flutter-lint-fix.md"
+  ],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 97,
+    "infrastructure": 98,
     "code_quality": 95
   },
   "active_plans": [],
@@ -23,7 +25,8 @@
     "2026-10-02: Daily evolution analysis #134 — All systems healthy. 671 commits. Deploy 200 on all endpoints. Backend running with correct node v22. Flutter build fresh v1787475197. Stale proposals cleaned up.",
     "2026-10-03: Daily evolution analysis #135 — All systems healthy. 671 commits. Deploy 200 on all endpoints. Fixed expired test (recordedAt date >30 days). Backend build clean. All unit tests passing (41/41 in reward module).",
     "2026-10-03: Autonomous evaluation #136 — Backend restart applied (PID 157734 started 03:43). Added 7 new tests for getCalendarData (3) and getDayRecords (3) plus 1 boundary test. All tests passing (47/47 in reward.service). 11 stale version files cleaned. Build clean. Pushed to main.",
-    "2026-10-04: Daily evolution analysis #137 — Fixed critical better-sqlite3 fallback issue. Rebuilt native binary with nvm node v22 (MODULE_VERSION 127). Restarted backend (new PID 175866). Verified: all API endpoints working, no sql.js fallback in logs. Flutter bootstrap.js versioning fixed. Deploy 200 on both domains. Infrastructure score improved to 97."
+    "2026-10-04: Daily evolution analysis #137 — Fixed critical better-sqlite3 fallback issue. Rebuilt native binary with nvm node v22 (MODULE_VERSION 127). Restarted backend (new PID 175866). Verified: all API endpoints working, no sql.js fallback in logs. Flutter bootstrap.js versioning fixed. Deploy 200 on both domains. Infrastructure score improved to 97.",
+    "2026-10-05: Daily evolution analysis #138 — Resolved systemd dual-process conflict. Killed stale manual process (PID 175866), systemd restarted successfully (PID 465314). All endpoints healthy. No new commits since #137."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -32,7 +35,7 @@
     "Stale proposal files should be cleaned up promptly after their suggestions are implemented to avoid confusion in subsequent analyses.",
     "Backend restart required after dist rebuild — PID 36990 started Sep 25, dist rebuilt Oct 1, confirmed running with correct node v22 after restart.",
     "better-sqlite3 rebuild must use SAME node binary as running backend — nvm node v22 (MODULE_VERSION 127) not system node v24 (MODULE_VERSION 137). Use: /home/zxq/.nvm/versions/node/v22.22.0/bin/node /home/zxq/.nvm/versions/node/v22.22.0/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild",
-    "Binary rebuild timing: After rebuilding better-sqlite3, must restart backend process to load new binary. Old process continues running with stale binary until killed."
+    "CRITICAL (2026-10-05): systemd dual-process conflict — manual node dist/main process (PID 175866) coexisted with systemd service (PID 464942), causing EADDRINUSE restart loops. Fix: always stop systemd service before manual start, or vice versa."
   ],
   "metrics": {
     "backend_files": 262,
@@ -40,6 +43,6 @@
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 169350
+    "total_lines": 145818
   }
 }

@@ -1,6 +1,6 @@
 {
-  "last_analysis": "2026-10-06",
-  "analysis_count": 140,
+  "last_analysis": "2026-10-07",
+  "analysis_count": 141,
   "commit_count": 681,
   "last_commit": "2026-10-06T03:15:00+08:00",
   "remote_head": "9082f13",
@@ -38,10 +38,10 @@
   ],
   "metrics": {
     "backend_files": 262,
-    "backend_test_files": 94,
+    "backend_test_files": 93,
     "flutter_files": 125,
     "web_files": 101,
     "content_files": 46,
-    "total_lines": 145818
+    "total_lines": 14581
   }
 }

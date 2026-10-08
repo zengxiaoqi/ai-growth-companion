@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-08",
-  "analysis_count": 143,
+  "last_analysis": "2026-10-09",
+  "analysis_count": 144,
   "commit_count": 684,
-  "last_commit": "2026-10-08T03:23:00+08:00",
-  "remote_head": "83d5a88",
+  "last_commit": "2026-10-09T02:06:42+08:00",
+  "remote_head": "3380383",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -12,7 +12,7 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 100,
-    "code_quality": 96
+    "code_quality": 97
   },
   "active_plans": [],
   "completed_actions": [
@@ -27,7 +27,8 @@
     "2026-10-05: Daily evolution analysis #138 — Resolved systemd dual-process conflict. Killed stale manual process (PID 175866), systemd restarted successfully (PID 465314). All endpoints healthy. No new commits since #137.",
     "2026-10-06: Autonomous evaluation #140 — No new code changes since #136. All systems healthy. Removed stale report file. Deploy 200 on all endpoints.",
     "2026-10-07: Daily evolution analysis #141 — All systems healthy. 681 commits. Deploy 200 on both domains. Backend running with correct node v22. Flutter build fresh v1787475197. No issues detected.",
-    "2026-10-08: Autonomous evaluation #143 — Added /api/health endpoint, created DB backup script with cron, archived 8 old proposals, clean build verified."
+    "2026-10-08: Autonomous evaluation #143 — Added /api/health endpoint, created DB backup script with cron, archived 8 old proposals, clean build verified.",
+    "2026-10-09: Daily evolution analysis #144 — Fixed systemd dual-process conflict (manual node dist/main.js coexisted with systemd, causing EADDRINUSE). Killed manual process, restarted systemd. All endpoints healthy. Added health endpoint test. Deploy 200 on both domains."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -36,14 +37,20 @@
     "Stale proposal files should be cleaned up promptly after their suggestions are implemented to avoid confusion in subsequent analyses.",
     "Backend restart required after dist rebuild — PID 36990 started Sep 25, dist rebuilt Oct 1, confirmed running with correct node v22 after restart.",
     "better-sqlite3 rebuild must use SAME node binary as running backend — nvm node v22 (MODULE_VERSION 127) not system node v24 (MODULE_VERSION 137). Use: /home/zxq/.nvm/versions/node/v22.22.0/bin/node /home/zxq/.nvm/versions/node/v22.22.0/lib/node_modules/npm/node_modules/node-gyp.js rebuild",
-    "CRITICAL (2026-10-05): systemd dual-process conflict — manual node dist/main process (PID 175866) coexisted with systemd service (PID 464942), causing EADDRINUSE restart loops. Fix: always stop systemd service before manual start, or vice versa."
+    "CRITICAL (2026-10-05): systemd dual-process conflict — manual node dist/main process (PID 175866) coexisted with systemd service (PID 464942), causing EADDRINUSE restart loops. Fix: always stop systemd service before manual start, or vice versa.",
+    "CRITICAL (2026-10-09): systemd dual-process conflict recurrence — manual node dist/main.js (PID 515244) coexisted with systemd service (PID 794393), causing EADDRINUSE. Fixed by pkill + systemctl restart. Add systemd dual-process check to daily evolution script."
   ],
   "metrics": {
     "backend_files": 264,
-    "backend_test_files": 94,
+    "backend_test_files": 95,
+    "backend_lines": 50998,
+    "backend_test_lines": 23563,
     "flutter_files": 125,
+    "flutter_lines": 60135,
     "web_files": 101,
+    "web_lines": 27143,
     "content_files": 46,
-    "total_lines": 14650
+    "content_lines": 7622,
+    "total_lines": 169461
   }
 }

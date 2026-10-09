@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-10",
+  "source_analysis": "#145",
+  "evaluations": [
+    {
+      "id": "S1",
+      "title": "防止 systemd 双进程冲突复发",
+      "worth_implementing": true,
+      "feasible": true,
+      "urgency": "P0",
+      "risk_level": "low",
+      "affected_files": ["scripts/start-lingxi.sh"],
+      "pitfalls": [28],
+      "mvp_scope": "在 start-lingxi.sh 的 start_backend() 函数中添加 pre-flight 检查：检测是否有残留的 manual node dist/main.js 进程（非 systemd 管理），如有则先停止 systemd 服务再清理",
+      "reasoning": "这是同一问题的重复发生（第3次），添加pre-flight检查可以完全防止。改动极小（<10行），只涉及启动脚本，无业务逻辑风险。"
+    },
+    {
+      "id": "S2",
+      "title": "定期清理 stale Flutter build artifacts",
+      "worth_implementing": false,
+      "feasible": true,
+      "urgency": "P3",
+      "risk_level": "low",
+      "affected_files": [],
+      "pitfalls": [],
+      "mvp_scope": "N/A - 已实现",
+      "reasoning": "post-build-web.sh 已实现版本清理（保留latest 2）。当前 62MB 是正常的（两个版本文件）。无需额外操作。"
+    },
+    {
+      "id": "S3",
+      "title": "更新 AGENTS.md",
+      "worth_implementing": true,
+      "feasible": true,
+      "urgency": "P2",
+      "risk_level": "low",
+      "affected_files": ["AGENTS.md"],
+      "pitfalls": [],
+      "mvp_scope": "审计 AGENTS.md 内容准确性：检查端口号、工具引用、模块列表是否与当前代码一致",
+      "reasoning": "文档维护是 Tier 1 安全操作。需要验证 AGENTS.md 中的信息是否仍然准确，特别是 pitfall #28 关于 systemd 的内容是否需要补充预防措施。"
+    }
+  ]
+}

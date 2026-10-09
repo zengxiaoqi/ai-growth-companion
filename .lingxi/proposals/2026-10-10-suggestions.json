@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-10",
+  "source_analysis": "#145",
+  "suggestions": [
+    {
+      "id": "S1",
+      "tier": 0,
+      "title": "防止 systemd 双进程冲突复发",
+      "description": "添加前置检查到启动脚本，确保启动前没有残留的 manual process。systemd dual-process conflict 已复发三次（Oct 5, 8, 10）。",
+      "affected_files": ["scripts/start-lingxi.sh"],
+      "category": "infra",
+      "estimated_complexity": "low",
+      "status": "pending"
+    },
+    {
+      "id": "S2",
+      "tier": 1,
+      "title": "定期清理 stale Flutter build artifacts",
+      "description": "src/frontend/build/ 62MB，清理旧版本 JS 文件。",
+      "affected_files": [],
+      "category": "cleanup",
+      "estimated_complexity": "low",
+      "status": "pending"
+    },
+    {
+      "id": "S3",
+      "tier": 2,
+      "title": "更新 AGENTS.md",
+      "description": "审计 AGENTS.md 准确性 - port numbers, stale tool references, missing modules。",
+      "affected_files": ["AGENTS.md"],
+      "category": "docs",
+      "estimated_complexity": "low",
+      "status": "pending"
+    }
+  ]
+}

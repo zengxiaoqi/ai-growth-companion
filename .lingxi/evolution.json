@@ -1,9 +1,9 @@
 {
   "last_analysis": "2026-10-10",
-  "analysis_count": 145,
-  "commit_count": 685,
-  "last_commit": "2026-10-09T02:06:42+08:00",
-  "remote_head": "16cc02a",
+  "analysis_count": 146,
+  "commit_count": 686,
+  "last_commit": "2026-10-10T03:29:57+08:00",
+  "remote_head": "23720f5",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -29,7 +29,8 @@
     "2026-10-07: Daily evolution analysis #141 — All systems healthy. 681 commits. Deploy 200 on both domains. Backend running with correct node v22. Flutter build fresh v1787475197. No issues detected.",
     "2026-10-08: Autonomous evaluation #143 — Added /api/health endpoint, created DB backup script with cron, archived 8 old proposals, clean build verified.",
     "2026-10-09: Daily evolution analysis #144 — Fixed systemd dual-process conflict (manual node dist/main.js coexisted with systemd, causing EADDRINUSE). Killed manual process, restarted systemd. All endpoints healthy. Added health endpoint test. Deploy 200 on both domains.",
-    "2026-10-10: Daily evolution analysis #145 — CRITICAL: systemd dual-process conflict recurs (manual process PID 515244 started Oct 8 holding port 3001, systemd in restart loop 12129+ times). Resolved by pkill + systemctl restart. Backend now running on PID 1068611. All endpoints healthy. Deploy 200 on both domains."
+    "2026-10-10: Daily evolution analysis #145 — CRITICAL: systemd dual-process conflict recurs (manual process PID 515244 started Oct 8 holding port 3001, systemd in restart loop 12129+ times). Resolved by pkill + systemctl restart. Backend now running on PID 1068611. All endpoints healthy. Deploy 200 on both domains.",
+    "2026-10-10: Autonomous evaluation #146 — Implemented systemd pre-flight check in start-lingxi.sh (commit 23720f5). Added guard to detect and stop orphan manual processes before starting. AGENTS.md update blocked (protected file). Tests passing (114/114 in reward+contents+health). Build clean. Pushed to main."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -40,7 +41,8 @@
     "better-sqlite3 rebuild must use SAME node binary as running backend — nvm node v22 (MODULE_VERSION 127) not system node v24 (MODULE_VERSION 137). Use: /home/zxq/.nvm/versions/node/v22.22.0/bin/node /home/zxq/.nvm/versions/node/v22.22.0/lib/node_modules/npm/node_modules/node-gyp.js rebuild",
     "CRITICAL (2026-10-05): systemd dual-process conflict — manual node dist/main process (PID 175866) coexisted with systemd service (PID 464942), causing EADDRINUSE restart loops. Fix: always stop systemd service before manual start, or vice versa.",
     "CRITICAL (2026-10-09): systemd dual-process conflict recurrence — manual node dist/main.js (PID 515244) coexisted with systemd service (PID 794393), causing EADDRINUSE. Fixed by pkill + systemctl restart. Add systemd dual-process check to daily evolution script.",
-    "PERSISTENT ISSUE (2026-10-10): systemd dual-process conflict recurs every 2-3 days. Root cause: previous cron/manual sessions started `node dist/main.js` without stopping systemd service first. The bash wrapper process (PID 514986) persists across reboots and respawns the stale node process. Need to add pre-flight check to kill any stale manual processes before allowing systemd to manage the backend."
+    "FIXED (2026-10-10): systemd dual-process conflict prevented recurrence — added pre-flight check in start-lingxi.sh to detect orphan manual processes and auto-switch to systemd management. Commit 23720f5.",
+    "PROTECTED_FILE (2026-10-10): AGENTS.md cannot be modified by cron jobs due to protected file restriction. Manual update required for documentation changes."
   ],
   "metrics": {
     "backend_files": 264,

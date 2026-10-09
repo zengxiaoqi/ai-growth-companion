@@ -38,6 +38,28 @@ check_pid() {
 # ── 后端 ──────────────────────────────────────
 
 start_backend() {
+    # Pre-flight: check for stale manual processes conflicting with systemd
+    if systemctl --user is-active lingxi-backend.service &>/dev/null; then
+        echo "ℹ️  systemd 服务正在管理后端，跳过手动启动"
+        return 0
+    fi
+
+    # Check for orphan manual node dist/main process (not managed by systemd)
+    local manual_pid=$(pgrep -f "node dist/main\.js$" 2>/dev/null | head -1)
+    if [ -n "$manual_pid" ]; then
+        echo "⚠️  发现残留 manual process (PID: $manual_pid)，停止以启用 systemd 管理..."
+        kill "$manual_pid" 2>/dev/null || true
+        sleep 2
+        # Start systemd service instead
+        echo "🚀 启动 systemd 服务..."
+        systemctl --user start lingxi-backend.service
+        sleep 3
+        if systemctl --user is-active lingxi-backend.service &>/dev/null; then
+            echo "✅ 后端已由 systemd 启动"
+            return 0
+        fi
+    fi
+
     # 先检查 PID 文件
     if check_pid "backend"; then
         echo "✅ 后端已在运行 (PID: $(cat $PID_DIR/backend.pid))"

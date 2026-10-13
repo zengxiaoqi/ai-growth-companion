@@ -1,12 +1,12 @@
 {
-  "last_analysis": "2026-10-10",
-  "analysis_count": 146,
+  "last_analysis": "2026-10-13",
+  "analysis_count": 147,
   "commit_count": 686,
   "last_commit": "2026-10-10T03:29:57+08:00",
-  "remote_head": "23720f5",
+  "remote_head": "f76a17a",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
-  "stale_days": 0,
+  "stale_days": 3,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,

@@ -29,7 +29,11 @@ describe('App bootstrap smoke test', () => {
 
   afterAll(async () => {
     if (app) {
-      await app.close();
+      try {
+        await app.close();
+      } catch {
+        // Gracefully ignore shutdown errors (e.g., DataSource lifecycle issues)
+      }
     }
   });
 

@@ -1,9 +1,9 @@
 {
   "last_analysis": "2026-10-15",
-  "analysis_count": 149,
-  "commit_count": 690,
-  "last_commit": "2026-10-14T11:12:00+08:00",
-  "remote_head": "7eeb1e5",
+  "analysis_count": 150,
+  "commit_count": 691,
+  "last_commit": "2026-10-15T03:38:00+08:00",
+  "remote_head": "70c80b5",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -12,7 +12,7 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 100,
-    "code_quality": 97
+    "code_quality": 98
   },
   "active_plans": [],
   "completed_actions": [
@@ -32,7 +32,8 @@
     "2026-10-10: Daily evolution analysis #145 — CRITICAL: systemd dual-process conflict recurs (manual process PID 515244 started Oct 8 holding port 3001, systemd in restart loop 12129+ times). Resolved by pkill + systemctl restart. Backend now running on PID 1068611. All endpoints healthy. Deploy 200 on both domains.",
     "2026-10-10: Autonomous evaluation #146 — Implemented systemd pre-flight check in start-lingxi.sh (commit 23720f5). Added guard to detect and stop orphan manual processes before starting. AGENTS.md update blocked (protected file). Tests passing (114/114 in reward+contents+health). Build clean. Pushed to main.",
     "2026-10-13: Daily evolution analysis #147 — All systems healthy. 686 commits. Deploy 200 on both domains. Backend PID 1068611 on nvm node v22.22.0 (correct). Flutter build v1787475197 fresh. Auth unit tests 30/30 passing. No stale files, no uncommitted changes.",
-    "2026-10-14: Autonomous evaluation #148 — No new code changes since #146. All systems healthy. Deploy 200. Build clean. Tests passing (247/247 in reward+auth+contents+learning). No stale Flutter files. Backend health OK. Cloudflare tunnel active."
+    "2026-10-14: Autonomous evaluation #148 — No new code changes since #146. All systems healthy. Deploy 200. Build clean. Tests passing (247/247 in reward+auth+contents+learning). No stale Flutter files. Backend health OK. Cloudflare tunnel active.",
+    "2026-10-15: Daily evolution analysis #150 — Fixed smoke test DataSource shutdown error (wrap app.close() in try-catch). Rebuilt better-sqlite3 native addon with nvm node v22 (MODULE_VERSION 127). All 1400 tests passing. Deploy 200 on both domains."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -44,19 +45,22 @@
     "CRITICAL (2026-10-05): systemd dual-process conflict — manual node dist/main process (PID 175866) coexisted with systemd service (PID 464942), causing EADDRINUSE restart loops. Fix: always stop systemd service before manual start, or vice versa.",
     "CRITICAL (2026-10-09): systemd dual-process conflict recurrence — manual node dist/main.js (PID 515244) coexisted with systemd service (PID 794393), causing EADDRINUSE. Fixed by pkill + systemctl restart. Add systemd dual-process check to daily evolution script.",
     "FIXED (2026-10-10): systemd dual-process conflict prevented recurrence — added pre-flight check in start-lingxi.sh to detect orphan manual processes and auto-switch to systemd management. Commit 23720f5.",
-    "PROTECTED_FILE (2026-10-10): AGENTS.md cannot be modified by cron jobs due to protected file restriction. Manual update required for documentation changes."
+    "PROTECTED_FILE (2026-10-10): AGENTS.md cannot be modified by cron jobs due to protected file restriction. Manual update required for documentation changes.",
+    "FIXED (2026-10-15): Better-sqlite3 MODULE_VERSION mismatch after node upgrade — rebuilt native addon with nvm node v22. Also fixed smoke test DataSource lifecycle issue."
   ],
   "metrics": {
     "backend_files": 264,
-    "backend_test_files": 95,
+    "backend_test_files": 39,
     "backend_lines": 50998,
-    "backend_test_lines": 23563,
+    "backend_test_lines": 23650,
     "flutter_files": 125,
     "flutter_lines": 60135,
     "web_files": 103,
     "web_lines": 27143,
     "content_files": 46,
     "content_lines": 7622,
-    "total_lines": 169461
+    "total_lines": 169498,
+    "test_count": 1400,
+    "video_storage_mb": 820
   }
 }

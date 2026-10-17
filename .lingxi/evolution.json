@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-15",
-  "analysis_count": 150,
+  "last_analysis": "2026-10-17",
+  "analysis_count": 152,
   "commit_count": 691,
   "last_commit": "2026-10-15T03:38:00+08:00",
-  "remote_head": "70c80b5",
+  "remote_head": "261c9cc",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -33,7 +33,9 @@
     "2026-10-10: Autonomous evaluation #146 — Implemented systemd pre-flight check in start-lingxi.sh (commit 23720f5). Added guard to detect and stop orphan manual processes before starting. AGENTS.md update blocked (protected file). Tests passing (114/114 in reward+contents+health). Build clean. Pushed to main.",
     "2026-10-13: Daily evolution analysis #147 — All systems healthy. 686 commits. Deploy 200 on both domains. Backend PID 1068611 on nvm node v22.22.0 (correct). Flutter build v1787475197 fresh. Auth unit tests 30/30 passing. No stale files, no uncommitted changes.",
     "2026-10-14: Autonomous evaluation #148 — No new code changes since #146. All systems healthy. Deploy 200. Build clean. Tests passing (247/247 in reward+auth+contents+learning). No stale Flutter files. Backend health OK. Cloudflare tunnel active.",
-    "2026-10-15: Daily evolution analysis #150 — Fixed smoke test DataSource shutdown error (wrap app.close() in try-catch). Rebuilt better-sqlite3 native addon with nvm node v22 (MODULE_VERSION 127). All 1400 tests passing. Deploy 200 on both domains."
+    "2026-10-15: Daily evolution analysis #150 — Fixed smoke test DataSource shutdown error (wrap app.close() in try-catch). Rebuilt better-sqlite3 native addon with nvm node v22. All 1400 tests passing. Deploy 200 on both domains.",
+    "2026-10-16: Daily evolution analysis #151 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 1068611 stable (4-day uptime). No new commits since #150. Flutter build v1787475197 fresh. No stale files. Tests passing.",
+    "2026-10-17: Daily evolution analysis #152 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 609 stable (1-min uptime, systemd restarted overnight). No new commits since #150. Flutter build v1787475197 fresh. CDN MISS verified. better-sqlite3 OK."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -55,7 +57,7 @@
     "backend_test_lines": 23650,
     "flutter_files": 125,
     "flutter_lines": 60135,
-    "web_files": 103,
+    "web_files": 97,
     "web_lines": 27143,
     "content_files": 46,
     "content_lines": 7622,

@@ -1,11 +1,15 @@
 {
-  "last_analysis": "2026-10-18",
-  "analysis_count": 154,
-  "commit_count": 697,
+  "last_analysis": "2026-10-19",
+  "analysis_count": 155,
+  "commit_count": 698,
   "last_commit": "2026-10-18T00:00:00+08:00",
-  "remote_head": "dc2bf86",
+  "remote_head": "e42b68f",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
+  "uncommitted_files": [
+    ".lingxi/proposals/2026-10-17-suggestions.json",
+    ".lingxi/reports/2026-10-18_evolution_report.md",
+    "src/backend/build/"
+  ],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -36,7 +40,8 @@
     "2026-10-15: Daily evolution analysis #150 — Fixed smoke test DataSource shutdown error (wrap app.close() in try-catch). Rebuilt better-sqlite3 native addon with nvm node v22. All 1400 tests passing. Deploy 200 on both domains.",
     "2026-10-16: Daily evolution analysis #151 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 1068611 stable (4-day uptime). No new commits since #150. Flutter build v1787475197 fresh. No stale files. Tests passing.",
     "2026-10-17: Daily evolution analysis #152 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 609 stable (1-min uptime, systemd restarted overnight). No new commits since #150. Flutter build v1787475197 fresh. CDN MISS verified. better-sqlite3 OK.",
-    "2026-10-17: Evolution report #153 — Test date fix deployed (4082ca2), all systems healthy."
+    "2026-10-17: Evolution report #153 — Test date fix deployed (4082ca2), all systems healthy.",
+    "2026-10-18: Daily evolution analysis #154 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend stable. Flutter build fresh. No issues."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -53,15 +58,14 @@
   ],
   "metrics": {
     "backend_files": 264,
-    "backend_test_files": 39,
+    "backend_test_files": 93,
     "backend_lines": 50998,
-    "backend_test_lines": 23650,
+    "backend_tests_total": 1400,
     "flutter_files": 125,
     "flutter_lines": 60135,
     "web_files": 97,
     "web_lines": 7622,
     "total_lines": 169498,
-    "test_count": 1400,
     "video_storage_mb": 820
   }
 }

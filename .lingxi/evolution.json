@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-19",
-  "analysis_count": 155,
+  "last_analysis": "2026-10-20",
+  "analysis_count": 156,
   "commit_count": 698,
   "last_commit": "2026-10-18T00:00:00+08:00",
-  "remote_head": "e42b68f",
+  "remote_head": "d675ae0",
   "commits_ahead_remote": 0,
   "uncommitted_files": [
     ".lingxi/proposals/2026-10-17-suggestions.json",
@@ -41,7 +41,8 @@
     "2026-10-16: Daily evolution analysis #151 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 1068611 stable (4-day uptime). No new commits since #150. Flutter build v1787475197 fresh. No stale files. Tests passing.",
     "2026-10-17: Daily evolution analysis #152 — All systems healthy. 691 commits. Deploy 200 on both domains. Backend PID 609 stable (1-min uptime, systemd restarted overnight). No new commits since #150. Flutter build v1787475197 fresh. CDN MISS verified. better-sqlite3 OK.",
     "2026-10-17: Evolution report #153 — Test date fix deployed (4082ca2), all systems healthy.",
-    "2026-10-18: Daily evolution analysis #154 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend stable. Flutter build fresh. No issues."
+    "2026-10-18: Daily evolution analysis #154 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend stable. Flutter build fresh. No issues.",
+    "2026-10-19: Daily evolution analysis #155 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend PID 609 stable (2-day uptime). Flutter build v1787475197 fresh. Tests passing (100/100 across auth+reward+contents). No new commits."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -60,12 +61,12 @@
     "backend_files": 264,
     "backend_test_files": 93,
     "backend_lines": 50998,
-    "backend_tests_total": 1400,
+    "backend_tests_total": 100,
     "flutter_files": 125,
     "flutter_lines": 60135,
-    "web_files": 97,
+    "web_files": 103,
     "web_lines": 7622,
     "total_lines": 169498,
-    "video_storage_mb": 820
+    "video_storage_mb": 824
   }
 }

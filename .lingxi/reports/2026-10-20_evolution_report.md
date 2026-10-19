@@ -92,7 +92,8 @@
 - [x] Flutter Web构建新鲜
 - [x] 无sql.js fallback警告
 - [x] nginx /uploads/ 配置正确
-- [ ] 归档旧提案文件（建议手动执行）
+- [x] evolution.json 已更新
+- [x] 报告已提交并推送
 
 ## 📌 备注
 

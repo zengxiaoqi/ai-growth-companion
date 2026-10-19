@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-10-17T10:15:00+08:00",
+  "source_report": "2026-10-15_03-44-18.md",
+  "suggestions": [
+    {
+      "id": "S1",
+      "title": "Ph6 语音交互增强",
+      "description": "继续优化 voiceChat AI 集成",
+      "priority": "P1",
+      "tier": "Tier 2",
+      "status": "already_in_progress"
+    },
+    {
+      "id": "S2",
+      "title": "Ph8 课程视频化优化",
+      "description": "优化 Remotion 渲染质量和速度",
+      "priority": "P1",
+      "tier": "Tier 2",
+      "status": "already_in_progress"
+    },
+    {
+      "id": "S3",
+      "title": "代码质量维护",
+      "description": "保持98%测试覆盖率，关注新增功能测试覆盖",
+      "priority": "P2",
+      "tier": "Tier 1",
+      "status": "ongoing"
+    }
+  ],
+  "executed_fixes": [
+    {
+      "fix": "修复过期测试日期",
+      "file": "src/backend/test/unit/reward.service.spec.ts",
+      "change": "2026-09-15 → 2026-10-10 (避免30天限制测试失败)",
+      "commit": "4082ca2",
+      "test_result": "47/47 reward tests passing"
+    }
+  ]
+}

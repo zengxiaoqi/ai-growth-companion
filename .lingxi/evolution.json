@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-20",
-  "analysis_count": 156,
+  "last_analysis": "2026-10-21",
+  "analysis_count": 157,
   "commit_count": 700,
   "last_commit": "2026-10-20T02:06:00+08:00",
-  "remote_head": "d55d781",
+  "remote_head": "e615f40",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -39,7 +39,8 @@
     "2026-10-17: Evolution report #153 — Test date fix deployed (4082ca2), all systems healthy.",
     "2026-10-18: Daily evolution analysis #154 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend stable. Flutter build fresh. No issues.",
     "2026-10-19: Daily evolution analysis #155 — All systems healthy. 698 commits. Deploy 200 on both domains. Backend PID 609 stable (2-day uptime). Flutter build v1787475197 fresh. Tests passing (100/100 across auth+reward+contents). No new commits.",
-    "2026-10-20: Daily evolution analysis #156 — All systems healthy. 700 commits. Deploy 200 on both domains. Backend PID 609 stable (3-day uptime). Flutter build v1787475197 fresh. Tests passing (100/100 across auth+reward+contents). No new code commits."
+    "2026-10-20: Daily evolution analysis #156 — All systems healthy. 700 commits. Deploy 200 on both domains. Backend PID 609 stable (3-day uptime). Flutter build v1787475197 fresh. Tests passing (100/100 across auth+reward+contents). No new code commits.",
+    "2026-10-21: Daily evolution analysis #157 — All systems healthy. 700 commits. Deploy 200 on both domains. Backend PID 609 stable (4-day uptime). Flutter build v1787475197 fresh. Tests passing (100/100). Cleaned up stale proposal and report files."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -63,7 +64,7 @@
     "flutter_lines": 60135,
     "web_files": 103,
     "web_lines": 7622,
-    "total_lines": 169498,
+    "total_lines": 118755,
     "video_storage_mb": 824
   }
 }

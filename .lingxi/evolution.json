@@ -1,11 +1,11 @@
 {
-  "last_analysis": "2026-10-22",
-  "analysis_count": 160,
-  "commit_count": 708,
-  "last_commit": "2026-10-22T03:06:00+08:00",
-  "remote_head": "5cf9e4a",
+  "last_analysis": "2026-10-23",
+  "analysis_count": 161,
+  "commit_count": 710,
+  "last_commit": "2026-10-22T03:16:54+08:00",
+  "remote_head": "5cd9117",
   "commits_ahead_remote": 0,
-  "uncommitted_files": [],
+  "uncommitted_files": ["src/backend/build/"],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
@@ -33,7 +33,7 @@
   ],
   "metrics": {
     "backend_files": 264,
-    "backend_test_files": 93,
+    "backend_test_files": 92,
     "backend_lines": 50998,
     "backend_tests_total": 1398,
     "flutter_files": 125,

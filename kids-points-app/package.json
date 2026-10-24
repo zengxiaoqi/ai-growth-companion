@@ -1,0 +1,13 @@
+{
+  "name": "kids-points-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "儿童打卡积分乐园 — 每日学习/行为习惯打卡算积分，积分兑换礼物",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

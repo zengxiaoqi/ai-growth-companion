@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FF8A3D">
+<title>🌟 打卡积分乐园</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: linear-gradient(160deg, #FFF7EA 0%, #FFECF3 55%, #FFF3E2 100%);
+    min-height: 100vh; color: #453A2E;
+  }
+  button { font-family: inherit; }
+  #app { max-width: 520px; margin: 0 auto; padding: 14px 14px 60px; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 12px; }
+  .logo { font-size: 21px; font-weight: 800; letter-spacing: .5px; }
+  .lock { width: 40px; height: 40px; border-radius: 50%; border: none; background: #fff; font-size: 18px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 160, 60, .18); }
+
+  .kids { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px; scrollbar-width: none; }
+  .kids::-webkit-scrollbar { display: none; }
+  .kid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 72px;
+    background: #fff; border: 2.5px solid transparent; border-radius: 18px; padding: 9px 12px; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(255, 160, 60, .12); transition: transform .15s, border-color .15s; }
+  .kid .ava { font-size: 28px; line-height: 1.2; }
+  .kid .nm { font-size: 12px; font-weight: 700; color: #6B5B47; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kid.on { border-color: #FF8A3D; transform: scale(1.06); }
+
+  .bal { background: linear-gradient(135deg, #FFB35C 0%, #FF8A3D 55%, #F76B1C 100%); border-radius: 24px; padding: 18px 20px 14px;
+    color: #fff; box-shadow: 0 10px 26px rgba(247, 107, 28, .30); margin-bottom: 14px; }
+  .bal-empty { text-align: center; font-weight: 700; padding: 26px 20px; }
+  .bal-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; opacity: .95; }
+  .bal-streak { background: rgba(255,255,255,.22); padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .bal-num { font-size: 46px; font-weight: 800; line-height: 1.25; display: flex; align-items: center; gap: 8px; }
+  .bal-star { font-size: 34px; }
+  .bal-unit { font-size: 15px; font-weight: 600; opacity: .9; }
+  .bal-sub { font-size: 12px; opacity: .92; margin-top: 2px; }
+  .bal-week { display: flex; justify-content: space-between; margin-top: 12px; padding: 0 4px; }
+  .wd { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; opacity: .85; }
+  .wd i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.30); }
+  .wd.f { opacity: 1; font-weight: 700; }
+  .wd.f i { background: #fff; }
+
+  .tabbar { display: flex; gap: 4px; background: #fff; border-radius: 999px; padding: 4px; box-shadow: 0 4px 14px rgba(255,160,60,.12); }
+  .tab { flex: 1; border: none; background: transparent; border-radius: 999px; padding: 10px 0; font-size: 14px; font-weight: 700;
+    color: #9A8C7A; cursor: pointer; transition: all .15s; }
+  .tab.on { background: linear-gradient(135deg, #FFA24D, #FF7A2E); color: #fff; box-shadow: 0 4px 10px rgba(255,122,46,.35); }
+
+  .view { padding-top: 14px; }
+  .hide { display: none; }
+  .date-pill { display: inline-block; background: #fff; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700;
+    color: #6B5B47; margin-bottom: 10px; box-shadow: 0 3px 10px rgba(255,160,60,.10); }
+
+  .g-head { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 800; margin: 12px 2px 8px; }
+  .g-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .g-dot.blue { background: #4F8CFF; } .g-dot.green { background: #2FBF71; }
+  .g-count { margin-left: auto; font-size: 12px; color: #9A8C7A; background: #fff; padding: 3px 10px; border-radius: 999px; }
+
+  .habit { display: flex; align-items: center; gap: 12px; background: #fff; border: 2.5px solid transparent; border-radius: 18px;
+    padding: 11px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s;
+    box-shadow: 0 3px 10px rgba(255,160,60,.08); }
+  .habit.done { background: #FFFBEF; }
+  .habit.done.blue { border-color: #BBD4FF; } .habit.done.green { border-color: #B4E9CD; }
+  .h-emoji { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center;
+    font-size: 25px; flex: 0 0 auto; }
+  .h-emoji.blue { background: #EAF2FF; } .h-emoji.green { background: #E8F9F0; }
+  .habit.done .h-emoji.blue { background: #FFF1D6; } .habit.done .h-emoji.green { background: #FFF1D6; }
+  .h-main { flex: 1; min-width: 0; }
+  .h-name { font-size: 15px; font-weight: 700; }
+  .h-pts { display: inline-block; font-size: 11px; font-weight: 800; color: #F07020; background: #FFF1E3; padding: 2px 8px;
+    border-radius: 999px; margin-top: 3px; }
+  .h-check { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid #E8DFD2; background: #fff; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: #fff; transition: all .15s; }
+  .habit.done .h-check { background: #2FBF71; border-color: #2FBF71; }
+
+  .tip { font-size: 12px; color: #B3A48E; text-align: center; margin-top: 14px; }
+
+  .r-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .r-card { background: #fff; border: 2.5px solid #FFE9CF; border-radius: 20px; padding: 14px 12px 12px; text-align: center;
+    cursor: pointer; transition: transform .15s; box-shadow: 0 4px 12px rgba(255,160,60,.10); }
+  .r-card:active { transform: scale(.97); }
+  .r-card.locked { opacity: .62; }
+  .r-emoji { font-size: 38px; line-height: 1.3; }
+  .r-name { font-size: 14px; font-weight: 800; margin-top: 4px; }
+  .r-cost { display: inline-block; font-size: 12px; font-weight: 800; color: #B07A00; background: #FFF4D6; padding: 2px 10px;
+    border-radius: 999px; margin: 6px 0 8px; }
+  .r-bar { height: 8px; border-radius: 999px; background: #F3EADB; overflow: hidden; }
+  .r-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #FFC53D, #FF8A3D); transition: width .3s; }
+  .r-btn { margin-top: 8px; font-size: 12px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #FFA24D, #FF7A2E);
+    border-radius: 999px; padding: 6px 0; }
+  .r-btn.no { background: #EFE7D9; color: #B3A48E; }
+
+  .hist { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; padding: 11px 14px;
+    margin-bottom: 8px; box-shadow: 0 3px 10px rgba(255,160,60,.08); }
+  .hi-emoji { width: 40px; height: 40px; border-radius: 13px; background: #FFF4E3; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex: 0 0 auto; }
+  .hi-main { flex: 1; min-width: 0; }
+  .hi-name { font-size: 14px; font-weight: 700; }
+  .hi-sub { font-size: 12px; color: #9A8C7A; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  .hi-pts { font-size: 15px; font-weight: 800; }
+  .hi-pts.up { color: #2FBF71; } .hi-pts.down { color: #F25555; }
+  .st { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+  .st-pending { background: #FFF1E3; color: #F07020; }
+  .st-done { background: #E8F9F0; color: #2FBF71; }
+
+  .empty { text-align: center; padding: 46px 20px; color: #9A8C7A; }
+  .empty-emoji { font-size: 46px; margin-bottom: 10px; }
+  .empty p { font-size: 14px; font-weight: 700; }
+  .empty .empty-sub { font-size: 12px; font-weight: 500; margin-top: 4px; color: #B3A48E; }
+  .loading { text-align: center; color: #B3A48E; padding: 40px 0; font-size: 14px; }
+
+  .btn { border: none; border-radius: 999px; padding: 11px 22px; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .btn.primary { background: linear-gradient(135deg, #FFA24D, #FF7A2E); color: #fff; box-shadow: 0 4px 12px rgba(255,122,46,.35); }
+  .btn.plain { background: #F4EDE2; color: #6B5B47; }
+  .btn.danger { background: #FFECEC; color: #E5484D; }
+  .btn.full { width: 100%; margin-top: 8px; }
+  .mini { border: none; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; background: #F6EFE3;
+    color: #6B5B47; cursor: pointer; }
+  .mini.brand { background: #FFF1E3; color: #F07020; }
+  .mini.danger { background: #FFECEC; color: #E5484D; }
+
+  .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(16px); background: rgba(60,45,20,.88);
+    color: #fff; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 999px; opacity: 0; pointer-events: none;
+    transition: all .25s; z-index: 90; max-width: 86vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .overlay { position: fixed; inset: 0; background: rgba(45,28,8,.46); display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 22px; }
+  .sheet { background: #FFFDF8; border-radius: 26px; padding: 22px; width: 100%; max-width: 400px; max-height: 84vh; overflow: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,.22); animation: pop .18s ease; }
+  @keyframes pop { from { transform: scale(.9); opacity: 0; } }
+  .sheet h3 { font-size: 17px; margin-bottom: 8px; }
+  .mtxt { font-size: 14px; color: #6B5B47; line-height: 1.7; margin: 6px 0 4px; }
+  .mrow { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  .hint { font-size: 12px; color: #B3A48E; text-align: center; margin-top: 12px; }
+  .lb { display: block; font-size: 12px; color: #9A8C7A; font-weight: 700; margin: 12px 0 5px; }
+  input[type="text"], input[type="number"], input[type="password"] {
+    width: 100%; border: 2px solid #F0E4D0; border-radius: 14px; padding: 11px 13px; font-size: 15px; background: #fff;
+    outline: none; color: #453A2E; font-family: inherit; }
+  input:focus { border-color: #FF8A3D; }
+
+  .emgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .em { font-size: 21px; background: #fff; border: 2px solid transparent; border-radius: 12px; padding: 5px 0; cursor: pointer; }
+  .em.on { border-color: #FF8A3D; background: #FFF4E8; }
+  .cat-row { display: flex; gap: 8px; }
+  .cat { flex: 1; border: 2px solid #F0E4D0; background: #fff; border-radius: 12px; padding: 9px 0; font-size: 14px; font-weight: 700;
+    color: #9A8C7A; cursor: pointer; }
+  .cat.on { border-color: #FF8A3D; color: #F07020; background: #FFF4E8; }
+
+  .pin-dots { display: flex; gap: 11px; justify-content: center; margin: 16px 0 4px; }
+  .pin-dots.shake { animation: shake .35s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .pin-dot { width: 14px; height: 14px; border-radius: 50%; background: #F1E7D6; border: 2px solid #E3D6C0; }
+  .pin-dot.f { background: #FF8A3D; border-color: #FF8A3D; }
+  .pin-err { text-align: center; font-size: 13px; color: #E5484D; min-height: 20px; font-weight: 700; }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 10px; }
+  .key { background: #fff; border: 2px solid #F2E7D5; border-radius: 16px; font-size: 21px; font-weight: 800; padding: 12px 0;
+    cursor: pointer; color: #453A2E; }
+  .key:active { background: #FFF1E3; }
+
+  .float-pts { position: fixed; left: 50%; top: 26%; font-size: 32px; font-weight: 800; color: #FFB100;
+    text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(255,177,0,.4); z-index: 95; pointer-events: none; animation: floatUp 1.15s ease forwards; }
+  @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 14px) scale(.5); } 25% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -76px) scale(1.3); } }
+  .cfz { position: fixed; top: -24px; z-index: 94; pointer-events: none; animation: cfzFall 1.25s ease-in forwards; }
+  @keyframes cfzFall { to { transform: translateY(108vh) rotate(260deg); opacity: .85; } }
+
+  .panel { position: fixed; inset: 0; background: #FDF6EC; overflow: auto; z-index: 80; }
+  .p-head { position: sticky; top: 0; background: rgba(253,246,236,.94); backdrop-filter: blur(6px); display: flex;
+    align-items: center; justify-content: space-between; padding: 14px 16px 12px; z-index: 2;
+    box-shadow: 0 2px 10px rgba(255,160,60,.10); }
+  .p-title { font-size: 18px; font-weight: 800; }
+  .p-body { max-width: 520px; margin: 0 auto; padding: 14px 14px 60px; }
+  .p-sec { background: #fff; border-radius: 20px; padding: 15px 15px 14px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(255,160,60,.09); }
+  .p-sec h3 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .badge { background: #FF7A2E; color: #fff; font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .p-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1.5px dashed #F3EADB; flex-wrap: wrap; }
+  .p-row:last-of-type { border-bottom: none; }
+  .p-row.sm { padding: 7px 0; }
+  .p-emoji { width: 40px; height: 40px; border-radius: 13px; background: #FFF4E3; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex: 0 0 auto; }
+  .p-main { flex: 1; min-width: 0; }
+  .p-name { font-size: 14px; font-weight: 700; }
+  .p-sub { font-size: 12px; color: #9A8C7A; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .p-ops { display: flex; gap: 5px; flex-wrap: wrap; }
+  .p-pts { font-size: 14px; font-weight: 800; }
+  .p-pts.up { color: #2FBF71; } .p-pts.down { color: #F25555; }
+  .tag { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
+  .t-blue { background: #EAF2FF; color: #4F8CFF; } .t-green { background: #E8F9F0; color: #2FBF71; }
+  .tag.off { background: #F1EBE0; color: #B3A48E; }
+  .p-empty { font-size: 13px; color: #B3A48E; text-align: center; padding: 12px 0; }
+</style>
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <div class="logo">🌟 打卡积分乐园</div>
+      <button class="lock" title="家长管理" onclick="parentEntry()">🔒</button>
+    </header>
+    <div id="kidBar" class="kids"></div>
+    <div id="balanceCard" class="bal"></div>
+    <div id="tabbar" class="tabbar"></div>
+    <main id="main"><div class="loading">加载中…</div></main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <div id="modalRoot"></div>
+
+<script>
+'use strict';
+
+// ---------- 工具 ----------
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function addDays(dateStr, delta) {
+  var p = dateStr.split('-').map(Number);
+  var t = new Date(p[0], p[1] - 1, p[2]);
+  t.setDate(t.getDate() + delta);
+  return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+}
+function fmtMD(dateStr) {
+  var p = dateStr.split('-').map(Number);
+  return p[1] + '月' + p[2] + '日';
+}
+function weekdayOf(dateStr) {
+  var p = dateStr.split('-').map(Number);
+  return '日一二三四五六'[new Date(p[0], p[1] - 1, p[2]).getDay()];
+}
+function fmtTs(ts) {
+  var d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+function store(k, v) {
+  try {
+    if (v === undefined) return localStorage.getItem(k);
+    if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+  } catch (e) { /* 忽略隐私模式下的存储错误 */ }
+  return null;
+}
+
+// ---------- 全局状态 ----------
+var S = {
+  kids: [],
+  kidId: null,
+  date: todayStr(),
+  st: null,
+  tab: 'checkin',
+  ptoken: store('kp_ptoken') || '',
+  pdata: null
+};
+var pickEmoji = '🐻';
+var catSel = 'learning';
+var pinBuf = '';
+var confirmResolve = null;
+
+var KID_EMOJIS = ['🐻', '🐰', '🦊', '🐱', '🐼', '🐯', '🦁', '🐵', '🐸', '🦄', '🐧', '🐨'];
+var HABIT_EMOJIS = ['📖', '✏️', '🔤', '🖍️', '🧮', '🎹', '🎨', '⚽', '🏃', '🧸', '🧹', '🦷', '😴', '🥦', '💧', '🚿', '🤝', '🗣️', '🌱', '🎬'];
+var REWARD_EMOJIS = ['🍿', '📺', '🍦', '🌳', '🪀', '🌈', '🎮', '🧩', '🚗', '🎠', '🍕', '🎡', '📚', '🎨', '⚽', '🎂', '🛍️', '🧃'];
+
+// ---------- API ----------
+function api(path, body, token) {
+  var opt = { method: body === undefined ? 'GET' : 'POST', headers: {} };
+  if (token) opt.headers['Authorization'] = 'Bearer ' + token;
+  if (body !== undefined) {
+    opt.headers['Content-Type'] = 'application/json';
+    opt.body = JSON.stringify(body);
+  }
+  return fetch(path, opt).then(function (res) {
+    return res.json().catch(function () { return null; }).then(function (d) {
+      if (!res.ok) throw new Error((d && d.error) || ('请求失败 ' + res.status));
+      return d;
+    });
+  });
+}
+
+// ---------- UI 基础 ----------
+var toastTimer = null;
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+}
+function openModal(html) {
+  if (confirmResolve) { var r = confirmResolve; confirmResolve = null; r(false); }
+  document.getElementById('modalRoot').innerHTML =
+    '<div class="overlay" onclick="overlayTap(event)"><div class="sheet" onclick="event.stopPropagation()">' + html + '</div></div>';
+}
+function closeModal() { document.getElementById('modalRoot').innerHTML = ''; }
+function overlayTap() {
+  if (confirmResolve) { resolveConfirm(false); return; }
+  closeModal();
+}
+function askConfirm(o) {
+  return new Promise(function (resolve) {
+    confirmResolve = resolve;
+    openModal('<h3>' + o.title + '</h3><div class="mtxt">' + o.html + '</div>' +
+      '<div class="mrow"><button class="btn plain" onclick="resolveConfirm(false)">再想想</button>' +
+      '<button class="btn ' + (o.danger ? 'danger' : 'primary') + '" onclick="resolveConfirm(true)">' + (o.okText || '确定') + '</button></div>');
+  });
+}
+function resolveConfirm(v) {
+  closeModal();
+  var r = confirmResolve; confirmResolve = null;
+  if (r) r(v);
+}
+function floatPts(txt) {
+  var el = document.createElement('div');
+  el.className = 'float-pts';
+  el.textContent = txt;
+  document.body.appendChild(el);
+  setTimeout(function () { el.remove(); }, 1250);
+}
+function confetti() {
+  var set = ['⭐', '🎉', '🌟', '✨', '🎈', '💛'];
+  for (var i = 0; i < 12; i++) {
+    (function () {
+      var el = document.createElement('div');
+      el.className = 'cfz';
+      el.textContent = set[Math.floor(Math.random() * set.length)];
+      el.style.left = (8 + Math.random() * 84) + '%';
+      el.style.fontSize = (16 + Math.random() * 14) + 'px';
+      el.style.animationDelay = (Math.random() * 0.3) + 's';
+      document.body.appendChild(el);
+      setTimeout(function () { el.remove(); }, 1650);
+    })();
+  }
+}
+function empty(emoji, title, sub) {
+  return '<div class="empty"><div class="empty-emoji">' + emoji + '</div><p>' + title + '</p>' +
+    (sub ? '<p class="empty-sub">' + sub + '</p>' : '') + '</div>';
+}
+
+// ---------- 加载 ----------
+async function loadKids() {
+  try {
+    var r = await api('/api/kids');
+    S.kids = r.kids || [];
+  } catch (e) {
+    toast('加载失败：' + e.message);
+    S.kids = [];
+  }
+  var saved = Number(store('kp_kid'));
+  if (S.kids.length) {
+    S.kidId = S.kids.some(function (k) { return k.id === saved; }) ? saved : S.kids[0].id;
+    await loadState();
+  } else {
+    S.kidId = null; S.st = null;
+    renderAll();
+  }
+}
+async function loadState() {
+  if (!S.kidId) { renderAll(); return; }
+  try {
+    var r = await api('/api/state?kid=' + S.kidId + '&date=' + S.date + '&from=' + addDays(S.date, -6));
+    if (r.noKids) { S.kids = []; S.kidId = null; S.st = null; renderAll(); return; }
+    S.st = r;
+    var k = S.kids.find(function (x) { return x.id === S.kidId; });
+    if (k && r.kid) { k.name = r.kid.name; k.emoji = r.kid.emoji; }
+    renderAll();
+  } catch (e) {
+    toast('加载失败：' + e.message);
+  }
+}
+
+// ---------- 渲染 ----------
+function renderAll() { renderKidBar(); renderBalance(); renderTabs(); renderMain(); }
+
+function renderKidBar() {
+  document.getElementById('kidBar').innerHTML = S.kids.map(function (k) {
+    return '<button class="kid ' + (S.kidId === k.id ? 'on' : '') + '" onclick="switchKid(' + k.id + ')">' +
+      '<span class="ava">' + k.emoji + '</span><span class="nm">' + esc(k.name) + '</span></button>';
+  }).join('');
+}
+function renderBalance() {
+  var el = document.getElementById('balanceCard');
+  if (!S.st) {
+    el.innerHTML = '<div class="bal bal-empty">⭐ 添加孩子后开始攒积分</div>';
+    return;
+  }
+  var st = S.st;
+  var dots = st.week.map(function (w) {
+    return '<span class="wd ' + (w.points > 0 ? 'f' : '') + '"><i></i>' + weekdayOf(w.date) + '</span>';
+  }).join('');
+  el.innerHTML =
+    '<div class="bal-top"><span>我的积分</span>' +
+    (st.streak > 0 ? '<span class="bal-streak">🔥 连续 ' + st.streak + ' 天</span>' : '') + '</div>' +
+    '<div class="bal-num"><span class="bal-star">⭐</span>' + st.balance + '<span class="bal-unit">分</span></div>' +
+    '<div class="bal-sub">累计获得 ' + st.earned + ' 分 · 已兑换 ' + st.spent + ' 分 · 累计打卡 ' + st.totalDays + ' 天</div>' +
+    '<div class="bal-week">' + dots + '</div>';
+}
+function renderTabs() {
+  var tabs = [['checkin', '✅ 打卡'], ['rewards', '🎁 礼物'], ['history', '📒 记录']];
+  document.getElementById('tabbar').innerHTML = tabs.map(function (t) {
+    return '<button class="tab ' + (S.tab === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
+  }).join('');
+}
+function setTab(t) { S.tab = t; renderTabs(); renderMain(); }
+function renderMain() {
+  var m = document.getElementById('main');
+  if (!S.kidId) { m.innerHTML = empty('👶', '还没有孩子', '请爸爸妈妈点击右上角 🔒 添加孩子'); return; }
+  if (!S.st) { m.innerHTML = '<div class="loading">加载中…</div>'; return; }
+  m.innerHTML =
+    '<section id="view-checkin" class="view ' + (S.tab === 'checkin' ? '' : 'hide') + '"></section>' +
+    '<section id="view-rewards" class="view ' + (S.tab === 'rewards' ? '' : 'hide') + '"></section>' +
+    '<section id="view-history" class="view ' + (S.tab === 'history' ? '' : 'hide') + '"></section>';
+  renderCheckin(); renderRewards(); renderHistory();
+}
+function renderCheckin() {
+  var st = S.st;
+  var el = document.getElementById('view-checkin');
+  if (!st.habits.length) {
+    el.innerHTML = '<div class="date-pill">📅 今天是 ' + fmtMD(S.date) + ' 星期' + weekdayOf(S.date) + '</div>' +
+      empty('🌱', '还没有打卡项目', '请爸爸妈妈点击右上角 🔒 添加');
+    return;
+  }
+  var groups = [['learning', '📚 学习打卡', 'blue'], ['behavior', '🌱 行为习惯', 'green']];
+  var html = '<div class="date-pill">📅 今天是 ' + fmtMD(S.date) + ' 星期' + weekdayOf(S.date) + '</div>';
+  groups.forEach(function (g) {
+    var hs = st.habits.filter(function (h) { return h.category === g[0]; });
+    if (!hs.length) return;
+    var done = hs.filter(function (h) {
+      return st.todayCheckins.some(function (c) { return c.habit_id === h.id; });
+    }).length;
+    html += '<div class="g-head"><span class="g-dot ' + g[2] + '"></span>' + g[1] +
+      '<span class="g-count">' + done + '/' + hs.length + '</span></div>';
+    html += hs.map(function (h) {
+      var c = st.todayCheckins.find(function (x) { return x.habit_id === h.id; });
+      return '<div class="habit ' + (c ? 'done ' + g[2] : '') + '" onclick="tapHabit(' + h.id + ')">' +
+        '<span class="h-emoji ' + g[2] + '">' + h.emoji + '</span>' +
+        '<div class="h-main"><div class="h-name">' + esc(h.name) + '</div><span class="h-pts">+' + h.points + ' 分</span></div>' +
+        '<span class="h-check">' + (c ? '✓' : '') + '</span></div>';
+    }).join('');
+  });
+  html += '<p class="tip">点一下打卡 ⭐ 再点一下可以取消（积分会扣回）</p>';
+  el.innerHTML = html;
+}
+function renderRewards() {
+  var st = S.st;
+  var el = document.getElementById('view-rewards');
+  if (!st.rewards.length) {
+    el.innerHTML = empty('🎁', '礼物架空空的', '请爸爸妈妈在家长管理里上架礼物');
+    return;
+  }
+  var html = '<div class="r-grid">' + st.rewards.map(function (r) {
+    var pct = Math.max(6, Math.min(100, Math.round(st.balance / r.cost * 100)));
+    var ok = st.balance >= r.cost;
+    return '<div class="r-card ' + (ok ? '' : 'locked') + '" onclick="tapReward(' + r.id + ')">' +
+      '<div class="r-emoji">' + r.emoji + '</div>' +
+      '<div class="r-name">' + esc(r.name) + '</div>' +
+      '<div class="r-cost">⭐ ' + r.cost + ' 分</div>' +
+      '<div class="r-bar"><span style="width:' + pct + '%"></span></div>' +
+      '<div class="r-btn ' + (ok ? '' : 'no') + '">' + (ok ? '可兑换' : '还差 ' + (r.cost - st.balance) + ' 分') + '</div></div>';
+  }).join('') + '</div><p class="tip">攒够积分就能兑换，兑换后找爸爸妈妈兑现哦</p>';
+  el.innerHTML = html;
+}
+function renderHistory() {
+  var st = S.st;
+  var el = document.getElementById('view-history');
+  var items = [];
+  (st.redemptions || []).forEach(function (r) {
+    items.push({ ts: Date.parse(r.created_at) || 0, html:
+      '<div class="hist"><span class="hi-emoji">' + r.reward_emoji + '</span>' +
+      '<div class="hi-main"><div class="hi-name">兑换「' + esc(r.reward_name) + '」</div>' +
+      '<div class="hi-sub">' + fmtTs(r.created_at) +
+      ' <span class="st ' + (r.status === 'done' ? 'st-done' : 'st-pending') + '">' + (r.status === 'done' ? '已兑现' : '待兑现') + '</span></div></div>' +
+      '<div class="hi-pts down">-' + r.cost + '</div></div>' });
+  });
+  (st.adjustments || []).forEach(function (a) {
+    items.push({ ts: Date.parse(a.created_at) || 0, html:
+      '<div class="hist"><span class="hi-emoji">' + (a.points > 0 ? '🌟' : '➖') + '</span>' +
+      '<div class="hi-main"><div class="hi-name">' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长扣除')) + '</div>' +
+      '<div class="hi-sub">' + esc(a.adj_date) + '</div></div>' +
+      '<div class="hi-pts ' + (a.points > 0 ? 'up' : 'down') + '">' + (a.points > 0 ? '+' : '') + a.points + '</div></div>' });
+  });
+  items.sort(function (a, b) { return b.ts - a.ts; });
+  el.innerHTML = items.length
+    ? items.slice(0, 30).map(function (i) { return i.html; }).join('')
+    : empty('📒', '还没有记录', '打卡和兑换都会显示在这里');
+}
+
+// ---------- 孩子切换 ----------
+async function switchKid(id) {
+  if (S.kidId === id) return;
+  S.kidId = id;
+  store('kp_kid', String(id));
+  S.st = null;
+  renderKidBar(); renderBalance(); renderMain();
+  await loadState();
+}
+
+// ---------- 打卡 / 兑换 ----------
+function applyPts(r) {
+  if (!r) return;
+  if (typeof r.balance === 'number') S.st.balance = r.balance;
+  if (typeof r.earned === 'number') S.st.earned = r.earned;
+  if (typeof r.spent === 'number') S.st.spent = r.spent;
+}
+async function tapHabit(habitId) {
+  if (!S.st) return;
+  var habit = S.st.habits.find(function (h) { return h.id === habitId; });
+  if (!habit) return;
+  var done = S.st.todayCheckins.find(function (c) { return c.habit_id === habitId; });
+  if (done) {
+    var ok = await askConfirm({
+      title: '取消打卡',
+      html: '要取消「' + esc(habit.name) + '」今天的打卡吗？<br><small>会扣回 <b>' + done.points + '</b> 分哦</small>',
+      okText: '取消打卡', danger: true
+    });
+    if (!ok) return;
+    try {
+      var r = await api('/api/uncheck', { kidId: S.kidId, habitId: habitId, date: S.date });
+      applyPts(r);
+      S.st.todayCheckins = S.st.todayCheckins.filter(function (c) { return c.habit_id !== habitId; });
+      renderBalance(); renderCheckin();
+      toast('已取消打卡');
+      loadState();
+    } catch (e) { toast(e.message); }
+    return;
+  }
+  try {
+    var r2 = await api('/api/checkin', { kidId: S.kidId, habitId: habitId, date: S.date });
+    if (r2.already) { toast('今天已经打过卡啦'); loadState(); return; }
+    applyPts(r2);
+    S.st.todayCheckins.push({ habit_id: habitId, points: habit.points });
+    renderBalance(); renderCheckin();
+    floatPts('+' + habit.points + ' ⭐');
+    confetti();
+    loadState();
+  } catch (e) { toast(e.message); }
+}
+function tapReward(rid) {
+  var r = S.st.rewards.find(function (x) { return x.id === rid; });
+  if (!r) return;
+  if (S.st.balance < r.cost) { toast('积分还不够哦，还差 ' + (r.cost - S.st.balance) + ' 分，加油！'); return; }
+  openModal('<div class="r-emoji">' + r.emoji + '</div><h3>' + esc(r.name) + '</h3>' +
+    '<div class="mtxt">花费 <b>' + r.cost + '</b> 分 · 当前 <b>' + S.st.balance + '</b> 分<br>兑换后还剩 <b>' + (S.st.balance - r.cost) + '</b> 分</div>' +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">再想想</button>' +
+    '<button class="btn primary" onclick="redeemDo(' + r.id + ')">确认兑换</button></div>');
+}
+async function redeemDo(rid) {
+  try {
+    var r = await api('/api/redeem', { kidId: S.kidId, rewardId: rid });
+    applyPts(r);
+    openModal('<div class="r-emoji">🎉</div><h3>兑换成功！</h3>' +
+      '<div class="mtxt">记得找爸爸妈妈兑现哦～<br>剩余积分：<b>' + S.st.balance + '</b> 分</div>' +
+      '<div class="mrow"><button class="btn primary" onclick="closeModal()">好的</button></div>');
+    renderBalance(); renderRewards();
+    confetti();
+    loadState();
+  } catch (e) { toast(e.message); closeModal(); }
+}
+
+// ---------- 家长：密码门 ----------
+function parentEntry() {
+  if (S.ptoken) {
+    api('/api/parent/verify', { token: S.ptoken }).then(function () { openParent(); })
+      .catch(function () { S.ptoken = ''; store('kp_ptoken', null); openPin(); });
+  } else {
+    openPin();
+  }
+}
+function openPin() {
+  pinBuf = '';
+  var keys = '';
+  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (n) { keys += '<button class="key" onclick="pinKey(\'' + n + '\')">' + n + '</button>'; });
+  openModal('<h3>🔒 家长验证</h3><p class="mtxt">请输入家长密码</p>' +
+    '<div class="pin-dots" id="pinDots"></div><div class="pin-err" id="pinErr"></div>' +
+    '<div class="keypad">' + keys +
+    '<button class="key" onclick="pinKey(\'clear\')">清空</button>' +
+    '<button class="key" onclick="pinKey(\'0\')">0</button>' +
+    '<button class="key" onclick="pinKey(\'del\')">⌫</button></div>' +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" onclick="pinSubmit()">确定</button></div>' +
+    '<p class="hint">首次使用默认密码 1234，可在家长面板里修改</p>');
+  renderPinDots();
+}
+function renderPinDots() {
+  var el = document.getElementById('pinDots');
+  if (!el) return;
+  var n = Math.max(4, pinBuf.length);
+  var h = '';
+  for (var i = 0; i < n; i++) h += '<span class="pin-dot ' + (i < pinBuf.length ? 'f' : '') + '"></span>';
+  el.innerHTML = h;
+}
+function pinKey(k) {
+  if (k === 'del') pinBuf = pinBuf.slice(0, -1);
+  else if (k === 'clear') pinBuf = '';
+  else if (pinBuf.length < 12) pinBuf += k;
+  renderPinDots();
+}
+function pinShake(msg) {
+  var el = document.getElementById('pinErr');
+  if (el) el.textContent = msg;
+  pinBuf = '';
+  renderPinDots();
+  var dots = document.querySelector('.pin-dots');
+  if (dots) { dots.classList.remove('shake'); void dots.offsetWidth; dots.classList.add('shake'); }
+}
+async function pinSubmit() {
+  if (pinBuf.length < 4) { pinShake('密码至少 4 位'); return; }
+  try {
+    var r = await api('/api/parent/login', { pin: pinBuf });
+    S.ptoken = r.token;
+    store('kp_ptoken', r.token);
+    closeModal();
+    openParent();
+  } catch (e) { pinShake(e.message); }
+}
+
+// ---------- 家长：面板 ----------
+async function openParent() {
+  closeModal();
+  if (document.getElementById('panelRoot')) return;
+  var root = document.createElement('div');
+  root.id = 'panelRoot';
+  root.innerHTML = '<div class="panel"><div class="p-head"><div class="p-title">👨‍👩‍👧 家长管理</div>' +
+    '<button class="mini" onclick="closeParent()">关闭</button></div>' +
+    '<div class="p-body" id="pBody"><div class="loading">加载中…</div></div></div>';
+  document.body.appendChild(root);
+  document.body.style.overflow = 'hidden';
+  await loadParent();
+}
+function closeParent() {
+  var r = document.getElementById('panelRoot');
+  if (r) r.remove();
+  document.body.style.overflow = '';
+}
+async function loadParent() {
+  var b = document.getElementById('pBody');
+  try {
+    S.pdata = await api('/api/parent/summary?date=' + S.date, undefined, S.ptoken);
+    renderParent();
+  } catch (e) {
+    if (e.message.indexOf('密码') >= 0 || e.message.indexOf('过期') >= 0) {
+      S.ptoken = ''; store('kp_ptoken', null);
+      closeParent(); openPin();
+      return;
+    }
+    if (b) b.innerHTML = empty('😵', e.message) +
+      '<button class="btn primary full" onclick="loadParent()">重试</button>';
+  }
+}
+function renderParent() {
+  var d = S.pdata;
+  var b = document.getElementById('pBody');
+  if (!d || !b) return;
+  var kmap = {};
+  d.kids.forEach(function (k) { kmap[k.id] = k; });
+  function kname(id) { return kmap[id] ? kmap[id].name : '孩子'; }
+  var activeHabits = d.habits.filter(function (h) { return h.active; }).length;
+  var html = '';
+
+  // 孩子与积分
+  html += '<div class="p-sec"><h3>⭐ 孩子与积分</h3>';
+  html += d.kids.length ? d.kids.map(function (k) {
+    var tc = d.todayCheckins.filter(function (c) { return c.kid_id === k.id; }).length;
+    return '<div class="p-row"><span class="p-emoji">' + k.emoji + '</span>' +
+      '<div class="p-main"><div class="p-name">' + esc(k.name) + '</div>' +
+      '<div class="p-sub">⭐ ' + k.balance + ' 分 · 今日 ' + tc + '/' + activeHabits + ' 项</div></div>' +
+      '<div class="p-ops"><button class="mini brand" onclick="openAdjust(' + k.id + ',1)">加分</button>' +
+      '<button class="mini" onclick="openAdjust(' + k.id + ',-1)">扣分</button>' +
+      '<button class="mini" onclick="openKidForm(' + k.id + ')">编辑</button>' +
+      '<button class="mini danger" onclick="delKid(' + k.id + ')">删除</button></div></div>';
+  }).join('') : '<div class="p-empty">还没有添加孩子</div>';
+  html += '<button class="btn plain full" onclick="openKidForm(0)">＋ 添加孩子</button></div>';
+
+  // 待兑现
+  html += '<div class="p-sec"><h3>🎁 待兑现' + (d.pending.length ? '<span class="badge">' + d.pending.length + '</span>' : '') + '</h3>';
+  html += d.pending.length ? d.pending.map(function (p) {
+    return '<div class="p-row"><span class="p-emoji">' + p.reward_emoji + '</span>' +
+      '<div class="p-main"><div class="p-name">' + esc(p.reward_name) + '</div>' +
+      '<div class="p-sub">' + esc(kname(p.kid_id)) + ' · ' + fmtTs(p.created_at) + ' · -' + p.cost + ' 分</div></div>' +
+      '<div class="p-ops"><button class="mini brand" onclick="markDone(' + p.id + ')">已兑现</button>' +
+      '<button class="mini danger" onclick="cancelRedeem(' + p.id + ')">取消</button></div></div>';
+  }).join('') : '<div class="p-empty">暂无待兑现的兑换</div>';
+  html += '</div>';
+
+  // 打卡项目
+  html += '<div class="p-sec"><h3>📋 打卡项目</h3>';
+  html += d.habits.length ? d.habits.map(function (h) {
+    return '<div class="p-row"><span class="p-emoji">' + h.emoji + '</span>' +
+      '<div class="p-main"><div class="p-name">' + esc(h.name) + (h.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
+      '<div class="p-sub"><span class="tag ' + (h.category === 'learning' ? 't-blue' : 't-green') + '">' +
+      (h.category === 'learning' ? '学习' : '行为') + '</span> +' + h.points + ' 分</div></div>' +
+      '<div class="p-ops"><button class="mini" onclick="openHabitForm(' + h.id + ')">编辑</button>' +
+      '<button class="mini" onclick="toggleHabit(' + h.id + ',' + h.active + ')">' + (h.active ? '下架' : '上架') + '</button>' +
+      '<button class="mini danger" onclick="delHabit(' + h.id + ')">删除</button></div></div>';
+  }).join('') : '<div class="p-empty">还没有打卡项目</div>';
+  html += '<button class="btn plain full" onclick="openHabitForm(0)">＋ 添加打卡项目</button></div>';
+
+  // 礼物
+  html += '<div class="p-sec"><h3>🏷️ 礼物奖励</h3>';
+  html += d.rewards.length ? d.rewards.map(function (r) {
+    return '<div class="p-row"><span class="p-emoji">' + r.emoji + '</span>' +
+      '<div class="p-main"><div class="p-name">' + esc(r.name) + (r.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
+      '<div class="p-sub">⭐ ' + r.cost + ' 分</div></div>' +
+      '<div class="p-ops"><button class="mini" onclick="openRewardForm(' + r.id + ')">编辑</button>' +
+      '<button class="mini" onclick="toggleReward(' + r.id + ',' + r.active + ')">' + (r.active ? '下架' : '上架') + '</button>' +
+      '<button class="mini danger" onclick="delReward(' + r.id + ')">删除</button></div></div>';
+  }).join('') : '<div class="p-empty">还没有礼物</div>';
+  html += '<button class="btn plain full" onclick="openRewardForm(0)">＋ 添加礼物</button></div>';
+
+  // 调整记录
+  html += '<div class="p-sec"><h3>🧾 积分调整记录</h3>';
+  html += d.adjustments.length ? d.adjustments.map(function (a) {
+    return '<div class="p-row sm"><div class="p-main"><div class="p-name">' +
+      (a.points > 0 ? '➕' : '➖') + ' ' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长扣除')) + '</div>' +
+      '<div class="p-sub">' + esc(kname(a.kid_id)) + ' · ' + esc(a.adj_date) + '</div></div>' +
+      '<div class="p-pts ' + (a.points > 0 ? 'up' : 'down') + '">' + (a.points > 0 ? '+' : '') + a.points + ' 分</div></div>';
+  }).join('') : '<div class="p-empty">暂无调整记录</div>';
+  html += '</div>';
+
+  // 修改密码
+  html += '<div class="p-sec"><h3>🔑 修改家长密码</h3>' +
+    '<label class="lb">原密码</label><input id="fPwdOld" type="password" inputmode="numeric" autocomplete="off">' +
+    '<label class="lb">新密码（至少 4 位）</label><input id="fPwdNew" type="password" inputmode="numeric" autocomplete="off">' +
+    '<label class="lb">确认新密码</label><input id="fPwdNew2" type="password" inputmode="numeric" autocomplete="off">' +
+    '<button class="btn primary full" onclick="savePassword()">保存新密码</button></div>';
+
+  html += '<button class="btn plain full" onclick="parentLogout()">退出家长模式</button>';
+  b.innerHTML = html;
+}
+function parentLogout() {
+  S.ptoken = '';
+  store('kp_ptoken', null);
+  closeParent();
+  toast('已退出家长模式');
+}
+
+// ---------- 家长：表情选择 ----------
+function emojiGrid(list, cur) {
+  return '<div class="emgrid">' + list.map(function (e) {
+    return '<button type="button" class="em ' + (e === cur ? 'on' : '') + '" data-e="' + e + '" onclick="pickEm(this)">' + e + '</button>';
+  }).join('') + '</div>';
+}
+function pickEm(btn) {
+  pickEmoji = btn.getAttribute('data-e');
+  var g = btn.parentElement;
+  g.querySelectorAll('.em').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+// ---------- 家长：孩子管理 ----------
+function openKidForm(id) {
+  var k = id ? S.pdata.kids.find(function (x) { return x.id === id; }) : null;
+  pickEmoji = k ? k.emoji : '🐻';
+  openModal('<h3>' + (k ? '编辑孩子' : '添加孩子') + '</h3>' +
+    '<label class="lb">名字</label><input id="fKidName" maxlength="12" value="' + (k ? esc(k.name) : '') + '" placeholder="比如：小雨">' +
+    '<label class="lb">头像</label>' + emojiGrid(KID_EMOJIS, pickEmoji) +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" onclick="saveKid(' + (id || 0) + ')">保存</button></div>');
+}
+async function saveKid(id) {
+  var name = document.getElementById('fKidName').value.trim();
+  if (!name) { toast('先给孩子起个名字吧'); return; }
+  var body = id
+    ? { action: 'update', id: id, name: name, emoji: pickEmoji }
+    : { action: 'create', name: name, emoji: pickEmoji };
+  try {
+    await api('/api/parent/kids', body, S.ptoken);
+    closeModal(); toast('已保存');
+    await loadParent();
+    await loadKids();
+  } catch (e) { toast(e.message); }
+}
+async function delKid(id) {
+  var k = S.pdata.kids.find(function (x) { return x.id === id; });
+  if (!k) return;
+  var ok = await askConfirm({
+    title: '删除孩子',
+    html: '确定删除「' + esc(k.name) + '」吗？<br><small>TA 的打卡、积分、兑换记录都会一起删除</small>',
+    okText: '删除', danger: true
+  });
+  if (!ok) return;
+  try {
+    await api('/api/parent/kids', { action: 'delete', id: id }, S.ptoken);
+    toast('已删除');
+    await loadParent();
+    await loadKids();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 家长：打卡项目管理 ----------
+function openHabitForm(id) {
+  var h = id ? S.pdata.habits.find(function (x) { return x.id === id; }) : null;
+  pickEmoji = h ? h.emoji : '⭐';
+  catSel = h ? h.category : 'learning';
+  openModal('<h3>' + (h ? '编辑打卡项目' : '添加打卡项目') + '</h3>' +
+    '<label class="lb">名称</label><input id="fHabitName" maxlength="20" value="' + (h ? esc(h.name) : '') + '" placeholder="比如：练习跳绳">' +
+    '<label class="lb">图标</label>' + emojiGrid(HABIT_EMOJIS, pickEmoji) +
+    '<label class="lb">分类</label><div class="cat-row">' +
+    '<button id="cat-learning" class="cat ' + (catSel === 'learning' ? 'on' : '') + '" onclick="setCat(\'learning\')">📚 学习</button>' +
+    '<button id="cat-behavior" class="cat ' + (catSel === 'behavior' ? 'on' : '') + '" onclick="setCat(\'behavior\')">🌱 行为</button></div>' +
+    '<label class="lb">每次积分</label><input id="fHabitPts" type="number" min="1" max="999" value="' + (h ? h.points : 1) + '">' +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" onclick="saveHabit(' + (id || 0) + ')">保存</button></div>');
+}
+function setCat(c) {
+  catSel = c;
+  var a = document.getElementById('cat-learning');
+  var b = document.getElementById('cat-behavior');
+  if (a) a.classList.toggle('on', c === 'learning');
+  if (b) b.classList.toggle('on', c === 'behavior');
+}
+async function saveHabit(id) {
+  var name = document.getElementById('fHabitName').value.trim();
+  var pts = Number(document.getElementById('fHabitPts').value);
+  if (!name) { toast('请填写名称'); return; }
+  if (!Number.isInteger(pts) || pts < 1 || pts > 999) { toast('积分要在 1-999 之间'); return; }
+  var body = id
+    ? { action: 'update', id: id, name: name, emoji: pickEmoji, category: catSel, points: pts }
+    : { action: 'create', name: name, emoji: pickEmoji, category: catSel, points: pts };
+  try {
+    await api('/api/parent/habits', body, S.ptoken);
+    closeModal(); toast('已保存');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function toggleHabit(id, active) {
+  try {
+    await api('/api/parent/habits', { action: 'update', id: id, active: !active }, S.ptoken);
+    toast(active ? '已下架' : '已上架');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function delHabit(id) {
+  var h = S.pdata.habits.find(function (x) { return x.id === id; });
+  if (!h) return;
+  var ok = await askConfirm({
+    title: '删除打卡项目',
+    html: '删除「' + esc(h.name) + '」后，<b>它的历史打卡记录和积分也会一起删除</b>。<br><small>如果只是暂时不用，建议选择「下架」</small>',
+    okText: '仍要删除', danger: true
+  });
+  if (!ok) return;
+  try {
+    await api('/api/parent/habits', { action: 'delete', id: id }, S.ptoken);
+    toast('已删除');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 家长：礼物管理 ----------
+function openRewardForm(id) {
+  var r = id ? S.pdata.rewards.find(function (x) { return x.id === id; }) : null;
+  pickEmoji = r ? r.emoji : '🎁';
+  openModal('<h3>' + (r ? '编辑礼物' : '添加礼物') + '</h3>' +
+    '<label class="lb">名称</label><input id="fRewardName" maxlength="30" value="' + (r ? esc(r.name) : '') + '" placeholder="比如：去游乐园玩一次">' +
+    '<label class="lb">图标</label>' + emojiGrid(REWARD_EMOJIS, pickEmoji) +
+    '<label class="lb">需要积分</label><input id="fRewardCost" type="number" min="1" max="9999" value="' + (r ? r.cost : 20) + '">' +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" onclick="saveReward(' + (id || 0) + ')">保存</button></div>');
+}
+async function saveReward(id) {
+  var name = document.getElementById('fRewardName').value.trim();
+  var cost = Number(document.getElementById('fRewardCost').value);
+  if (!name) { toast('请填写礼物名称'); return; }
+  if (!Number.isInteger(cost) || cost < 1 || cost > 9999) { toast('所需积分要在 1-9999 之间'); return; }
+  var body = id
+    ? { action: 'update', id: id, name: name, emoji: pickEmoji, cost: cost }
+    : { action: 'create', name: name, emoji: pickEmoji, cost: cost };
+  try {
+    await api('/api/parent/rewards', body, S.ptoken);
+    closeModal(); toast('已保存');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function toggleReward(id, active) {
+  try {
+    await api('/api/parent/rewards', { action: 'update', id: id, active: !active }, S.ptoken);
+    toast(active ? '已下架' : '已上架');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function delReward(id) {
+  var r = S.pdata.rewards.find(function (x) { return x.id === id; });
+  if (!r) return;
+  var ok = await askConfirm({ title: '删除礼物', html: '确定删除「' + esc(r.name) + '」吗？', okText: '删除', danger: true });
+  if (!ok) return;
+  try {
+    await api('/api/parent/rewards', { action: 'delete', id: id }, S.ptoken);
+    toast('已删除');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 家长：加分 / 扣分 ----------
+function openAdjust(kidId, sign) {
+  var k = S.pdata.kids.find(function (x) { return x.id === kidId; });
+  if (!k) return;
+  openModal('<h3>' + (sign > 0 ? '➕ 加分' : '➖ 扣分') + ' · ' + esc(k.name) + '</h3>' +
+    '<label class="lb">分值</label><input id="fAdjPts" type="number" min="1" max="999" value="1">' +
+    '<label class="lb">原因（可选）</label><input id="fAdjNote" maxlength="30" placeholder="' +
+    (sign > 0 ? '比如：主动帮做家务' : '比如：发脾气摔东西') + '">' +
+    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" onclick="saveAdjust(' + kidId + ',' + sign + ')">确定</button></div>');
+}
+async function saveAdjust(kidId, sign) {
+  var p = Number(document.getElementById('fAdjPts').value);
+  var note = document.getElementById('fAdjNote').value.trim();
+  if (!Number.isInteger(p) || p < 1 || p > 999) { toast('分值要在 1-999 之间'); return; }
+  try {
+    await api('/api/parent/adjust', { kidId: kidId, points: sign * p, note: note, date: S.date }, S.ptoken);
+    closeModal(); toast('已调整');
+    loadParent();
+    if (S.kidId === kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 家长：兑换处理 / 密码 ----------
+async function markDone(id) {
+  try {
+    await api('/api/parent/redeem-status', { id: id, status: 'done' }, S.ptoken);
+    toast('已兑现 🎉');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function cancelRedeem(id) {
+  var ok = await askConfirm({ title: '取消兑换', html: '取消后积分会退回给孩子，确定吗？', okText: '取消兑换', danger: true });
+  if (!ok) return;
+  try {
+    await api('/api/parent/redeem-status', { id: id, status: 'cancel' }, S.ptoken);
+    toast('已取消，积分已退回');
+    loadParent();
+    if (S.kidId) loadState();
+  } catch (e) { toast(e.message); }
+}
+async function savePassword() {
+  var o = document.getElementById('fPwdOld').value;
+  var n1 = document.getElementById('fPwdNew').value;
+  var n2 = document.getElementById('fPwdNew2').value;
+  if (!o || !n1) { toast('请填写完整'); return; }
+  if (n1.length < 4) { toast('新密码至少 4 位'); return; }
+  if (n1 !== n2) { toast('两次新密码不一致'); return; }
+  try {
+    await api('/api/parent/password', { oldPin: o, newPin: n1 }, S.ptoken);
+    toast('密码已修改');
+    document.getElementById('fPwdOld').value = '';
+    document.getElementById('fPwdNew').value = '';
+    document.getElementById('fPwdNew2').value = '';
+  } catch (e) { toast(e.message); }
+}
+
+// ---------- 启动 ----------
+(async function boot() {
+  await loadKids();
+  if (S.ptoken) {
+    try { await api('/api/parent/verify', { token: S.ptoken }); }
+    catch (e) { S.ptoken = ''; store('kp_ptoken', null); }
+  }
+})();
+</script>
+</body>
+</html>

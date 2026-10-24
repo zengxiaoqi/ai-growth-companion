@@ -3,280 +3,520 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FF8A3D">
-<title>🌟 打卡积分乐园</title>
+<meta name="theme-color" content="#FFF6EA">
+<title>打卡积分乐园 · 每天进步一点点</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⭐</text></svg>">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-    background: linear-gradient(160deg, #FFF7EA 0%, #FFECF3 55%, #FFF3E2 100%);
-    min-height: 100vh; color: #453A2E;
-  }
-  button { font-family: inherit; }
-  #app { max-width: 520px; margin: 0 auto; padding: 14px 14px 60px; }
+/* ============================================================
+   设计系统 · 奶油贴纸手账风
+   ============================================================ */
+:root {
+  /* 纸与墨 */
+  --paper: #FFF6EA;
+  --paper-2: #FBF0DF;
+  --surface: #FFFDF8;
+  --surface-2: #FFF7E9;
+  --ink: #4A3721;
+  --ink-2: #8B7355;
+  --ink-3: #B5A084;
+  --line: #EFE1C9;
+  --line-2: #E3D2B4;
+  /* 语义色（贴纸色系） */
+  --orange: #F08A3C; --orange-deep: #D9702A; --orange-soft: #FFEAD4;
+  --blue: #5B87C9;   --blue-deep: #3F6DAF;   --blue-soft: #E7EFFA;
+  --green: #6FAE5F;  --green-deep: #4E8C41;  --green-soft: #E9F3E4;
+  --gold: #E9A23B;   --gold-deep: #C7861F;   --gold-soft: #FFF3DA;
+  --berry: #D97A8E;  --berry-deep: #BB5A70;  --berry-soft: #FBEAEE;
+  --danger: #D9534F; --danger-soft: #FBE9E8;
+  /* 层级 */
+  --shadow-s: 0 1px 2px rgba(112,80,40,.05), 0 3px 10px rgba(112,80,40,.06);
+  --shadow-m: 0 2px 4px rgba(112,80,40,.06), 0 10px 24px rgba(112,80,40,.09);
+  --shadow-l: 0 18px 48px rgba(112,80,40,.18);
+  /* 圆角 / 间距 / 字号 / 缓动 */
+  --r-s: 12px; --r-m: 18px; --r-l: 26px; --r-full: 999px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px; --s12:48px;
+  --t-xs:12px; --t-sm:13px; --t-md:15px; --t-lg:17px; --t-xl:22px; --t-2xl:30px; --t-hero:46px;
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font); color: var(--ink); min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 6%, rgba(255,214,160,.38), transparent 30%),
+    radial-gradient(circle at 92% 16%, rgba(215,231,255,.45), transparent 26%),
+    radial-gradient(circle at 84% 84%, rgba(255,205,225,.28), transparent 32%),
+    var(--paper);
+  line-height: 1.55;
+}
+button { font-family: inherit; color: inherit; }
+/* 可访问性：键盘焦点环 */
+:focus-visible { outline: 3px solid rgba(91,135,201,.55); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+.num { font-variant-numeric: tabular-nums; }
 
-  .top { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 12px; }
-  .logo { font-size: 21px; font-weight: 800; letter-spacing: .5px; }
-  .lock { width: 40px; height: 40px; border-radius: 50%; border: none; background: #fff; font-size: 18px; cursor: pointer;
-    box-shadow: 0 4px 12px rgba(255, 160, 60, .18); }
+/* ---------- 布局 ---------- */
+#app { max-width: 520px; margin: 0 auto; padding: var(--s4) var(--s4) 96px; }
 
-  .kids { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px; scrollbar-width: none; }
-  .kids::-webkit-scrollbar { display: none; }
-  .kid { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 72px;
-    background: #fff; border: 2.5px solid transparent; border-radius: 18px; padding: 9px 12px; cursor: pointer;
-    box-shadow: 0 4px 14px rgba(255, 160, 60, .12); transition: transform .15s, border-color .15s; }
-  .kid .ava { font-size: 28px; line-height: 1.2; }
-  .kid .nm { font-size: 12px; font-weight: 700; color: #6B5B47; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .kid.on { border-color: #FF8A3D; transform: scale(1.06); }
+/* ---------- 顶部 ---------- */
+.top { display:flex; align-items:center; justify-content:space-between; padding: var(--s2) var(--s1) var(--s4); }
+.brand { display:flex; align-items:center; gap:10px; }
+.brand-badge {
+  width:42px; height:42px; border-radius:14px; flex:0 0 auto;
+  background: linear-gradient(140deg, #FFD79E, var(--orange));
+  display:flex; align-items:center; justify-content:center; color:#fff;
+  box-shadow: var(--shadow-s), inset 0 -3px 0 rgba(150,80,20,.18);
+  transform: rotate(-4deg);
+}
+h1.brand-name { font-size: var(--t-lg); font-weight: 800; letter-spacing: .5px; line-height:1.2; }
+.brand-sub { font-size: var(--t-xs); color: var(--ink-2); font-weight: 600; margin-top:1px; }
+.icon-btn {
+  width:42px; height:42px; border-radius:50%; border:1.5px solid var(--line); background:var(--surface);
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-2);
+  box-shadow: var(--shadow-s); transition: transform .15s var(--ease-out), background .15s;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--orange-deep); }
+.icon-btn:active { transform: scale(.92); }
 
-  .bal { background: linear-gradient(135deg, #FFB35C 0%, #FF8A3D 55%, #F76B1C 100%); border-radius: 24px; padding: 18px 20px 14px;
-    color: #fff; box-shadow: 0 10px 26px rgba(247, 107, 28, .30); margin-bottom: 14px; }
-  .bal-empty { text-align: center; font-weight: 700; padding: 26px 20px; }
-  .bal-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; opacity: .95; }
-  .bal-streak { background: rgba(255,255,255,.22); padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-  .bal-num { font-size: 46px; font-weight: 800; line-height: 1.25; display: flex; align-items: center; gap: 8px; }
-  .bal-star { font-size: 34px; }
-  .bal-unit { font-size: 15px; font-weight: 600; opacity: .9; }
-  .bal-sub { font-size: 12px; opacity: .92; margin-top: 2px; }
-  .bal-week { display: flex; justify-content: space-between; margin-top: 12px; padding: 0 4px; }
-  .wd { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; opacity: .85; }
-  .wd i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.30); }
-  .wd.f { opacity: 1; font-weight: 700; }
-  .wd.f i { background: #fff; }
+/* ---------- 孩子选择条 ---------- */
+.kids { display:flex; gap:10px; overflow-x:auto; padding: var(--s2) var(--s1) var(--s4); scrollbar-width:none; }
+.kids::-webkit-scrollbar { display:none; }
+.kid {
+  flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:4px; min-width:78px;
+  background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-m); padding:10px 14px 8px;
+  cursor:pointer; box-shadow: var(--shadow-s); position:relative;
+  transition: transform .2s var(--ease-spring), border-color .15s, box-shadow .15s;
+}
+.kid .ava {
+  width:44px; height:44px; border-radius:50%; font-size:23px; display:flex; align-items:center; justify-content:center;
+  background: var(--surface-2); border:1.5px dashed var(--line-2); transition: background .2s;
+}
+.kid .nm { font-size: var(--t-xs); font-weight: 700; color: var(--ink-2); max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kid:hover { transform: translateY(-2px); }
+.kid.on { border-color: var(--orange); border-style: solid; box-shadow: 0 0 0 3px rgba(240,138,60,.15), var(--shadow-m); transform: translateY(-2px); }
+.kid.on .ava { background: var(--orange-soft); border-style: solid; border-color: #F8CFA4; }
+.kid.on .nm { color: var(--orange-deep); font-weight: 800; }
+/* 选中勾角标 */
+.kid.on::after {
+  content:'✓'; position:absolute; top:-7px; right:-6px; width:22px; height:22px; border-radius:50%;
+  background: var(--green); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  box-shadow: var(--shadow-s); animation: stampIn .3s var(--ease-spring);
+}
 
-  .tabbar { display: flex; gap: 4px; background: #fff; border-radius: 999px; padding: 4px; box-shadow: 0 4px 14px rgba(255,160,60,.12); }
-  .tab { flex: 1; border: none; background: transparent; border-radius: 999px; padding: 10px 0; font-size: 14px; font-weight: 700;
-    color: #9A8C7A; cursor: pointer; transition: all .15s; }
-  .tab.on { background: linear-gradient(135deg, #FFA24D, #FF7A2E); color: #fff; box-shadow: 0 4px 10px rgba(255,122,46,.35); }
+/* ---------- 积分钱包卡（手账贴纸主角） ---------- */
+.wallet {
+  position:relative; background: var(--surface); border:1.5px solid var(--line); border-radius:var(--r-l);
+  padding: var(--s6) var(--s5) var(--s5); box-shadow: var(--shadow-m); overflow:hidden; margin-bottom: var(--s4);
+}
+.wallet::before { /* 手账内框虚线 */
+  content:''; position:absolute; inset:9px; border:1.5px dashed rgba(233,162,59,.30); border-radius:calc(var(--r-l) - 8px); pointer-events:none;
+}
+.tape { /* 和纸胶带 */
+  position:absolute; top:-6px; left:50%; transform:translateX(-50%) rotate(-2.5deg);
+  width:96px; height:26px; background:
+    repeating-linear-gradient(45deg, rgba(240,138,60,.22) 0 7px, rgba(240,138,60,.10) 7px 14px),
+    rgba(255,255,255,.55);
+  border-left:1px dashed rgba(217,112,42,.25); border-right:1px dashed rgba(217,112,42,.25);
+  box-shadow: 0 3px 8px rgba(150,100,40,.12); z-index:2;
+}
+.wallet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--s2); }
+.wallet-label { font-size: var(--t-sm); font-weight:800; color:var(--ink-2); letter-spacing:1px; }
+.streak {
+  display:inline-flex; align-items:center; gap:4px; font-size:var(--t-xs); font-weight:800;
+  color:var(--berry-deep); background:var(--berry-soft); border:1px solid #F3D2DA; border-radius:var(--r-full); padding:3px 10px;
+}
+.balance-row { display:flex; align-items:flex-end; gap:10px; margin-bottom: var(--s2); position:relative; z-index:1; }
+.coin { color: var(--gold); display:flex; animation: coinBreathe 3.2s ease-in-out infinite; }
+.balance-num { font-size: var(--t-hero); font-weight: 900; line-height:1; letter-spacing:-1px; color:var(--ink); }
+.balance-unit { font-size: var(--t-md); font-weight:700; color:var(--ink-2); padding-bottom:6px; }
+.wallet-stats { display:flex; gap: var(--s3); flex-wrap:wrap; font-size:var(--t-xs); color:var(--ink-2); position:relative; z-index:1; }
+.wallet-stats b { color:var(--ink); font-weight:800; }
+/* 本周打卡条 */
+.week { display:flex; gap:5px; margin-top: var(--s4); position:relative; z-index:1; }
+.wd { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.wd i {
+  width:100%; max-width:26px; height:8px; border-radius:var(--r-full); background:var(--paper-2); border:1px solid var(--line);
+  transition: background .25s, border-color .25s, height .25s var(--ease-spring);
+}
+.wd.on i { background: linear-gradient(180deg, #F5B860, var(--gold)); border-color:#D9A243; height:12px; }
+.wd.today i { box-shadow: 0 0 0 2px rgba(240,138,60,.28); }
+.wd span { font-size:10px; font-weight:700; color:var(--ink-3); }
+.wd.today span { color: var(--orange-deep); }
 
-  .view { padding-top: 14px; }
-  .hide { display: none; }
-  .date-pill { display: inline-block; background: #fff; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700;
-    color: #6B5B47; margin-bottom: 10px; box-shadow: 0 3px 10px rgba(255,160,60,.10); }
+/* ---------- 主导航（底部 sticky） ---------- */
+.tabbar {
+  position:fixed; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom)); z-index:60;
+  display:flex; gap:4px; background:rgba(255,253,248,.94); backdrop-filter:blur(10px);
+  border:1.5px solid var(--line); border-radius:var(--r-full); padding:5px; box-shadow: var(--shadow-m); width: calc(100% - 32px); max-width: 420px;
+}
+.tab {
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; border:none; background:transparent;
+  border-radius:var(--r-full); padding:7px 0 5px; font-size:11px; font-weight:700; color:var(--ink-3); cursor:pointer;
+  position:relative; transition: color .18s, background .18s;
+}
+.tab svg { transition: transform .25s var(--ease-spring); }
+.tab.on { color: var(--orange-deep); background: var(--orange-soft); }
+.tab.on svg { transform: translateY(-1px) scale(1.08); }
+.tab.on::before { content:''; position:absolute; top:2px; width:16px; height:3px; border-radius:2px; background:var(--orange); }
 
-  .g-head { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 800; margin: 12px 2px 8px; }
-  .g-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .g-dot.blue { background: #4F8CFF; } .g-dot.green { background: #2FBF71; }
-  .g-count { margin-left: auto; font-size: 12px; color: #9A8C7A; background: #fff; padding: 3px 10px; border-radius: 999px; }
+/* ---------- 分组标题 ---------- */
+section.view { padding-top: var(--s2); animation: viewIn .28s var(--ease-out); }
+.hide { display:none; }
+.g-head { display:flex; align-items:center; gap:8px; margin: var(--s5) var(--s1) var(--s3); }
+.g-badge {
+  width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  background:var(--blue-soft); color:var(--blue-deep);
+}
+.g-badge.green { background:var(--green-soft); color:var(--green-deep); }
+h2.g-title { font-size:var(--t-md); font-weight:800; letter-spacing:.5px; }
+.g-count { margin-left:auto; font-size:var(--t-xs); font-weight:800; color:var(--ink-3); display:flex; align-items:center; gap:6px; }
+/* 迷你环形进度 */
+.ring { transform: rotate(-90deg); }
+.ring-bg { fill:none; stroke:var(--line); stroke-width:2.5; }
+.ring-fg { fill:none; stroke:var(--green); stroke-width:2.5; stroke-linecap:round; transition: stroke-dashoffset .5s var(--ease-out); }
+.ring-fg.zero { stroke:var(--line-2); }
 
-  .habit { display: flex; align-items: center; gap: 12px; background: #fff; border: 2.5px solid transparent; border-radius: 18px;
-    padding: 11px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .15s, background .15s;
-    box-shadow: 0 3px 10px rgba(255,160,60,.08); }
-  .habit.done { background: #FFFBEF; }
-  .habit.done.blue { border-color: #BBD4FF; } .habit.done.green { border-color: #B4E9CD; }
-  .h-emoji { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center;
-    font-size: 25px; flex: 0 0 auto; }
-  .h-emoji.blue { background: #EAF2FF; } .h-emoji.green { background: #E8F9F0; }
-  .habit.done .h-emoji.blue { background: #FFF1D6; } .habit.done .h-emoji.green { background: #FFF1D6; }
-  .h-main { flex: 1; min-width: 0; }
-  .h-name { font-size: 15px; font-weight: 700; }
-  .h-pts { display: inline-block; font-size: 11px; font-weight: 800; color: #F07020; background: #FFF1E3; padding: 2px 8px;
-    border-radius: 999px; margin-top: 3px; }
-  .h-check { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid #E8DFD2; background: #fff; flex: 0 0 auto;
-    display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: #fff; transition: all .15s; }
-  .habit.done .h-check { background: #2FBF71; border-color: #2FBF71; }
+/* ---------- 打卡贴纸行 ---------- */
+.habit {
+  display:flex; align-items:center; gap: var(--s3); background:var(--surface); border:1.5px solid var(--line);
+  border-radius:var(--r-m); padding:11px 14px; margin-bottom:10px; cursor:pointer; width:100%; text-align:left;
+  box-shadow: var(--shadow-s); position:relative; overflow:hidden;
+  transition: transform .2s var(--ease-spring), border-color .2s, box-shadow .2s, background .2s;
+  animation: stickerIn .38s var(--ease-spring) both;
+}
+.habit:nth-child(2){animation-delay:.04s} .habit:nth-child(3){animation-delay:.08s} .habit:nth-child(4){animation-delay:.12s}
+.habit:nth-child(5){animation-delay:.16s} .habit:nth-child(6){animation-delay:.20s} .habit:nth-child(7){animation-delay:.24s}
+.habit:hover { transform: translateY(-2px); box-shadow: var(--shadow-m); }
+.habit:active { transform: scale(.985); }
+.h-emoji {
+  width:48px; height:48px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:25px; flex:0 0 auto;
+  background:var(--blue-soft); border:1.5px solid rgba(91,135,201,.18); transition: background .2s, border-color .2s, transform .3s var(--ease-spring);
+}
+.habit.green .h-emoji { background:var(--green-soft); border-color:rgba(111,174,95,.20); }
+.h-main { flex:1; min-width:0; }
+.h-name { font-size:var(--t-md); font-weight:700; line-height:1.4; }
+.h-meta { display:inline-flex; align-items:center; gap:4px; font-size:var(--t-xs); font-weight:800; color:var(--gold-deep);
+  background:var(--gold-soft); border-radius:var(--r-full); padding:1px 8px; margin-top:3px; }
+/* 橡皮章 */
+.stamp {
+  width:40px; height:40px; border-radius:50%; border:2px dashed var(--line-2); background:transparent; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; color:var(--ink-3); transition: all .2s;
+}
+.stamp svg { opacity:.28; }
+.habit.done { background: linear-gradient(180deg, #F4FAF0, var(--surface)); border-color:#CDE4C4; }
+.habit.done .h-emoji { background:var(--green-soft); transform: rotate(-6deg); }
+.habit.done .stamp { border:2.5px solid var(--green); color:var(--green-deep); background:rgba(111,174,95,.10); animation: stampIn .35s var(--ease-spring); }
+.habit.done .stamp svg { opacity:1; }
+.habit.done .h-name { color:var(--green-deep); }
 
-  .tip { font-size: 12px; color: #B3A48E; text-align: center; margin-top: 14px; }
+/* ---------- 礼物橱窗 ---------- */
+.r-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.r-card {
+  position:relative; background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-l); padding:16px 12px 12px;
+  text-align:center; cursor:pointer; box-shadow:var(--shadow-s); overflow:hidden;
+  transition: transform .2s var(--ease-spring), box-shadow .2s, border-color .2s;
+  animation: stickerIn .38s var(--ease-spring) both;
+}
+.r-card:nth-child(2n){animation-delay:.05s} .r-card:nth-child(3){animation-delay:.1s} .r-card:nth-child(4){animation-delay:.15s}
+.r-card:hover { transform: translateY(-3px) rotate(-.4deg); box-shadow: var(--shadow-m); }
+.r-card.available { border-color:#F2C99B; box-shadow: 0 0 0 3px rgba(240,138,60,.10), var(--shadow-s); }
+.r-card.locked { background: var(--surface-2); }
+.r-card.locked .r-emoji { filter: grayscale(.55); opacity:.7; }
+.r-emoji {
+  width:66px; height:66px; margin:2px auto 8px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px;
+  background: radial-gradient(circle at 32% 28%, #FFFBF2, #FDEBCF); border:1.5px dashed var(--line-2);
+  transition: transform .25s var(--ease-spring), filter .2s;
+}
+.r-card.available .r-emoji { transform: scale(1.04); }
+h3.r-name { font-size:var(--t-sm); font-weight:800; line-height:1.4; min-height:2.8em; display:flex; align-items:center; justify-content:center; }
+.r-cost { display:inline-flex; align-items:center; gap:3px; font-size:var(--t-xs); font-weight:800; color:var(--gold-deep);
+  background:var(--gold-soft); border-radius:var(--r-full); padding:2px 10px; margin:6px 0 10px; }
+.r-bar { height:9px; border-radius:var(--r-full); background:var(--paper-2); border:1px solid var(--line); overflow:hidden; }
+.r-bar i { display:block; height:100%; border-radius:var(--r-full); background:linear-gradient(90deg,#F5C46E,var(--orange)); transition: width .6s var(--ease-out); }
+.r-state { margin-top:9px; font-size:var(--t-xs); font-weight:800; color:var(--orange-deep); }
+.r-state.lock { color:var(--ink-3); display:inline-flex; align-items:center; gap:3px; }
 
-  .r-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .r-card { background: #fff; border: 2.5px solid #FFE9CF; border-radius: 20px; padding: 14px 12px 12px; text-align: center;
-    cursor: pointer; transition: transform .15s; box-shadow: 0 4px 12px rgba(255,160,60,.10); }
-  .r-card:active { transform: scale(.97); }
-  .r-card.locked { opacity: .62; }
-  .r-emoji { font-size: 38px; line-height: 1.3; }
-  .r-name { font-size: 14px; font-weight: 800; margin-top: 4px; }
-  .r-cost { display: inline-block; font-size: 12px; font-weight: 800; color: #B07A00; background: #FFF4D6; padding: 2px 10px;
-    border-radius: 999px; margin: 6px 0 8px; }
-  .r-bar { height: 8px; border-radius: 999px; background: #F3EADB; overflow: hidden; }
-  .r-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #FFC53D, #FF8A3D); transition: width .3s; }
-  .r-btn { margin-top: 8px; font-size: 12px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #FFA24D, #FF7A2E);
-    border-radius: 999px; padding: 6px 0; }
-  .r-btn.no { background: #EFE7D9; color: #B3A48E; }
+/* ---------- 记录时间轴 ---------- */
+.timeline { list-style:none; margin:0; padding:0; position:relative; }
+.timeline::before { content:''; position:absolute; left:22px; top:8px; bottom:8px; width:2px; background:repeating-linear-gradient(180deg, var(--line-2) 0 6px, transparent 6px 12px); }
+.tl-item { display:flex; gap:12px; padding:7px 0; animation: viewIn .3s var(--ease-out) both; }
+.tl-item:nth-child(2n){animation-delay:.04s} .tl-item:nth-child(3n){animation-delay:.08s}
+.tl-icon {
+  width:44px; height:44px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:19px;
+  background:var(--surface); border:1.5px solid var(--line); box-shadow: var(--shadow-s); position:relative; z-index:1;
+}
+.tl-body { flex:1; min-width:0; background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-m); padding:10px 13px; box-shadow:var(--shadow-s); }
+.tl-title { font-size:var(--t-sm); font-weight:700; line-height:1.5; }
+.tl-sub { font-size:var(--t-xs); color:var(--ink-3); margin-top:2px; display:flex; align-items:center; gap:7px; flex-wrap:wrap; line-height:1.5; }
+.tl-pts { font-size:var(--t-md); font-weight:800; align-self:center; }
+.tl-pts.up { color:var(--green-deep); } .tl-pts.down { color:var(--berry-deep); }
+.chip { font-size:11px; font-weight:800; padding:1px 8px; border-radius:var(--r-full); }
+.chip.pending { background:var(--orange-soft); color:var(--orange-deep); }
+.chip.done { background:var(--green-soft); color:var(--green-deep); }
 
-  .hist { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; padding: 11px 14px;
-    margin-bottom: 8px; box-shadow: 0 3px 10px rgba(255,160,60,.08); }
-  .hi-emoji { width: 40px; height: 40px; border-radius: 13px; background: #FFF4E3; display: flex; align-items: center;
-    justify-content: center; font-size: 20px; flex: 0 0 auto; }
-  .hi-main { flex: 1; min-width: 0; }
-  .hi-name { font-size: 14px; font-weight: 700; }
-  .hi-sub { font-size: 12px; color: #9A8C7A; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
-  .hi-pts { font-size: 15px; font-weight: 800; }
-  .hi-pts.up { color: #2FBF71; } .hi-pts.down { color: #F25555; }
-  .st { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
-  .st-pending { background: #FFF1E3; color: #F07020; }
-  .st-done { background: #E8F9F0; color: #2FBF71; }
+/* ---------- 通用组件 ---------- */
+.btn {
+  border:none; border-radius:var(--r-full); padding:12px 24px; font-size:var(--t-md); font-weight:800; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:7px; transition: transform .15s var(--ease-out), box-shadow .15s, opacity .15s;
+}
+.btn-primary { background:linear-gradient(160deg,#F9A45E,var(--orange)); color:#fff; box-shadow:0 5px 0 var(--orange-deep), var(--shadow-s); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow:0 6px 0 var(--orange-deep), var(--shadow-m); }
+.btn-soft { background:var(--surface); border:1.5px solid var(--line-2); color:var(--ink); box-shadow:var(--shadow-s); }
+.btn-soft:hover { background:var(--surface-2); }
+.btn-danger { background:var(--danger-soft); border:1.5px solid #F2CFCB; color:var(--danger); }
+.btn-primary:active, .btn-soft:active, .btn-danger:active { transform: translateY(2px); box-shadow:none; }
+.btn.full { width:100%; margin-top:var(--s3); }
+.btn[disabled], .btn.is-loading { opacity:.55; cursor:not-allowed; pointer-events:none; }
+.btn.is-loading { position:relative; color:transparent !important; }
+.btn.is-loading::after {
+  content:''; position:absolute; width:17px; height:17px; border:2.5px solid rgba(255,255,255,.45); border-top-color:#fff;
+  border-radius:50%; animation: spin .7s linear infinite;
+}
+.btn-soft.is-loading::after, .btn-danger.is-loading::after { border-color:rgba(120,95,60,.28); border-top-color:var(--ink-2); }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 幽灵小操作（每屏只留 1 个 primary，其余降级） */
+.mini {
+  border:1.5px solid transparent; border-radius:10px; padding:5px 10px; font-size:var(--t-xs); font-weight:700;
+  background:transparent; color:var(--ink-2); cursor:pointer; display:inline-flex; align-items:center; gap:3px; transition: background .15s, color .15s;
+}
+.mini:hover { background:var(--paper-2); color:var(--ink); }
+.mini.brand { color:var(--orange-deep); } .mini.brand:hover { background:var(--orange-soft); }
+.mini.danger { color:var(--danger); } .mini.danger:hover { background:var(--danger-soft); }
+.mini[disabled] { opacity:.4; cursor:not-allowed; }
 
-  .empty { text-align: center; padding: 46px 20px; color: #9A8C7A; }
-  .empty-emoji { font-size: 46px; margin-bottom: 10px; }
-  .empty p { font-size: 14px; font-weight: 700; }
-  .empty .empty-sub { font-size: 12px; font-weight: 500; margin-top: 4px; color: #B3A48E; }
-  .loading { text-align: center; color: #B3A48E; padding: 40px 0; font-size: 14px; }
+/* 骨架屏 */
+.skeleton { background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-m); padding:14px; margin-bottom:10px; overflow:hidden; position:relative; }
+.sk-line { height:12px; border-radius:6px; background:var(--paper-2); width:42%; margin-bottom:8px; }
+.sk-line.w60 { width:60%; } .sk-line.w25 { width:25%; margin-bottom:0; height:10px; }
+.skeleton::after {
+  content:''; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
 
-  .btn { border: none; border-radius: 999px; padding: 11px 22px; font-size: 15px; font-weight: 800; cursor: pointer; }
-  .btn.primary { background: linear-gradient(135deg, #FFA24D, #FF7A2E); color: #fff; box-shadow: 0 4px 12px rgba(255,122,46,.35); }
-  .btn.plain { background: #F4EDE2; color: #6B5B47; }
-  .btn.danger { background: #FFECEC; color: #E5484D; }
-  .btn.full { width: 100%; margin-top: 8px; }
-  .mini { border: none; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; background: #F6EFE3;
-    color: #6B5B47; cursor: pointer; }
-  .mini.brand { background: #FFF1E3; color: #F07020; }
-  .mini.danger { background: #FFECEC; color: #E5484D; }
+/* 空状态 */
+.empty { text-align:center; padding: var(--s12) var(--s6); }
+.empty-art {
+  width:86px; height:86px; margin:0 auto var(--s4); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:38px;
+  background:var(--surface); border:1.5px dashed var(--line-2); box-shadow: var(--shadow-s); animation: bob 3s ease-in-out infinite;
+}
+.empty-title { font-size:var(--t-md); font-weight:800; }
+.empty-sub { font-size:var(--t-sm); color:var(--ink-2); margin-top:4px; line-height:1.6; }
+@keyframes bob { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-7px) } }
 
-  .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(16px); background: rgba(60,45,20,.88);
-    color: #fff; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 999px; opacity: 0; pointer-events: none;
-    transition: all .25s; z-index: 90; max-width: 86vw; text-align: center; }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ---------- 覆层 ---------- */
+.overlay { position:fixed; inset:0; background:rgba(66,46,20,.42); backdrop-filter:blur(3px); display:flex; align-items:center;
+  justify-content:center; z-index:100; padding:22px; animation: fadeOut .18s; opacity:1; }
+.overlay.closing { animation:none; opacity:0; transition: opacity .18s; }
+.sheet {
+  background:var(--surface); border-radius:var(--r-l); padding:var(--s6) var(--s5) var(--s5); width:100%; max-width:400px;
+  max-height:84vh; overflow:auto; box-shadow:var(--shadow-l); position:relative; animation: pop .26s var(--ease-spring);
+}
+.overlay.closing .sheet { animation:none; opacity:0; transform:scale(.94); transition:all .18s; }
+.sheet-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--s2); }
+.sheet h3 { font-size:var(--t-lg); font-weight:800; }
+.x-close { position:absolute; top:14px; right:14px; width:30px;height:30px;border-radius:50%;border:none;background:var(--paper-2);color:var(--ink-2);cursor:pointer;display:flex;align-items:center;justify-content:center; z-index:2; }
+.x-close:hover { background:var(--line); }
+.mtxt { font-size:var(--t-md); color:var(--ink-2); line-height:1.7; margin:6px 0; }
+.mrow { display:flex; gap:10px; justify-content:flex-end; margin-top:var(--s5); }
+.hint { font-size:var(--t-sm); color:var(--ink-2); background:var(--gold-soft); border:1px dashed #EFD9A8; border-radius:var(--r-s); padding:9px 12px; margin-top:var(--s4); line-height:1.6; display:flex; gap:7px; align-items:flex-start; }
+/* 表单 */
+.lb { display:block; font-size:var(--t-sm); color:var(--ink-2); font-weight:800; margin:var(--s4) 0 6px; }
+.field { width:100%; border:1.5px solid var(--line-2); border-radius:var(--r-s); padding:11px 13px; font-size:var(--t-md);
+  background:var(--surface); outline:none; color:var(--ink); font-family:inherit; transition:border-color .15s, box-shadow .15s; }
+.field:focus { border-color:var(--orange); box-shadow:0 0 0 3px rgba(240,138,60,.16); }
+.field.invalid { border-color:var(--danger); box-shadow:0 0 0 3px rgba(217,83,79,.12); }
+.field-error { display:none; font-size:var(--t-xs); color:var(--danger); font-weight:700; margin-top:5px; line-height:1.5; }
+.field-error.show { display:flex; align-items:center; gap:4px; animation: viewIn .2s; }
+/* 表情盘 */
+.emgrid { display:grid; grid-template-columns:repeat(6,1fr); gap:7px; }
+.em { font-size:21px; background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-s); padding:6px 0; cursor:pointer; transition:all .15s; }
+.em:hover { border-color:var(--line-2); transform:translateY(-1px); }
+.em.on { border-color:var(--orange); background:var(--orange-soft); box-shadow:0 0 0 2px rgba(240,138,60,.18); }
+.cat-row { display:flex; gap:8px; }
+.cat { flex:1; border:1.5px solid var(--line-2); background:var(--surface); border-radius:var(--r-s); padding:10px 0; font-size:var(--t-sm); font-weight:800; color:var(--ink-2); cursor:pointer; display:flex;align-items:center;justify-content:center;gap:5px; transition:all .15s; }
+.cat.on { border-color:var(--blue); color:var(--blue-deep); background:var(--blue-soft); }
+.cat[data-cat="behavior"].on { border-color:var(--green); color:var(--green-deep); background:var(--green-soft); }
+/* PIN 键盘 */
+.pin-dots { display:flex; gap:12px; justify-content:center; margin:var(--s5) 0 var(--s2); }
+.pin-dots.shake { animation: shake .4s; }
+.pin-dot { width:13px; height:13px; border-radius:50%; background:var(--paper-2); border:1.5px solid var(--line-2); transition:all .18s var(--ease-spring); }
+.pin-dot.f { background:var(--orange); border-color:var(--orange-deep); transform:scale(1.18); }
+.pin-err { text-align:center; font-size:var(--t-sm); color:var(--danger); min-height:22px; font-weight:700; }
+.keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:var(--s3); }
+.key { background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-m); font-size:21px; font-weight:800; padding:13px 0; cursor:pointer; color:var(--ink); box-shadow:var(--shadow-s); transition:all .12s; }
+.key:hover { background:var(--surface-2); }
+.key:active { transform:scale(.94); background:var(--orange-soft); }
+/* Toast */
+.toast { position:fixed; left:50%; bottom:calc(92px + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(14px);
+  background:#4A3721; color:#FFF6EA; font-size:var(--t-sm); font-weight:700; padding:11px 20px; border-radius:var(--r-full);
+  opacity:0; pointer-events:none; transition:all .28s var(--ease-out); z-index:120; max-width:88vw; text-align:center; box-shadow:var(--shadow-l); }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+/* 庆祝 */
+.float-pts { position:fixed; left:50%; top:26%; font-size:var(--t-2xl); font-weight:900; color:var(--gold-deep);
+  text-shadow:0 2px 0 #fff, 0 6px 18px rgba(233,162,59,.45); z-index:115; pointer-events:none; animation: floatUp 1.25s var(--ease-out) forwards; }
+@keyframes floatUp { 0%{opacity:0; transform:translate(-50%,16px) scale(.5)} 22%{opacity:1} 100%{opacity:0; transform:translate(-50%,-78px) scale(1.25)} }
+.cfz { position:fixed; top:-26px; z-index:118; pointer-events:none; animation: cfzFall 1.35s ease-in forwards; }
+@keyframes cfzFall { to { transform:translateY(108vh) rotate(270deg); opacity:.85 } }
+/* 关键帧 */
+@keyframes stampIn { from { transform:scale(1.7) rotate(-16deg); opacity:0 } to { transform:scale(1) rotate(0); opacity:1 } }
+@keyframes stickerIn { from { opacity:0; transform:translateY(10px) scale(.97) } to { opacity:1; transform:none } }
+@keyframes viewIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+@keyframes pop { from { transform:scale(.92) translateY(12px); opacity:0 } }
+@keyframes fadeOut { from { opacity:0 } }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-9px)} 75%{transform:translateX(9px)} }
+@keyframes coinBreathe { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.06) rotate(-6deg)} }
 
-  .overlay { position: fixed; inset: 0; background: rgba(45,28,8,.46); display: flex; align-items: center; justify-content: center;
-    z-index: 100; padding: 22px; }
-  .sheet { background: #FFFDF8; border-radius: 26px; padding: 22px; width: 100%; max-width: 400px; max-height: 84vh; overflow: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,.22); animation: pop .18s ease; }
-  @keyframes pop { from { transform: scale(.9); opacity: 0; } }
-  .sheet h3 { font-size: 17px; margin-bottom: 8px; }
-  .mtxt { font-size: 14px; color: #6B5B47; line-height: 1.7; margin: 6px 0 4px; }
-  .mrow { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
-  .hint { font-size: 12px; color: #B3A48E; text-align: center; margin-top: 12px; }
-  .lb { display: block; font-size: 12px; color: #9A8C7A; font-weight: 700; margin: 12px 0 5px; }
-  input[type="text"], input[type="number"], input[type="password"] {
-    width: 100%; border: 2px solid #F0E4D0; border-radius: 14px; padding: 11px 13px; font-size: 15px; background: #fff;
-    outline: none; color: #453A2E; font-family: inherit; }
-  input:focus { border-color: #FF8A3D; }
+/* ---------- 家长面板 ---------- */
+.panel { position:fixed; inset:0; background:var(--paper); overflow:hidden; z-index:80; display:flex; flex-direction:column; animation:viewIn .25s var(--ease-out); }
+.p-head { flex:0 0 auto; background:rgba(255,246,234,.94); backdrop-filter:blur(8px); border-bottom:1.5px solid var(--line); padding: var(--s3) var(--s5); display:flex; align-items:center; justify-content:space-between; }
+.p-title { display:flex; align-items:center; gap:9px; font-size:var(--t-lg); font-weight:800; }
+.p-seg { flex:0 0 auto; display:flex; gap:3px; background:var(--paper-2); border:1.5px solid var(--line); border-radius:var(--r-full); padding:4px; margin:0 auto var(--s3); width:calc(100% - 40px); max-width:520px; overflow-x:auto; scrollbar-width:none; }
+.p-seg::-webkit-scrollbar{display:none}
+.seg { flex:1; white-space:nowrap; border:none; background:transparent; border-radius:var(--r-full); padding:8px 13px; font-size:var(--t-sm); font-weight:800; color:var(--ink-2); cursor:pointer; transition:all .18s; }
+.seg.on { background:var(--surface); color:var(--orange-deep); box-shadow:var(--shadow-s); }
+.p-body { flex:1; overflow:auto; padding: var(--s2) var(--s4) 60px; }
+.p-inner { max-width:520px; margin:0 auto; }
+.p-card { background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-l); padding:var(--s5); margin-bottom:var(--s4); box-shadow:var(--shadow-s); }
+.p-card > h2 { font-size:var(--t-md); font-weight:800; margin-bottom:var(--s3); display:flex; align-items:center; gap:7px; }
+.p-row { display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1.5px dashed var(--line); flex-wrap:wrap; }
+.p-row:last-of-type { border-bottom:none; }
+.p-ava { width:42px; height:42px; border-radius:50%; background:var(--surface-2); border:1.5px dashed var(--line-2); display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; }
+.p-ava.reward { border-radius:16px; border-style:solid; background:var(--gold-soft); border-color:#EFD9A8; }
+.p-main { flex:1; min-width:0; }
+.p-name { font-size:var(--t-sm); font-weight:800; line-height:1.4; }
+.p-sub { font-size:var(--t-xs); color:var(--ink-2); margin-top:2px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; line-height:1.5; }
+.p-ops { display:flex; gap:2px; flex-wrap:wrap; align-items:center; }
+.tag { font-size:11px; font-weight:800; padding:1px 8px; border-radius:var(--r-full); }
+.tag.t-blue { background:var(--blue-soft); color:var(--blue-deep); }
+.tag.t-green { background:var(--green-soft); color:var(--green-deep); }
+.tag.off { background:var(--paper-2); color:var(--ink-3); }
+.badge { background:var(--orange); color:#fff; font-size:11px; font-weight:800; border-radius:var(--r-full); padding:1px 8px; }
+.p-pts { font-size:var(--t-md); font-weight:800; }
+.p-pts.up { color:var(--green-deep); } .p-pts.down { color:var(--berry-deep); }
+.p-empty { font-size:var(--t-sm); color:var(--ink-2); text-align:center; padding:var(--s6) 0; line-height:1.6; }
+/* 概览统计卡 */
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:var(--s4); }
+.stat { background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r-m); padding:12px 10px; text-align:center; box-shadow:var(--shadow-s); }
+.stat b { display:block; font-size:var(--t-xl); font-weight:900; line-height:1.2; }
+.stat span { font-size:11px; color:var(--ink-2); font-weight:700; }
 
-  .emgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
-  .em { font-size: 21px; background: #fff; border: 2px solid transparent; border-radius: 12px; padding: 5px 0; cursor: pointer; }
-  .em.on { border-color: #FF8A3D; background: #FFF4E8; }
-  .cat-row { display: flex; gap: 8px; }
-  .cat { flex: 1; border: 2px solid #F0E4D0; background: #fff; border-radius: 12px; padding: 9px 0; font-size: 14px; font-weight: 700;
-    color: #9A8C7A; cursor: pointer; }
-  .cat.on { border-color: #FF8A3D; color: #F07020; background: #FFF4E8; }
-
-  .pin-dots { display: flex; gap: 11px; justify-content: center; margin: 16px 0 4px; }
-  .pin-dots.shake { animation: shake .35s; }
-  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-  .pin-dot { width: 14px; height: 14px; border-radius: 50%; background: #F1E7D6; border: 2px solid #E3D6C0; }
-  .pin-dot.f { background: #FF8A3D; border-color: #FF8A3D; }
-  .pin-err { text-align: center; font-size: 13px; color: #E5484D; min-height: 20px; font-weight: 700; }
-  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 10px; }
-  .key { background: #fff; border: 2px solid #F2E7D5; border-radius: 16px; font-size: 21px; font-weight: 800; padding: 12px 0;
-    cursor: pointer; color: #453A2E; }
-  .key:active { background: #FFF1E3; }
-
-  .float-pts { position: fixed; left: 50%; top: 26%; font-size: 32px; font-weight: 800; color: #FFB100;
-    text-shadow: 0 2px 0 #fff, 0 4px 12px rgba(255,177,0,.4); z-index: 95; pointer-events: none; animation: floatUp 1.15s ease forwards; }
-  @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 14px) scale(.5); } 25% { opacity: 1; }
-    100% { opacity: 0; transform: translate(-50%, -76px) scale(1.3); } }
-  .cfz { position: fixed; top: -24px; z-index: 94; pointer-events: none; animation: cfzFall 1.25s ease-in forwards; }
-  @keyframes cfzFall { to { transform: translateY(108vh) rotate(260deg); opacity: .85; } }
-
-  .panel { position: fixed; inset: 0; background: #FDF6EC; overflow: auto; z-index: 80; }
-  .p-head { position: sticky; top: 0; background: rgba(253,246,236,.94); backdrop-filter: blur(6px); display: flex;
-    align-items: center; justify-content: space-between; padding: 14px 16px 12px; z-index: 2;
-    box-shadow: 0 2px 10px rgba(255,160,60,.10); }
-  .p-title { font-size: 18px; font-weight: 800; }
-  .p-body { max-width: 520px; margin: 0 auto; padding: 14px 14px 60px; }
-  .p-sec { background: #fff; border-radius: 20px; padding: 15px 15px 14px; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(255,160,60,.09); }
-  .p-sec h3 { font-size: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-  .badge { background: #FF7A2E; color: #fff; font-size: 11px; border-radius: 999px; padding: 1px 8px; }
-  .p-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1.5px dashed #F3EADB; flex-wrap: wrap; }
-  .p-row:last-of-type { border-bottom: none; }
-  .p-row.sm { padding: 7px 0; }
-  .p-emoji { width: 40px; height: 40px; border-radius: 13px; background: #FFF4E3; display: flex; align-items: center;
-    justify-content: center; font-size: 20px; flex: 0 0 auto; }
-  .p-main { flex: 1; min-width: 0; }
-  .p-name { font-size: 14px; font-weight: 700; }
-  .p-sub { font-size: 12px; color: #9A8C7A; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .p-ops { display: flex; gap: 5px; flex-wrap: wrap; }
-  .p-pts { font-size: 14px; font-weight: 800; }
-  .p-pts.up { color: #2FBF71; } .p-pts.down { color: #F25555; }
-  .tag { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; }
-  .t-blue { background: #EAF2FF; color: #4F8CFF; } .t-green { background: #E8F9F0; color: #2FBF71; }
-  .tag.off { background: #F1EBE0; color: #B3A48E; }
-  .p-empty { font-size: 13px; color: #B3A48E; text-align: center; padding: 12px 0; }
+/* 动效降级（无障碍） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important; }
+}
+@media (max-width: 360px) { .r-grid { grid-template-columns:1fr; } .emgrid { grid-template-columns:repeat(5,1fr); } }
+@media (min-width: 720px) { #app { padding-top: var(--s6); } }
 </style>
 </head>
 <body>
   <div id="app">
     <header class="top">
-      <div class="logo">🌟 打卡积分乐园</div>
-      <button class="lock" title="家长管理" onclick="parentEntry()">🔒</button>
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 18l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95L12 2.6z"/></svg>
+        </span>
+        <div>
+          <h1 class="brand-name">打卡积分乐园</h1>
+          <p class="brand-sub" id="dateLine">每天进步一点点</p>
+        </div>
+      </div>
+      <button class="icon-btn" onclick="parentEntry()" aria-label="家长管理入口" title="家长管理">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.6" r="1.4" fill="currentColor" stroke="none"/></svg>
+      </button>
     </header>
-    <div id="kidBar" class="kids"></div>
-    <div id="balanceCard" class="bal"></div>
-    <div id="tabbar" class="tabbar"></div>
-    <main id="main"><div class="loading">加载中…</div></main>
+
+    <nav class="kids" id="kidBar" aria-label="选择孩子"></nav>
+    <div id="balanceCard"></div>
+
+    <main id="main">
+      <div class="skeleton"><div class="sk-line"></div><div class="sk-line w60"></div><div class="sk-line w25"></div></div>
+      <div class="skeleton"><div class="sk-line w60"></div><div class="sk-line w25"></div></div>
+      <div class="skeleton"><div class="sk-line"></div><div class="sk-line w25"></div></div>
+    </main>
+
+    <nav class="tabbar" id="tabbar" aria-label="主要功能"></nav>
   </div>
-  <div id="toast" class="toast"></div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="modalRoot"></div>
 
 <script>
 'use strict';
 
-// ---------- 工具 ----------
+/* ============================================================ 工具层 ============================================================ */
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
 }
-function todayStr() {
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 function addDays(dateStr, delta) {
   var p = dateStr.split('-').map(Number);
   var t = new Date(p[0], p[1] - 1, p[2]);
   t.setDate(t.getDate() + delta);
-  return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+  return t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate());
 }
-function fmtMD(dateStr) {
-  var p = dateStr.split('-').map(Number);
-  return p[1] + '月' + p[2] + '日';
-}
-function weekdayOf(dateStr) {
-  var p = dateStr.split('-').map(Number);
-  return '日一二三四五六'[new Date(p[0], p[1] - 1, p[2]).getDay()];
-}
+function fmtMD(s) { var p = s.split('-').map(Number); return p[1] + '月' + p[2] + '日'; }
+function weekdayOf(s) { var p = s.split('-').map(Number); return '日一二三四五六'[new Date(p[0], p[1] - 1, p[2]).getDay()]; }
 function fmtTs(ts) {
-  var d = new Date(ts);
-  if (isNaN(d.getTime())) return '';
-  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  var d = new Date(ts); if (isNaN(d.getTime())) return '';
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
 }
 function store(k, v) {
   try {
     if (v === undefined) return localStorage.getItem(k);
     if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
-  } catch (e) { /* 忽略隐私模式下的存储错误 */ }
+  } catch (e) { /* 隐私模式忽略 */ }
   return null;
 }
+function sum(arr, key) { return arr.reduce(function (a, r) { return a + (Number(r[key]) || 0); }, 0); }
+function num(v) { var n = Number(v); return (Number.isFinite(n) ? n : 0).toLocaleString('zh-CN'); }
 
-// ---------- 全局状态 ----------
-var S = {
-  kids: [],
-  kidId: null,
-  date: todayStr(),
-  st: null,
-  tab: 'checkin',
-  ptoken: store('kp_ptoken') || '',
-  pdata: null
+/* ---- 内联 SVG 图标库（UI 骨架统一风格，emoji 只作内容） ---- */
+var ICONS = {
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  checkS: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  star: '<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.2l2.85 5.8 6.4.93-4.63 4.5 1.1 6.37L12 17l-5.72 3-1.1-6.37L.55 8.93l6.4-.93L12 2.2z"/></svg>',
+  flame: '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 1.5s.8 3.2-1.4 5.4C9.4 9.6 7 11.4 7 15a7 7 0 0 0 14 0c0-2.3-1-4.2-2.3-5.7-.2 1.5-1 2.7-2.2 3.2.5-3.6-.6-8.4-3-11zM9 15.5c0-1.4.8-2.5 1.9-3.6.3 1.6 1.3 2.4 2.2 3.1.9.7 1.4 1.4 1.4 2.4a2.75 2.75 0 0 1-5.5.1z"/></svg>',
+  lock: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
+  book: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5a2.5 2.5 0 0 1 2.5 2.5V5.5z"/></svg>',
+  sprout: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 21V11"/><path d="M12 11C12 7 9 4 5 4c0 4 3 7 7 7z"/><path d="M12 13c0-3.5 2.8-6 6.5-6 0 3.5-2.9 6-6.5 6z"/></svg>',
+  gift: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="9.5" width="17" height="11.5" rx="2.5"/><path d="M2.5 9.5h19V13h-19z"/><path d="M12 9.5V21"/><path d="M12 9.5S9.5 4 7 4a2.5 2.5 0 0 0 0 5.5h5zM12 9.5S14.5 4 17 4a2.5 2.5 0 0 1 0 5.5h-5z"/></svg>',
+  tabs: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 4.5h13l2 15.5H3.5l2-15.5z"/><path d="M8.5 9.5h7M8.5 13.5h5.5"/></svg>',
+  coinSm: '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/></svg>',
+  warn: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5V13M12 16.8v.2"/></svg>',
+  x: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  bulb: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true" style="flex:0 0 auto;margin-top:2px"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>'
 };
-var pickEmoji = '🐻';
-var catSel = 'learning';
-var pinBuf = '';
-var confirmResolve = null;
+function ringPct(pct) {
+  var C = 2 * Math.PI * 9; // r=9
+  var off = C * (1 - Math.max(0, Math.min(1, pct)));
+  return '<svg class="ring" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle class="ring-bg" cx="12" cy="12" r="9"/>' +
+    '<circle class="ring-fg' + (pct <= 0 ? ' zero' : '') + '" cx="12" cy="12" r="9" stroke-dasharray="' + C.toFixed(2) + '" stroke-dashoffset="' + off.toFixed(2) + '"/></svg>';
+}
 
-var KID_EMOJIS = ['🐻', '🐰', '🦊', '🐱', '🐼', '🐯', '🦁', '🐵', '🐸', '🦄', '🐧', '🐨'];
-var HABIT_EMOJIS = ['📖', '✏️', '🔤', '🖍️', '🧮', '🎹', '🎨', '⚽', '🏃', '🧸', '🧹', '🦷', '😴', '🥦', '💧', '🚿', '🤝', '🗣️', '🌱', '🎬'];
-var REWARD_EMOJIS = ['🍿', '📺', '🍦', '🌳', '🪀', '🌈', '🎮', '🧩', '🚗', '🎠', '🍕', '🎡', '📚', '🎨', '⚽', '🎂', '🛍️', '🧃'];
+/* ============================================================ 状态层 ============================================================ */
+var S = {
+  kids: [], kidId: null, date: todayStr(), st: null, tab: 'checkin',
+  ptoken: store('kp_ptoken') || '', pdata: null, busy: false
+};
+var pickEmoji = '🐻', catSel = 'learning', pinBuf = '', confirmResolve = null;
+var P_TAB = 'overview';
 
-// ---------- API ----------
+var KID_EMOJIS = ['🐻','🐰','🦊','🐱','🐼','🐯','🦁','🐵','🐸','🦄','🐧','🐨','🐥','🦉','🐬','🦔'];
+var HABIT_EMOJIS = ['📖','✏️','🔤','🖍️','🧮','🎹','🎨','⚽','🏃','🧸','🧹','🦷','😴','🥦','💧','🚿','🤝','🗣️','🌱','🎬','🧺','🪥','📚','🧱'];
+var REWARD_EMOJIS = ['🍿','📺','🍦','🌳','🪀','🌈','🎮','🧩','🚗','🎠','🍕','🎡','📚','🖍️','🤖','🎂','🛍️','🧃','🏰','🦖','🐶','🎪'];
+
+/* ---- API ---- */
 function api(path, body, token) {
   var opt = { method: body === undefined ? 'GET' : 'POST', headers: {} };
   if (token) opt.headers['Authorization'] = 'Bearer ' + token;
-  if (body !== undefined) {
-    opt.headers['Content-Type'] = 'application/json';
-    opt.body = JSON.stringify(body);
-  }
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
   return fetch(path, opt).then(function (res) {
     return res.json().catch(function () { return null; }).then(function (d) {
       if (!res.ok) throw new Error((d && d.error) || ('请求失败 ' + res.status));
@@ -285,82 +525,112 @@ function api(path, body, token) {
   });
 }
 
-// ---------- UI 基础 ----------
+/* ---- 反馈组件 ---- */
 var toastTimer = null;
 function toast(msg) {
   var t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2400);
 }
-function openModal(html) {
+function openModal(html, opts) {
   if (confirmResolve) { var r = confirmResolve; confirmResolve = null; r(false); }
+  var o = opts || {};
+  var dismiss = o.dismissable === false ? '' : ' onclick="overlayTap(event)"';
   document.getElementById('modalRoot').innerHTML =
-    '<div class="overlay" onclick="overlayTap(event)"><div class="sheet" onclick="event.stopPropagation()">' + html + '</div></div>';
+    '<div class="overlay"' + dismiss + ' role="dialog" aria-modal="true" aria-label="' + esc(o.label || '弹窗') + '">' +
+    '<div class="sheet" onclick="event.stopPropagation()">' +
+    (o.noClose ? '' : '<button class="x-close" aria-label="关闭" onclick="closeModal()">' + ICONS.x + '</button>') +
+    html + '</div></div>';
 }
-function closeModal() { document.getElementById('modalRoot').innerHTML = ''; }
-function overlayTap() {
-  if (confirmResolve) { resolveConfirm(false); return; }
-  closeModal();
+function closeModal() {
+  var ov = document.querySelector('#modalRoot .overlay');
+  if (!ov) { document.getElementById('modalRoot').innerHTML = ''; return; }
+  ov.classList.add('closing');
+  setTimeout(function () { document.getElementById('modalRoot').innerHTML = ''; }, 190);
 }
+function overlayTap() { if (confirmResolve) { resolveConfirm(false); return; } closeModal(); }
 function askConfirm(o) {
   return new Promise(function (resolve) {
     confirmResolve = resolve;
-    openModal('<h3>' + o.title + '</h3><div class="mtxt">' + o.html + '</div>' +
-      '<div class="mrow"><button class="btn plain" onclick="resolveConfirm(false)">再想想</button>' +
-      '<button class="btn ' + (o.danger ? 'danger' : 'primary') + '" onclick="resolveConfirm(true)">' + (o.okText || '确定') + '</button></div>');
+    openModal('<div class="sheet-head"><h3>' + esc(o.title) + '</h3></div><div class="mtxt">' + o.html + '</div>' +
+      '<div class="mrow"><button class="btn btn-soft" onclick="resolveConfirm(false)">再想想</button>' +
+      '<button class="btn ' + (o.danger ? 'btn-danger' : 'btn-primary') + '" onclick="resolveConfirm(true)">' + esc(o.okText || '确定') + '</button></div>',
+      { noClose: true, dismissable: false, label: o.title });
   });
 }
-function resolveConfirm(v) {
-  closeModal();
-  var r = confirmResolve; confirmResolve = null;
-  if (r) r(v);
+function resolveConfirm(v) { closeModal(); var r = confirmResolve; confirmResolve = null; if (r) r(v); }
+
+/* P1-1：按钮 loading + 防重复提交 */
+function setLoading(btn, on) {
+  if (!btn) return;
+  if (on) { btn.classList.add('is-loading'); btn.setAttribute('disabled', 'disabled'); btn.setAttribute('aria-busy', 'true'); }
+  else { btn.classList.remove('is-loading'); btn.removeAttribute('disabled'); btn.removeAttribute('aria-busy'); }
+}
+function btnOf(el) {
+  if (!el) return null;
+  if (el.classList && el.classList.contains('btn')) return el;
+  return el.closest ? el.closest('.btn') : null;
 }
 function floatPts(txt) {
-  var el = document.createElement('div');
-  el.className = 'float-pts';
-  el.textContent = txt;
-  document.body.appendChild(el);
-  setTimeout(function () { el.remove(); }, 1250);
+  var el = document.createElement('div'); el.className = 'float-pts'; el.textContent = txt;
+  document.body.appendChild(el); setTimeout(function () { el.remove(); }, 1300);
 }
 function confetti() {
-  var set = ['⭐', '🎉', '🌟', '✨', '🎈', '💛'];
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var set = ['⭐', '🎉', '✨', '🎈', '💛', '🌟'];
   for (var i = 0; i < 12; i++) {
     (function () {
-      var el = document.createElement('div');
-      el.className = 'cfz';
+      var el = document.createElement('div'); el.className = 'cfz';
       el.textContent = set[Math.floor(Math.random() * set.length)];
       el.style.left = (8 + Math.random() * 84) + '%';
-      el.style.fontSize = (16 + Math.random() * 14) + 'px';
-      el.style.animationDelay = (Math.random() * 0.3) + 's';
-      document.body.appendChild(el);
-      setTimeout(function () { el.remove(); }, 1650);
+      el.style.fontSize = (15 + Math.random() * 13) + 'px';
+      el.style.animationDelay = (Math.random() * .3) + 's';
+      document.body.appendChild(el); setTimeout(function () { el.remove(); }, 1750);
     })();
   }
 }
-function empty(emoji, title, sub) {
-  return '<div class="empty"><div class="empty-emoji">' + emoji + '</div><p>' + title + '</p>' +
-    (sub ? '<p class="empty-sub">' + sub + '</p>' : '') + '</div>';
+/* P1-2：内联字段报错 */
+function fieldError(inputId, msg) {
+  var input = document.getElementById(inputId);
+  if (!input) return false;
+  var box = input.parentElement.querySelector('.field-error[data-for="' + inputId + '"]');
+  if (!box) { box = document.createElement('div'); box.className = 'field-error'; box.setAttribute('data-for', inputId); input.insertAdjacentElement('afterend', box); }
+  if (msg) {
+    box.innerHTML = ICONS.warn + '<span>' + esc(msg) + '</span>';
+    box.classList.add('show'); input.classList.add('invalid'); input.setAttribute('aria-invalid', 'true');
+    return false;
+  }
+  box.classList.remove('show'); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
+  return true;
+}
+function errBox(msg) { return '<div class="field-error show" style="margin-top:10px">' + ICONS.warn + '<span>' + esc(msg) + '</span></div>'; }
+
+/* ---- 表情 / 分类选择 ---- */
+function emojiGrid(list, cur) {
+  return '<div class="emgrid" role="group" aria-label="选择图标">' + list.map(function (e) {
+    return '<button type="button" class="em ' + (e === cur ? 'on' : '') + '" data-e="' + e + '" aria-label="选择图标 ' + e + '" aria-pressed="' + (e === cur) + '" onclick="pickEm(this)">' + e + '</button>';
+  }).join('') + '</div>';
+}
+function pickEm(btn) {
+  pickEmoji = btn.getAttribute('data-e');
+  var g = btn.parentElement;
+  g.querySelectorAll('.em').forEach(function (b) { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); });
+  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+}
+function setCat(c) {
+  catSel = c;
+  document.querySelectorAll('.cat').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-cat') === c); b.setAttribute('aria-pressed', String(b.getAttribute('data-cat') === c)); });
 }
 
-// ---------- 加载 ----------
+/* ============================================================ 数据加载 ============================================================ */
 async function loadKids() {
-  try {
-    var r = await api('/api/kids');
-    S.kids = r.kids || [];
-  } catch (e) {
-    toast('加载失败：' + e.message);
-    S.kids = [];
-  }
+  try { var r = await api('/api/kids'); S.kids = r.kids || []; }
+  catch (e) { toast('加载失败：' + e.message); S.kids = []; }
   var saved = Number(store('kp_kid'));
   if (S.kids.length) {
     S.kidId = S.kids.some(function (k) { return k.id === saved; }) ? saved : S.kids[0].id;
     await loadState();
-  } else {
-    S.kidId = null; S.st = null;
-    renderAll();
-  }
+  } else { S.kidId = null; S.st = null; renderAll(); }
 }
 async function loadState() {
   if (!S.kidId) { renderAll(); return; }
@@ -371,230 +641,262 @@ async function loadState() {
     var k = S.kids.find(function (x) { return x.id === S.kidId; });
     if (k && r.kid) { k.name = r.kid.name; k.emoji = r.kid.emoji; }
     renderAll();
-  } catch (e) {
-    toast('加载失败：' + e.message);
-  }
+  } catch (e) { toast('加载失败：' + e.message); }
 }
 
-// ---------- 渲染 ----------
-function renderAll() { renderKidBar(); renderBalance(); renderTabs(); renderMain(); }
-
+/* ============================================================ 渲染：孩子条 / 钱包 / 导航 ============================================================ */
+function renderAll() { renderKidBar(); renderWallet(); renderTabs(); renderMain(); renderDateLine(); }
+function renderDateLine() {
+  document.getElementById('dateLine').textContent = fmtMD(S.date) + ' 星期' + weekdayOf(S.date);
+}
 function renderKidBar() {
-  document.getElementById('kidBar').innerHTML = S.kids.map(function (k) {
-    return '<button class="kid ' + (S.kidId === k.id ? 'on' : '') + '" onclick="switchKid(' + k.id + ')">' +
-      '<span class="ava">' + k.emoji + '</span><span class="nm">' + esc(k.name) + '</span></button>';
+  var bar = document.getElementById('kidBar');
+  if (!S.kids.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = S.kids.map(function (k) {
+    var pts = S.st && S.st.kid && k.id === S.st.kid.id ? S.st.balance : null;
+    return '<button class="kid ' + (S.kidId === k.id ? 'on' : '') + '" onclick="switchKid(' + k.id + ')" aria-pressed="' + (S.kidId === k.id) + '" aria-label="切换到孩子 ' + esc(k.name) + '">' +
+      '<span class="ava" aria-hidden="true">' + k.emoji + '</span><span class="nm">' + esc(k.name) + '</span>' +
+      (pts !== null ? '<span class="nm num" style="font-weight:800;color:var(--gold-deep)">' + ICONS.coinSm + ' ' + num(pts) + '</span>' : '') +
+      '</button>';
   }).join('');
 }
-function renderBalance() {
+function renderWallet() {
   var el = document.getElementById('balanceCard');
-  if (!S.st) {
-    el.innerHTML = '<div class="bal bal-empty">⭐ 添加孩子后开始攒积分</div>';
-    return;
-  }
+  if (!S.kidId) { el.innerHTML = ''; return; }
+  if (!S.st) { el.innerHTML = '<div class="skeleton" style="height:148px;border-radius:26px"></div>'; return; }
   var st = S.st;
-  var dots = st.week.map(function (w) {
-    return '<span class="wd ' + (w.points > 0 ? 'f' : '') + '"><i></i>' + weekdayOf(w.date) + '</span>';
+  var week = (st.week || []).map(function (w) {
+    return '<div class="wd ' + (w.points > 0 ? 'on' : '') + ' ' + (w.date === S.date ? 'today' : '') + '" title="' + fmtMD(w.date) + ' 获得 ' + w.points + ' 分">' +
+      '<i></i><span>' + weekdayOf(w.date) + '</span></div>';
   }).join('');
   el.innerHTML =
-    '<div class="bal-top"><span>我的积分</span>' +
-    (st.streak > 0 ? '<span class="bal-streak">🔥 连续 ' + st.streak + ' 天</span>' : '') + '</div>' +
-    '<div class="bal-num"><span class="bal-star">⭐</span>' + st.balance + '<span class="bal-unit">分</span></div>' +
-    '<div class="bal-sub">累计获得 ' + st.earned + ' 分 · 已兑换 ' + st.spent + ' 分 · 累计打卡 ' + st.totalDays + ' 天</div>' +
-    '<div class="bal-week">' + dots + '</div>';
+    '<div class="wallet"><span class="tape" aria-hidden="true"></span>' +
+      '<div class="wallet-head"><span class="wallet-label">我的积分</span>' +
+        (st.streak > 0 ? '<span class="streak">' + ICONS.flame + ' 连续 ' + st.streak + ' 天</span>' : '') + '</div>' +
+      '<div class="balance-row"><span class="coin">' + ICONS.star + '</span>' +
+        '<span class="balance-num num">' + num(st.balance) + '</span><span class="balance-unit">分</span></div>' +
+      '<div class="wallet-stats">' +
+        '<span>累计获得 <b class="num">' + num(st.earned) + '</b></span><span>·</span>' +
+        '<span>已兑换 <b class="num">' + num(st.spent) + '</b></span><span>·</span>' +
+        '<span>打卡 <b class="num">' + st.totalDays + '</b> 天</span></div>' +
+      '<div class="week" aria-label="最近一周打卡情况">' + week + '</div>' +
+    '</div>';
 }
 function renderTabs() {
-  var tabs = [['checkin', '✅ 打卡'], ['rewards', '🎁 礼物'], ['history', '📒 记录']];
+  var tabs = [['checkin', ICONS.tabs, '打卡'], ['rewards', ICONS.gift, '礼物'], ['history', ICONS.book, '记录']];
   document.getElementById('tabbar').innerHTML = tabs.map(function (t) {
-    return '<button class="tab ' + (S.tab === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')">' + t[1] + '</button>';
+    return '<button class="tab ' + (S.tab === t[0] ? 'on' : '') + '" onclick="setTab(\'' + t[0] + '\')" aria-current="' + (S.tab === t[0]) + '">' + t[1] + '<span>' + t[2] + '</span></button>';
   }).join('');
 }
 function setTab(t) { S.tab = t; renderTabs(); renderMain(); }
+
+/* ============================================================ 渲染：主体 ============================================================ */
 function renderMain() {
   var m = document.getElementById('main');
-  if (!S.kidId) { m.innerHTML = empty('👶', '还没有孩子', '请爸爸妈妈点击右上角 🔒 添加孩子'); return; }
-  if (!S.st) { m.innerHTML = '<div class="loading">加载中…</div>'; return; }
-  m.innerHTML =
-    '<section id="view-checkin" class="view ' + (S.tab === 'checkin' ? '' : 'hide') + '"></section>' +
-    '<section id="view-rewards" class="view ' + (S.tab === 'rewards' ? '' : 'hide') + '"></section>' +
-    '<section id="view-history" class="view ' + (S.tab === 'history' ? '' : 'hide') + '"></section>';
-  renderCheckin(); renderRewards(); renderHistory();
+  if (!S.kids.length) { m.innerHTML = empty('🧺', '小书包还是空的', '请爸爸妈妈点击右上角锁形按钮，添加孩子和打卡项目', '<button class="btn btn-primary" style="margin-top:20px" onclick="parentEntry()">家长设置</button>'); return; }
+  if (!S.kidId) { m.innerHTML = skeleton(3); return; }
+  if (!S.st) { m.innerHTML = skeleton(3); return; }
+  if (S.tab === 'checkin') renderCheckin();
+  else if (S.tab === 'rewards') renderRewards();
+  else renderHistory();
 }
-function renderCheckin() {
-  var st = S.st;
-  var el = document.getElementById('view-checkin');
-  if (!st.habits.length) {
-    el.innerHTML = '<div class="date-pill">📅 今天是 ' + fmtMD(S.date) + ' 星期' + weekdayOf(S.date) + '</div>' +
-      empty('🌱', '还没有打卡项目', '请爸爸妈妈点击右上角 🔒 添加');
-    return;
-  }
-  var groups = [['learning', '📚 学习打卡', 'blue'], ['behavior', '🌱 行为习惯', 'green']];
-  var html = '<div class="date-pill">📅 今天是 ' + fmtMD(S.date) + ' 星期' + weekdayOf(S.date) + '</div>';
-  groups.forEach(function (g) {
-    var hs = st.habits.filter(function (h) { return h.category === g[0]; });
-    if (!hs.length) return;
-    var done = hs.filter(function (h) {
-      return st.todayCheckins.some(function (c) { return c.habit_id === h.id; });
-    }).length;
-    html += '<div class="g-head"><span class="g-dot ' + g[2] + '"></span>' + g[1] +
-      '<span class="g-count">' + done + '/' + hs.length + '</span></div>';
-    html += hs.map(function (h) {
-      var c = st.todayCheckins.find(function (x) { return x.habit_id === h.id; });
-      return '<div class="habit ' + (c ? 'done ' + g[2] : '') + '" onclick="tapHabit(' + h.id + ')">' +
-        '<span class="h-emoji ' + g[2] + '">' + h.emoji + '</span>' +
-        '<div class="h-main"><div class="h-name">' + esc(h.name) + '</div><span class="h-pts">+' + h.points + ' 分</span></div>' +
-        '<span class="h-check">' + (c ? '✓' : '') + '</span></div>';
-    }).join('');
-  });
-  html += '<p class="tip">点一下打卡 ⭐ 再点一下可以取消（积分会扣回）</p>';
-  el.innerHTML = html;
+function skeleton(n) {
+  var h = '';
+  for (var i = 0; i < n; i++) h += '<div class="skeleton"><div class="sk-line"></div><div class="sk-line w25"></div></div>';
+  return h;
 }
-function renderRewards() {
-  var st = S.st;
-  var el = document.getElementById('view-rewards');
-  if (!st.rewards.length) {
-    el.innerHTML = empty('🎁', '礼物架空空的', '请爸爸妈妈在家长管理里上架礼物');
-    return;
-  }
-  var html = '<div class="r-grid">' + st.rewards.map(function (r) {
-    var pct = Math.max(6, Math.min(100, Math.round(st.balance / r.cost * 100)));
-    var ok = st.balance >= r.cost;
-    return '<div class="r-card ' + (ok ? '' : 'locked') + '" onclick="tapReward(' + r.id + ')">' +
-      '<div class="r-emoji">' + r.emoji + '</div>' +
-      '<div class="r-name">' + esc(r.name) + '</div>' +
-      '<div class="r-cost">⭐ ' + r.cost + ' 分</div>' +
-      '<div class="r-bar"><span style="width:' + pct + '%"></span></div>' +
-      '<div class="r-btn ' + (ok ? '' : 'no') + '">' + (ok ? '可兑换' : '还差 ' + (r.cost - st.balance) + ' 分') + '</div></div>';
-  }).join('') + '</div><p class="tip">攒够积分就能兑换，兑换后找爸爸妈妈兑现哦</p>';
-  el.innerHTML = html;
-}
-function renderHistory() {
-  var st = S.st;
-  var el = document.getElementById('view-history');
-  var items = [];
-  (st.redemptions || []).forEach(function (r) {
-    items.push({ ts: Date.parse(r.created_at) || 0, html:
-      '<div class="hist"><span class="hi-emoji">' + r.reward_emoji + '</span>' +
-      '<div class="hi-main"><div class="hi-name">兑换「' + esc(r.reward_name) + '」</div>' +
-      '<div class="hi-sub">' + fmtTs(r.created_at) +
-      ' <span class="st ' + (r.status === 'done' ? 'st-done' : 'st-pending') + '">' + (r.status === 'done' ? '已兑现' : '待兑现') + '</span></div></div>' +
-      '<div class="hi-pts down">-' + r.cost + '</div></div>' });
-  });
-  (st.adjustments || []).forEach(function (a) {
-    items.push({ ts: Date.parse(a.created_at) || 0, html:
-      '<div class="hist"><span class="hi-emoji">' + (a.points > 0 ? '🌟' : '➖') + '</span>' +
-      '<div class="hi-main"><div class="hi-name">' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长扣除')) + '</div>' +
-      '<div class="hi-sub">' + esc(a.adj_date) + '</div></div>' +
-      '<div class="hi-pts ' + (a.points > 0 ? 'up' : 'down') + '">' + (a.points > 0 ? '+' : '') + a.points + '</div></div>' });
-  });
-  items.sort(function (a, b) { return b.ts - a.ts; });
-  el.innerHTML = items.length
-    ? items.slice(0, 30).map(function (i) { return i.html; }).join('')
-    : empty('📒', '还没有记录', '打卡和兑换都会显示在这里');
+function empty(art, title, sub, cta) {
+  return '<div class="empty"><div class="empty-art" aria-hidden="true">' + art + '</div>' +
+    '<p class="empty-title">' + esc(title) + '</p>' + (sub ? '<p class="empty-sub">' + esc(sub) + '</p>' : '') + (cta || '') + '</div>';
 }
 
-// ---------- 孩子切换 ----------
+/* ---- 孩子切换 ---- */
 async function switchKid(id) {
   if (S.kidId === id) return;
   S.kidId = id;
   store('kp_kid', String(id));
   S.st = null;
-  renderKidBar(); renderBalance(); renderMain();
+  renderKidBar(); renderWallet(); renderMain();
   await loadState();
 }
 
-// ---------- 打卡 / 兑换 ----------
+/* ---- 打卡（贴纸 + 橡皮章） ---- */
+function renderCheckin() {
+  var st = S.st;
+  var groups = [['learning', '学习打卡', 'book', ''], ['behavior', '行为习惯', 'sprout', 'green']];
+  var html = '';
+  groups.forEach(function (g) {
+    var hs = st.habits.filter(function (h) { return h.category === g[0]; });
+    if (!hs.length) return;
+    var done = hs.filter(function (h) { return st.todayCheckins.some(function (c) { return c.habit_id === h.id; }); }).length;
+    html += '<section class="view">' +
+      '<div class="g-head"><span class="g-badge ' + g[3] + '">' + ICONS[g[2]] + '</span><h2 class="g-title">' + g[1] + '</h2>' +
+      '<span class="g-count">' + ringPct(hs.length ? done / hs.length : 0) + '<span class="num">' + done + '/' + hs.length + '</span></span></div>';
+    html += hs.map(function (h) {
+      var c = st.todayCheckins.find(function (x) { return x.habit_id === h.id; });
+      return '<button class="habit ' + g[3] + ' ' + (c ? 'done' : '') + '" onclick="tapHabit(' + h.id + ', this)" aria-pressed="' + !!c + '" aria-label="' + esc(h.name) + '，' + (c ? '已打卡' : '未打卡') + '，' + h.points + ' 分">' +
+        '<span class="h-emoji" aria-hidden="true">' + h.emoji + '</span>' +
+        '<span class="h-main"><span class="h-name">' + esc(h.name) + '</span><br>' +
+        '<span class="h-meta">' + ICONS.coinSm + ' ' + (c ? '已得 ' : '+') + h.points + ' 分' + (c ? ' ✓' : '') + '</span></span>' +
+        '<span class="stamp" aria-hidden="true">' + (c ? ICONS.check : ICONS.check) + '</span></button>';
+    }).join('');
+    html += '</section>';
+  });
+  if (!st.habits.length) {
+    html = empty('🌱', '还没有打卡项目', '爸爸妈妈可以在家长管理里添加学习和行为习惯', '<button class="btn btn-primary" style="margin-top:20px" onclick="parentEntry()">去添加</button>');
+  } else {
+    var allDone = st.habits.length > 0 && st.habits.every(function (h) { return st.todayCheckins.some(function (c) { return c.habit_id === h.id; }); });
+    if (allDone) html += '<div class="hint" style="margin-top:20px">' + ICONS.bulb + '<span>今天全部完成！攒到的积分可以去「礼物」换成心动好礼 🎁</span></div>';
+  }
+  document.getElementById('main').innerHTML = html;
+}
+async function tapHabit(habitId, el) {
+  if (!S.st || S.busy) return;
+  var habit = S.st.habits.find(function (h) { return h.id === habitId; });
+  if (!habit) return;
+  var done = S.st.todayCheckins.find(function (c) { return c.habit_id === habitId; });
+  if (done) {
+    var ok = await askConfirm({ title: '取消打卡', html: '要取消「' + esc(habit.name) + '」今天的打卡吗？会扣回 <b class="num">' + done.points + '</b> 分哦', okText: '取消打卡', danger: true });
+    if (!ok) return;
+    S.busy = true;
+    try {
+      var r = await api('/api/uncheck', { kidId: S.kidId, habitId: habitId, date: S.date });
+      applyPts(r);
+      toast('已取消打卡');
+      await loadState();
+    } catch (e) { toast(e.message); }
+    S.busy = false;
+    return;
+  }
+  S.busy = true;
+  var btn = btnOf(el);
+  setLoading(btn, true);
+  try {
+    var r2 = await api('/api/checkin', { kidId: S.kidId, habitId: habitId, date: S.date });
+    if (r2.already) { toast('今天已经打过卡啦'); }
+    else {
+      applyPts(r2);
+      S.st.todayCheckins.push({ habit_id: habitId, points: habit.points });
+      renderCheckin(); renderWallet();
+      floatPts('+' + habit.points);
+      confetti();
+      toast('打卡成功，太棒了！');
+    }
+    loadState();
+  } catch (e) { toast(e.message); setLoading(btn, false); }
+  S.busy = false;
+}
 function applyPts(r) {
   if (!r) return;
   if (typeof r.balance === 'number') S.st.balance = r.balance;
   if (typeof r.earned === 'number') S.st.earned = r.earned;
   if (typeof r.spent === 'number') S.st.spent = r.spent;
 }
-async function tapHabit(habitId) {
-  if (!S.st) return;
-  var habit = S.st.habits.find(function (h) { return h.id === habitId; });
-  if (!habit) return;
-  var done = S.st.todayCheckins.find(function (c) { return c.habit_id === habitId; });
-  if (done) {
-    var ok = await askConfirm({
-      title: '取消打卡',
-      html: '要取消「' + esc(habit.name) + '」今天的打卡吗？<br><small>会扣回 <b>' + done.points + '</b> 分哦</small>',
-      okText: '取消打卡', danger: true
-    });
-    if (!ok) return;
-    try {
-      var r = await api('/api/uncheck', { kidId: S.kidId, habitId: habitId, date: S.date });
-      applyPts(r);
-      S.st.todayCheckins = S.st.todayCheckins.filter(function (c) { return c.habit_id !== habitId; });
-      renderBalance(); renderCheckin();
-      toast('已取消打卡');
-      loadState();
-    } catch (e) { toast(e.message); }
-    return;
-  }
-  try {
-    var r2 = await api('/api/checkin', { kidId: S.kidId, habitId: habitId, date: S.date });
-    if (r2.already) { toast('今天已经打过卡啦'); loadState(); return; }
-    applyPts(r2);
-    S.st.todayCheckins.push({ habit_id: habitId, points: habit.points });
-    renderBalance(); renderCheckin();
-    floatPts('+' + habit.points + ' ⭐');
-    confetti();
-    loadState();
-  } catch (e) { toast(e.message); }
+
+/* ---- 礼物橱窗 ---- */
+function renderRewards() {
+  var st = S.st, m = document.getElementById('main');
+  if (!st.rewards.length) { m.innerHTML = empty('🎁', '礼物架空空的', '爸爸妈妈可以添加孩子想要的奖励', '<button class="btn btn-primary" style="margin-top:20px" onclick="parentEntry()">去添加</button>'); return; }
+  m.innerHTML = '<section class="view"><div class="g-head"><span class="g-badge" style="background:var(--gold-soft);color:var(--gold-deep)">' + ICONS.gift + '</span>' +
+    '<h2 class="g-title">心愿礼物架</h2><span class="g-count"><span class="num">' + st.rewards.length + '</span> 件</span></div>' +
+    '<div class="r-grid">' + st.rewards.map(function (r) {
+      var pct = Math.max(5, Math.min(100, Math.round(st.balance / r.cost * 100)));
+      var ok = st.balance >= r.cost;
+      return '<div class="r-card ' + (ok ? 'available' : 'locked') + '" onclick="tapReward(' + r.id + ')" role="button" tabindex="0" aria-label="' + esc(r.name) + '，需要 ' + r.cost + ' 分，' + (ok ? '可以兑换' : '还差 ' + (r.cost - st.balance) + ' 分') + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tapReward(' + r.id + ')}">' +
+        '<div class="r-emoji" aria-hidden="true">' + r.emoji + '</div><h3 class="r-name">' + esc(r.name) + '</h3>' +
+        '<div class="r-cost num">' + ICONS.coinSm + ' ' + r.cost + ' 分</div>' +
+        '<div class="r-bar"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="r-state ' + (ok ? '' : 'lock') + '">' + (ok ? '✨ 可以兑换' : ICONS.lock + ' 还差 ' + (r.cost - st.balance) + ' 分') + '</div></div>';
+    }).join('') + '</div>' +
+    '<div class="hint">' + ICONS.bulb + '<span>攒够积分就能兑换，兑换后要请爸爸妈妈兑现哦</span></div></section>';
 }
 function tapReward(rid) {
   var r = S.st.rewards.find(function (x) { return x.id === rid; });
   if (!r) return;
-  if (S.st.balance < r.cost) { toast('积分还不够哦，还差 ' + (r.cost - S.st.balance) + ' 分，加油！'); return; }
-  openModal('<div class="r-emoji">' + r.emoji + '</div><h3>' + esc(r.name) + '</h3>' +
-    '<div class="mtxt">花费 <b>' + r.cost + '</b> 分 · 当前 <b>' + S.st.balance + '</b> 分<br>兑换后还剩 <b>' + (S.st.balance - r.cost) + '</b> 分</div>' +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">再想想</button>' +
-    '<button class="btn primary" onclick="redeemDo(' + r.id + ')">确认兑换</button></div>');
+  if (S.st.balance < r.cost) { toast('还差 ' + (r.cost - S.st.balance) + ' 分，继续加油！'); return; }
+  openModal('<div class="sheet-head"><h3>兑换确认</h3></div>' +
+    '<div class="r-emoji" style="margin:6px auto 12px">' + r.emoji + '</div>' +
+    '<p class="mtxt" style="text-align:center"><b>' + esc(r.name) + '</b><br>花费 <b class="num">' + r.cost + '</b> 分 · 现有 <b class="num">' + num(S.st.balance) + '</b> 分<br>兑换后剩 <b class="num">' + num(S.st.balance - r.cost) + '</b> 分</p>' +
+    '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">再想想</button>' +
+    '<button class="btn btn-primary" id="redeemBtn" onclick="redeemDo(' + r.id + ')">确认兑换</button></div>', { noClose: true, dismissable: false, label: '兑换确认' });
 }
 async function redeemDo(rid) {
+  var btn = document.getElementById('redeemBtn');
+  if (btn && btn.classList.contains('is-loading')) return;
+  setLoading(btn, true);
   try {
     var r = await api('/api/redeem', { kidId: S.kidId, rewardId: rid });
     applyPts(r);
-    openModal('<div class="r-emoji">🎉</div><h3>兑换成功！</h3>' +
-      '<div class="mtxt">记得找爸爸妈妈兑现哦～<br>剩余积分：<b>' + S.st.balance + '</b> 分</div>' +
-      '<div class="mrow"><button class="btn primary" onclick="closeModal()">好的</button></div>');
-    renderBalance(); renderRewards();
+    closeModal();
+    setTimeout(function () {
+      openModal('<div class="sheet-head"><h3>🎉 兑换成功</h3></div>' +
+        '<p class="mtxt" style="text-align:center">记得找爸爸妈妈兑现哦～<br>剩余积分 <b class="num">' + num(S.st.balance) + '</b> 分</p>' +
+        '<div class="mrow" style="justify-content:center"><button class="btn btn-primary" onclick="closeModal()">好的</button></div>', { noClose: true, label: '兑换成功' });
+    }, 200);
     confetti();
+    renderWallet(); renderRewards();
     loadState();
-  } catch (e) { toast(e.message); closeModal(); }
+  } catch (e) { toast(e.message); setLoading(btn, false); }
 }
 
-// ---------- 家长：密码门 ----------
-function parentEntry() {
+/* ---- 记录时间轴 ---- */
+function renderHistory() {
+  var st = S.st, m = document.getElementById('main');
+  var items = [];
+  (st.redemptions || []).forEach(function (r) {
+    items.push({ ts: Date.parse(r.created_at) || 0, html: '<div class="tl-item"><span class="tl-icon" aria-hidden="true">' + r.reward_emoji + '</span>' +
+      '<div class="tl-body"><div class="tl-title">兑换「' + esc(r.reward_name) + '」</div>' +
+      '<div class="tl-sub"><span class="num">' + fmtTs(r.created_at) + '</span><span class="chip ' + (r.status === 'done' ? 'done' : 'pending') + '">' + (r.status === 'done' ? '已兑现' : '待兑现') + '</span></div></div>' +
+      '<span class="tl-pts down num">-' + r.cost + '</span></div>' });
+  });
+  (st.adjustments || []).forEach(function (a) {
+    items.push({ ts: Date.parse(a.created_at) || 0, html: '<div class="tl-item"><span class="tl-icon" aria-hidden="true">' + (a.points > 0 ? '🌟' : '💡') + '</span>' +
+      '<div class="tl-body"><div class="tl-title">' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长提醒')) + '</div>' +
+      '<div class="tl-sub"><span class="num">' + esc(a.adj_date) + '</span></div></div>' +
+      '<span class="tl-pts ' + (a.points > 0 ? 'up' : 'down') + ' num">' + (a.points > 0 ? '+' : '') + a.points + '</span></div>' });
+  });
+  (st.checkins || []).forEach(function (c) {
+    items.push({ ts: Date.parse(c.created_at) || Date.parse(c.check_date) || 0, html: '<div class="tl-item"><span class="tl-icon" aria-hidden="true">' + (c.habit_emoji || '✅') + '</span>' +
+      '<div class="tl-body"><div class="tl-title">' + esc(c.habit_name || '') + '</div>' +
+      '<div class="tl-sub"><span class="num">' + fmtMD(String(c.check_date).slice(0, 10)) + ' 星期' + weekdayOf(String(c.check_date).slice(0, 10)) + '</span></div></div>' +
+      '<span class="tl-pts up num">+' + c.points + '</span></div>' });
+  });
+  items.sort(function (a, b) { return b.ts - a.ts; });
+  m.innerHTML = items.length
+    ? '<section class="view"><div class="g-head"><span class="g-badge" style="background:var(--berry-soft);color:var(--berry-deep)">' + ICONS.book + '</span><h2 class="g-title">成长足迹</h2></div><div class="timeline">' + items.slice(0, 30).map(function (i) { return i.html; }).join('') + '</div></section>'
+    : '<section class="view">' + empty('📒', '还没有记录', '完成打卡、兑换礼物后都会出现在这里') + '</section>';
+}
+
+/* ============================================================ 家长：密码门 ============================================================ */
+async function parentEntry() {
   if (S.ptoken) {
-    api('/api/parent/verify', { token: S.ptoken }).then(function () { openParent(); })
-      .catch(function () { S.ptoken = ''; store('kp_ptoken', null); openPin(); });
-  } else {
-    openPin();
-  }
+    try { await api('/api/parent/verify', { token: S.ptoken }); openParent(); }
+    catch (e) { S.ptoken = ''; store('kp_ptoken', null); openPin(); }
+  } else openPin();
 }
 function openPin() {
   pinBuf = '';
   var keys = '';
-  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (n) { keys += '<button class="key" onclick="pinKey(\'' + n + '\')">' + n + '</button>'; });
-  openModal('<h3>🔒 家长验证</h3><p class="mtxt">请输入家长密码</p>' +
-    '<div class="pin-dots" id="pinDots"></div><div class="pin-err" id="pinErr"></div>' +
+  [1,2,3,4,5,6,7,8,9].forEach(function (n) { keys += '<button class="key" aria-label="数字 ' + n + '" onclick="pinKey(\'' + n + '\')">' + n + '</button>'; });
+  openModal('<div class="sheet-head"><h3>家长验证</h3></div>' +
+    '<p class="mtxt" style="text-align:center">输入家长密码，管理打卡项目和礼物</p>' +
+    '<div class="pin-dots" id="pinDots" role="status" aria-label="已输入位数"></div><div class="pin-err" id="pinErr" role="alert"></div>' +
     '<div class="keypad">' + keys +
-    '<button class="key" onclick="pinKey(\'clear\')">清空</button>' +
-    '<button class="key" onclick="pinKey(\'0\')">0</button>' +
-    '<button class="key" onclick="pinKey(\'del\')">⌫</button></div>' +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
-    '<button class="btn primary" onclick="pinSubmit()">确定</button></div>' +
-    '<p class="hint">首次使用默认密码 1234，可在家长面板里修改</p>');
+    '<button class="key" aria-label="清空" onclick="pinKey(\'clear\')">清空</button>' +
+    '<button class="key" aria-label="数字 0" onclick="pinKey(\'0\')">0</button>' +
+    '<button class="key" aria-label="删除一位" onclick="pinKey(\'del\')">⌫</button></div>' +
+    '<div class="mrow" style="justify-content:center"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-primary" id="pinOk" onclick="pinSubmit()">进入管理</button></div>' +
+    '<div class="hint">' + ICONS.bulb + '<span>首次使用的默认密码是 <b>1234</b>，登录后可以在「设置」里修改</span></div>',
+    { noClose: true, label: '家长密码' });
   renderPinDots();
 }
 function renderPinDots() {
-  var el = document.getElementById('pinDots');
-  if (!el) return;
-  var n = Math.max(4, pinBuf.length);
-  var h = '';
+  var el = document.getElementById('pinDots'); if (!el) return;
+  var n = Math.max(4, pinBuf.length), h = '';
   for (var i = 0; i < n; i++) h += '<span class="pin-dot ' + (i < pinBuf.length ? 'f' : '') + '"></span>';
   el.innerHTML = h;
+  el.setAttribute('aria-label', '已输入 ' + pinBuf.length + ' 位');
 }
 function pinKey(k) {
   if (k === 'del') pinBuf = pinBuf.slice(0, -1);
@@ -603,372 +905,341 @@ function pinKey(k) {
   renderPinDots();
 }
 function pinShake(msg) {
-  var el = document.getElementById('pinErr');
-  if (el) el.textContent = msg;
-  pinBuf = '';
-  renderPinDots();
+  var el = document.getElementById('pinErr'); if (el) el.textContent = msg;
+  pinBuf = ''; renderPinDots();
   var dots = document.querySelector('.pin-dots');
   if (dots) { dots.classList.remove('shake'); void dots.offsetWidth; dots.classList.add('shake'); }
 }
 async function pinSubmit() {
+  var btn = document.getElementById('pinOk');
   if (pinBuf.length < 4) { pinShake('密码至少 4 位'); return; }
+  setLoading(btn, true);
   try {
     var r = await api('/api/parent/login', { pin: pinBuf });
-    S.ptoken = r.token;
-    store('kp_ptoken', r.token);
-    closeModal();
-    openParent();
-  } catch (e) { pinShake(e.message); }
+    S.ptoken = r.token; store('kp_ptoken', r.token);
+    closeModal(); setTimeout(openParent, 200);
+  } catch (e) { pinShake(e.message); setLoading(btn, false); }
 }
 
-// ---------- 家长：面板 ----------
+/* ============================================================ 家长：面板 ============================================================ */
 async function openParent() {
   closeModal();
   if (document.getElementById('panelRoot')) return;
+  P_TAB = 'overview';
   var root = document.createElement('div');
   root.id = 'panelRoot';
-  root.innerHTML = '<div class="panel"><div class="p-head"><div class="p-title">👨‍👩‍👧 家长管理</div>' +
-    '<button class="mini" onclick="closeParent()">关闭</button></div>' +
-    '<div class="p-body" id="pBody"><div class="loading">加载中…</div></div></div>';
+  root.innerHTML = '<div class="panel">' +
+    '<div class="p-head"><div class="p-title"><span class="brand-badge" style="width:32px;height:32px;border-radius:11px" aria-hidden="true">' + ICONS.book + '</span>家长管理</div>' +
+    '<button class="mini" aria-label="退出家长模式" onclick="parentLogout()">退出</button>' +
+    '<button class="icon-btn" style="width:36px;height:36px" aria-label="关闭家长面板" onclick="closeParent()">' + ICONS.x + '</button></div>' +
+    '<div class="p-seg" id="pSeg" role="tablist"></div>' +
+    '<div class="p-body"><div class="p-inner" id="pBody">' + skeleton(4) + '</div></div></div>';
   document.body.appendChild(root);
   document.body.style.overflow = 'hidden';
+  renderPSeg();
   await loadParent();
 }
-function closeParent() {
-  var r = document.getElementById('panelRoot');
-  if (r) r.remove();
-  document.body.style.overflow = '';
+function renderPSeg() {
+  var segs = [['overview', '概览'], ['habits', '打卡项目'], ['rewards', '礼物'], ['redemptions', '兑换'], ['settings', '设置']];
+  var el = document.getElementById('pSeg'); if (!el) return;
+  el.innerHTML = segs.map(function (s) {
+    return '<button class="seg ' + (P_TAB === s[0] ? 'on' : '') + '" role="tab" aria-selected="' + (P_TAB === s[0]) + '" onclick="switchPTab(\'' + s[0] + '\')">' + s[1] + '</button>';
+  }).join('');
 }
+function switchPTab(t) { P_TAB = t; renderPSeg(); renderParent(); }
+function closeParent() {
+  var r = document.getElementById('panelRoot'); if (r) r.remove();
+  document.body.style.overflow = '';
+  if (S.kidId) loadState(); else loadKids();
+}
+async function parentLogout() { S.ptoken = ''; store('kp_ptoken', null); closeParent(); toast('已退出家长模式'); }
 async function loadParent() {
   var b = document.getElementById('pBody');
   try {
     S.pdata = await api('/api/parent/summary?date=' + S.date, undefined, S.ptoken);
     renderParent();
   } catch (e) {
-    if (e.message.indexOf('密码') >= 0 || e.message.indexOf('过期') >= 0) {
-      S.ptoken = ''; store('kp_ptoken', null);
-      closeParent(); openPin();
-      return;
-    }
-    if (b) b.innerHTML = empty('😵', e.message) +
-      '<button class="btn primary full" onclick="loadParent()">重试</button>';
+    if (e.message.indexOf('密码') >= 0 || e.message.indexOf('过期') >= 0) { S.ptoken = ''; store('kp_ptoken', null); closeParent(); openPin(); return; }
+    if (b) b.innerHTML = empty('😵', '加载失败', e.message, '<button class="btn btn-primary" style="margin-top:18px" onclick="loadParent()">重试</button>');
   }
 }
 function renderParent() {
-  var d = S.pdata;
-  var b = document.getElementById('pBody');
+  var d = S.pdata, b = document.getElementById('pBody');
   if (!d || !b) return;
-  var kmap = {};
-  d.kids.forEach(function (k) { kmap[k.id] = k; });
-  function kname(id) { return kmap[id] ? kmap[id].name : '孩子'; }
+  var kmap = {}; d.kids.forEach(function (k) { kmap[k.id] = k; });
+  function kname(id) { return kmap[id] ? kmap[id].name : '已删除的孩子'; }
   var activeHabits = d.habits.filter(function (h) { return h.active; }).length;
   var html = '';
 
-  // 孩子与积分
-  html += '<div class="p-sec"><h3>⭐ 孩子与积分</h3>';
-  html += d.kids.length ? d.kids.map(function (k) {
-    var tc = d.todayCheckins.filter(function (c) { return c.kid_id === k.id; }).length;
-    return '<div class="p-row"><span class="p-emoji">' + k.emoji + '</span>' +
-      '<div class="p-main"><div class="p-name">' + esc(k.name) + '</div>' +
-      '<div class="p-sub">⭐ ' + k.balance + ' 分 · 今日 ' + tc + '/' + activeHabits + ' 项</div></div>' +
-      '<div class="p-ops"><button class="mini brand" onclick="openAdjust(' + k.id + ',1)">加分</button>' +
-      '<button class="mini" onclick="openAdjust(' + k.id + ',-1)">扣分</button>' +
-      '<button class="mini" onclick="openKidForm(' + k.id + ')">编辑</button>' +
-      '<button class="mini danger" onclick="delKid(' + k.id + ')">删除</button></div></div>';
-  }).join('') : '<div class="p-empty">还没有添加孩子</div>';
-  html += '<button class="btn plain full" onclick="openKidForm(0)">＋ 添加孩子</button></div>';
+  if (P_TAB === 'overview') {
+    var totalBal = sum(d.kids, 'balance'), totalEarned = sum(d.kids, 'earned'), todayTotal = d.todayCheckins.length;
+    html += '<div class="stat-grid">' +
+      '<div class="stat"><b class="num" style="color:var(--gold-deep)">' + num(totalBal) + '</b><span>全家积分余额</span></div>' +
+      '<div class="stat"><b class="num" style="color:var(--green-deep)">' + num(totalEarned) + '</b><span>累计获得</span></div>' +
+      '<div class="stat"><b class="num" style="color:var(--orange-deep)">' + todayTotal + '</b><span>今日打卡次数</span></div></div>';
+    html += '<div class="p-card"><h2>孩子与积分</h2>';
+    html += d.kids.length ? d.kids.map(function (k) {
+      var tc = d.todayCheckins.filter(function (c) { return c.kid_id === k.id; }).length;
+      return '<div class="p-row"><span class="p-ava" aria-hidden="true">' + k.emoji + '</span>' +
+        '<div class="p-main"><div class="p-name">' + esc(k.name) + '</div>' +
+        '<div class="p-sub"><span class="num" style="color:var(--gold-deep);font-weight:800">' + num(k.balance) + ' 分</span> · 今日 <b class="num">' + tc + '/' + activeHabits + '</b> 项</div></div>' +
+        '<div class="p-ops">' +
+        '<button class="mini brand" aria-label="给 ' + esc(k.name) + ' 加分" onclick="openAdjust(' + k.id + ',1)">＋ 加分</button>' +
+        '<button class="mini" aria-label="给 ' + esc(k.name) + ' 扣分" onclick="openAdjust(' + k.id + ',-1)">－ 扣分</button>' +
+        '<button class="mini" aria-label="编辑 ' + esc(k.name) + '" onclick="openKidForm(' + k.id + ')">编辑</button>' +
+        '<button class="mini danger" aria-label="删除 ' + esc(k.name) + '" onclick="delKid(' + k.id + ')">删除</button></div></div>';
+    }).join('') : '<div class="p-empty">还没有添加孩子，先添加一个孩子开始吧</div>';
+    html += '<button class="btn btn-soft full" onclick="openKidForm(0)">＋ 添加孩子</button></div>';
+  }
 
-  // 待兑现
-  html += '<div class="p-sec"><h3>🎁 待兑现' + (d.pending.length ? '<span class="badge">' + d.pending.length + '</span>' : '') + '</h3>';
-  html += d.pending.length ? d.pending.map(function (p) {
-    return '<div class="p-row"><span class="p-emoji">' + p.reward_emoji + '</span>' +
-      '<div class="p-main"><div class="p-name">' + esc(p.reward_name) + '</div>' +
-      '<div class="p-sub">' + esc(kname(p.kid_id)) + ' · ' + fmtTs(p.created_at) + ' · -' + p.cost + ' 分</div></div>' +
-      '<div class="p-ops"><button class="mini brand" onclick="markDone(' + p.id + ')">已兑现</button>' +
-      '<button class="mini danger" onclick="cancelRedeem(' + p.id + ')">取消</button></div></div>';
-  }).join('') : '<div class="p-empty">暂无待兑现的兑换</div>';
-  html += '</div>';
+  if (P_TAB === 'habits') {
+    html += '<div class="p-card"><h2>打卡项目 <span class="badge">' + d.habits.length + '</span></h2>';
+    html += d.habits.length ? d.habits.map(function (h) {
+      return '<div class="p-row"><span class="p-ava" aria-hidden="true">' + h.emoji + '</span>' +
+        '<div class="p-main"><div class="p-name">' + esc(h.name) + (h.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
+        '<div class="p-sub"><span class="tag ' + (h.category === 'learning' ? 't-blue' : 't-green') + '">' + (h.category === 'learning' ? '学习' : '行为') + '</span> <span class="num">+' + h.points + ' 分</span></div></div>' +
+        '<div class="p-ops">' +
+        '<button class="mini" aria-label="编辑 ' + esc(h.name) + '" onclick="openHabitForm(' + h.id + ')">编辑</button>' +
+        '<button class="mini" aria-label="' + (h.active ? '下架' : '上架') + ' ' + esc(h.name) + '" onclick="toggleHabit(' + h.id + ',' + h.active + ')">' + (h.active ? '下架' : '上架') + '</button>' +
+        '<button class="mini danger" aria-label="删除 ' + esc(h.name) + '" onclick="delHabit(' + h.id + ')">删除</button></div></div>';
+    }).join('') : '<div class="p-empty">还没有打卡项目，添加一个「阅读绘本」开始吧</div>';
+    html += '<button class="btn btn-soft full" onclick="openHabitForm(0)">＋ 添加打卡项目</button></div>';
+  }
 
-  // 打卡项目
-  html += '<div class="p-sec"><h3>📋 打卡项目</h3>';
-  html += d.habits.length ? d.habits.map(function (h) {
-    return '<div class="p-row"><span class="p-emoji">' + h.emoji + '</span>' +
-      '<div class="p-main"><div class="p-name">' + esc(h.name) + (h.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
-      '<div class="p-sub"><span class="tag ' + (h.category === 'learning' ? 't-blue' : 't-green') + '">' +
-      (h.category === 'learning' ? '学习' : '行为') + '</span> +' + h.points + ' 分</div></div>' +
-      '<div class="p-ops"><button class="mini" onclick="openHabitForm(' + h.id + ')">编辑</button>' +
-      '<button class="mini" onclick="toggleHabit(' + h.id + ',' + h.active + ')">' + (h.active ? '下架' : '上架') + '</button>' +
-      '<button class="mini danger" onclick="delHabit(' + h.id + ')">删除</button></div></div>';
-  }).join('') : '<div class="p-empty">还没有打卡项目</div>';
-  html += '<button class="btn plain full" onclick="openHabitForm(0)">＋ 添加打卡项目</button></div>';
+  if (P_TAB === 'rewards') {
+    html += '<div class="p-card"><h2>礼物奖励 <span class="badge">' + d.rewards.length + '</span></h2>';
+    html += d.rewards.length ? d.rewards.map(function (r) {
+      return '<div class="p-row"><span class="p-ava reward" aria-hidden="true">' + r.emoji + '</span>' +
+        '<div class="p-main"><div class="p-name">' + esc(r.name) + (r.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
+        '<div class="p-sub"><span class="num" style="color:var(--gold-deep);font-weight:800">' + r.cost + ' 分</span></div></div>' +
+        '<div class="p-ops">' +
+        '<button class="mini" aria-label="编辑 ' + esc(r.name) + '" onclick="openRewardForm(' + r.id + ')">编辑</button>' +
+        '<button class="mini" aria-label="' + (r.active ? '下架' : '上架') + ' ' + esc(r.name) + '" onclick="toggleReward(' + r.id + ',' + r.active + ')">' + (r.active ? '下架' : '上架') + '</button>' +
+        '<button class="mini danger" aria-label="删除 ' + esc(r.name) + '" onclick="delReward(' + r.id + ')">删除</button></div></div>';
+    }).join('') : '<div class="p-empty">还没有礼物，孩子攒了积分没地方花哦</div>';
+    html += '<button class="btn btn-soft full" onclick="openRewardForm(0)">＋ 添加礼物</button></div>';
+  }
 
-  // 礼物
-  html += '<div class="p-sec"><h3>🏷️ 礼物奖励</h3>';
-  html += d.rewards.length ? d.rewards.map(function (r) {
-    return '<div class="p-row"><span class="p-emoji">' + r.emoji + '</span>' +
-      '<div class="p-main"><div class="p-name">' + esc(r.name) + (r.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
-      '<div class="p-sub">⭐ ' + r.cost + ' 分</div></div>' +
-      '<div class="p-ops"><button class="mini" onclick="openRewardForm(' + r.id + ')">编辑</button>' +
-      '<button class="mini" onclick="toggleReward(' + r.id + ',' + r.active + ')">' + (r.active ? '下架' : '上架') + '</button>' +
-      '<button class="mini danger" onclick="delReward(' + r.id + ')">删除</button></div></div>';
-  }).join('') : '<div class="p-empty">还没有礼物</div>';
-  html += '<button class="btn plain full" onclick="openRewardForm(0)">＋ 添加礼物</button></div>';
+  if (P_TAB === 'redemptions') {
+    html += '<div class="p-card"><h2>待兑现 <span class="badge">' + d.pending.length + '</span></h2>';
+    html += d.pending.length ? d.pending.map(function (p) {
+      return '<div class="p-row"><span class="p-ava reward" aria-hidden="true">' + p.reward_emoji + '</span>' +
+        '<div class="p-main"><div class="p-name">' + esc(p.reward_name) + '</div>' +
+        '<div class="p-sub">' + esc(kname(p.kid_id)) + ' · <span class="num">' + fmtTs(p.created_at) + '</span> · <span class="num">-' + p.cost + ' 分</span></div></div>' +
+        '<div class="p-ops">' +
+        '<button class="mini brand" aria-label="标记已兑现" onclick="markDone(' + p.id + ')">✓ 已兑现</button>' +
+        '<button class="mini danger" aria-label="取消这次兑换" onclick="cancelRedeem(' + p.id + ')">取消</button></div></div>';
+    }).join('') : '<div class="p-empty">暂无待兑现的兑换，孩子还没攒够积分</div></div>';
+    html += '<div class="p-card"><h2>积分调整记录</h2>';
+    html += d.adjustments.length ? d.adjustments.map(function (a) {
+      return '<div class="p-row"><div class="p-main"><div class="p-name">' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长提醒')) + '</div>' +
+        '<div class="p-sub">' + esc(kname(a.kid_id)) + ' · <span class="num">' + esc(a.adj_date) + '</span></div></div>' +
+        '<span class="p-pts ' + (a.points > 0 ? 'up' : 'down') + ' num">' + (a.points > 0 ? '+' : '') + a.points + ' 分</span></div>';
+    }).join('') : '<div class="p-empty">暂无调整记录</div></div>';
+  }
 
-  // 调整记录
-  html += '<div class="p-sec"><h3>🧾 积分调整记录</h3>';
-  html += d.adjustments.length ? d.adjustments.map(function (a) {
-    return '<div class="p-row sm"><div class="p-main"><div class="p-name">' +
-      (a.points > 0 ? '➕' : '➖') + ' ' + esc(a.note || (a.points > 0 ? '家长奖励' : '家长扣除')) + '</div>' +
-      '<div class="p-sub">' + esc(kname(a.kid_id)) + ' · ' + esc(a.adj_date) + '</div></div>' +
-      '<div class="p-pts ' + (a.points > 0 ? 'up' : 'down') + '">' + (a.points > 0 ? '+' : '') + a.points + ' 分</div></div>';
-  }).join('') : '<div class="p-empty">暂无调整记录</div>';
-  html += '</div>';
-
-  // 修改密码
-  html += '<div class="p-sec"><h3>🔑 修改家长密码</h3>' +
-    '<label class="lb">原密码</label><input id="fPwdOld" type="password" inputmode="numeric" autocomplete="off">' +
-    '<label class="lb">新密码（至少 4 位）</label><input id="fPwdNew" type="password" inputmode="numeric" autocomplete="off">' +
-    '<label class="lb">确认新密码</label><input id="fPwdNew2" type="password" inputmode="numeric" autocomplete="off">' +
-    '<button class="btn primary full" onclick="savePassword()">保存新密码</button></div>';
-
-  html += '<button class="btn plain full" onclick="parentLogout()">退出家长模式</button>';
+  if (P_TAB === 'settings') {
+    html += '<div class="p-card"><h2>修改家长密码</h2>' +
+      '<label class="lb" for="fPwdOld">原密码</label><input class="field" id="fPwdOld" type="password" inputmode="numeric" autocomplete="off">' +
+      '<label class="lb" for="fPwdNew">新密码（至少 4 位）</label><input class="field" id="fPwdNew" type="password" inputmode="numeric" autocomplete="off">' +
+      '<label class="lb" for="fPwdNew2">确认新密码</label><input class="field" id="fPwdNew2" type="password" inputmode="numeric" autocomplete="off">' +
+      '<button class="btn btn-primary full" id="pwdBtn" onclick="savePassword()">保存新密码</button>' +
+      '<div class="hint">' + ICONS.bulb + '<span>密码修改后，之前登录的设备需要重新输入新密码</span></div></div>';
+    html += '<div class="p-card"><h2>关于</h2><div class="p-sub" style="line-height:1.8">数据保存在云端，换设备用同一链接登录即可继续打卡。<br>本页面为家庭内部使用，请勿分享孩子信息。</div></div>';
+  }
   b.innerHTML = html;
 }
-function parentLogout() {
-  S.ptoken = '';
-  store('kp_ptoken', null);
-  closeParent();
-  toast('已退出家长模式');
-}
 
-// ---------- 家长：表情选择 ----------
-function emojiGrid(list, cur) {
-  return '<div class="emgrid">' + list.map(function (e) {
-    return '<button type="button" class="em ' + (e === cur ? 'on' : '') + '" data-e="' + e + '" onclick="pickEm(this)">' + e + '</button>';
-  }).join('') + '</div>';
-}
-function pickEm(btn) {
-  pickEmoji = btn.getAttribute('data-e');
-  var g = btn.parentElement;
-  g.querySelectorAll('.em').forEach(function (b) { b.classList.remove('on'); });
-  btn.classList.add('on');
-}
-
-// ---------- 家长：孩子管理 ----------
+/* ============================================================ 家长：增删改 ============================================================ */
 function openKidForm(id) {
   var k = id ? S.pdata.kids.find(function (x) { return x.id === id; }) : null;
   pickEmoji = k ? k.emoji : '🐻';
-  openModal('<h3>' + (k ? '编辑孩子' : '添加孩子') + '</h3>' +
-    '<label class="lb">名字</label><input id="fKidName" maxlength="12" value="' + (k ? esc(k.name) : '') + '" placeholder="比如：小雨">' +
+  openModal('<div class="sheet-head"><h3>' + (k ? '编辑孩子' : '添加孩子') + '</h3></div>' +
+    '<label class="lb" for="fKidName">名字</label><input class="field" id="fKidName" maxlength="12" value="' + (k ? esc(k.name) : '') + '" placeholder="比如：小雨">' +
     '<label class="lb">头像</label>' + emojiGrid(KID_EMOJIS, pickEmoji) +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
-    '<button class="btn primary" onclick="saveKid(' + (id || 0) + ')">保存</button></div>');
+    '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-primary" id="kidBtn" onclick="saveKid(' + (id || 0) + ')">保存</button></div>', { noClose: true, dismissable: false, label: '孩子信息' });
 }
 async function saveKid(id) {
-  var name = document.getElementById('fKidName').value.trim();
-  if (!name) { toast('先给孩子起个名字吧'); return; }
-  var body = id
-    ? { action: 'update', id: id, name: name, emoji: pickEmoji }
-    : { action: 'create', name: name, emoji: pickEmoji };
+  var nameEl = document.getElementById('fKidName');
+  var name = nameEl.value.trim();
+  fieldError('fKidName', name ? null : '先给孩子起个名字吧');
+  if (!name) { nameEl.focus(); return; }
+  var btn = document.getElementById('kidBtn'); setLoading(btn, true);
+  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji } : { action: 'create', name: name, emoji: pickEmoji };
   try {
     await api('/api/parent/kids', body, S.ptoken);
     closeModal(); toast('已保存');
     await loadParent();
     await loadKids();
-  } catch (e) { toast(e.message); }
+  } catch (e) { toast(e.message); setLoading(btn, false); }
 }
 async function delKid(id) {
   var k = S.pdata.kids.find(function (x) { return x.id === id; });
   if (!k) return;
-  var ok = await askConfirm({
-    title: '删除孩子',
-    html: '确定删除「' + esc(k.name) + '」吗？<br><small>TA 的打卡、积分、兑换记录都会一起删除</small>',
-    okText: '删除', danger: true
-  });
+  var ok = await askConfirm({ title: '删除孩子', html: '确定删除「' + esc(k.name) + '」吗？<br>TA 的打卡、积分、兑换记录会<b>全部删除且无法恢复</b>', okText: '删除', danger: true });
   if (!ok) return;
   try {
     await api('/api/parent/kids', { action: 'delete', id: id }, S.ptoken);
-    toast('已删除');
-    await loadParent();
-    await loadKids();
+    toast('已删除'); await loadParent(); await loadKids();
   } catch (e) { toast(e.message); }
 }
-
-// ---------- 家长：打卡项目管理 ----------
 function openHabitForm(id) {
   var h = id ? S.pdata.habits.find(function (x) { return x.id === id; }) : null;
-  pickEmoji = h ? h.emoji : '⭐';
-  catSel = h ? h.category : 'learning';
-  openModal('<h3>' + (h ? '编辑打卡项目' : '添加打卡项目') + '</h3>' +
-    '<label class="lb">名称</label><input id="fHabitName" maxlength="20" value="' + (h ? esc(h.name) : '') + '" placeholder="比如：练习跳绳">' +
+  pickEmoji = h ? h.emoji : '⭐'; catSel = h ? h.category : 'learning';
+  openModal('<div class="sheet-head"><h3>' + (h ? '编辑打卡项目' : '添加打卡项目') + '</h3></div>' +
+    '<label class="lb" for="fHabitName">名称</label><input class="field" id="fHabitName" maxlength="20" value="' + (h ? esc(h.name) : '') + '" placeholder="比如：练习跳绳">' +
     '<label class="lb">图标</label>' + emojiGrid(HABIT_EMOJIS, pickEmoji) +
     '<label class="lb">分类</label><div class="cat-row">' +
-    '<button id="cat-learning" class="cat ' + (catSel === 'learning' ? 'on' : '') + '" onclick="setCat(\'learning\')">📚 学习</button>' +
-    '<button id="cat-behavior" class="cat ' + (catSel === 'behavior' ? 'on' : '') + '" onclick="setCat(\'behavior\')">🌱 行为</button></div>' +
-    '<label class="lb">每次积分</label><input id="fHabitPts" type="number" min="1" max="999" value="' + (h ? h.points : 1) + '">' +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
-    '<button class="btn primary" onclick="saveHabit(' + (id || 0) + ')">保存</button></div>');
-}
-function setCat(c) {
-  catSel = c;
-  var a = document.getElementById('cat-learning');
-  var b = document.getElementById('cat-behavior');
-  if (a) a.classList.toggle('on', c === 'learning');
-  if (b) b.classList.toggle('on', c === 'behavior');
+    '<button type="button" data-cat="learning" class="cat ' + (catSel === 'learning' ? 'on' : '') + '" aria-pressed="' + (catSel === 'learning') + '" onclick="setCat(\'learning\')">' + ICONS.book + ' 学习</button>' +
+    '<button type="button" data-cat="behavior" class="cat ' + (catSel === 'behavior' ? 'on' : '') + '" aria-pressed="' + (catSel === 'behavior') + '" onclick="setCat(\'behavior\')">' + ICONS.sprout + ' 行为</button></div>' +
+    '<label class="lb" for="fHabitPts">每次积分</label><input class="field num" id="fHabitPts" type="number" min="1" max="999" value="' + (h ? h.points : 1) + '">' +
+    '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-primary" id="habitBtn" onclick="saveHabit(' + (id || 0) + ')">保存</button></div>', { noClose: true, dismissable: false, label: '打卡项目' });
 }
 async function saveHabit(id) {
-  var name = document.getElementById('fHabitName').value.trim();
-  var pts = Number(document.getElementById('fHabitPts').value);
-  if (!name) { toast('请填写名称'); return; }
-  if (!Number.isInteger(pts) || pts < 1 || pts > 999) { toast('积分要在 1-999 之间'); return; }
-  var body = id
-    ? { action: 'update', id: id, name: name, emoji: pickEmoji, category: catSel, points: pts }
-    : { action: 'create', name: name, emoji: pickEmoji, category: catSel, points: pts };
+  var nameEl = document.getElementById('fHabitName'), ptsEl = document.getElementById('fHabitPts');
+  var name = nameEl.value.trim(), pts = Number(ptsEl.value), bad = null;
+  if (!name) bad = '请填写名称';
+  else if (!Number.isInteger(pts) || pts < 1 || pts > 999) bad = '积分要在 1-999 之间';
+  fieldError('fHabitName', name ? null : '请填写名称');
+  fieldError('fHabitPts', (bad && bad.indexOf('积分') === 0) ? bad : null);
+  if (bad) { (name ? ptsEl : nameEl).focus(); return; }
+  var btn = document.getElementById('habitBtn'); setLoading(btn, true);
+  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji, category: catSel, points: pts }
+                : { action: 'create', name: name, emoji: pickEmoji, category: catSel, points: pts };
   try {
     await api('/api/parent/habits', body, S.ptoken);
     closeModal(); toast('已保存');
-    loadParent();
-    if (S.kidId) loadState();
-  } catch (e) { toast(e.message); }
+    await loadParent(); if (S.kidId) await loadState();
+  } catch (e) { toast(e.message); setLoading(btn, false); }
 }
 async function toggleHabit(id, active) {
   try {
     await api('/api/parent/habits', { action: 'update', id: id, active: !active }, S.ptoken);
     toast(active ? '已下架' : '已上架');
-    loadParent();
-    if (S.kidId) loadState();
+    loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
 async function delHabit(id) {
   var h = S.pdata.habits.find(function (x) { return x.id === id; });
   if (!h) return;
-  var ok = await askConfirm({
-    title: '删除打卡项目',
-    html: '删除「' + esc(h.name) + '」后，<b>它的历史打卡记录和积分也会一起删除</b>。<br><small>如果只是暂时不用，建议选择「下架」</small>',
-    okText: '仍要删除', danger: true
-  });
+  var ok = await askConfirm({ title: '删除打卡项目', html: '删除「' + esc(h.name) + '」后，它的<b>历史打卡记录和积分也会一起删除</b>。<br>如果只是暂时不用，建议选择「下架」。', okText: '仍要删除', danger: true });
   if (!ok) return;
   try {
     await api('/api/parent/habits', { action: 'delete', id: id }, S.ptoken);
-    toast('已删除');
-    loadParent();
-    if (S.kidId) loadState();
+    toast('已删除'); await loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
-
-// ---------- 家长：礼物管理 ----------
 function openRewardForm(id) {
   var r = id ? S.pdata.rewards.find(function (x) { return x.id === id; }) : null;
   pickEmoji = r ? r.emoji : '🎁';
-  openModal('<h3>' + (r ? '编辑礼物' : '添加礼物') + '</h3>' +
-    '<label class="lb">名称</label><input id="fRewardName" maxlength="30" value="' + (r ? esc(r.name) : '') + '" placeholder="比如：去游乐园玩一次">' +
+  openModal('<div class="sheet-head"><h3>' + (r ? '编辑礼物' : '添加礼物') + '</h3></div>' +
+    '<label class="lb" for="fRewardName">名称</label><input class="field" id="fRewardName" maxlength="30" value="' + (r ? esc(r.name) : '') + '" placeholder="比如：去游乐园玩一次">' +
     '<label class="lb">图标</label>' + emojiGrid(REWARD_EMOJIS, pickEmoji) +
-    '<label class="lb">需要积分</label><input id="fRewardCost" type="number" min="1" max="9999" value="' + (r ? r.cost : 20) + '">' +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
-    '<button class="btn primary" onclick="saveReward(' + (id || 0) + ')">保存</button></div>');
+    '<label class="lb" for="fRewardCost">需要积分</label><input class="field num" id="fRewardCost" type="number" min="1" max="9999" value="' + (r ? r.cost : 20) + '">' +
+    '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-primary" id="rewardBtn" onclick="saveReward(' + (id || 0) + ')">保存</button></div>', { noClose: true, dismissable: false, label: '礼物信息' });
 }
 async function saveReward(id) {
-  var name = document.getElementById('fRewardName').value.trim();
-  var cost = Number(document.getElementById('fRewardCost').value);
-  if (!name) { toast('请填写礼物名称'); return; }
-  if (!Number.isInteger(cost) || cost < 1 || cost > 9999) { toast('所需积分要在 1-9999 之间'); return; }
-  var body = id
-    ? { action: 'update', id: id, name: name, emoji: pickEmoji, cost: cost }
-    : { action: 'create', name: name, emoji: pickEmoji, cost: cost };
+  var nameEl = document.getElementById('fRewardName'), costEl = document.getElementById('fRewardCost');
+  var name = nameEl.value.trim(), cost = Number(costEl.value), bad = null;
+  if (!name) bad = '请填写礼物名称';
+  else if (!Number.isInteger(cost) || cost < 1 || cost > 9999) bad = '所需积分要在 1-9999 之间';
+  fieldError('fRewardName', name ? null : '请填写礼物名称');
+  fieldError('fRewardCost', (bad && bad.indexOf('积分') === 0) ? bad : null);
+  if (bad) { (name ? costEl : nameEl).focus(); return; }
+  var btn = document.getElementById('rewardBtn'); setLoading(btn, true);
+  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji, cost: cost }
+                : { action: 'create', name: name, emoji: pickEmoji, cost: cost };
   try {
     await api('/api/parent/rewards', body, S.ptoken);
     closeModal(); toast('已保存');
-    loadParent();
-    if (S.kidId) loadState();
-  } catch (e) { toast(e.message); }
+    await loadParent(); if (S.kidId) await loadState();
+  } catch (e) { toast(e.message); setLoading(btn, false); }
 }
 async function toggleReward(id, active) {
   try {
     await api('/api/parent/rewards', { action: 'update', id: id, active: !active }, S.ptoken);
     toast(active ? '已下架' : '已上架');
-    loadParent();
-    if (S.kidId) loadState();
+    loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
 async function delReward(id) {
   var r = S.pdata.rewards.find(function (x) { return x.id === id; });
   if (!r) return;
-  var ok = await askConfirm({ title: '删除礼物', html: '确定删除「' + esc(r.name) + '」吗？', okText: '删除', danger: true });
+  var ok = await askConfirm({ title: '删除礼物', html: '确定删除「' + esc(r.name) + '」吗？已产生的兑换记录会保留。', okText: '删除', danger: true });
   if (!ok) return;
   try {
     await api('/api/parent/rewards', { action: 'delete', id: id }, S.ptoken);
-    toast('已删除');
-    loadParent();
-    if (S.kidId) loadState();
+    toast('已删除'); await loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
-
-// ---------- 家长：加分 / 扣分 ----------
 function openAdjust(kidId, sign) {
   var k = S.pdata.kids.find(function (x) { return x.id === kidId; });
   if (!k) return;
-  openModal('<h3>' + (sign > 0 ? '➕ 加分' : '➖ 扣分') + ' · ' + esc(k.name) + '</h3>' +
-    '<label class="lb">分值</label><input id="fAdjPts" type="number" min="1" max="999" value="1">' +
-    '<label class="lb">原因（可选）</label><input id="fAdjNote" maxlength="30" placeholder="' +
-    (sign > 0 ? '比如：主动帮做家务' : '比如：发脾气摔东西') + '">' +
-    '<div class="mrow"><button class="btn plain" onclick="closeModal()">取消</button>' +
-    '<button class="btn primary" onclick="saveAdjust(' + kidId + ',' + sign + ')">确定</button></div>');
+  openModal('<div class="sheet-head"><h3>' + (sign > 0 ? '加分' : '扣分') + ' · ' + esc(k.name) + '</h3></div>' +
+    '<label class="lb" for="fAdjPts">分值</label><input class="field num" id="fAdjPts" type="number" min="1" max="999" value="1">' +
+    '<label class="lb" for="fAdjNote">原因（可选）</label><input class="field" id="fAdjNote" maxlength="30" placeholder="' + (sign > 0 ? '比如：主动帮做家务' : '比如：发脾气摔东西') + '">' +
+    '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-primary" id="adjBtn" onclick="saveAdjust(' + kidId + ',' + sign + ')">确定</button></div>', { noClose: true, dismissable: false, label: '积分调整' });
 }
 async function saveAdjust(kidId, sign) {
-  var p = Number(document.getElementById('fAdjPts').value);
-  var note = document.getElementById('fAdjNote').value.trim();
-  if (!Number.isInteger(p) || p < 1 || p > 999) { toast('分值要在 1-999 之间'); return; }
+  var ptsEl = document.getElementById('fAdjPts');
+  var p = Number(ptsEl.value), note = document.getElementById('fAdjNote').value.trim();
+  if (!Number.isInteger(p) || p < 1 || p > 999) { fieldError('fAdjPts', '分值要在 1-999 之间'); ptsEl.focus(); return; }
+  fieldError('fAdjPts', null);
+  var btn = document.getElementById('adjBtn'); setLoading(btn, true);
   try {
     await api('/api/parent/adjust', { kidId: kidId, points: sign * p, note: note, date: S.date }, S.ptoken);
     closeModal(); toast('已调整');
-    loadParent();
-    if (S.kidId === kidId) loadState();
-  } catch (e) { toast(e.message); }
+    await loadParent(); if (S.kidId === kidId) loadState();
+  } catch (e) { toast(e.message); setLoading(btn, false); }
 }
-
-// ---------- 家长：兑换处理 / 密码 ----------
 async function markDone(id) {
   try {
     await api('/api/parent/redeem-status', { id: id, status: 'done' }, S.ptoken);
     toast('已兑现 🎉');
-    loadParent();
-    if (S.kidId) loadState();
+    loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
 async function cancelRedeem(id) {
-  var ok = await askConfirm({ title: '取消兑换', html: '取消后积分会退回给孩子，确定吗？', okText: '取消兑换', danger: true });
+  var ok = await askConfirm({ title: '取消兑换', html: '取消后这笔积分会<b>退回</b>给孩子，确定吗？', okText: '取消兑换', danger: true });
   if (!ok) return;
   try {
     await api('/api/parent/redeem-status', { id: id, status: 'cancel' }, S.ptoken);
     toast('已取消，积分已退回');
-    loadParent();
-    if (S.kidId) loadState();
+    loadParent(); if (S.kidId) loadState();
   } catch (e) { toast(e.message); }
 }
 async function savePassword() {
-  var o = document.getElementById('fPwdOld').value;
-  var n1 = document.getElementById('fPwdNew').value;
-  var n2 = document.getElementById('fPwdNew2').value;
-  if (!o || !n1) { toast('请填写完整'); return; }
-  if (n1.length < 4) { toast('新密码至少 4 位'); return; }
-  if (n1 !== n2) { toast('两次新密码不一致'); return; }
+  var o = document.getElementById('fPwdOld'), n1 = document.getElementById('fPwdNew'), n2 = document.getElementById('fPwdNew2');
+  fieldError('fPwdOld', null); fieldError('fPwdNew', null); fieldError('fPwdNew2', null);
+  if (!o.value || !n1.value) { fieldError(o.value ? 'fPwdNew' : 'fPwdOld', o.value ? '请填写新密码' : '请填写原密码'); return; }
+  if (n1.value.length < 4) { fieldError('fPwdNew', '新密码至少 4 位'); return; }
+  if (n1.value !== n2.value) { fieldError('fPwdNew2', '两次新密码不一致'); return; }
+  var btn = document.getElementById('pwdBtn'); setLoading(btn, true);
   try {
-    await api('/api/parent/password', { oldPin: o, newPin: n1 }, S.ptoken);
+    await api('/api/parent/password', { oldPin: o.value, newPin: n1.value }, S.ptoken);
     toast('密码已修改');
-    document.getElementById('fPwdOld').value = '';
-    document.getElementById('fPwdNew').value = '';
-    document.getElementById('fPwdNew2').value = '';
-  } catch (e) { toast(e.message); }
+    o.value = ''; n1.value = ''; n2.value = '';
+    setLoading(btn, false);
+  } catch (e) {
+    toast(e.message);
+    if (e.message.indexOf('原密码') >= 0) fieldError('fPwdOld', '原密码不对');
+    setLoading(btn, false);
+  }
 }
 
-// ---------- 启动 ----------
-(async function boot() {
+/* ============================================================ 启动 ============================================================ */
+async function boot() {
   await loadKids();
   if (S.ptoken) {
     try { await api('/api/parent/verify', { token: S.ptoken }); }
     catch (e) { S.ptoken = ''; store('kp_ptoken', null); }
   }
-})();
+}
+boot();
 </script>
 </body>
 </html>

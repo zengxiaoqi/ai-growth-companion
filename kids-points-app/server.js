@@ -266,7 +266,7 @@ async function handleApi(req, res, pathname, searchParams) {
     const fromParam = asStr(searchParams.get('from'), 10);
     const from = fromParam && DATE_RE.test(fromParam) ? fromParam : addDaysStr(date, -6);
 
-    const [kidRows, habits, rewards, todayCheckins, weekRows, allDates, pts, redemptions, adjustments] =
+    const [kidRows, habits, rewards, todayCheckins, weekRows, allDates, pts, redemptions, adjustments, recentCheckins, allHabits] =
       await Promise.all([
         sbSelect('kids', { select: 'id,name,emoji', id: `eq.${kidId}`, limit: '1' }),
         sbSelect('habits', { select: 'id,name,emoji,category,points,sort_order', active: 'eq.true', order: 'sort_order.asc,id.asc' }),
@@ -277,6 +277,8 @@ async function handleApi(req, res, pathname, searchParams) {
         computePoints(kidId),
         sbSelect('redemptions', { select: 'id,reward_name,reward_emoji,cost,status,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '10' }),
         sbSelect('adjustments', { select: 'id,points,note,adj_date,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '10' }),
+        sbSelect('checkins', { select: 'id,habit_id,points,check_date,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '12' }),
+        sbSelect('habits', { select: 'id,name,emoji' }),
       ]);
 
     if (!kidRows.length) return jsonError(res, 404, '孩子不存在');
@@ -294,11 +296,24 @@ async function handleApi(req, res, pathname, searchParams) {
 
     const dateSet = new Set((allDates || []).map((r) => String(r.check_date).slice(0, 10)));
 
+    const habitMap = {};
+    for (const h of allHabits || []) habitMap[h.id] = h;
+    const checkins = (recentCheckins || []).map((c) => ({
+      id: c.id,
+      habit_id: c.habit_id,
+      points: c.points,
+      check_date: c.check_date,
+      created_at: c.created_at,
+      habit_name: habitMap[c.habit_id] ? habitMap[c.habit_id].name : '已删除的项目',
+      habit_emoji: habitMap[c.habit_id] ? habitMap[c.habit_id].emoji : '✅',
+    }));
+
     return send(res, 200, {
       kid: kidRows[0],
       habits,
       rewards,
       todayCheckins,
+      checkins,
       week,
       streak: calcStreak(dateSet, date),
       totalDays: dateSet.size,

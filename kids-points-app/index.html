@@ -692,19 +692,49 @@ function confetti() {
 /* ---- 语音反馈（浏览器内置中文语音合成，零依赖） ---- */
 var PRAISE = ['太棒了！', '真厉害！', '好样的！', '你真优秀！', '继续加油哦！'];
 var voiceOn = store('kp_voice') !== '0'; // 默认开启
-var zhVoice = null;
-function pickZhVoice() {
-  if (!('speechSynthesis' in window)) return null;
-  if (zhVoice) return zhVoice;
+var VOICE_CFG = (function () {
+  var def = { rate: 0.82, pitch: 1.45, voiceURI: '' }; // 默认：偏慢 + 高音调（可爱）
   try {
-    var vs = speechSynthesis.getVoices() || [];
-    for (var i = 0; i < vs.length; i++) { if (/^zh([-_]cn)?$/i.test(vs[i].lang)) { zhVoice = vs[i]; break; } }
-    if (!zhVoice) { for (var j = 0; j < vs.length; j++) { if (/zh/i.test(vs[j].lang)) { zhVoice = vs[j]; break; } } }
+    var raw = store('kp_voice_cfg');
+    if (raw) {
+      var o = JSON.parse(raw);
+      if (o && typeof o === 'object') {
+        if (typeof o.rate === 'number' && o.rate >= 0.5 && o.rate <= 1.4) def.rate = o.rate;
+        if (typeof o.pitch === 'number' && o.pitch >= 0.8 && o.pitch <= 2) def.pitch = o.pitch;
+        if (typeof o.voiceURI === 'string') def.voiceURI = o.voiceURI;
+      }
+    }
   } catch (e) { /* ignore */ }
-  return zhVoice;
+  return def;
+})();
+function saveVoiceCfg() { try { store('kp_voice_cfg', JSON.stringify(VOICE_CFG)); } catch (e) { /* ignore */ } }
+
+/* 可爱度打分：女声/童声优先，男声降权，自然音色加分 */
+var CUTE_PAT = /(xiaoxiao|晓晓|xiaomo|墨墨|xiaoyi|晓伊|xiaoshuang|晓双|yunye|云野|yunxia|云夏|tingting|婷婷|huihui|慧慧|yaoyao|瑶瑶|meijia|小美|nini|female|girl|woman|child|kid)/i;
+var MALE_PAT = /(yunxi|云希|yunjian|云健|yunyang|云杨|kangkang|康康|male|man\b|boy)/i;
+function voiceScore(v) {
+  var n = (v.name || '') + ' ' + (v.voiceURI || '');
+  var s = 0;
+  if (CUTE_PAT.test(n)) s += 3;
+  if (MALE_PAT.test(n)) s -= 3;
+  if (/natural|neural|online/i.test(n)) s += 1;
+  if (/^(zh|cmn)/i.test(v.lang || '') || /chinese/i.test(v.lang || '')) s += 2;
+  return s;
 }
-if ('speechSynthesis' in window && speechSynthesis.addEventListener) {
-  speechSynthesis.addEventListener('voiceschanged', function () { zhVoice = null; pickZhVoice(); });
+function zhVoices() {
+  if (!('speechSynthesis' in window)) return [];
+  var vs = [];
+  try { vs = speechSynthesis.getVoices() || []; } catch (e) { return []; }
+  var zh = vs.filter(function (v) { return /^(zh|cmn)/i.test(v.lang || '') || /chinese/i.test(v.lang || ''); });
+  return (zh.length ? zh : vs).slice().sort(function (a, b) { return voiceScore(b) - voiceScore(a); });
+}
+function pickVoice() {
+  var list = zhVoices();
+  if (!list.length) return null;
+  if (VOICE_CFG.voiceURI) {
+    for (var i = 0; i < list.length; i++) { if (list[i].voiceURI === VOICE_CFG.voiceURI) return list[i]; }
+  }
+  return list[0]; // 自动：选可爱度最高的
 }
 function speak(text) {
   if (!voiceOn || !('speechSynthesis' in window) || !text) return;
@@ -712,13 +742,42 @@ function speak(text) {
     speechSynthesis.cancel(); // 打断上一条，避免排队堆积
     var u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
-    u.rate = 1.05; u.pitch = 1.15; // 稍快稍亮，贴近孩子语气
-    var v = pickZhVoice();
+    u.rate = VOICE_CFG.rate;
+    u.pitch = VOICE_CFG.pitch;
+    var v = pickVoice();
     if (v) u.voice = v;
     window.__kpUtter = u; // 防 GC 导致 iOS 上朗读中断
     speechSynthesis.speak(u);
   } catch (e) { /* 静默失败，不打断主流程 */ }
 }
+/* 音色列表异步就绪时刷新家长设置 */
+if ('speechSynthesis' in window && speechSynthesis.addEventListener) {
+  speechSynthesis.addEventListener('voiceschanged', function () {
+    if (document.getElementById('pBody') && P_TAB === 'settings') renderParent();
+  });
+}
+function voiceOptionsHtml() {
+  var list = zhVoices();
+  var h = '<option value="">自动（推荐最可爱的声音）</option>';
+  h += list.map(function (v) {
+    return '<option value="' + esc(v.voiceURI) + '"' + (VOICE_CFG.voiceURI === v.voiceURI ? ' selected' : '') + '>' + esc(v.name) + '（' + esc(v.lang) + '）</option>';
+  }).join('');
+  return h;
+}
+function onVoiceCfgChange() {
+  var sel = document.getElementById('fVoiceSel'), r = document.getElementById('fVoiceRate'), p = document.getElementById('fVoicePitch');
+  if (sel) VOICE_CFG.voiceURI = sel.value;
+  if (r) {
+    VOICE_CFG.rate = Number(r.value);
+    var rv = document.getElementById('rateVal'); if (rv) rv.textContent = VOICE_CFG.rate.toFixed(2);
+  }
+  if (p) {
+    VOICE_CFG.pitch = Number(p.value);
+    var pv = document.getElementById('pitchVal'); if (pv) pv.textContent = VOICE_CFG.pitch.toFixed(1);
+  }
+  saveVoiceCfg();
+}
+function previewVoice() { speak('你好呀，我是你的打卡小助手！今天也要加油哦！'); }
 function renderVoiceBtn() {
   var b = document.getElementById('voiceBtn');
   if (!b) return;
@@ -1200,6 +1259,14 @@ function renderParent() {
   }
 
   if (P_TAB === 'settings') {
+    html += '<div class="p-card"><h2>🔊 语音反馈</h2>' +
+      '<label class="lb" for="fVoiceSel">音色</label><select class="field" id="fVoiceSel" aria-label="选择语音音色" onchange="onVoiceCfgChange()">' + voiceOptionsHtml() + '</select>' +
+      '<label class="lb" for="fVoiceRate">语速 <b class="num" id="rateVal">' + VOICE_CFG.rate.toFixed(2) + '</b></label>' +
+      '<input type="range" id="fVoiceRate" min="0.6" max="1.2" step="0.05" value="' + VOICE_CFG.rate + '" oninput="onVoiceCfgChange()" style="width:100%">' +
+      '<label class="lb" for="fVoicePitch">音高（越高越稚嫩可爱） <b class="num" id="pitchVal">' + VOICE_CFG.pitch.toFixed(1) + '</b></label>' +
+      '<input type="range" id="fVoicePitch" min="1" max="2" step="0.1" value="' + VOICE_CFG.pitch + '" oninput="onVoiceCfgChange()" style="width:100%">' +
+      '<button class="btn btn-soft full" onclick="previewVoice()">🔈 试听一下</button>' +
+      '<div class="hint">' + ICONS.bulb + '<span>可选声音由设备决定：Windows 的 Edge / Chrome 通常带「晓晓」「云野」等自然女声童声，选好后点试听确认。</span></div></div>';
     html += '<div class="p-card"><h2>修改家长密码</h2>' +
       '<label class="lb" for="fPwdOld">原密码</label><input class="field" id="fPwdOld" type="password" inputmode="numeric" autocomplete="off">' +
       '<label class="lb" for="fPwdNew">新密码（至少 4 位）</label><input class="field" id="fPwdNew" type="password" inputmode="numeric" autocomplete="off">' +

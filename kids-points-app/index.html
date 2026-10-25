@@ -79,6 +79,7 @@ h1.brand-name { font-size: var(--t-lg); font-weight: 800; letter-spacing: .5px; 
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--orange-deep); }
 .icon-btn:active { transform: scale(.92); }
+.icon-btn.voice-off { color: var(--ink-3); background: var(--paper-2); }
 
 /* ---------- 孩子选择条 ---------- */
 .kids { display:flex; gap:10px; overflow-x:auto; padding: var(--s2) var(--s1) var(--s4); scrollbar-width:none; }
@@ -448,6 +449,7 @@ h3.r-name { font-size:var(--t-sm); font-weight:800; line-height:1.4; min-height:
           <p class="brand-sub" id="dateLine">每天进步一点点</p>
         </div>
       </div>
+      <button class="icon-btn" id="voiceBtn" onclick="toggleVoice()" aria-label="语音反馈开关" title="语音反馈"></button>
       <button class="icon-btn" onclick="parentEntry()" aria-label="家长管理入口" title="家长管理">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="3"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/><circle cx="12" cy="15.6" r="1.4" fill="currentColor" stroke="none"/></svg>
       </button>
@@ -645,11 +647,14 @@ function closeModal() {
 function overlayTap() { if (confirmResolve) { resolveConfirm(false); return; } closeModal(); }
 function askConfirm(o) {
   return new Promise(function (resolve) {
-    confirmResolve = resolve;
+    // 注意：confirmResolve 必须在 openModal 之后赋值。
+    // openModal 开头会检查是否有待处理的确认并 resolve(false)，
+    // 若先赋值会导致弹窗刚打开就把自己取消掉（删除/取消打卡等全部失效）。
     openModal('<div class="sheet-head"><h3>' + esc(o.title) + '</h3></div><div class="mtxt">' + o.html + '</div>' +
       '<div class="mrow"><button class="btn btn-soft" onclick="resolveConfirm(false)">再想想</button>' +
       '<button class="btn ' + (o.danger ? 'btn-danger' : 'btn-primary') + '" onclick="resolveConfirm(true)">' + esc(o.okText || '确定') + '</button></div>',
       { noClose: true, dismissable: false, label: o.title });
+    confirmResolve = resolve;
   });
 }
 function resolveConfirm(v) { closeModal(); var r = confirmResolve; confirmResolve = null; if (r) r(v); }
@@ -682,6 +687,55 @@ function confetti() {
       document.body.appendChild(el); setTimeout(function () { el.remove(); }, 1750);
     })();
   }
+}
+
+/* ---- 语音反馈（浏览器内置中文语音合成，零依赖） ---- */
+var PRAISE = ['太棒了！', '真厉害！', '好样的！', '你真优秀！', '继续加油哦！'];
+var voiceOn = store('kp_voice') !== '0'; // 默认开启
+var zhVoice = null;
+function pickZhVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  if (zhVoice) return zhVoice;
+  try {
+    var vs = speechSynthesis.getVoices() || [];
+    for (var i = 0; i < vs.length; i++) { if (/^zh([-_]cn)?$/i.test(vs[i].lang)) { zhVoice = vs[i]; break; } }
+    if (!zhVoice) { for (var j = 0; j < vs.length; j++) { if (/zh/i.test(vs[j].lang)) { zhVoice = vs[j]; break; } } }
+  } catch (e) { /* ignore */ }
+  return zhVoice;
+}
+if ('speechSynthesis' in window && speechSynthesis.addEventListener) {
+  speechSynthesis.addEventListener('voiceschanged', function () { zhVoice = null; pickZhVoice(); });
+}
+function speak(text) {
+  if (!voiceOn || !('speechSynthesis' in window) || !text) return;
+  try {
+    speechSynthesis.cancel(); // 打断上一条，避免排队堆积
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 1.05; u.pitch = 1.15; // 稍快稍亮，贴近孩子语气
+    var v = pickZhVoice();
+    if (v) u.voice = v;
+    window.__kpUtter = u; // 防 GC 导致 iOS 上朗读中断
+    speechSynthesis.speak(u);
+  } catch (e) { /* 静默失败，不打断主流程 */ }
+}
+function renderVoiceBtn() {
+  var b = document.getElementById('voiceBtn');
+  if (!b) return;
+  b.innerHTML = voiceOn
+    ? '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 8.5H3v7h3.5L11 19V5z" fill="currentColor" stroke="none"/><path d="M15.2 9a4 4 0 0 1 0 6"/><path d="M18 6.4a7.6 7.6 0 0 1 0 11.2"/></svg>'
+    : '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6.5 8.5H3v7h3.5L11 19V5z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5"/><path d="M21 9.5l-5 5"/></svg>';
+  b.setAttribute('aria-pressed', String(voiceOn));
+  b.setAttribute('aria-label', voiceOn ? '关闭语音反馈' : '开启语音反馈');
+  b.classList.toggle('voice-off', !voiceOn);
+}
+function toggleVoice() {
+  if (!voiceOn && !('speechSynthesis' in window)) { toast('当前浏览器不支持语音播放'); return; }
+  voiceOn = !voiceOn;
+  store('kp_voice', voiceOn ? '1' : '0');
+  renderVoiceBtn();
+  if (voiceOn) { speak('语音反馈已开启'); toast('语音反馈已开启'); }
+  else { if ('speechSynthesis' in window) speechSynthesis.cancel(); toast('语音反馈已关闭'); }
 }
 /* P1-2：内联字段报错 */
 function fieldError(inputId, msg) {
@@ -810,6 +864,8 @@ async function switchKid(id) {
   S.kidId = id;
   store('kp_kid', String(id));
   S.st = null;
+  var kk = S.kids.find(function (x) { return x.id === id; });
+  if (kk) speak('你好呀，' + kk.name);
   renderKidBar(); renderWallet(); renderMain();
   await loadState();
 }
@@ -857,6 +913,7 @@ async function tapHabit(habitId, el) {
       var r = await api('/api/uncheck', { kidId: S.kidId, habitId: habitId, date: S.date });
       applyPts(r);
       toast('已取消打卡');
+      speak('已取消打卡');
       await loadState();
     } catch (e) { toast(e.message); }
     S.busy = false;
@@ -874,6 +931,11 @@ async function tapHabit(habitId, el) {
       renderCheckin(); renderWallet();
       floatPts('+' + habit.points);
       confetti();
+      var allDone = S.st.habits.length > 0 && S.st.habits.every(function (h) {
+        return S.st.todayCheckins.some(function (c) { return c.habit_id === h.id; });
+      });
+      if (allDone) speak('今天的任务全部完成啦，你真棒！快去兑换礼物吧');
+      else speak('打卡成功，' + habit.name + '，获得' + habit.points + '分！' + PRAISE[Math.floor(Math.random() * PRAISE.length)]);
       toast('打卡成功，太棒了！');
     }
     loadState();
@@ -907,7 +969,11 @@ function renderRewards() {
 function tapReward(rid) {
   var r = S.st.rewards.find(function (x) { return x.id === rid; });
   if (!r) return;
-  if (S.st.balance < r.cost) { toast('还差 ' + (r.cost - S.st.balance) + ' 分，继续加油！'); return; }
+  if (S.st.balance < r.cost) {
+    speak('积分还不够，还差' + (r.cost - S.st.balance) + '分，继续加油！');
+    toast('还差 ' + (r.cost - S.st.balance) + ' 分，继续加油！');
+    return;
+  }
   openModal('<div class="sheet-head"><h3>兑换确认</h3></div>' +
     mediaHtml(r.image_url, r.emoji, 'r-emoji') +
     '<p class="mtxt" style="text-align:center"><b>' + esc(r.name) + '</b><br>花费 <b class="num">' + r.cost + '</b> 分 · 现有 <b class="num">' + num(S.st.balance) + '</b> 分<br>兑换后剩 <b class="num">' + num(S.st.balance - r.cost) + '</b> 分</p>' +
@@ -928,6 +994,7 @@ async function redeemDo(rid) {
         '<div class="mrow" style="justify-content:center"><button class="btn btn-primary" onclick="closeModal()">好的</button></div>', { noClose: true, label: '兑换成功' });
     }, 200);
     confetti();
+    speak('兑换成功！记得找爸爸妈妈兑现哦');
     renderWallet(); renderRewards();
     loadState();
   } catch (e) { toast(e.message); setLoading(btn, false); }
@@ -1425,6 +1492,7 @@ async function savePassword() {
 
 /* ============================================================ 启动 ============================================================ */
 async function boot() {
+  renderVoiceBtn();
   await loadKids();
   if (S.ptoken) {
     try { await api('/api/parent/verify', { token: S.ptoken }); }

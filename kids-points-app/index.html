@@ -403,6 +403,31 @@ h3.r-name { font-size:var(--t-sm); font-weight:800; line-height:1.4; min-height:
 .stat b { display:block; font-size:var(--t-xl); font-weight:900; line-height:1.2; }
 .stat span { font-size:11px; color:var(--ink-2); font-weight:700; }
 
+/* 隐藏平台注入的“千问办公”品牌浮标（#mulepage-footer）/顶栏（#mulepage-bar） */
+#mulepage-footer, #mulepage-bar, #mulepage-bar-spacer { display:none !important; height:0 !important; }
+/* 头像/图片渲染位 */
+.has-img { padding:0 !important; overflow:hidden; background:#fff; border-style:solid; }
+.has-img img { width:100%; height:100%; object-fit:cover; display:block; border-radius:inherit; }
+.has-svg svg { width:100%; height:100%; display:block; }
+/* 头像/图片三源选择器（图标库 / 表情 / 照片） */
+.src-tabs { display:flex; gap:5px; background:var(--paper-2); border:1.5px solid var(--line); border-radius:var(--r-full); padding:3px; }
+.src-tab { flex:1; border:none; background:transparent; border-radius:var(--r-full); padding:7px 0; font-size:12px; font-weight:800; color:var(--ink-2); cursor:pointer; transition:all .15s; }
+.src-tab.on { background:var(--surface); color:var(--orange-deep); box-shadow:var(--shadow-s); }
+.src-pane { margin-top:10px; }
+.icon-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.icon-pick { background:var(--surface); border:1.5px solid var(--line); border-radius:14px; padding:6px 0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+.icon-pick:hover { border-color:var(--line-2); transform:translateY(-1px); }
+.icon-pick.on { border-color:var(--orange); background:var(--orange-soft); box-shadow:0 0 0 2px rgba(240,138,60,.18); }
+.icon-pick svg { width:34px; height:34px; }
+.photo-row { display:flex; gap:12px; align-items:center; }
+.photo-preview { width:64px; height:64px; border-radius:50%; border:1.5px dashed var(--line-2); background:var(--surface-2);
+  display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:11px; color:var(--ink-3); flex:0 0 auto; }
+.photo-preview img { width:100%; height:100%; object-fit:cover; display:block; }
+.photo-btns { display:flex; flex-direction:column; gap:8px; flex:1; }
+.photo-btns .btn { padding:9px 0; font-size:13px; width:100%; }
+.sr-file { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+.photo-tip { font-size:11px; color:var(--ink-3); margin-top:8px; line-height:1.6; }
+
 /* 动效降级（无障碍） */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important; }
@@ -505,12 +530,81 @@ var S = {
   kids: [], kidId: null, date: todayStr(), st: null, tab: 'checkin',
   ptoken: store('kp_ptoken') || '', pdata: null, busy: false
 };
-var pickEmoji = '🐻', catSel = 'learning', pinBuf = '', confirmResolve = null;
+var pickEmoji = '👦', catSel = 'learning', pinBuf = '', confirmResolve = null;
+var avaKind = 'emoji', pickAvatar = null;        // 孩子头像：'icon' | 'emoji' | 'photo'
+var rwdKind = 'emoji', pickRewardImg = null;     // 礼物图片：'emoji' | 'photo'
 var P_TAB = 'overview';
 
-var KID_EMOJIS = ['🐻','🐰','🦊','🐱','🐼','🐯','🦁','🐵','🐸','🦄','🐧','🐨','🐥','🦉','🐬','🦔'];
+var KID_EMOJIS = ['👦','👧','🧒','👶','🐻','🐰','🦊','🐱','🐼','🐯','🦁','🐵','🐸','🦄','🐧','🐨','🐥','🦉','🐬','🦔'];
 var HABIT_EMOJIS = ['📖','✏️','🔤','🖍️','🧮','🎹','🎨','⚽','🏃','🧸','🧹','🦷','😴','🥦','💧','🚿','🤝','🗣️','🌱','🎬','🧺','🪥','📚','🧱'];
 var REWARD_EMOJIS = ['🍿','📺','🍦','🌳','🪀','🌈','🎮','🧩','🚗','🎠','🍕','🎡','📚','🖍️','🤖','🎂','🛍️','🧃','🏰','🦖','🐶','🎪'];
+
+/* ---- 内置人物图标库（贴纸风 SVG：男孩/女孩/姐姐/妹妹） ---- */
+var AVATAR_FACES = [
+  { key: 'boy1',    label: '男孩·短发',   style: 'short', hair: '#5B4230' },
+  { key: 'boy2',    label: '男孩·刺猬头', style: 'spiky', hair: '#2E2A26' },
+  { key: 'girl1',   label: '女孩·双马尾', style: 'tails', hair: '#7A4A28' },
+  { key: 'girl2',   label: '女孩·波波头', style: 'bob',   hair: '#3E2E23' },
+  { key: 'sister1', label: '姐姐·长发',   style: 'long',  hair: '#8A5230' },
+  { key: 'sister2', label: '姐姐·高马尾', style: 'pony',  hair: '#4A342A' },
+  { key: 'kid1',    label: '妹妹·呆毛',   style: 'tuft',  hair: '#C98A4B' },
+  { key: 'kid2',    label: '妹妹·小揪揪', style: 'puffs', hair: '#6B4A2F' }
+];
+function faceSvg(a) {
+  var h = a.hair, back = '', extra = '';
+  if (a.style === 'tails') back = '<circle cx="12.5" cy="30" r="6" fill="' + h + '"/><circle cx="51.5" cy="30" r="6" fill="' + h + '"/>';
+  if (a.style === 'bob') back = '<path d="M13 30 L13 41.5 Q17.5 45 21 41 L21 30 Z" fill="' + h + '"/><path d="M51 30 L51 41.5 Q46.5 45 43 41 L43 30 Z" fill="' + h + '"/>';
+  if (a.style === 'long') back = '<path d="M12 30 L12 50 Q16.5 55 21.5 50 L21.5 30 Z" fill="' + h + '"/><path d="M52 30 L52 50 Q47.5 55 42.5 50 L42.5 30 Z" fill="' + h + '"/>';
+  if (a.style === 'pony') back = '<path d="M47 21 C58 24 59 39 51.5 45 C56 35.5 53 28 45.5 26 Z" fill="' + h + '"/><circle cx="46.5" cy="21.5" r="6" fill="' + h + '"/>';
+  if (a.style === 'puffs') back = '<circle cx="12" cy="37.5" r="4.5" fill="' + h + '"/><circle cx="52" cy="37.5" r="4.5" fill="' + h + '"/>';
+  if (a.style === 'spiky') extra = '<path d="M20 20.5 L24 11 L28 18.5 Z" fill="' + h + '"/><path d="M28.5 17.5 L32 8 L35.8 17.5 Z" fill="' + h + '"/><path d="M37 18.5 L41 12 L44.5 21 Z" fill="' + h + '"/>';
+  if (a.style === 'tuft') extra = '<path d="M32 16.5 C29.5 11.5 34.5 8.5 36.8 12.2 C37.8 14 36 15.8 34 14.8" fill="none" stroke="' + h + '" stroke-width="2.6" stroke-linecap="round"/>';
+  var dome = (a.style === 'tuft' || a.style === 'puffs')
+    ? '<path d="M16 31 A16 16 0 0 1 48 31 Z" fill="' + h + '"/>'
+    : '<path d="M14.5 33 A17.5 17.5 0 0 1 49.5 33 Z" fill="' + h + '"/>';
+  var bow = a.style === 'long' ? '<path d="M39.5 15.8 L45.5 12 L44.6 18.8 Z" fill="#F08A3C"/><circle cx="41.6" cy="15.2" r="1.7" fill="#D9702A"/>' : '';
+  return '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' + back +
+    '<circle cx="15.5" cy="36.5" r="3" fill="#FFE3C9"/><circle cx="48.5" cy="36.5" r="3" fill="#FFE3C9"/>' +
+    '<circle cx="32" cy="35" r="17" fill="#FFE3C9"/>' + dome + extra +
+    '<circle cx="25.5" cy="36.8" r="2" fill="#4A3721"/><circle cx="38.5" cy="36.8" r="2" fill="#4A3721"/>' +
+    '<path d="M27.5 43 Q32 46.6 36.5 43" stroke="#C08050" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="21.5" cy="41.2" r="2.8" fill="#F9C4BE" opacity=".85"/><circle cx="42.5" cy="41.2" r="2.8" fill="#F9C4BE" opacity=".85"/>' +
+    bow + '</svg>';
+}
+var SVG_AVATARS = {};
+AVATAR_FACES.forEach(function (a) { SVG_AVATARS[a.key] = faceSvg(a); });
+
+/* 头像/图片统一渲染：'svg:key' → 内置图标；'data:image/...' → 上传图；否则 emoji */
+function mediaHtml(av, emoji, cls) {
+  if (av && av.indexOf('svg:') === 0 && SVG_AVATARS[av.slice(4)]) {
+    return '<span class="' + cls + ' has-svg" aria-hidden="true">' + SVG_AVATARS[av.slice(4)] + '</span>';
+  }
+  if (av && av.indexOf('data:image/') === 0) {
+    return '<span class="' + cls + ' has-img" aria-hidden="true"><img src="' + av + '" alt=""></span>';
+  }
+  return '<span class="' + cls + '" aria-hidden="true">' + (emoji || '🙂') + '</span>';
+}
+/* 照片压缩：居中裁方 → 256px JPEG，控制体积 */
+function compressImage(file, cb) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var size = 256, side = Math.min(img.width, img.height);
+        var c = document.createElement('canvas'); c.width = size; c.height = size;
+        c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        var q = 0.82, url = c.toDataURL('image/jpeg', q);
+        while (url.length > 280000 && q > 0.4) { q -= 0.15; url = c.toDataURL('image/jpeg', q); }
+        cb(url);
+      } catch (e) { toast('图片处理失败，换一张试试'); }
+    };
+    img.onerror = function () { toast('图片读取失败'); };
+    img.src = reader.result;
+  };
+  reader.onerror = function () { toast('图片读取失败'); };
+  reader.readAsDataURL(file);
+}
 
 /* ---- API ---- */
 function api(path, body, token) {
@@ -655,7 +749,7 @@ function renderKidBar() {
   bar.innerHTML = S.kids.map(function (k) {
     var pts = S.st && S.st.kid && k.id === S.st.kid.id ? S.st.balance : null;
     return '<button class="kid ' + (S.kidId === k.id ? 'on' : '') + '" onclick="switchKid(' + k.id + ')" aria-pressed="' + (S.kidId === k.id) + '" aria-label="切换到孩子 ' + esc(k.name) + '">' +
-      '<span class="ava" aria-hidden="true">' + k.emoji + '</span><span class="nm">' + esc(k.name) + '</span>' +
+      mediaHtml(k.avatar_url, k.emoji, 'ava') + '<span class="nm">' + esc(k.name) + '</span>' +
       (pts !== null ? '<span class="nm num" style="font-weight:800;color:var(--gold-deep)">' + ICONS.coinSm + ' ' + num(pts) + '</span>' : '') +
       '</button>';
   }).join('');
@@ -803,7 +897,7 @@ function renderRewards() {
       var pct = Math.max(5, Math.min(100, Math.round(st.balance / r.cost * 100)));
       var ok = st.balance >= r.cost;
       return '<div class="r-card ' + (ok ? 'available' : 'locked') + '" onclick="tapReward(' + r.id + ')" role="button" tabindex="0" aria-label="' + esc(r.name) + '，需要 ' + r.cost + ' 分，' + (ok ? '可以兑换' : '还差 ' + (r.cost - st.balance) + ' 分') + '" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();tapReward(' + r.id + ')}">' +
-        '<div class="r-emoji" aria-hidden="true">' + r.emoji + '</div><h3 class="r-name">' + esc(r.name) + '</h3>' +
+        mediaHtml(r.image_url, r.emoji, 'r-emoji') + '<h3 class="r-name">' + esc(r.name) + '</h3>' +
         '<div class="r-cost num">' + ICONS.coinSm + ' ' + r.cost + ' 分</div>' +
         '<div class="r-bar"><i style="width:' + pct + '%"></i></div>' +
         '<div class="r-state ' + (ok ? '' : 'lock') + '">' + (ok ? '✨ 可以兑换' : ICONS.lock + ' 还差 ' + (r.cost - st.balance) + ' 分') + '</div></div>';
@@ -815,7 +909,7 @@ function tapReward(rid) {
   if (!r) return;
   if (S.st.balance < r.cost) { toast('还差 ' + (r.cost - S.st.balance) + ' 分，继续加油！'); return; }
   openModal('<div class="sheet-head"><h3>兑换确认</h3></div>' +
-    '<div class="r-emoji" style="margin:6px auto 12px">' + r.emoji + '</div>' +
+    mediaHtml(r.image_url, r.emoji, 'r-emoji') +
     '<p class="mtxt" style="text-align:center"><b>' + esc(r.name) + '</b><br>花费 <b class="num">' + r.cost + '</b> 分 · 现有 <b class="num">' + num(S.st.balance) + '</b> 分<br>兑换后剩 <b class="num">' + num(S.st.balance - r.cost) + '</b> 分</p>' +
     '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">再想想</button>' +
     '<button class="btn btn-primary" id="redeemBtn" onclick="redeemDo(' + r.id + ')">确认兑换</button></div>', { noClose: true, dismissable: false, label: '兑换确认' });
@@ -844,7 +938,7 @@ function renderHistory() {
   var st = S.st, m = document.getElementById('main');
   var items = [];
   (st.redemptions || []).forEach(function (r) {
-    items.push({ ts: Date.parse(r.created_at) || 0, html: '<div class="tl-item"><span class="tl-icon" aria-hidden="true">' + r.reward_emoji + '</span>' +
+    items.push({ ts: Date.parse(r.created_at) || 0, html: '<div class="tl-item">' + mediaHtml(r.reward_image, r.reward_emoji, 'tl-icon') +
       '<div class="tl-body"><div class="tl-title">兑换「' + esc(r.reward_name) + '」</div>' +
       '<div class="tl-sub"><span class="num">' + fmtTs(r.created_at) + '</span><span class="chip ' + (r.status === 'done' ? 'done' : 'pending') + '">' + (r.status === 'done' ? '已兑现' : '待兑现') + '</span></div></div>' +
       '<span class="tl-pts down num">-' + r.cost + '</span></div>' });
@@ -980,7 +1074,7 @@ function renderParent() {
     html += '<div class="p-card"><h2>孩子与积分</h2>';
     html += d.kids.length ? d.kids.map(function (k) {
       var tc = d.todayCheckins.filter(function (c) { return c.kid_id === k.id; }).length;
-      return '<div class="p-row"><span class="p-ava" aria-hidden="true">' + k.emoji + '</span>' +
+      return '<div class="p-row">' + mediaHtml(k.avatar_url, k.emoji, 'p-ava') +
         '<div class="p-main"><div class="p-name">' + esc(k.name) + '</div>' +
         '<div class="p-sub"><span class="num" style="color:var(--gold-deep);font-weight:800">' + num(k.balance) + ' 分</span> · 今日 <b class="num">' + tc + '/' + activeHabits + '</b> 项</div></div>' +
         '<div class="p-ops">' +
@@ -1009,7 +1103,7 @@ function renderParent() {
   if (P_TAB === 'rewards') {
     html += '<div class="p-card"><h2>礼物奖励 <span class="badge">' + d.rewards.length + '</span></h2>';
     html += d.rewards.length ? d.rewards.map(function (r) {
-      return '<div class="p-row"><span class="p-ava reward" aria-hidden="true">' + r.emoji + '</span>' +
+      return '<div class="p-row">' + mediaHtml(r.image_url, r.emoji, 'p-ava reward') +
         '<div class="p-main"><div class="p-name">' + esc(r.name) + (r.active ? '' : ' <span class="tag off">已下架</span>') + '</div>' +
         '<div class="p-sub"><span class="num" style="color:var(--gold-deep);font-weight:800">' + r.cost + ' 分</span></div></div>' +
         '<div class="p-ops">' +
@@ -1023,7 +1117,7 @@ function renderParent() {
   if (P_TAB === 'redemptions') {
     html += '<div class="p-card"><h2>待兑现 <span class="badge">' + d.pending.length + '</span></h2>';
     html += d.pending.length ? d.pending.map(function (p) {
-      return '<div class="p-row"><span class="p-ava reward" aria-hidden="true">' + p.reward_emoji + '</span>' +
+      return '<div class="p-row">' + mediaHtml(p.reward_image, p.reward_emoji, 'p-ava reward') +
         '<div class="p-main"><div class="p-name">' + esc(p.reward_name) + '</div>' +
         '<div class="p-sub">' + esc(kname(p.kid_id)) + ' · <span class="num">' + fmtTs(p.created_at) + '</span> · <span class="num">-' + p.cost + ' 分</span></div></div>' +
         '<div class="p-ops">' +
@@ -1051,22 +1145,110 @@ function renderParent() {
 }
 
 /* ============================================================ 家长：增删改 ============================================================ */
+function iconGridHtml() {
+  return '<div class="icon-grid" role="group" aria-label="选择人物图标">' + AVATAR_FACES.map(function (a) {
+    var v = 'svg:' + a.key, on = pickAvatar === v;
+    return '<button type="button" class="icon-pick ' + (on ? 'on' : '') + '" data-k="' + v + '" title="' + a.label +
+      '" aria-label="' + a.label + '" aria-pressed="' + on + '" onclick="pickIcon(this)">' + SVG_AVATARS[a.key] + '</button>';
+  }).join('') + '</div>';
+}
+function photoPaneHtml(previewId, camId, pickId, handler) {
+  return '<div class="photo-row"><span class="photo-preview" id="' + previewId + '">预览</span>' +
+    '<div class="photo-btns">' +
+    '<button type="button" class="btn btn-soft" onclick="document.getElementById(\'' + camId + '\').click()">📷 拍照</button>' +
+    '<button type="button" class="btn btn-soft" onclick="document.getElementById(\'' + pickId + '\').click()">🖼 从相册选择</button></div></div>' +
+    '<input type="file" id="' + camId + '" accept="image/*" capture="user" class="sr-file" aria-label="拍照" onchange="' + handler + '(this)">' +
+    '<input type="file" id="' + pickId + '" accept="image/*" class="sr-file" aria-label="从相册选择" onchange="' + handler + '(this)">' +
+    '<p class="photo-tip">会自动裁成圆形并压缩，手机上选「拍照」可直接调用摄像头</p>';
+}
+function setPreview(id, url) {
+  var p = document.getElementById(id);
+  if (p) p.innerHTML = url ? '<img src="' + url + '" alt="已选图片预览">' : '预览';
+}
+function setAvaSrc(t) {
+  avaKind = t;
+  document.querySelectorAll('#modalRoot .src-tab').forEach(function (b) {
+    var on = b.getAttribute('data-src') === t;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  ['icon', 'emoji', 'photo'].forEach(function (k) {
+    var p = document.getElementById('avaPane-' + k);
+    if (p) p.classList.toggle('hide', k !== t);
+  });
+}
+function setRwdSrc(t) {
+  rwdKind = t;
+  document.querySelectorAll('#modalRoot .src-tab').forEach(function (b) {
+    var on = b.getAttribute('data-src') === t;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  ['emoji', 'photo'].forEach(function (k) {
+    var p = document.getElementById('rwdPane-' + k);
+    if (p) p.classList.toggle('hide', k !== t);
+  });
+}
+function pickIcon(btn) {
+  pickAvatar = btn.getAttribute('data-k');
+  btn.parentElement.querySelectorAll('.icon-pick').forEach(function (b) {
+    b.classList.remove('on'); b.setAttribute('aria-pressed', 'false');
+  });
+  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+}
+function onAvaFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  if (!/^image\//.test(f.type)) { toast('请选择图片文件'); return; }
+  compressImage(f, function (url) {
+    pickAvatar = url;
+    setPreview('avaPreview', url);
+    setAvaSrc('photo');
+  });
+}
+function onRwdFile(input) {
+  var f = input.files && input.files[0];
+  input.value = '';
+  if (!f) return;
+  if (!/^image\//.test(f.type)) { toast('请选择图片文件'); return; }
+  compressImage(f, function (url) {
+    pickRewardImg = url;
+    setPreview('rwdPreview', url);
+    setRwdSrc('photo');
+  });
+}
 function openKidForm(id) {
   var k = id ? S.pdata.kids.find(function (x) { return x.id === id; }) : null;
-  pickEmoji = k ? k.emoji : '🐻';
+  pickEmoji = k ? k.emoji : '👦';
+  avaKind = 'emoji'; pickAvatar = null;
+  if (k && k.avatar_url) {
+    if (k.avatar_url.indexOf('svg:') === 0 && SVG_AVATARS[k.avatar_url.slice(4)]) { avaKind = 'icon'; pickAvatar = k.avatar_url; }
+    else if (k.avatar_url.indexOf('data:image/') === 0) { avaKind = 'photo'; pickAvatar = k.avatar_url; }
+  }
   openModal('<div class="sheet-head"><h3>' + (k ? '编辑孩子' : '添加孩子') + '</h3></div>' +
     '<label class="lb" for="fKidName">名字</label><input class="field" id="fKidName" maxlength="12" value="' + (k ? esc(k.name) : '') + '" placeholder="比如：小雨">' +
-    '<label class="lb">头像</label>' + emojiGrid(KID_EMOJIS, pickEmoji) +
+    '<label class="lb">头像</label>' +
+    '<div class="src-tabs" role="tablist" aria-label="头像来源">' +
+    '<button type="button" class="src-tab" data-src="icon" role="tab" onclick="setAvaSrc(\'icon\')">图标库</button>' +
+    '<button type="button" class="src-tab" data-src="emoji" role="tab" onclick="setAvaSrc(\'emoji\')">表情</button>' +
+    '<button type="button" class="src-tab" data-src="photo" role="tab" onclick="setAvaSrc(\'photo\')">照片</button></div>' +
+    '<div class="src-pane" id="avaPane-icon">' + iconGridHtml() + '</div>' +
+    '<div class="src-pane" id="avaPane-emoji">' + emojiGrid(KID_EMOJIS, pickEmoji) + '</div>' +
+    '<div class="src-pane" id="avaPane-photo">' + photoPaneHtml('avaPreview', 'avaCam', 'avaFile', 'onAvaFile') + '</div>' +
     '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
     '<button class="btn btn-primary" id="kidBtn" onclick="saveKid(' + (id || 0) + ')">保存</button></div>', { noClose: true, dismissable: false, label: '孩子信息' });
+  setAvaSrc(avaKind);
+  setPreview('avaPreview', avaKind === 'photo' ? pickAvatar : '');
 }
 async function saveKid(id) {
   var nameEl = document.getElementById('fKidName');
   var name = nameEl.value.trim();
   fieldError('fKidName', name ? null : '先给孩子起个名字吧');
   if (!name) { nameEl.focus(); return; }
+  var avatarUrl = (avaKind === 'icon' || avaKind === 'photo') ? pickAvatar : null;
   var btn = document.getElementById('kidBtn'); setLoading(btn, true);
-  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji } : { action: 'create', name: name, emoji: pickEmoji };
+  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji, avatarUrl: avatarUrl } : { action: 'create', name: name, emoji: pickEmoji, avatarUrl: avatarUrl };
   try {
     await api('/api/parent/kids', body, S.ptoken);
     closeModal(); toast('已保存');
@@ -1134,12 +1316,21 @@ async function delHabit(id) {
 function openRewardForm(id) {
   var r = id ? S.pdata.rewards.find(function (x) { return x.id === id; }) : null;
   pickEmoji = r ? r.emoji : '🎁';
+  rwdKind = 'emoji'; pickRewardImg = null;
+  if (r && r.image_url && r.image_url.indexOf('data:image/') === 0) { rwdKind = 'photo'; pickRewardImg = r.image_url; }
   openModal('<div class="sheet-head"><h3>' + (r ? '编辑礼物' : '添加礼物') + '</h3></div>' +
     '<label class="lb" for="fRewardName">名称</label><input class="field" id="fRewardName" maxlength="30" value="' + (r ? esc(r.name) : '') + '" placeholder="比如：去游乐园玩一次">' +
-    '<label class="lb">图标</label>' + emojiGrid(REWARD_EMOJIS, pickEmoji) +
+    '<label class="lb">图片</label>' +
+    '<div class="src-tabs" role="tablist" aria-label="图片来源">' +
+    '<button type="button" class="src-tab" data-src="emoji" role="tab" onclick="setRwdSrc(\'emoji\')">表情</button>' +
+    '<button type="button" class="src-tab" data-src="photo" role="tab" onclick="setRwdSrc(\'photo\')">照片</button></div>' +
+    '<div class="src-pane" id="rwdPane-emoji">' + emojiGrid(REWARD_EMOJIS, pickEmoji) + '</div>' +
+    '<div class="src-pane" id="rwdPane-photo">' + photoPaneHtml('rwdPreview', 'rwdCam', 'rwdFile', 'onRwdFile') + '</div>' +
     '<label class="lb" for="fRewardCost">需要积分</label><input class="field num" id="fRewardCost" type="number" min="1" max="9999" value="' + (r ? r.cost : 20) + '">' +
     '<div class="mrow"><button class="btn btn-soft" onclick="closeModal()">取消</button>' +
     '<button class="btn btn-primary" id="rewardBtn" onclick="saveReward(' + (id || 0) + ')">保存</button></div>', { noClose: true, dismissable: false, label: '礼物信息' });
+  setRwdSrc(rwdKind);
+  setPreview('rwdPreview', rwdKind === 'photo' ? pickRewardImg : '');
 }
 async function saveReward(id) {
   var nameEl = document.getElementById('fRewardName'), costEl = document.getElementById('fRewardCost');
@@ -1149,9 +1340,10 @@ async function saveReward(id) {
   fieldError('fRewardName', name ? null : '请填写礼物名称');
   fieldError('fRewardCost', (bad && bad.indexOf('积分') === 0) ? bad : null);
   if (bad) { (name ? costEl : nameEl).focus(); return; }
+  var imageUrl = (rwdKind === 'photo') ? pickRewardImg : null;
   var btn = document.getElementById('rewardBtn'); setLoading(btn, true);
-  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji, cost: cost }
-                : { action: 'create', name: name, emoji: pickEmoji, cost: cost };
+  var body = id ? { action: 'update', id: id, name: name, emoji: pickEmoji, cost: cost, imageUrl: imageUrl }
+                : { action: 'create', name: name, emoji: pickEmoji, cost: cost, imageUrl: imageUrl };
   try {
     await api('/api/parent/rewards', body, S.ptoken);
     closeModal(); toast('已保存');

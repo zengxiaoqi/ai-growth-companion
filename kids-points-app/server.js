@@ -130,7 +130,7 @@ function readRaw(req, limit) {
 }
 
 async function readJson(req) {
-  const raw = await readRaw(req, 20 * 1024);
+  const raw = await readRaw(req, 1024 * 1024); // 1MB：允许携带压缩后的 base64 头像/图片
   if (!raw) return {};
   try {
     const v = JSON.parse(raw);
@@ -153,6 +153,16 @@ function asStr(v, max) {
   const t = v.trim();
   if (!t || t.length > (max || 100)) return null;
   return t;
+}
+
+// 头像/图片字段：null/''=清除；'svg:key'=内置图标；'data:image/...'=上传图（≤400KB 字符）
+// 返回 undefined 表示非法输入
+function asImageRef(v) {
+  if (v === null || v === '') return null;
+  if (typeof v !== 'string') return undefined;
+  if (v.startsWith('svg:')) return v.length <= 24 ? v : undefined;
+  if (v.startsWith('data:image/')) return v.length <= 400000 ? v : undefined;
+  return undefined;
 }
 
 function addDaysStr(dateStr, delta) {
@@ -248,7 +258,7 @@ async function handleApi(req, res, pathname, searchParams) {
   // ---- 公开接口 ----
 
   if (method === 'GET' && pathname === '/api/kids') {
-    const kids = await sbSelect('kids', { select: 'id,name,emoji,sort_order', order: 'sort_order.asc,id.asc' });
+    const kids = await sbSelect('kids', { select: 'id,name,emoji,sort_order,avatar_url', order: 'sort_order.asc,id.asc' });
     return send(res, 200, { kids });
   }
 
@@ -268,14 +278,14 @@ async function handleApi(req, res, pathname, searchParams) {
 
     const [kidRows, habits, rewards, todayCheckins, weekRows, allDates, pts, redemptions, adjustments, recentCheckins, allHabits] =
       await Promise.all([
-        sbSelect('kids', { select: 'id,name,emoji', id: `eq.${kidId}`, limit: '1' }),
+        sbSelect('kids', { select: 'id,name,emoji,avatar_url', id: `eq.${kidId}`, limit: '1' }),
         sbSelect('habits', { select: 'id,name,emoji,category,points,sort_order', active: 'eq.true', order: 'sort_order.asc,id.asc' }),
-        sbSelect('rewards', { select: 'id,name,emoji,cost,sort_order', active: 'eq.true', order: 'sort_order.asc,id.asc' }),
+        sbSelect('rewards', { select: 'id,name,emoji,cost,sort_order,image_url', active: 'eq.true', order: 'sort_order.asc,id.asc' }),
         sbSelect('checkins', { select: 'habit_id,points', kid_id: `eq.${kidId}`, check_date: `eq.${date}` }),
         sbFetch(`checkins?select=check_date,points&kid_id=eq.${kidId}&check_date=gte.${from}&check_date=lte.${date}`),
         sbSelect('checkins', { select: 'check_date', kid_id: `eq.${kidId}` }),
         computePoints(kidId),
-        sbSelect('redemptions', { select: 'id,reward_name,reward_emoji,cost,status,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '10' }),
+        sbSelect('redemptions', { select: 'id,reward_name,reward_emoji,reward_image,cost,status,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '10' }),
         sbSelect('adjustments', { select: 'id,points,note,adj_date,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '10' }),
         sbSelect('checkins', { select: 'id,habit_id,points,check_date,created_at', kid_id: `eq.${kidId}`, order: 'id.desc', limit: '12' }),
         sbSelect('habits', { select: 'id,name,emoji' }),
@@ -374,7 +384,7 @@ async function handleApi(req, res, pathname, searchParams) {
     const rewardId = asInt(body.rewardId, 1);
     if (!kidId || !rewardId) return jsonError(res, 400, '参数不对');
 
-    const rewardRows = await sbSelect('rewards', { select: 'id,name,emoji,cost,active', id: `eq.${rewardId}`, limit: '1' });
+    const rewardRows = await sbSelect('rewards', { select: 'id,name,emoji,cost,active,image_url', id: `eq.${rewardId}`, limit: '1' });
     if (!rewardRows.length || !rewardRows[0].active) return jsonError(res, 400, '礼物不存在或已下架');
     const reward = rewardRows[0];
 
@@ -385,7 +395,7 @@ async function handleApi(req, res, pathname, searchParams) {
 
     const ins = await sbInsert(
       'redemptions',
-      { kid_id: kidId, reward_id: reward.id, reward_name: reward.name, reward_emoji: reward.emoji, cost: reward.cost, status: 'pending' },
+      { kid_id: kidId, reward_id: reward.id, reward_name: reward.name, reward_emoji: reward.emoji, reward_image: reward.image_url || null, cost: reward.cost, status: 'pending' },
       'id,status,created_at'
     );
     const pts2 = await computePoints(kidId);
@@ -415,12 +425,12 @@ async function handleApi(req, res, pathname, searchParams) {
     const date = asStr(searchParams.get('date'), 10);
     const validDate = date && DATE_RE.test(date) ? date : null;
 
-    const kids = await sbSelect('kids', { select: 'id,name,emoji,sort_order', order: 'sort_order.asc,id.asc' });
+    const kids = await sbSelect('kids', { select: 'id,name,emoji,sort_order,avatar_url', order: 'sort_order.asc,id.asc' });
     const kidPts = await Promise.all(kids.map((k) => computePoints(k.id)));
     const [habits, rewards, pending, adjustments, todayCheckins] = await Promise.all([
       sbSelect('habits', { select: 'id,name,emoji,category,points,sort_order,active', order: 'sort_order.asc,id.asc' }),
-      sbSelect('rewards', { select: 'id,name,emoji,cost,sort_order,active', order: 'sort_order.asc,id.asc' }),
-      sbSelect('redemptions', { select: 'id,kid_id,reward_name,reward_emoji,cost,status,created_at', status: 'eq.pending', order: 'id.desc', limit: '50' }),
+      sbSelect('rewards', { select: 'id,name,emoji,cost,sort_order,active,image_url', order: 'sort_order.asc,id.asc' }),
+      sbSelect('redemptions', { select: 'id,kid_id,reward_name,reward_emoji,reward_image,cost,status,created_at', status: 'eq.pending', order: 'id.desc', limit: '50' }),
       sbSelect('adjustments', { select: 'id,kid_id,points,note,adj_date,created_at', order: 'id.desc', limit: '30' }),
       validDate ? sbSelect('checkins', { select: 'kid_id,habit_id,points', check_date: `eq.${validDate}` }) : Promise.resolve([]),
     ]);
@@ -444,9 +454,11 @@ async function handleApi(req, res, pathname, searchParams) {
     if (action === 'create') {
       const name = asStr(body.name, 12);
       const emoji = asStr(body.emoji, 8) || '🐻';
+      const avatarUrl = asImageRef(body.avatarUrl === undefined ? null : body.avatarUrl);
       if (!name) return jsonError(res, 400, '请填写孩子名字');
+      if (avatarUrl === undefined) return jsonError(res, 400, '头像数据不对');
       const sortOrder = await nextSortOrder('kids');
-      const kid = await sbInsert('kids', { name, emoji, sort_order: sortOrder }, 'id,name,emoji,sort_order');
+      const kid = await sbInsert('kids', { name, emoji, sort_order: sortOrder, avatar_url: avatarUrl }, 'id,name,emoji,sort_order,avatar_url');
       return send(res, 200, { ok: true, kid: kid && kid[0] });
     }
 
@@ -460,6 +472,11 @@ async function handleApi(req, res, pathname, searchParams) {
         patch.name = name;
       }
       if (body.emoji !== undefined) patch.emoji = asStr(body.emoji, 8) || '🐻';
+      if (body.avatarUrl !== undefined) {
+        const avatarUrl = asImageRef(body.avatarUrl);
+        if (avatarUrl === undefined) return jsonError(res, 400, '头像数据不对');
+        patch.avatar_url = avatarUrl;
+      }
       if (!Object.keys(patch).length) return jsonError(res, 400, '没有要修改的内容');
       await sbUpdate('kids', { id: `eq.${id}` }, patch);
       return send(res, 200, { ok: true });
@@ -543,10 +560,12 @@ async function handleApi(req, res, pathname, searchParams) {
       const name = asStr(body.name, 30);
       const emoji = asStr(body.emoji, 8) || '🎁';
       const cost = asInt(body.cost, 1, 9999);
+      const imageUrl = asImageRef(body.imageUrl === undefined ? null : body.imageUrl);
       if (!name) return jsonError(res, 400, '请填写礼物名称');
       if (cost === null) return jsonError(res, 400, '所需积分要在 1-9999 之间');
+      if (imageUrl === undefined) return jsonError(res, 400, '图片数据不对');
       const sortOrder = await nextSortOrder('rewards');
-      const reward = await sbInsert('rewards', { name, emoji, cost, sort_order: sortOrder, active: true }, 'id');
+      const reward = await sbInsert('rewards', { name, emoji, cost, sort_order: sortOrder, active: true, image_url: imageUrl }, 'id');
       return send(res, 200, { ok: true, reward: reward && reward[0] });
     }
 
@@ -560,6 +579,11 @@ async function handleApi(req, res, pathname, searchParams) {
         patch.name = name;
       }
       if (body.emoji !== undefined) patch.emoji = asStr(body.emoji, 8) || '🎁';
+      if (body.imageUrl !== undefined) {
+        const imageUrl = asImageRef(body.imageUrl);
+        if (imageUrl === undefined) return jsonError(res, 400, '图片数据不对');
+        patch.image_url = imageUrl;
+      }
       if (body.cost !== undefined) {
         const c = asInt(body.cost, 1, 9999);
         if (c === null) return jsonError(res, 400, '所需积分要在 1-9999 之间');

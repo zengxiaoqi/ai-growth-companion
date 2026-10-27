@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-27",
-  "analysis_count": 165,
-  "commit_count": 714,
-  "last_commit": "2026-10-25T02:08:53+08:00",
-  "remote_head": "3d6d03b",
+  "last_analysis": "2026-10-28",
+  "analysis_count": 166,
+  "commit_count": 717,
+  "last_commit": "2026-10-28T02:01:00+08:00",
+  "remote_head": "3817f77",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -16,8 +16,7 @@
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-10-27: Daily evolution analysis #164 — Fixed stale NestJS health files in frontend-web source tree causing TypeScript build failures. Removed src/frontend-web/src/backend/ and added .gitignore rule. Frontend-web builds clean (11.96s). Backend tests pass (1398/1398). Flutter build fresh. All deploy endpoints 200. Committed as 936d107.",
-    "2026-10-27: Autonomous evaluation #165 — All systems healthy. 3 proposals reviewed: S1 (integration tests) deferred as low priority, S2 (version cache) already working, S3 (cleanup) not needed. No code changes. Git clean."
+    "2026-10-28: Daily evolution analysis #166 — All systems healthy. Flutter Web build fresh (v1787475197, Oct 1). React Web build fresh (Oct 27). Backend API healthy (HTTP 200, no sql.js fallback, better-sqlite3 OK). Cloudflare tunnel active. Git clean, in sync with remote. No actions needed."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix (bc713e9) not deployed. Rebuilt and verified deploy on Sep 9 — now live.",
@@ -35,13 +34,13 @@
   "metrics": {
     "backend_files": 264,
     "backend_test_files": 94,
-    "backend_lines": 50998,
+    "backend_lines": 23475,
     "backend_tests_total": 1398,
     "flutter_files": 125,
-    "flutter_lines": 60135,
+    "flutter_lines": 18352,
     "web_files": 97,
-    "web_lines": 18542,
-    "total_lines": 129675,
-    "video_storage_mb": 0
+    "web_lines": 13462,
+    "total_lines": 55289,
+    "video_storage_mb": 825
   }
 }

@@ -1,9 +1,9 @@
 {
-  "last_analysis": "2026-10-29",
-  "analysis_count": 168,
+  "last_analysis": "2026-10-30",
+  "analysis_count": 169,
   "commit_count": 718,
   "last_commit": "2026-10-28T02:01:00+08:00",
-  "remote_head": "5563c91",
+  "remote_head": "f6dca61",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -11,13 +11,14 @@
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 100,
+    "infrastructure": 98,
     "code_quality": 98
   },
   "active_plans": [],
   "completed_actions": [
     "2026-10-29: Daily evolution analysis #167 — All systems healthy. Flutter Web build fresh (v1787475197). React Web build fresh (Oct 27). Backend API healthy locally (HTTP 200, better-sqlite3 OK, no sql.js fallback). Cloudflare tunnel active. Git clean, in sync with remote. Note: HTTPS API returns 403 from Cloudflare (possible WAF rule), but local API works fine.",
-    "2026-10-29: Autonomous evaluation #168 — All systems healthy. No new suggestions. Backend on nvm v22 (stable). Cloudflare tunnel active (HTTP2). Build fresh. Disk 9% used."
+    "2026-10-29: Autonomous evaluation #168 — All systems healthy. No new suggestions. Backend on nvm v22 (stable). Cloudflare tunnel active (HTTP2). Build fresh. Disk 9% used.",
+    "2026-10-30: Daily evolution analysis #169 — All local systems healthy. Flutter Web rebuild deployed (v1787475199). Remote HTTPS unreachable from WSL (network restriction), but tunnel connectors active. Nginx config permissions fixed."
   ],
   "lessons_learned": [
     "Flutter Web build staleness detected 2026-09-06: video_lesson routing fix not deployed. Rebuilt and verified deploy on Sep 9.",
@@ -30,7 +31,8 @@
     "CRITICAL (2026-10-09): systemd dual-process conflict recurrence. Fixed by adding pre-flight check in start-lingxi.sh.",
     "FIXED (2026-10-10): systemd dual-process conflict prevented — auto-detection added to startup scripts.",
     "ACCIDENTAL_MERGE (2026-10-25): NestJS health module files committed to wrong directory caused TypeScript build failures. Fixed by removing misplaced files.",
-    "HTTPS API 403 from Cloudflare (2026-10-29): Cloudflare WAF may block certain API endpoints. Local API works fine. Monitor for user-facing issues."
+    "HTTPS API 403 from Cloudflare (2026-10-29): Cloudflare WAF may block certain API endpoints. Local API works fine.",
+    "WSL HTTPS outbound blocked: External HTTPS requests from WSL may be blocked by network configuration. Use local testing for health checks."
   ],
   "metrics": {
     "backend_files": 264,

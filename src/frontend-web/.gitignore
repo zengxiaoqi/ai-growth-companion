@@ -1,4 +1,2 @@
-node_modules/
-dist/
-*.db
-.env
+# Exclude backend directory accidentally placed here
+src/backend/

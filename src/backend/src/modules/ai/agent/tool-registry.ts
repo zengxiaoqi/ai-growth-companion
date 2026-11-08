@@ -21,7 +21,8 @@ import { QueryBookSkillTool } from './tools/query-book-skill';
 import { GenerateBookLessonTool } from './tools/generate-book-lesson';
 import { RecallMemoryTool } from './tools/recall-memory';
 import { SaveMemoryTool } from './tools/save-memory';
-import { requiresParentApproval, toolRiskOf } from './tools/tool-risk';
+import { requiresParentApproval, toolRiskOf } from '../../../common/policy/tool-risk';
+import type { ToolActorContext } from '../../../common/policy/tool-risk';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
 
 @Injectable()
@@ -87,23 +88,37 @@ export class ToolRegistry {
     return toolDefinitions;
   }
 
-  /** Execute a tool by name and return the result string */
-  async execute(toolName: string, args: Record<string, any>): Promise<string> {
+  /**
+   * Execute a tool by name and return the result string.
+   *
+   * `actor` is supplied by the server (derived from the authenticated
+   * session), never from the model's tool arguments.
+   */
+  async execute(
+    toolName: string,
+    args: Record<string, any>,
+    actor: ToolActorContext = {},
+  ): Promise<string> {
     const handler = this.handlers.get(toolName);
     if (!handler) {
       this.logger.warn(`Unknown tool called: ${toolName}`);
       return JSON.stringify({ error: `未知工具: ${toolName}` });
     }
 
-    // Risk gate. The policy map is always consulted; the enforcement set is
-    // empty by default, so this is a no-op until a product decision puts a
-    // tool in it. Returning a structured refusal rather than throwing keeps
-    // the model able to explain itself and carry on.
+    // An older draft read `__parentApproved` straight from the model's
+    // tool arguments, so a prompt-injected `true` could grant its own
+    // approval. Strip it before it reaches a handler; only server-side
+    // `actor.parentApproved` can ever carry that meaning.
+    const safeArgs: Record<string, any> = { ...(args ?? {}) };
+    delete safeArgs.__parentApproved;
+
     const policy = toolRiskOf(toolName);
     if (policy.risk !== 'low') {
       this.logger.debug(`Tool ${toolName} risk=${policy.risk}`);
     }
-    if (requiresParentApproval(toolName) && args?.__parentApproved !== true) {
+    if (requiresParentApproval(toolName, actor)) {
+      // A structured refusal rather than a throw: the model can explain
+      // the boundary to the child and carry on with the conversation.
       this.logger.warn(`Tool ${toolName} blocked: needs parent approval`);
       return JSON.stringify({
         error: '这个操作需要家长确认后才能进行',
@@ -112,8 +127,8 @@ export class ToolRegistry {
     }
 
     try {
-      this.logger.log(`Tool called: ${toolName}(${JSON.stringify(args).slice(0, 100)})`);
-      const result = await handler(args);
+      this.logger.log(`Tool called: ${toolName}(${JSON.stringify(safeArgs).slice(0, 100)})`);
+      const result = await handler(safeArgs);
       this.logger.log(`Tool ${toolName} returned: ${result.slice(0, 100)}...`);
       return result;
     } catch (error) {

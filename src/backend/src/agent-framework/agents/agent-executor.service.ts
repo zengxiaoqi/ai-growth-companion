@@ -21,7 +21,7 @@ import type {
 } from '../core';
 import { stripThinking, extractThinking, filterContent } from '../core';
 import { isActivityType, type ActivityType } from '../core';
-import { extractJsonObject } from '../core';
+import { extractJsonObject, contentAgeGroup } from '../core';
 
 /** Fallback reply when max iterations are reached */
 const MAX_ITERATIONS_FALLBACK = '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟';
@@ -633,7 +633,10 @@ export class AgentExecutorService {
       normalized.parentId = context.parentId;
     }
     if (meta.requiresAgeGroup && context.ageGroup !== 'parent') {
-      normalized.ageGroup = context.ageGroup;
+      // Tools key their content on the two legacy buckets. The prompt can
+      // use a school-age style, but the tool argument must not carry a
+      // bucket name the content library has never heard of.
+      normalized.ageGroup = contentAgeGroup(context.ageGroup);
     }
 
     return normalized;

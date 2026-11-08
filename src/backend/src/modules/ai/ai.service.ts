@@ -10,7 +10,8 @@ import { AgentRegistryService } from '../../agent-framework/agents/agent-registr
 import { AgentExecutorService as FrameworkAgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
 import { SkillRegistryService } from '../../agent-framework/skills/skill-registry.service';
 import { SkillExecutor } from '../../agent-framework/skills/skill-executor';
-import type { AgentContext } from '../../agent-framework/core';
+import type { AgentContext, AgeGroupOrParent } from '../../agent-framework/core';
+import { contentAgeGroup } from '../../agent-framework/core';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
@@ -410,8 +411,16 @@ export class AiService {
     }
   }
 
-  private normalizeAgentAgeGroup(ageGroup: AgeGroup): '3-4' | '5-6' {
-    return ageGroup === '3-4' ? '3-4' : '5-6';
+  /**
+   * Bridge the legacy executor's AgeGroup (which has an 'unknown' sentinel)
+   * to the framework's real age groups.
+   *
+   * This used to collapse anything above 6 back into '5-6', which made the
+   * school-age prompts unreachable from the HTTP entry point no matter what
+   * classifyAge() returned. Only a missing age keeps the historical default.
+   */
+  private normalizeAgentAgeGroup(ageGroup: AgeGroup): Exclude<AgeGroup, 'unknown'> {
+    return ageGroup === 'unknown' ? '5-6' : ageGroup;
   }
 
   /**
@@ -445,7 +454,7 @@ export class AiService {
 
   private buildAgentContext(params: {
     sessionId: string;
-    ageGroup: '3-4' | '5-6' | 'parent';
+    ageGroup: AgeGroupOrParent;
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
     actorType: 'parent' | 'child';
@@ -475,7 +484,7 @@ export class AiService {
   private async executeRoutedChat(params: {
     sessionId: string;
     message: string;
-    ageGroup: '3-4' | '5-6' | 'parent';
+    ageGroup: AgeGroupOrParent;
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
     actorType?: 'parent' | 'child';
@@ -517,7 +526,7 @@ export class AiService {
   private async *executeRoutedChatStream(params: {
     sessionId: string;
     message: string;
-    ageGroup: '3-4' | '5-6' | 'parent';
+    ageGroup: AgeGroupOrParent;
     displayName: string;
     executionContext: { childId?: number; parentId?: number };
     actorType?: 'parent' | 'child';
@@ -1103,8 +1112,11 @@ export class AiService {
     if (!resolvedAgeGroup && childId != null) {
       const child = await this.usersService.findById(childId);
       const inferred = this.agentExecutor.classifyAge(child?.age);
-      if (inferred === '3-4' || inferred === '5-6') {
-        resolvedAgeGroup = inferred;
+      // A school-age child still needs a content bucket: the curriculum
+      // directories only serve '3-4' / '5-6'. Leaving it undefined used to
+      // drop the age hint entirely for anyone older than six.
+      if (inferred !== 'unknown') {
+        resolvedAgeGroup = contentAgeGroup(inferred);
       }
     }
 
@@ -3041,6 +3053,12 @@ export class AiService {
   private generateSuggestions(reply: string, ageGroup: AgeGroup): string[] {
     if (ageGroup === '3-4') {
       return ['我想学颜色 🎨', '给我讲故事 📖', '我们玩游戏吧 🎮'];
+    }
+    if (ageGroup === '7-9') {
+      return ['给我出几道挑战题', '这个词是什么意思', '我最近进步了吗？'];
+    }
+    if (ageGroup === '10-12') {
+      return ['帮我梳理一下思路', '来一道难一点的题', '看看我的学习报告'];
     }
     return ['推荐学习内容', '出一道数学题', '我最近学得怎么样？'];
   }

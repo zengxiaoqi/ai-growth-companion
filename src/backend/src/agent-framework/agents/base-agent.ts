@@ -20,6 +20,7 @@ import type {
   StreamEvent,
   ToolExecutionContext,
 } from '../core';
+import { contentAgeGroup } from '../core';
 
 @Injectable()
 export abstract class BaseAgent implements IAgent {
@@ -63,8 +64,11 @@ export abstract class BaseAgent implements IAgent {
     if (meta.requiresParentId && !normalized.parentId && context.parentId != null) {
       normalized.parentId = context.parentId;
     }
-    if (meta.requiresAgeGroup && !normalized.ageGroup && context.ageGroup !== 'parent') {
-      normalized.ageGroup = context.ageGroup;
+    if (meta.requiresAgeGroup && context.ageGroup !== 'parent') {
+      // Server-owned value. A model may echo a real '7-9' group (or invent
+      // one) into a content tool that only understands two buckets, so
+      // always coerce rather than trusting the supplied argument.
+      normalized.ageGroup = contentAgeGroup(context.ageGroup);
     }
     return normalized;
   }

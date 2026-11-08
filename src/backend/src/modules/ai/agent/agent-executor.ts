@@ -4,7 +4,17 @@ import { ToolRegistry } from './tool-registry';
 import { ConversationService } from '../../../agent-framework/conversation/conversation.service';
 import { ContentSafetyService } from '../../../common/services/content-safety.service';
 import { careCuePrompt } from '../../care/care-prompt';
-import { systemPrompt34, systemPrompt56, systemPromptParent } from './prompts/system-prompts';
+import {
+  systemPrompt34,
+  systemPrompt56,
+  systemPrompt79,
+  systemPrompt1012,
+  systemPromptParent,
+} from './prompts/system-prompts';
+import {
+  classifyAge as classifyAgeGroup,
+  contentAgeGroup,
+} from '../../../agent-framework/core/types/age-group';
 import { stripThinking, extractThinking } from '../../../agent-framework/core';
 import type { LlmMessage } from '../../../agent-framework/core';
 import type { ToolCallInfo, AgeGroup } from '../ai.types';
@@ -118,12 +128,16 @@ export class AgentExecutor {
     private readonly contentSafetyService: ContentSafetyService,
   ) {}
 
-  /** Classify a numeric age into an age group */
+  /**
+   * Classify a numeric age into an age group.
+   *
+   * Delegates to the framework's single source of truth so the two
+   * executors cannot disagree about what a 9-year-old is. 'unknown' is
+   * kept only as this executor's "age not supplied" sentinel.
+   */
   classifyAge(age: number | undefined | null): AgeGroup {
     if (age == null) return 'unknown';
-    if (age >= 3 && age <= 4) return '3-4';
-    if (age >= 5 && age <= 6) return '5-6';
-    return 'unknown';
+    return classifyAgeGroup(age);
   }
 
   /** Build system prompt based on age group */
@@ -158,7 +172,9 @@ export class AgentExecutor {
     if (ageGroup === 'parent') return `${systemPromptParent(childName)}\n\n${contextHints}`;
     if (ageGroup === '3-4') return `${systemPrompt34(childName)}\n\n${contextHints}`;
     if (ageGroup === '5-6') return `${systemPrompt56(childName)}\n\n${contextHints}`;
-    return `${systemPrompt56(childName)}\n\n${contextHints}`; // default to 5-6 style
+    if (ageGroup === '7-9') return `${systemPrompt79(childName)}\n\n${contextHints}`;
+    if (ageGroup === '10-12') return `${systemPrompt1012(childName)}\n\n${contextHints}`;
+    return `${systemPrompt56(childName)}\n\n${contextHints}`; // 'unknown' and anything else
   }
 
   /**
@@ -268,7 +284,11 @@ export class AgentExecutor {
           this.logger.debug(
             `[TOOL CALL] ${toolName} args=${JSON.stringify(normalizedToolArgs).slice(0, 500)}`,
           );
-          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, {
+            // Same convention as AiService.buildAgentContext: a parent
+            // conversation is the only one routed with ageGroup='parent'.
+            actorType: ageGroup === 'parent' ? 'parent' : 'child',
+          });
           this.logger.debug(
             `[TOOL RESULT] ${toolName} resultLen=${result.length} preview=${result.slice(0, 300)}`,
           );
@@ -420,7 +440,11 @@ export class AgentExecutor {
           this.logger.debug(
             `[STREAM TOOL CALL] ${toolName} args=${JSON.stringify(normalizedToolArgs).slice(0, 500)}`,
           );
-          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs);
+          const result = await this.toolRegistry.execute(toolName, normalizedToolArgs, {
+            // Same convention as AiService.buildAgentContext: a parent
+            // conversation is the only one routed with ageGroup='parent'.
+            actorType: ageGroup === 'parent' ? 'parent' : 'child',
+          });
           this.logger.debug(
             `[STREAM TOOL RESULT] ${toolName} resultLen=${result.length} preview=${result.slice(0, 300)}`,
           );
@@ -596,10 +620,15 @@ export class AgentExecutor {
       normalized.parentId = executionContext.parentId;
     }
 
-    if (NEEDS_AGE_GROUP_TOOLS.has(toolName)) {
-      if (ageGroup === '3-4' || ageGroup === '5-6') {
-        normalized.ageGroup = ageGroup;
-      }
+    if (
+      NEEDS_AGE_GROUP_TOOLS.has(toolName) &&
+      ageGroup !== 'parent' &&
+      ageGroup !== 'unknown'
+    ) {
+      // The conversation may be in a school-age style, but the content
+      // layer still only has two buckets. Inject the bucket here rather
+      // than letting a '7-9' string reach a tool that would reject it.
+      normalized.ageGroup = contentAgeGroup(ageGroup);
     }
 
     if (toolName === 'assignActivity' && conversationId && normalized.conversationId == null) {

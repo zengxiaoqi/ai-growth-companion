@@ -48,7 +48,11 @@ export type {
 export type { IAgentExecutor } from './core/interfaces/executor.interface';
 
 // Core types
-export type { AgeGroup, AgeGroupOrParent } from './core/types/age-group';
+export type {
+  AgeGroup,
+  AgeGroupOrParent,
+  ContentAgeGroup,
+} from './core/types/age-group';
 
 export type {
   StreamEvent,
@@ -63,7 +67,16 @@ export type {
 
 export type { ToolMetadata, ToolCallInfo, ActivityType } from './core/types/tool-metadata';
 
-export { classifyAge, ageGroupLabel } from './core/types/age-group';
+export {
+  ALL_AGE_GROUPS,
+  CONTENT_AGE_GROUPS,
+  SCHOOL_AGE_GROUPS,
+  classifyAge,
+  normalizeAgeGroup,
+  contentAgeGroup,
+  difficultyForAge,
+  ageGroupLabel,
+} from './core/types/age-group';
 
 export { ACTIVITY_TYPES, isActivityType } from './core/types/tool-metadata';
 

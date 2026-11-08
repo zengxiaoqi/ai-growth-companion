@@ -1,3 +1,18 @@
+import { childSchoolAgeSystemPrompt } from '../../../../agent-framework/prompts/templates/child-school-age.system';
+
+/**
+ * School-age styles for the legacy executor.
+ *
+ * They reuse the framework templates so there is one place to edit the
+ * wording, while the two preschool templates below stay byte-for-byte
+ * unchanged (their exact text is asserted by existing tests).
+ */
+export const systemPrompt79 = (childName: string) =>
+  childSchoolAgeSystemPrompt(childName, '7-9');
+
+export const systemPrompt1012 = (childName: string) =>
+  childSchoolAgeSystemPrompt(childName, '10-12');
+
 export const systemPrompt34 = (childName: string) => `
 你是灵犀伴学的AI学习伙伴，正在和一个3-4岁的孩子${childName}聊天。
 

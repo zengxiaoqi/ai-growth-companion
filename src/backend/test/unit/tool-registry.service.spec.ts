@@ -196,6 +196,43 @@ describe('ToolRegistryService', () => {
     expect(result).toEqual({ success: false, error: '工具执行失败: boom' });
   });
 
+  it('blocks a parent-only tool on a child conversation', async () => {
+    const tool = new FakeTool();
+    Reflect.defineProperty(tool.metadata, 'name', { value: 'createGift' });
+    const spy = jest.spyOn(tool, 'execute');
+    service.register(tool);
+
+    const result = await service.execute(
+      'createGift',
+      { name: '贴纸' },
+      { conversationId: 'conv1', ageGroup: '5-6', extra: {} } as ToolExecutionContext,
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('家长确认');
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('lets a parent through and strips a model-supplied approval flag', async () => {
+    const tool = new FakeTool();
+    Reflect.defineProperty(tool.metadata, 'name', { value: 'createGift' });
+    const spy = jest.spyOn(tool, 'execute');
+    service.register(tool);
+
+    const result = await service.execute(
+      'createGift',
+      { name: '贴纸', __parentApproved: true },
+      {
+        conversationId: 'conv1',
+        ageGroup: 'parent',
+        extra: { actorType: 'parent' },
+      } as ToolExecutionContext,
+    );
+
+    expect(result.success).toBe(true);
+    expect(spy).toHaveBeenCalledWith({ name: '贴纸' }, expect.anything());
+  });
+
   // ── executeToString ──────────────────────────────────────────────────
 
   it('executeToString returns JSON of data when available', async () => {

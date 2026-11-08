@@ -28,28 +28,7 @@ import { HealthModule } from './modules/health/health.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { MemoryModule } from './modules/memory/memory.module';
 import { CareModule } from './modules/care/care.module';
-
-/**
- * Read the schema-sync switch.
- *
- * `synchronize: true` is convenient in development but dangerous in
- * production: one deploy with a renamed column can drop a table. The
- * switch exists so an operator can lock the schema without editing code:
- *
- *   DB_SYNCHRONIZE=false   → schema is frozen, migrations own it
- *   unset / anything else  → current behaviour (auto-sync), unchanged
- *
- * Defaulting to `true` is deliberate: this repository has no migration
- * baseline for the 20 pre-existing entities yet, so flipping the default
- * would leave a fresh database empty. New tables (`memories`,
- * `safety_events`, `recall_audit`, `care_cues`) do ship an idempotent
- * migration, so turning the switch off still creates them.
- */
-function resolveSynchronize(configService: ConfigService): boolean {
-  const raw = configService.get<string>('DB_SYNCHRONIZE');
-  if (raw == null || raw === '') return true;
-  return !['false', '0', 'no', 'off'].includes(String(raw).trim().toLowerCase());
-}
+import { resolveSynchronize } from './database/resolve-synchronize';
 
 /**
  * Detect whether better-sqlite3 native bindings are available.
@@ -91,9 +70,11 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
       useFactory: (configService: ConfigService): any => {
         const databaseUrl = configService.get('DATABASE_URL');
         const synchronize = resolveSynchronize(configService);
-        if (!synchronize) {
-          Logger.log('DB_SYNCHRONIZE=false — schema is owned by migrations', 'AppModule');
-        }
+        Logger.log(
+          `Schema mode: synchronize=${synchronize}, migrationsRun=${!synchronize}` +
+            (synchronize ? ' (never enable this in production)' : ' (schema is owned by migrations)'),
+          'AppModule',
+        );
 
         // PostgreSQL (Railway 生产环境)
         if (databaseUrl) {

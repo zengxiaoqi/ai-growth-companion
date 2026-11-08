@@ -1,6 +1,12 @@
 /** Shared types for the AI Agent module */
 
-export type AgeGroup = '3-4' | '5-6' | 'unknown';
+/**
+ * Legacy agent age group. Keep in sync with the framework `AgeGroup`
+ * (agent-framework/core/types/age-group.ts); 'unknown' is the legacy
+ * executor's "age not supplied" sentinel and is normalised to '5-6'
+ * before anything is rendered.
+ */
+export type AgeGroup = '3-4' | '5-6' | '7-9' | '10-12' | 'unknown';
 
 export interface ChatRequest {
   message: string;

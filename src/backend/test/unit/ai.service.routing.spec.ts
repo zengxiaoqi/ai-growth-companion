@@ -94,6 +94,44 @@ describe('AiService viewer routing', () => {
   });
 
   /**
+   * AiService used to squash every group above 6 back into '5-6', which
+   * made the school-age prompts unreachable from the HTTP entry point.
+   */
+  it.each(['7-9', '10-12'] as const)(
+    'keeps the school-age group %s all the way to the executor',
+    async (group) => {
+      agentExecutor.classifyAge.mockReturnValue(group);
+
+      const result = await service.chat({
+        message: '我想聊点难的',
+        viewerId: 2,
+        viewerType: 'child',
+      });
+
+      expect(agentExecutor.execute).toHaveBeenCalledWith(
+        'session-1',
+        '我想聊点难的',
+        group,
+        '小朋友B',
+        { childId: 2, parentId: 1 },
+        undefined,
+        undefined,
+        undefined,
+      );
+      expect(conversationManager.updateMetadata).toHaveBeenCalledWith(
+        'session-1',
+        expect.objectContaining({ ageGroup: group }),
+      );
+      // Suggestion chips are age-adaptive too.
+      expect(result.suggestions).not.toEqual([
+        '推荐学习内容',
+        '出一道数学题',
+        '我最近学得怎么样？',
+      ]);
+    },
+  );
+
+  /**
    * A care cue is an *opening* instruction. These two cases pin the only
    * signal that distinguishes an opening from turn 12: whether the session
    * id the client asked for is the one the store actually returned.

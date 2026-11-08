@@ -10,6 +10,7 @@ import { DiscoveryService, ModuleRef } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import type { ITool, IToolRegistry, ToolResult, ToolExecutionContext } from '../core';
 import { TOOL_REGISTRY_METADATA } from './decorators/register-tool';
+import { requiresParentApproval } from '../../common/policy/tool-risk';
 
 @Injectable()
 export class ToolRegistryService implements IToolRegistry, OnModuleInit {
@@ -130,9 +131,23 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
       return { success: false, error: `未知工具: ${name}` };
     }
 
+    // Same policy as the legacy registry, enforced at the second and only
+    // other execution point. The actor comes from the server-built context,
+    // never from the model's tool arguments.
+    const actorType =
+      context?.extra?.actorType === 'parent' || context?.ageGroup === 'parent'
+        ? 'parent'
+        : 'child';
+    if (requiresParentApproval(name, { actorType })) {
+      this.logger.warn(`Tool ${name} blocked: needs parent approval`);
+      return { success: false, error: '这个操作需要家长确认后才能进行' };
+    }
+    const safeArgs: Record<string, any> = { ...(args ?? {}) };
+    delete safeArgs.__parentApproved;
+
     try {
-      this.logger.log(`Tool called: ${name}(${JSON.stringify(args).slice(0, 100)})`);
-      const result = await tool.execute(args, context);
+      this.logger.log(`Tool called: ${name}(${JSON.stringify(safeArgs).slice(0, 100)})`);
+      const result = await tool.execute(safeArgs, context);
       this.logger.log(`Tool ${name} returned: success=${result.success}`);
       return result;
     } catch (error: any) {

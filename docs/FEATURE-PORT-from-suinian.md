@@ -39,7 +39,9 @@
 | **年龄自动适配** | **已有完整机制，无需移植，也不要绕开**：`classifyAge()` → `selectPrompt()` → `PromptProviderService.registerTemplate(ageGroup, role, template)`，运行时模板可注册覆盖；`buildToolInstructions()` 还会按可用工具自动拼提示段 | `agent-framework/core/types/age-group.ts`、`agent-framework/prompts/age-adaptive.ts`、`prompt-provider.service.ts` |
 | LLM 多 Provider | **已有** `LlmClientService` + retry 策略，无需移植 `suinian/llm/` | `agent-framework/llm/` |
 
-> **核查到的一个现状**（不是阻塞项）：`AgeGroup` 类型目前是 `'3-4' | '5-6'`；`agent-framework` 的 `classifyAge()` 对 7 岁以上回落 `'5-6'`，`modules/ai/agent/agent-executor.ts` 另有一份实现返回 `'unknown'` 后由 `buildSystemPrompt` 兜底到 5-6 话术。即**自动适配的架构与扩展点齐备，当前落地档位只有两档**。产品若要正式覆盖 6 岁以上，需扩 `AgeGroup` 枚举、注册新模板、统一两份 `classifyAge` —— 这是独立的产品改动，**不阻塞本次能力移植**，因为移植的能力不读年龄。
+> **核查时的现状**（不是阻塞项，记录的是移植开工前的快照）：`AgeGroup` 类型当时是 `'3-4' | '5-6'`；`agent-framework` 的 `classifyAge()` 对 7 岁以上回落 `'5-6'`，`modules/ai/agent/agent-executor.ts` 另有一份实现返回 `'unknown'` 后由 `buildSystemPrompt` 兜底到 5-6 话术。即**自动适配的架构与扩展点齐备，当时落地档位只有两档**。
+>
+> **2026-11-08 已更新**：这段描述已不再成立。`AgeGroup` 扩为四档、两份 `classifyAge` 已统一、新话术模板已接入两条执行路径，详见第十三节。
 
 **重要产品判断**：孩子主动问「你还记得我说过什么吗」是低频场景。长期记忆的主要受益者是**家长报告与内容推荐个性化**（「他最近迷恐龙，推荐点相关的」）。因此日报生成和 `recommend` 侧应**直接调用 recall 服务**，不依赖 LLM 是否判断出要查记忆 —— 见 3.3 的绕过机制。
 
@@ -234,12 +236,18 @@ recall_audit    id, childId, tool(recall|save), outcome, latencyMs,
 
 见 `src/backend/.env.example` 的 `DB_SYNCHRONIZE` / `SAFETY_*` / `MEMORY_*` / `CARE_*` 四段，全部有安全默认值：不配置时行为与接入前一致（记忆工具只是多两个低风险工具，语义通道因无 embed 后端而缺席，召回走字面 + 时间通道）。
 
-### 仍未完成（不影响本方案上线）
+### 遗留清单现状（2026-11-08 更新）
 
-- **工具风险分级只接入了策略与日志**，`PARENT_APPROVAL_REQUIRED` 为空集。把某个工具改成"需家长确认"是产品决定，机制已就位，改一行即可。
-- **`recall_audits` 只写不读**：调用率 / MISS 率的日志已落库，但没有查询接口或看板，触发策略的覆盖率暂时无法量化。v2 设计里「先用日志观察覆盖率」还差这一环。
-- **扩龄仍是两档**：`AgeGroup` 还是 `'3-4' | '5-6'`，7+ 回落 `'5-6'`，且 `agent-executor.ts` 有第二份 `classifyAge`。移植代码本身不读年龄（能力层已达标），扩档位是独立的产品改动。
-- **迁移不补外键**：SQLite 无法在不重建表的前提下加约束，见第十一节「已知边界」。
+下面四条曾经列在这里，其中前三条已于 2026-11-08 收口，详见第十三节：
+
+| 原遗留项 | 现状 | 落地位置 |
+|---------|------|---------|
+| `PARENT_APPROVAL_REQUIRED` 为空集 | **已解决** | `common/policy/tool-risk.ts`，策略表派生名单，legacy + framework 双路径执行 |
+| `recall_audits` 只写不读 | **已解决（后端）** | `RecallAuditService` 聚合 + `GET /memory/audit/:childId`，家长归属校验；**前端看板仍未做** |
+| `AgeGroup` 只有两档 | **已解决** | 四档 `'3-4' \| '5-6' \| '7-9' \| '10-12'`，学龄话术模板，分类单一真源 |
+| 迁移不补外键 | **保留为已知边界** | SQLite 无法在不重建表的前提下加约束，见第十一节「已知边界」 |
+
+生产部署也不再需要**显式**设 `DB_SYNCHRONIZE=false`：`NODE_ENV=production` 即默认关闭，见第十三节。
 
 > 原先这里还列着「care 的定时任务未挂调度器」和「`conversations.summary` 没有读取方」。这两条已在第十二节接通，其中 care 的实际问题比当时记录的更严重：`dueCue()` 当时**全仓零调用方**，主动关心是数据只进不出的死功能。
 
@@ -329,8 +337,8 @@ recall_audit    id, childId, tool(recall|save), outcome, latencyMs,
 
 基线现在既能从空库建起完整 schema，也能把老库补齐到实体形状（`reconcilePoems()` + `reconcileConversations()`），所以**两种顺序都成立**：
 
-1. 直接设 `DB_SYNCHRONIZE=false` 部署 —— 推荐，schema 从第一天就归迁移管，不会再有未审计的 `ALTER`；
-2. 或者先按现状部署一次（`synchronize` 默认 `true`），再关掉。
+1. `NODE_ENV=production` 部署、不设 `DB_SYNCHRONIZE` —— 推荐，`resolveSynchronize()` 默认返回 `false`，schema 从第一天就归迁移管，不会再有未审计的 `ALTER`；显式值仍可覆盖（见第十三节）。
+2. 或者先按现状部署一次（本地 `synchronize` 默认 `true`），再切到生产默认。
 
 上一版文档说"必须先部署一次"是基于当时缺列未补齐的事实，现已不适用。
 
@@ -378,4 +386,82 @@ const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 ### 测试
 
 新增 `care-prompt.spec.ts`（渲染/清洗）、`llm-client.service.spec.ts` 的 `splitSystemMessages` 两例；扩写 `care-service.spec.ts`（窗口外也会清理、关闭时不清理）、`ai.service.routing.spec.ts`（新会话才取 cue、续聊不取、cue 异常仍回复）、`orchestrator.service.spec.ts`（framework 路径也会追加 note）、`conversation.service.spec.ts`（截断注入、未截断不注入、无摘要不注入、不可信摘要清洗）、`agent-executor.book-context.spec.ts`（新增第 7/8 参数断言）。顺带把 `health.controller.spec.ts` 里硬编码的 `toBe('linux')` 改成 `toBe(process.platform)`——那是 Windows 上唯一一条红色用例，与本方案无关但一直挡着全绿。
+
+## 十三、收口遗留清单：同步开关 / 审计读取 / 家长确认 / 扩龄（2026-11-08）
+
+第十节「仍未完成」里列的四条，本轮做掉三条、保留一条为已知边界。四项都遵循同一条原则：**不为移植引入新运行时、不改 3-4 / 5-6 的既有行为**。
+
+### 1. 生产默认关闭 `synchronize`
+
+原先 `DB_SYNCHRONIZE` 不配置时，无论什么环境都会 auto-sync；生产部署靠运维记得显式写 `false`，漏配就是未审计的 `ALTER`。
+
+`resolve-synchronize.ts` 把判定从 `app.module.ts` 抽成纯函数：
+
+- `NODE_ENV=production` 且未显式配置 → `false`，`migrationsRun=true`，schema 归迁移管；
+- 非 production 且未显式配置 → `true`，本地开发照旧；
+- 显式 `true/false/1/0/yes/no/on/off` 始终优先（逃生舱）；
+- **拼错的值被忽略而不是当成 `true`** —— `DB_SYNCHRONIZE=flase` 不该意外打开 auto-sync。
+
+`.env.example` 改为推荐「留空」，并补 `MEMORY_AUDIT_RETENTION_DAYS=30`。启动日志同时打印 `synchronize` 与 `migrationsRun`。`resolve-synchronize.spec.ts` 14 个用例锁定行为。
+
+### 2. `recall_audits` 从只写不读到可读
+
+`MemoryService.audit()` 每个 `recallMemory` / `saveMemory` 调用写一行，但此前 `auditRepo` 只有 `save()`，没有任何读取方。
+
+新增：
+
+- `RecallAuditService.summarize(childId, windowDays)`：读有限行、在 JS 侧聚合（避开 SQLite / PG 日期函数差异），产出调用数、`byTool`、outcome 分布、`hitRate` / `missRate`、保存被拒原因 Top N、每日分布、延迟 avg/p95；调用时顺带 `purgeExpired()` 清理超过保留期的样本，清理失败不影响读。
+- `GET /memory/audit/:childId?days=14`：`JwtAuthGuard` + **家长归属校验**（`UsersService.canAccessChild`），孩子账号、跨家长、非法 id 一律 403。
+- **不返回 `query` 原文**：审计看的是指标，不该把孩子说过的话再暴露一遍。
+
+`recall-audit.spec.ts` 10 个用例覆盖聚合、脱敏、空数据、窗口 clamp、清理与三类拒绝。前端看板仍未做，接口先可用。
+
+### 3. 家长确认名单与确认链路
+
+原 `PARENT_APPROVAL_REQUIRED` 是空 `Set`，`POLICIES` 里的 `requiresParentApproval: true` 是死字段；更糟的是 `ToolRegistry.execute()` 从**模型参数**读 `args.__parentApproved`，等于允许 prompt injection 自授权。
+
+改法：
+
+- 策略表从 `modules/ai/agent/tools/tool-risk.ts` 迁到中立的 `common/policy/tool-risk.ts`（framework registry 不能反向依赖 `modules/ai`），名单由 `POLICIES` **派生**：`updateParentControl` / `createGift` / `createBehaviorTemplate`。
+- **两条执行路径都执行同一闸门**：legacy `ToolRegistry.execute()` 与 framework `ToolRegistryService.execute()` 都调 `requiresParentApproval(toolName, actor)`，并都 `delete safeArgs.__parentApproved`。
+- `actor` 是服务端 `ToolActorContext`，由 `AiService` / `agent-executor.ts` 按登录角色填；家长直通，孩子账号对 parent-side 配置工具返回结构化拒绝。
+- 特意**不** gate `redeemGift`：还没有前端审批状态机，拦了会把孩子正常的兑换功能整体废掉。
+
+`tool-risk.spec.ts` + `tool-registry.service.spec.ts` 覆盖名单非空、缺省从严、parent 直通、服务端 `parentApproved` 放行、模型伪造参数不能绕过。
+
+> 边界：当前落地的是「角色隔离 + parent-only 工具拦截」，**不是**完整的「请求 → 家长确认 → 工具重放」状态机。后者需要前端审批 UI 与待办持久化，属于产品改动。
+
+### 4. 扩龄：单一真源 + 内容层兼容映射
+
+这是本轮改动面最大的一块。原先 `AgeGroup` 只有 `'3-4' | '5-6'`，7 岁以上一律回落 `'5-6'`，9 岁孩子会被用学龄前叠词对话；而且 `AiService.normalizeAgentAgeGroup()` 会把任何非 `'3-4'` 的值压回 `'5-6'`，`classifyAge()` 还有 legacy / framework 两份实现。
+
+**核心取舍**：真实档位只用于**对话话术**，工具与内容库仍归一到现有两个 bucket。内容目录、课程包、动画标签约 30 处都按 `'3-4' / '5-6'` 索引，铺开一套新 bucket 需要新内容，不是改个标签就能上线。所以 `contentAgeGroup()` 是全仓唯一的内容映射点。
+
+| 层 | 改动 |
+|----|------|
+| 单一真源 | `agent-framework/core/types/age-group.ts`：`AgeGroup` 四档、`ContentAgeGroup` 两档、`ALL_AGE_GROUPS` / `SCHOOL_AGE_GROUPS`、`classifyAge()` 边界、`normalizeAgeGroup()`、`contentAgeGroup()`、`difficultyForAge()`、`ageGroupLabel()` |
+| 分类统一 | legacy `AgentExecutor.classifyAge()` 委托 framework，只保留 `'unknown'` 哨兵；`AiService.normalizeAgentAgeGroup()` 不再压缩 7+，`executeRoutedChat*` / `buildAgentContext()` 参数改为 `AgeGroupOrParent` |
+| 话术 | 新建 `child-school-age.system.ts`，7-9 / 10-12 两种风格（不用叠词、不哄小孩、少 emoji、解释「为什么」、不直接给作业答案）； preschool 两套模板**一字未改** |
+| 两条 prompt 路径 | framework `selectPrompt()` + `childCompanionDefinition.buildSystemPrompt()`（orchestrator 实际调的是后者）、legacy `buildSystemPrompt()` 都加新档位分支 |
+| 工具参数 | `AgentExecutorService` / `BaseAgent` / legacy `AgentExecutor` 的 `normalizeToolArgs()` 都注入 `contentAgeGroup(ageGroup)`；`BaseAgent` 改为**覆盖**模型传值，防止模型把 `'7-9'` 塞给内容工具 |
+| 周边适配 | `generateSuggestions()` 学龄引导语、`comfortLine()` 学龄安抚话术、`generateCoursePack()` 对 7+ 孩子改取内容桶而不是留空 |
+
+`age-group-expansion.spec.ts`（32 例）把整条链路钉住：年龄边界、四档/两桶、两套 prompt selector、两条工具归一化路径、安抚话术；`ai.service.routing.spec.ts` 新增两例确认 `AiService` 真的把 `'7-9' / '10-12'` 传到 executor 与会话元数据。3-4 / 5-6 的原行为有独立断言，防止扩档顺手改坏老用户。
+
+### 验证
+
+- `npx tsc --noEmit -p tsconfig.json`：干净；
+- 全量 Jest（108 suites / **1597 用例**）：全绿，退出码 0；
+- `npm run build`：通过。
+
+新增 / 扩写的测试：`age-group-expansion.spec.ts`（扩龄全链路）、`resolve-synchronize.spec.ts`（14 例）、`recall-audit.spec.ts`（10 例）、`tool-risk.spec.ts`、`tool-registry.service.spec.ts`（framework 侧闸门）、`ai.service.routing.spec.ts`（学龄档位不被压回 5-6）。
+
+> 本机按默认顺序跑全量 Jest 偶发挂起（进程空转、无输出），用 `--runTestsByPath` 显式列出全部 108 个 spec 后稳定在 ~72s 跑完，两次结果一致。这是既有环境的 Jest 顺序相关问题，不是用例失败。
+
+### 仍保留的边界
+
+- **迁移不补外键**：SQLite 无法在不重建表的前提下加约束（第十一节）。
+- **审计看板未做**：接口与指标已可读，前端页面未接。
+- **家长审批状态机未做**：见 3 的边界说明，`parentApproved` 目前只接受服务端上下文赋值。
+- **内容层仍是两桶**：7-12 岁用 5-6 的内容 bucket，只是话术更成熟；要真正按学龄给内容，需要补课程/动画/题库数据，属于内容侧改动。
 

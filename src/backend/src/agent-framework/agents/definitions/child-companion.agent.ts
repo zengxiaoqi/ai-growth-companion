@@ -2,13 +2,14 @@
  * ChildCompanionAgent — agent definition for the child learning companion.
  *
  * Provides an age-adaptive learning companion that:
- * - Adjusts language complexity by age group (3-4 vs 5-6)
+ * - Adjusts language complexity by age group (3-4 / 5-6 / 7-9 / 10-12)
  * - Recommends content and activities
  * - Records learning progress
  * - Generates quizzes and activities at age-appropriate difficulty
  */
 
 import type { AgentDefinition, AgentContext } from '../../core';
+import { childSchoolAgeSystemPrompt } from '../../prompts/templates/child-school-age.system';
 
 /** Runtime context hints injected into every system prompt */
 function buildContextHints(context: AgentContext): string {
@@ -115,6 +116,13 @@ ${buildContextHints(context)}`;
 /** Build the system prompt based on age group */
 function buildChildSystemPrompt(context: AgentContext): string {
   if (context.ageGroup === '3-4') return systemPrompt34(context);
+  if (context.ageGroup === '7-9' || context.ageGroup === '10-12') {
+    // The orchestrator calls this definition's builder, not selectPrompt(),
+    // so school-age routing has to live here too or the new styles would
+    // never reach an actual conversation.
+    const childName = context.childName || '小朋友';
+    return `${childSchoolAgeSystemPrompt(childName, context.ageGroup)}\n\n${buildContextHints(context)}`;
+  }
   return systemPrompt56(context); // default to 5-6 style
 }
 
@@ -122,7 +130,7 @@ function buildChildSystemPrompt(context: AgentContext): string {
 export const childCompanionDefinition: AgentDefinition = {
   type: 'child-companion',
   name: '儿童学习伙伴',
-  description: 'AI学习伙伴，陪伴3-6岁儿童进行个性化学习、互动对话、知识探索和活动游戏',
+  description: 'AI学习伙伴，陪伴3-12岁儿童进行个性化学习、互动对话、知识探索和活动游戏',
 
   buildSystemPrompt: buildChildSystemPrompt,
 

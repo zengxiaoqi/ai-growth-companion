@@ -55,6 +55,17 @@ bento-output/
 
 # CodeGraph index (local code intelligence cache)
 .codegraph/
+
+# WorkBuddy local data (memory/logs stay machine-local; skills ARE versioned)
+.workbuddy-ai/
+.workbuddy/memory/
+.workbuddy/skills/.installed
+
+# Flutter android build output
+src/frontend/android/build/
+
+# Skill packaging output
+dist-skills/
 check_pw.js
 *.db-shm
 *.db-wal

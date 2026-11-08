@@ -1,0 +1,2959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#FFF6E5" />
+<title>小神童大脑训练场 · 5-6岁逻辑思维乐园</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Baloo+2:wght@700;800&family=Fredoka:wght@600;800&display=swap" rel="stylesheet">
+<style>
+/* ============ Design Tokens ============ */
+:root{
+  --bg:#FFF6E5;
+  --bg-2:#FFEBD1;
+  --paper:#FFFFFF;
+  --ink:#2D2A4A;
+  --ink-soft:#5A5780;
+  --coral:#FF7B6B;
+  --coral-dark:#E85D4D;
+  --sunny:#FFC93C;
+  --sunny-dark:#E5A800;
+  --mint:#6ED6B0;
+  --mint-dark:#3FB78F;
+  --sky:#6BB8FF;
+  --sky-dark:#3F92E0;
+  --grape:#B58CFF;
+  --grape-dark:#8E63E8;
+  --pink:#FF9EC7;
+  --pink-dark:#E87AAF;
+  --radius-s:14px;
+  --radius-m:22px;
+  --radius-l:32px;
+  --shadow-card:0 6px 0 rgba(45,42,74,.10);
+  --shadow-btn:0 6px 0 var(--ink);
+  --font: "ZCOOL KuaiLe","PingFang SC","Microsoft YaHei","Hiragino Sans GB","Noto Sans CJK SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display: "ZCOOL KuaiLe","Fredoka","Baloo 2","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-num: "Baloo 2","Fredoka",system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;font-family:var(--font);color:var(--ink);background:var(--bg);overscroll-behavior:none}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 10% 15%, #FFE3B0 0 12%, transparent 13%),
+    radial-gradient(circle at 90% 8%, #FFD9E4 0 10%, transparent 11%),
+    radial-gradient(circle at 85% 90%, #D6F0FF 0 12%, transparent 13%),
+    radial-gradient(circle at 8% 88%, #DCF7E5 0 10%, transparent 11%),
+    var(--bg);
+  user-select:none;
+  padding-bottom:40px;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ============ Top Bar ============ */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;
+  background:linear-gradient(180deg,#FFF6E5 60%,rgba(255,246,229,.9));
+  backdrop-filter:blur(8px);
+  border-bottom:3px dashed rgba(45,42,74,.10);
+}
+.mascot{
+  width:56px;height:56px;border-radius:50%;
+  background:var(--sunny);border:3px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;line-height:1;
+  box-shadow:0 4px 0 var(--ink);
+  animation:bob 2.6s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes bob{
+  0%,100%{transform:translateY(0) rotate(-3deg)}
+  50%{transform:translateY(-6px) rotate(3deg)}
+}
+.brand{flex:1;min-width:0}
+.brand h1{margin:0;font-size:20px;font-weight:900;letter-spacing:.5px}
+.brand p{margin:2px 0 0;font-size:12px;color:var(--ink-soft);font-weight:600}
+.hud{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 14px;border-radius:999px;
+  background:var(--paper);border:3px solid var(--ink);
+  font-weight:900;font-size:16px;
+  box-shadow:0 3px 0 var(--ink);
+  transition:transform .12s;
+}
+.pill:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.pill .star-ico{font-size:18px;line-height:1}
+.pill.voice-on{background:var(--mint);color:#fff}
+.pill.voice-off{background:#EFEAE0;color:var(--ink-soft)}
+.pill.home{background:var(--sky);color:#fff}
+.pill .num{min-width:22px;text-align:center}
+.pill.gear{background:var(--paper);padding:8px 11px}
+
+/* ============ Voice Settings Panel ============ */
+.vs-mask{
+  position:fixed;inset:0;background:rgba(45,42,74,.45);z-index:300;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.vs-mask.show{opacity:1;pointer-events:auto}
+.vs-panel{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.92);
+  width:min(440px,92vw);max-height:86vh;overflow-y:auto;
+  background:var(--paper);border:5px solid var(--ink);border-radius:28px;
+  box-shadow:0 16px 0 rgba(45,42,74,.25);z-index:301;
+  opacity:0;pointer-events:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .25s;
+}
+.vs-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.vs-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:3px dashed rgba(45,42,74,.12);
+  position:sticky;top:0;background:var(--paper);z-index:1;
+}
+.vs-title{font-size:18px;font-weight:900}
+.vs-close{
+  width:34px;height:34px;border-radius:50%;background:#FFF3D6;
+  border:3px solid var(--ink);font-weight:900;font-size:15px;color:var(--ink);
+  box-shadow:0 2px 0 var(--ink);
+}
+.vs-close:active{transform:translateY(1px);box-shadow:0 1px 0 var(--ink)}
+.vs-body{padding:16px 20px 22px;display:flex;flex-direction:column;gap:10px}
+.vs-quality{
+  font-size:12px;font-weight:800;padding:9px 12px;border-radius:14px;
+  border:2px solid var(--ink);line-height:1.5;
+}
+.vs-quality.good{background:#E4FBEF;color:var(--mint-dark)}
+.vs-quality.ok{background:#FFF3D6;color:var(--sunny-dark)}
+.vs-quality.bad{background:#FFE3EA;color:var(--coral-dark)}
+.vs-label{font-size:13px;font-weight:900;margin-top:6px;display:flex;align-items:center;gap:6px}
+.vs-val{
+  margin-left:auto;background:var(--ink);color:#fff;font-size:11px;
+  padding:2px 9px;border-radius:999px;font-weight:900;
+}
+.vs-select{
+  width:100%;padding:11px 12px;border-radius:14px;border:3px solid var(--ink);
+  font-family:inherit;font-size:14px;font-weight:700;background:#FFF9EA;color:var(--ink);
+  box-shadow:0 2px 0 var(--ink);appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232D2A4A' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;
+}
+.vs-range{
+  width:100%;height:8px;border-radius:999px;background:#EFE5D3;
+  border:2px solid var(--ink);appearance:none;outline:none;cursor:pointer;
+}
+.vs-range::-webkit-slider-thumb{
+  appearance:none;width:26px;height:26px;border-radius:50%;
+  background:var(--sunny);border:3px solid var(--ink);box-shadow:0 2px 0 var(--ink);cursor:pointer;
+}
+.vs-range::-moz-range-thumb{
+  width:22px;height:22px;border-radius:50%;background:var(--sunny);
+  border:3px solid var(--ink);cursor:pointer;
+}
+.vs-range-hint{display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--ink-soft);margin-top:-2px}
+.vs-tip{
+  font-size:11px;line-height:1.6;color:var(--ink-soft);font-weight:600;
+  background:#F0F8FF;border:2px dashed var(--sky-dark);border-radius:12px;padding:9px 11px;margin-top:4px;
+}
+.vs-test{
+  margin-top:8px;padding:13px;border-radius:16px;border:4px solid var(--ink);
+  background:var(--mint);color:#fff;font-size:15px;font-weight:900;
+  box-shadow:0 4px 0 var(--ink);
+}
+.vs-test:active{transform:translateY(2px);box-shadow:0 2px 0 var(--ink)}
+
+/* ================================================================
+   V6 · 移动端布局 & 动画性能优化
+   （放在最后，确保覆盖前面的 V6 桌面增强）
+   ================================================================ */
+html,body{overflow-x:hidden;max-width:100vw}
+
+@media (max-width:640px){
+  /* ---- 顶栏：紧凑、防溢出、去高开销动画 ---- */
+  .topbar{padding:8px 10px;gap:5px}
+  .mascot{width:38px;height:38px;font-size:22px;box-shadow:0 3px 0 var(--ink);animation:bob 2.6s ease-in-out infinite}
+  .mascot::before{display:none}                 /* 去掉旋转彩虹光环（GPU 开销大） */
+  .brand{min-width:0}
+  .brand h1{font-size:15px;line-height:1.12;letter-spacing:0;animation:none;
+    background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .brand p{display:none}                          /* 副标题手机端隐藏，省空间 */
+  .hud{gap:4px}
+  .pill{padding:5px 6px;font-size:11px;gap:2px;box-shadow:0 2px 0 var(--ink);border-width:2px;flex-shrink:0}
+  .pill .star-ico{font-size:14px;animation:none}
+  .pill .num{min-width:0;font-size:12px}
+  #voiceLabel{display:none}                       /* 朗读按钮只留图标 */
+  .pill.diff-badge{display:none}                  /* 难度徽章手机端隐藏（首页已有选择器） */
+
+  /* ---- Hero：纵向堆叠，杜绝横向溢出 ---- */
+  .hero{padding:16px 14px;gap:10px;border-width:3px;flex-direction:column;align-items:center;text-align:center}
+  .hero::after{display:none}                      /* 去掉波点 overlay（mix-blend 开销） */
+  .hero-emoji{font-size:54px;animation:heroFloat 4s ease-in-out infinite}
+  .hero-copy{min-width:0;width:100%}
+  .hero-copy h2{font-size:20px;letter-spacing:0;animation:none;line-height:1.25;
+    background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--coral-dark)}
+  .hero-copy p{font-size:12px;line-height:1.6}
+  .hero-badge{font-size:10px;padding:4px 9px;animation:none;transform:rotate(-1.5deg);display:inline-block}
+
+  /* ---- 区块标题 ---- */
+  .section-title{font-size:15px;margin:2px 2px 10px;letter-spacing:0}
+  .section-title .bar{animation:none;height:18px}
+
+  /* ---- 难度选择 ---- */
+  .diff-wrap{padding:14px 12px 16px;margin-bottom:16px;border-width:3px}
+  .diff-head{gap:6px;flex-direction:column;align-items:flex-start}
+  .diff-head .lbl{font-size:12px}
+  .diff-head .cur{font-size:10px;padding:3px 8px;margin-left:0;align-self:flex-end}
+  .diff-cards{gap:9px}
+  .diff-card{padding:10px 8px 12px;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+  .diff-card .emo{animation:none;font-size:30px}
+  .diff-card.active::before{display:none}         /* 去掉 blur 光晕（手机端很卡） */
+  .diff-card.active{box-shadow:0 4px 0 var(--ink),0 0 0 3px rgba(255,158,199,.55)}
+  .diff-card .name{font-size:14px;letter-spacing:0}
+  .diff-card .tag{font-size:10px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+  .diff-card .check{width:22px;height:22px;font-size:13px;top:6px;right:6px}
+  .diff-card .stripes span{height:6px}
+
+  /* ---- 错题本入口 ---- */
+  .wrong-entry{padding:11px 12px;gap:10px;margin-bottom:16px;border-width:3px}
+  .wrong-entry .ico{width:42px;height:42px;font-size:22px;animation:none;border-width:2px}
+  .wrong-entry .ico::after{display:none}          /* 去掉金色脉冲光晕 */
+  .wrong-entry .txt h3{font-size:16px;letter-spacing:0}
+  .wrong-entry .txt p{font-size:11px;line-height:1.45}
+  .wrong-entry .count{padding:4px 9px;font-size:12px;border-width:2px;box-shadow:0 2px 0 var(--ink)}
+
+  /* ---- 游戏卡片：去弹跳/扫光（性能） ---- */
+  .grid{gap:12px}
+  .card{padding:14px 12px;min-height:148px;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+  .card .icon{animation:none;font-size:40px}
+  .card::after{display:none}                      /* 去掉 hover 扫光 */
+  .card h3{font-size:18px;letter-spacing:0}
+  .card .desc{font-size:11px;line-height:1.45}
+  .card .hint-tag{font-size:10px;padding:2px 8px;border-width:2px}
+  .card .meta{font-size:10px}
+  .card .stars{letter-spacing:1px}
+  .card .go{padding:4px 10px;font-size:11px}
+
+  /* ---- 天空装饰：砍掉一半元素，降低动画数 ---- */
+  .sky .sun{width:48px;height:48px;left:2%;top:5%}
+  .sky .sun::before{animation-duration:40s}       /* 转速放慢一半 */
+  .sky .rainbow{width:96px;height:50px;right:2%;top:4%}
+  .sky .cloud.c2,.sky .cloud.c3{display:none}     /* 只留 1 朵云 */
+  .sky .float-emoji.e3,.sky .float-emoji.e5,.sky .float-emoji.e6,.sky .float-emoji.e7{display:none} /* 7→3 */
+  .sky .balloon.b2,.sky .balloon.b3{display:none} /* 3→1 */
+  .sky .float-emoji,.sky .balloon{will-change:transform}
+
+  /* ---- 题目卡 ---- */
+  .qcard{padding:16px 12px 18px;border-width:3px}
+  .qtitle{font-size:12px;gap:6px}
+  .qtitle .badge{font-size:10px;padding:3px 8px}
+  .qtitle .speak{font-size:10px;padding:4px 9px}
+  .qtext{font-size:19px;letter-spacing:0;text-shadow:1px 1px 0 rgba(255,220,150,.45);margin:4px 0 14px}
+  .stage{min-height:78px;padding:8px 2px 12px;gap:6px}
+  .tile{width:50px;height:50px;font-size:30px;border-width:2px;border-radius:14px;animation:none;box-shadow:0 2px 0 var(--ink)}
+  .tile.small{width:40px;height:40px;font-size:25px}
+  .tile.blank{font-size:22px}
+  .answers{gap:9px}
+  .answers.four{grid-template-columns:repeat(2,1fr)}   /* 手机端 4 列→2 列，文字选项更可读 */
+  .ans{padding:10px 6px;font-size:15px;min-height:64px;border-width:3px;box-shadow:0 4px 0 var(--ink);border-radius:16px}
+  .ans .emoji{font-size:30px}
+
+  /* ---- 比较 / 空间 场景 ---- */
+  .compare-side{min-width:118px;min-height:84px;padding:8px;font-size:20px;gap:4px;border-width:2px;box-shadow:0 3px 0 var(--ink)}
+  .vs{width:36px;height:36px;font-size:16px;border-width:2px}
+  .spatial-scene{width:216px;height:168px}
+  .spatial-scene .anchor,.spatial-scene .obj{font-size:36px}
+
+  /* ---- 反馈气泡 ---- */
+  .feedback{min-width:170px;padding:16px 20px;border-width:4px;border-radius:26px}
+  .feedback .emo{font-size:42px}
+  .feedback .msg{font-size:16px;letter-spacing:0}
+
+  /* ---- 结果页 ---- */
+  .result-card{padding:22px 16px;border-width:4px;border-radius:26px}
+  .result-card .trophy{font-size:60px;filter:none}
+  .result-card h2{font-size:22px;letter-spacing:0;animation:none}
+  .result-card p{font-size:13px}
+  .result-stars .s{font-size:30px}
+  .big-btn{padding:11px 18px;font-size:14px;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+
+  /* ---- 错题回顾 / 错题本 ---- */
+  .review-wrap{padding:12px 10px}
+  .review-wrap h4{font-size:13px}
+  .review-item{font-size:11px;padding:8px 10px}
+  .review-btn{padding:8px 14px;font-size:12px}
+  .wb-head{gap:8px}
+  .wb-title{font-size:16px}
+  .wb-filter{padding:4px 10px;font-size:11px}
+  .wb-item{padding:10px 12px;border-width:3px}
+  .wb-item .qtext{font-size:14px;letter-spacing:0}
+  .wb-item .ans-chip{padding:6px 10px;font-size:13px;border-width:2px}
+  .wb-item .retry-btn{padding:6px 12px;font-size:12px}
+  .wb-item .del-btn{padding:6px 10px;font-size:11px}
+
+  /* ---- 答对庆祝：粒子和彩带减半（性能） ---- */
+  .burst-p{font-size:18px}
+  .ring{width:56px;height:56px;border-width:4px}
+  .mini-confetti{width:6px;height:9px}
+  .fly-star{font-size:26px}
+
+  /* ---- 语音设置面板 ---- */
+  .vs-panel{width:95vw;max-height:80vh;border-width:4px;border-radius:22px}
+  .vs-head{padding:12px 14px}
+  .vs-title{font-size:16px}
+  .vs-body{padding:12px 14px 18px;gap:8px}
+  .vs-select{font-size:13px;padding:9px 10px}
+  .vs-tip{font-size:10px}
+  .vs-test{padding:11px;font-size:14px}
+}
+
+@media (max-width:380px){
+  .brand h1{font-size:13px}
+  .hero-emoji{font-size:46px}
+  .hero-copy h2{font-size:18px}
+  .qtext{font-size:17px}
+  .tile{width:42px;height:42px;font-size:24px}
+  .ans{min-height:58px;font-size:14px}
+  .ans .emoji{font-size:26px}
+  .diff-card .emo{font-size:26px}
+}
+
+/* ---- 低端/省电/晕动：直接关掉所有装饰动画 ---- */
+@media (prefers-reduced-motion:reduce){
+  .sky{display:none}
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+
+/* ============ Hide QW Pages injected branding (bottom-right float + top bar) ============ */
+#mulepage-footer,#mulepage-bar,#mulepage-footer-link,#mulepage-bar-link,#mulepage-bar-cta,#mulepage-bar-close,.mulepage-float,.mulepage-footer-brand{display:none !important}
+
+/* ============ Screens ============ */
+.screen{max-width:1100px;margin:0 auto;padding:12px 20px 40px;display:none}
+.screen.active{display:block;animation:fadeIn .35s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ============ Home ============ */
+.hero{
+  background:var(--paper);border:4px solid var(--ink);border-radius:var(--radius-l);
+  padding:24px 26px;margin-bottom:22px;
+  box-shadow:var(--shadow-card);
+  display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;
+  background:radial-gradient(circle,var(--sunny) 0 60%,transparent 61%);opacity:.28;border-radius:50%;
+}
+.hero-emoji{font-size:64px;line-height:1;filter:drop-shadow(0 4px 0 rgba(45,42,74,.15))}
+.hero-copy{flex:1;min-width:220px;position:relative;z-index:1}
+.hero-copy h2{margin:0 0 6px;font-size:26px;font-weight:900}
+.hero-copy p{margin:0;color:var(--ink-soft);font-size:15px;line-height:1.6;font-weight:600}
+.hero-badge{
+  display:inline-block;margin-top:10px;
+  background:var(--pink);color:#fff;font-weight:900;font-size:13px;
+  padding:6px 12px;border-radius:999px;border:2px solid var(--ink);
+}
+
+.section-title{
+  display:flex;align-items:center;gap:10px;
+  font-size:18px;font-weight:900;margin:6px 4px 14px;
+}
+.section-title .bar{width:6px;height:22px;background:var(--coral);border-radius:4px}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:18px;
+}
+.card{
+  position:relative;
+  background:var(--paper);border:4px solid var(--ink);border-radius:var(--radius-m);
+  padding:20px 18px;text-align:left;
+  box-shadow:var(--shadow-btn);
+  transition:transform .15s,box-shadow .15s;
+  display:flex;flex-direction:column;gap:10px;
+  min-height:190px;
+  overflow:hidden;
+}
+.card:hover{transform:translateY(-4px)}
+.card:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.card .blob{
+  position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;
+  opacity:.20;
+}
+.card .icon{font-size:52px;line-height:1;filter:drop-shadow(0 3px 0 rgba(45,42,74,.15))}
+.card h3{margin:0;font-size:22px;font-weight:900}
+.card .desc{margin:0;font-size:13px;color:var(--ink-soft);font-weight:600;line-height:1.5}
+.card .meta{
+  display:flex;align-items:center;justify-content:space-between;margin-top:auto;
+  font-size:12px;font-weight:800;color:var(--ink);
+}
+.card .stars{letter-spacing:2px;color:var(--sunny-dark)}
+.card .go{
+  background:var(--ink);color:#fff;padding:6px 14px;border-radius:999px;font-weight:900;
+}
+.card .hint-tag{
+  display:inline-flex;align-self:flex-start;align-items:center;gap:4px;
+  background:#fff;border:2px solid var(--ink);border-radius:999px;
+  padding:3px 10px;font-size:11px;font-weight:900;color:var(--ink);
+  box-shadow:0 2px 0 var(--ink);
+}
+.card.c1{background:linear-gradient(180deg,#FFF3D6 0%,#fff 55%)}
+.card.c2{background:linear-gradient(180deg,#E0F5FF 0%,#fff 55%)}
+.card.c3{background:linear-gradient(180deg,#FFE3EA 0%,#fff 55%)}
+.card.c4{background:linear-gradient(180deg,#E4FBEF 0%,#fff 55%)}
+.card.c5{background:linear-gradient(180deg,#EDE3FF 0%,#fff 55%)}
+.card.c6{background:linear-gradient(180deg,#FFF0D9 0%,#fff 55%)}
+.card.c1 .blob{background:var(--sunny)}
+.card.c2 .blob{background:var(--sky)}
+.card.c3 .blob{background:var(--pink)}
+.card.c4 .blob{background:var(--mint)}
+.card.c5 .blob{background:var(--grape)}
+.card.c6 .blob{background:var(--coral)}
+
+.footer-note{
+  margin:28px auto 0;max-width:640px;text-align:center;
+  font-size:12px;color:var(--ink-soft);font-weight:600;line-height:1.7;
+}
+
+/* ============ Game Screen ============ */
+.game-head{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  margin-bottom:14px;
+}
+.back-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 16px;border-radius:999px;
+  background:var(--paper);border:3px solid var(--ink);
+  font-weight:900;font-size:14px;box-shadow:0 3px 0 var(--ink);
+  transition:transform .12s;
+}
+.back-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.dots{display:flex;gap:6px;align-items:center}
+.dot{
+  width:14px;height:14px;border-radius:50%;background:#EFE5D3;border:2px solid var(--ink);
+}
+.dot.done{background:var(--mint)}
+.dot.now{background:var(--sunny);transform:scale(1.25)}
+.dot.wrong{background:var(--coral)}
+
+.qcard{
+  background:var(--paper);border:4px solid var(--ink);border-radius:var(--radius-l);
+  padding:26px 22px 28px;box-shadow:var(--shadow-card);
+  position:relative;overflow:hidden;
+}
+.qtitle{
+  display:flex;align-items:center;gap:10px;
+  font-size:15px;font-weight:900;color:var(--ink-soft);margin-bottom:10px;
+}
+.qtitle .badge{
+  background:var(--sunny);color:var(--ink);padding:4px 10px;border-radius:999px;
+  border:2px solid var(--ink);font-size:12px;
+}
+.qtitle .speak{
+  margin-left:auto;background:var(--sky);color:#fff;
+  border:2px solid var(--ink);border-radius:999px;
+  padding:4px 12px;font-weight:900;font-size:12px;
+  display:inline-flex;align-items:center;gap:4px;
+  box-shadow:0 2px 0 var(--ink);
+}
+.qtitle .speak:active{transform:translateY(1px);box-shadow:0 1px 0 var(--ink)}
+.qtext{
+  font-size:26px;font-weight:900;line-height:1.4;margin:6px 0 20px;
+}
+.qtext .hi{color:var(--coral-dark);background:#FFF3D6;padding:0 6px;border-radius:6px}
+
+/* Question stage - flexible content area */
+.stage{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:10px;padding:14px 8px 20px;min-height:110px;
+}
+.tile{
+  font-size:52px;line-height:1;
+  background:#FFF9EA;border:3px solid var(--ink);border-radius:18px;
+  width:78px;height:78px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 0 var(--ink);
+}
+.tile.blank{background:repeating-linear-gradient(45deg,#FFE9B0 0 8px,#FFF3D6 8px 16px);color:var(--ink);font-size:36px;font-weight:900}
+.tile.small{width:60px;height:60px;font-size:38px}
+.tile.pop{animation:popIn .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popIn{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+.compare-wrap{display:flex;align-items:center;gap:18px;justify-content:center;flex-wrap:wrap}
+.compare-side{
+  background:#FFF9EA;border:3px solid var(--ink);border-radius:22px;
+  padding:16px;min-width:180px;min-height:120px;
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;
+  font-size:34px;line-height:1;box-shadow:0 4px 0 var(--ink);
+}
+.vs{
+  font-size:36px;font-weight:900;color:var(--coral);
+  background:#fff;border:3px solid var(--ink);border-radius:50%;
+  width:60px;height:60px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 0 var(--ink);
+}
+
+.spatial-scene{
+  position:relative;width:280px;height:220px;
+  background:#F0F8FF;border:3px dashed var(--sky-dark);border-radius:20px;
+  margin:0 auto;
+}
+.spatial-scene .anchor,.spatial-scene .obj{
+  position:absolute;font-size:56px;line-height:1;
+  transform:translate(-50%,-50%);
+}
+.spatial-scene .anchor{left:50%;top:50%}
+
+/* Answers */
+.answers{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:14px;margin-top:6px;
+}
+.answers.two{grid-template-columns:1fr 1fr}
+.answers.four{grid-template-columns:repeat(4,1fr)}
+.ans{
+  background:var(--paper);border:4px solid var(--ink);border-radius:20px;
+  padding:16px 12px;font-size:22px;font-weight:900;
+  min-height:88px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  box-shadow:0 5px 0 var(--ink);
+  transition:transform .12s,box-shadow .12s,background .18s;
+}
+.ans:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.ans .emoji{font-size:44px;line-height:1}
+.ans.correct{background:var(--mint);color:#fff;border-color:var(--ink);animation:cheer .5s}
+.ans.wrong{background:var(--coral);color:#fff;animation:shake .35s}
+.ans.dim{opacity:.4;pointer-events:none}
+@keyframes cheer{0%{transform:scale(1)}40%{transform:scale(1.12) rotate(-3deg)}70%{transform:scale(1) rotate(2deg)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* Feedback overlay */
+.feedback{
+  position:fixed;left:50%;top:40%;transform:translate(-50%,-50%) scale(.5);
+  background:#fff;border:5px solid var(--ink);border-radius:36px;
+  padding:26px 34px;text-align:center;
+  box-shadow:0 12px 0 rgba(45,42,74,.25);
+  z-index:200;opacity:0;pointer-events:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .25s;
+  min-width:260px;
+}
+.feedback.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.feedback .emo{font-size:70px;line-height:1;margin-bottom:6px;animation:popIn .4s}
+.feedback .msg{font-size:26px;font-weight:900}
+.feedback.good{background:linear-gradient(180deg,#E4FBEF 0%,#fff 60%)}
+.feedback.bad{background:linear-gradient(180deg,#FFE3EA 0%,#fff 60%)}
+
+/* Result screen */
+.result-card{
+  background:var(--paper);border:5px solid var(--ink);border-radius:36px;
+  padding:34px 26px;text-align:center;box-shadow:var(--shadow-card);
+  max-width:560px;margin:20px auto;
+}
+.result-card .trophy{font-size:100px;line-height:1;animation:trophy 1.2s ease-in-out infinite}
+@keyframes trophy{
+  0%,100%{transform:rotate(-6deg) scale(1)}
+  50%{transform:rotate(6deg) scale(1.06)}
+}
+.result-card h2{margin:8px 0 6px;font-size:32px;font-weight:900}
+.result-card p{margin:0 0 18px;color:var(--ink-soft);font-weight:700;font-size:15px}
+.result-stars{display:flex;justify-content:center;gap:10px;margin:14px 0 22px}
+.result-stars .s{font-size:52px;animation:popIn .5s backwards}
+.result-stars .s:nth-child(1){animation-delay:.1s}
+.result-stars .s:nth-child(2){animation-delay:.25s}
+.result-stars .s:nth-child(3){animation-delay:.4s}
+.result-stars .s:nth-child(4){animation-delay:.55s}
+.result-stars .s:nth-child(5){animation-delay:.7s}
+.result-stars .s.off{filter:grayscale(1);opacity:.35}
+.result-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.big-btn{
+  padding:14px 26px;border-radius:999px;border:4px solid var(--ink);
+  font-size:17px;font-weight:900;box-shadow:0 5px 0 var(--ink);
+  transition:transform .12s,box-shadow .12s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.big-btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.big-btn.primary{background:var(--sunny);color:var(--ink)}
+.big-btn.ghost{background:var(--paper);color:var(--ink)}
+
+/* Confetti canvas */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:150}
+
+/* Star fly animation */
+.fly-star{
+  position:fixed;font-size:36px;z-index:180;pointer-events:none;
+  animation:flyTo 0.9s cubic-bezier(.5,-0.2,.5,1.2) forwards;
+}
+@keyframes flyTo{
+  0%{transform:translate(0,0) scale(.5) rotate(0deg);opacity:1}
+  60%{opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(1.4) rotate(360deg);opacity:0}
+}
+
+/* ============ Difficulty Picker ============ */
+.diff-wrap{
+  background:var(--paper);border:4px solid var(--ink);border-radius:var(--radius-l);
+  padding:18px 20px 20px;margin-bottom:22px;box-shadow:var(--shadow-card);
+  position:relative;
+}
+.diff-head{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;
+}
+.diff-head .lbl{font-size:16px;font-weight:900}
+.diff-head .cur{
+  margin-left:auto;font-size:12px;font-weight:900;color:#fff;
+  background:var(--grape);padding:5px 12px;border-radius:999px;border:2px solid var(--ink);
+  box-shadow:0 2px 0 var(--ink);
+}
+.diff-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.diff-card{
+  background:#FFF9EA;border:4px solid var(--ink);border-radius:22px;
+  padding:14px 14px 16px;text-align:left;
+  box-shadow:0 5px 0 var(--ink);
+  transition:transform .15s,background .2s,box-shadow .15s;
+  display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;
+}
+.diff-card:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.diff-card .emo{font-size:44px;line-height:1}
+.diff-card .name{font-size:19px;font-weight:900;margin:0}
+.diff-card .tag{font-size:12px;font-weight:800;color:var(--ink-soft);margin:0;line-height:1.5}
+.diff-card .check{
+  position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:50%;
+  background:#fff;border:3px solid var(--ink);display:none;align-items:center;justify-content:center;
+  font-size:16px;color:#fff;
+}
+.diff-card.active{background:linear-gradient(180deg,#FFF3D6 0%,#FFE38A 100%)}
+.diff-card.active .check{display:flex;background:var(--mint);color:var(--ink)}
+.diff-card.d5.active{background:linear-gradient(180deg,#E4FBEF 0%,#B7EDD4 100%)}
+.diff-card.d6.active{background:linear-gradient(180deg,#FFE3EA 0%,#FFC9D8 100%)}
+.diff-card .stripes{
+  display:flex;gap:3px;margin-top:4px;
+}
+.diff-card .stripes span{
+  height:8px;flex:1;border-radius:4px;background:#E8DFC9;border:2px solid var(--ink);
+}
+.diff-card .stripes span.on{background:var(--sunny)}
+.diff-card.d6 .stripes span.on{background:var(--coral)}
+
+/* Top bar diff badge */
+.pill.diff-badge{
+  background:var(--grape);color:#fff;font-size:13px;padding:6px 12px;
+}
+.pill.diff-badge .em{font-size:16px}
+
+@media (max-width:640px){
+  .diff-cards{grid-template-columns:1fr 1fr;gap:10px}
+  .diff-card{padding:12px 10px 14px}
+  .diff-card .emo{font-size:34px}
+  .diff-card .name{font-size:16px}
+  .diff-card .tag{font-size:11px}
+  .diff-head .lbl{font-size:14px}
+  .diff-head .cur{font-size:11px;padding:4px 10px}
+  .pill.diff-badge{padding:5px 9px;font-size:12px}
+}
+
+/* ============ Enhanced Correct Animation ============ */
+.burst{
+  position:fixed;pointer-events:none;z-index:170;
+  width:0;height:0;
+}
+.burst-p{
+  position:absolute;left:0;top:0;
+  font-size:26px;line-height:1;
+  animation:burstOut .9s cubic-bezier(.15,.7,.35,1) forwards;
+}
+@keyframes burstOut{
+  0%{transform:translate(0,0) scale(.4) rotate(0deg);opacity:1}
+  70%{opacity:1}
+  100%{transform:translate(var(--bx),var(--by)) scale(1.3) rotate(var(--br));opacity:0}
+}
+.ring{
+  position:fixed;pointer-events:none;z-index:169;
+  width:80px;height:80px;border-radius:50%;
+  border:6px solid var(--sunny);
+  transform:translate(-50%,-50%) scale(.3);
+  animation:ringOut .7s ease-out forwards;
+}
+@keyframes ringOut{
+  0%{transform:translate(-50%,-50%) scale(.3);opacity:1;border-width:8px}
+  100%{transform:translate(-50%,-50%) scale(3.2);opacity:0;border-width:2px}
+}
+.screen-flash{
+  position:fixed;inset:0;pointer-events:none;z-index:168;
+  background:radial-gradient(circle at 50% 45%, rgba(255,220,120,.55) 0%, rgba(255,220,120,.15) 45%, transparent 70%);
+  opacity:0;
+  animation:flashGlow .55s ease-out;
+}
+@keyframes flashGlow{
+  0%{opacity:0}
+  30%{opacity:1}
+  100%{opacity:0}
+}
+.mascot.cheer{
+  animation:mascotCheer .8s cubic-bezier(.34,1.56,.64,1) !important;
+  background:var(--mint) !important;
+}
+@keyframes mascotCheer{
+  0%{transform:translateY(0) rotate(0deg) scale(1)}
+  20%{transform:translateY(-18px) rotate(-15deg) scale(1.15)}
+  40%{transform:translateY(-8px) rotate(12deg) scale(1.08)}
+  60%{transform:translateY(-14px) rotate(-10deg) scale(1.12)}
+  80%{transform:translateY(-4px) rotate(6deg) scale(1.05)}
+  100%{transform:translateY(0) rotate(0deg) scale(1)}
+}
+.ans.correct{
+  animation:ansCheer .7s cubic-bezier(.34,1.56,.64,1) !important;
+}
+@keyframes ansCheer{
+  0%{transform:scale(1)}
+  25%{transform:scale(1.15) rotate(-4deg)}
+  50%{transform:scale(.98) rotate(3deg)}
+  75%{transform:scale(1.06) rotate(-1deg)}
+  100%{transform:scale(1)}
+}
+.mini-confetti{
+  position:fixed;pointer-events:none;z-index:167;
+  width:8px;height:12px;border-radius:2px;
+  animation:miniFall 1.1s ease-in forwards;
+}
+@keyframes miniFall{
+  0%{transform:translate(0,0) rotate(0deg);opacity:1}
+  100%{transform:translate(var(--mx),var(--my)) rotate(var(--mr));opacity:0}
+}
+
+/* ============ Wrong Book ============ */
+.wrong-entry{
+  background:linear-gradient(135deg,#FFE3EA 0%,#FFF3D6 100%);
+  border:4px solid var(--ink);border-radius:var(--radius-l);
+  padding:16px 20px;margin-bottom:22px;box-shadow:var(--shadow-card);
+  display:flex;align-items:center;gap:16px;cursor:pointer;
+  transition:transform .15s;
+  position:relative;overflow:hidden;
+}
+.wrong-entry:hover{transform:translateY(-3px)}
+.wrong-entry:active{transform:translateY(2px)}
+.wrong-entry .ico{
+  width:60px;height:60px;border-radius:20px;background:#fff;
+  border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;
+  font-size:34px;line-height:1;box-shadow:0 3px 0 var(--ink);flex-shrink:0;
+}
+.wrong-entry .txt{flex:1;min-width:0}
+.wrong-entry .txt h3{margin:0 0 4px;font-size:19px;font-weight:900}
+.wrong-entry .txt p{margin:0;font-size:13px;color:var(--ink-soft);font-weight:700;line-height:1.5}
+.wrong-entry .count{
+  background:var(--coral);color:#fff;border:3px solid var(--ink);
+  border-radius:999px;padding:6px 14px;font-weight:900;font-size:16px;
+  box-shadow:0 3px 0 var(--ink);flex-shrink:0;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.wrong-entry .count.zero{background:#C9C3B5;color:#fff}
+.wrong-entry .clear-btn{
+  background:#fff;border:3px solid var(--ink);border-radius:999px;
+  padding:6px 12px;font-weight:900;font-size:12px;color:var(--ink);
+  box-shadow:0 2px 0 var(--ink);flex-shrink:0;
+}
+.wrong-entry .clear-btn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--ink)}
+
+/* Wrong book screen */
+.wb-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:14px;flex-wrap:wrap;
+}
+.wb-title{font-size:22px;font-weight:900;display:flex;align-items:center;gap:8px}
+.wb-actions{display:flex;gap:8px;flex-wrap:wrap}
+.wb-filter{
+  background:#fff;border:3px solid var(--ink);border-radius:999px;
+  padding:6px 12px;font-weight:900;font-size:12px;color:var(--ink);
+  box-shadow:0 2px 0 var(--ink);
+}
+.wb-filter.active{background:var(--sunny)}
+.wb-empty{
+  background:#fff;border:4px dashed var(--ink);border-radius:24px;
+  padding:40px 20px;text-align:center;
+}
+.wb-empty .emo{font-size:64px;line-height:1;margin-bottom:8px}
+.wb-empty h3{margin:0 0 6px;font-size:20px;font-weight:900}
+.wb-empty p{margin:0;color:var(--ink-soft);font-weight:700;font-size:14px}
+.wb-list{display:flex;flex-direction:column;gap:14px}
+.wb-item{
+  background:#fff;border:4px solid var(--ink);border-radius:22px;
+  padding:16px 18px;box-shadow:var(--shadow-card);
+  display:flex;flex-direction:column;gap:10px;
+}
+.wb-item .head{
+  display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:var(--ink-soft);
+  flex-wrap:wrap;
+}
+.wb-item .head .game-tag{
+  background:var(--sky);color:#fff;padding:3px 10px;border-radius:999px;border:2px solid var(--ink);
+  font-size:11px;
+}
+.wb-item .head .diff-tag{
+  background:var(--grape);color:#fff;padding:3px 10px;border-radius:999px;border:2px solid var(--ink);
+  font-size:11px;
+}
+.wb-item .head .time{margin-left:auto;font-weight:700;font-size:11px;color:#999}
+.wb-item .qtext{font-size:17px;font-weight:900;line-height:1.5;margin:0}
+.wb-item .answers-row{display:flex;gap:8px;flex-wrap:wrap}
+.wb-item .ans-chip{
+  padding:8px 12px;border-radius:14px;border:3px solid var(--ink);
+  font-weight:900;font-size:15px;background:#fff;min-width:60px;text-align:center;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.wb-item .ans-chip.correct{background:var(--mint);color:#fff}
+.wb-item .ans-chip.wrong{background:var(--coral);color:#fff;text-decoration:line-through;text-decoration-thickness:2px}
+.wb-item .ans-chip .lbl{font-size:10px;font-weight:900;opacity:.85}
+.wb-item .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.wb-item .retry-btn{
+  background:var(--sunny);border:3px solid var(--ink);border-radius:999px;
+  padding:8px 16px;font-weight:900;font-size:13px;color:var(--ink);
+  box-shadow:0 3px 0 var(--ink);
+}
+.wb-item .retry-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.wb-item .del-btn{
+  background:#fff;border:3px solid var(--ink);border-radius:999px;
+  padding:8px 14px;font-weight:900;font-size:12px;color:var(--ink-soft);
+  box-shadow:0 2px 0 var(--ink);
+}
+
+/* Result review section */
+.review-wrap{
+  margin-top:18px;background:#FFF9EA;border:3px dashed var(--ink);border-radius:22px;
+  padding:16px;text-align:left;
+}
+.review-wrap h4{
+  margin:0 0 10px;font-size:15px;font-weight:900;display:flex;align-items:center;gap:6px;
+}
+.review-wrap .badge-count{
+  background:var(--coral);color:#fff;padding:2px 10px;border-radius:999px;font-size:12px;
+  border:2px solid var(--ink);
+}
+.review-list{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.review-item{
+  background:#fff;border:3px solid var(--ink);border-radius:16px;padding:10px 12px;
+  font-size:13px;line-height:1.5;
+}
+.review-item .rq{font-weight:900;color:var(--ink);margin-bottom:4px}
+.review-item .ra{color:var(--ink-soft);font-weight:700;font-size:12px}
+.review-item .ra .good{color:var(--mint-dark);font-weight:900}
+.review-item .ra .bad{color:var(--coral-dark);font-weight:900;text-decoration:line-through}
+.review-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.review-btn{
+  background:var(--coral);color:#fff;border:3px solid var(--ink);border-radius:999px;
+  padding:10px 20px;font-weight:900;font-size:14px;box-shadow:0 3px 0 var(--ink);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.review-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.review-btn.ghost{background:#fff;color:var(--ink)}
+
+/* Responsive */
+@media (max-width:640px){
+  .topbar{padding:10px 14px;gap:8px}
+  .mascot{width:44px;height:44px;font-size:26px}
+  .brand h1{font-size:16px}
+  .brand p{font-size:11px}
+  .pill{padding:6px 10px;font-size:14px}
+  .screen{padding:10px 14px 30px}
+  .hero{padding:18px;gap:14px}
+  .hero-emoji{font-size:46px}
+  .hero-copy h2{font-size:20px}
+  .hero-copy p{font-size:13px}
+  .qcard{padding:20px 16px}
+  .qtext{font-size:20px}
+  .tile{width:60px;height:60px;font-size:38px}
+  .tile.small{width:48px;height:48px;font-size:30px}
+  .ans{padding:12px 8px;font-size:18px;min-height:76px}
+  .ans .emoji{font-size:34px}
+  .compare-side{min-width:140px;min-height:96px;padding:10px;font-size:26px}
+  .vs{width:44px;height:44px;font-size:24px}
+  .spatial-scene{width:240px;height:190px}
+  .spatial-scene .anchor,.spatial-scene .obj{font-size:44px}
+  .feedback{min-width:200px;padding:20px 24px}
+  .feedback .emo{font-size:52px}
+  .feedback .msg{font-size:20px}
+  .result-card .trophy{font-size:70px}
+  .result-card h2{font-size:24px}
+  .result-stars .s{font-size:38px}
+  .wrong-entry{padding:12px 14px;gap:12px}
+  .wrong-entry .ico{width:48px;height:48px;font-size:26px;border-radius:16px}
+  .wrong-entry .txt h3{font-size:16px}
+  .wrong-entry .txt p{font-size:12px}
+  .wrong-entry .count{padding:5px 10px;font-size:14px}
+  .wb-title{font-size:18px}
+  .wb-item{padding:12px 14px}
+  .wb-item .qtext{font-size:15px}
+  .review-wrap{padding:12px}
+  .review-item{font-size:12px;padding:8px 10px}
+}
+@media (max-width:380px){
+  .answers.four{grid-template-columns:repeat(2,1fr)}
+  .tile{width:52px;height:52px;font-size:32px}
+}
+/* ================================================================
+   V6 · 视觉升级层：活泼背景天空 + 儿童字体强化 + 贴纸感卡片
+   ================================================================ */
+
+/* ---- 1. Animated sky background layer ---- */
+.sky{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+}
+.sky .sun{
+  position:absolute;left:6%;top:8%;width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle,#FFE771 0%,#FFC93C 55%,rgba(255,201,60,.35) 70%,transparent 72%);
+  box-shadow:0 0 40px rgba(255,201,60,.5);
+  animation:sunPulse 4s ease-in-out infinite;
+}
+.sky .sun::before{
+  content:"";position:absolute;inset:-16px;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0 8%,rgba(255,201,60,.4) 9% 12%,transparent 13% 25%,rgba(255,201,60,.4) 26% 29%,transparent 30% 45%,rgba(255,201,60,.4) 46% 49%,transparent 50% 65%,rgba(255,201,60,.4) 66% 69%,transparent 70% 85%,rgba(255,201,60,.4) 86% 89%,transparent 90%);
+  mask:radial-gradient(circle,transparent 34%,#000 35%,#000 60%,transparent 62%);
+  -webkit-mask:radial-gradient(circle,transparent 34%,#000 35%,#000 60%,transparent 62%);
+  animation:sunSpin 22s linear infinite;
+}
+@keyframes sunPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes sunSpin{to{transform:rotate(360deg)}}
+.sky .rainbow{
+  position:absolute;right:5%;top:6%;width:220px;height:110px;
+  background:conic-gradient(from 180deg at 50% 100%,
+    rgba(255,123,107,.35) 0 12deg,rgba(255,201,60,.35) 12deg 24deg,rgba(110,214,176,.35) 24deg 36deg,
+    rgba(107,184,255,.35) 36deg 48deg,rgba(181,140,255,.35) 48deg 60deg,transparent 60deg);
+  border-radius:110px 110px 0 0;
+  mask:radial-gradient(ellipse at 50% 100%,transparent 60%,#000 60%,#000 100%);
+  -webkit-mask:radial-gradient(ellipse at 50% 100%,transparent 60%,#000 60%,#000 100%);
+  opacity:.9;pointer-events:none;
+}
+.sky .cloud{
+  position:absolute;font-size:70px;line-height:1;opacity:.7;
+  animation:drift 60s linear infinite;
+  filter:drop-shadow(0 4px 0 rgba(255,255,255,.5));
+  color:#fff;
+}
+.sky .cloud.c1{top:14%;left:-10%;animation-duration:80s;font-size:80px;opacity:.6}
+.sky .cloud.c2{top:38%;left:-20%;animation-duration:110s;animation-delay:-30s;font-size:56px;opacity:.55}
+.sky .cloud.c3{top:64%;left:-15%;animation-duration:95s;animation-delay:-70s;font-size:64px;opacity:.5}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(120vw)}}
+
+/* Floating mini emojis */
+.sky .float-emoji{
+  position:absolute;font-size:34px;line-height:1;opacity:.6;
+  animation:floatUp linear infinite;
+}
+.sky .float-emoji.e1{left:14%;top:80%;animation-duration:22s;animation-delay:-3s;font-size:30px}
+.sky .float-emoji.e2{left:78%;top:88%;animation-duration:26s;animation-delay:-12s;font-size:34px}
+.sky .float-emoji.e3{left:34%;top:95%;animation-duration:28s;animation-delay:-20s;font-size:26px}
+.sky .float-emoji.e4{left:60%;top:82%;animation-duration:20s;animation-delay:-6s;font-size:30px}
+.sky .float-emoji.e5{left:8%;top:92%;animation-duration:32s;animation-delay:-18s;font-size:24px}
+.sky .float-emoji.e6{left:88%;top:78%;animation-duration:24s;animation-delay:-10s;font-size:28px}
+.sky .float-emoji.e7{left:52%;top:98%;animation-duration:30s;animation-delay:-24s;font-size:22px}
+@keyframes floatUp{
+  0%{transform:translate(0,0) rotate(-8deg);opacity:0}
+  10%{opacity:.7}
+  50%{transform:translate(30px,-45vh) rotate(8deg);opacity:.7}
+  90%{opacity:.5}
+  100%{transform:translate(-10px,-90vh) rotate(-4deg);opacity:0}
+}
+/* Balloons rising slowly */
+.sky .balloon{
+  position:absolute;font-size:52px;line-height:1;
+  animation:balloonUp linear infinite;
+  filter:drop-shadow(0 3px 0 rgba(45,42,74,.15));
+}
+.sky .balloon.b1{left:12%;bottom:-80px;animation-duration:28s;animation-delay:-5s}
+.sky .balloon.b2{left:82%;bottom:-80px;animation-duration:36s;animation-delay:-15s;font-size:44px}
+.sky .balloon.b3{left:46%;bottom:-80px;animation-duration:32s;animation-delay:-24s;font-size:48px}
+@keyframes balloonUp{
+  0%{transform:translate(0,0) rotate(-6deg);opacity:0}
+  5%{opacity:.9}
+  50%{transform:translate(40px,-55vh) rotate(6deg)}
+  95%{opacity:.7}
+  100%{transform:translate(-20px,-115vh) rotate(-4deg);opacity:0}
+}
+@media (max-width:640px){
+  .sky .sun{width:60px;height:60px;left:2%;top:6%}
+  .sky .rainbow{width:130px;height:66px;right:1%;top:4%}
+  .sky .cloud{font-size:44px}
+  .sky .cloud.c1{font-size:52px}
+  .sky .cloud.c2{font-size:38px}
+  .sky .cloud.c3{font-size:44px}
+  .sky .float-emoji{font-size:22px !important}
+  .sky .balloon{font-size:34px !important}
+}
+/* Respect motion-reduce preferences */
+@media (prefers-reduced-motion:reduce){
+  .sky *{animation:none !important}
+  .mascot,.hero-emoji{animation:none !important}
+}
+
+/* ---- 2. Rainbow title text ---- */
+.rainbow-text{
+  background:linear-gradient(90deg,#FF7B6B 0%,#FFC93C 22%,#6ED6B0 45%,#6BB8FF 68%,#B58CFF 88%,#FF7B6B 100%);
+  background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+  animation:rainbowShift 8s linear infinite;
+}
+@keyframes rainbowShift{
+  0%{background-position:0% 0%}
+  100%{background-position:200% 0%}
+}
+.brand h1{
+  font-family:var(--font-display);
+  letter-spacing:1px;
+  background:linear-gradient(90deg,#FF7B6B,#FFC93C,#6ED6B0,#6BB8FF,#B58CFF,#FF7B6B);
+  background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+  animation:rainbowShift 6s linear infinite;
+}
+.hero-copy h2{
+  font-family:var(--font-display);
+  font-size:30px;
+  letter-spacing:1px;
+  background:linear-gradient(90deg,#FF7B6B 0%,#FFC93C 30%,#6BB8FF 60%,#B58CFF 100%);
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+}
+
+/* ---- 3. Mascot with rotating aura ---- */
+.mascot{
+  position:relative;overflow:visible;
+  animation:bob 2.6s ease-in-out infinite, mascotBlink 4s ease-in-out infinite;
+}
+.mascot::before{
+  content:'';position:absolute;inset:-8px;border-radius:50%;
+  background:conic-gradient(from 0deg,
+    rgba(255,201,60,.9) 0 8deg,transparent 15deg 60deg,
+    rgba(255,123,107,.9) 68deg 76deg,transparent 82deg 130deg,
+    rgba(110,214,176,.9) 138deg 146deg,transparent 152deg 200deg,
+    rgba(107,184,255,.9) 208deg 216deg,transparent 222deg 270deg,
+    rgba(181,140,255,.9) 278deg 286deg,transparent 292deg 340deg,
+    rgba(255,201,60,.9) 348deg 356deg,transparent 360deg);
+  mask:radial-gradient(circle,transparent 55%,#000 60%,#000 78%,transparent 82%);
+  -webkit-mask:radial-gradient(circle,transparent 55%,#000 60%,#000 78%,transparent 82%);
+  animation:sunSpin 6s linear infinite;
+  pointer-events:none;
+}
+@keyframes mascotBlink{
+  0%,90%,100%{filter:none}
+  94%{filter:brightness(1.15) saturate(1.3)}
+}
+
+/* ---- 4. Star pill pulse ---- */
+.pill{position:relative}
+.pill .star-ico{display:inline-block}
+.pill .num{font-family:var(--font-num);font-weight:800}
+.pill .star-ico{animation:starSpin 8s linear infinite}
+@keyframes starSpin{
+  0%,20%{transform:rotate(0) scale(1)}
+  25%{transform:rotate(72deg) scale(1.15)}
+  30%,100%{transform:rotate(72deg) scale(1)}
+}
+
+/* ---- 5. Hero (big sticker feel) ---- */
+.hero{
+  background:linear-gradient(135deg,#FFF3D6 0%,#FFE7C2 45%,#FFDCE5 100%);
+  position:relative;
+}
+.hero::after{
+  content:"";position:absolute;inset:0;
+  background-image:
+    radial-gradient(circle,rgba(255,255,255,.7) 1.5px,transparent 2px),
+    radial-gradient(circle,rgba(255,255,255,.5) 1px,transparent 1.5px);
+  background-size:22px 22px,15px 15px;
+  background-position:0 0,11px 8px;
+  opacity:.6;pointer-events:none;border-radius:inherit;
+  mix-blend-mode:overlay;
+}
+.hero-emoji{
+  font-size:82px;
+  animation:heroFloat 3.5s ease-in-out infinite;
+  filter:drop-shadow(0 6px 0 rgba(45,42,74,.15));
+  position:relative;z-index:1;
+}
+.hero-emoji .spark{
+  position:absolute;font-size:24px;
+  animation:sparkle 2s ease-in-out infinite;
+}
+@keyframes heroFloat{
+  0%,100%{transform:translateY(0) rotate(-4deg) scale(1)}
+  50%{transform:translateY(-10px) rotate(4deg) scale(1.05)}
+}
+@keyframes sparkle{
+  0%,100%{opacity:0;transform:scale(.4) rotate(0deg)}
+  50%{opacity:1;transform:scale(1.2) rotate(180deg)}
+}
+.hero-copy{position:relative;z-index:1}
+.hero-copy p{font-family:var(--font);font-size:15px;color:var(--ink-soft)}
+.hero-badge{
+  font-family:var(--font-display);letter-spacing:1px;
+  transform:rotate(-2deg);
+  display:inline-block;
+  animation:badgeWiggle 3s ease-in-out infinite;
+}
+@keyframes badgeWiggle{
+  0%,100%{transform:rotate(-2deg) scale(1)}
+  50%{transform:rotate(2deg) scale(1.04)}
+}
+
+/* ---- 6. Section title bar → rainbow ---- */
+.section-title .bar{
+  background:linear-gradient(180deg,#FF7B6B,#FFC93C,#6ED6B0,#6BB8FF,#B58CFF);
+  border-radius:4px;
+  animation:barShift 4s ease-in-out infinite;
+}
+@keyframes barShift{
+  0%,100%{transform:scaleY(1)}
+  50%{transform:scaleY(1.35)}
+}
+.section-title{font-family:var(--font-display);letter-spacing:1px;font-size:20px}
+
+/* ---- 7. Game cards → sticker style with tilt + hover shine ---- */
+.card{
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+  position:relative;
+}
+.card:nth-child(6n+1){transform:rotate(-1.6deg)}
+.card:nth-child(6n+2){transform:rotate(1.4deg)}
+.card:nth-child(6n+3){transform:rotate(-1.2deg)}
+.card:nth-child(6n+4){transform:rotate(1.8deg)}
+.card:nth-child(6n+5){transform:rotate(-1.4deg)}
+.card:nth-child(6n+6){transform:rotate(1.1deg)}
+.card::after{
+  content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.85) 50%,transparent 60%);
+  transform:translateX(-130%);
+  transition:transform .9s cubic-bezier(.5,0,.5,1);
+}
+.card:hover{
+  transform:rotate(0) translateY(-6px) scale(1.03);
+  z-index:2;
+}
+.card:hover::after{transform:translateX(130%)}
+.card:active{transform:rotate(0) translateY(2px) scale(.99)}
+.card h3{
+  font-family:var(--font-display);
+  font-size:24px;letter-spacing:1.5px;
+  text-shadow:2px 2px 0 rgba(255,255,255,.6);
+}
+.card .icon{
+  animation:iconBounce 2.5s ease-in-out infinite;
+}
+.card:nth-child(6n+1) .icon{animation-delay:0s}
+.card:nth-child(6n+2) .icon{animation-delay:.3s}
+.card:nth-child(6n+3) .icon{animation-delay:.6s}
+.card:nth-child(6n+4) .icon{animation-delay:.9s}
+.card:nth-child(6n+5) .icon{animation-delay:1.2s}
+.card:nth-child(6n+6) .icon{animation-delay:1.5s}
+@keyframes iconBounce{
+  0%,100%{transform:translateY(0) scale(1) rotate(0deg)}
+  25%{transform:translateY(-4px) scale(1.06) rotate(-6deg)}
+  50%{transform:translateY(0) scale(1) rotate(0deg)}
+  75%{transform:translateY(-2px) scale(1.03) rotate(6deg)}
+}
+.card .hint-tag{font-family:var(--font-display);letter-spacing:.5px}
+.card .go{font-family:var(--font-display);letter-spacing:1px}
+
+/* ---- 8. Difficulty cards breathe + animal aura ---- */
+.diff-card{position:relative;overflow:visible}
+.diff-card .emo{
+  animation:petBreath 2.4s ease-in-out infinite;
+  position:relative;
+}
+.diff-card.d6 .emo{animation-name:petBreathBig}
+@keyframes petBreath{
+  0%,100%{transform:scale(1) rotate(-2deg)}
+  50%{transform:scale(1.12) rotate(2deg) translateY(-3px)}
+}
+@keyframes petBreathBig{
+  0%,100%{transform:scale(1) rotate(3deg)}
+  50%{transform:scale(1.18) rotate(-3deg) translateY(-4px)}
+}
+.diff-card.active{transform:translateY(-4px) rotate(0)}
+.diff-card.active::before{
+  content:'';position:absolute;inset:-6px;border-radius:26px;
+  background:conic-gradient(from 0deg,var(--sunny),var(--pink),var(--mint),var(--sky),var(--grape),var(--sunny));
+  filter:blur(14px);opacity:.55;z-index:-1;
+  animation:sunSpin 4s linear infinite;
+}
+.diff-card .name{font-family:var(--font-display);letter-spacing:1px}
+.diff-card .tag{font-weight:800}
+
+/* ---- 9. Wrong book entry — pulsing glow ---- */
+.wrong-entry{
+  position:relative;
+  background:linear-gradient(135deg,#FFE3EA 0%,#FFF3D6 50%,#E7F5FF 100%);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  overflow:visible;
+}
+.wrong-entry:hover{transform:rotate(-.8deg) translateY(-4px) scale(1.02)}
+.wrong-entry .ico{
+  animation:bookFloat 2.8s ease-in-out infinite;
+  position:relative;
+}
+.wrong-entry .ico::after{
+  content:'';position:absolute;inset:-8px;border-radius:22px;
+  background:radial-gradient(circle,rgba(255,201,60,.5),transparent 65%);
+  animation:glowPulse 2s ease-in-out infinite;
+  z-index:-1;
+}
+@keyframes bookFloat{
+  0%,100%{transform:rotate(-6deg) scale(1)}
+  50%{transform:rotate(6deg) scale(1.06)}
+}
+@keyframes glowPulse{
+  0%,100%{opacity:.5;transform:scale(1)}
+  50%{opacity:.9;transform:scale(1.15)}
+}
+.wrong-entry .txt h3{font-family:var(--font-display);letter-spacing:1px;font-size:22px}
+
+/* ---- 10. Question card & answers — more tactile ---- */
+.qtitle{font-family:var(--font-display);letter-spacing:.5px}
+.qtext{
+  font-family:var(--font-display);
+  letter-spacing:1px;
+  font-size:28px;
+  line-height:1.4;
+  color:var(--ink);
+  text-shadow:2px 2px 0 rgba(255,220,150,.5);
+}
+.ans{font-family:var(--font-display);letter-spacing:1px}
+.ans .emoji{
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.ans:hover:not(.dim):not(.correct):not(.wrong) .emoji{transform:scale(1.15) rotate(-6deg)}
+.tile{
+  animation:tileIdle 3s ease-in-out infinite;
+}
+.tile:nth-child(2n){animation-delay:.4s}
+.tile:nth-child(3n){animation-delay:.8s}
+.tile:nth-child(5n){animation-delay:1.2s}
+@keyframes tileIdle{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  50%{transform:translateY(-3px) rotate(1deg)}
+}
+.tile.pop{animation:popIn .35s cubic-bezier(.34,1.56,.64,1),tileIdle 3s ease-in-out .35s infinite}
+
+/* ---- 11. Feedback & result screen upgrade ---- */
+.feedback .msg{font-family:var(--font-display);letter-spacing:1.5px}
+.result-card h2{
+  font-family:var(--font-display);
+  background:linear-gradient(90deg,#FF7B6B,#FFC93C,#6ED6B0,#6BB8FF,#B58CFF);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:2px;
+}
+.result-card .trophy{
+  filter:drop-shadow(0 6px 0 rgba(255,201,60,.35));
+}
+.big-btn{font-family:var(--font-display);letter-spacing:1.5px}
+.review-item .rq{font-family:var(--font);font-weight:800}
+
+/* ---- 12. Top bar polish ---- */
+.topbar{
+  background:linear-gradient(180deg,#FFF6E5 60%,rgba(255,246,229,.92));
+  box-shadow:0 4px 20px rgba(255,180,100,.15);
+}
+.brand h1{font-size:22px}
+.brand p{font-family:var(--font);letter-spacing:.3px;font-weight:800}
+
+/* ---- 13. Diff badge — glow ---- */
+.pill.diff-badge{
+  background:linear-gradient(135deg,#B58CFF,#FF9EC7);
+  color:#fff;
+  position:relative;
+}
+.pill.diff-badge::before{
+  content:'';position:absolute;inset:-4px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(181,140,255,.5),rgba(255,158,199,.5));
+  filter:blur(10px);z-index:-1;
+  animation:glowPulse 3s ease-in-out infinite;
+}
+
+/* ---- 14. Voice pill & gear ---- */
+.pill.voice-on{background:linear-gradient(135deg,#6ED6B0,#3FB78F)}
+.pill.home{background:linear-gradient(135deg,#6BB8FF,#3F92E0)}
+
+/* ---- 15. Wrong book list item hover ---- */
+.wb-item{transition:transform .2s}
+.wb-item:hover{transform:translateX(4px)}
+.wb-item .qtext{font-family:var(--font-display);letter-spacing:.5px;font-size:18px}
+
+/* ---- 16. Empty state playful ---- */
+.wb-empty .emo{animation:heroFloat 3s ease-in-out infinite;display:inline-block}
+
+</style>
+</head>
+<body>
+
+<!-- ============ Animated sky background ============ -->
+<div class="sky" aria-hidden="true">
+  <div class="sun"></div>
+  <div class="rainbow"></div>
+  <div class="cloud c1">☁️</div>
+  <div class="cloud c2">☁️</div>
+  <div class="cloud c3">☁️</div>
+  <div class="balloon b1">🎈</div>
+  <div class="balloon b2">🎈</div>
+  <div class="balloon b3">🎈</div>
+  <div class="float-emoji e1">⭐</div>
+  <div class="float-emoji e2">🌸</div>
+  <div class="float-emoji e3">🍃</div>
+  <div class="float-emoji e4">✨</div>
+  <div class="float-emoji e5">🌈</div>
+  <div class="float-emoji e6">🦋</div>
+  <div class="float-emoji e7">💖</div>
+</div>
+
+<!-- ============ Top Bar ============ -->
+<header class="topbar">
+  <div class="mascot" id="mascot">🦊</div>
+  <div class="brand">
+    <h1>小神童大脑训练场</h1>
+    <p>5-6 岁 · 每日逻辑思维乐园</p>
+  </div>
+  <div class="hud">
+    <div class="pill diff-badge" id="diffBadge" title="当前难度">
+      <span class="em" id="diffBadgeEmo">🐣</span><span id="diffBadgeLabel">5岁</span>
+    </div>
+    <button class="pill voice-on" id="voiceBtn" title="朗读开关">
+      <span class="star-ico">🔊</span><span id="voiceLabel">朗读</span>
+    </button>
+    <button class="pill gear" id="voiceSettingsBtn" title="语音设置">⚙️</button>
+    <div class="pill" title="我收集的星星">
+      <span class="star-ico">⭐</span><span class="num" id="starCount">0</span>
+    </div>
+    <button class="pill home" id="homeBtn" title="回到首页">🏠</button>
+  </div>
+</header>
+
+<!-- ============ Home Screen ============ -->
+<section class="screen active" id="screen-home">
+  <div class="hero">
+    <div class="hero-emoji">🧠✨</div>
+    <div class="hero-copy">
+      <h2>今天的大脑冒险开始啦！</h2>
+      <p>6 个好玩的小关卡，练一练找规律、数一数、比多少、分类、方位和推理。每答对一题就能获得一颗星星⭐，看看今天你能收集多少颗！</p>
+      <span class="hero-badge">👶 适合 5-6 岁 · 建议每天玩 10-15 分钟</span>
+    </div>
+  </div>
+
+  <div class="diff-wrap">
+    <div class="diff-head">
+      <span class="lbl">🎯 选择你的年龄，题目会更合适哦</span>
+      <span class="cur" id="diffCurLabel">当前：5 岁 · 小新手</span>
+    </div>
+    <div class="diff-cards" id="diffCards"></div>
+  </div>
+
+  <div class="wrong-entry" id="wrongEntry">
+    <div class="ico">📖</div>
+    <div class="txt">
+      <h3>我的错题本</h3>
+      <p>答错的题目会自动收进来，反复练一练，弱点就消失啦～</p>
+    </div>
+    <span class="count" id="wrongCount">0 题</span>
+  </div>
+
+  <div class="section-title"><span class="bar"></span>选择今天的训练</div>
+  <div class="grid" id="gameGrid"></div>
+
+  <div class="footer-note">
+    🌈 小朋友识字不多也没关系，点击题目右上角的 🔊 按钮，或者开着朗读开关，狐狸小老师会把题目读给你听哦～<br/>
+    陪伴建议：家长陪同一起讨论"为什么这样选"，比答对更重要。
+  </div>
+</section>
+
+<!-- ============ Game Screen ============ -->
+<section class="screen" id="screen-game">
+  <div class="game-head">
+    <button class="back-btn" id="backBtn">← 返回</button>
+    <div class="dots" id="progressDots"></div>
+  </div>
+  <div class="qcard">
+    <div class="qtitle">
+      <span class="badge" id="gameBadge">关卡</span>
+      <span id="gameName">游戏名</span>
+      <button class="speak" id="speakBtn">🔊 再听一遍</button>
+    </div>
+    <div class="qtext" id="qText">题目</div>
+    <div id="qStage"></div>
+    <div class="answers" id="qAnswers"></div>
+  </div>
+</section>
+
+<!-- ============ Result Screen ============ -->
+<section class="screen" id="screen-result">
+  <div class="result-card">
+    <div class="trophy" id="trophyEmoji">🏆</div>
+    <h2 id="resultTitle">太棒啦！</h2>
+    <p id="resultDesc">你完成了这个关卡的训练</p>
+    <div class="result-stars" id="resultStars"></div>
+    <div id="reviewSlot"></div>
+    <div class="result-actions">
+      <button class="big-btn ghost" id="againBtn">🔁 再玩一次</button>
+      <button class="big-btn primary" id="homeBtn2">🏠 回到地图</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Wrong Book Screen ============ -->
+<section class="screen" id="screen-wrongbook">
+  <div class="wb-head">
+    <button class="back-btn" id="wbBackBtn">← 返回</button>
+    <div class="wb-title">📖 我的错题本</div>
+    <div class="wb-actions">
+      <button class="wb-filter active" data-filter="all" id="wbFilterAll">全部</button>
+      <button class="wb-filter" data-filter="clear" id="wbClearBtn">🗑 清空</button>
+    </div>
+  </div>
+  <div id="wbContent"></div>
+</section>
+
+<!-- Feedback popup -->
+<div class="feedback" id="feedback">
+  <div class="emo" id="fbEmo">🎉</div>
+  <div class="msg" id="fbMsg">答对啦！</div>
+</div>
+
+<!-- Voice Settings Panel -->
+<div class="vs-mask" id="vsMask"></div>
+<div class="vs-panel" id="vsPanel">
+  <div class="vs-head">
+    <span class="vs-title">🔊 语音播报设置</span>
+    <button class="vs-close" id="vsClose">✕</button>
+  </div>
+  <div class="vs-body">
+    <div class="vs-quality" id="vsQuality"></div>
+
+    <label class="vs-label">选择语音（⭐ = 自然语音，最像真人）</label>
+    <select class="vs-select" id="vsVoiceSelect"></select>
+
+    <label class="vs-label">语速 <span class="vs-val" id="vsRateVal">0.92</span></label>
+    <input type="range" class="vs-range" id="vsRate" min="0.6" max="1.3" step="0.02" value="0.92" />
+    <div class="vs-range-hint"><span>慢·更清楚</span><span>快·更流利</span></div>
+
+    <label class="vs-label">音调 <span class="vs-val" id="vsPitchVal">1.20</span></label>
+    <input type="range" class="vs-range" id="vsPitch" min="0.8" max="1.8" step="0.02" value="1.2" />
+    <div class="vs-range-hint"><span>低沉</span><span>清脆·更童趣</span></div>
+
+    <div class="vs-tip">
+      💡 小提示：用 <b>Microsoft Edge</b> 浏览器打开，能用到「晓晓 / 云希」等在线自然语音，效果最接近真人；Chrome 可用「Google 普通话」。手机系统自带的语音较机械，属正常现象。
+    </div>
+
+    <button class="vs-test" id="vsTest">▶️ 试听效果</button>
+  </div>
+</div>
+
+<!-- Confetti canvas -->
+<canvas id="confetti"></canvas>
+
+<script>
+/* =========================================================
+   小神童大脑训练场 · 5-6岁逻辑思维乐园
+   Vanilla JS, single file, no external deps
+   ========================================================= */
+
+/* ---------- Utils ---------- */
+const $ = (id)=>document.getElementById(id);
+const rand = (n)=>Math.floor(Math.random()*n);
+const pick = (arr)=>arr[rand(arr.length)];
+const shuffle = (arr)=>{const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;};
+const wait = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- Voice (Web Speech API) ---------- */
+const Voice = {
+  enabled:true,
+  voices:[],
+  selected:null,
+  manualVoiceName:null,
+  rate:0.92,
+  pitch:1.2,
+  supported:('speechSynthesis' in window),
+  onVoicesReady:null,
+
+  // Quality tiers (matched against voice name)
+  PREMIUM:[/xiaoxiao/i,/yunxi/i,/yunyang/i,/xiaoyi/i,/yunjian/i,/xiaochen/i,/yunxia/i,/liaoning/i,/shaanxi/i],
+  NATURAL:[/natural/i,/neural/i,/online/i,/premium/i,/enhanced/i,/studio/i],
+  GOOD:[/google/i,/tingting/i,/meijia/i,/sinji/i,/lili/i,/hanhan/i,/yating/i,/zhiwei/i],
+
+  MOODS:{
+    question:{rate:0.84,pitch:1.30,pause:210},
+    encourage:{rate:1.06,pitch:1.50,pause:90},
+    hint:{rate:0.90,pitch:1.16,pause:170},
+    welcome:{rate:0.90,pitch:1.26,pause:180},
+    celebrate:{rate:1.00,pitch:1.55,pause:80},
+    neutral:{rate:0.92,pitch:1.22,pause:150}
+  },
+
+  init(){
+    if(!this.supported)return;
+    try{
+      const s = JSON.parse(localStorage.getItem('brainkids.voice')||'{}');
+      if(s.manualVoiceName)this.manualVoiceName=s.manualVoiceName;
+      if(typeof s.rate==='number')this.rate=s.rate;
+      if(typeof s.pitch==='number')this.pitch=s.pitch;
+      if(typeof s.enabled==='boolean')this.enabled=s.enabled;
+    }catch(e){}
+    const load = ()=>{
+      const vs = window.speechSynthesis.getVoices()||[];
+      if(vs.length){
+        this.voices = vs;
+        this.chooseVoice();
+        if(this.onVoicesReady)this.onVoicesReady();
+      }
+    };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    setTimeout(load,400);
+    setTimeout(load,1200);
+  },
+
+  scoreVoice(v){
+    const n=(v.name||'')+' '+(v.lang||'');
+    if(!/zh|cmn|chinese|mandarin|普通话|中文|国语|粤语/i.test(n))return -1;
+    let s=0; const l=v.lang||'';
+    if(/zh[-_]CN/i.test(l))s+=12; else if(/zh[-_](TW|HK)/i.test(l))s+=6; else if(/zh/i.test(l))s+=8;
+    if(this.PREMIUM.some(r=>r.test(v.name||'')))s+=120;
+    if(this.NATURAL.some(r=>r.test(v.name||'')))s+=55;
+    if(this.GOOD.some(r=>r.test(v.name||'')))s+=28;
+    if(v.localService===false)s+=10;
+    if(v.default)s+=2;
+    return s;
+  },
+
+  chooseVoice(){
+    if(this.manualVoiceName){
+      const m = this.voices.find(v=>v.name===this.manualVoiceName);
+      if(m){this.selected=m;return;}
+    }
+    const ranked = this.voices.map(v=>({v,s:this.scoreVoice(v)}))
+      .filter(x=>x.s>=0).sort((a,b)=>b.s-a.s);
+    this.selected = ranked.length?ranked[0].v:null;
+  },
+
+  isPremium(){
+    if(!this.selected)return false;
+    const n=this.selected.name||'';
+    return this.PREMIUM.some(r=>r.test(n))||this.NATURAL.some(r=>r.test(n));
+  },
+
+  // Split text at punctuation for natural rhythm (no lookbehind, Safari-safe)
+  segment(text){
+    const s = String(text);
+    let parts = s.match(/[^，。！？、；：,!?;:\n]+[，。！？、；：,!?;:]?/g) || [s];
+    parts = parts.map(p=>p.trim()).filter(Boolean);
+    const out=[];
+    parts.forEach(p=>{
+      const last = out[out.length-1];
+      if(last && (last.length+p.length)<=7 && !/[。！？]/.test(last)){
+        out[out.length-1]=last+p;
+      } else out.push(p);
+    });
+    return out.length?out:[s];
+  },
+
+  speak(text, mood='neutral'){
+    if(!this.enabled||!this.supported||!text)return;
+    const m = this.MOODS[mood]||this.MOODS.neutral;
+    this.stop();
+    const chunks = this.segment(text);
+    let delay=0;
+    chunks.forEach((chunk)=>{
+      setTimeout(()=>{
+        if(!this.enabled)return;
+        try{
+          const u = new SpeechSynthesisUtterance(chunk);
+          u.lang='zh-CN';
+          if(this.selected)u.voice=this.selected;
+          const jitter=(Math.random()-.5)*0.05;
+          u.rate = Math.max(0.5,Math.min(1.7, this.rate*m.rate + jitter));
+          u.pitch= Math.max(0.4,Math.min(2.0, this.pitch*m.pitch + jitter*1.6));
+          u.volume=1;
+          window.speechSynthesis.speak(u);
+        }catch(e){}
+      }, delay);
+      const dur = Math.max(240, chunk.length*165/(this.rate*m.rate)) + m.pause;
+      delay += dur;
+    });
+  },
+
+  stop(){
+    if(this.supported)try{window.speechSynthesis.cancel();}catch(e){}
+  },
+
+  save(){
+    try{
+      localStorage.setItem('brainkids.voice', JSON.stringify({
+        manualVoiceName:this.manualVoiceName, rate:this.rate,
+        pitch:this.pitch, enabled:this.enabled
+      }));
+    }catch(e){}
+  },
+  setVoice(name){this.manualVoiceName=name||null;this.chooseVoice();this.save();},
+  setRate(r){this.rate=r;this.save();},
+  setPitch(p){this.pitch=p;this.save();},
+  setEnabled(b){this.enabled=b;this.save();if(!b)this.stop();},
+
+  zhVoices(){
+    return this.voices.map(v=>({
+      name:v.name, lang:v.lang, score:this.scoreVoice(v),
+      premium:this.PREMIUM.some(r=>r.test(v.name||''))||this.NATURAL.some(r=>r.test(v.name||'')),
+      online:v.localService===false
+    })).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score);
+  }
+};
+Voice.init();
+
+/* ---------- Sound (Web Audio tiny chimes) ---------- */
+const Sound = {
+  ctx:null,
+  ensure(){
+    if(!this.ctx){
+      try{this.ctx = new (window.AudioContext||window.webkitAudioContext)();}catch(e){}
+    }
+    return this.ctx;
+  },
+  tone(freq, dur=0.14, type='sine', gain=0.08){
+    const ctx = this.ensure(); if(!ctx)return;
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(0,ctx.currentTime);
+    g.gain.linearRampToValueAtTime(gain,ctx.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime+dur+0.02);
+  },
+  correct(){
+    this.tone(660,.14,'triangle',.09);
+    setTimeout(()=>this.tone(880,.16,'triangle',.09),120);
+    setTimeout(()=>this.tone(1180,.22,'triangle',.08),260);
+  },
+  wrong(){
+    this.tone(240,.18,'sawtooth',.05);
+  },
+  star(){
+    this.tone(1400,.08,'sine',.06);
+    setTimeout(()=>this.tone(1800,.1,'sine',.05),80);
+  },
+  cheer(){
+    [523,659,784,1046].forEach((f,i)=>setTimeout(()=>this.tone(f,.18,'triangle',.09),i*110));
+  }
+};
+
+/* ---------- State ---------- */
+const DIFFS = {
+  '5':{
+    key:'5', label:'5岁 · 小新手', short:'5岁', emoji:'🐣',
+    tag:'图案少 · 数字小 · 选项简单',
+    desc:'适合刚接触逻辑训练的小朋友',
+    stripes:1
+  },
+  '6':{
+    key:'6', label:'6岁 · 大挑战', short:'6岁', emoji:'🦁',
+    tag:'图案多 · 数字大 · 更烧脑',
+    desc:'适合幼小衔接、爱动脑筋的小朋友',
+    stripes:2
+  }
+};
+const State = {
+  stars:0,
+  difficulty:'5',
+  currentGame:null,
+  questions:[],
+  qIndex:0,
+  correctCount:0,
+  firstTry:true,
+  answered:false,
+  history:{}, // per-game best stars
+  sessionWrong:[], // wrong questions in current round
+  mode:'normal' // 'normal' | 'retry-wrong'
+};
+// Load saved difficulty
+try{
+  const saved = localStorage.getItem('brainkids.difficulty');
+  if(saved==='5'||saved==='6')State.difficulty=saved;
+}catch(e){}
+
+/* ---------- Wrong Book (persistent) ---------- */
+const WB_KEY = 'brainkids.wrongBook.v1';
+const WB_MAX = 60;
+function loadWrongBook(){
+  try{
+    const raw = localStorage.getItem(WB_KEY);
+    if(!raw)return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr)?arr:[];
+  }catch(e){return []}
+}
+function saveWrongBook(list){
+  try{ localStorage.setItem(WB_KEY, JSON.stringify(list.slice(-WB_MAX))); }catch(e){}
+}
+function addWrongToBook(entry){
+  const list = loadWrongBook();
+  list.push(entry);
+  saveWrongBook(list);
+  updateWrongCount();
+}
+function removeWrongFromBook(id){
+  const list = loadWrongBook().filter(x=>x.id!==id);
+  saveWrongBook(list);
+  updateWrongCount();
+  if(document.getElementById('screen-wrongbook').classList.contains('active'))renderWrongBook();
+}
+function clearWrongBook(){
+  saveWrongBook([]);
+  updateWrongCount();
+  renderWrongBook();
+}
+function updateWrongCount(){
+  const n = loadWrongBook().length;
+  const el = $('wrongCount');
+  if(!el)return;
+  el.textContent = n>0 ? `${n} 题` : '0 题';
+  el.classList.toggle('zero', n===0);
+}
+
+/* ---------- Game Definitions ---------- */
+const GAMES = [
+  {
+    id:'pattern', icon:'🔍', name:'找规律', color:'c1',
+    desc:'看一看，接下来应该是什么？',
+    dim:'逻辑推理', diff:2,
+    diffHint:{'5':'AB 简单规律','6':'ABC 循环 / 递增'},
+    gen:genPattern
+  },
+  {
+    id:'count', icon:'🔢', name:'数一数', color:'c2',
+    desc:'数数看，一共有多少个？',
+    dim:'数学启蒙', diff:1,
+    diffHint:{'5':'2-5 个','6':'6-10 个'},
+    gen:genCount
+  },
+  {
+    id:'compare', icon:'⚖️', name:'比多少', color:'c3',
+    desc:'哪一边的数量更多（或更少）？',
+    dim:'数学比较', diff:2,
+    diffHint:{'5':'差别明显','6':'数量接近'},
+    gen:genCompare
+  },
+  {
+    id:'classify', icon:'🎨', name:'找不同类', color:'c4',
+    desc:'哪一个和其他的不是一家人？',
+    dim:'分类归纳', diff:2,
+    diffHint:{'5':'3 选 1','6':'4 选 1'},
+    gen:genClassify
+  },
+  {
+    id:'spatial', icon:'🧭', name:'空间方位', color:'c5',
+    desc:'它在上面、下面、左边还是右边？',
+    dim:'空间感知', diff:3,
+    diffHint:{'5':'上下左右','6':'加入四角+序数'},
+    gen:genSpatial
+  },
+  {
+    id:'reason', icon:'🧩', name:'小小推理家', color:'c6',
+    desc:'听一听，猜猜谁最厉害？',
+    dim:'逻辑推理', diff:3,
+    diffHint:{'5':'两步比较','6':'三段论推理'},
+    gen:genReason
+  }
+];
+
+/* ---------- Question Generators ---------- */
+
+/* Pattern: emoji sequences, choose next */
+function genPattern(diff){
+  // 5岁: 简单 AB 规律，短序列 (4-5)，3 个选项
+  const easySets = [
+    {seq:['🍎','🍌','🍎','🍌'], ans:'🍎', opts:['🍎','🍌','🍇'], hint:'苹果、香蕉、苹果、香蕉……接下来又是苹果'},
+    {seq:['🐶','🐱','🐶','🐶','🐱'], ans:'🐶', opts:['🐱','🐶','🐰'], hint:'小狗、小猫、小狗、小狗、小猫……接下来是小狗'},
+    {seq:['⭐','🌙','⭐','🌙'], ans:'⭐', opts:['🌙','⭐','☀️'], hint:'星星、月亮、星星、月亮……接下来是星星'},
+    {seq:['🔴','🔵','🔴','🔵'], ans:'🔴', opts:['🔵','🔴','🟡'], hint:'红、蓝、红、蓝……接下来是红色'},
+    {seq:['🌸','🌼','🌸','🌸','🌼'], ans:'🌸', opts:['🌸','🌼','🌺'], hint:'接下来还是小花'},
+    {seq:['🚗','🚌','🚗','🚌'], ans:'🚗', opts:['🚗','🚌','✈️'], hint:'汽车、公交、汽车、公交……接下来是汽车'},
+    {seq:['🐰','🐻','🐰','🐰','🐻'], ans:'🐰', opts:['🐰','🐻','🐶'], hint:'小兔、小熊、小兔、小兔、小熊……接下来是小兔'}
+  ];
+  // 6岁: AAB / ABC / 递增规律，长序列 (5-7)，4 个选项
+  const hardSets = [
+    {seq:['🍎','🍌','🍇','🍎','🍌','🍇','🍎'], ans:'🍌', opts:['🍌','🍎','🍇','🍓'], hint:'三个水果循环，接下来是香蕉'},
+    {seq:['🐶','🐱','🐰','🐶','🐱','🐰','🐶'], ans:'🐱', opts:['🐱','🐶','🐰','🐻'], hint:'三个小动物循环'},
+    {seq:['🍎','🍎','🍌','🍎','🍎','🍌','🍎','🍎'], ans:'🍌', opts:['🍌','🍎','🍇','🥝'], hint:'两个苹果一个香蕉'},
+    {seq:['🐸','🐸','🐢','🐸','🐸','🐢','🐸'], ans:'🐸', opts:['🐸','🐢','🐍','🦎'], hint:'两只青蛙一只乌龟'},
+    {seq:['🚗','🚲','✈️','🚗','🚲','✈️','🚗'], ans:'🚲', opts:['✈️','🚗','🚲','🚂'], hint:'三个交通工具循环'},
+    {seq:['⭐','⭐','🌙','⭐','⭐','⭐','🌙'], ans:'⭐', opts:['⭐','🌙','☀️','🌈'], hint:'星星越来越多啦'},
+    {seq:['🌸','🌼','🌸','🌸','🌼','🌸','🌸','🌸'], ans:'🌼', opts:['🌸','🌼','🌺','🌻'], hint:'每一组小花多一朵'},
+    {seq:['🔺','🔵','🟨','🔺','🔵','🟨','🔺'], ans:'🔵', opts:['🔵','🔺','🟨','🟩'], hint:'三个形状循环'}
+  ];
+  const sets = diff==='6'?hardSets:easySets;
+  const s = pick(sets);
+  const opts = shuffle(s.opts);
+  return {
+    text:'接下来应该是哪一个呢？',
+    speakText:'看一看这些图案的规律，接下来应该是哪一个呢？',
+    render:{type:'pattern', seq:s.seq},
+    options:opts.map(o=>({label:o, kind:'emoji'})),
+    answer:opts.indexOf(s.ans),
+    hint:s.hint,
+    four: diff==='6' && opts.length>=4
+  };
+}
+
+/* Count: count emojis */
+function genCount(diff){
+  const items = ['🐰','🐻','🍎','🌸','⭐','🐟','🎈','🍓','🐥','🚗','🌻','🐢'];
+  const emoji = pick(items);
+  const names = {'🐰':'小兔子','🐻':'小熊','🍎':'苹果','🌸':'小花','⭐':'星星','🐟':'小鱼','🎈':'气球','🍓':'草莓','🐥':'小鸡','🚗':'小汽车','🌻':'向日葵','🐢':'乌龟'};
+  // 5岁: 2-5，3 个选项，错误答案邻近
+  // 6岁: 6-10，4 个选项，错误答案范围稍大
+  const isHard = diff==='6';
+  const n = isHard ? (6+rand(5)) : (2+rand(4));
+  const wrongs = new Set();
+  const wrongRange = isHard ? [-2,-1,1,2,3] : [-1,1,2];
+  while(wrongs.size < (isHard?3:2)){
+    const w = n + pick(wrongRange);
+    if(w>0 && w!==n)wrongs.add(w);
+  }
+  const opts = shuffle([n,...wrongs]);
+  return {
+    text:`数一数，一共有几只${names[emoji]}？`,
+    speakText:`数一数，画面里一共有几只${names[emoji]}呢？`,
+    render:{type:'count', emoji, n},
+    options:opts.map(o=>({label:String(o), kind:'number'})),
+    answer:opts.indexOf(n),
+    hint:`我们一起数：${Array.from({length:n},(_,i)=>i+1).join('、')}，一共是 ${n} 只`,
+    four: isHard && opts.length>=4
+  };
+}
+
+/* Compare: which side has more/less */
+function genCompare(diff){
+  const pool = [['🍎','🍊'],['🐶','🐱'],['⭐','🌙'],['🌸','🌼'],['🚗','🚌'],['🍓','🍇'],['🐰','🐻']];
+  const [a,b] = pick(pool);
+  const isHard = diff==='6';
+  let na, nb;
+  if(isHard){
+    // 6岁: 数量接近 (差 1-2)，总数较大
+    na = 5+rand(6);
+    const diffN = pick([1,2,-1,-2]);
+    nb = na + diffN;
+    if(nb<1)nb = na + 2;
+    if(nb===na)nb = na + 1;
+  } else {
+    // 5岁: 数量差别明显 (差 3+)，总数较小
+    na = 2+rand(4);
+    nb = na + pick([3,4,5,-3,-4]);
+    if(nb<1)nb = na + 3;
+  }
+  const askMore = Math.random()<0.6;
+  const qWord = askMore?'多':'少';
+  const answerSide = askMore ? (na>nb?'left':'right') : (na<nb?'left':'right');
+  return {
+    text:`哪一边的${qWord==='多'?'数量更多':'数量更少'}？`,
+    speakText:`看一看，左边和右边，哪一边的数量更${qWord}呢？`,
+    render:{type:'compare', left:{emoji:a,n:na}, right:{emoji:b,n:nb}, askMore},
+    options:[
+      {label:'左边', kind:'text', sub:`${a}`, side:'left'},
+      {label:'右边', kind:'text', sub:`${b}`, side:'right'}
+    ],
+    answer: answerSide==='left'?0:1,
+    hint:`左边${na}个，右边${nb}个，${na>nb?'左边多':(nb>na?'右边多':'一样多')}`,
+    two:true
+  };
+}
+
+/* Classify: which one doesn't belong */
+function genClassify(diff){
+  const groups = [
+    {name:'水果', items:['🍎','🍌','🍇','🍓','🍑','🍊'], odd:['🥕','🥦','🌽','🍅','🥬','🥒'], oddName:'蔬菜'},
+    {name:'动物', items:['🐶','🐱','🐰','🐻','🐸','🐷'], odd:['🚗','✈️','🚂','🚲','🚁','🛵'], oddName:'交通工具'},
+    {name:'交通工具', items:['🚗','🚌','✈️','🚂','🚲'], odd:['🐶','🐱','🐰','🐻'], oddName:'动物'},
+    {name:'文具', items:['✏️','📚','📎','✂️','🖍️','📐'], odd:['🍎','🍌','🍇','🍓'], oddName:'水果'},
+    {name:'衣服', items:['👕','👖','👗','🧦','🧢','👟'], odd:['🍎','🍌','🥕','🍇'], oddName:'食物'},
+    {name:'天上飞的', items:['🐦','🦋','🐝','✈️','🎈'], odd:['🐟','🐢','🐸','🦀'], oddName:'水里游或地上跳'},
+    {name:'圆的东西', items:['⚽','🍎','🌕','🎈','🍩'], odd:['📚','📦','🖼️','🚪'], oddName:'方形'}
+  ];
+  const isHard = diff==='6';
+  const g = pick(groups);
+  const totalItems = isHard ? 4 : 3;   // 6岁: 3同+1异; 5岁: 2同+1异
+  const sameCount = totalItems - 1;
+  const same = shuffle(g.items).slice(0, sameCount);
+  const oddItem = pick(g.odd);
+  const items = shuffle([...same, oddItem]);
+  const ansIdx = items.indexOf(oddItem);
+  const labels = ['①','②','③','④'];
+  return {
+    text:`哪一个和其他的不是一家人？`,
+    speakText:`看一看这几个图案，哪一个和其他的不是同一类呢？`,
+    render:{type:'classify', items},
+    options:items.map((it,i)=>({label:it, kind:'emoji', sub:labels[i]})),
+    answer:ansIdx,
+    hint:`其他都是「${g.name}」，只有 ${oddItem} 是「${g.oddName}」哦`,
+    four: isHard
+  };
+}
+
+/* Spatial: where is the object relative to anchor */
+function genSpatial(diff){
+  const isHard = diff==='6';
+  const anchors = ['🐰','🐻','🐶','🐱','🐸','🦊'];
+  const objs = ['⭐','🍎','🎈','🌸','🍌','⚽'];
+  const objNames = {'⭐':'小星星','🍎':'苹果','🎈':'气球','🌸':'小花','🍌':'香蕉','⚽':'足球'};
+  const anchor = pick(anchors);
+  const obj = pick(objs);
+
+  // 6岁 加入序列位置题（30% 概率）
+  if(isHard && Math.random()<0.35){
+    return genSequencePosition();
+  }
+
+  const positions = isHard
+    ? ['top','bottom','left','right','topLeft','topRight','bottomLeft','bottomRight']
+    : ['top','bottom','left','right'];
+  const pos = pick(positions);
+  const posName = {
+    top:'上面',bottom:'下面',left:'左边',right:'右边',
+    topLeft:'左上角',topRight:'右上角',bottomLeft:'左下角',bottomRight:'右下角'
+  }[pos];
+
+  const optionDefs = isHard
+    ? [
+        {label:'上面', pos:'top'},{label:'下面', pos:'bottom'},
+        {label:'左边', pos:'left'},{label:'右边', pos:'right'},
+        {label:'左上角', pos:'topLeft'},{label:'右上角', pos:'topRight'},
+        {label:'左下角', pos:'bottomLeft'},{label:'右下角', pos:'bottomRight'}
+      ]
+    : [
+        {label:'上面', pos:'top'},{label:'下面', pos:'bottom'},
+        {label:'左边', pos:'left'},{label:'右边', pos:'right'}
+      ];
+  // 6岁 8 选 4 精简
+  let options = optionDefs;
+  if(isHard){
+    const correct = optionDefs.find(o=>o.pos===pos);
+    const others = shuffle(optionDefs.filter(o=>o.pos!==pos)).slice(0,3);
+    options = shuffle([correct,...others]);
+  } else {
+    options = shuffle(optionDefs);
+  }
+  const ansIdx = options.findIndex(o=>o.pos===pos);
+
+  return {
+    text:`${obj} 在 ${anchor} 的哪个位置？`,
+    speakText:`看一看图片，${objNames[obj]}在小动物的哪个位置呢？`,
+    render:{type:'spatial', anchor, obj, pos},
+    options:options.map(o=>({label:o.label, kind:'text'})),
+    answer:ansIdx,
+    hint:`它在小动物的${posName}`,
+    four:true
+  };
+}
+
+/* 6岁专属：序列位置题 */
+function genSequencePosition(){
+  const items = ['🍎','🍌','🍇','🍓','🍑','🍊','🥝','🍒'];
+  const chosen = shuffle(items).slice(0,5);
+  const targetIdx = rand(5); // 0-4
+  const target = chosen[targetIdx];
+  const posNames = ['第 1 个','第 2 个','第 3 个','第 4 个','第 5 个'];
+  const correctLabel = posNames[targetIdx];
+  const wrongs = shuffle(posNames.filter(p=>p!==correctLabel)).slice(0,3);
+  const opts = shuffle([correctLabel,...wrongs]);
+  return {
+    text:`从左往右数，${target} 排在第几个？`,
+    speakText:`从左往右数一数，${target}排在第几个位置呢？`,
+    render:{type:'sequence', items:chosen, target},
+    options:opts.map(o=>({label:o, kind:'text'})),
+    answer:opts.indexOf(correctLabel),
+    hint:`${target} 在${correctLabel}`,
+    four:true
+  };
+}
+
+/* Reasoning: simple logic puzzles */
+function genReason(diff){
+  const isHard = diff==='6';
+  const chars = ['🐰','🐻','🐶','🐱','🐸','🦊','🐷','🐵'];
+  const names = {'🐰':'小兔','🐻':'小熊','🐶':'小狗','🐱':'小猫','🐸':'小青蛙','🦊':'小狐狸','🐷':'小猪','🐵':'小猴'};
+
+  /* ---- 5岁 templates ---- */
+  const easyTemplates = [
+    ()=>{ // 2-char comparison (who's taller of 2)
+      const [a,b] = shuffle(chars).slice(0,2);
+      const higher = Math.random()<0.5 ? a : b;
+      const lower = higher===a ? b : a;
+      return {
+        text:`${names[higher]}比${names[lower]}高，谁高？`,
+        speakText:`${names[higher]}比${names[lower]}高。请问，谁高呢？`,
+        chars:[higher,lower], answer:higher,
+        hint:`${names[higher]}更高`
+      };
+    },
+    ()=>{ // Simple common sense
+      const seqs = [
+        {q:'小鸡是从什么里孵出来的？', a:'鸡蛋', opts:['鸡蛋','鸭蛋']},
+        {q:'太阳从哪边升起？', a:'东边', opts:['东边','西边']},
+        {q:'下雨时我们要带什么？', a:'雨伞', opts:['雨伞','扇子']},
+        {q:'鱼生活在什么地方？', a:'水里', opts:['水里','树上']},
+        {q:'晚上天上会出来什么？', a:'月亮', opts:['月亮','太阳']},
+        {q:'冬天很冷，我们要穿什么？', a:'厚衣服', opts:['厚衣服','短裤']},
+        {q:'吃饭用什么？', a:'勺子', opts:['勺子','梳子']},
+        {q:'小鸟用什么飞？', a:'翅膀', opts:['翅膀','尾巴']}
+      ];
+      const s = pick(seqs);
+      return {
+        text:s.q, speakText:s.q,
+        opts:shuffle(s.opts), answer:s.a,
+        hint:`答案是${s.a}`
+      };
+    },
+    ()=>{ // Which comes next in day sequence
+      const seqs = [
+        {q:'早上过后是什么时间？', a:'中午', opts:['中午','晚上']},
+        {q:'春天过后是什么季节？', a:'夏天', opts:['夏天','冬天']},
+        {q:'星期一过后是星期几？', a:'星期二', opts:['星期二','星期三']}
+      ];
+      const s = pick(seqs);
+      return {
+        text:s.q, speakText:s.q,
+        opts:shuffle(s.opts), answer:s.a,
+        hint:`答案是${s.a}`
+      };
+    }
+  ];
+
+  /* ---- 6岁 templates ---- */
+  const hardTemplates = [
+    ()=>{ // 3-char transitive comparison
+      const [a,b,c] = shuffle(chars).slice(0,3);
+      return {
+        text:`${names[a]}比${names[b]}高，${names[b]}比${names[c]}高，谁最高？`,
+        speakText:`${names[a]}比${names[b]}高，${names[b]}比${names[c]}高。请问，谁最高呢？`,
+        chars:[a,b,c], answer:a,
+        hint:`${names[a]}最高，${names[c]}最矮`
+      };
+    },
+    ()=>{ // Fastest (3 chars)
+      const [a,b,c] = shuffle(chars).slice(0,3);
+      return {
+        text:`${names[a]}跑得比${names[b]}快，${names[b]}跑得比${names[c]}快，谁跑得最快？`,
+        speakText:`${names[a]}跑得比${names[b]}快，${names[b]}跑得比${names[c]}快。请问，谁跑得最快呢？`,
+        chars:[a,b,c], answer:a,
+        hint:`${names[a]}跑在最前面`
+      };
+    },
+    ()=>{ // Heaviest fruit (3 items)
+      const fruits = [['🍉','🍎','🍓'],['🍍','🍊','🍒'],['🎃','🍑','🍇']];
+      const set = pick(fruits);
+      const fnames = {'🍉':'西瓜','🍎':'苹果','🍓':'草莓','🍍':'菠萝','🍊':'橘子','🍒':'樱桃','🎃':'南瓜','🍑':'桃子','🍇':'葡萄'};
+      return {
+        text:`${fnames[set[0]]}比${fnames[set[1]]}重，${fnames[set[1]]}比${fnames[set[2]]}重，哪个最重？`,
+        speakText:`${fnames[set[0]]}比${fnames[set[1]]}重，${fnames[set[1]]}比${fnames[set[2]]}重。请问，哪个水果最重呢？`,
+        chars:set, answer:set[0],
+        hint:`${fnames[set[0]]}最重，${fnames[set[2]]}最轻`
+      };
+    },
+    ()=>{ // Hardest common sense
+      const seqs = [
+        {q:'一年有几个季节？', a:'4 个', opts:['2 个','3 个','4 个','5 个']},
+        {q:'一个星期有几天？', a:'7 天', opts:['5 天','6 天','7 天','10 天']},
+        {q:'下雨前，天上常常会有什么？', a:'乌云', opts:['彩虹','乌云','星星','月亮']},
+        {q:'冰放在太阳下会怎么样？', a:'融化成水', opts:['变大','融化成水','变成石头','飞走']},
+        {q:'种子种在土里，会长出什么？', a:'小苗', opts:['小苗','石头','玩具','沙子']},
+        {q:'红灯亮了，我们应该怎么做？', a:'停下等待', opts:['快跑过去','停下等待','闭上眼睛','大声喊']},
+        {q:'用手摸冰块，会感觉到什么？', a:'凉凉的', opts:['凉凉的','热热的','软软的','甜甜的']}
+      ];
+      const s = pick(seqs);
+      return {
+        text:s.q, speakText:s.q,
+        opts:shuffle(s.opts), answer:s.a,
+        hint:`答案是${s.a}`,
+        four:true
+      };
+    }
+  ];
+
+  const templates = isHard ? hardTemplates : easyTemplates;
+  const t = pick(templates)();
+  if(t.chars){
+    const opts = shuffle(t.chars.slice());
+    return {
+      text:t.text, speakText:t.speakText,
+      render:{type:'reason', chars:t.chars},
+      options:opts.map(c=>({label:c, kind:'emoji', sub:names[c] || ''})),
+      answer:opts.indexOf(t.answer),
+      hint:t.hint
+    };
+  } else {
+    const opts = shuffle(t.opts);
+    return {
+      text:t.text, speakText:t.speakText,
+      render:{type:'reason-text'},
+      options:opts.map(o=>({label:o, kind:'text'})),
+      answer:opts.indexOf(t.answer),
+      hint:t.hint,
+      four: t.four || opts.length>=4
+    };
+  }
+}
+
+/* ---------- Render Home ---------- */
+function renderHome(){
+  const grid = $('gameGrid');
+  grid.innerHTML = '';
+  GAMES.forEach(g=>{
+    const card = document.createElement('button');
+    card.className = `card ${g.color}`;
+    const stars = '★'.repeat(g.diff)+'☆'.repeat(3-g.diff);
+    const hint = (g.diffHint && g.diffHint[State.difficulty]) || '';
+    card.innerHTML = `
+      <div class="blob"></div>
+      <div class="icon">${g.icon}</div>
+      <h3>${g.name}</h3>
+      <p class="desc">${g.desc}</p>
+      ${hint?`<div class="hint-tag">${DIFFS[State.difficulty].emoji} ${hint}</div>`:''}
+      <div class="meta">
+        <span class="stars">${stars} <span style="color:var(--ink-soft);font-weight:700;margin-left:4px">${g.dim}</span></span>
+        <span class="go">开始 →</span>
+      </div>
+    `;
+    card.addEventListener('click',()=>startGame(g));
+    grid.appendChild(card);
+  });
+}
+
+/* ---------- Router ---------- */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goHome(){
+  Voice.stop();
+  State.currentGame=null;
+  State.mode='normal';
+  updateWrongCount();
+  showScreen('screen-home');
+  Voice.speak('选一个训练开始吧','welcome');
+}
+
+/* ---------- Game Flow ---------- */
+function startGame(game){
+  State.currentGame = game;
+  State.mode = 'normal';
+  State.sessionWrong = [];
+  const diff = State.difficulty;
+  State.questions = Array.from({length:5},()=>game.gen(diff));
+  State.qIndex = 0;
+  State.correctCount = 0;
+  const d = DIFFS[diff];
+  $('gameBadge').textContent = `${game.icon} ${game.dim} · ${d.short}`;
+  $('gameName').textContent = game.name;
+  showScreen('screen-game');
+  Voice.speak(`我们开始玩，${game.name}！${d.short}难度`,'welcome');
+  setTimeout(renderQuestion, 700);
+}
+
+function renderQuestion(){
+  const q = State.questions[State.qIndex];
+  State.firstTry = true;
+  State.answered = false;
+
+  // Dots
+  const dots = $('progressDots');
+  dots.innerHTML='';
+  State.questions.forEach((_,i)=>{
+    const d = document.createElement('span');
+    d.className='dot';
+    if(i<State.qIndex)d.classList.add('done');
+    if(i===State.qIndex)d.classList.add('now');
+    dots.appendChild(d);
+  });
+
+  // Text
+  $('qText').textContent = q.text;
+
+  // Stage
+  const stage = $('qStage');
+  stage.innerHTML='';
+  stage.appendChild(renderStage(q.render));
+
+  // Answers
+  const ans = $('qAnswers');
+  ans.className = 'answers' + (q.two?' two':(q.four?' four':''));
+  ans.innerHTML='';
+  q.options.forEach((opt,i)=>{
+    const b = document.createElement('button');
+    b.className = 'ans';
+    b.dataset.idx = i;
+    if(opt.kind==='emoji'){
+      b.innerHTML = `<div class="emoji">${opt.label}</div>${opt.sub?`<div style="font-size:12px;color:var(--ink-soft)">${opt.sub}</div>`:''}`;
+    } else if(opt.kind==='number'){
+      b.innerHTML = `<div style="font-size:44px;font-weight:900;line-height:1">${opt.label}</div>`;
+    } else {
+      b.innerHTML = `<div style="font-size:22px">${opt.label}</div>${opt.sub?`<div style="font-size:12px;color:var(--ink-soft);font-weight:700">${opt.sub}</div>`:''}`;
+    }
+    b.addEventListener('click',()=>onAnswer(i,b));
+    ans.appendChild(b);
+  });
+
+  // Speak question
+  setTimeout(()=>Voice.speak(q.speakText,'question'), 220);
+}
+
+function renderStage(r){
+  const wrap = document.createElement('div');
+  wrap.className='stage';
+  if(r.type==='pattern'){
+    r.seq.forEach((s,i)=>{
+      const t = document.createElement('div');
+      t.className='tile pop';
+      t.textContent=s;
+      t.style.animationDelay = (i*0.07)+'s';
+      wrap.appendChild(t);
+    });
+    const blank = document.createElement('div');
+    blank.className='tile blank pop';
+    blank.textContent='?';
+    blank.style.animationDelay = (r.seq.length*0.07)+'s';
+    wrap.appendChild(blank);
+  } else if(r.type==='count'){
+    const holder = document.createElement('div');
+    holder.style.cssText='display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:520px;padding:6px';
+    for(let i=0;i<r.n;i++){
+      const t = document.createElement('div');
+      t.className='tile small pop';
+      t.textContent=r.emoji;
+      t.style.animationDelay = (i*0.05)+'s';
+      holder.appendChild(t);
+    }
+    wrap.appendChild(holder);
+  } else if(r.type==='compare'){
+    const cw = document.createElement('div');
+    cw.className='compare-wrap';
+    const L = document.createElement('div');
+    L.className='compare-side';
+    L.innerHTML = Array.from({length:r.left.n},()=>`<span>${r.left.emoji}</span>`).join('');
+    const vs = document.createElement('div');
+    vs.className='vs';
+    vs.textContent='VS';
+    const R = document.createElement('div');
+    R.className='compare-side';
+    R.innerHTML = Array.from({length:r.right.n},()=>`<span>${r.right.emoji}</span>`).join('');
+    cw.append(L,vs,R);
+    // Labels
+    const labels = document.createElement('div');
+    labels.style.cssText='width:100%;display:flex;justify-content:space-around;font-weight:900;font-size:16px;margin-top:6px';
+    labels.innerHTML = `<span style="color:var(--sky-dark)">← 左边</span><span style="color:var(--pink-dark)">右边 →</span>`;
+    wrap.append(cw, labels);
+    wrap.style.flexDirection='column';
+  } else if(r.type==='classify'){
+    r.items.forEach((s,i)=>{
+      const t = document.createElement('div');
+      t.className='tile pop';
+      t.textContent=s;
+      t.style.animationDelay=(i*0.08)+'s';
+      const tag = document.createElement('div');
+      wrap.appendChild(t);
+    });
+  } else if(r.type==='spatial'){
+    const scene = document.createElement('div');
+    scene.className='spatial-scene';
+    const a = document.createElement('div');
+    a.className='anchor'; a.textContent=r.anchor;
+    const o = document.createElement('div');
+    o.className='obj'; o.textContent=r.obj;
+    const offsets = {
+      top:['50%','15%'],bottom:['50%','85%'],
+      left:['15%','50%'],right:['85%','50%'],
+      topLeft:['18%','18%'],topRight:['82%','18%'],
+      bottomLeft:['18%','82%'],bottomRight:['82%','82%']
+    };
+    o.style.left = offsets[r.pos][0];
+    o.style.top = offsets[r.pos][1];
+    o.style.animation = 'popIn .5s cubic-bezier(.34,1.56,.64,1)';
+    scene.append(a,o);
+    wrap.appendChild(scene);
+  } else if(r.type==='sequence'){
+    const row = document.createElement('div');
+    row.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:flex-end';
+    r.items.forEach((it,i)=>{
+      const col = document.createElement('div');
+      col.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px';
+      const t = document.createElement('div');
+      t.className='tile pop';
+      t.textContent=it;
+      if(it===r.target){
+        t.style.background='#FFE38A';
+        t.style.boxShadow='0 3px 0 var(--ink), 0 0 0 4px rgba(255,201,60,.4)';
+      }
+      t.style.animationDelay=(i*0.09)+'s';
+      const idx = document.createElement('div');
+      idx.style.cssText='font-weight:900;font-size:14px;color:var(--ink-soft);background:#fff;border:2px solid var(--ink);border-radius:999px;padding:2px 10px';
+      idx.textContent = (i+1);
+      col.append(t, idx);
+      row.appendChild(col);
+    });
+    const arrow = document.createElement('div');
+    arrow.style.cssText='margin-top:8px;font-weight:900;color:var(--ink-soft);font-size:13px;text-align:center;width:100%';
+    arrow.textContent='← 从左往右数 →';
+    wrap.style.flexDirection='column';
+    wrap.append(row, arrow);
+  } else if(r.type==='reason'){
+    r.chars.forEach((c,i)=>{
+      const t = document.createElement('div');
+      t.className='tile pop';
+      t.textContent=c;
+      t.style.animationDelay=(i*0.09)+'s';
+      wrap.appendChild(t);
+    });
+  } else if(r.type==='reason-text'){
+    const hint = document.createElement('div');
+    hint.style.cssText='font-size:64px;line-height:1';
+    hint.textContent='🤔';
+    wrap.appendChild(hint);
+  }
+  return wrap;
+}
+
+/* ---------- Answer Handling ---------- */
+function onAnswer(idx, btn){
+  if(State.answered)return;
+  const q = State.questions[State.qIndex];
+  const correct = idx === q.answer;
+  if(correct){
+    State.answered = true;
+    btn.classList.add('correct');
+    // Dim others
+    document.querySelectorAll('#qAnswers .ans').forEach(b=>{
+      if(b!==btn)b.classList.add('dim');
+    });
+    // Update dot
+    const dots = $('progressDots').children;
+    dots[State.qIndex].classList.remove('now');
+    dots[State.qIndex].classList.add('done');
+
+    Sound.correct();
+    showFeedback(true);
+    // Enhanced celebration
+    celebrateCorrect(btn);
+    Voice.speak(pick([
+      '答对啦，你真棒！','太厉害了！','完全正确！','好聪明呀！','哇，答对了！',
+      '真不错，继续加油！','你太小天才了！','对喽，就是这样！','哇哦，一次就答对啦！'
+    ]),'celebrate');
+
+    // Star fly
+    if(State.firstTry){
+      State.correctCount++;
+      State.stars++;
+      updateStar();
+      flyStar(btn);
+    }
+
+    // If in retry-wrong mode, remove from persistent book when correct on first try
+    if(State.mode==='retry-wrong' && State.firstTry && q._wbId){
+      removeWrongFromBook(q._wbId);
+    }
+
+    setTimeout(nextQuestion, 1600);
+  } else {
+    State.firstTry = false;
+    btn.classList.add('wrong');
+    Sound.wrong();
+    showFeedback(false, q.hint);
+    Voice.speak(pick([
+      '再想一想哦','不太对，再试试','没关系，看看提示','别着急，慢慢来','差一点点，再试试'
+    ]),'hint');
+    // Log wrong (only on first wrong attempt per question)
+    if(!q._loggedWrong){
+      q._loggedWrong = true;
+      logWrongAnswer(q, idx);
+    }
+    setTimeout(()=>{
+      btn.classList.remove('wrong');
+      btn.classList.add('dim');
+    },600);
+    // Update dot to wrong
+    const dots = $('progressDots').children;
+    dots[State.qIndex].classList.add('wrong');
+  }
+}
+
+/* Log a wrong answer into session + persistent book */
+function logWrongAnswer(q, chosenIdx){
+  const g = State.currentGame;
+  const entry = {
+    id: 'w'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    gameId: g ? g.id : 'unknown',
+    gameIcon: g ? g.icon : '❓',
+    gameName: g ? g.name : '未知',
+    gameDim: g ? g.dim : '',
+    diff: State.difficulty,
+    text: q.text,
+    speakText: q.speakText,
+    hint: q.hint,
+    options: q.options.map(o=>({label:o.label, kind:o.kind, sub:o.sub||''})),
+    correctIdx: q.answer,
+    chosenIdx,
+    render: q.render,
+    two: !!q.two,
+    four: !!q.four,
+    ts: Date.now()
+  };
+  State.sessionWrong.push(entry);
+  addWrongToBook(entry);
+}
+
+/* Enhanced correct-answer celebration */
+function celebrateCorrect(btn){
+  const r = btn.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top + r.height/2;
+
+  // 1. Screen flash
+  const flash = document.createElement('div');
+  flash.className='screen-flash';
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.remove(), 600);
+
+  // 2. Golden ring pulse at button center
+  const ring = document.createElement('div');
+  ring.className='ring';
+  ring.style.left = cx+'px';
+  ring.style.top = cy+'px';
+  document.body.appendChild(ring);
+  setTimeout(()=>ring.remove(), 750);
+
+  // 3. Star burst particles
+  const emojis = ['⭐','✨','🌟','💫','🎉','💖'];
+  const burst = document.createElement('div');
+  burst.className='burst';
+  burst.style.left = cx+'px';
+  burst.style.top = cy+'px';
+  for(let i=0;i<14;i++){
+    const p = document.createElement('span');
+    p.className='burst-p';
+    p.textContent = pick(emojis);
+    const angle = (i/14)*Math.PI*2 + (Math.random()-.5)*.3;
+    const dist = 90 + Math.random()*70;
+    p.style.setProperty('--bx', Math.cos(angle)*dist+'px');
+    p.style.setProperty('--by', Math.sin(angle)*dist+'px');
+    p.style.setProperty('--br', (Math.random()*720-360)+'deg');
+    p.style.animationDelay = (i*0.015)+'s';
+    p.style.fontSize = (22+Math.random()*14)+'px';
+    burst.appendChild(p);
+  }
+  document.body.appendChild(burst);
+  setTimeout(()=>burst.remove(), 1100);
+
+  // 4. Mini confetti rain
+  const colors = ['#FF7B6B','#FFC93C','#6ED6B0','#6BB8FF','#B58CFF','#FF9EC7'];
+  for(let i=0;i<22;i++){
+    const c = document.createElement('div');
+    c.className='mini-confetti';
+    c.style.background = pick(colors);
+    c.style.left = (cx + (Math.random()-.5)*80)+'px';
+    c.style.top = cy+'px';
+    c.style.setProperty('--mx', (Math.random()-.5)*200+'px');
+    c.style.setProperty('--my', (60+Math.random()*140)+'px');
+    c.style.setProperty('--mr', (Math.random()*720-360)+'deg');
+    c.style.animationDelay = (Math.random()*0.15)+'s';
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(), 1400);
+  }
+
+  // 5. Mascot cheer
+  const m = $('mascot');
+  const oldEmoji = m.textContent;
+  m.classList.remove('cheer');
+  void m.offsetWidth;
+  m.classList.add('cheer');
+  m.textContent = pick(['🥳','🎉','✨','🌟','💖']);
+  setTimeout(()=>{
+    m.classList.remove('cheer');
+    m.textContent = oldEmoji;
+  }, 900);
+}
+
+function nextQuestion(){
+  hideFeedback();
+  State.qIndex++;
+  if(State.qIndex >= State.questions.length){
+    finishGame();
+  } else {
+    renderQuestion();
+  }
+}
+
+function finishGame(){
+  const g = State.currentGame;
+  const score = State.correctCount;
+  $('trophyEmoji').textContent = score===5?'🏆':score>=3?'🥇':'🌟';
+  $('resultTitle').textContent = score===5?'完美通关！':score>=4?'非常棒！':score>=3?'不错哦！':'继续加油！';
+  const modeLabel = State.mode==='retry-wrong'?'错题重做 · ':'';
+  $('resultDesc').textContent = `${modeLabel}${g.name} · 答对 ${score} / ${State.questions.length} 题，获得 ${score} 颗星星`;
+
+  const stars = $('resultStars');
+  stars.innerHTML='';
+  const total = State.questions.length;
+  for(let i=0;i<total;i++){
+    const s = document.createElement('span');
+    s.className='s'+(i<score?'':' off');
+    s.textContent='⭐';
+    stars.appendChild(s);
+  }
+
+  // Render review section if there were wrong answers this round
+  renderRoundReview();
+
+  showScreen('screen-result');
+  Sound.cheer();
+  Voice.speak(score===total?'哇，你全部答对了，太厉害了！':score>=Math.ceil(total*0.6)?'做得很好，继续加油！':'没关系，多练习就会越来越棒！','celebrate');
+  if(score>=Math.ceil(total*0.6))confettiBurst(80);
+}
+
+/* Render "本轮错题回顾" section on result screen */
+function renderRoundReview(){
+  const slot = $('reviewSlot');
+  slot.innerHTML='';
+  const wrongs = State.sessionWrong;
+  if(wrongs.length===0)return;
+  const wrap = document.createElement('div');
+  wrap.className='review-wrap';
+  const listHtml = wrongs.slice(0,5).map(w=>{
+    const chosen = w.options[w.chosenIdx] ? w.options[w.chosenIdx].label : '?';
+    const correct = w.options[w.correctIdx] ? w.options[w.correctIdx].label : '?';
+    return `
+      <div class="review-item">
+        <div class="rq">${w.gameIcon} ${escapeHtml(w.text)}</div>
+        <div class="ra">你选了：<span class="bad">${escapeHtml(chosen)}</span> · 正确答案：<span class="good">${escapeHtml(correct)}</span></div>
+      </div>
+    `;
+  }).join('');
+  wrap.innerHTML = `
+    <h4>💡 本轮错题回顾 <span class="badge-count">${wrongs.length} 题</span></h4>
+    <div class="review-list">${listHtml}</div>
+    <div class="review-actions">
+      <button class="review-btn" id="retryWrongBtn">🔁 重做这些错题</button>
+      <button class="review-btn ghost" id="openWbBtn">📖 打开错题本</button>
+    </div>
+  `;
+  slot.appendChild(wrap);
+  $('retryWrongBtn').addEventListener('click',()=>startRetryWrong(wrongs));
+  $('openWbBtn').addEventListener('click',()=>openWrongBook());
+}
+
+/* Simple HTML escape */
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* Start a game session using only the given wrong entries */
+function startRetryWrong(entries){
+  if(!entries || entries.length===0)return;
+  // Group entries by their original game to display proper badge; use first entry's game for identity
+  const first = entries[0];
+  const g = GAMES.find(x=>x.id===first.gameId) || GAMES[0];
+  State.currentGame = g;
+  State.mode = 'retry-wrong';
+  // Convert entries back to question format
+  State.questions = entries.slice(0,10).map(e=>({
+    text:e.text, speakText:e.speakText, hint:e.hint,
+    render:e.render, options:e.options, answer:e.correctIdx,
+    two:e.two, four:e.four, _wbId:e.id, _loggedWrong:false
+  }));
+  // Shuffle so it doesn't feel identical
+  State.questions = shuffle(State.questions);
+  State.qIndex = 0;
+  State.correctCount = 0;
+  State.sessionWrong = [];
+  const d = DIFFS[first.diff] || DIFFS[State.difficulty];
+  $('gameBadge').textContent = `${g.icon} 错题重做 · ${d.short}`;
+  $('gameName').textContent = g.name;
+  showScreen('screen-game');
+  Voice.speak(`我们来做一下刚才答错的题目，一共${State.questions.length}题，加油！`,'welcome');
+  setTimeout(renderQuestion, 700);
+}
+
+/* ---------- Wrong Book Screen ---------- */
+function openWrongBook(){
+  showScreen('screen-wrongbook');
+  renderWrongBook();
+  Voice.speak('这里是你的错题本，我们一起把答错的题目再练一练吧','welcome');
+}
+function renderWrongBook(){
+  const list = loadWrongBook().slice().reverse(); // newest first
+  const holder = $('wbContent');
+  holder.innerHTML = '';
+  if(list.length===0){
+    holder.innerHTML = `
+      <div class="wb-empty">
+        <div class="emo">🎉</div>
+        <h3>错题本是空的！</h3>
+        <p>你还没有答错过题目，或者已经把所有错题都消灭啦～</p>
+      </div>
+    `;
+    return;
+  }
+  // Group stats
+  const stats = {};
+  list.forEach(x=>{ stats[x.gameName]=(stats[x.gameName]||0)+1 });
+  const statsHtml = Object.entries(stats).map(([k,v])=>`<span style="background:#fff;border:2px solid var(--ink);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:900;margin-right:6px;display:inline-block;margin-bottom:4px">${k} ${v}</span>`).join('');
+
+  const wrap = document.createElement('div');
+  wrap.className='wb-list';
+  wrap.innerHTML = `
+    <div style="background:#FFF9EA;border:3px solid var(--ink);border-radius:18px;padding:12px 14px;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:900;margin-bottom:6px">📊 薄弱项分布（共 ${list.length} 题）</div>
+      <div>${statsHtml}</div>
+      <button class="review-btn" id="retryAllWbBtn" style="margin-top:10px;background:var(--coral);color:#fff;border:3px solid var(--ink);border-radius:999px;padding:8px 18px;font-weight:900;font-size:13px;box-shadow:0 3px 0 var(--ink)">🔁 全部重做（最多 10 题）</button>
+    </div>
+  `;
+  list.forEach(e=>{
+    const d = DIFFS[e.diff] || DIFFS['5'];
+    const chosen = e.options[e.chosenIdx] ? e.options[e.chosenIdx].label : '?';
+    const correct = e.options[e.correctIdx] ? e.options[e.correctIdx].label : '?';
+    const date = new Date(e.ts);
+    const timeStr = `${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+    const item = document.createElement('div');
+    item.className='wb-item';
+    item.innerHTML = `
+      <div class="head">
+        <span class="game-tag">${e.gameIcon} ${escapeHtml(e.gameName)}</span>
+        <span class="diff-tag">${d.emoji} ${d.short}</span>
+        <span class="time">${timeStr}</span>
+      </div>
+      <p class="qtext">${escapeHtml(e.text)}</p>
+      <div class="answers-row">
+        <span class="ans-chip wrong"><span class="lbl">你选</span>${escapeHtml(chosen)}</span>
+        <span class="ans-chip correct"><span class="lbl">正确</span>${escapeHtml(correct)}</span>
+      </div>
+      ${e.hint?`<div style="font-size:12px;color:var(--ink-soft);font-weight:700;background:#FFF9EA;padding:6px 10px;border-radius:10px">💡 ${escapeHtml(e.hint)}</div>`:''}
+      <div class="foot">
+        <button class="retry-btn" data-id="${e.id}">🔁 单独重做</button>
+        <button class="del-btn" data-del="${e.id}">✕ 移除</button>
+      </div>
+    `;
+    wrap.appendChild(item);
+  });
+  holder.appendChild(wrap);
+
+  // Wire events
+  const retryAll = $('retryAllWbBtn');
+  if(retryAll){
+    retryAll.addEventListener('click',()=>{
+      startRetryWrong(list.slice(0,10));
+    });
+  }
+  wrap.querySelectorAll('.retry-btn[data-id]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const id = b.dataset.id;
+      const entry = list.find(x=>x.id===id);
+      if(entry)startRetryWrong([entry]);
+    });
+  });
+  wrap.querySelectorAll('.del-btn[data-del]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const id = b.dataset.del;
+      if(confirm('把这道题从错题本移除？'))removeWrongFromBook(id);
+    });
+  });
+}
+
+/* ---------- Feedback ---------- */
+function showFeedback(good, hint){
+  const fb = $('feedback');
+  fb.classList.toggle('good',good);
+  fb.classList.toggle('bad',!good);
+  $('fbEmo').textContent = good ? pick(['🎉','✨','🌟','👏','💫']) : pick(['🤔','💭','🧐']);
+  $('fbMsg').textContent = good ? pick(['答对啦！','真棒！','太厉害了！','完全正确！']) : (hint || '再想想哦～');
+  fb.classList.add('show');
+  if(good)setTimeout(()=>fb.classList.remove('show'), 1200);
+  else setTimeout(()=>fb.classList.remove('show'), 2200);
+}
+function hideFeedback(){$('feedback').classList.remove('show')}
+
+/* ---------- Star UI ---------- */
+function updateStar(){
+  $('starCount').textContent = State.stars;
+  Sound.star();
+}
+function flyStar(fromEl){
+  const r = fromEl.getBoundingClientRect();
+  const target = $('starCount').getBoundingClientRect();
+  const s = document.createElement('div');
+  s.className='fly-star';
+  s.textContent='⭐';
+  s.style.left=(r.left+r.width/2-18)+'px';
+  s.style.top=(r.top+r.height/2-18)+'px';
+  s.style.setProperty('--dx',(target.left+target.width/2-(r.left+r.width/2))+'px');
+  s.style.setProperty('--dy',(target.top+target.height/2-(r.top+r.height/2))+'px');
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),950);
+}
+
+/* ---------- Confetti ---------- */
+const cvs = $('confetti');
+const ctx = cvs.getContext('2d');
+let confettiPieces = [];
+function resizeCanvas(){
+  cvs.width = window.innerWidth;
+  cvs.height = window.innerHeight;
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+function confettiBurst(n=60){
+  const colors = ['#FF7B6B','#FFC93C','#6ED6B0','#6BB8FF','#B58CFF','#FF9EC7'];
+  for(let i=0;i<n;i++){
+    confettiPieces.push({
+      x: cvs.width/2 + (Math.random()-.5)*200,
+      y: cvs.height/2 + (Math.random()-.5)*80,
+      vx: (Math.random()-.5)*10,
+      vy: -Math.random()*10 - 3,
+      g: 0.35,
+      size: 6+Math.random()*8,
+      color: pick(colors),
+      rot: Math.random()*Math.PI*2,
+      vr: (Math.random()-.5)*0.3,
+      life: 100+Math.random()*40
+    });
+  }
+  if(!confettiLoop.running)tickConfetti();
+}
+const confettiLoop = {running:false};
+function tickConfetti(){
+  confettiLoop.running=true;
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  confettiPieces.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.rot+=p.vr; p.life--;
+    ctx.save();
+    ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+    ctx.fillStyle=p.color;
+    ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6);
+    ctx.restore();
+  });
+  confettiPieces = confettiPieces.filter(p=>p.life>0 && p.y<cvs.height+50);
+  if(confettiPieces.length)requestAnimationFrame(tickConfetti);
+  else{confettiLoop.running=false;ctx.clearRect(0,0,cvs.width,cvs.height);}
+}
+
+/* ---------- Difficulty Picker ---------- */
+function renderDiffPicker(){
+  const holder = $('diffCards');
+  holder.innerHTML = '';
+  Object.values(DIFFS).forEach(d=>{
+    const card = document.createElement('button');
+    card.className = `diff-card d${d.key}${State.difficulty===d.key?' active':''}`;
+    card.dataset.diff = d.key;
+    const stripes = Array.from({length:2},(_,i)=>`<span class="${i<d.stripes?'on':''}"></span>`).join('');
+    card.innerHTML = `
+      <div class="check">✓</div>
+      <div class="emo">${d.emoji}</div>
+      <p class="name">${d.label}</p>
+      <p class="tag">${d.tag}</p>
+      <div class="stripes">${stripes}</div>
+    `;
+    card.addEventListener('click',()=>setDifficulty(d.key));
+    holder.appendChild(card);
+  });
+  updateDiffUI();
+}
+function setDifficulty(key){
+  if(State.difficulty===key)return;
+  State.difficulty = key;
+  try{ localStorage.setItem('brainkids.difficulty', key); }catch(e){}
+  renderDiffPicker();
+  renderHome();  // refresh hint tags on game cards
+  const d = DIFFS[key];
+  Sound.tone(720,.12,'triangle',.07);
+  setTimeout(()=>Sound.tone(960,.14,'triangle',.07),100);
+  Voice.speak(`切换到${d.short}，${d.desc}`,'welcome');
+  // Little celebration animation on the newly active card
+  const active = document.querySelector(`.diff-card.d${key}.active`);
+  if(active){
+    active.style.animation='none';
+    void active.offsetWidth;
+    active.style.animation='popIn .5s cubic-bezier(.34,1.56,.64,1)';
+  }
+}
+function updateDiffUI(){
+  const d = DIFFS[State.difficulty];
+  $('diffCurLabel').textContent = `当前：${d.label}`;
+  $('diffBadgeEmo').textContent = d.emoji;
+  $('diffBadgeLabel').textContent = d.short;
+  // Highlight active card
+  document.querySelectorAll('.diff-card').forEach(c=>{
+    c.classList.toggle('active', c.dataset.diff===State.difficulty);
+  });
+}
+
+/* ---------- Wire UI ---------- */
+$('homeBtn').addEventListener('click',goHome);
+$('homeBtn2').addEventListener('click',goHome);
+$('backBtn').addEventListener('click',goHome);
+$('againBtn').addEventListener('click',()=>{
+  if(State.currentGame){
+    State.mode='normal';
+    State.sessionWrong=[];
+    startGame(State.currentGame);
+  }
+});
+$('speakBtn').addEventListener('click',()=>{
+  const q = State.questions[State.qIndex];
+  if(q)Voice.speak(q.speakText,'question');
+});
+function syncVoiceBtn(){
+  const b = $('voiceBtn');
+  b.classList.toggle('voice-on',Voice.enabled);
+  b.classList.toggle('voice-off',!Voice.enabled);
+  b.querySelector('.star-ico').textContent = Voice.enabled?'🔊':'🔇';
+  $('voiceLabel').textContent = Voice.enabled?'朗读':'静音';
+}
+$('voiceBtn').addEventListener('click',()=>{
+  Voice.setEnabled(!Voice.enabled);
+  syncVoiceBtn();
+  if(Voice.enabled){
+    Voice.speak('打开朗读，我会把题目读给你听哦','welcome');
+  } else {
+    Voice.stop();
+  }
+});
+$('mascot').addEventListener('click',()=>{
+  const msgs = ['你好呀，我是小狐狸灵灵！','今天也要加油哦！','你笑起来真好看～','我们一起去闯关吧！','答对了记得给自己鼓掌哦！','想换个声音的话，点右上角的齿轮试试～'];
+  Voice.speak(pick(msgs),'encourage');
+  const m = $('mascot');
+  m.style.animation='none';
+  void m.offsetWidth;
+  m.style.animation='bob 2.6s ease-in-out infinite, popIn .5s';
+});
+$('diffBadge').addEventListener('click',()=>{
+  goHome();
+  setTimeout(()=>{
+    const wrap = document.querySelector('.diff-wrap');
+    if(wrap){
+      wrap.scrollIntoView({behavior:'smooth',block:'center'});
+      wrap.style.animation='none';
+      void wrap.offsetWidth;
+      wrap.style.animation='popIn .5s cubic-bezier(.34,1.56,.64,1)';
+    }
+    Voice.speak('选一下你的年龄吧','welcome');
+  },120);
+});
+$('wrongEntry').addEventListener('click',openWrongBook);
+$('wbBackBtn').addEventListener('click',goHome);
+
+/* ---------- Voice Settings Panel ---------- */
+function openVoiceSettings(){
+  Voice.stop();
+  renderVoicePanel();
+  $('vsMask').classList.add('show');
+  $('vsPanel').classList.add('show');
+}
+function closeVoiceSettings(){
+  $('vsMask').classList.remove('show');
+  $('vsPanel').classList.remove('show');
+  Voice.stop();
+}
+function renderVoicePanel(){
+  // Quality banner
+  const q = $('vsQuality');
+  const list = Voice.zhVoices();
+  const hasPremium = list.some(v=>v.premium);
+  const curName = Voice.selected ? Voice.selected.name : '';
+  const curPremium = Voice.isPremium();
+  if(!Voice.supported){
+    q.className='vs-quality bad';
+    q.innerHTML='❌ 当前浏览器不支持语音播报';
+  } else if(list.length===0){
+    q.className='vs-quality bad';
+    q.innerHTML='⚠️ 系统暂无中文语音，可在 Windows 设置 → 时间和语言 → 语音 中添加';
+  } else if(curPremium){
+    q.className='vs-quality good';
+    q.innerHTML=`✅ 正在使用自然语音：<b>${escapeHtml(curName)}</b>，效果接近真人`;
+  } else if(hasPremium){
+    q.className='vs-quality ok';
+    q.innerHTML=`💡 检测到更自然的语音，建议在下拉框选择带 ⭐ 的选项`;
+  } else {
+    q.className='vs-quality ok';
+    q.innerHTML=`🔈 当前：<b>${escapeHtml(curName||'系统默认')}</b>。用 Edge 浏览器可获得 ⭐ 自然语音`;
+  }
+
+  // Voice select
+  const sel = $('vsVoiceSelect');
+  sel.innerHTML='';
+  if(list.length===0){
+    const o=document.createElement('option');o.textContent='（无可用中文语音）';sel.appendChild(o);
+  } else {
+    list.forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v.name;
+      o.textContent=(v.premium?'⭐ ':'')+v.name+(v.online?' · 在线':'');
+      if(Voice.selected && v.name===Voice.selected.name)o.selected=true;
+      sel.appendChild(o);
+    });
+  }
+  // Sliders
+  $('vsRate').value=Voice.rate;
+  $('vsRateVal').textContent=Voice.rate.toFixed(2);
+  $('vsPitch').value=Voice.pitch;
+  $('vsPitchVal').textContent=Voice.pitch.toFixed(2);
+}
+$('voiceSettingsBtn').addEventListener('click',openVoiceSettings);
+$('vsClose').addEventListener('click',closeVoiceSettings);
+$('vsMask').addEventListener('click',closeVoiceSettings);
+$('vsVoiceSelect').addEventListener('change',e=>{
+  Voice.setVoice(e.target.value);
+  renderVoicePanel();
+  Voice.speak('你好呀，我是你的小老师，我们一起开心学习吧！','welcome');
+});
+$('vsRate').addEventListener('input',e=>{
+  Voice.setRate(parseFloat(e.target.value));
+  $('vsRateVal').textContent=Voice.rate.toFixed(2);
+});
+$('vsRate').addEventListener('change',()=>Voice.speak('小狐狸跑得快快，还是慢慢走呢？','question'));
+$('vsPitch').addEventListener('input',e=>{
+  Voice.setPitch(parseFloat(e.target.value));
+  $('vsPitchVal').textContent=Voice.pitch.toFixed(2);
+});
+$('vsPitch').addEventListener('change',()=>Voice.speak('你听，我的声音是不是变啦？','encourage'));
+$('vsTest').addEventListener('click',()=>{
+  Voice.speak('小朋友你好呀！今天我们一起来玩找规律的游戏。看一看，接下来应该是哪一个呢？','question');
+});
+// Refresh panel when voices finish loading async
+Voice.onVoicesReady = ()=>{
+  if($('vsPanel').classList.contains('show'))renderVoicePanel();
+};
+$('wbClearBtn').addEventListener('click',()=>{
+  const n = loadWrongBook().length;
+  if(n===0){
+    Voice.speak('错题本已经是空的啦','encourage');
+    return;
+  }
+  if(confirm(`确定要清空错题本吗？共 ${n} 道题将会被移除。`)){
+    clearWrongBook();
+    Voice.speak('错题本已经清空','neutral');
+  }
+});
+
+/* ---------- Welcome ---------- */
+renderHome();
+renderDiffPicker();
+updateWrongCount();
+syncVoiceBtn();
+window.addEventListener('load',()=>{
+  // Delay initial speak so voices load
+  setTimeout(()=>{
+    if(Voice.enabled){
+      const d = DIFFS[State.difficulty];
+      Voice.speak(`欢迎来到小神童大脑训练场！当前是${d.short}难度，选一个你喜欢的游戏开始吧`,'welcome');
+    }
+  }, 800);
+});
+</script>
+</body>
+</html>

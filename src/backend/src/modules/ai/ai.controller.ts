@@ -45,6 +45,7 @@ export class AiController {
       parentId?: number;
       sessionId?: string;
       context?: any;
+      mode?: 'default' | 'casual';
     },
   ) {
     const viewerId = req.user.sub;
@@ -69,6 +70,7 @@ export class AiController {
       viewerType,
       targetChildId,
       context: body.context,
+      mode: body.mode,
     });
   }
 
@@ -85,6 +87,7 @@ export class AiController {
       context?: any;
       bookId?: number;
       bookTitle?: string;
+      mode?: 'default' | 'casual';
     },
     @Res() res: Response,
   ) {
@@ -131,6 +134,7 @@ export class AiController {
         context: body.context,
         bookId: body.bookId,
         bookTitle: body.bookTitle,
+        mode: body.mode,
       });
 
       for await (const event of stream) {
@@ -201,6 +205,7 @@ export class AiController {
     @Query('message') message: string,
     @Query('childId') childId: string,
     @Query('sessionId') sessionId: string,
+    @Query('mode') mode: string,
     @Res() res: Response,
   ) {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -231,6 +236,7 @@ export class AiController {
         viewerId,
         viewerType,
         targetChildId,
+        mode: mode === 'casual' ? 'casual' : 'default',
       });
 
       for await (const event of stream) {

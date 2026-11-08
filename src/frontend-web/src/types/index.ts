@@ -124,6 +124,8 @@ export interface ChatMessage {
   childId?: number;
   parentId?: number;
   sessionId?: string;
+  /** 'casual' = 碎碎念闲聊模式（短句口语回复，不走工具流程） */
+  mode?: 'default' | 'casual';
 }
 
 export interface ChatResponse {

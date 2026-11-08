@@ -161,6 +161,18 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
   async route(input: string, context: AgentContext): Promise<ExecutionResult> {
     const startedAt = Date.now();
+
+    // 碎碎念闲聊模式：no routing, no tools — just a short spoken-style chat.
+    if (this.isCasualMode(context)) {
+      this.logger.log(`[SYNC] Route plan: casual chat mode (no routing, no tools)`);
+      await this.persistMessage(context, 'user', input);
+      const history = await this.loadHistory(context);
+      const result = await this.runCasualAgent(context, history);
+      await this.persistMessage(context, 'assistant', result.response);
+      this.logger.log(`[SYNC] Route result: casual chat done, elapsedMs=${Date.now() - startedAt}`);
+      return result;
+    }
+
     const selected = this.agentRegistry.select(input, context);
     const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
     this.logPlan(plan, false);
@@ -186,6 +198,39 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
   async *routeStream(input: string, context: AgentContext): AsyncGenerator<StreamEvent> {
     const startedAt = Date.now();
+
+    // 碎碎念闲聊模式：no routing, no tools — just a short spoken-style chat.
+    if (this.isCasualMode(context)) {
+      this.logger.log(`[STREAM] Route plan: casual chat mode (no routing, no tools)`);
+      await this.persistMessage(context, 'user', input);
+      const history = await this.loadHistory(context);
+
+      let finalContent = '';
+      const stream = this.executorService.runLoopStream(
+        this.buildCasualSystemPrompt(context),
+        history,
+        undefined,
+        1,
+        context,
+        undefined,
+      );
+
+      for await (const event of stream) {
+        if (event.type === 'token') {
+          finalContent += event.content;
+        }
+        if (event.type === 'done') {
+          const safeResult = filterContent(finalContent);
+          await this.persistMessage(context, 'assistant', safeResult.content);
+          this.logger.log(
+            `[STREAM] Route result: casual chat done, elapsedMs=${Date.now() - startedAt}`,
+          );
+        }
+        yield event;
+      }
+      return;
+    }
+
     const selected = this.agentRegistry.select(input, context);
     const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
     this.logPlan(plan, true);
@@ -267,6 +312,57 @@ export class OrchestratorService implements OnApplicationBootstrap {
       toolCalls: finalDone?.toolCalls || [],
       wasFiltered: finalDone?.wasFiltered || false,
     });
+  }
+
+  /** 碎碎念闲聊模式开关：由调用方通过 context.metadata.chatMode 传入 */
+  private isCasualMode(context: AgentContext): boolean {
+    return (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
+  }
+
+  /**
+   * Casual chat sync path — mirrors runSingleAgent but with the 碎碎念
+   * system prompt and no tools: a murmur-style chat must never trigger
+   * course/activity/video generation or any other structured flow.
+   */
+  private async runCasualAgent(
+    context: AgentContext,
+    history: LlmMessage[],
+  ): Promise<ExecutionResult> {
+    return this.executorService.runLoop(
+      this.buildCasualSystemPrompt(context),
+      history,
+      undefined,
+      1,
+      context,
+    );
+  }
+
+  /**
+   * 碎碎念 system prompt: like a friend murmuring back and forth.
+   * Short spoken replies only — no lessons, no quizzes, no formatting.
+   */
+  private buildCasualSystemPrompt(context: AgentContext): string {
+    const isParent = context.ageGroup === 'parent';
+    const name = isParent ? context.parentName : context.childName;
+    const audience = isParent
+      ? `你正在和${name || '家长'}随口闲聊。`
+      : `你正在和${name || '小朋友'}（${context.ageGroup} 岁段的孩子）随口闲聊。`;
+
+    return [
+      '你是「灵犀」，一个温暖可爱的 AI 小伙伴。现在是"碎碎念"闲聊时间——像好朋友之间有一搭没一搭地唠嗑。',
+      audience,
+      '',
+      '说话方式：',
+      '- 回复必须非常短：一般 1~2 句话，总共不超过 40 个字。',
+      '- 口语化、轻松、有温度，可以用"呀、啦、哦、嘿"这样的语气词。',
+      '- 对对方说的每一件小事都表现出好奇和兴趣，自然接话。',
+      '- 每次只回应一件事，可以随口反问一句把话题递回去，等对方接着说。',
+      '',
+      '禁止事项：',
+      '- 不要出题、讲课、安排任务、生成课程/练习/游戏/视频，也不要提学习计划。',
+      '- 不要用列表、标题、加粗、代码块等任何格式，只输出纯文本短句。',
+      '- 不要一次把话说完，不要长篇大论。',
+    ].join('\n');
   }
 
   private buildRoutePlan(input: string, context: AgentContext, selectedType: AgentType): RoutePlan {

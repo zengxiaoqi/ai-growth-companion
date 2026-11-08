@@ -16,6 +16,12 @@ export interface ChatRequest {
   targetChildId?: number;
   bookId?: number;
   bookTitle?: string;
+  /**
+   * Chat style selector. 'casual' = 碎碎念闲聊模式：short spoken-style
+   * replies, no routing, no tools. Omitted/any other value = default
+   * agent behaviour.
+   */
+  mode?: 'default' | 'casual';
   context?: {
     age?: number;
     currentPage?: string;

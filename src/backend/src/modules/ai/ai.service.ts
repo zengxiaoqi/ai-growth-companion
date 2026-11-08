@@ -79,8 +79,17 @@ export class AiService {
 
   /** Main chat endpoint — uses Agent with function calling */
   async chat(params: ChatRequest): Promise<ChatResponse> {
-    const { message, sessionId, context, viewerId, viewerType, targetChildId, bookId, bookTitle } =
-      params;
+    const {
+      message,
+      sessionId,
+      context,
+      viewerId,
+      viewerType,
+      targetChildId,
+      bookId,
+      bookTitle,
+      mode,
+    } = params;
 
     // Parent mode: always routed by authenticated viewer type
     if (viewerType === 'parent') {
@@ -122,6 +131,7 @@ export class AiService {
         targetChildId,
         bookId,
         bookTitle,
+        mode,
       });
 
       // Generate parent suggestions
@@ -213,6 +223,7 @@ export class AiService {
         bookId,
         bookTitle,
         careTopic,
+        mode,
       });
 
       void this.learningArchiveService.recordChatTurnSummary({
@@ -257,8 +268,17 @@ export class AiService {
     gameData?: string;
     domain?: string;
   }> {
-    const { message, sessionId, context, viewerId, viewerType, targetChildId, bookId, bookTitle } =
-      params;
+    const {
+      message,
+      sessionId,
+      context,
+      viewerId,
+      viewerType,
+      targetChildId,
+      bookId,
+      bookTitle,
+      mode,
+    } = params;
 
     // Parent mode: always routed by authenticated viewer type
     if (viewerType === 'parent') {
@@ -301,6 +321,7 @@ export class AiService {
           targetChildId,
           bookId,
           bookTitle,
+          mode,
         })) {
           yield {
             ...event,
@@ -382,6 +403,7 @@ export class AiService {
         bookId,
         bookTitle,
         careTopic,
+        mode,
       })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
@@ -460,6 +482,7 @@ export class AiService {
     actorType: 'parent' | 'child';
     targetChildId?: number;
     careTopic?: string;
+    mode?: 'default' | 'casual';
   }): AgentContext {
     return {
       childId: params.executionContext.childId,
@@ -474,6 +497,7 @@ export class AiService {
         source: 'ai-module',
         actorType: params.actorType,
         targetChildId: params.targetChildId,
+        chatMode: params.mode === 'casual' ? 'casual' : 'default',
         // Rendered here so the framework layer never imports a business
         // module just to format a sentence.
         careCueNote: careCuePrompt(params.careTopic),
@@ -492,6 +516,7 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
+    mode?: 'default' | 'casual';
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const context = this.buildAgentContext({
@@ -534,6 +559,7 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
+    mode?: 'default' | 'casual';
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
     content?: string;

@@ -439,6 +439,7 @@ class ApiService {
     if (data.childId) params.append('childId', String(data.childId));
     if (data.parentId) params.append('parentId', String(data.parentId));
     if (data.sessionId) params.set('sessionId', data.sessionId);
+    if (data.mode) params.set('mode', data.mode);
 
     const token = this.getToken();
     return fetch(`${API_BASE_URL}/ai/chat/stream?${params.toString()}`, {

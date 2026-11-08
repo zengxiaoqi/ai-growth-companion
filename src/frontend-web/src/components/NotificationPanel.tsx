@@ -99,7 +99,7 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
       <IconButton aria-label="打开通知" onClick={() => setIsOpen((open) => !open)}>
         <Bell className="h-5 w-5 text-on-secondary-container" />
         {unreadCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-error text-[10px] font-black text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-error text-xs font-medium text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         ) : null}
@@ -115,7 +115,7 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
             className="panel-card absolute right-0 top-full z-50 mt-2 w-[min(92vw,24rem)] overflow-hidden"
           >
             <div className="flex items-center justify-between border-b border-outline-variant/12 px-4 py-3">
-              <h3 className="text-sm font-black text-on-surface">消息通知</h3>
+              <h3 className="text-sm font-medium text-on-surface">消息通知</h3>
               <div className="flex items-center gap-1">
                 {unreadCount > 0 ? (
                   <button
@@ -173,7 +173,7 @@ export default function NotificationPanel({ userId }: NotificationPanelProps) {
                           <p
                             className={cn(
                               'text-sm leading-snug text-on-surface line-clamp-2',
-                              !notification.read && 'font-black',
+                              !notification.read && 'font-medium',
                             )}
                           >
                             {notification.title}

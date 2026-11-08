@@ -135,7 +135,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
           className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4 sm:space-y-6 text-center"
         >
           <div className="flex items-start gap-2 justify-center">
-            <h4 className="text-xl font-black text-on-surface">{current.statement}</h4>
+            <h4 className="text-xl font-medium text-on-surface">{current.statement}</h4>
             <button
               onClick={() => current.statement && speak(`${current.statement}。请判断是对还是错。`)}
               className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 text-on-primary-container hover:bg-primary-container/80 transition-colors"
@@ -153,7 +153,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
               whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.95 }}
               aria-label="正确"
               className={cn(
-                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
+                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-medium text-base sm:text-lg transition-tactile',
                 !isRevealed &&
                   selected === true &&
                   'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
@@ -183,7 +183,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
               whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.95 }}
               aria-label="错误"
               className={cn(
-                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-black text-base sm:text-lg transition-all',
+                'w-full max-w-[120px] min-w-[80px] aspect-square flex-1 rounded-2xl border-[3px] sm:border-4 flex flex-col items-center justify-center gap-1 sm:gap-2 font-medium text-base sm:text-lg transition-tactile',
                 !isRevealed &&
                   selected === false &&
                   'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
@@ -231,7 +231,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
             <button
               onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press min-h-[48px]"
             >
               确认答案
             </button>
@@ -245,7 +245,7 @@ export default function TrueFalseGame({ data, onComplete }: TrueFalseGameProps) 
           >
             <button
               onClick={handleNext}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press flex items-center justify-center gap-2 min-h-[48px]"
             >
               {currentIndex >= total - 1 ? (
                 '查看结果'

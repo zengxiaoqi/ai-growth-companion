@@ -56,10 +56,10 @@ export default function GrowthReportSection({
       <Card className="p-5 md:col-span-8 md:p-7">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-black text-on-surface">成长报告</h2>
+            <h2 className="text-2xl font-medium text-on-surface">成长报告</h2>
             <p className="text-sm text-on-surface-variant">近 7 天学习时长变化</p>
           </div>
-          <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-black text-on-secondary-container">
+          <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-medium text-on-secondary-container">
             近 7 天
           </span>
         </div>
@@ -126,7 +126,7 @@ export default function GrowthReportSection({
       <div className="flex flex-col gap-4 md:col-span-4">
         <Card className="panel-card-strong flex-1 overflow-hidden bg-on-secondary-container p-6 text-on-secondary">
           <h3 className="text-sm font-bold opacity-80">累计成长积分</h3>
-          <p className="mt-2 text-4xl font-black">
+          <p className="mt-2 text-4xl font-medium">
             {totalScore.toLocaleString()}
             <span className="ml-2 text-lg font-semibold opacity-70">分</span>
           </p>
@@ -137,7 +137,7 @@ export default function GrowthReportSection({
         </Card>
 
         <Card className="flex-1 p-6">
-          <h3 className="text-lg font-black text-on-surface">最近掌握</h3>
+          <h3 className="text-lg font-medium text-on-surface">最近掌握</h3>
           <div className="mt-4 space-y-2.5">
             {recentMastered.length > 0 ? (
               recentMastered.map((item, index) => (

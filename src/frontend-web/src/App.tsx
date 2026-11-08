@@ -173,7 +173,7 @@ function StudentHomeRoute() {
                 setIsAssignmentCompleted(false);
                 setSelectedAssignment(null);
               }}
-              className="w-full touch-target rounded-full bg-primary py-3 font-bold text-on-primary shadow-tactile transition-all active:translate-y-1 active:shadow-tactile-active"
+              className="w-full touch-target rounded-full bg-primary py-3 font-bold text-on-primary shadow-tactile transition-tactile active:translate-y-1 active:shadow-tactile-active"
             >
               返回主页
             </button>

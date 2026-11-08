@@ -70,7 +70,7 @@ export default function SceneRenderer({
               {scene.title}
             </p>
             {(scene.onScreenText || scene.visual?.caption) && (
-              <h3 className="mt-2 text-2xl font-black">
+              <h3 className="mt-2 text-2xl font-medium">
                 {scene.onScreenText || scene.visual?.caption}
               </h3>
             )}
@@ -100,7 +100,7 @@ export default function SceneRenderer({
                 key={character.id}
                 className="flex min-w-[88px] items-center gap-2 rounded-2xl bg-white/40 px-3 py-2 backdrop-blur"
               >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-sm font-black">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/70 text-sm font-medium">
                   {character.label.slice(0, 1)}
                 </span>
                 <div className="min-w-0">

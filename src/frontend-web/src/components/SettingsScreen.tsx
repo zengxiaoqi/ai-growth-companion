@@ -121,7 +121,7 @@ function Switch({
     >
       <span
         className={cn(
-          'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all',
+          'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-tactile',
           checked ? 'left-6' : 'left-1',
         )}
       />
@@ -154,7 +154,7 @@ function SettingsRow({
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-black text-on-surface">{title}</p>
+          <p className="text-sm font-medium text-on-surface">{title}</p>
           <p className="text-xs text-on-surface-variant">{description}</p>
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function SettingsScreen({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-black text-on-surface">{user?.name || '用户'}</h3>
+            <h3 className="text-lg font-medium text-on-surface">{user?.name || '用户'}</h3>
             <p className="text-sm text-on-surface-variant">
               {user?.type === 'parent' ? '家长端' : '学生端'} · {user?.phone || ''}
             </p>
@@ -292,7 +292,7 @@ export default function SettingsScreen({
         </div>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             快捷入口
           </h2>
 
@@ -307,7 +307,7 @@ export default function SettingsScreen({
                   <UserCircle className="h-5 w-5 text-on-secondary-container" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-on-surface">个人资料</p>
+                  <p className="text-sm font-medium text-on-surface">个人资料</p>
                   <p className="text-xs text-on-surface-variant">头像、昵称、年龄</p>
                 </div>
               </button>
@@ -323,7 +323,7 @@ export default function SettingsScreen({
                   <Trophy className="h-5 w-5 text-on-tertiary-container" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-on-surface">我的成就</p>
+                  <p className="text-sm font-medium text-on-surface">我的成就</p>
                   <p className="text-xs text-on-surface-variant">徽章、里程碑</p>
                 </div>
               </button>
@@ -332,7 +332,7 @@ export default function SettingsScreen({
         </Card>
 
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             对话头像
           </h2>
 
@@ -343,7 +343,7 @@ export default function SettingsScreen({
                   <AvatarPreview src={userAvatar} fallback={<User className="h-7 w-7" />} />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-on-surface">我的头像</p>
+                  <p className="text-sm font-medium text-on-surface">我的头像</p>
                   <p className="text-xs text-on-surface-variant">用于聊天中“我”的头像展示</p>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export default function SettingsScreen({
                   <AvatarPreview src={aiAvatar} fallback={<Bot className="h-7 w-7" />} />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-on-surface">AI 头像</p>
+                  <p className="text-sm font-medium text-on-surface">AI 头像</p>
                   <p className="text-xs text-on-surface-variant">用于聊天中助手头像展示</p>
                 </div>
               </div>
@@ -441,7 +441,7 @@ export default function SettingsScreen({
         </Card>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             显示与声音
           </h2>
 
@@ -500,7 +500,7 @@ export default function SettingsScreen({
         </Card>
 
         <Card className="space-y-3 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             关于
           </h2>
 

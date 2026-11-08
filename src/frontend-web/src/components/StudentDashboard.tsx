@@ -487,7 +487,7 @@ export default function StudentDashboard({
                 referrerPolicy="no-referrer"
               />
             </div>
-            <h1 className="text-lg font-black tracking-tight md:text-xl">灵犀伴学</h1>
+            <h1 className="text-lg font-medium md:text-xl">灵犀伴学</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -519,10 +519,10 @@ export default function StudentDashboard({
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="space-y-3">
               <p className="text-lg font-bold text-on-surface-variant">早上好，{userName}</p>
-              <h2 className="text-3xl font-black leading-tight text-primary md:text-4xl">
+              <h2 className="text-3xl font-medium leading-tight text-primary md:text-4xl">
                 今天也来一次有趣的学习冒险吧
               </h2>
-              <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container px-4 py-2 text-sm font-black text-on-tertiary-container">
+              <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container px-4 py-2 text-sm font-medium text-on-tertiary-container">
                 <Star className="h-4 w-4 fill-current" />
                 当前状态: 准备就绪
               </div>
@@ -547,7 +547,7 @@ export default function StudentDashboard({
               </div>
               <div>
                 <p className="text-xs font-bold text-on-surface-variant">{item.label}</p>
-                <p className="text-xl font-black text-on-surface">{item.value}</p>
+                <p className="text-xl font-medium tabular-nums text-on-surface">{item.value}</p>
               </div>
             </div>
           ))}
@@ -653,7 +653,7 @@ export default function StudentDashboard({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-4 left-5 right-5">
-                <h4 className="text-lg font-black text-white md:text-xl">{dailyMission.title}</h4>
+                <h4 className="text-lg font-medium text-white md:text-xl">{dailyMission.title}</h4>
                 <p className="text-xs font-semibold text-white/80">完成后可获得额外成长积分</p>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function StudentDashboard({
               </div>
               <div className="h-3 overflow-hidden rounded-full bg-surface-container p-0.5">
                 <div
-                  className="h-full rounded-full bg-primary transition-all"
+                  className="h-full rounded-full bg-primary transition-tactile"
                   style={{ width: `${dailyMission.progress}%` }}
                 />
               </div>
@@ -675,7 +675,7 @@ export default function StudentDashboard({
                     handlePlayContent(safeContents[0].id);
                   }
                 }}
-                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-base font-black text-on-primary shadow-tactile transition-all active:translate-y-0.5 active:shadow-tactile-active"
+                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-base font-medium text-on-primary shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active"
               >
                 <Play className="h-5 w-5 fill-current" />
                 继续探索
@@ -706,7 +706,7 @@ export default function StudentDashboard({
             },
             {
               label: '学习伙伴',
-              icon: Sparkles,
+              icon: MessageCircle,
               onClick: onOpenCompanion,
               style: 'bg-surface-container-highest text-on-surface',
             },
@@ -794,7 +794,6 @@ export default function StudentDashboard({
 
         <section className="content-visibility-auto mb-10">
           <h3 className="section-title mb-4 flex items-center gap-2 px-1">
-            <Sparkles className="h-5 w-5 text-primary" />
             能力概览
           </h3>
           <div className="panel-card p-5 md:p-6">
@@ -937,7 +936,7 @@ export default function StudentDashboard({
             </div>
           ) : recommendations.length === 0 ? (
             <div className="panel-card p-8 text-center">
-              <Sparkles className="mx-auto mb-2 h-10 w-10 text-outline-variant" />
+              <BookOpen className="mx-auto mb-2 h-10 w-10 text-outline-variant" />
               <p className="text-sm font-bold text-on-surface-variant">暂无推荐内容</p>
               <p className="mt-1 text-xs text-on-surface-variant">完成更多学习后这里会自动更新</p>
             </div>
@@ -1020,7 +1019,7 @@ export default function StudentDashboard({
                     key={idx}
                     onClick={() => scrollToRec(idx)}
                     className={cn(
-                      'h-2 w-2 rounded-full transition-all',
+                      'h-2 w-2 rounded-full transition-tactile',
                       idx === activeRecIndex
                         ? 'bg-primary scale-110'
                         : 'bg-surface-variant/30 hover:bg-surface-variant/50',
@@ -1036,7 +1035,6 @@ export default function StudentDashboard({
         <section ref={curriculumRef} className="content-visibility-auto mb-12">
           <div className="mb-5 flex items-center justify-between gap-3 px-1">
             <h3 className="section-title flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
               课程地图
             </h3>
             <button
@@ -1068,12 +1066,12 @@ export default function StudentDashboard({
                         <item.icon className={cn('h-6 w-6', item.iconColor)} />
                       </div>
                       <div>
-                        <h4 className="text-lg font-black text-on-surface">{item.category}</h4>
+                        <h4 className="text-lg font-medium text-on-surface">{item.category}</h4>
                         <div className="mt-1 flex gap-1.5">
                           {item.skills.map((skill) => (
                             <span
                               key={skill}
-                              className="rounded-md bg-surface-container px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-on-surface-variant"
+                              className="rounded-md bg-surface-container px-2 py-0.5 text-xs font-medium text-on-surface-variant"
                             >
                               {skill}
                             </span>
@@ -1133,7 +1131,7 @@ export default function StudentDashboard({
             className="touch-target flex flex-col items-center justify-center rounded-full bg-tertiary-container p-3 text-on-tertiary-container shadow-inner"
           >
             <Sparkles className="h-7 w-7" />
-            <span className="mt-0.5 text-[10px] font-black">AI伙伴</span>
+            <span className="mt-0.5 text-xs font-medium">AI伙伴</span>
           </button>
           <button
             onClick={onOpenSettings}
@@ -1178,8 +1176,8 @@ export default function StudentDashboard({
             >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">🔒</span>
-                  <h2 className="text-lg font-black text-on-surface">切换到家长端</h2>
+                  <Lock className="h-6 w-6 text-primary" />
+                  <h2 className="text-lg font-medium text-on-surface">切换到家长端</h2>
                 </div>
                 <button
                   onClick={() => !switching && setShowSwitchDialog(false)}

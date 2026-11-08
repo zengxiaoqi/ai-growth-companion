@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import {
   Trophy,
   Star,
-  Sparkles,
   PartyPopper,
   ChevronDown,
   ChevronRight,
@@ -60,7 +59,7 @@ export default function GameCompletionScreen({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-lg sm:text-xl font-black text-on-surface mb-1 flex items-center justify-center gap-2"
+          className="text-lg sm:text-xl font-medium text-on-surface mb-1 flex items-center justify-center gap-2"
         >
           <PartyPopper className="w-5 h-5 sm:w-6 sm:h-6 text-tertiary" />
           太棒了！
@@ -103,9 +102,8 @@ export default function GameCompletionScreen({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.9 }}
-        className="inline-flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-5 py-2.5 rounded-full font-black text-base"
+        className="inline-flex items-center gap-2 bg-tertiary-container text-on-tertiary-container px-5 py-2.5 rounded-full font-medium text-base"
       >
-        <Sparkles className="w-5 h-5" />
         得分 {pct}%
       </motion.div>
 
@@ -191,7 +189,7 @@ export default function GameCompletionScreen({
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}>
           <button
             onClick={onDismiss}
-            className="mt-2 w-full sm:w-auto bg-primary text-on-primary px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+            className="mt-2 w-full sm:w-auto bg-primary text-on-primary px-6 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press min-h-[48px]"
           >
             继续聊天
           </button>

@@ -86,7 +86,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
   return (
     <div className="space-y-4 max-w-md mx-auto">
       <div className="text-center">
-        <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
+        <h3 className="font-medium text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
           {selectedSlot !== null
             ? '点击另一个位置来交换'
@@ -113,7 +113,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
               whileTap={reducedMotion ? undefined : { scale: 0.95 }}
               aria-label={piece ? `${piece.label}${isSelected ? '（已选中）' : ''}` : '空位置'}
               className={cn(
-                'aspect-square rounded-2xl border-2 flex flex-col items-center justify-center font-bold transition-all min-h-[60px]',
+                'aspect-square rounded-2xl border-2 flex flex-col items-center justify-center font-bold transition-tactile min-h-[60px]',
                 isSelected &&
                   'border-primary bg-primary-container/30 ring-2 ring-primary ring-offset-2',
                 piece &&
@@ -125,7 +125,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
               {piece ? (
                 <>
                   <span className="text-2xl sm:text-3xl">{piece.emoji}</span>
-                  <span className="text-[10px] sm:text-xs text-on-surface-variant mt-1">
+                  <span className="text-xs sm:text-xs text-on-surface-variant mt-1">
                     {piece.label}
                   </span>
                 </>
@@ -137,7 +137,7 @@ export default function PuzzleGame({ data, onComplete }: PuzzleGameProps) {
 
       <button
         onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press min-h-[48px]"
       >
         检查拼图
       </button>

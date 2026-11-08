@@ -83,9 +83,9 @@ export default function LessonScenePlayer({
 
   // Playback auto-advance: wait for the longer of (durationSec) or (TTS audio)
   // Cleanup is tracked via a ref so inner polls are always cancelled on unmount or scene change.
-  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const voicePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advanceTimerRef = useRef<number | null>(null);
+  const voicePollRef = useRef<number | null>(null);
+  const safetyTimerRef = useRef<number | null>(null);
   const advancedRef = useRef(false);
 
   // Cleanup helpers
@@ -129,7 +129,7 @@ export default function LessonScenePlayer({
     advanceTimerRef.current = window.setTimeout(() => {
       // If TTS is still playing, wait for it to finish before advancing
       if (voiceIsPlayingRef.current) {
-        voicePollRef.current = setInterval(() => {
+        voicePollRef.current = window.setInterval(() => {
           if (!voiceIsPlayingRef.current) {
             doAdvance();
           }
@@ -236,7 +236,7 @@ export default function LessonScenePlayer({
               <Play className="h-8 w-8 text-primary" />
             </div>
             <p className="text-sm font-semibold text-on-surface">点击开始播放场景</p>
-            <p className="text-xl font-black text-on-surface">
+            <p className="text-xl font-medium text-on-surface">
               {currentScene.onScreenText || currentScene.title}
             </p>
           </div>
@@ -364,7 +364,7 @@ export default function LessonScenePlayer({
         {scenes.map((scene, index) => (
           <span
             key={scene.id}
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1.5 rounded-full transition-tactile ${
               index === currentIndex ? 'w-6 bg-primary' : 'w-1.5 bg-surface-container-highest'
             }`}
           />

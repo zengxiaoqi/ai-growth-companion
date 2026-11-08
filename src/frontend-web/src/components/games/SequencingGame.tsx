@@ -200,7 +200,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
   return (
     <div className="space-y-4 max-w-lg mx-auto">
       <div className="text-center">
-        <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
+        <h3 className="font-medium text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
           {selectedIndex !== null ? '再点一个进行交换' : '点击两个卡片交换顺序（也支持拖动）'}
         </p>
@@ -220,7 +220,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
             whileTap={reducedMotion ? undefined : { scale: 0.97 }}
             aria-label={`第 ${index + 1} 位：${item.label}${selectedIndex === index ? '（已选中）' : ''}`}
             className={cn(
-              'w-full flex items-center gap-2 sm:gap-3 bg-surface-container-lowest p-3 sm:p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[48px] sm:min-h-[52px] transition-all',
+              'w-full flex items-center gap-2 sm:gap-3 bg-surface-container-lowest p-3 sm:p-4 rounded-2xl border-2 font-bold text-on-surface min-h-[48px] sm:min-h-[52px] transition-tactile',
               selectedIndex === index &&
                 'border-primary bg-primary-container/20 ring-2 ring-primary ring-offset-2',
               selectedIndex !== null &&
@@ -241,7 +241,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
             }}
           >
             <ArrowUpDown className="w-4 h-4 sm:w-5 sm:h-5 text-on-surface-variant flex-shrink-0" />
-            <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-sm sm:text-base font-black flex-shrink-0">
+            <span className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-sm sm:text-base font-medium flex-shrink-0">
               {index + 1}
             </span>
             <span className="flex-1 text-sm sm:text-base text-left">{item.label}</span>
@@ -251,7 +251,7 @@ export default function SequencingGame({ data, onComplete }: SequencingGameProps
 
       <button
         onClick={handleCheck}
-        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+        className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press min-h-[48px]"
       >
         检查顺序
       </button>

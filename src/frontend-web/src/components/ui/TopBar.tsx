@@ -25,7 +25,7 @@ export function TopBar({ title, subtitle, leftSlot, actions = [], className }: T
         <div className="flex min-w-0 items-center gap-3">
           {leftSlot}
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">{title}</h1>
+            <h1 className="truncate text-xl font-medium md:text-2xl">{title}</h1>
             {subtitle ? (
               <p className="text-xs font-semibold text-on-surface-variant">{subtitle}</p>
             ) : null}

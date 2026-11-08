@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Sparkles, BookOpen, Clock3, ArrowDownTray } from '@/icons';
+import { Loader2, BookOpen, Clock3, ArrowDownTray} from '@/icons';
 import api from '@/services/api';
 import type { CoursePackRecord } from '@/types';
 import { Button, Card, EmptyState } from '../ui';
@@ -306,8 +306,7 @@ export default function CoursePackManager({
     <section className="space-y-4" aria-label="课程包生成">
       <Card className="space-y-4 p-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h3 className="text-base font-black text-on-surface">一句话生成课程包</h3>
+          <h3 className="text-base font-medium text-on-surface">一句话生成课程包</h3>
         </div>
 
         <div>
@@ -399,10 +398,7 @@ export default function CoursePackManager({
               正在生成单节课程包...
             </>
           ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              立即生成单节课程包
-            </>
+            <>立即生成单节课程包</>
           )}
         </Button>
 
@@ -418,10 +414,7 @@ export default function CoursePackManager({
               正在批量生成周课程...
             </>
           ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              一键生成周课程（批量）
-            </>
+            <>一键生成周课程（批量）</>
           )}
         </Button>
 
@@ -434,7 +427,7 @@ export default function CoursePackManager({
 
       <Card className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-black text-on-surface">历史课程包</h3>
+          <h3 className="text-sm font-medium text-on-surface">历史课程包</h3>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold text-on-surface-variant">
               已选 {selectedRecordIds.length}
@@ -531,7 +524,7 @@ export default function CoursePackManager({
                       {new Date(record.createdAt).toLocaleString('zh-CN')}
                     </p>
                   </button>
-                  <span className="text-[10px] font-semibold text-on-surface-variant">
+                  <span className="text-xs font-semibold text-on-surface-variant">
                     #{record.id}
                   </span>
                 </div>
@@ -544,7 +537,7 @@ export default function CoursePackManager({
       {preview ? (
         <Card className="space-y-2 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-black text-on-surface">课程包预览</h3>
+            <h3 className="text-sm font-medium text-on-surface">课程包预览</h3>
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -552,11 +545,7 @@ export default function CoursePackManager({
                 onClick={handleEnrichBilingual}
                 disabled={!previewRecordId || isEnrichingBilingual || isSavingVersion}
               >
-                {isEnrichingBilingual ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
+                {isEnrichingBilingual && <Loader2 className="h-4 w-4 animate-spin" />}
                 自动补全双语
               </Button>
               <Button
@@ -688,11 +677,7 @@ export default function CoursePackManager({
                   onClick={handleSaveVersion}
                   disabled={!previewRecordId || isSavingVersion || isEnrichingBilingual}
                 >
-                  {isSavingVersion ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
+                  {isSavingVersion && <Loader2 className="h-4 w-4 animate-spin" />}
                   保存为新版本
                 </Button>
               </div>
@@ -717,7 +702,7 @@ export default function CoursePackManager({
                       <p className="truncate text-[11px] font-semibold text-on-surface">
                         #{row.id} {row.title}
                       </p>
-                      <p className="text-[10px] text-on-surface-variant">
+                      <p className="text-xs text-on-surface-variant">
                         {new Date(row.createdAt).toLocaleString('zh-CN')}
                       </p>
                     </button>

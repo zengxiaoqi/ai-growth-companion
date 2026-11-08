@@ -88,7 +88,7 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
 
       <main className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-6">
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             头像
           </h2>
 
@@ -125,7 +125,7 @@ export default function ProfileScreen({ onBack }: ProfileScreenProps) {
         </Card>
 
         <Card className="space-y-4 p-4 md:p-5">
-          <h2 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             基础信息
           </h2>
 

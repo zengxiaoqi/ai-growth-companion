@@ -42,7 +42,7 @@ export default function LoginScreen({
       {/* Header */}
       <header className="w-full bg-surface">
         <div className="flex justify-center items-center w-full px-8 py-6">
-          <h1 className="text-2xl font-bold tracking-tight text-primary">灵犀伴学</h1>
+          <h1 className="text-2xl font-bold text-primary">灵犀伴学</h1>
         </div>
       </header>
 
@@ -59,7 +59,7 @@ export default function LoginScreen({
                 referrerPolicy="no-referrer"
               />
             </div>
-            <h2 className="text-3xl font-black text-primary mb-2">欢迎回来</h2>
+            <h2 className="text-3xl font-medium text-primary mb-2">欢迎回来</h2>
             <p className="text-on-surface-variant">登录您的账号继续学习之旅</p>
           </div>
 
@@ -141,7 +141,7 @@ export default function LoginScreen({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-on-primary py-5 rounded-full font-bold text-xl shadow-tactile active:shadow-tactile-active active:translate-y-[4px] transition-all flex items-center justify-center gap-3 tactile-press disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0"
+              className="w-full bg-primary text-on-primary py-5 rounded-full font-bold text-xl shadow-tactile active:shadow-tactile-active active:translate-y-[4px] transition-tactile flex items-center justify-center gap-3 tactile-press disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0"
             >
               {isLoading ? (
                 <>

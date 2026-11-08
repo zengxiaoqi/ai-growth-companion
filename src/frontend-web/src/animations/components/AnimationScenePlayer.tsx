@@ -151,7 +151,7 @@ export default function AnimationScenePlayer({
         {scenes.map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all ${
+            className={`h-1.5 rounded-full transition-tactile ${
               i === playback.currentSceneIndex
                 ? 'w-6 bg-primary'
                 : i < playback.currentSceneIndex

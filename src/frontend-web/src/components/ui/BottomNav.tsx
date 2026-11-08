@@ -24,7 +24,7 @@ export function BottomNav({ items, className }: BottomNavProps) {
             key={item.key}
             onClick={item.onClick}
             className={cn(
-              'touch-target flex min-w-[72px] flex-col items-center rounded-full px-4 py-2 transition-all',
+              'touch-target flex min-w-[72px] flex-col items-center rounded-full px-4 py-2 transition-tactile',
               item.accent
                 ? 'bg-tertiary-container text-on-tertiary-container shadow-inner'
                 : item.active
@@ -34,7 +34,7 @@ export function BottomNav({ items, className }: BottomNavProps) {
             aria-label={item.label}
           >
             {item.icon}
-            <span className="mt-0.5 text-[10px] font-bold">{item.label}</span>
+            <span className="mt-0.5 text-xs font-bold">{item.label}</span>
           </button>
         ))}
       </div>

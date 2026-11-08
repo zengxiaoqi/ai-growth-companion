@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Lock, Rocket, Shield, Sparkles, TrendingUp, UserCircle } from '@/icons';
+import { AlertCircle, Lock, Rocket, Shield, TrendingUp, UserCircle} from '@/icons';
 import type { User } from '@/types';
 import type { AppMode } from '../App';
 import { useAuth } from '../contexts/AuthContext';
@@ -50,11 +50,7 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
 
       <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 py-6 md:py-10">
         <header className="space-y-3 text-center md:text-left">
-          <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container/65 px-4 py-1.5 text-xs font-black text-on-tertiary-container">
-            <Sparkles className="h-4 w-4" />
-            触控友好模式已开启
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-on-surface md:text-4xl">
+          <h1 className="text-3xl font-medium text-on-surface md:text-4xl">
             请选择使用模式
           </h1>
           <p className="text-sm font-medium text-on-surface-variant md:text-base">
@@ -70,7 +66,7 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
                   <Rocket className="h-7 w-7" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-primary">学生模式</h2>
+                  <h2 className="text-2xl font-medium text-primary">学生模式</h2>
                   <p className="text-sm font-semibold text-on-surface-variant">
                     课程、挑战与 AI 伙伴
                   </p>
@@ -99,7 +95,7 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
                   <TrendingUp className="h-7 w-7" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-on-surface">家长模式</h2>
+                  <h2 className="text-2xl font-medium text-on-surface">家长模式</h2>
                   <p className="text-sm font-semibold text-on-surface-variant">
                     报告、管控与作业管理
                   </p>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, Bot } from '@/icons';
+import { Mic, MicOff, PhoneOff, Bot, AlertTriangle } from '@/icons';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -531,7 +531,7 @@ export function VoiceCallOverlay({
             <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/15">
               <div
                 className={cn(
-                  'h-full rounded-full transition-all duration-150',
+                  'h-full rounded-full transition-tactile duration-150',
                   micLevel > 0.08 ? 'bg-emerald-300' : 'bg-white/30',
                 )}
                 style={{ width: `${Math.max(4, Math.round(micLevel * 100))}%` }}
@@ -583,7 +583,8 @@ export function VoiceCallOverlay({
       {asrIssue && (
         <div className="mx-auto max-w-xl px-4">
           <div className="rounded-xl bg-red-500/15 border border-red-400/30 px-3.5 py-2.5 text-xs leading-relaxed text-red-200">
-            ⚠️ {asrIssue}
+            <AlertTriangle className="mr-1.5 inline h-3.5 w-3.5" />
+            {asrIssue}
             {!muted && phase !== 'error' && (
               <button
                 onClick={() => {

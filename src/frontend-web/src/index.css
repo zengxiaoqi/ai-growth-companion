@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 
 @theme {
@@ -190,8 +190,16 @@
 /* Custom Utilities for Tactile Effects */
 @utility tactile-press {
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
+}
+
+/* 触控过渡：颜色、边框、阴影、位移，统一缓动 */
+@utility transition-tactile {
+  transition-property:
+    color, background-color, border-color, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @utility touch-target {
@@ -237,16 +245,6 @@
   }
 }
 
-@keyframes gentle-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
 @utility animate-shimmer {
   background: linear-gradient(
     90deg,
@@ -256,10 +254,6 @@
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
-}
-
-@utility animate-gentle-float {
-  animation: gentle-float 2s ease-in-out infinite;
 }
 
 @keyframes voice-pulse {
@@ -335,7 +329,7 @@
 }
 
 @utility section-title {
-  @apply text-xl font-black tracking-tight text-on-surface;
+  @apply text-xl font-semibold text-on-surface;
 }
 
 @utility content-visibility-auto {

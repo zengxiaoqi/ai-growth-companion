@@ -1029,7 +1029,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-white font-bold text-sm leading-tight truncate">AI 学习伙伴</h3>
-            <p className="text-[10px] text-white/70 leading-tight truncate">
+            <p className="text-xs text-white/70 leading-tight truncate">
               {chatMode === 'casual' ? '碎碎念闲聊中，随便说～' : '学习 · 提问 · 陪你聊'}
             </p>
           </div>
@@ -1066,7 +1066,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           <button
             onClick={toggleChatMode}
             className={cn(
-              'touch-target h-9 rounded-full px-3 flex items-center justify-center text-xs font-bold transition-colors',
+              'touch-target h-9 rounded-full px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
               chatMode === 'casual'
                 ? 'bg-white text-tertiary shadow-sm'
                 : 'bg-white/10 text-white/75 hover:text-white hover:bg-white/20',
@@ -1074,7 +1074,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             aria-label={chatMode === 'casual' ? '退出碎碎念闲聊模式' : '开启碎碎念闲聊模式'}
             title="碎碎念：像朋友一样随口闲聊，AI 只回短句，不出题不安排任务"
           >
-            💬 碎碎念
+            <MessageCircle className="h-4 w-4" />
+            碎碎念
           </button>
           <button
             onClick={() => {
@@ -1472,7 +1473,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
         aria-label="打开 AI 学习伙伴"
         style={{ left: fabPosition.x, top: fabPosition.y }}
         className={cn(
-          'fixed w-16 h-16 bg-tertiary rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-[100] border-b-4 border-tertiary-dim touch-none select-none transition-all',
+          'fixed w-16 h-16 bg-tertiary rounded-full flex items-center justify-center shadow-2xl text-white tactile-press z-[100] border-b-4 border-tertiary-dim touch-none select-none transition-tactile',
           !isFabDragging && 'hover:scale-110',
           isOpen && 'opacity-0 pointer-events-none',
         )}
@@ -1588,7 +1589,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               <button
                 onClick={toggleChatMode}
                 className={cn(
-                  'mr-1 h-7 rounded-full px-2 flex items-center justify-center text-[10px] font-bold transition-colors',
+                  'mr-1 h-7 rounded-full px-2 flex items-center gap-1 text-xs font-medium transition-colors',
                   chatMode === 'casual'
                     ? 'bg-white text-tertiary shadow-sm'
                     : 'bg-white/10 text-white/75 hover:text-white hover:bg-white/20',
@@ -1596,7 +1597,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 aria-label={chatMode === 'casual' ? '退出碎碎念闲聊模式' : '开启碎碎念闲聊模式'}
                 title="碎碎念：像朋友一样随口闲聊，AI 只回短句，不出题不安排任务"
               >
-                💬 碎碎念
+                <MessageCircle className="h-4 w-4" />
+                碎碎念
               </button>
               <button
                 onClick={() => setCallOpen(true)}
@@ -1610,7 +1612,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 <button
                   onClick={() => setViewMode('chat')}
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+                    'rounded-full px-2 py-0.5 text-xs font-bold transition-colors',
                     viewMode === 'chat'
                       ? 'bg-white text-tertiary'
                       : 'text-white/75 hover:text-white',
@@ -1621,7 +1623,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 <button
                   onClick={() => setViewMode('archive')}
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors',
+                    'rounded-full px-2 py-0.5 text-xs font-bold transition-colors',
                     viewMode === 'archive'
                       ? 'bg-white text-tertiary'
                       : 'text-white/75 hover:text-white',
@@ -2132,16 +2134,16 @@ function LearningArchivePanel({
 
       <div className="grid grid-cols-3 gap-2">
         <div className="panel-card p-2 text-center">
-          <p className="text-lg font-black text-on-surface">{learningPoints.length}</p>
-          <p className="text-[10px] text-on-surface-variant">学习点</p>
+          <p className="text-lg font-medium text-on-surface">{learningPoints.length}</p>
+          <p className="text-xs text-on-surface-variant">学习点</p>
         </div>
         <div className="panel-card p-2 text-center">
-          <p className="text-lg font-black text-on-surface">{wrongCount}</p>
-          <p className="text-[10px] text-on-surface-variant">待巩固</p>
+          <p className="text-lg font-medium text-on-surface">{wrongCount}</p>
+          <p className="text-xs text-on-surface-variant">待巩固</p>
         </div>
         <div className="panel-card p-2 text-center">
-          <p className="text-lg font-black text-on-surface">{masteredCount}</p>
-          <p className="text-[10px] text-on-surface-variant">已掌握</p>
+          <p className="text-lg font-medium text-on-surface">{masteredCount}</p>
+          <p className="text-xs text-on-surface-variant">已掌握</p>
         </div>
       </div>
 
@@ -2158,7 +2160,7 @@ function LearningArchivePanel({
               return (
                 <div key={point.id} className="rounded-xl bg-surface-container px-3 py-2">
                   <p className="text-xs font-semibold text-on-surface">{point.pointLabel}</p>
-                  <p className="mt-0.5 text-[10px] text-on-surface-variant">
+                  <p className="mt-0.5 text-xs text-on-surface-variant">
                     {point.domain || '综合'} · {cooling ? '冷却中' : '可推荐'} ·{' '}
                     {new Date(point.lastLearnedAt).toLocaleString('zh-CN')}
                   </p>
@@ -2181,7 +2183,7 @@ function LearningArchivePanel({
                 className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2"
               >
                 <p className="text-xs font-semibold text-on-surface">{wrong.questionText}</p>
-                <p className="mt-1 text-[10px] text-on-surface-variant">
+                <p className="mt-1 text-xs text-on-surface-variant">
                   你的答案: {wrong.userAnswer || '未作答'} · 正确答案: {wrong.correctAnswer || '-'}
                 </p>
               </div>
@@ -2199,7 +2201,7 @@ function LearningArchivePanel({
             {studyPlans.slice(0, 8).map((plan) => (
               <div key={plan.id} className="rounded-xl bg-surface-container px-3 py-2">
                 <p className="text-xs font-semibold text-on-surface">{plan.title}</p>
-                <p className="mt-0.5 text-[10px] text-on-surface-variant">
+                <p className="mt-0.5 text-xs text-on-surface-variant">
                   {plan.sourceType === 'ai_generated' ? 'AI计划' : '家长作业'} ·{' '}
                   {new Date(plan.createdAt).toLocaleString('zh-CN')}
                 </p>
@@ -2229,7 +2231,7 @@ function LearningArchivePanel({
                 )}
               >
                 <p className="text-xs font-semibold">会话 {session.uuid.slice(0, 8)}</p>
-                <p className="text-[10px] opacity-80">
+                <p className="text-xs opacity-80">
                   {session.messageCount} 条消息 ·{' '}
                   {new Date(session.updatedAt).toLocaleString('zh-CN')}
                 </p>
@@ -2249,7 +2251,7 @@ function LearningArchivePanel({
               <div className="max-h-56 space-y-1 overflow-y-auto">
                 {historyMessages.map((msg) => (
                   <div key={msg.id} className="rounded-lg bg-surface-container px-2 py-1.5">
-                    <p className="text-[10px] font-bold text-on-surface-variant">{msg.role}</p>
+                    <p className="text-xs font-bold text-on-surface-variant">{msg.role}</p>
                     <p className="text-xs text-on-surface line-clamp-3">{msg.content}</p>
                   </div>
                 ))}

@@ -54,7 +54,7 @@ function Switch({
     >
       <span
         className={cn(
-          'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all',
+          'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-tactile',
           checked ? 'left-6' : 'left-1',
         )}
       />
@@ -140,7 +140,7 @@ export default function ParentalControls({
 
   return (
     <div className="space-y-5" ref={controlsRef}>
-      <h2 className="text-2xl font-black text-on-surface">家长控制</h2>
+      <h2 className="text-2xl font-medium text-on-surface">家长控制</h2>
 
       <Card className="space-y-4 p-5">
         <div className="flex items-start gap-3">
@@ -148,7 +148,7 @@ export default function ParentalControls({
             <Timer className="h-6 w-6 text-on-secondary-container" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-on-surface">每日学习时长</h3>
+            <h3 className="text-lg font-medium text-on-surface">每日学习时长</h3>
             <p className="text-sm text-on-surface-variant">设置孩子每天可学习的总时长上限</p>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function ParentalControls({
         <div>
           <div className="mb-2 flex items-center justify-between text-xs font-semibold text-on-surface-variant">
             <span>15 分钟</span>
-            <span className="text-base font-black text-primary">{dailyLimit} 分钟</span>
+            <span className="text-base font-medium text-primary">{dailyLimit} 分钟</span>
             <span>120 分钟</span>
           </div>
           <input
@@ -181,7 +181,7 @@ export default function ParentalControls({
             <ShieldCheck className="h-6 w-6 text-on-tertiary-container" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-on-surface">允许学习领域</h3>
+            <h3 className="text-lg font-medium text-on-surface">允许学习领域</h3>
             <p className="text-sm text-on-surface-variant">
               可以开启多个领域，关闭后该领域内容会被限制访问
             </p>
@@ -220,7 +220,7 @@ export default function ParentalControls({
               <Eye className="h-6 w-6 text-on-surface" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-on-surface">护眼模式</h3>
+              <h3 className="text-lg font-medium text-on-surface">护眼模式</h3>
               <p className="text-sm text-on-surface-variant">
                 {controls?.restReminderMinutes
                   ? `${controls.restReminderMinutes} 分钟提醒休息`
@@ -244,7 +244,7 @@ export default function ParentalControls({
             <BookOpen className="h-6 w-6 text-on-primary-container" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-on-surface">学习日程</h3>
+            <h3 className="text-lg font-medium text-on-surface">学习日程</h3>
             <p className="text-sm text-on-surface-variant">按天设置可学习时间段，支持精细化安排</p>
           </div>
         </div>

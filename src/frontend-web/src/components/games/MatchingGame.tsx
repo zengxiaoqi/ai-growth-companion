@@ -98,7 +98,7 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
   return (
     <div className="space-y-4">
       <div className="text-center">
-        <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
+        <h3 className="font-medium text-on-surface text-lg">{data.title}</h3>
         <p className="text-sm text-on-surface-variant">
           翻开卡片找到配对！{matched.size / 2} / {pairs.length}
         </p>
@@ -119,7 +119,7 @@ export default function MatchingGame({ data, onComplete }: MatchingGameProps) {
               }
               whileTap={reducedMotion ? undefined : { scale: 0.95 }}
               className={cn(
-                'aspect-square rounded-2xl border-2 flex items-center justify-center text-sm min-[360px]:text-base sm:text-lg font-bold transition-all min-h-[48px]',
+                'aspect-square rounded-2xl border-2 flex items-center justify-center text-sm min-[360px]:text-base sm:text-lg font-bold transition-tactile min-h-[48px]',
                 isMatched &&
                   'bg-primary-container border-primary text-on-primary-container opacity-60',
                 isRevealed &&

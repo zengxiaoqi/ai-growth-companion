@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Loader2, Star } from '@/icons';
+import { ArrowLeft, ArrowRight, Check, CheckCircle, Clock, Loader2, Star, Volume2 } from '@/icons';
 import { cn } from '@/lib/utils';
 import api from '@/services/api';
 import type {
@@ -237,7 +237,7 @@ export default function StructuredLessonView({
             <div
               key={step.id}
               className={cn(
-                'h-full transition-all duration-300',
+                'h-full transition-tactile duration-300',
                 i > 0 && 'ml-0.5',
                 completedSteps.has(step.id)
                   ? 'bg-primary'
@@ -269,7 +269,7 @@ export default function StructuredLessonView({
                 stepStartTime.current = Date.now();
               }}
               className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-tactile',
                 isCurrent
                   ? 'bg-primary text-on-primary shadow-tactile'
                   : isDone
@@ -321,7 +321,7 @@ export default function StructuredLessonView({
             }}
             disabled={currentStepIndex === 0}
             className={cn(
-              'flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium transition-all',
+              'flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium transition-tactile',
               currentStepIndex === 0
                 ? 'text-on-surface-variant/30'
                 : 'text-primary hover:bg-primary-container/10',
@@ -344,7 +344,7 @@ export default function StructuredLessonView({
             }}
             disabled={currentStepIndex === steps.length - 1}
             className={cn(
-              'flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium transition-all',
+              'flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium transition-tactile',
               currentStepIndex === steps.length - 1
                 ? 'text-on-surface-variant/30'
                 : 'text-primary hover:bg-primary-container/10',
@@ -871,7 +871,8 @@ function LegacyFallbackCards({
               onClick={() => speakScene(scene?.narration || '')}
               className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
             >
-              🔊 朗读
+              <Volume2 className="h-3.5 w-3.5" />
+              朗读
             </button>
             <span className="text-xs text-on-surface-variant">
               {currentScene + 1} / {scenes.length}

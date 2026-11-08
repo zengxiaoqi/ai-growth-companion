@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, XCircle, ArrowRight, Sparkles, Flame, Volume2 } from '@/icons';
+import { CheckCircle, XCircle, ArrowRight, Flame, Volume2} from '@/icons';
 import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult } from '@/types';
 import { useGameVoice } from '@/hooks/useGameVoice';
@@ -160,7 +160,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
           className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4"
         >
           <div className="flex items-start gap-2">
-            <h4 className="text-lg font-black text-on-surface flex-1">{current.question}</h4>
+            <h4 className="text-lg font-medium text-on-surface flex-1">{current.question}</h4>
             <button
               onClick={() =>
                 current.question &&
@@ -187,7 +187,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
                   whileHover={reducedMotion || isRevealed ? undefined : { scale: 1.02, y: -2 }}
                   whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.98 }}
                   className={cn(
-                    'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-all min-h-[48px] cursor-pointer',
+                    'w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl border-2 font-bold flex items-center gap-3 transition-tactile min-h-[48px] cursor-pointer',
                     isRevealed &&
                       isCorrect &&
                       'bg-success-container border-success text-on-success-container',
@@ -218,7 +218,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
                   />
                   <span
                     className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0',
+                      'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0',
                       isRevealed && isCorrect && 'bg-success text-on-success',
                       isRevealed && isSelected && 'bg-danger text-on-danger',
                       !isRevealed && isSelected && 'bg-primary text-on-primary',
@@ -254,7 +254,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
             >
               {selectedOption === currentCorrectIndex ? (
                 <>
-                  <Sparkles className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4" />
                   太棒了！
                 </>
               ) : (
@@ -279,7 +279,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
             <button
               onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press flex items-center justify-center gap-2 min-h-[48px]"
             >
               确认答案
             </button>
@@ -294,7 +294,7 @@ export default function QuizGame({ data, onComplete }: QuizGameProps) {
             <button
               onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press flex items-center justify-center gap-2 min-h-[48px]"
             >
               {currentIndex >= total - 1 ? (
                 '查看结果'

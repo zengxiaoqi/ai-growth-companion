@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Sparkles, Check, RotateCcw, Play, XCircle } from '@/icons';
+import { Loader2, Check, RotateCcw, Play, XCircle} from '@/icons';
 import api from '@/services/api';
 import type { Content, StructuredLessonContent, StructuredLessonStep } from '@/types';
 import LessonScenePlayer from '@/scenes/LessonScenePlayer';
@@ -522,8 +522,7 @@ export default function LessonGenerator({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-bold text-on-surface">一键生成学习课程</h3>
+        <h3 className="text-lg font-medium text-on-surface">一键生成学习课程</h3>
       </div>
       <p className="text-sm text-on-surface-variant">
         输入学习主题，AI 自动生成包含"看、读、写、练"四步的完整课程
@@ -606,7 +605,6 @@ export default function LessonGenerator({
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
                 生成学习课程
               </>
             )}
@@ -736,7 +734,7 @@ export default function LessonGenerator({
                                 </div>
                                 <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
                                   <div
-                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    className="h-full rounded-full bg-primary transition-tactile duration-500"
                                     style={{ width: `${Math.max(5, videoProgress)}%` }}
                                   />
                                 </div>

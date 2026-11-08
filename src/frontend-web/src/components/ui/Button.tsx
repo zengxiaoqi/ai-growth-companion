@@ -29,7 +29,7 @@ export function Button({ className, variant = 'primary', size = 'md', ...props }
   return (
     <button
       className={cn(
-        'inline-flex touch-target items-center justify-center gap-2 rounded-xl font-bold transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0',
+        'inline-flex touch-target items-center justify-center gap-2 rounded-xl font-bold transition-tactile focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0',
         variantClass[variant],
         sizeClass[size],
         className,

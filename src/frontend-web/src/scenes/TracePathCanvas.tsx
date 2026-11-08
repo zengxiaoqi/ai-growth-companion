@@ -296,7 +296,7 @@ export default function TracePathCanvas({
         <div className="space-y-3">
           <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
             <div
-              className="h-full rounded-full bg-primary transition-all"
+              className="h-full rounded-full bg-primary transition-tactile"
               style={{ width: `${Math.round(coverage * 100)}%` }}
             />
           </div>

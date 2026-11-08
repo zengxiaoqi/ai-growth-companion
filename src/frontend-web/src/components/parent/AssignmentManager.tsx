@@ -172,7 +172,7 @@ export default function AssignmentManager({
   return (
     <section className="space-y-5" aria-label="作业管理">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-black text-on-surface">作业管理</h2>
+        <h2 className="text-2xl font-medium text-on-surface">作业管理</h2>
         <Button
           variant={showAssignPanel ? 'secondary' : 'primary'}
           size="sm"
@@ -201,7 +201,7 @@ export default function AssignmentManager({
           animate={{ opacity: 1, y: 0 }}
           className="panel-card space-y-5 p-5"
         >
-          <h3 className="text-lg font-black text-on-surface">创建新作业</h3>
+          <h3 className="text-lg font-medium text-on-surface">创建新作业</h3>
 
           <div>
             <label
@@ -316,7 +316,7 @@ export default function AssignmentManager({
 
       {sortedDraftLessons.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h3 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             草稿作业
           </h3>
 
@@ -339,13 +339,13 @@ export default function AssignmentManager({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-black text-on-surface">
+                      <span className="truncate text-sm font-medium text-on-surface">
                         {draftLesson.title}
                       </span>
                       {domainConfig ? (
                         <span
                           className={cn(
-                            'rounded-full px-2 py-0.5 text-[10px] font-black',
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
                             domainConfig.containerColor,
                             domainConfig.textColor,
                           )}
@@ -362,7 +362,7 @@ export default function AssignmentManager({
                   </div>
 
                   <span
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${isCoursePack ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'}`}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${isCoursePack ? 'bg-primary-container text-on-primary-container' : 'bg-secondary-container text-on-secondary-container'}`}
                   >
                     {isCoursePack ? '课程包' : '草稿'}
                   </span>
@@ -411,7 +411,7 @@ export default function AssignmentManager({
 
       {sortedAssignments.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-black uppercase tracking-wider text-on-surface-variant">
+          <h3 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
             已布置作业
           </h3>
 
@@ -446,13 +446,13 @@ export default function AssignmentManager({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-black text-on-surface">
+                      <span className="truncate text-sm font-medium text-on-surface">
                         {assignment.activityData?.topic || assignment.activityType}
                       </span>
                       {domainConfig ? (
                         <span
                           className={cn(
-                            'rounded-full px-2 py-0.5 text-[10px] font-black',
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
                             domainConfig.containerColor,
                             domainConfig.textColor,
                           )}
@@ -478,7 +478,7 @@ export default function AssignmentManager({
 
                   <span
                     className={cn(
-                      'shrink-0 rounded-full px-3 py-1 text-xs font-black',
+                      'shrink-0 rounded-full px-3 py-1 text-xs font-medium',
                       isCompleted
                         ? 'bg-success-container text-on-success-container'
                         : 'bg-primary-container text-on-primary-container',

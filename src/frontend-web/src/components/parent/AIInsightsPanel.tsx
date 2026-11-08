@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles } from '@/icons';
+import { ArrowRight, } from '@/icons';
 import { Button, Card } from '../ui';
 
 interface AIInsightsPanelProps {
@@ -18,12 +18,11 @@ export default function AIInsightsPanel({
   return (
     <Card className="relative overflow-hidden p-5 md:p-6">
       <div className="relative z-10">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-on-tertiary-container px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
-          <Sparkles className="h-3.5 w-3.5" />
+        <span className="inline-flex items-center rounded-full bg-on-tertiary-container px-3 py-1 text-xs font-medium text-white">
           AI 洞察
         </span>
 
-        <h3 className="mt-4 text-xl font-black leading-tight text-on-surface line-clamp-2">
+        <h3 className="mt-4 text-xl font-medium leading-tight text-on-surface line-clamp-2">
           {primaryInsight}
         </h3>
 

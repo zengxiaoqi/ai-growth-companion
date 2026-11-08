@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   Clock,
   Target,
-  Sparkles,
   Trophy,
   TrendingUp,
   BookOpen,
@@ -131,7 +130,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
             <ChevronLeft className="h-6 w-6 text-on-secondary-container" />
           </IconButton>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-on-surface">学习报告详情</h1>
+            <h1 className="text-2xl font-bold text-on-surface">学习报告详情</h1>
             <p className="text-sm font-medium text-on-surface-variant">
               全面了解孩子在不同能力维度的成长情况
             </p>
@@ -170,7 +169,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">总学习时长</p>
-                <p className="text-2xl font-black text-on-secondary-container">
+                <p className="text-2xl font-medium text-on-secondary-container">
                   {totalTime}
                   <span className="ml-1 text-sm font-bold">分钟</span>
                 </p>
@@ -183,7 +182,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">完成课程</p>
-                <p className="text-2xl font-black text-on-tertiary-container">
+                <p className="text-2xl font-medium text-on-tertiary-container">
                   {totalLessons}
                   <span className="ml-1 text-sm font-bold">节</span>
                 </p>
@@ -196,7 +195,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
               </div>
               <div>
                 <p className="text-xs font-medium text-on-surface-variant">平均得分</p>
-                <p className="text-2xl font-black text-on-primary-container">
+                <p className="text-2xl font-medium text-on-primary-container">
                   {avgScore}
                   <span className="ml-1 text-sm font-bold">分</span>
                 </p>
@@ -212,7 +211,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
             <Card className="p-6 md:p-8">
               <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-black text-on-surface">每日学习统计</h3>
+                  <h3 className="text-xl font-medium text-on-surface">每日学习统计</h3>
                   <p className="text-sm text-on-surface-variant">学习时长与课程完成趋势</p>
                 </div>
               </div>
@@ -276,7 +275,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             <Card className="p-6 md:p-8">
-              <h3 className="mb-6 text-xl font-black text-on-surface">技能进度</h3>
+              <h3 className="mb-6 text-xl font-medium text-on-surface">技能进度</h3>
               <div className="space-y-5">
                 {Object.entries(skillProgress).map(([domain, progress], i) => {
                   const config = DOMAIN_CONFIG[domain];
@@ -288,7 +287,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                         <div className="flex items-center gap-3">
                           <span
                             className={cn(
-                              'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black text-white',
+                              'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium text-white',
                               config.color,
                             )}
                           >
@@ -296,7 +295,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                           </span>
                           <span className="text-sm font-bold text-on-surface">{config.label}</span>
                         </div>
-                        <span className="text-sm font-black text-on-surface">{progress}%</span>
+                        <span className="text-sm font-medium text-on-surface">{progress}%</span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-surface-container">
                         <motion.div
@@ -321,7 +320,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
             <Card className="p-6 md:p-8">
               <div className="mb-4 flex items-center gap-2">
                 <Trophy className="h-6 w-6 text-primary" />
-                <h3 className="text-xl font-black text-on-surface">成就亮点</h3>
+                <h3 className="text-xl font-medium text-on-surface">成就亮点</h3>
               </div>
 
               {displayAchievements.length > 0 ? (
@@ -339,14 +338,12 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                           : 'border-outline-variant/10 bg-surface-container-low',
                       )}
                     >
-                      <span className="text-3xl" aria-hidden="true">
-                        🏅
-                      </span>
+                      <Trophy className="h-7 w-7 text-primary" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="truncate text-sm font-bold text-on-surface">{ach.name}</h4>
                           {ach.unlockedAt && (
-                            <span className="rounded-full bg-primary-container/40 px-2 py-0.5 text-[10px] font-bold text-primary">
+                            <span className="rounded-full bg-primary-container/40 px-2 py-0.5 text-xs font-bold text-primary">
                               已解锁
                             </span>
                           )}
@@ -362,7 +359,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                             }}
                           />
                         </div>
-                        <p className="mt-1 text-[10px] text-on-surface-variant">
+                        <p className="mt-1 text-xs text-on-surface-variant">
                           {ach.progress}/{ach.totalRequired}
                         </p>
                       </div>
@@ -387,8 +384,7 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
           >
             <div className="relative z-10">
               <div className="mb-6 flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-primary-container" />
-                <h3 className="text-xl font-black">AI 学习建议</h3>
+                <h3 className="text-xl font-medium">AI 学习建议</h3>
               </div>
               {aiSuggestions.length > 0 ? (
                 <div className="space-y-3">

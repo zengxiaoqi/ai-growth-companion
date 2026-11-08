@@ -40,7 +40,7 @@ export default function AbilityRadar({ abilities, radarData }: AbilityRadarProps
       className="panel-card p-5 md:p-6"
     >
       <div className="mb-5">
-        <h2 className="text-xl font-black text-on-surface">五维能力评估</h2>
+        <h2 className="text-xl font-medium text-on-surface">五维能力评估</h2>
         <p className="mt-1 text-sm text-on-surface-variant">
           从语言、数学、科学、艺术、社会五个方向看成长情况
         </p>

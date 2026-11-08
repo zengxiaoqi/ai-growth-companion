@@ -10,7 +10,6 @@ import {
   Loader2,
   MessageCircle,
   Settings,
-  Sparkles,
   Trophy,
   BookOpen,
 } from '@/icons';
@@ -475,7 +474,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-black tracking-tight md:text-2xl">
+            <h1 className="truncate text-xl font-medium md:text-2xl">
               灵犀伴学 · 家长端
             </h1>
           </div>
@@ -531,7 +530,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-on-surface-variant">{item.label}</p>
-                  <p className="text-base font-black text-on-surface">{item.value}</p>
+                  <p className="text-base font-medium tabular-nums text-on-surface">{item.value}</p>
                 </div>
               </Card>
             ))}
@@ -576,24 +575,24 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
                 {completedAssignments.length > 0 ? (
                   <section className="panel-card p-5 md:p-6" aria-label="作业成绩趋势">
-                    <h3 className="mb-4 text-lg font-black text-on-surface">作业成绩趋势</h3>
+                    <h3 className="mb-4 text-lg font-medium text-on-surface">作业成绩趋势</h3>
 
                     {scoreStats ? (
                       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="rounded-xl bg-secondary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-secondary-container">
+                          <p className="text-2xl font-medium tabular-nums text-on-secondary-container">
                             {scoreStats.avg}
                           </p>
                           <p className="mt-1 text-xs text-on-secondary-container/70">平均分</p>
                         </div>
                         <div className="rounded-xl bg-tertiary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-tertiary-container">
+                          <p className="text-2xl font-medium tabular-nums text-on-tertiary-container">
                             {scoreStats.highest}
                           </p>
                           <p className="mt-1 text-xs text-on-tertiary-container/70">最高分</p>
                         </div>
                         <div className="rounded-xl bg-primary-container/30 p-3 text-center">
-                          <p className="text-2xl font-black text-on-primary-container">
+                          <p className="text-2xl font-medium tabular-nums text-on-primary-container">
                             {scoreStats.completionRate}%
                           </p>
                           <p className="mt-1 text-xs text-on-primary-container/70">完成率</p>
@@ -682,7 +681,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-black text-on-surface">{user?.name || '家长'}</h3>
+                    <h3 className="text-lg font-medium text-on-surface">{user?.name || '家长'}</h3>
                     <p className="text-sm text-on-surface-variant">家长端 · {user?.phone || ''}</p>
                   </div>
                   <button
@@ -756,14 +755,14 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'touch-target flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-all',
+                'touch-target flex min-w-[70px] flex-col items-center rounded-full px-4 py-2 transition-tactile',
                 activeTab === tab.key
                   ? 'bg-primary-container/35 text-primary'
                   : 'text-on-surface-variant hover:text-on-surface',
               )}
             >
               <tab.Icon className={cn('h-5 w-5', activeTab === tab.key && 'fill-current')} />
-              <span className="mt-0.5 text-[10px] font-bold">{tab.label}</span>
+              <span className="mt-0.5 text-xs font-bold">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -779,7 +778,6 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
       {selectedChildId && activeTab === 'chat' ? (
         <div className="pointer-events-none fixed bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full bg-surface-container-low/95 px-4 py-2 text-xs font-bold text-on-surface-variant shadow-card">
-          <Sparkles className="mr-1 inline h-3.5 w-3.5" />
           AI 正在根据 {selectedChild?.name || '当前孩子'} 的学习情况给出建议
         </div>
       ) : null}

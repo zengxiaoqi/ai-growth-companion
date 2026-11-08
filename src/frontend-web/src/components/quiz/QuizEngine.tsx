@@ -5,7 +5,6 @@ import {
   CheckCircle,
   Flame,
   PartyPopper,
-  Sparkles,
   Star,
   Trophy,
   XCircle,
@@ -145,7 +144,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
   if (totalQuestions === 0) {
     return (
       <Card className="p-6 text-center">
-        <p className="text-base font-black text-on-surface">当前内容暂无可作答题目</p>
+        <p className="text-base font-medium text-on-surface">当前内容暂无可作答题目</p>
         <p className="mt-1 text-sm text-on-surface-variant">返回上一页后可继续其他学习内容。</p>
         <Button className="mt-4" variant="secondary" onClick={() => onComplete(0, 0)}>
           继续
@@ -167,7 +166,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
         </motion.div>
 
         <div>
-          <h3 className="flex items-center justify-center gap-2 text-2xl font-black text-on-surface">
+          <h3 className="flex items-center justify-center gap-2 text-2xl font-medium text-on-surface">
             <PartyPopper className="h-6 w-6 text-tertiary" />
             挑战完成
           </h3>
@@ -188,8 +187,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           ))}
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-container px-4 py-1.5 text-sm font-black text-on-tertiary-container">
-          <Sparkles className="h-4 w-4" />
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-container px-4 py-1.5 text-sm font-medium text-on-tertiary-container">
           得分 {finalScore}%
         </div>
 
@@ -208,7 +206,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="font-bold text-on-surface-variant">{currentQuestion.sectionTitle}</span>
-          <span className="font-black text-primary">
+          <span className="font-medium text-primary">
             {currentIndex + 1} / {totalQuestions}
           </span>
         </div>
@@ -237,7 +235,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
           transition={{ duration: 0.22 }}
         >
           <Card className="space-y-4 p-5 md:p-6">
-            <h4 className="text-xl font-black leading-relaxed text-on-surface">
+            <h4 className="text-xl font-medium leading-relaxed text-on-surface">
               {currentQuestion.q}
             </h4>
 
@@ -258,7 +256,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                     onClick={() => handleSelect(index)}
                     disabled={isRevealed}
                     className={cn(
-                      'touch-target w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-bold transition-all',
+                      'touch-target w-full rounded-xl border-2 px-4 py-3 text-left text-sm font-bold transition-tactile',
                       showCorrect &&
                         'border-success bg-success-container text-on-success-container',
                       showWrong && 'border-error bg-error-container/20 text-error',
@@ -275,7 +273,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
                     <span className="flex items-center gap-3">
                       <span
                         className={cn(
-                          'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black',
+                          'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium',
                           showCorrect && 'bg-success text-white',
                           showWrong && 'bg-error text-white',
                           !showCorrect &&
@@ -301,7 +299,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
             {isRevealed ? (
               <div
                 className={cn(
-                  'rounded-xl px-4 py-3 text-sm font-black',
+                  'rounded-xl px-4 py-3 text-sm font-medium',
                   selectedOption === answerIndex
                     ? 'bg-success-container text-on-success-container'
                     : 'bg-warning-container text-on-warning-container',
@@ -309,7 +307,7 @@ export default function QuizEngine({ sections, onComplete }: QuizEngineProps) {
               >
                 {selectedOption === answerIndex ? (
                   <span className="inline-flex items-center gap-1.5">
-                    <Sparkles className="h-4 w-4" />
+                    <CheckCircle className="h-4 w-4" />
                     回答正确，继续下一题！
                   </span>
                 ) : (

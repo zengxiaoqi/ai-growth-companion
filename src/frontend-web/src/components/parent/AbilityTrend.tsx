@@ -49,7 +49,7 @@ export default function AbilityTrend({ trendData }: AbilityTrendProps) {
       className="panel-card p-5 md:p-6"
     >
       <div className="mb-5">
-        <h2 className="text-xl font-black text-on-surface">能力趋势</h2>
+        <h2 className="text-xl font-medium text-on-surface">能力趋势</h2>
         <p className="mt-1 text-sm text-on-surface-variant">近六周各领域能力变化曲线</p>
       </div>
 

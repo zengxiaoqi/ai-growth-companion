@@ -7,7 +7,6 @@ import {
   Lock,
   Microscope,
   Palette,
-  Sparkles,
   Sprout,
   Star,
   Target,
@@ -46,7 +45,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   microscope: Microscope,
   palette: Palette,
   users: Users,
-  sparkles: Sparkles,
+  sparkles: Award,
   award: Award,
   target: Target,
   trending: TrendingUp,
@@ -61,7 +60,7 @@ const fallbackIcons = [
   Microscope,
   Palette,
   Users,
-  Sparkles,
+  Sprout,
   Award,
   Target,
 ];
@@ -224,7 +223,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
             <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-tertiary-container text-on-tertiary-container">
               <Star className="h-5 w-5" />
             </div>
-            <p className="text-2xl font-black text-on-surface">{totalStars}</p>
+            <p className="text-2xl font-medium text-on-surface">{totalStars}</p>
             <p className="text-xs font-semibold text-on-surface-variant">星星总数</p>
           </Card>
 
@@ -232,7 +231,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
             <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
               <TrendingUp className="h-5 w-5" />
             </div>
-            <p className="text-2xl font-black text-on-surface">{totalPoints}</p>
+            <p className="text-2xl font-medium text-on-surface">{totalPoints}</p>
             <p className="text-xs font-semibold text-on-surface-variant">成长积分</p>
           </Card>
 
@@ -240,13 +239,13 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
             <div className="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-secondary-container text-on-secondary-container">
               <Award className="h-5 w-5" />
             </div>
-            <p className="text-2xl font-black text-on-surface">Lv.{level}</p>
+            <p className="text-2xl font-medium text-on-surface">Lv.{level}</p>
             <p className="text-xs font-semibold text-on-surface-variant">当前等级</p>
           </Card>
         </section>
 
         <Card className="p-5">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-on-surface">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-medium text-on-surface">
             <Sprout className="h-5 w-5 text-success" />
             成长里程碑
           </h2>
@@ -276,9 +275,9 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
           {nextMilestone ? (
             <p className="mt-3 text-sm text-on-surface-variant">
               再解锁{' '}
-              <span className="font-black text-primary">{nextMilestone.min - unlockedCount}</span>{' '}
+              <span className="font-medium text-primary">{nextMilestone.min - unlockedCount}</span>{' '}
               项成就，即可升级为
-              <span className="font-black text-primary"> {nextMilestone.label}</span>。
+              <span className="font-medium text-primary"> {nextMilestone.label}</span>。
             </p>
           ) : (
             <p className="mt-3 text-sm font-semibold text-success">
@@ -288,7 +287,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
         </Card>
 
         <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-black text-on-surface">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-medium text-on-surface">
             <Trophy className="h-5 w-5 text-primary" />
             成就徽章
           </h2>
@@ -299,7 +298,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
               description="完成一节学习内容，就能点亮你的第一个徽章。"
               actionLabel="去学习"
               onAction={onBack}
-              icon={<Sparkles className="h-6 w-6 text-primary" />}
+              icon={<Trophy className="h-6 w-6 text-primary" />}
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -325,7 +324,7 @@ export default function AchievementShowcase({ onBack, userId }: AchievementShowc
                         {unlocked ? <Icon className="h-6 w-6" /> : <Lock className="h-5 w-5" />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 text-sm font-black text-on-surface">
+                        <h3 className="line-clamp-1 text-sm font-medium text-on-surface">
                           {achievement.name}
                         </h3>
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-on-surface-variant">

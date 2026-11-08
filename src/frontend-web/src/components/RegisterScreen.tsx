@@ -69,7 +69,7 @@ export default function RegisterScreen({
       {/* Header */}
       <header className="w-full bg-surface">
         <div className="flex justify-center items-center w-full px-8 py-6">
-          <h1 className="text-2xl font-bold tracking-tight text-primary">灵犀伴学</h1>
+          <h1 className="text-2xl font-bold text-primary">灵犀伴学</h1>
         </div>
       </header>
 
@@ -78,7 +78,7 @@ export default function RegisterScreen({
         <div className="w-full max-w-md">
           {/* Title */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black text-primary mb-2">创建账号</h2>
+            <h2 className="text-3xl font-medium text-primary mb-2">创建账号</h2>
             <p className="text-on-surface-variant">加入灵犀伴学，开启成长之旅</p>
           </div>
 
@@ -259,7 +259,7 @@ export default function RegisterScreen({
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary text-on-primary py-5 rounded-full font-bold text-xl shadow-tactile active:shadow-tactile-active active:translate-y-[4px] transition-all flex items-center justify-center gap-3 tactile-press disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0"
+              className="w-full bg-primary text-on-primary py-5 rounded-full font-bold text-xl shadow-tactile active:shadow-tactile-active active:translate-y-[4px] transition-tactile flex items-center justify-center gap-3 tactile-press disabled:opacity-60 disabled:cursor-not-allowed disabled:active:translate-y-0"
             >
               {isLoading ? (
                 <>

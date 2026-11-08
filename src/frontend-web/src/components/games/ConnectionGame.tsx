@@ -102,7 +102,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
     <div className="space-y-4 max-w-lg mx-auto">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2">
-          <h3 className="font-black text-on-surface text-lg">{data.title}</h3>
+          <h3 className="font-medium text-on-surface text-lg">{data.title}</h3>
           <button
             onClick={() => {
               const leftLabels = leftItems.map((item: any) => item.label).join('、');
@@ -134,7 +134,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                 aria-label={`左侧: ${item.label}${connected ? '（已配对）' : isSelected ? '（已选中）' : ''}`}
                 className={cn(
-                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all flex items-center gap-2 justify-center min-h-[48px] sm:min-h-[52px]',
+                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-tactile flex items-center gap-2 justify-center min-h-[48px] sm:min-h-[52px]',
                   isSelected &&
                     'border-primary bg-primary-container text-on-primary-container ring-2 ring-primary ring-offset-2',
                   connected &&
@@ -170,7 +170,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
                 disabled={!selectedLeft && !connected}
                 aria-label={`右侧: ${item.label}${connected ? '（已配对）' : ''}`}
                 className={cn(
-                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-all min-h-[48px] sm:min-h-[52px]',
+                  'w-full p-3 sm:p-4 rounded-2xl border-2 text-center text-sm sm:text-base font-bold transition-tactile min-h-[48px] sm:min-h-[52px]',
                   connected && 'border-success bg-success-container/50 text-on-surface',
                   !connected &&
                     selectedLeft &&
@@ -197,7 +197,7 @@ export default function ConnectionGame({ data, onComplete }: ConnectionGameProps
           >
             <button
               onClick={handleCheck}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press flex items-center justify-center gap-2 min-h-[48px]"
             >
               提交答案 <ArrowRight className="w-4 h-4" />
             </button>

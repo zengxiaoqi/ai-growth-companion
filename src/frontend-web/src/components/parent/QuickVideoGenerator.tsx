@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Play, Sparkles, Loader2, Check, RotateCcw, XCircle } from '@/icons';
+import { Play, Loader2, Check, RotateCcw, XCircle} from '@/icons';
 import api from '@/services/api';
 import type { QuickVideoGenerateResponse } from '@/types';
 import { Button, Card } from '../ui';
@@ -15,9 +15,9 @@ type GeneratorState = 'idle' | 'generating' | 'enqueued' | 'polling' | 'complete
 
 const STYLE_OPTIONS = [
   { value: '', label: '自动选择' },
-  { value: 'story', label: '📖 故事' },
-  { value: 'science', label: '🔬 科普' },
-  { value: 'song', label: '🎵 儿歌' },
+  { value: 'story', label: '故事' },
+  { value: 'science', label: '科普' },
+  { value: 'song', label: '儿歌' },
 ] as const;
 
 export default function QuickVideoGenerator({
@@ -216,7 +216,6 @@ export default function QuickVideoGenerator({
               disabled={!topic.trim() || !selectedChildId}
               className="w-full"
             >
-              <Sparkles className="mr-2 h-4 w-4" />
               生成教学视频
             </Button>
           </Card>

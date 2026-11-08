@@ -116,7 +116,7 @@ export default function EmergencyCallDialog({
                     key={countdown}
                     initial={{ scale: 1.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-6xl font-black text-error"
+                    className="text-6xl font-medium text-error"
                   >
                     {countdown}
                   </motion.div>

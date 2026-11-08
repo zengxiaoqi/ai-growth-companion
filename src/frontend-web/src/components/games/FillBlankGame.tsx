@@ -161,7 +161,7 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
           className="bg-surface-container-lowest rounded-2xl p-4 sm:p-5 border border-outline-variant/15 space-y-4 sm:space-y-5"
         >
           <div className="flex items-start gap-2">
-            <div className="text-lg sm:text-xl font-black text-on-surface leading-relaxed flex-1">
+            <div className="text-lg sm:text-xl font-medium text-on-surface leading-relaxed flex-1">
               {renderText(current.text)}
             </div>
             <button
@@ -193,7 +193,7 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
                 whileTap={reducedMotion || isRevealed ? undefined : { scale: 0.95 }}
                 aria-label={`选项: ${opt}`}
                 className={cn(
-                  'px-4 py-3 sm:px-5 sm:py-4 rounded-xl border-2 font-bold text-base sm:text-lg transition-all min-h-[48px]',
+                  'px-4 py-3 sm:px-5 sm:py-4 rounded-xl border-2 font-bold text-base sm:text-lg transition-tactile min-h-[48px]',
                   !isRevealed &&
                     opt === selected &&
                     'bg-primary-container/30 border-primary text-on-surface',
@@ -224,7 +224,7 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
             <button
               onClick={handleSubmit}
               aria-label="确认答案"
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press min-h-[48px]"
             >
               确认答案
             </button>
@@ -239,7 +239,7 @@ export default function FillBlankGame({ data, onComplete }: FillBlankGameProps) 
             <button
               onClick={handleNext}
               aria-label={currentIndex >= total - 1 ? '查看结果' : '下一题'}
-              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-black shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-all tactile-press flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full bg-primary text-on-primary py-3 sm:py-4 rounded-full font-medium shadow-tactile active:shadow-tactile-active active:translate-y-1 transition-tactile tactile-press flex items-center justify-center gap-2 min-h-[48px]"
             >
               {currentIndex >= total - 1 ? (
                 '查看结果'

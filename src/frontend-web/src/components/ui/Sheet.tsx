@@ -32,7 +32,7 @@ export function Sheet({ open, onOpenChange, title, side = 'right', children }: S
         >
           <div className="mb-3 flex items-center justify-between">
             {title ? (
-              <Dialog.Title className="text-base font-black text-on-surface">{title}</Dialog.Title>
+              <Dialog.Title className="text-base font-medium text-on-surface">{title}</Dialog.Title>
             ) : (
               <span />
             )}

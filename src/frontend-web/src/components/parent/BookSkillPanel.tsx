@@ -127,7 +127,7 @@ export default function BookSkillPanel() {
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-tactile transition-all active:translate-y-0.5 active:shadow-tactile-active disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active disabled:opacity-50"
         >
           {uploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -229,7 +229,7 @@ export default function BookSkillPanel() {
                       {statusBadge(book.status)}
                       <button
                         onClick={() => handleDelete(book.id)}
-                        className="rounded-full p-1.5 text-on-surface-variant opacity-0 transition-all hover:bg-error-container hover:text-error group-hover:opacity-100"
+                        className="rounded-full p-1.5 text-on-surface-variant opacity-0 transition-tactile hover:bg-error-container hover:text-error group-hover:opacity-100"
                       >
                         <X className="h-4 w-4" />
                       </button>

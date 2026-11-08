@@ -13,7 +13,6 @@ import {
   Palette,
   Pause,
   Play,
-  Sparkles,
   Star,
   Users,
   Volume2,
@@ -331,7 +330,7 @@ export default function ContentDetail({
     return (
       DOMAIN_META[content.domain] || {
         label: '学习',
-        icon: Sparkles,
+        icon: BookOpen,
         badgeClass: 'bg-surface-container text-on-surface',
       }
     );
@@ -533,7 +532,7 @@ export default function ContentDetail({
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
               <div
                 className={cn(
-                  'absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black',
+                  'absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium',
                   domainMeta.badgeClass,
                 )}
               >
@@ -545,7 +544,7 @@ export default function ContentDetail({
 
           <Card className="space-y-4 p-5">
             <div>
-              <h2 className="text-2xl font-black text-on-surface">{content.title}</h2>
+              <h2 className="text-2xl font-medium text-on-surface">{content.title}</h2>
               {content.subtitle ? (
                 <p className="mt-1 text-sm text-on-surface-variant">{content.subtitle}</p>
               ) : null}
@@ -576,9 +575,9 @@ export default function ContentDetail({
             <Card className="space-y-3 p-5">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-black text-on-surface">学习内容</h3>
+                <h3 className="text-lg font-medium text-on-surface">学习内容</h3>
                 {hasInteractiveContent ? (
-                  <span className="ml-auto rounded-full bg-primary-container px-3 py-1 text-xs font-black text-on-primary-container">
+                  <span className="ml-auto rounded-full bg-primary-container px-3 py-1 text-xs font-medium text-on-primary-container">
                     含互动练习
                   </span>
                 ) : null}
@@ -606,7 +605,7 @@ export default function ContentDetail({
                   type="button"
                   onClick={handleToggleAudio}
                   disabled={audioLoading}
-                  className="touch-target flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary shadow-tactile transition-all active:translate-y-0.5 active:shadow-tactile-active disabled:opacity-60"
+                  className="touch-target flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active disabled:opacity-60"
                   aria-label={isPlayingAudio ? '暂停语音播放' : '播放语音'}
                 >
                   {audioLoading ? (
@@ -618,7 +617,7 @@ export default function ContentDetail({
                   )}
                 </button>
                 <div>
-                  <p className="text-sm font-black text-on-surface">
+                  <p className="text-sm font-medium text-on-surface">
                     {isPlayingAudio ? '语音朗读中...' : '语音朗读'}
                   </p>
                   <p className="text-xs text-on-surface-variant">点击可播放或暂停当前学习内容</p>
@@ -629,7 +628,7 @@ export default function ContentDetail({
 
           {content.mediaUrls && content.mediaUrls.length > 0 ? (
             <Card className="space-y-3 p-5">
-              <h3 className="text-lg font-black text-on-surface">媒体资源</h3>
+              <h3 className="text-lg font-medium text-on-surface">媒体资源</h3>
               <div className="grid grid-cols-2 gap-3">
                 {content.mediaUrls.map((url, index) => (
                   <div
@@ -653,11 +652,10 @@ export default function ContentDetail({
           {showEvaluation ? (
             <Card className="relative overflow-hidden border-secondary-container/25 bg-on-secondary-container p-6 text-on-secondary">
               <div className="relative z-10">
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary-container/20 px-3 py-1 text-xs font-black">
-                  <Sparkles className="h-4 w-4" />
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary-container/20 px-3 py-1 text-xs font-medium">
                   AI 评估
                 </div>
-                <h3 className="text-2xl font-black">太棒了！</h3>
+                <h3 className="text-2xl font-medium">太棒了！</h3>
                 <p className="mt-2 text-sm leading-6 opacity-95">
                   你已经完成《{content.title}》学习，获得 {score} 分。继续保持，下一次会更出色！
                 </p>
@@ -720,7 +718,7 @@ export default function ContentDetail({
                     className="h-2 flex-1 cursor-pointer accent-primary"
                     aria-label="调整学习评分"
                   />
-                  <span className="w-10 text-right text-base font-black text-primary">{score}</span>
+                  <span className="w-10 text-right text-base font-medium text-primary">{score}</span>
                 </div>
                 <Button
                   size="lg"

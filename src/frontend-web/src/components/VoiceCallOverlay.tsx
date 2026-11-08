@@ -35,9 +35,10 @@ const PHASE_TEXT: Record<CallPhase, string> = {
 
 /**
  * 豆包式语音通话界面：连续「听 → 识别 → AI 短回复(casual) → TTS 播报」循环。
- * - 语音识别用浏览器 Web Speech API（Chrome/Edge）
+ * - 语音识别用浏览器 Web Speech API（Chrome 走 Google 服务、Edge 走微软服务）
  * - TTS 走后端 Edge TTS（/voice/tts 返回 MP3）
  * - AI 回复固定走碎碎念(casual)模式：1~2 句口语短句，适合语音来回
+ * - 识别失败(网络/权限)会在界面明示，并提供打字兜底输入
  */
 export function VoiceCallOverlay({
   open,
@@ -54,6 +55,9 @@ export function VoiceCallOverlay({
   const [turns, setTurns] = useState<VoiceCallTurn[]>([]);
   const [interim, setInterim] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  /** 识别服务连续失败提示（网络不通/浏览器不支持） */
+  const [asrIssue, setAsrIssue] = useState<string | null>(null);
+  const [typedText, setTypedText] = useState('');
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,6 +67,8 @@ export function VoiceCallOverlay({
   const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const turnsRef = useRef<VoiceCallTurn[]>([]);
   const sessionIdRef = useRef(sessionId);
+  const networkFailRef = useRef(0);
+  const asrPausedRef = useRef(false);
 
   const pushTurn = useCallback((turn: VoiceCallTurn) => {
     turnsRef.current = [...turnsRef.current, turn];
@@ -202,11 +208,15 @@ export function VoiceCallOverlay({
   }, [runTurn]);
 
   const startListening = useCallback(() => {
-    if (!activeRef.current || mutedRef.current) return;
+    if (!activeRef.current || mutedRef.current || asrPausedRef.current) return;
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setPhase('error');
+      asrPausedRef.current = true;
+      setAsrIssue(
+        '当前浏览器不支持语音识别，请用 Chrome 或 Edge 打开，或直接在下方打字和我聊',
+      );
+      setPhase('listening');
       return;
     }
     stopRecognition();
@@ -216,6 +226,7 @@ export function VoiceCallOverlay({
     recognition.interimResults = true;
 
     recognition.onresult = (event: any) => {
+      networkFailRef.current = 0;
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -234,10 +245,27 @@ export function VoiceCallOverlay({
     };
 
     recognition.onerror = (event: any) => {
-      if (event?.error === 'not-allowed' || event?.error === 'service-not-allowed') {
+      const errType = event?.error;
+      if (errType === 'not-allowed' || errType === 'service-not-allowed') {
+        asrPausedRef.current = true;
         setPhase('error');
         mutedRef.current = true;
         setMuted(true);
+        setAsrIssue('麦克风权限被拒绝：请在浏览器地址栏的权限设置里允许麦克风后重试');
+      } else if (errType === 'audio-capture') {
+        asrPausedRef.current = true;
+        setPhase('error');
+        setAsrIssue('检测不到麦克风设备，请检查系统录音设备后重试');
+      } else if (errType === 'network') {
+        // Chrome 的语音识别要把录音传到 Google 服务器，国内直连不通会持续报这个错
+        networkFailRef.current += 1;
+        if (networkFailRef.current >= 3) {
+          asrPausedRef.current = true;
+          setAsrIssue(
+            '语音识别服务连不上（Chrome 需访问 Google 服务）：建议改用 Edge 浏览器，或开启系统代理后刷新重试；也可以直接在下方打字和我聊',
+          );
+          setPhase('listening');
+        }
       }
       // 'no-speech' / 'aborted' 等由 onend 自动重启兜底
     };
@@ -245,10 +273,10 @@ export function VoiceCallOverlay({
     recognition.onend = () => {
       recognitionRef.current = null;
       // Chrome 会周期性自动断开 continuous 识别，只要还在通话中就续上
-      if (activeRef.current && !mutedRef.current && !audioRef.current) {
+      if (activeRef.current && !mutedRef.current && !audioRef.current && !asrPausedRef.current) {
         setPhase((p) => (p === 'listening' || p === 'muted' ? 'listening' : p));
         setTimeout(() => {
-          if (activeRef.current && !mutedRef.current && !audioRef.current) {
+          if (activeRef.current && !mutedRef.current && !audioRef.current && !asrPausedRef.current) {
             startListening();
           }
         }, 300);
@@ -256,7 +284,11 @@ export function VoiceCallOverlay({
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      // start() 在已运行时会抛 InvalidStateError，忽略即可
+    }
   }, [commitUtterance, stopRecognition]);
 
   // 打开：接通 → AI 先开口打招呼 → 进入聆听
@@ -264,10 +296,13 @@ export function VoiceCallOverlay({
     if (!open) return;
     activeRef.current = true;
     mutedRef.current = false;
+    asrPausedRef.current = false;
+    networkFailRef.current = 0;
     turnsRef.current = [];
     setTurns([]);
     setInterim('');
     setMuted(false);
+    setAsrIssue(null);
     setElapsed(0);
     setPhase('connecting');
 
@@ -322,12 +357,24 @@ export function VoiceCallOverlay({
         setInterim('');
         setPhase('muted');
       } else {
-        setPhase('listening');
+        // 取消静音：清掉之前的失败记录，重新尝试识别
+        asrPausedRef.current = false;
+        networkFailRef.current = 0;
+        setAsrIssue(null);
+        if (phase !== 'error') setPhase('listening');
         startListening();
       }
       return next;
     });
-  }, [startListening, stopRecognition]);
+  }, [phase, startListening, stopRecognition]);
+
+  /** 打字兜底：直接走 casual 对话 + TTS 播报，与语音轮完全一致 */
+  const handleSendTyped = useCallback(() => {
+    const text = typedText.trim();
+    if (!text || !activeRef.current) return;
+    setTypedText('');
+    runTurn(text);
+  }, [runTurn, typedText]);
 
   const handleHangUp = useCallback(() => {
     activeRef.current = false;
@@ -396,6 +443,28 @@ export function VoiceCallOverlay({
         )}
       </div>
 
+      {/* 识别故障提示（权限/网络/不支持） */}
+      {asrIssue && (
+        <div className="mx-auto max-w-xl px-4">
+          <div className="rounded-xl bg-red-500/15 border border-red-400/30 px-3.5 py-2.5 text-xs leading-relaxed text-red-200">
+            ⚠️ {asrIssue}
+            {!muted && phase !== 'error' && (
+              <button
+                onClick={() => {
+                  asrPausedRef.current = false;
+                  networkFailRef.current = 0;
+                  setAsrIssue(null);
+                  startListening();
+                }}
+                className="ml-2 underline underline-offset-2 hover:text-white"
+              >
+                重试
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 通话记录（最近几轮） */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 space-y-2 pb-2 max-w-2xl w-full mx-auto">
         {turns.slice(-6).map((turn, i) => (
@@ -417,17 +486,37 @@ export function VoiceCallOverlay({
         ))}
       </div>
 
-      {/* 底部控制：静音 / 挂断 */}
-      <div className="flex items-center justify-center gap-10 pb-10 pt-2">
+      {/* 底部控制：打字兜底 + 静音 / 挂断 */}
+      <div className="w-full max-w-md mx-auto px-6 pb-3">
+        <div className="flex items-center gap-2">
+          <input
+            value={typedText}
+            onChange={(e) => setTypedText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendTyped();
+            }}
+            placeholder="说话不便？打字帮我说…"
+            className="min-w-0 flex-1 rounded-full bg-white/10 border border-white/15 px-4 py-2 text-sm text-white placeholder-white/40 outline-none focus:border-white/40"
+          />
+          <button
+            onClick={handleSendTyped}
+            disabled={!typedText.trim()}
+            className="shrink-0 rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white hover:bg-white/25 disabled:opacity-40"
+            aria-label="发送"
+          >
+            发送
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-10 pb-8 pt-1">
         <button
           onClick={handleToggleMute}
-          disabled={phase === 'error'}
           className={cn(
             'w-14 h-14 rounded-full flex items-center justify-center transition-colors',
             muted ? 'bg-white text-slate-900' : 'bg-white/15 text-white hover:bg-white/25',
           )}
-          aria-label={muted ? '取消静音' : '静音'}
-          title={muted ? '取消静音' : '静音'}
+          aria-label={muted ? '取消静音（重试麦克风）' : '静音'}
+          title={muted ? '取消静音（重试麦克风）' : '静音'}
         >
           {muted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
         </button>

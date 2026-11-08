@@ -15,6 +15,7 @@ import '../providers/chat_session_provider.dart';
 import '../components/speech_input_widget.dart';
 import '../components/dictionary_sheet.dart';
 import 'games/game_renderer.dart';
+import 'voice_call_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 内联答题卡 Widget
@@ -1110,7 +1111,27 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             ]),
           ),
         ),
+        const Spacer(),
+        // 豆包式语音通话入口
+        GestureDetector(
+          onTap: _openVoiceCall,
+          child: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.call_rounded, size: 20, color: AppTheme.primaryColor),
+          ),
+        ),
       ]),
+    );
+  }
+
+  /// 打开语音通话界面（连续听-说对话，走碎碎念短回复）
+  void _openVoiceCall() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
     );
   }
 

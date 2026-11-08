@@ -954,6 +954,83 @@ class ChatSessionProvider extends ChangeNotifier {
     }
   }
 
+  /// 语音通话专用：发送一轮对话（强制碎碎念 casual 模式，AI 只回口语短句）。
+  /// 消息照常写入本地缓存与会话，返回 AI 最终回复文本供通话界面 TTS 播报。
+  Future<String> sendVoiceTurn(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return '';
+
+    _localMessages.add(ChatMessageEntry(role: 'user', content: trimmed));
+    final aiMsg = ChatMessageEntry(
+      role: 'assistant',
+      content: '',
+      displayText: '',
+      isStreaming: true,
+    );
+    _localMessages.add(aiMsg);
+    notifyListeners();
+
+    final targetSession = _activeSession;
+    final sessionUuid = targetSession?.uuid;
+    String fullReply = '';
+    String? newSessionId;
+
+    try {
+      final stream = _apiService.sendAIChatMessageStream(
+        trimmed,
+        childId: _childId,
+        parentId: _isParentMode ? _childId : null,
+        sessionId: sessionUuid,
+        mode: 'casual',
+      );
+      await for (final event in stream.timeout(
+        const Duration(seconds: 60),
+        onTimeout: (sink) {
+          sink.add({'type': 'error', 'message': 'AI响应超时'});
+          sink.close();
+        },
+      )) {
+        final type = event['type'] as String?;
+        final eventSessionId = event['sessionId'] as String?;
+        if (eventSessionId != null && eventSessionId.isNotEmpty) {
+          newSessionId = eventSessionId;
+        }
+        if (type == 'token') {
+          fullReply += (event['content'] as String? ?? '');
+          aiMsg.content = fullReply;
+          aiMsg.displayText = fullReply;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      fullReply = '哎呀，我这边信号不太好，你再说一遍好吗？';
+    }
+
+    if (fullReply.trim().isEmpty) {
+      fullReply = '嗯嗯，我在听呢～';
+    }
+
+    _localMessages[_localMessages.length - 1] = ChatMessageEntry(
+      role: 'assistant',
+      content: fullReply,
+      displayText: fullReply,
+      isStreaming: false,
+    );
+
+    final sessionId = newSessionId;
+    if (sessionId != null && targetSession == null) {
+      _activeSession = ChatSessionSummary(
+        uuid: sessionId,
+        title: trimmed.length > 30 ? '${trimmed.substring(0, 30)}...' : trimmed,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      _sessions.insert(0, _activeSession!);
+    }
+    notifyListeners();
+    return fullReply;
+  }
+
   /// 从游戏数据结构推断活动类型
   String _inferActivityType(Map<String, dynamic> data) {
     // 显式类型字段

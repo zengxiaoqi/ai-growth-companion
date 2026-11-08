@@ -56,7 +56,7 @@ class _NumberFactCardState extends State<NumberFactCard> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFFFCE4E), Color(0xFFFFB347)],
+            colors: [Color(0xFFE3BC45), Color(0xFFFFB347)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -258,7 +258,7 @@ class _NumberFactCardState extends State<NumberFactCard> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [Color(0xFFFFCE4E), Color(0xFFFFB347)],
+                      colors: [Color(0xFFE3BC45), Color(0xFFFFB347)],
                     ),
                   ),
                   child: Center(

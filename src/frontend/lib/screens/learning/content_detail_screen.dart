@@ -56,7 +56,7 @@ const Map<String, DomainMeta> kDomainMeta = {
   'social': DomainMeta(
     label: '社会',
     icon: Icons.people_rounded,
-    color: Color(0xFFFFCE4E),
+    color: Color(0xFFE3BC45),
     backgroundColor: Color(0xFFFFF5E0),
   ),
 };

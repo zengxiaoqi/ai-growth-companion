@@ -34,7 +34,7 @@ const Map<String, Map<String, dynamic>> _stepMeta = {
     'emoji': '📖',
     'label': '读',
     'icon': Icons.chrome_reader_mode_rounded,
-    'color': Color(0xFFFFCE4E),
+    'color': Color(0xFFE3BC45),
   },
   'write': {
     'emoji': '✍',
@@ -46,7 +46,7 @@ const Map<String, Map<String, dynamic>> _stepMeta = {
     'emoji': '🎮',
     'label': '练',
     'icon': Icons.games_rounded,
-    'color': Color(0xFFFF9B85),
+    'color': Color(0xFFE0885F),
   },
 };
 

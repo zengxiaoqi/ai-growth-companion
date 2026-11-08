@@ -24,7 +24,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
       {'name': '学习小达人', 'icon': '🏆', 'desc': '累计学习 7 天', 'color': AppTheme.secondaryColor},
       {'name': '语言高手', 'icon': '📚', 'desc': '完成 10 个语言主题', 'color': AppTheme.accentColor},
       {'name': '数学天才', 'icon': '🔢', 'desc': '完成 10 个数学主题', 'color': AppTheme.softPurple},
-      {'name': '探索者', 'icon': '🌟', 'desc': '尝试所有学科', 'color': const Color(0xFFFFCE4E)},
+      {'name': '探索者', 'icon': '🌟', 'desc': '尝试所有学科', 'color': const Color(0xFFE3BC45)},
     ];
 
     const stars = 25;
@@ -62,7 +62,6 @@ class _AchievementScreenState extends State<AchievementScreen> {
     return const SectionHeader(
       title: '成就徽章',
       emoji: '🏆',
-      trailing: Text('✨'),
     );
   }
 
@@ -71,11 +70,11 @@ class _AchievementScreenState extends State<AchievementScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       gradient: const LinearGradient(
-        colors: [Color(0xFFFFCE4E), Color(0xFFFFD700)],
+        colors: [Color(0xFFE3BC45), Color(0xFFFFD700)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      boxShadow: AppTheme.glowShadow(const Color(0xFFFFCE4E)),
+      boxShadow: AppTheme.glowShadow(const Color(0xFFE3BC45)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

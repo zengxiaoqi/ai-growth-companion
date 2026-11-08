@@ -429,9 +429,9 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       {'title': '语言', 'domain': 'language', 'icon': Icons.chat_bubble_rounded, 'emoji': '🗣️', 'color': AppTheme.primaryColor, 'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]},
       {'title': '数学', 'domain': 'math', 'icon': Icons.calculate_rounded, 'emoji': '🔢', 'color': AppTheme.secondaryColor, 'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]},
       {'title': '科学', 'domain': 'science', 'icon': Icons.science_rounded, 'emoji': '🔬', 'color': AppTheme.accentColor, 'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]},
-      {'title': '艺术', 'domain': 'art', 'icon': Icons.palette_rounded, 'emoji': '🎨', 'color': const Color(0xFFDDA0DD), 'gradient': [const Color(0xFFDDA0DD), const Color(0xFFE8B8E8)]},
-      {'title': '社会', 'domain': 'social', 'icon': Icons.people_rounded, 'emoji': '🌍', 'color': const Color(0xFFFFCE4E), 'gradient': [const Color(0xFFFFCE4E), const Color(0xFFFFE066)]},
-      {'title': '音乐', 'domain': 'music', 'icon': Icons.music_note_rounded, 'emoji': '🎵', 'color': const Color(0xFFFF85A2), 'gradient': [const Color(0xFFFF85A2), const Color(0xFFFFA5B9)]},
+      {'title': '艺术', 'domain': 'art', 'icon': Icons.palette_rounded, 'emoji': '🎨', 'color': const Color(0xFF9A8FB8), 'gradient': [const Color(0xFF9A8FB8), const Color(0xFFB3ABC9)]},
+      {'title': '社会', 'domain': 'social', 'icon': Icons.people_rounded, 'emoji': '🌍', 'color': const Color(0xFFE3BC45), 'gradient': [const Color(0xFFE3BC45), const Color(0xFFFFE066)]},
+      {'title': '音乐', 'domain': 'music', 'icon': Icons.music_note_rounded, 'emoji': '🎵', 'color': const Color(0xFFC26B5A), 'gradient': [const Color(0xFFC26B5A), const Color(0xFFD18B7B)]},
     ];
 
     return GridView.builder(

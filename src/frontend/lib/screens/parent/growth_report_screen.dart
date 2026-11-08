@@ -377,7 +377,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
           gradient: const LinearGradient(
             colors: [
               AppTheme.primaryColor,
-              Color(0xFFFFA5B9),
+              Color(0xFFD18B7B),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

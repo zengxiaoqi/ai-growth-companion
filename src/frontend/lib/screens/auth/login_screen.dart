@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           height: 100,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppTheme.primaryColor, Color(0xFFFFA5B9)],
+              colors: [AppTheme.primaryColor, Color(0xFFD18B7B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

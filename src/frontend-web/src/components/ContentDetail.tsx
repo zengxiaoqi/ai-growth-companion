@@ -673,7 +673,7 @@ export default function ContentDetail({
           ) : null}
         </main>
 
-        <div className="fixed bottom-safe left-0 right-0 z-40 border-t border-outline-variant/15 bg-surface-container-low/95 px-4 pb-safe pt-3 backdrop-blur-xl">
+        <div className="fixed bottom-safe left-0 right-0 z-40 border-t border-outline-variant/15 bg-surface-container-low px-4 pb-safe pt-3">
           <div className="mx-auto w-full max-w-4xl">
             {!learningRecord ? (
               <div className="space-y-2">

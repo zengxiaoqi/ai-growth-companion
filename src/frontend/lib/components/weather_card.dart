@@ -70,12 +70,12 @@ class _WeatherCardState extends State<WeatherCard> {
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             // 天空蓝渐变
-            colors: [Color(0xFF7EC8E3), Color(0xFFB8E0F5)],
+            colors: [Color(0xFF6FA3C8), Color(0xFFBCD9EC)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          boxShadow: AppTheme.softShadow(const Color(0xFF7EC8E3)),
+          boxShadow: AppTheme.softShadow(const Color(0xFF6FA3C8)),
         ),
         child: _buildContent(),
       ),

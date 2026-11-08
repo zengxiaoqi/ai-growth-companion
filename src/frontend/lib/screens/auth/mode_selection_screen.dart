@@ -191,7 +191,7 @@ class ModeSelectionScreen extends StatelessWidget {
               height: 50,
               decoration: BoxDecoration(
                 gradient: isChild
-                    ? const LinearGradient(colors: [AppTheme.primaryColor, Color(0xFFFFA5B9)])
+                    ? const LinearGradient(colors: [AppTheme.primaryColor, Color(0xFFD18B7B)])
                     : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -329,7 +329,7 @@ class ModeSelectionScreen extends StatelessWidget {
               height: 50,
               decoration: BoxDecoration(
                 gradient: isParent
-                    ? const LinearGradient(colors: [AppTheme.secondaryColor, Color(0xFFA8D8EA)])
+                    ? const LinearGradient(colors: [AppTheme.secondaryColor, Color(0xFFBCD9EC)])
                     : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),

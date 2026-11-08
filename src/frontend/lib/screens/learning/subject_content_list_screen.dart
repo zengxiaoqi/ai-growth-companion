@@ -177,9 +177,9 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
     'language': {'emoji': '🗣️', 'color': AppTheme.primaryColor},
     'math': {'emoji': '🔢', 'color': AppTheme.secondaryColor},
     'science': {'emoji': '🔬', 'color': AppTheme.accentColor},
-    'art': {'emoji': '🎨', 'color': Color(0xFFDDA0DD)},
-    'social': {'emoji': '🌍', 'color': Color(0xFFFFCE4E)},
-    'music': {'emoji': '🎵', 'color': Color(0xFFFF85A2)},
+    'art': {'emoji': '🎨', 'color': Color(0xFF9A8FB8)},
+    'social': {'emoji': '🌍', 'color': Color(0xFFE3BC45)},
+    'music': {'emoji': '🎵', 'color': Color(0xFFC26B5A)},
   };
 }
 

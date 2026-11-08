@@ -749,7 +749,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
       </main>
 
       <nav className="fixed bottom-safe left-0 right-0 z-50 px-3 md:px-6">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low/90 px-2 py-1.5 backdrop-blur-lg">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-2 py-1.5">
           {tabs.map((tab) => (
             <button
               key={tab.key}

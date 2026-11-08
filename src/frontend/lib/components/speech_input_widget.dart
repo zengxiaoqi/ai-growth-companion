@@ -378,7 +378,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
                     gradient: const LinearGradient(
                       colors: [
                         AppTheme.warningColor,
-                        Color(0xFFFF6B6B),
+                        Color(0xFFC26B5A),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,

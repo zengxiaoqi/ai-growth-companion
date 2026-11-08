@@ -308,7 +308,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               const SizedBox(height: 8),
               const Row(
                 children: [
-                  Text('✨', style: TextStyle(fontSize: 16)),
                   SizedBox(width: 4),
                   Text(
                     '今天也要努力学习哦~',
@@ -560,7 +559,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 icon: Icons.quiz_rounded,
                 title: '知识问答',
                 emoji: '🧠',
-                color: const Color(0xFF7EC8E3),
+                color: const Color(0xFF6FA3C8),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -603,7 +602,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 icon: Icons.emoji_events_rounded,
                 title: '成就',
                 emoji: '🏆',
-                color: const Color(0xFFDDA0DD),
+                color: const Color(0xFF9A8FB8),
                 onTap: () {},
               ),
             ),
@@ -737,11 +736,11 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
           child: AppCard(
             padding: const EdgeInsets.all(20),
             gradient: const LinearGradient(
-              colors: [Color(0xFFFFCE4E), Color(0xFFFFB347)],
+              colors: [Color(0xFFE3BC45), Color(0xFFFFB347)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            boxShadow: AppTheme.softShadow(const Color(0xFFFFCE4E)),
+            boxShadow: AppTheme.softShadow(const Color(0xFFE3BC45)),
             child: Row(
               children: [
                 Container(
@@ -799,11 +798,11 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
           child: AppCard(
             padding: const EdgeInsets.all(20),
             gradient: const LinearGradient(
-              colors: [Color(0xFFFF6B6B), Color(0xFFFF8E8E)],
+              colors: [Color(0xFFC26B5A), Color(0xFFD0836F)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            boxShadow: AppTheme.softShadow(const Color(0xFFFF6B6B)),
+            boxShadow: AppTheme.softShadow(const Color(0xFFC26B5A)),
             child: Row(
               children: [
                 Container(

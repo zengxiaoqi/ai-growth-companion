@@ -1,84 +1,84 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // 品牌色彩 - 童趣柔和色调
-  static const Color primaryColor = Color(0xFFFF85A2);    // 樱花粉
-  static const Color secondaryColor = Color(0xFF7EC8E3); // 天空蓝
-  static const Color accentColor = Color(0xFF7ED957);     // 草地绿
-  static const Color warningColor = Color(0xFFFF9B85);   // 珊瑚红
-  static const Color backgroundColor = Color(0xFFFFF8E8); // 奶白色
-  static const Color textColor = Color(0xFF4A4A4A);      // 深灰
-  static const Color textSecondary = Color(0xFF9E9E9E);  // 中灰
-  
+  // 品牌色彩 - 蜜黄绘本色系（与 React Web 设计系统对齐）
+  static const Color primaryColor = Color(0xFF705900);    // 深蜜黄（主操作色，白字对比达标）
+  static const Color secondaryColor = Color(0xFF006384);  // 深天蓝
+  static const Color accentColor = Color(0xFF586000);     // 橄榄绿
+  static const Color warningColor = Color(0xFFB02500);    // 深珊瑚红（错误/警示）
+  static const Color backgroundColor = Color(0xFFFFF7D5); // 奶油黄
+  static const Color textColor = Color(0xFF352F00);       // 深橄榄灰
+  static const Color textSecondary = Color(0xFF655C25);   // 中橄榄灰
+
   // 语义化颜色 - 用于状态反馈
   static const Color successColor = Color(0xFF4CAF50);   // 成功绿
-  static const Color errorColor = Color(0xFFE57373);     // 错误红
-  static const Color infoColor = Color(0xFF64B5F6);      // 信息蓝
+  static const Color errorColor = Color(0xFFB02500);     // 错误红
+  static const Color infoColor = Color(0xFF006384);      // 信息蓝
   static const Color disabledColor = Color(0xFFBDBDBD);  // 禁用灰
-  
-  // 童趣可爱风额外颜色
-  static const Color softPink = Color(0xFFFFB6C1);      // 浅粉
-  static const Color softPurple = Color(0xFFDDA0DD);    // 浅紫
-  static const Color softYellow = Color(0xFFFFE4B5);     // 浅黄
-  static const Color softBlue = Color(0xFF87CEEB);       // 浅蓝
-  static const Color softOrange = Color(0xFFFFDAB9);     // 浅橙
-  static const Color softMint = Color(0xFF98FB98);       // 薄荷绿
-  
-  // 儿童色彩（明亮活泼）
+
+  // 柔和辅助色（低饱和，融入蜜黄主题）
+  static const Color softPink = Color(0xFFF2C1C8);      // 柔粉
+  static const Color softPurple = Color(0xFFC9C0DE);    // 柔紫
+  static const Color softYellow = Color(0xFFFBE6A2);    // 柔蜜黄
+  static const Color softBlue = Color(0xFFBDD7EA);       // 柔天蓝
+  static const Color softOrange = Color(0xFFF5D5B8);     // 柔橙
+  static const Color softMint = Color(0xFFC5DED3);       // 柔薄荷
+
+  // 儿童分类色（低饱和，仅用于区分，不做大面积铺色）
   static const List<Color> childColors = [
-    Color(0xFFFF85A2), // 粉
-    Color(0xFF7EC8E3), // 蓝
-    Color(0xFF7ED957), // 绿
-    Color(0xFFFF9B85), // 红
-    Color(0xFFDDA0DD), // 紫
-    Color(0xFFFFCE4E), // 黄
+    Color(0xFFC26B5A), // 陶土红（语言）
+    Color(0xFF4A8F86), // 青碧（数学）
+    Color(0xFF6F9E7F), // 苔绿（科学）
+    Color(0xFFC98A5A), // 琥珀（艺术）
+    Color(0xFF9A8FB8), // 柔堇（社会）
+    Color(0xFFD9B13B), // 蜜黄（通用）
   ];
-  
-  // 渐变色配置
+
+  // 渐变 - 同色系微渐变（仅允许同一色相内的轻微深浅变化）
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryColor, Color(0xFFFFA5B9)],
+    colors: [Color(0xFFFDD34D), Color(0xFFFFE587)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient secondaryGradient = LinearGradient(
-    colors: [secondaryColor, Color(0xFFA8D8EA)],
+    colors: [Color(0xFF97DAFF), Color(0xFFC3E8FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient rainbowGradient = LinearGradient(
-    colors: [primaryColor, secondaryColor, accentColor, softYellow],
+    colors: [Color(0xFFFDD34D), Color(0xFFF5C243)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   // 节日主题渐变
   static const LinearGradient festivalGradient = LinearGradient(
-    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53), Color(0xFFFFD93D)],
+    colors: [Color(0xFFE8895B), Color(0xFFDE7E50)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   // 成功状态渐变
   static const LinearGradient successGradient = LinearGradient(
-    colors: [successColor, Color(0xFF81C784)],
+    colors: [Color(0xFF4CAF50), Color(0xFF6FBF73)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   // 温暖渐变（用于奖励/成就）
   static const LinearGradient warmGradient = LinearGradient(
-    colors: [Color(0xFFFF9A8B), Color(0xFFFF6B6B)],
+    colors: [Color(0xFFF2B85C), Color(0xFFE8A33D)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   // 圆角配置
   static const double cardRadius = 20.0;
-  static const double buttonRadius = 24.0;
+  static const double buttonRadius = 14.0;
   static const double smallRadius = 12.0;
-  
+
   // 间距系统 - 统一间距规范
   static const double spacingXxs = 4.0;
   static const double spacingXs = 8.0;
@@ -87,32 +87,37 @@ class AppTheme {
   static const double spacingLg = 20.0;
   static const double spacingXl = 24.0;
   static const double spacingXxl = 32.0;
-  
+
   // 图标尺寸系统
   static const double iconXs = 16.0;
   static const double iconSm = 20.0;
   static const double iconMd = 24.0;
   static const double iconLg = 32.0;
   static const double iconXl = 48.0;
-  
-  // 阴影配置 - 柔和发光效果
+
+  // 阴影配置 - 中性柔和阴影（深度来自表面层次，不用彩色发光）
   static List<BoxShadow> softShadow([Color? color]) {
     return [
       BoxShadow(
-        color: (color ?? primaryColor).withValues(alpha: 0.15),
+        color: Colors.black.withValues(alpha: 0.06),
         blurRadius: 20,
         offset: const Offset(0, 8),
       ),
     ];
   }
-  
+
+  // 兼容保留：原彩色发光阴影已收敛为中性层次阴影
   static List<BoxShadow> glowShadow([Color? color]) {
     return [
       BoxShadow(
-        color: (color ?? primaryColor).withValues(alpha: 0.3),
-        blurRadius: 30,
-        spreadRadius: 2,
-        offset: const Offset(0, 5),
+        color: Colors.black.withValues(alpha: 0.08),
+        blurRadius: 24,
+        offset: const Offset(0, 12),
+      ),
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.03),
+        blurRadius: 8,
+        offset: const Offset(0, 4),
       ),
     ];
   }
@@ -178,7 +183,7 @@ titleTextStyle: TextStyle(
           elevation: 0,
           textStyle: const TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -207,15 +212,15 @@ titleTextStyle: TextStyle(
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -232,17 +237,15 @@ titleTextStyle: TextStyle(
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: textColor,
           height: 1.3,
-          letterSpacing: -0.5,
         ),
         headlineMedium: TextStyle(
           fontSize: 24,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: textColor,
           height: 1.3,
-          letterSpacing: -0.3,
         ),
         headlineSmall: TextStyle(
           fontSize: 20,
@@ -317,7 +320,7 @@ class StarDecoration extends StatelessWidget {
   const StarDecoration({
     super.key,
     this.size = 20,
-    this.color = const Color(0xFFFFCE4E),
+    this.color = const Color(0xFFE3BC45),
   });
 
   @override
@@ -372,7 +375,7 @@ class HeartDecoration extends StatelessWidget {
   }
 }
 
-// 泡泡背景组件
+// 泡泡背景组件 - 柔化的静态纸面元素（低透明度，不做漂浮装饰）
 class BubbleBackground extends StatelessWidget {
   final Widget child;
 
@@ -386,22 +389,22 @@ class BubbleBackground extends StatelessWidget {
         Positioned(
           top: 50,
           left: 20,
-          child: _buildBubble(30, Colors.white.withValues(alpha: 0.5)),
+          child: _buildBubble(30, Colors.white.withValues(alpha: 0.18)),
         ),
         Positioned(
           top: 120,
           right: 30,
-          child: _buildBubble(20, Colors.white.withValues(alpha: 0.4)),
+          child: _buildBubble(20, Colors.white.withValues(alpha: 0.14)),
         ),
         Positioned(
           bottom: 150,
           left: 40,
-          child: _buildBubble(25, Colors.white.withValues(alpha: 0.3)),
+          child: _buildBubble(25, Colors.white.withValues(alpha: 0.10)),
         ),
         Positioned(
           bottom: 80,
           right: 50,
-          child: _buildBubble(35, Colors.white.withValues(alpha: 0.4)),
+          child: _buildBubble(35, Colors.white.withValues(alpha: 0.15)),
         ),
         child,
       ],

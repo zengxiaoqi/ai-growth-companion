@@ -463,7 +463,7 @@ class _TriviaQuizGameState extends State<TriviaQuizGame>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFCE4E).withValues(alpha: 0.3),
+              color: const Color(0xFFE3BC45).withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text('💡', style: TextStyle(fontSize: 20)),
@@ -502,16 +502,16 @@ class _TriviaQuizGameState extends State<TriviaQuizGame>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF6B6B).withValues(alpha: 0.18),
+        color: const Color(0xFFC26B5A).withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
+          color: const Color(0xFFC26B5A).withValues(alpha: 0.4),
           width: 1.5,
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Color(0xFFFF6B6B), size: 22),
+          const Icon(Icons.error_outline, color: Color(0xFFC26B5A), size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -566,7 +566,7 @@ class _TriviaQuizGameState extends State<TriviaQuizGame>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFCE4E).withValues(alpha: 0.2),
+                      color: const Color(0xFFE3BC45).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child:

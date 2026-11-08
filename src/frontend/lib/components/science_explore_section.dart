@@ -589,7 +589,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.softShadow(const Color(0xFF7ED957)),
+        boxShadow: AppTheme.softShadow(const Color(0xFF6F9E7F)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

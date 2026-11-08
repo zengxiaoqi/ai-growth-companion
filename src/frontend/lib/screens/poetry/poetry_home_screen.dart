@@ -376,7 +376,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7EC8E3).withValues(alpha: 0.15),
+                        color: const Color(0xFF6FA3C8).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -399,7 +399,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFB6C1).withValues(alpha: 0.2),
+                        color: const Color(0xFFF2C1C8).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(

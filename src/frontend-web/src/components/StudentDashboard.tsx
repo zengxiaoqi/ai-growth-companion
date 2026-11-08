@@ -1118,7 +1118,7 @@ export default function StudentDashboard({
       </main>
 
       <nav className="fixed bottom-safe left-0 right-0 z-50 px-3 md:px-6">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low/90 px-4 py-2.5 backdrop-blur-lg">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-around rounded-2xl border border-outline-variant/15 bg-surface-container-low px-4 py-2.5">
           <button
             onClick={() => scrollToSection('curriculum')}
             className="touch-target flex flex-col items-center justify-center p-2 text-primary/70 transition-colors hover:text-primary"

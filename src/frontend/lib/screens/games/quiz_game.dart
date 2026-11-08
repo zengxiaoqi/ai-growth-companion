@@ -396,12 +396,12 @@ class _QuizGameState extends State<QuizGame>
             decoration: BoxDecoration(
               color: _feedbackCorrect
                   ? AppTheme.accentColor.withValues(alpha: 0.15)
-                  : const Color(0xFFFF9B85).withValues(alpha: 0.15),
+                  : const Color(0xFFE0885F).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: _feedbackCorrect
                     ? AppTheme.accentColor.withValues(alpha: 0.3)
-                    : const Color(0xFFFF9B85).withValues(alpha: 0.3),
+                    : const Color(0xFFE0885F).withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),

@@ -66,8 +66,8 @@
   --color-chart-line: #006384;
   --color-chart-fill: rgba(0, 99, 132, 0.2);
 
-  --radius-lg: 2rem;
-  --radius-xl: 3rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 @layer base {
@@ -322,9 +322,8 @@
 }
 
 @utility floating-nav {
-  background: rgb(255 255 255 / 0.65);
+  background: rgb(255 253 246 / 0.96);
   border: 1px solid rgb(129 120 61 / 0.14);
-  backdrop-filter: blur(20px);
   box-shadow: 0 12px 28px rgb(70 54 0 / 0.12);
 }
 

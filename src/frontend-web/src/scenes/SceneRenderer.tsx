@@ -61,8 +61,6 @@ export default function SceneRenderer({
       }}
     >
       <div className="absolute inset-0 opacity-40">
-        <div className="absolute -top-8 right-8 h-24 w-24 rounded-full bg-white/30 blur-2xl" />
-        <div className="absolute bottom-0 left-0 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
       </div>
 
       <div className="relative flex h-full flex-col justify-between gap-4">

@@ -41,12 +41,12 @@
   --color-error-container: #f95630;
   --color-error-dim: #8a1f00;
 
-  /* Domain colors */
-  --color-domain-language: #ff6b6b;
-  --color-domain-math: #4ecdc4;
-  --color-domain-science: #45b7d1;
-  --color-domain-art: #ffa07a;
-  --color-domain-social: #98d8c8;
+  /* Domain colors — 低饱和、由蜜黄主题派生，仅用于图表系列区分 */
+  --color-domain-language: #c26b5a;
+  --color-domain-math: #4a8f86;
+  --color-domain-science: #4a7f9e;
+  --color-domain-art: #c98a5a;
+  --color-domain-social: #6f9e7f;
 
   /* Status/feedback colors */
   --color-success: #4caf50;
@@ -154,20 +154,9 @@
 
   body {
     @apply bg-background text-on-surface font-sans antialiased;
-    background-image:
-      radial-gradient(circle at 12% 10%, rgb(253 211 77 / 0.34), transparent 34%),
-      radial-gradient(circle at 88% 6%, rgb(151 218 255 / 0.28), transparent 38%),
-      linear-gradient(180deg, #fff7d5 0%, #fff2bf 48%, #ffeeb5 100%);
     min-height: 100dvh;
     padding-left: var(--safe-area-left);
     padding-right: var(--safe-area-right);
-  }
-
-  :root.theme-dark body {
-    background-image:
-      radial-gradient(circle at 12% 10%, rgb(112 89 0 / 0.35), transparent 34%),
-      radial-gradient(circle at 88% 6%, rgb(0 99 132 / 0.28), transparent 38%),
-      linear-gradient(180deg, #1f1f17 0%, #222219 48%, #25251c 100%);
   }
 
   button {
@@ -321,7 +310,7 @@
 }
 
 @utility panel-card {
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.92), rgb(255 252 242 / 0.9));
+  background: #fffdf6;
   border: 1px solid rgb(129 120 61 / 0.12);
   border-radius: 1.5rem;
   box-shadow:
@@ -330,7 +319,7 @@
 }
 
 @utility panel-card-strong {
-  background: linear-gradient(165deg, rgb(255 255 255 / 0.98), rgb(255 250 234 / 0.96));
+  background: #fffdf6;
   border: 1px solid rgb(129 120 61 / 0.16);
   border-radius: 1.75rem;
   box-shadow:

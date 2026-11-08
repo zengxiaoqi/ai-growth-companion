@@ -453,8 +453,6 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
   return (
     <div className="app-shell min-h-app bg-background">
-      <div className="pointer-events-none absolute -left-10 top-16 h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 top-52 h-80 w-80 rounded-full bg-primary-container/25 blur-3xl" />
 
       <header className="px-3 pt-safe md:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">

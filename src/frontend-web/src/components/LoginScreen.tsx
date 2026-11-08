@@ -25,8 +25,9 @@ export default function LoginScreen({
   error,
   isLoading,
 }: LoginScreenProps) {
-  const [phone, setPhone] = useState('13800000001');
-  const [password, setPassword] = useState('password123');
+  // 测试账号仅开发环境预填，生产环境为空
+  const [phone, setPhone] = useState(import.meta.env.DEV ? '13800000001' : '');
+  const [password, setPassword] = useState(import.meta.env.DEV ? 'password123' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function LoginScreen({
               <img
                 alt="Mascot"
                 className="w-16 h-16"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcJOU_G2u01vuHUYluCZTjtWD4VhAzEtBxbPsOrSC-7zMwek86PYCQeGBRl2ZXSOFDGcbxmFeCbL7JfKhvPeodVjaqpELlu8SN5HeeS4n-mXbX5RXtEpO31539ATVu2GAi4qNYbYpuRG9nEVURqEZLqCqxFRGhVvrilL3XneAJY00kny1l1RaS2eFhdY040n61ZzvlCvLGLAnL-2Tdupnf3ULMkVbu3W7p4MlJiC2zASO8dOINAnwlrkn7sy1OBz-JiCfKjIW7ets"
+                src="/mascot.png"
                 referrerPolicy="no-referrer"
               />
             </div>

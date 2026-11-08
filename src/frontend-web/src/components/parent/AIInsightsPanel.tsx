@@ -17,7 +17,6 @@ export default function AIInsightsPanel({
 
   return (
     <Card className="relative overflow-hidden p-5 md:p-6">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-secondary-container/30 blur-2xl" />
       <div className="relative z-10">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-on-tertiary-container px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
           <Sparkles className="h-3.5 w-3.5" />

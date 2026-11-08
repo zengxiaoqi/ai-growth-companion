@@ -414,8 +414,6 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                 </div>
               )}
             </div>
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary-container/10 blur-3xl" />
-            <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-tertiary-container/10 blur-3xl" />
           </motion.section>
         </main>
       )}

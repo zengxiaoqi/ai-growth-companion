@@ -47,8 +47,6 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
 
   return (
     <div className="app-shell min-h-app overflow-hidden px-safe pb-safe pt-safe">
-      <div className="pointer-events-none absolute -left-16 top-12 h-56 w-56 rounded-full bg-primary-container/30 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 top-28 h-64 w-64 rounded-full bg-secondary-container/25 blur-3xl" />
 
       <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 py-6 md:py-10">
         <header className="space-y-3 text-center md:text-left">
@@ -66,7 +64,6 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
 
         <section className="grid gap-5 md:grid-cols-2 md:gap-6">
           <Card className="relative overflow-hidden p-6 md:p-7">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary-container/35 blur-3xl" />
             <div className="relative z-10 flex h-full flex-col gap-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container">
@@ -96,7 +93,6 @@ export default function ModeSelection({ onSelectMode, user }: ModeSelectionProps
           </Card>
 
           <Card className="relative overflow-hidden p-6 md:p-7">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-secondary-container/35 blur-3xl" />
             <div className="relative z-10 flex h-full flex-col gap-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary-container text-on-secondary-container">

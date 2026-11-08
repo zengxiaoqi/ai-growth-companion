@@ -652,7 +652,6 @@ export default function ContentDetail({
 
           {showEvaluation ? (
             <Card className="relative overflow-hidden border-secondary-container/25 bg-on-secondary-container p-6 text-on-secondary">
-              <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-primary-container/25 blur-2xl" />
               <div className="relative z-10">
                 <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-primary-container/20 px-3 py-1 text-xs font-black">
                   <Sparkles className="h-4 w-4" />

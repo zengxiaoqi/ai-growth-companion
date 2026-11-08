@@ -473,8 +473,6 @@ export default function StudentDashboard({
 
   return (
     <div className="app-shell min-h-app">
-      <div className="pointer-events-none absolute -left-16 top-20 h-64 w-64 rounded-full bg-primary-container/25 blur-3xl" />
-      <div className="pointer-events-none absolute -right-10 top-[35%] h-72 w-72 rounded-full bg-secondary-container/25 blur-3xl" />
 
       <header className="px-3 pt-safe md:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
@@ -484,7 +482,7 @@ export default function StudentDashboard({
                 className="h-full w-full object-cover"
                 src={
                   user?.avatar ||
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuCH84Uq0GW6Qmul4GmAsWrEgJqdNE5jjMcIbBe7kwfQ2hYAHKPmiFWbl3aNTwuFyiGlShFEi5MFOD1p0-oX98nOamNY7ksdaX71sx7TFqaAdXNQ38NvDGjE3Fkb-0oVPa-H513VLwzALu0Q1nm7nvM7epfqKThrc0fEvaiADvzEG7MpR2CqK8fUkFBEWXLoU1gIe68QgYeIqK_W2C2HmCcVRvtl7lBc_oRFXgONUbLf0QhmZreiC5aQ8Ow2zjaOwudcC6RVVyls1Kg'
+                  '/mascot.png'
                 }
                 referrerPolicy="no-referrer"
               />
@@ -518,7 +516,6 @@ export default function StudentDashboard({
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 md:px-6 md:pt-8">
         <section className="panel-card-strong content-visibility-auto relative mb-6 overflow-hidden p-6 md:p-8">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary-container/25 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div className="space-y-3">
               <p className="text-lg font-bold text-on-surface-variant">早上好，{userName}</p>
@@ -533,7 +530,7 @@ export default function StudentDashboard({
             <div className="mx-auto h-28 w-28 flex-shrink-0 md:mx-0 md:h-36 md:w-36">
               <img
                 className="h-full w-full object-contain drop-shadow-xl"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwWyydTcT7BF2vXPbEV0yJVwV7NdcC-aScmO98Occql9t8_rbjAjNXdwf4dWCF41qoCP9t-1UxrWSPDPt67za4KTQezBkkQYzxOqfc9rk-lSm6zmXNlwYzLWPqf-TS5yYOlHn_C8WmEOZjFx-Q8G19mhzVOTSMjEj1AQyTFvSBE5Fy52ZV1kCV_EtXzM8MZmte7SgQsjk6KJ4WgwKsMIP-D3gGd1Rl-AhCo4eWG3PlP81SVv19LMvzHuQ5eGE5DXDXSiRZQp5wtbI"
+                src="/mascot.png"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -650,7 +647,7 @@ export default function StudentDashboard({
                 className="h-full w-full object-cover"
                 src={
                   dailyMission.thumbnail ||
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuCIdmL6u7oUYyGelx43ITfb4-YfM0Sdvwf_h7l3Rq9N230FUNbfD3lJ9pk4RekEIHhFhMpsFlLxuoNSbYm2sXAT4OcGyvaKw8XtlAXrBRkbu2ekvYiNZIBb9Waoa2xSpR4jv3Rr6Z7bMgio4wExvRDLzTeaHKj2p7s4MtsfoIw4emdVsgRAFCY5Za1mtiLU12vnJZZrJH2mH8-QVx2AbR8x1zgudJNoFuu678YkirEW4mTQHKfhipQXH8sU3aUugDCKD4MnvOcboG4'
+                  '/mission-fallback.png'
                 }
                 referrerPolicy="no-referrer"
               />

@@ -1,33 +1,63 @@
 name: Build Android APK
 
+# ── 触发方式 ────────────────────────────────────────────────────
+# 1. push 到 main（改了 Flutter 端）→ 构建 release APK 存为 Artifact（不建 Release）
+# 2. push tag v*（如 v1.0.0-2026072601）→ 构建 + 自动创建 GitHub Release（APK + latest.json）
+# 3. Actions 页面手动运行 → 可勾选"创建 Release"，tag 名自动按 pubspec 版本生成
+#
+# 客户端 App 内自升级（lib/services/app_update_service.dart）以最新 Release 里的
+# latest.json 为事实源，因此发布新版本 = bump pubspec 版本 → 打 tag 推送。
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'src/frontend/**'
+      - '.github/workflows/build-apk.yml'
+      - 'scripts/generate-update-manifest.mjs'
   pull_request:
     branches: [main]
     paths:
       - 'src/frontend/**'
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: '构建后创建 GitHub Release（APK + latest.json）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # 创建 GitHub Release 必需
+
+env:
+  # 是否创建 Release：tag 推送 或 手动勾选
+  SHOULD_RELEASE: ${{ github.ref_type == 'tag' || inputs.create_release == true }}
 
 jobs:
   build:
-    name: Build Debug APK
+    name: Build & Publish APK
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 45
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # 拉全量：生成 release 正文要用到 tag 注解与最近提交历史
+          fetch-depth: 0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.6'
           channel: 'stable'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+          cache: true
 
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses || true
@@ -37,24 +67,123 @@ jobs:
           cd src/frontend
           flutter pub get
 
-      - name: Build APK
+      # ── 可选正式签名 ─────────────────────────────────────────
+      # 在仓库 Settings → Secrets 配置以下 4 项后，release APK 用固定 keystore 签名：
+      #   ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
+      # 未配置时沿用 debug 签名 —— Android 默认 debug keystore 全平台一致，
+      # 覆盖安装不受影响，但正式分发建议尽快配置固定 keystore。
+      - name: Restore signing keystore (optional)
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p src/frontend/android/app/keystore
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > src/frontend/android/app/keystore/release.jks
+          cat > src/frontend/android/key.properties <<EOF
+          storeFile=keystore/release.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          echo "已恢复正式签名 keystore"
+
+      # ── 读取版本（pubspec.yaml 是唯一事实源）────────────────
+      - name: Read version from pubspec
+        id: version
+        run: |
+          VERSION_LINE=$(grep -E '^version:' src/frontend/pubspec.yaml | awk '{print $2}')
+          VERSION_NAME="${VERSION_LINE%%+*}"
+          VERSION_CODE="${VERSION_LINE##*+}"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          else
+            RELEASE_TAG="v${VERSION_NAME}-${VERSION_CODE}"
+          fi
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "版本: v$VERSION_NAME (versionCode $VERSION_CODE)，Release tag: $RELEASE_TAG"
+
+      - name: Build release APK
         run: |
           cd src/frontend
-          flutter build apk --debug
+          flutter build apk --release
 
+      # ── 发布准备（tag / 手动勾选时）─────────────────────────
+      - name: Prepare release assets
+        if: env.SHOULD_RELEASE == 'true'
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -e
+          VERSION_NAME="${{ steps.version.outputs.version_name }}"
+          VERSION_CODE="${{ steps.version.outputs.version_code }}"
+          RELEASE_TAG="${{ steps.version.outputs.release_tag }}"
+          mkdir -p dist
+          APK_NAME="lingxi-companion-v${VERSION_NAME}-${VERSION_CODE}.apk"
+          cp src/frontend/build/app/outputs/flutter-apk/app-release.apk "dist/$APK_NAME"
+
+          # Release 正文：tag 注解优先（首行等于 tag 名则去掉），否则取最近提交
+          git fetch --force --tags origin || true
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            git tag -l --format='%(contents)' "$RELEASE_TAG" \
+              | awk -v t="$RELEASE_TAG" 'NR==1 && $0==t {next} {print}' \
+              | awk 'NF{p=NR} {l[NR]=$0} END{for(i=1;i<=p;i++) print l[i]}' > release-body.md || true
+          fi
+          if [ ! -s release-body.md ] || [ "$(wc -c < release-body.md)" -lt 5 ]; then
+            { echo "> 本次发布更新内容："; git log -20 --pretty='- %s' -- src/frontend; } > release-body.md
+          fi
+
+          node scripts/generate-update-manifest.mjs \
+            --apk "dist/$APK_NAME" \
+            --version-name "$VERSION_NAME" \
+            --version-code "$VERSION_CODE" \
+            --tag "$RELEASE_TAG" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --changelog-file release-body.md \
+            --out dist/latest.json
+
+          echo "===== latest.json ====="
+          cat dist/latest.json
+
+      - name: Create GitHub Release
+        if: env.SHOULD_RELEASE == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: 灵犀伴学 v${{ steps.version.outputs.version_name }}
+          body_path: release-body.md
+          files: |
+            dist/*.apk
+            dist/latest.json
+          generate_release_notes: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+
+      # ── Artifact：每次运行都保留构建产物 ────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
-          path: src/frontend/build/app/outputs/flutter-apk/app-debug.apk
+          name: lingxi-apk-v${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code }}
+          path: src/frontend/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+      - name: Upload latest.json artifact
+        if: env.SHOULD_RELEASE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-json
+          path: dist/latest.json
           retention-days: 30
 
-      - name: Upload build artifacts
+      - name: Upload build logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: |
-            src/frontend/build/
-            ~/.gradle/caches/
-          retention-days: 7
+          path: src/frontend/build/
+          retention-days: 3

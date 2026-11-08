@@ -2,6 +2,7 @@
     <application
         android:label="灵犀伴学"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -30,11 +31,24 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- App 内自升级：通过 FileProvider 把下载好的 APK 交给系统安装器 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"/>
+    <!-- App 内自升级：Android 8.0+ 需要，且用户需在系统设置里授权一次「允许安装未知应用」 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

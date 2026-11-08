@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 路径映射：更新 APK 下载在应用私有目录（getApplicationSupportDirectory
+     在 Android 上即 context.getFilesDir()，files-path path="." 覆盖其下所有文件）。
+     root-path 作兜底，保证无论 Dart 侧用哪个目录都不会 FileProvider 抛错；
+     读权限只通过 Intent FLAG_GRANT_READ_URI_PERMISSION 授予系统安装器，不会泄漏。 -->
+<paths>
+    <files-path
+        name="files_root"
+        path="." />
+    <cache-path
+        name="cache_root"
+        path="." />
+    <external-files-path
+        name="ext_files_root"
+        path="." />
+    <external-cache-path
+        name="ext_cache_root"
+        path="." />
+    <root-path
+        name="root"
+        path="." />
+</paths>

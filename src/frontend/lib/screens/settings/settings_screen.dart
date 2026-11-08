@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/user_provider.dart';
 import '../../services/storage_service.dart';
+import '../../services/app_update_service.dart';
 import '../../components/top_bar.dart';
+import '../../components/app_update_prompt.dart';
 import '../profile/profile_screen.dart';
 import '../achievement/achievement_screen.dart';
 
@@ -21,6 +23,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _volume = 80;
   bool _isSaving = false;
   bool _saveSuccess = false;
+  String _versionText = 'v1.0.0';
+  bool _checkingUpdate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  /// 从 PackageManager 读真实版本（Web 等不支持的平台保持默认文案）
+  Future<void> _loadVersion() async {
+    if (!AppUpdateService.isSupported) return;
+    try {
+      final version = await AppUpdateService.instance.currentVersion();
+      final name = version.$2;
+      if (mounted && name.isNotEmpty) {
+        setState(() => _versionText = 'v$name');
+      }
+    } catch (_) {
+      // 读不到就保持占位版本号，不影响设置页其他功能
+    }
+  }
+
+  Future<void> _checkUpdate() async {
+    if (_checkingUpdate) return;
+    setState(() => _checkingUpdate = true);
+    try {
+      await AppUpdatePrompt.manualCheck(context);
+    } finally {
+      if (mounted) setState(() => _checkingUpdate = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -315,17 +349,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        const _SettingsRow(
+        _SettingsRow(
           icon: Icons.info_outline_rounded,
           title: '应用版本',
           description: '灵犀伴学 Flutter 端',
           color: AppTheme.primaryColor,
           trailing: Text(
-            'v1.0.0',
-            style: TextStyle(
+            _versionText,
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // 版本与升级：手动检查更新（无节流，结果一定可见）
+        GestureDetector(
+          onTap: _checkingUpdate ? null : _checkUpdate,
+          child: _SettingsRow(
+            icon: Icons.system_update_alt_rounded,
+            title: '检查更新',
+            description: _checkingUpdate ? '正在检查…' : '自动检测并安装新版本',
+            color: AppTheme.secondaryColor,
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: _checkingUpdate
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text(
+                      '检查',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                      ),
+                    ),
             ),
           ),
         ),

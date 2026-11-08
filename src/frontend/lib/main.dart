@@ -11,6 +11,7 @@ import 'app.dart';
 import 'services/storage_service.dart';
 import 'services/api_service.dart';
 import 'services/ai_service.dart';
+import 'components/app_update_prompt.dart';
 import 'providers/user_provider.dart';
 import 'providers/learning_provider.dart';
 import 'providers/content_provider.dart';
@@ -134,6 +135,15 @@ void main() async {
         child: const LingxiApp(),
       ),
     );
+
+    // 启动后静默检查 App 更新（仅 Android；同一版本一天最多提示一次，
+    // 失败完全静默，不影响任何主流程）
+    Future.delayed(const Duration(seconds: 3), () {
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        AppUpdatePrompt.autoCheck(ctx);
+      }
+    });
   }, (Object error, StackTrace stack) {
     _logError('💥 [ZoneError]', error, stack);
   });

@@ -28,6 +28,7 @@ import { HealthModule } from './modules/health/health.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { MemoryModule } from './modules/memory/memory.module';
 import { CareModule } from './modules/care/care.module';
+import { AppUpdateModule } from './modules/app-update/app-update.module';
 import { resolveSynchronize } from './database/resolve-synchronize';
 
 /**
@@ -162,6 +163,7 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     SafetyModule,
     MemoryModule,
     CareModule,
+    AppUpdateModule,
     DatabaseSeederModule,
     HealthModule,
   ],

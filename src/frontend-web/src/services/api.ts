@@ -119,7 +119,10 @@ class ApiService {
     }
 
     if (!response.ok) {
-      if (response.status === 401) {
+      // 401 仅在已持有凭证的受保护接口上视为会话过期；
+      // 登录/注册/切换身份等认证端点的 401 应透传服务器错误信息（如"手机号或密码错误"）
+      const isAuthEndpoint = endpoint.startsWith('/auth/');
+      if (response.status === 401 && this.token && !isAuthEndpoint) {
         this.setToken(null);
         this.onUnauthorized?.();
         throw new Error('登录已过期，请重新登录');

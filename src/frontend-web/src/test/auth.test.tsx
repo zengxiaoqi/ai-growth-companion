@@ -9,9 +9,12 @@ vi.mock('../services/api', () => ({
   default: {
     setToken: vi.fn(),
     getToken: vi.fn(() => null),
+    setOnUnauthorized: vi.fn(),
     login: vi.fn(),
     register: vi.fn(),
     logout: vi.fn(),
+    switchToParent: vi.fn(),
+    switchToChild: vi.fn(),
   },
 }));
 

@@ -197,7 +197,8 @@ describe('ParentDashboard UI regression', () => {
     const buttons = [
       screen.getByRole('button', { name: '对话' }),
       screen.getByRole('button', { name: '报告' }),
-      screen.getByRole('button', { name: '控制' }),
+      screen.getByRole('button', { name: '知识书' }),
+      screen.getByRole('button', { name: '设置' }),
       screen.getByRole('button', { name: '作业' }),
     ];
 

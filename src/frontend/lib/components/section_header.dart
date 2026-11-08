@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// 统一区块标题组件，替代各屏幕中重复的 Row+emoji+Text 区块标题模式。
+/// 统一区块标题组件，替代各屏幕中重复的 Row+icon+Text 区块标题模式。
 ///
-/// 用于标记内容分区，如"📚 我的课程"、"🏆 成就徽章"、"🎮 推荐游戏"等。
+/// 用于标记内容分区，如"我的课程"、"成就徽章"、"推荐游戏"等。
+/// 图标使用 Material Rounded 线性图标集，颜色跟随次要文字色，保持界面安静。
 ///
 /// 基本用法：
 /// ```dart
 /// SectionHeader(
-///   emoji: '📚',
+///   icon: Icons.menu_book_rounded,
 ///   title: '我的课程',
 ///   trailing: Text('3 门课'),
 /// )
@@ -17,14 +18,14 @@ import '../theme/app_theme.dart';
 /// 点击用法（带展开/收起箭头）：
 /// ```dart
 /// SectionHeader(
-///   emoji: '🔥',
+///   icon: Icons.local_fire_department_rounded,
 ///   title: '热门推荐',
 ///   onTap: () { /* toggle expand */ },
 /// )
 /// ```
 class SectionHeader extends StatelessWidget {
-  /// 标题前的 emoji 图标
-  final String emoji;
+  /// 标题前的线性图标
+  final IconData icon;
 
   /// 标题文本
   final String title;
@@ -38,17 +39,17 @@ class SectionHeader extends StatelessWidget {
   /// 左边距（默认水平 0）
   final EdgeInsetsGeometry padding;
 
-  /// Emoji 字号（默认 22）
-  final double emojiSize;
+  /// 图标字号（默认 22）
+  final double iconSize;
 
   const SectionHeader({
     super.key,
-    required this.emoji,
+    required this.icon,
     required this.title,
     this.trailing,
     this.onTap,
     this.padding = EdgeInsets.zero,
-    this.emojiSize = 22,
+    this.iconSize = 22,
   });
 
   @override
@@ -59,8 +60,8 @@ class SectionHeader extends StatelessWidget {
         header: true,
         child: Row(
           children: [
-            // Emoji
-            Text(emoji, style: TextStyle(fontSize: emojiSize)),
+            // 图标（跟随次要文字色，保持安静）
+            Icon(icon, size: iconSize, color: AppTheme.textSecondary),
             const SizedBox(width: 8),
 
             // 标题

@@ -41,7 +41,7 @@ describe('ApiService', () => {
       const result = await api.login({ phone: '13800000001', password: 'password123' });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/login',
+        '/api/auth/login',
         expect.objectContaining({
           method: 'POST',
         }),
@@ -63,18 +63,25 @@ describe('ApiService', () => {
     });
   });
 
-  describe('verifyPin', () => {
-    it('calls /auth/verify-pin', async () => {
+  describe('switchToParent', () => {
+    it('calls /auth/switch-to-parent and returns user', async () => {
+      const mockResponse = {
+        user: { id: 1, phone: '13800000001', name: 'Parent', type: 'parent' },
+        token: 'parent-token',
+      };
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ valid: true, needsSetup: false }),
+        json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.verifyPin('1234');
-      expect(result.valid).toBe(true);
+      const result = await api.switchToParent('1234');
+      expect(result.token).toBe('parent-token');
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/verify-pin',
-        expect.objectContaining({ method: 'POST' }),
+        '/api/auth/switch-to-parent',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ password: '1234' }),
+        }),
       );
     });
   });
@@ -108,7 +115,7 @@ describe('ApiService', () => {
       const result = await api.linkChild('13800000002');
       expect(result).toEqual(mockChild);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/users/link-child',
+        '/api/users/link-child',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ childPhone: '13800000002' }),
@@ -139,7 +146,7 @@ describe('ApiService', () => {
 
       expect(result).toEqual(mockDrafts);
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/learning/lessons/drafts?childId=22',
+        '/api/learning/lessons/drafts?childId=22',
         expect.objectContaining({
           headers: expect.objectContaining({
             Authorization: 'Bearer test-token',

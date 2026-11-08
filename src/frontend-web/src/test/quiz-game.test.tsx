@@ -31,7 +31,7 @@ describe('QuizGame scoring guardrails', () => {
 
     render(<QuizGame data={data} onComplete={onComplete} />);
 
-    await user.click(screen.getByRole('button', { name: /opt-c/i }));
+    await user.click(screen.getByRole('radio', { name: /opt-c/i }));
 
     // Confirm answer
     let buttons = screen.getAllByRole('button');

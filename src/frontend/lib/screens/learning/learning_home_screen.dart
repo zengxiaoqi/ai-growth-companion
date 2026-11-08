@@ -129,7 +129,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
           Expanded(
             child: SectionHeader(
               title: '学习中心',
-              emoji: '📚',
+              icon: Icons.menu_book_rounded,
               trailing: Text('✨'),
             ),
           ),
@@ -152,7 +152,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
               const Expanded(
                 child: SectionHeader(
                   title: '待完成作业',
-                  emoji: '📝',
+                  icon: Icons.edit_note_rounded,
                 ),
               ),
               Container(
@@ -340,7 +340,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
               const Expanded(
                 child: SectionHeader(
                   title: '我的课程',
-                  emoji: '📚',
+                  icon: Icons.menu_book_rounded,
                 ),
               ),
               if (_courses.isNotEmpty)
@@ -451,7 +451,6 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
           title: subject['title'] as String,
           domain: subject['domain'] as String,
           icon: subject['icon'] as IconData,
-          emoji: subject['emoji'] as String,
           color: subject['color'] as Color,
           gradient: subject['gradient'] as List<Color>,
           index: index,
@@ -476,7 +475,6 @@ class _SubjectCard extends StatefulWidget {
   final String title;
   final String domain;
   final IconData icon;
-  final String emoji;
   final Color color;
   final List<Color> gradient;
   final int index;
@@ -486,7 +484,6 @@ class _SubjectCard extends StatefulWidget {
     required this.title,
     required this.domain,
     required this.icon,
-    required this.emoji,
     required this.color,
     required this.gradient,
     required this.index,
@@ -571,9 +568,10 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  widget.emoji,
-                  style: const TextStyle(fontSize: 32),
+                Icon(
+                  widget.icon,
+                  size: 32,
+                  color: widget.color,
                 ),
                 const SizedBox(height: 8),
                 Text(

@@ -539,7 +539,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
       children: [
         const SectionHeader(
           title: '更多功能',
-          emoji: '🎨',
+          icon: Icons.palette_rounded,
         ),
         const SizedBox(height: 16),
         Row(
@@ -548,7 +548,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               child: _FunctionCard(
                 icon: Icons.school_rounded,
                 title: '学习',
-                emoji: '📖',
                 color: AppTheme.accentColor,
                 onTap: () {},
               ),
@@ -558,7 +557,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               child: _FunctionCard(
                 icon: Icons.quiz_rounded,
                 title: '知识问答',
-                emoji: '🧠',
                 color: const Color(0xFF6FA3C8),
                 onTap: () {
                   Navigator.push(
@@ -582,7 +580,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               child: _FunctionCard(
                 icon: Icons.flag_rounded,
                 title: '国旗配对',
-                emoji: '🌍',
                 color: const Color(0xFF6BC89A),
                 onTap: () {
                   Navigator.push(
@@ -601,7 +598,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               child: _FunctionCard(
                 icon: Icons.emoji_events_rounded,
                 title: '成就',
-                emoji: '🏆',
                 color: const Color(0xFF9A8FB8),
                 onTap: () {},
               ),
@@ -855,14 +851,12 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
 class _FunctionCard extends StatefulWidget {
   final IconData icon;
   final String title;
-  final String emoji;
   final Color color;
   final VoidCallback onTap;
 
   const _FunctionCard({
     required this.icon,
     required this.title,
-    required this.emoji,
     required this.color,
     required this.onTap,
   });
@@ -938,8 +932,6 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(widget.emoji, style: const TextStyle(fontSize: 28)),
-                    const SizedBox(width: 8),
                     Icon(widget.icon, size: 36, color: widget.color),
                   ],
                 ),

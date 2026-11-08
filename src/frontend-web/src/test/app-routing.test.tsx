@@ -101,14 +101,15 @@ describe('App routing regression', () => {
     expect(await screen.findByTestId('login-screen')).toBeInTheDocument();
   });
 
-  it('redirects authenticated users away from /login to /mode', async () => {
+  it('redirects authenticated child users away from /login to their mode home', async () => {
     mockAuthState.isAuthenticated = true;
     mockAuthState.user = { id: 1, type: 'child', name: 'Kid' };
     window.history.pushState({}, '', '/login');
 
     render(<App />);
 
-    expect(await screen.findByTestId('mode-selection')).toBeInTheDocument();
+    // 认证用户访问 /login 直接进入对应端（儿童端），与全局 catch-all 行为一致
+    expect(await screen.findByTestId('student-dashboard')).toBeInTheDocument();
   });
 
   it('supports deep link to student content route', async () => {

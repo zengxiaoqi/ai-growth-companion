@@ -288,7 +288,7 @@ class _CheckInPanel extends StatelessWidget {
               ),
             // 今日打卡记录
             if (todayRecords.isNotEmpty) ...[
-              const _RewardSectionHeader(title: '今日打卡', emoji: '✅'),
+              const _RewardSectionHeader(title: '今日打卡', icon: Icons.check_circle_rounded),
               const SizedBox(height: 12),
               ...todayRecords.map((r) => _buildTodayRecordCard(context, r)),
               const SizedBox(height: 20),
@@ -296,7 +296,7 @@ class _CheckInPanel extends StatelessWidget {
             // 按分类显示行为模板
             ...categories.entries.expand((entry) => [
                   _RewardSectionHeader(
-                      title: _getCategoryLabel(entry.key), emoji: _getCategoryEmoji(entry.key)),
+                      title: _getCategoryLabel(entry.key), icon: _getCategoryIcon(entry.key)),
                   const SizedBox(height: 12),
                   ...entry.value.map((t) => _buildBehaviorCard(context, t, reward)),
                   const SizedBox(height: 12),
@@ -406,19 +406,19 @@ class _CheckInPanel extends StatelessWidget {
     );
   }
 
-  String _getCategoryEmoji(String category) {
+  IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'daily':
       case '日常习惯':
-        return '🌅';
+        return Icons.wb_twilight_rounded;
       case 'extra':
       case '学习活动':
-        return '📚';
+        return Icons.menu_book_rounded;
       case 'negative':
       case '扣分行为':
-        return '⚠️';
+        return Icons.warning_amber_rounded;
       default:
-        return '📋';
+        return Icons.assignment_rounded;
     }
   }
 
@@ -1021,11 +1021,11 @@ class _GrowthReportPanel extends StatelessWidget {
 // 简化的 SectionHeader (renamed to avoid conflict with components/section_header.dart)
 class _RewardSectionHeader extends StatelessWidget {
   final String title;
-  final String emoji;
+  final IconData? icon;
 
   const _RewardSectionHeader({
     required this.title,
-    this.emoji = '',
+    this.icon,
   });
 
   @override
@@ -1034,8 +1034,8 @@ class _RewardSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          if (emoji.isNotEmpty) ...[
-            Text(emoji, style: const TextStyle(fontSize: 18)),
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 8),
           ],
           Text(
@@ -1188,7 +1188,7 @@ class _MakeupCheckInSheetState extends State<_MakeupCheckInSheet> {
                           ...categories.entries.expand((entry) => [
                                 _RewardSectionHeader(
                                   title: _getCategoryLabel(entry.key),
-                                  emoji: _getCategoryEmoji(entry.key),
+                                  icon: _getCategoryIcon(entry.key),
                                 ),
                                 const SizedBox(height: 12),
                                 ...entry.value.map((t) =>
@@ -1277,19 +1277,19 @@ class _MakeupCheckInSheetState extends State<_MakeupCheckInSheet> {
 
   // ==================== 辅助方法 ====================
 
-  String _getCategoryEmoji(String category) {
+  IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'daily':
       case '日常习惯':
-        return '🌅';
+        return Icons.wb_twilight_rounded;
       case 'extra':
       case '学习活动':
-        return '📚';
+        return Icons.menu_book_rounded;
       case 'negative':
       case '扣分行为':
-        return '⚠️';
+        return Icons.warning_amber_rounded;
       default:
-        return '📋';
+        return Icons.assignment_rounded;
     }
   }
 

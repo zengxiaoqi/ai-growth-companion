@@ -61,7 +61,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
   Widget _buildHeader() {
     return const SectionHeader(
       title: '成就徽章',
-      emoji: '🏆',
+      icon: Icons.emoji_events_rounded,
     );
   }
 
@@ -135,7 +135,7 @@ class _AchievementScreenState extends State<AchievementScreen> {
       children: [
         const SectionHeader(
           title: '已获得',
-          emoji: '🎖️',
+          icon: Icons.military_tech_rounded,
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -165,9 +165,9 @@ class _AchievementScreenState extends State<AchievementScreen> {
 
   Widget _buildProgressSection() {
     final progressItems = [
-      {'label': '连续学习', 'value': 0.6, 'emoji': '🔥', 'color': AppTheme.primaryColor},
-      {'label': '完成主题', 'value': 0.4, 'emoji': '📖', 'color': AppTheme.secondaryColor},
-      {'label': '获得星星', 'value': 0.5, 'emoji': '⭐', 'color': AppTheme.softYellow},
+      {'label': '连续学习', 'value': 0.6, 'icon': Icons.local_fire_department_rounded, 'color': AppTheme.primaryColor},
+      {'label': '完成主题', 'value': 0.4, 'icon': Icons.auto_stories_rounded, 'color': AppTheme.secondaryColor},
+      {'label': '获得星星', 'value': 0.5, 'icon': Icons.star_rounded, 'color': AppTheme.softYellow},
     ];
 
     return Column(
@@ -175,13 +175,13 @@ class _AchievementScreenState extends State<AchievementScreen> {
       children: [
         const SectionHeader(
           title: '学习进度',
-          emoji: '📊',
+          icon: Icons.bar_chart_rounded,
         ),
         const SizedBox(height: 12),
         ...progressItems.map((item) => _ProgressItem(
           label: item['label'] as String,
           value: item['value'] as double,
-          emoji: item['emoji'] as String,
+          icon: item['icon'] as IconData,
           color: item['color'] as Color,
         )),
       ],
@@ -292,13 +292,13 @@ class _AchievementBadge extends StatelessWidget {
 class _ProgressItem extends StatelessWidget {
   final String label;
   final double value;
-  final String emoji;
+  final IconData icon;
   final Color color;
 
   const _ProgressItem({
     required this.label,
     required this.value,
-    required this.emoji,
+    required this.icon,
     required this.color,
   });
 
@@ -323,7 +323,7 @@ class _ProgressItem extends StatelessWidget {
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
-            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+            child: Icon(icon, size: 24, color: color),
           ),
           const SizedBox(width: 16),
           Expanded(

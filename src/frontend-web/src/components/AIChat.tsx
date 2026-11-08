@@ -1446,6 +1446,15 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             </motion.div>
           )}
         </AnimatePresence>
+        <VoiceCallOverlay
+          open={callOpen}
+          onClose={() => setCallOpen(false)}
+          onEnd={handleCallEnd}
+          childId={childId}
+          parentId={parentId}
+          sessionId={sessionId}
+          avatarSrc={aiAvatarSrc}
+        />
       </div>
     );
   }

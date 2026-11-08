@@ -1,6 +1,6 @@
 ﻿import { Injectable, Logger, Optional } from '@nestjs/common';
 import { AgentExecutor } from './agent/agent-executor';
-import { ConversationManager } from './conversation/conversation-manager';
+import { ConversationService } from '../../agent-framework/conversation/conversation.service';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
 import { UsersService } from '../users/users.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
@@ -18,6 +18,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
 import { VoiceService } from '../voice/voice.service';
+import { SafetyService } from '../safety/safety.service';
+import { CareService } from '../care/care.service';
+import { careCuePrompt } from '../care/care-prompt';
 import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
 
 type CoursePackExportFormat =
@@ -46,7 +49,7 @@ export class AiService {
 
   constructor(
     private readonly agentExecutor: AgentExecutor,
-    private readonly conversationManager: ConversationManager,
+    private readonly conversationService: ConversationService,
     private readonly contentSafetyService: ContentSafetyService,
     private readonly usersService: UsersService,
     private readonly learningArchiveService: LearningArchiveService,
@@ -57,13 +60,17 @@ export class AiService {
     @Optional() frameworkExecutor?: FrameworkAgentExecutorService,
     @Optional() skillRegistry?: SkillRegistryService,
     @Optional() _skillExecutor?: SkillExecutor,
+    // Appended last on purpose: every earlier parameter keeps its position,
+    // so existing unit specs that construct AiService by hand still line up.
+    @Optional() private readonly safetyService?: SafetyService,
+    @Optional() private readonly careService?: CareService,
   ) {
     this.frameworkOrchestrator =
       agentRegistry && frameworkExecutor && skillRegistry
         ? new OrchestratorService(
             agentRegistry,
             frameworkExecutor,
-            this.conversationManager as any,
+            this.conversationService as any,
             skillRegistry,
           )
         : null;
@@ -89,7 +96,7 @@ export class AiService {
       }
 
       // Parent conversations are keyed by parent account to avoid mixing with child-side sessions.
-      const session = await this.conversationManager.getOrCreateSession(
+      const session = await this.conversationService.getOrCreateSession(
         viewerId,
         'parent',
         sessionId,
@@ -97,7 +104,7 @@ export class AiService {
       const parentName = parent.name || '家长';
 
       // Update session metadata
-      await this.conversationManager.updateMetadata(session.uuid, {
+      await this.conversationService.updateMetadata(session.uuid, {
         ageGroup: 'parent',
         childName: parentName,
         actorType: 'parent',
@@ -142,6 +149,35 @@ export class AiService {
     const ageGroup = this.normalizeAgentAgeGroup(this.agentExecutor.classifyAge(age));
     const childName = user.name || '小朋友';
 
+    // Safety circuit breaker — first thing in the pipeline, before even the
+    // "is the LLM configured" check. A child saying 救命 must be intercepted
+    // even when every model backend is down, which is exactly why this is a
+    // local word list and not a tool the model may choose to call.
+    const safety = this.safetyService?.checkMessage({
+      childId: viewerId,
+      parentId: user.parentId,
+      text: message,
+      ageGroup,
+    });
+    if (safety?.intercepted) {
+      return {
+        reply: safety.reply ?? '我在呢，别怕。',
+        sessionId: sessionId ?? '',
+        suggestions: [],
+        toolCalls: [],
+        wasFiltered: true,
+      };
+    }
+
+    // Second layer: score the turn with a model, off the reply path. It
+    // never delays an answer and never changes what the child hears.
+    this.safetyService?.classifyInBackground({
+      childId: viewerId,
+      parentId: user.parentId,
+      text: message,
+      ageGroup,
+    });
+
     // Check if LLM is available
     if (!this.llmClient.isConfigured) {
       return this.fallbackChat(message, viewerId);
@@ -149,19 +185,21 @@ export class AiService {
 
     try {
       // Get or create conversation session
-      const session = await this.conversationManager.getOrCreateSession(
+      const session = await this.conversationService.getOrCreateSession(
         viewerId,
         'child',
         sessionId,
       );
 
       // Update session metadata
-      await this.conversationManager.updateMetadata(session.uuid, {
+      await this.conversationService.updateMetadata(session.uuid, {
         ageGroup,
         childName,
         actorType: 'child',
         targetChildId: viewerId,
       });
+
+      const careTopic = await this.openingCareTopic(viewerId, sessionId, session.uuid);
 
       const result = await this.executeRoutedChat({
         sessionId: session.uuid,
@@ -173,6 +211,7 @@ export class AiService {
         targetChildId: viewerId,
         bookId,
         bookTitle,
+        careTopic,
       });
 
       void this.learningArchiveService.recordChatTurnSummary({
@@ -235,13 +274,13 @@ export class AiService {
         return;
       }
 
-      const session = await this.conversationManager.getOrCreateSession(
+      const session = await this.conversationService.getOrCreateSession(
         viewerId,
         'parent',
         sessionId,
       );
       const parentName = parent.name || '家长';
-      await this.conversationManager.updateMetadata(session.uuid, {
+      await this.conversationService.updateMetadata(session.uuid, {
         ageGroup: 'parent',
         childName: parentName,
         actorType: 'parent',
@@ -286,6 +325,26 @@ export class AiService {
     const ageGroup = this.normalizeAgentAgeGroup(this.agentExecutor.classifyAge(age));
     const childName = user.name || '小朋友';
 
+    // Safety circuit breaker — same contract as `chat()`: local, synchronous,
+    // and ahead of the LLM availability check.
+    const safety = this.safetyService?.checkMessage({
+      childId: viewerId,
+      parentId: user.parentId,
+      text: message,
+      ageGroup,
+    });
+    if (safety?.intercepted) {
+      yield { type: 'token', content: safety.reply ?? '我在呢，别怕。' };
+      yield { type: 'done', sessionId: sessionId ?? '', wasFiltered: true, suggestions: [] };
+      return;
+    }
+    this.safetyService?.classifyInBackground({
+      childId: viewerId,
+      parentId: user.parentId,
+      text: message,
+      ageGroup,
+    });
+
     if (!this.llmClient.isConfigured) {
       const fallback = this.getFallbackResponse(message);
       yield { type: 'token', content: fallback };
@@ -294,12 +353,12 @@ export class AiService {
     }
 
     try {
-      const session = await this.conversationManager.getOrCreateSession(
+      const session = await this.conversationService.getOrCreateSession(
         viewerId,
         'child',
         sessionId,
       );
-      await this.conversationManager.updateMetadata(session.uuid, {
+      await this.conversationService.updateMetadata(session.uuid, {
         ageGroup,
         childName,
         actorType: 'child',
@@ -308,6 +367,8 @@ export class AiService {
 
       const suggestions = this.generateSuggestions('', ageGroup);
       let finalReply = '';
+
+      const careTopic = await this.openingCareTopic(viewerId, sessionId, session.uuid);
 
       for await (const event of this.executeRoutedChatStream({
         sessionId: session.uuid,
@@ -319,6 +380,7 @@ export class AiService {
         targetChildId: viewerId,
         bookId,
         bookTitle,
+        careTopic,
       })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
@@ -352,6 +414,35 @@ export class AiService {
     return ageGroup === '3-4' ? '3-4' : '5-6';
   }
 
+  /**
+   * The topic this conversation may open with, if any.
+   *
+   * `getOrCreateSession` returns a *different* uuid whenever the requested
+   * id could not be reused, which is a precise "this is a new conversation"
+   * signal without adding a return flag to a method used everywhere. Only a
+   * new conversation gets a cue: asking about 春游 on turn 12 would be odd,
+   * and the 24h gate should be spent on an opening, not a mid-chat aside.
+   *
+   * Never fails the chat. A care cue is a nice-to-have; a broken cue table
+   * must not take down the reply.
+   */
+  private async openingCareTopic(
+    childId: number,
+    requestedSessionId: string | undefined,
+    resolvedSessionId: string,
+  ): Promise<string | undefined> {
+    if (!this.careService) return undefined;
+    if (requestedSessionId && requestedSessionId === resolvedSessionId) return undefined;
+
+    try {
+      const cue = await this.careService.dueCue(childId);
+      return cue?.topic;
+    } catch (error) {
+      this.logger.warn(`Could not read care cue for child ${childId}: ${(error as Error).message}`);
+      return undefined;
+    }
+  }
+
   private buildAgentContext(params: {
     sessionId: string;
     ageGroup: '3-4' | '5-6' | 'parent';
@@ -359,6 +450,7 @@ export class AiService {
     executionContext: { childId?: number; parentId?: number };
     actorType: 'parent' | 'child';
     targetChildId?: number;
+    careTopic?: string;
   }): AgentContext {
     return {
       childId: params.executionContext.childId,
@@ -373,6 +465,9 @@ export class AiService {
         source: 'ai-module',
         actorType: params.actorType,
         targetChildId: params.targetChildId,
+        // Rendered here so the framework layer never imports a business
+        // module just to format a sentence.
+        careCueNote: careCuePrompt(params.careTopic),
       },
     };
   }
@@ -387,6 +482,7 @@ export class AiService {
     targetChildId?: number;
     bookId?: number;
     bookTitle?: string;
+    careTopic?: string;
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const context = this.buildAgentContext({
@@ -410,6 +506,7 @@ export class AiService {
       params.executionContext,
       params.bookId,
       params.bookTitle,
+      params.careTopic,
     );
     return {
       reply: legacy.reply,
@@ -427,6 +524,7 @@ export class AiService {
     targetChildId?: number;
     bookId?: number;
     bookTitle?: string;
+    careTopic?: string;
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
     content?: string;
@@ -461,6 +559,7 @@ export class AiService {
       params.executionContext,
       params.bookId,
       params.bookTitle,
+      params.careTopic,
     )) {
       yield event as any;
     }
@@ -477,7 +576,7 @@ export class AiService {
   async createChatSession(params: { viewerId: number; viewerType: string }) {
     const actorType = params.viewerType === 'parent' ? 'parent' : 'child';
     // Pass no sessionId → always creates a brand new session
-    return this.conversationManager.getOrCreateSession(params.viewerId, actorType);
+    return this.conversationService.getOrCreateSession(params.viewerId, actorType);
   }
 
   async getConversationSessions(params: {
@@ -501,7 +600,7 @@ export class AiService {
     // Don't filter by actorType for parent mode — old sessions may have been
     // created with actorType='child' before the parent mode refactor.
     const effectiveChildId = params.viewerType === 'parent' ? params.viewerId : params.childId;
-    return this.conversationManager.listSessions({
+    return this.conversationService.listSessions({
       childId: effectiveChildId,
       actorType: params.viewerType === 'parent' ? undefined : 'child',
       page: params.page,
@@ -516,7 +615,7 @@ export class AiService {
     page?: number;
     limit?: number;
   }) {
-    const conversation = await this.conversationManager.getConversationByUuid(params.sessionId);
+    const conversation = await this.conversationService.getConversationByUuid(params.sessionId);
     if (!conversation) {
       return {
         sessionId: params.sessionId,
@@ -536,7 +635,7 @@ export class AiService {
       throw new Error('FORBIDDEN_CHILD_ACCESS');
     }
 
-    const result = await this.conversationManager.getSessionMessages({
+    const result = await this.conversationService.getSessionMessages({
       sessionId: params.sessionId,
       page: params.page,
       limit: params.limit,

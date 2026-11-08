@@ -1,6 +1,8 @@
 /**
  * Session cache with TTL and size limit.
- * Replaces the raw Map<string, ActiveSession> in ConversationManager.
+ *
+ * Used by `ConversationService`. It is an optimisation only: a miss falls
+ * back to the database, so an expired entry never loses a message.
  */
 
 export interface CacheEntry<T> {

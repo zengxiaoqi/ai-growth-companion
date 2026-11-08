@@ -241,4 +241,36 @@ describe('LlmClientService — legacy path', () => {
       expect(svc.isConfigured).toBe(true);
     });
   });
+
+  /**
+   * pi-ai takes one systemPrompt plus a message list. The old bridge kept
+   * only the FIRST system message and silently dropped the rest — which
+   * would discard the rolling-summary note ConversationService adds to a
+   * truncated history. This method needs no provider initialisation, so it
+   * can be exercised on the legacy-path service too.
+   */
+  describe('splitSystemMessages (pi-ai bridge)', () => {
+    it('folds every system message into one prompt, in order', () => {
+      const { svc } = createService({});
+      const messages: LlmMessage[] = [
+        { role: 'system', content: '主提示' },
+        { role: 'system', content: '较早对话摘要：孩子聊了恐龙。' },
+        { role: 'user', content: '你好' },
+      ];
+
+      const split = (svc as any).splitSystemMessages(messages);
+
+      expect(split.systemPrompt).toBe('主提示\n\n较早对话摘要：孩子聊了恐龙。');
+      expect(split.nonSystemMessages).toEqual([{ role: 'user', content: '你好' }]);
+    });
+
+    it('returns undefined when there is no system message', () => {
+      const { svc } = createService({});
+      const split = (svc as any).splitSystemMessages([
+        { role: 'user', content: '你好' },
+      ] as LlmMessage[]);
+      expect(split.systemPrompt).toBeUndefined();
+      expect(split.nonSystemMessages).toHaveLength(1);
+    });
+  });
 });

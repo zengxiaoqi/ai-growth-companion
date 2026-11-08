@@ -21,6 +21,7 @@ describe('AgentExecutor game_data emission', () => {
   let conversationManager: {
     addMessage: jest.Mock;
     buildMessageArray: jest.Mock;
+    scheduleSummary: jest.Mock;
   };
   let contentSafetyService: {
     filterContent: jest.Mock;
@@ -95,6 +96,7 @@ describe('AgentExecutor game_data emission', () => {
     conversationManager = {
       addMessage: jest.fn().mockResolvedValue(undefined),
       buildMessageArray: jest.fn().mockResolvedValue([] as LlmMessage[]),
+      scheduleSummary: jest.fn(),
     };
     contentSafetyService = {
       filterContent: jest.fn().mockImplementation((content: string) => ({

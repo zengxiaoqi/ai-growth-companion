@@ -68,6 +68,8 @@ describe('AiService viewer routing', () => {
       },
       undefined,
       undefined,
+      // No care cue for a parent conversation.
+      undefined,
     );
   });
 
@@ -87,6 +89,86 @@ describe('AiService viewer routing', () => {
       { childId: 2, parentId: 1 },
       undefined,
       undefined,
+      undefined,
     );
+  });
+
+  /**
+   * A care cue is an *opening* instruction. These two cases pin the only
+   * signal that distinguishes an opening from turn 12: whether the session
+   * id the client asked for is the one the store actually returned.
+   */
+  describe('opening care cue', () => {
+    const careService = { dueCue: jest.fn() };
+
+    function serviceWithCare() {
+      return new AiService(
+        agentExecutor as any,
+        conversationManager as any,
+        {} as any,
+        usersService as any,
+        learningArchiveService as any,
+        llmClient as any,
+        {} as any,
+        // Optional dependencies keep their positions; only the last one
+        // (CareService) is supplied here.
+        undefined, // voiceService
+        undefined, // agentRegistry
+        undefined, // frameworkExecutor
+        undefined, // skillRegistry
+        undefined, // _skillExecutor
+        undefined, // safetyService
+        careService as any,
+      );
+    }
+
+    beforeEach(() => {
+      careService.dueCue.mockReset();
+    });
+
+    it('passes a cue topic when a new child conversation opens', async () => {
+      careService.dueCue.mockResolvedValue({ topic: '春游' });
+
+      await serviceWithCare().chat({
+        message: '你好',
+        viewerId: 2,
+        viewerType: 'child',
+      });
+
+      expect(careService.dueCue).toHaveBeenCalledWith(2);
+      expect(agentExecutor.execute).toHaveBeenCalledWith(
+        'session-1',
+        '你好',
+        '5-6',
+        '小朋友B',
+        { childId: 2, parentId: 1 },
+        undefined,
+        undefined,
+        '春游',
+      );
+    });
+
+    it('does not ask for a cue when continuing an existing session', async () => {
+      await serviceWithCare().chat({
+        message: '继续聊',
+        viewerId: 2,
+        viewerType: 'child',
+        sessionId: 'session-1',
+      });
+
+      expect(careService.dueCue).not.toHaveBeenCalled();
+    });
+
+    it('still replies if the cue lookup throws', async () => {
+      careService.dueCue.mockRejectedValue(new Error('cue table down'));
+
+      const result = await serviceWithCare().chat({
+        message: '你好',
+        viewerId: 2,
+        viewerType: 'child',
+      });
+
+      expect(result.reply).toBe('ok');
+    });
   });
 });

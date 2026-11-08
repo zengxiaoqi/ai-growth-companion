@@ -228,6 +228,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
     let systemPrompt = selected.definition.buildSystemPrompt(context);
     systemPrompt = this.injectSkills(systemPrompt, selected.definition.allowedSkills);
+    systemPrompt = this.injectCareCue(systemPrompt, context);
     const toolDefinitions = this.getFilteredToolDefinitions(selected.definition);
 
     let finalContent = '';
@@ -794,6 +795,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
   ): Promise<ExecutionResult> {
     let systemPrompt = definition.buildSystemPrompt(context);
     systemPrompt = this.injectSkills(systemPrompt, definition.allowedSkills);
+    systemPrompt = this.injectCareCue(systemPrompt, context);
     const toolDefinitions = this.getFilteredToolDefinitions(definition);
 
     return this.executorService.runLoop(
@@ -839,6 +841,23 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
     this.logger.debug(`Injecting skill index: ${skills.map((s) => s.definition.id).join(', ')}`);
     return `${systemPrompt}\n\n---\n\n# Available Skills\n\nCall \`loadSkill\` with a skillId to get the full instructions when needed.\n\n${index}`;
+  }
+
+  /**
+   * Append the opening care note, when the caller put one on the context.
+   *
+   * The note arrives **already rendered** by the caller. Keeping this layer
+   * ignorant of care wording is deliberate: `agent-framework` must not
+   * import business modules, and a cue is just one of several future
+   * one-shot instructions a caller may want to add.
+   *
+   * It lives in the system prompt rather than in history on purpose: a cue
+   * is an instruction for this answer, not something the child said.
+   */
+  private injectCareCue(systemPrompt: string, context: AgentContext): string {
+    const note = (context.metadata as Record<string, any> | undefined)?.careCueNote;
+    if (typeof note !== 'string' || !note.trim()) return systemPrompt;
+    return `${systemPrompt}\n\n---\n\n${note}`;
   }
 
   private async loadHistory(context: AgentContext): Promise<LlmMessage[]> {

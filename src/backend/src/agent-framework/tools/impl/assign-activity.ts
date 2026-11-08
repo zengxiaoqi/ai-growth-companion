@@ -4,7 +4,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { AssignmentService } from '../../../modules/assignment/assignment.service';
-import { ConversationManager } from '../../../modules/ai/conversation/conversation-manager';
+import { ConversationService } from '../../conversation/conversation.service';
 import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolExecutionContext, ToolMetadata, ToolResult } from '../../core';
@@ -104,7 +104,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
   constructor(
     private readonly generateActivityTool: GenerateActivityTool,
     private readonly assignmentService: AssignmentService,
-    private readonly conversationManager: ConversationManager,
+    private readonly conversationService: ConversationService,
   ) {
     super();
   }
@@ -326,7 +326,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
   }
 
   private async loadValidDrafts(conversationId: string): Promise<PendingAssignmentDraft[]> {
-    const conversation = await this.conversationManager.getConversationByUuid(conversationId);
+    const conversation = await this.conversationService.getConversationByUuid(conversationId);
     const raw = conversation?.metadata?.[DRAFTS_METADATA_KEY];
     if (!Array.isArray(raw)) {
       return [];
@@ -335,7 +335,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
   }
 
   private async loadValidDraft(conversationId: string): Promise<PendingAssignmentDraft | null> {
-    const conversation = await this.conversationManager.getConversationByUuid(conversationId);
+    const conversation = await this.conversationService.getConversationByUuid(conversationId);
     const draft = (conversation?.metadata?.pendingAssignmentDraft ||
       null) as PendingAssignmentDraft | null;
     if (!draft) return null;
@@ -358,7 +358,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
     drafts: PendingAssignmentDraft[],
   ): Promise<void> {
     try {
-      await this.conversationManager.updateMetadata(conversationId, {
+      await this.conversationService.updateMetadata(conversationId, {
         [DRAFTS_METADATA_KEY]: drafts,
         pendingAssignmentDraft: drafts.length === 1 ? drafts[0] : null,
       });

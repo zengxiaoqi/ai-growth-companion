@@ -1,0 +1,381 @@
+# 从「碎碎念」移植优秀能力到灵犀伴学
+
+> 状态：**路线图 + 落地记录**。第一至九节是设计；第十节起是 2026-11-07～08 的实际实现与验证，代码已在工作区，尚未提交 git。
+> 创建日期：2026-11-07 · 修订 v2（2026-11-07 18:50）· 落地完成（2026-11-08）
+> 关联讨论：2026-11-07 两项目整合评估（全量重写方案 230–330 人日，已搁置）
+
+## v2 修订摘要
+
+按用户两条修正重写了记忆架构：
+
+1. **记忆不再每轮自动抽取 / 自动召回**，改为注册成 AI Agent 的**工具**，由 LLM 自己判断要不要调用。取消异步抽取队列与每轮 embed，成本大幅下降。
+2. **能力本身与年龄完全解耦**，话术统一交给灵犀已有的 `age-adaptive` 层，不再写死「3-4 / 5-6 两套重写」。
+
+连带影响：安全熔断**不工具化**（仍为同步前置，理由见 3.1）；总估算从 25–38 降到 **16–26 人日**。
+
+## 一、目标与原则
+
+把「碎碎念」（`../碎碎念/suinian`，Python 无屏语音陪伴机器人）里做得扎实的**算法与策略**搬进灵犀，**不搬运行时、不搬硬件链路、不合并仓库**。
+
+| 原则 | 说明 |
+|------|------|
+| 单仓库单运行时 | 全部用 NestJS / TypeScript 实现，灵犀不需要 Python、不需要 WebSocket、不需要 ESP32 协议 |
+| 不动碎碎念仓库 | 只读取其设计与测试用例作为参考，碎碎念继续独立演进 |
+| 搬「代码事实」，不搬概念 | 碎碎念的安全与隐私承诺是靠测试钉死的实现（SQL 层排除、逐字引用校验），不能退化成一句 system prompt 约束 |
+| **记忆按需工具化** | 记忆是 Agent 的一个工具，不是每轮自动跑的管道；LLM 判断要不要查 / 要不要记，不调就零额外开销 |
+| **能力与年龄解耦** | 记忆结构、四闸门、RRF、安全词表、L2 分级都不按年龄分叉；只有输出话术由当前 `ageGroup` 的 prompt 生成 |
+| 可独立回滚 | 每批 feature flag 控制，默认行为与现在一致，出问题关开关即可 |
+
+对比：全量整合方案 230–330 人日；v1 移植方案 25–38；**v2 工具化方案约 16–26 人日**，第一批 4–6 人日即可上线见效。
+
+## 二、灵犀现状缺口（核查依据）
+
+| 能力 | 灵犀现状 | 依据 |
+|------|---------|------|
+| 跨会话记忆 | **无**。`conversations` + `conversation_messages` 只存当前会话；`SUMMARY_THRESHOLD = 50` 生成会话摘要，不跨会话；`toolDefinitions` 里没有任何 recall / remember 类工具 | `agent-framework/conversation/conversation.service.ts`、`database/entities/conversation.entity.ts`、`modules/ai/agent/prompts/tool-definitions.ts` |
+| 内容安全检测 | **无代码级检测**。`emergency` 是孩子主动触发按钮后发短信/打电话；`system-prompts.ts` 的「禁止事项」只是自然语言约束 | `modules/emergency/emergency.service.ts`、`system-prompts.ts` |
+| 家长报告 | 只有学习数据（学习记录、五维能力、成就、连续天数、LLM insights），没有「孩子今天聊了什么 / 在想什么」 | `modules/report/report.service.ts` |
+| 主动关心 | `notification` 是被动通知，没有基于记忆事件的定时回访 | `modules/notification/` |
+| **年龄自动适配** | **已有完整机制，无需移植，也不要绕开**：`classifyAge()` → `selectPrompt()` → `PromptProviderService.registerTemplate(ageGroup, role, template)`，运行时模板可注册覆盖；`buildToolInstructions()` 还会按可用工具自动拼提示段 | `agent-framework/core/types/age-group.ts`、`agent-framework/prompts/age-adaptive.ts`、`prompt-provider.service.ts` |
+| LLM 多 Provider | **已有** `LlmClientService` + retry 策略，无需移植 `suinian/llm/` | `agent-framework/llm/` |
+
+> **核查到的一个现状**（不是阻塞项）：`AgeGroup` 类型目前是 `'3-4' | '5-6'`；`agent-framework` 的 `classifyAge()` 对 7 岁以上回落 `'5-6'`，`modules/ai/agent/agent-executor.ts` 另有一份实现返回 `'unknown'` 后由 `buildSystemPrompt` 兜底到 5-6 话术。即**自动适配的架构与扩展点齐备，当前落地档位只有两档**。产品若要正式覆盖 6 岁以上，需扩 `AgeGroup` 枚举、注册新模板、统一两份 `classifyAge` —— 这是独立的产品改动，**不阻塞本次能力移植**，因为移植的能力不读年龄。
+
+**重要产品判断**：孩子主动问「你还记得我说过什么吗」是低频场景。长期记忆的主要受益者是**家长报告与内容推荐个性化**（「他最近迷恐龙，推荐点相关的」）。因此日报生成和 `recommend` 侧应**直接调用 recall 服务**，不依赖 LLM 是否判断出要查记忆 —— 见 3.3 的绕过机制。
+
+## 三、移植清单
+
+| 批次 | 能力 | 源路径 / 规模 | 灵犀落点 | 人日 |
+|------|------|--------------|---------|------|
+| P0-1 | **儿童安全熔断** | `agent/safety/classifier.py` 125、`detector.py` 149、`agent/tools/policy.py` 127、`config/safety_rules.yaml` | 新增 `modules/safety/`；接 `ai.service.ts` 入口；复用 `emergency` + `notification` | 4–6 |
+| P0-2 | **记忆工具 · 写入** | `memory/extract.py` 804、`vectors.py` 71 | `saveMemory` 工具；四闸门落在工具实现里；**不做异步抽取队列** | 4–6 |
+| P0-3 | **记忆工具 · 读取** | `memory/recall.py` 489、`degrade.py` 136、`base.py` 71 | `recallMemory` 工具；三通道 RRF + 四出口作为结构化返回 | 4–6 |
+| P0-4 | **工具触发策略与可观测** | 新增 | `tool-definitions.ts` / `tool-registry.ts` + 各年龄 prompt 的触发说明 + 调用率日志 | 2–3 |
+| P1-1 | **家长日报「报话题不告状」** | `memory/digest.py` 298 | 扩展 `report.service.ts` `generateReport()` L28；定时任务直接查 `memories` | 3–5 |
+| P1-2 | **主动关心调度** | `care/scheduler.py` 187、`care/base.py` 26 | 扩展 `notification/`，新增 `care_cues` 表 | 3–5 |
+| — | ~~用量预算~~ | `observability/budget.py` 238 | 灵犀已有 usage / token 追踪，**建议不搬** | — |
+
+前置（批次 0）：关 `synchronize` + 建迁移基线，约 1 人日。
+
+### 3.1 工具化的边界：安全熔断绝不工具化
+
+用户提出的「由 LLM 判断要不要调用」**只适用于记忆**。安全熔断必须留在链路最前面：本地词表同步匹配 <10ms、**不经 LLM、不受 LLM 判断影响**。把安全交给被保护的模型自己决定，等于没有保护，且违反 fail-closed。两条链路互不干扰：
+
+```
+孩子消息
+  → [必经] 同步词表熔断（本地，<10ms，命中即短路 + 通知家长）
+  → [可选] 异步分类器（不阻塞回复）
+  → LLM 主循环 + tool calling
+       ├─ 普通闲聊 → 直接回复（0 次记忆调用、0 次 embed）
+       ├─ 需要回忆 → recallMemory 工具（三通道 RRF，含 embed）
+       └─ 值得记住 → saveMemory 工具（四闸门，纯字符串/SQL，无额外 LLM）
+  → 按当前 ageGroup 的 prompt 生成话术
+
+旁路（定时任务，不经 LLM 判断）：日报 / 推荐 / 主动关心 → 直接调 recall 服务
+```
+
+### 3.2 成本对比
+
+假设每孩子每天 20 轮对话、公网 10000 活跃用户：
+
+| | v1 每轮自动 | v2 工具化 |
+|---|---|---|
+| 召回 | 20 次（每轮 embed + 三通道检索） | 约 3 次（按 15% 轮次触发） |
+| 写入 | 每天 1 次批量 LLM 抽取 | 约 1 次，且复用主对话的 tool call，四闸门不调 LLM |
+| 额外模型 / 检索调用 | ≈ 21 次 / 孩子 / 天 | ≈ 4 次 / 孩子 / 天 |
+
+省约 80% 的 embedding 与抽取调用，同时**完全去掉** `extract_jobs` 队列、worker 与定时批量 LLM。代价是工具定义常驻 system prompt（约 +200–400 token/轮）和一次 tool round-trip，比 embedding + 抽取便宜一到两个数量级。若还想省，可只在命中本地正则 hint 的轮次注入工具定义（见 3.4）。
+
+### 3.3 两个工具的契约（设计，非实现）
+
+| | `recallMemory` | `saveMemory` |
+|---|---|---|
+| 入参 | `query: string`, `limit?: number`, `since?: string` | `content: string`, `verbatimQuote: string`, `kind?: 'fact'\|'event'\|'preference'`, `occurredAt?: string` |
+| 内部 | 三通道 RRF（字面 FTS / 向量 / 时间衰减）；向量通道独立 deadline；`WHERE sensitivity IN ('L0','L1')` | 四闸门（见下）；从当前会话 `conversation_messages` 取孩子原话做子串校验 |
+| 返回 | `{ outcome, hits: [{verbatimQuote, content, occurredAt, kind}], hint }` | `{ stored: boolean, reason?, memoryId? }` |
+| 异常 | 捕获后返回 `outcome: 'SERVICE_DOWN'`，**不抛错** | 校验不通过返回 `stored: false` + 原因，不抛错 |
+
+**四闸门仍全部保留，只是搬进 `saveMemory` 工具内部**（`extract.py` 文件头写明每个闸门对应的失败）：
+
+| 闸门 | 规则 | 为什么 |
+|------|------|--------|
+| Confidence | < 0.75 丢弃 | 产品承诺是「每句引用都对」，不是「记得多」 |
+| Verbatim | `verbatimQuote` 必须是孩子原话的子串，三层匹配 exact / normalized / fuzzy(0.95)；模糊匹配也只返回原文切片 | 机器强制逐字一致，杜绝模型编造 |
+| Secrets | 孩子要求保密的内容由**代码**强制置 L2，不信任模型自报的 sensitivity | 碎碎念「双面信任」的核心代码事实 |
+| Dedupe | 同一孩子当天同内容只留一条 | 防止重复回忆 |
+
+工具化后校验反而更严格：原文直接取自当前会话落库的消息，不需要按天批量拼接 turns。
+
+**三通道 RRF**（`recall.py`）：一次读取、各自排名、倒数排名加权融合。RRF 只用于排序，**不能当作「该不该注入」的绝对分数**，每个通道自带出口阈值；向量超时只让该通道缺席，不能把整次召回降级成 `SERVICE_DOWN`；时间通道读 `memories` 不读 `events`。
+
+**四出口**（`base.py`）：`HIT` / `MISS`（诚实说「我不记得了」，一等分支不是失败）/ `SERVICE_DOWN`（「我脑袋一片空白」，不让 DB 超时变成孩子听到的技术错误）/ `FIRST_DAY`（空状态话术）。**工具只返回 `outcome` 与素材，不返回成品句子** —— 话术由 LLM 依据当前 `ageGroup` 的 system prompt 生成，这正是与年龄解耦的关键：扩展新年龄段不需要改记忆代码。
+
+**L2 处理**：`memories.sensitivity` 取 `L0 / L1 / L2`，L2 在 **SQL 查询层**排除，不进任何召回结果、不进家长日报素材、摘要与推送不复述。按用户判断可放宽家长查看权限，但建议保留字段与过滤作为可配置开关。
+
+### 3.4 触发策略与漏召回兜底
+
+让 LLM 判断会带来漏触发，用四层兜底，全部不增加每轮固定成本：
+
+1. **工具 description + 各年龄 prompt 的触发说明**：孩子提到「上次 / 以前 / 还记得 / 又 / 还是 / 说过 / 答应过」、主动要求记住、说出偏好、提到带日期的未来事件、家长问孩子近况、需要个性化推荐时应调工具。这段说明通过现有 `age-adaptive` 模板注入，**不写死年龄**。
+2. **本地正则 hint（零 LLM 成本）**：命中上述词时，在 `Runtime Context` 插一句 `hint: 本轮可能需要 recallMemory`，只提示不强制。
+3. **旁路直接调用**：日报、`recommend`、`care` 不经 LLM 判断，直接调 recall 服务，保证记忆的主要受益场景不受模型判断影响。
+4. **可观测 + 调优**：记录 `recallMemory` / `saveMemory` 调用率、MISS 率、`saveMemory` 被闸门拒绝的原因分布，用真实日志调 prompt 与阈值。
+
+> 写入侧的取舍：纯工具化依赖 LLM 记得调 `saveMemory`，早期可能记忆稀疏。默认**不加**后台兜底抽取（那就退回每轮成本了）；先用日志观察覆盖率，确实不足时再考虑「会话结束时按本地规则提示下一轮补写」这类零 LLM 方案。
+
+### 3.5 P0-1 安全熔断（最独立，建议第一批）
+
+搬三件事，缺一不可：
+
+1. **同步词表熔断**：`safety_rules.yaml` 的 `self_harm / violence / danger` 三类短语，本地字符串匹配 <10ms，**不经 LLM**、不与 LLM 并发。命中即同步短路，走安全话术 + 通知家长。词表原则照抄：短语优先于单字（「死」会命中「想吃」的 ASR 错误）、宁可漏报不放高误报词、删配置文件时回退代码内建默认表（fail-closed）。
+2. **异步分类器**：词表只能抓显式求救；「我不想去上学了」「我是多余的」这类真实危机表达由第二层 LLM 分类器异步判定，不阻塞回复。
+3. **工具风险分级**：`tools/policy.py` 的按风险决定是否需家长确认的策略，映射到 `tool-registry.ts`（记忆工具默认低风险，不需家长确认）。
+
+> 词表与阈值**不按年龄分叉**：儿童安全是底线。只有熔断后的安抚话术走当前年龄的 prompt。能力边界要对家长说清：词表只保证「显式求救能被秒级拦截」，不等于危机识别全覆盖。
+
+### 3.6 P1-1 家长日报 / P1-2 主动关心
+
+`digest.py`：素材查询在 SQL 层已过滤 L2，产出**话题**而非告状记录，接进 `generateReport()`。日报生成是定时任务，每天每孩子一次 LLM，与对话轮次无关。
+
+`care/scheduler.py` 的 `due_cue()`：一次对话最多一个 cue；时间窗按家庭时区（Asia/Shanghai）；24 小时双率闸门（全局 metric 维度兜底，防事件表 bug 导致重复询问）；延期上限与生命周期自动过期。场景：孩子说「下周春游」→ 到期主动问一句，话术同样由当前年龄 prompt 生成。
+
+## 四、数据模型草案（设计，非实现）
+
+```
+memories        id, childId, kind, content, verbatimQuote, confidence,
+                sensitivity(L0/L1/L2), occurredAt, sourceMessageIds(JSON),
+                createdAt
+care_cues       id, childId, memoryId, dueAt, status, postponeCount, sentAt
+safety_events   id, childId, category, source(wordlist|classifier),
+                excerpt, action, notifiedAt, createdAt
+recall_audit    id, childId, tool(recall|save), outcome, latencyMs,
+                createdAt            ← 可选，用于 3.4 的可观测
+```
+
+**v2 移除了 `extract_jobs`**：不再有异步抽取队列、worker、重试与定时任务。`memories.sourceMessageIds` 直接指向 `conversation_messages.id`。
+
+索引：`memories(childId, sensitivity, occurredAt)`、FTS（SQLite FTS5 / PostgreSQL tsvector）、向量列（可选，云 embed）。
+
+## 五、必须先做的两件事（阻塞项）
+
+1. **锁 `synchronize`**：`app.module.ts` 有 3 处 `synchronize: true`，且后端**没有 migrations 目录**。新增任何实体前必须先建立迁移基线并关闭自动同步，否则线上一次启动可能抹掉表。约 1 人日。
+2. **数据库双跑验证**：`app.module.ts` 的 `resolveSqliteDriver()` 会在 `better-sqlite3` 与纯 JS `sql.js` 间回退；生产另有 PostgreSQL。FTS / 向量 / JSON 列写法要在两条路径都验过。
+
+> 碎碎念仓库侧的保全动作（75 个未提交改动、无 remote）已与「整合方案」绑定；**本方案不依赖它**，不需要先动碎碎念仓库。
+
+## 六、接入点（精确到文件）
+
+| 挂载点 | 位置 | 改动 |
+|--------|------|------|
+| 对话入口 | `modules/ai/ai.service.ts` `chat()` L73 / `chatStream()` L204 | 同步词表熔断前置；异步分类入队（**仅安全，记忆不在这里**） |
+| 工具定义 | `modules/ai/agent/prompts/tool-definitions.ts` | 新增 `recallMemory` / `saveMemory` 两个 `ChatCompletionTool` |
+| 工具注册 | `modules/ai/agent/tool-registry.ts` L1–L70 | `handlers` Map 注册两个 handler；新工具类放 `modules/ai/agent/tools/` |
+| 触发说明 | `agent-framework/prompts/age-adaptive.ts` + `templates/*.system.ts`；或 `PromptProviderService.buildToolInstructions()` | 按 `ageGroup` 注入「何时使用记忆工具」，不改年龄枚举、不写死话术 |
+| 正则 hint | `modules/ai/agent/agent-executor.ts` `buildSystemPrompt()` L113–140 的 `contextHints` | 命中记忆触发词时插一行 hint（本地计算，不调 LLM） |
+| 日报 | `modules/report/report.service.ts` `generateReport()` L28 | 新增「今日聊了什么」段；直接查 `memories`（旁路，不经 LLM 判断） |
+| 推荐 | `modules/recommend/recommend.service.ts` | 可选：用 recall 结果做个性化 |
+| 通知 | `modules/notification/notification.service.ts` | 安全事件、care cue 推送 |
+| 模块注册 | `app.module.ts` | 注册 `SafetyModule` / `MemoryModule` |
+
+`ToolRegistry.execute()` 已有 `try/catch` + 结构化字符串返回的现成范式，两个工具直接沿用；注意 `SERVICE_DOWN` 要在工具内部消化成正常返回值，不要走进 `catch` 变成错误字符串。
+
+## 七、批次顺序与验收
+
+| 批次 | 内容 | 交付判据 |
+|------|------|---------|
+| 0 | 迁移基线：关 synchronize、生成首个 migration | 本地 + PostgreSQL 启动后表结构不变、数据不丢 |
+| 1 | P0-1 安全熔断 | 词表命中 <10ms 且不调用 LLM；删配置文件仍走内建词表；误报用例（「想吃」）不命中；通知到家长 |
+| 2 | P0-2 `saveMemory` | 编造的引用 100% 被逐字闸门丢弃；保密内容强制 L2；同日重复不入库；**普通闲聊一轮下来零额外 LLM 调用** |
+| 3 | P0-3 `recallMemory` | 四出口各自可表达；向量超时时字面通道仍能命中；L2 在 SQL 层不可达；工具异常不抛到孩子面前 |
+| 4 | P0-4 触发策略 | 「上次那只霸王龙」能触发 recall；日志能看到调用率与 MISS 率；换任意 `ageGroup` 话术随之变化而工具返回值不变 |
+| 5 | P1 日报 + 主动关心 | 日报只出话题不复述秘密；24h 内不会重复问同一件事；日报成本与对话轮次无关 |
+
+**测试策略**：把碎碎念 `tests/` 中 `memory / safety / care` 相关用例逐条翻成 Jest（项目已有 Jest 29 + 94 个 spec），断言按原文对齐：逐字闸门三层、L2 SQL 排除、24h 双率闸、四出口、RRF 排序。新增工具层用例：不调用时零额外开销、`SERVICE_DOWN` 不抛错、hint 命中率。
+
+## 八、明确不搬
+
+| 模块 | 行数 | 不搬原因 |
+|------|------|---------|
+| `agent/runtime.py` 等 | 11567 | 为语音半双工、VAD、打断设计的状态机；灵犀有自己的 `agent-executor.ts`（552 行）与 `ToolRegistry` |
+| `gateway/` | 4185 | ESP32 WebSocket、60ms Opus 帧、OTA，与有屏 App 无关 |
+| `web/` | 5146 | 独立家长控制台；灵犀已有 React Web 家长端 |
+| `storage/` | 3587 | SQLite DAO；灵犀用 TypeORM |
+| `voiceprint/` `asr/` `tts/` `music/` | 3976 | 声纹、本地 ASR、流式 TTS、音乐生成，均绑定设备与本地模型 |
+| `llm/` | 1314 | 灵犀已有 `LlmClientService` |
+| `memory/extract.py` 的队列部分 | — | `ExtractionWorker` / `extract_jobs` 被工具化取代，只搬四闸门逻辑 |
+
+## 九、风险
+
+1. **把策略退化成提示词**：L2 排除、逐字引用、urgent 无开关这类承诺一旦只写在 system prompt 里就等于丢失。必须落在 SQL / 工具实现里并有测试。
+2. **LLM 漏判触发**：见 3.4 的四层兜底。旁路（日报 / 推荐 / care）直接调服务是关键保险，不能省。
+3. **工具定义常驻 token**：约 +200–400 token/轮，比省下的 embedding 便宜；若仍要压，用本地 hint 控制注入。
+4. **年龄扩展的一致性**：核查发现后端存在两份 `classifyAge` 实现（`agent-framework` 与 `modules/ai/agent`），扩龄时需统一，否则新增年龄段在一处生效、另一处回落。移植代码不依赖年龄，风险被隔离在这两处。
+5. **不做实时音频**：本方案不需要 WebSocket、不需要 Opus、不需要 nginx Upgrade 反代，部署形态与现在完全一致。
+
+## 十、落地状态（2026-11-07 实现）
+
+批次 0–5 已按清单顺序实现，全部为 NestJS / TypeScript，未引入 Python、WebSocket 或新运行时。新增 7 个 spec 文件、72 个用例（`verbatim-gate` / `safety-detector` / `safety-service` / `memory-write` / `memory-recall` / `care-service` / `new-entities`）。
+
+| 批次 | 状态 | 主要文件 |
+|------|------|---------|
+| 0 迁移基线 | 完成 | `src/app.module.ts`（`DB_SYNCHRONIZE` 开关）、`src/database/migrations/1700000000000-CreateMemoryAndSafetyTables.ts` |
+| 1 安全熔断 | 完成 | `src/modules/safety/`（`safety-rules.ts`、`safety-detector.service.ts`、`safety-classifier.service.ts`、`safety.service.ts`、`safety.controller.ts`）、接入 `ai.service.ts` 的 `chat()` / `chatStream()` |
+| 2 saveMemory | 完成 | `src/modules/memory/`（`verbatim.ts`、`memory-write.service.ts`、`memory.entity.ts`）、`src/modules/ai/agent/tools/save-memory.ts` |
+| 3 recallMemory | 完成 | `memory-recall.service.ts`、`memory-vector.service.ts`、`recall-audit.entity.ts`、`src/modules/ai/agent/tools/recall-memory.ts` |
+| 4 触发策略 | 完成 | `tool-definitions.ts`、`tool-registry.ts`、`agent-executor.ts` 的 `memoryTriggerHint()`、`tools/tool-risk.ts`、`recall_audits` |
+| 5 日报 + 主动关心 | 完成 | `report.service.ts` 的 `getConversationTopics()`、`src/modules/care/` |
+
+### 与设计的两处有意偏离
+
+1. **模糊层的窗口宽度改为 `w-1 / w / w+1`。** 原实现窗口宽度恒等于引用长度，而等长字符串的 `2·LCS/(|a|+|b|)` 等于 `LCS/长度`，只有完全相同才到 0.95 —— 精确层与归一化层已经先命中了，模糊层在自己的阈值下永远不可能触发。改为允许 ±1 之后，"模型少打一个字"（13 vs 14 字 ≈ 0.963）能命中，"改写"仍然被拒。
+2. **召回通过条件去掉 `hits >= 2`。** 两个重叠的虚词边界二字组（「我的」+「的鞋」）就能满足它，而这正是注释里说要拦的误报场景（「我的鞋放在哪里了」召回咬鞋带的故事）。改为要求至少一个不含虚词的实词片段命中，语义不变、漏洞关闭，并有用例钉住。
+
+### 环境变量
+
+见 `src/backend/.env.example` 的 `DB_SYNCHRONIZE` / `SAFETY_*` / `MEMORY_*` / `CARE_*` 四段，全部有安全默认值：不配置时行为与接入前一致（记忆工具只是多两个低风险工具，语义通道因无 embed 后端而缺席，召回走字面 + 时间通道）。
+
+### 仍未完成（不影响本方案上线）
+
+- **工具风险分级只接入了策略与日志**，`PARENT_APPROVAL_REQUIRED` 为空集。把某个工具改成"需家长确认"是产品决定，机制已就位，改一行即可。
+- **`recall_audits` 只写不读**：调用率 / MISS 率的日志已落库，但没有查询接口或看板，触发策略的覆盖率暂时无法量化。v2 设计里「先用日志观察覆盖率」还差这一环。
+- **扩龄仍是两档**：`AgeGroup` 还是 `'3-4' | '5-6'`，7+ 回落 `'5-6'`，且 `agent-executor.ts` 有第二份 `classifyAge`。移植代码本身不读年龄（能力层已达标），扩档位是独立的产品改动。
+- **迁移不补外键**：SQLite 无法在不重建表的前提下加约束，见第十一节「已知边界」。
+
+> 原先这里还列着「care 的定时任务未挂调度器」和「`conversations.summary` 没有读取方」。这两条已在第十二节接通，其中 care 的实际问题比当时记录的更严重：`dueCue()` 当时**全仓零调用方**，主动关心是数据只进不出的死功能。
+
+## 十一、存量表迁移基线（2026-11-07 补充）
+
+`1600000000000-CreateBaselineSchema.ts` 补上了 29 张存量表，加上第十节的 4 张，共 33 张，覆盖全部实体。`DB_SYNCHRONIZE=false` 现在有了意义：空库也能从零建起完整 schema。
+
+### 设计取舍
+
+- **对已有库是空操作**：每张表都用 `ifNotExists` 创建。线上库的表早已被 `synchronize` 建好，迁移只会被记为已执行，不改任何东西。
+- **类型按方言生成**：`synchronize` 在 SQLite 上产出 `datetime` + `datetime('now')`，在 PostgreSQL 上产出 `timestamp` + `now()`。基线必须跟着驱动走，否则两边永远差一点。
+- **默认值手动加引号**：`Table` 的列默认值是原样拼进 `DEFAULT (...)` 的，不做转义也不做归一化。字符串要自带引号，布尔值要按驱动写成 `0/1`（SQLite）或 `false/true`（PostgreSQL）。
+- **索引名沿用 TypeORM 生成的哈希名**：改成可读名字会让 `synchronize` 认为索引不同、重建一遍。可读性让位于"翻回 `synchronize: true` 时零变更"。
+
+### 顺带修掉的两个既有缺陷
+
+基线要成立，前提是"实体 → schema"是确定的。核查时发现两处同一张表被两个实体声明，`synchronize` 每次启动都在来回重建：
+
+1. **`poems`**：`database/entities/poem.entity.ts` 与 `modules/poetry/entities/poem.entity.ts` 都映射这张表。前者**全仓零引用**（无 import、无 raw SQL、seed 也不用），只因为实体 glob 会扫到它才被加载。两个定义互不相容，`synchronize` 无法收敛——这不是基线能编码的状态，所以删掉了这个死文件，并由 `reconcilePoems()` 清掉它曾加到已有库上的 6 个列（`author`/`dynasty`/`translation`/`appreciation`/`popularity`/`firstChar`，其中两个是 `NOT NULL` 且无任何写入方能满足）。
+2. **`conversations` / `conversation_messages`**：`agent-framework/conversation/entities/` 与 `modules/ai/conversation/` 各声明一次。
+
+### `conversations` 双声明的彻底消除（2026-11-07 追加）
+
+上一版只是把漏掉的三列补进 `agent-framework` 那份、让两个定义一致，并注明"以后加列要两处同时加"。那仍然是个靠自觉维持的约定，所以这一轮直接消掉了重复：
+
+- **唯一声明**：`src/database/entities/conversation.entity.ts`。放在共享实体目录，因为它本来就被三层映射（AI 模块的会话管理器、agent-framework 的通用会话服务、memory 模块的原文校验），任何一层独占都会让依赖方向更糟。
+- **删掉两份重复**：`agent-framework/conversation/entities/`（含 barrel）与 `modules/ai/conversation/conversation.entity.ts`。6 处导入改到新路径，`role` 字段从 `string` 收紧为 `MessageRole`（`ConversationService.addMessage` 的入参同步收紧）。
+- **守卫测试**：`test/unit/entity-declarations.spec.ts` 扫描全部 `*.entity.ts`（先剥注释，否则解释规则的文档注释会匹配到规则本身），断言没有任何表被声明两次，并显式钉住 `conversations` / `conversation_messages` / `poems` 各只有一处。
+
+### `ConversationService` 接管会话层（2026-11-07 追加）
+
+上一轮发现 `agent-framework` 的 `ConversationService` 是 `ConversationManager` 的未接线重构版，且漏了摘要生成。这一轮把摘要补齐，并由它正式替掉管理器：
+
+- **补齐的行为**：`actorType` 校验（父子会话不串）、无 `sessionId` 时永不复用旧会话、`SUMMARY_THRESHOLD = 50` 的滚动摘要、`listSessions` 的 `actorType` 过滤与首条用户消息（列表标题）、`buildMessageArray` 默认 50 条。
+- **删除**：`modules/ai/conversation/conversation-manager.ts`（440 行）及整个 `modules/ai/conversation/` 目录。消费方改为注入 `ConversationService`：`ai.service.ts`、`agent-executor.ts`、两个 `assign-activity.ts`；`AiModule` 不再提供它，改由 `AgentFrameworkModule` 导出，同时移除已无人使用的 `TypeOrmModule.forFeature`。
+- **两处有意收紧**：
+  1. **缓存真的只是缓存**。`SessionCache` 有 30 分钟 TTL，而管理器的裸 `Map` 永不过期。照搬的话，空闲 31 分钟后发来的消息会被 `addMessage` 静默丢弃。所有读路径现在都回落到数据库并回填，TTL 只是优化。
+  2. **`actorType` 在缓存路径上也校验**。管理器只在数据库路径校验，缓存命中时直接返回，等于绕过了自己的注释意图。
+- **一个数据修正**：摘要写回 `messageCount` 时，管理器存的是"读了多少条"（恒等于阈值 50），现在存真实总数。
+- **测试**：`test/unit/conversation.service.spec.ts`（21 个用例，真 SQLite）覆盖父子会话隔离、新会话不复用、摘要触发/不重复/LLM 异常不拖垮对话、缓存冷启动不丢消息、列表标题、工具调用块不被拆开。
+
+顺带修掉一个挡住验证的既有 bug：`app.module.ts` 的 sql.js 回退分支把文件路径传给了 `database`（该参数要 `Uint8Array`）又没给 `location`，导致**没有 better-sqlite3 原生绑定的机器根本起不来**——正是这个回退存在的场景。改为 `location: dbPath` 后，`test/smoke.spec.ts` 才第一次真正跑通，并顺带改成使用临时库、不再写开发者的 `lingxi.db`。
+
+### 摘要生成移出请求路径（2026-11-07 追加）
+
+上一节的摘要是在 `addMessage` 里同步做的：写库 → `COUNT(*)` → 调 LLM 要摘要。这意味着会话到第 50 条消息时，**那一轮回复要等第二次模型往返**才返回，而摘要本身在请求路径上没有任何消费者。
+
+现在拆成三步：
+
+- **写路径只记账**：`addMessage` 落库后只往内存 `Set` 里记一个 `summaryPending` 标记，零 IO、零模型调用。
+- **回合结束才干活**：`agent-executor` 在 `execute()` 的两处 return 前、`executeStream()` 的 `done` 之前调 `scheduleSummary(sessionId)`，它是同步返回的 fire-and-forget。摘要失败不会影响已经发出的回复。
+- **可等待的版本**：`summarizeIfDue(sessionId)` 是同一份逻辑的 `async` 形态，给测试（以及以后可能的关闭钩子）用，避免测试去 racing 一个后台任务。
+
+两个并发保护，各自解决一个真实场景：
+
+1. **先删标记再干活**。一轮对话里 `addMessage` 会被调用多次（用户消息、每轮工具调用、工具结果、最终回复），如果标记只在生成成功后才清，同一轮里最后几个 `addMessage` 之后的 `scheduleSummary` 会重复触发。`Set.delete` 返回布尔值，天然做到"只有第一次调用开工"。
+2. **`summaryInFlight`**。两个请求并发写同一个会话时，阻止两次摘要同时跑——否则后一次会用旧内容覆盖新摘要。
+
+失败补偿是有意的：标记在开工前就被删了，所以本次失败不会在同一轮里重试；但**下一轮 `addMessage` 会重新置位**，于是下一轮再试一次。成功之后 `session.summary` 直接短路，连 `COUNT(*)` 都不再执行。
+
+边界：`summaryPending` 上限 500 条（`addMessage` 有多个调用方，只有 `agent-executor` 会调 `scheduleSummary`，无界增长是真实风险）；`endSession` 时清掉该会话的标记。
+
+**测试**：`conversation.service.spec.ts` 的 `summaries` 从 5 个用例扩到 8 个，新增的三条针对这次拆分——「写路径不调模型」「回合结束后生成」「失败后下一轮重试」，其余按新入口改写。
+
+**当时留下的待决问题**：`conversations.summary` 没有任何读取方，这次改动只是把一次"写了没人读"的模型调用挪出了关键路径——省下延迟，但摘要仍不产生价值。已在第十二节解决：历史被截断时把摘要注入上下文。
+
+### 已有库的列补齐
+
+`createTable(..., ifNotExists)` 是"全有或全无"：表已存在就整段跳过，**包括后来新增的列**。所以基线新增 `reconcileConversations()`，为老库补上 `actorType` / `summary` / `messageCount`（三者都有默认值或可空，加在有数据的表上安全），与 `reconcilePoems()` 同构。
+
+这一条直接来自真实库演练：开发库的 `conversations` 恰好缺 `actorType`，补列前 `synchronize` 仍要重建表。补列后待执行变更从 4 条降到 **0 条**。
+
+### 验证
+
+`test/unit/migration-baseline.spec.ts`（6 个用例）把承诺钉成断言：
+
+- 从迁移建出的库包含实体声明的每一张表；
+- 建完之后 `synchronize` 的差异为 **0 条**（这是"基线可信"的实质含义，不是"表存在"）；
+- 两份迁移都被记为已执行；
+- 对已有 schema + 已有数据的库是空操作，数据不丢；
+- 遗留 `poems` 列被清理，诗歌列被补齐；
+- 缺 `actorType`/`summary`/`messageCount` 的老库，迁移后列被补齐、已有行的默认值正确、且差异回到 0 条。
+
+另外在真实开发库副本上演练过：两份迁移正常应用，`users` 2 行 / `contents` 68 行原样保留，表从 20 张补到 34 张，待执行变更 **0 条**。
+
+### 上线顺序
+
+基线现在既能从空库建起完整 schema，也能把老库补齐到实体形状（`reconcilePoems()` + `reconcileConversations()`），所以**两种顺序都成立**：
+
+1. 直接设 `DB_SYNCHRONIZE=false` 部署 —— 推荐，schema 从第一天就归迁移管，不会再有未审计的 `ALTER`；
+2. 或者先按现状部署一次（`synchronize` 默认 `true`），再关掉。
+
+上一版文档说"必须先部署一次"是基于当时缺列未补齐的事实，现已不适用。
+
+### 已知边界
+
+- **不补外键**：SQLite 无法在不重建表的前提下加约束。`synchronize` 建过的库本来就有外键，所以只在"表存在但缺外键"的极端情况下会有差异。
+- **`conversations` 的双声明已消除**，只剩 `database/entities/conversation.entity.ts` 一处，并有守卫测试兜底。会话层也已统一到 `ConversationService`，`ConversationManager` 不再存在。
+
+## 十二、接通两个"写了没人读"的功能（2026-11-08）
+
+上一轮收尾时做了一次全仓调用方核查，发现两处功能虽然实现完整、单测齐全，但在运行时**根本不可达**。这一轮把它们接进主链路，并修掉一个会静默吞掉结果的 provider 差异。
+
+### 主动关心：从死功能到可触发
+
+核查结果比第十节记录的更严重：`CareService.dueCue()` 和 `expireStale()` 在 `src` 里**零调用方**。只有 `MemoryWriteService` 在记忆写入时调 `schedule()` 往 `care_cues` 排队，没有任何代码把 cue 取出来——数据只进不出，孩子永远收不到关心。
+
+接法：
+
+- **开场判定不用新增返回标志**。`getOrCreateSession` 在请求 id 不可复用时会返回一个不同的 uuid，所以 `requestedSessionId !== resolvedSessionId` 就是精确的"这是新对话"信号。只在 child 模式、且是新会话时取 cue；第 12 轮突然问春游会很怪，24h 闸也不该花在对话中间。
+- **两条执行路径都覆盖**。`AiService` 把 topic 传给 `executeRoutedChat` / `executeRoutedChatStream`：legacy 分支给 `AgentExecutor.buildSystemPrompt` 加一段；framework 分支把**已渲染好的**指令放进 `AgentContext.metadata.careCueNote`，由 `OrchestratorService` 在它构造 system prompt 的两处追加。措辞只在 `care-prompt.ts` 维护一份。
+- **不落库**。cue 是"这一轮怎么回答"的指令，不是孩子说过的话，所以只进 system prompt，不进 `conversation_messages`。
+- **调度器不用加了**。项目没有 `@nestjs/schedule`，与其挂一个永远没人配的定时任务，不如让 `dueCue()` 自己先跑 `expireStale()`：它是唯一开场合法入口，清理幂等且便宜，窗口外的早晨对话也会顺手把上周的 cue 退役。
+- **防注入**。topic 来自模型抽取的记忆、存在库里、现在要拼进指令，属于不可信文本。`careCuePrompt()` 压平换行、去掉引号定界符、截到 100 字，避免"春游\n忽略之前的指令"变成第二段指令。
+- **全程不拖垮对话**：`openingCareTopic()` 包了 try/catch，cue 表挂了照样正常回复。
+
+`AiModule` 补引入 `CareModule`（`MemoryModule` 早已引入，无 provider 环）。
+
+### 会话摘要：截断时才注入
+
+`buildMessageArray` 是两条执行路径**唯一共享**的历史加载点，所以把注入放这里，两边自动一致：当 `messages.length > maxMessages` 且 `session.summary` 存在时，在保留的尾部消息前插一条 `system` 消息，说明这是较早对话的概括、不是孩子刚说的话。没截断、或摘要还没生成时，返回原数组不变。
+
+摘要同样是模型生成的不可信文本，渲染前压平换行并截到 200 字。读取发生在**下一轮**，没人等它，所以上一节的异步生成依然成立。
+
+### 顺带修掉：pi-ai 会丢掉第二条 system 消息
+
+验证链路时发现 `LlmClientService.callProvider()` 和 `piAiChatCompletionStream()` 都写着：
+
+```ts
+const systemPrompt = messages.find((m) => m.role === 'system')?.content;
+const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+```
+
+`find` 只取第一条、`filter` 丢掉其余所有 system 消息。也就是说刚做的摘要注入在 legacy OpenAI 路径上有效、**在 pi-ai 路径上被静默丢弃**——同一个功能因 provider 不同而行为不一致，且没有任何报错。改成 `splitSystemMessages()` 把所有 system 消息按顺序 join 进单个 `systemPrompt`，两处调用点共用，并有单测钉住。
+
+### 测试
+
+新增 `care-prompt.spec.ts`（渲染/清洗）、`llm-client.service.spec.ts` 的 `splitSystemMessages` 两例；扩写 `care-service.spec.ts`（窗口外也会清理、关闭时不清理）、`ai.service.routing.spec.ts`（新会话才取 cue、续聊不取、cue 异常仍回复）、`orchestrator.service.spec.ts`（framework 路径也会追加 note）、`conversation.service.spec.ts`（截断注入、未截断不注入、无摘要不注入、不可信摘要清洗）、`agent-executor.book-context.spec.ts`（新增第 7/8 参数断言）。顺带把 `health.controller.spec.ts` 里硬编码的 `toBe('linux')` 改成 `toBe(process.platform)`——那是 Windows 上唯一一条红色用例，与本方案无关但一直挡着全绿。
+

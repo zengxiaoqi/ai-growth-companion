@@ -1,8 +1,8 @@
 /**
- * MessageBuilder — extracted from ConversationManager.buildMessageArray().
+ * MessageBuilder — the block-assembly half of `ConversationService`.
  *
- * Rebuilds valid LLM message arrays from flat database records,
- * ensuring tool-call blocks are never split.
+ * Split out so the rule "never separate an assistant tool call from its
+ * result" is testable on its own, without a database.
  */
 
 import { Injectable, Logger } from '@nestjs/common';

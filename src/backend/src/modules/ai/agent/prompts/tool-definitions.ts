@@ -466,4 +466,85 @@ export const toolDefinitions: ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'recallMemory',
+      description:
+        '回忆你和这个孩子过去聊过的事情（跨会话的长期记忆）。' +
+        '当孩子提到「上次 / 以前 / 还记得吗 / 又 / 还是 / 说过 / 答应过」，' +
+        '主动让你记住某件事，或你需要知道他的偏好才能回答得更好时，调用本工具。' +
+        '普通闲聊、问知识题、讲故事时不要调用——本工具每次都会产生检索开销。' +
+        '返回的是结构化结果与回忆素材，话术请按当前年龄的语气自己组织。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description:
+              '要回忆的内容，用孩子提到的关键词即可，例如"霸王龙""上次那个约定"。不要写成问句。',
+          },
+          limit: {
+            type: 'number',
+            description: '返回条数上限，默认 8，最多 20',
+          },
+          since: {
+            type: 'string',
+            description: '可选，只回忆该日期（YYYY-MM-DD）之后记下的事情',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'saveMemory',
+      description:
+        '把值得长期记住的事情记下来，供以后回忆。' +
+        '适合：孩子说出的偏好（喜欢/讨厌什么）、重要事件（生日、比赛、春游）、' +
+        '带日期的计划、以及他特意让你记住的事。' +
+        '不适合：一次性的问题、临时情绪、你自己说的话、常识知识。' +
+        'verbatimQuote 必须是孩子原话里的连续片段，一个字都不能改，' +
+        '否则会被逐字校验丢弃。',
+      parameters: {
+        type: 'object',
+        properties: {
+          content: {
+            type: 'string',
+            description: '用第三人称写一句简短描述，例如"孩子最喜欢霸王龙，尤其是三角龙"',
+          },
+          verbatimQuote: {
+            type: 'string',
+            description: '孩子原话的逐字片段，不要改写、不要补标点、不要把两句拼成一句',
+          },
+          kind: {
+            type: 'string',
+            enum: ['event', 'topic', 'detail', 'preference'],
+            description: 'preference=偏好，event=事件，topic=话题，detail=细节',
+          },
+          occurredAt: {
+            type: 'string',
+            description: '事件发生日期 YYYY-MM-DD。只有能确定日期时才填，"周四"这类相对说法不要猜',
+          },
+          confidence: {
+            type: 'number',
+            description: '你对"值得记且没有编造"的把握，0-1，低于 0.75 会被丢弃',
+          },
+          sensitivity: {
+            type: 'string',
+            enum: ['L0', 'L1', 'L2'],
+            description: '敏感级别。孩子明确要求保密的一律填 L2（系统也会强制）',
+          },
+          secrets: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '孩子要求保密的原话片段，可留空',
+          },
+        },
+        required: ['content', 'verbatimQuote'],
+      },
+    },
+  },
 ];

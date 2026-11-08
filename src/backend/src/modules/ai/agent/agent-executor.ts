@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClientService } from '../../../agent-framework/llm/llm-client.service';
 import { ToolRegistry } from './tool-registry';
-import { ConversationManager } from '../conversation/conversation-manager';
+import { ConversationService } from '../../../agent-framework/conversation/conversation.service';
 import { ContentSafetyService } from '../../../common/services/content-safety.service';
+import { careCuePrompt } from '../../care/care-prompt';
 import { systemPrompt34, systemPrompt56, systemPromptParent } from './prompts/system-prompts';
 import { stripThinking, extractThinking } from '../../../agent-framework/core';
 import type { LlmMessage } from '../../../agent-framework/core';
@@ -20,8 +21,24 @@ const CHILD_ID_TOOLS = new Set([
   'viewAbilities',
   'listAssignments',
   'enqueueTeachingVideo',
+  'recallMemory',
+  'saveMemory',
 ]);
 const PARENT_ID_TOOLS = new Set(['listChildren', 'assignActivity', 'updateParentControl']);
+/**
+ * Tools that need the current session id: `saveMemory` verifies the quote
+ * against the child's messages *in this conversation*, so it has to know
+ * which conversation that is.
+ */
+const SESSION_ID_TOOLS = new Set(['recallMemory', 'saveMemory']);
+
+/**
+ * Words that *may* point at the past. Used only to add one line to the
+ * system prompt — never to decide anything. Narrow on purpose: 「又」 and
+ * 「还是」 are far too common to be useful as triggers.
+ */
+const MEMORY_TRIGGER =
+  /(上次|上回|以前|之前|还记得|记不记得|我说过|答应过|约好|那天|昨天|前天|上周|上个月|生日|最喜欢|最讨厌|害怕|记住|别忘了)/;
 const NEEDS_AGE_GROUP_TOOLS = new Set([
   'generateQuiz',
   'generateActivity',
@@ -66,7 +83,7 @@ function safeParseJsonObject(text: string): Record<string, any> | null {
   return null;
 }
 
-/** Convert ChatCompletionMessageParam[] from ConversationManager to LlmMessage[] */
+/** Convert ChatCompletionMessageParam[] from ConversationService to LlmMessage[] */
 function toLlmMessages(raw: any[]): LlmMessage[] {
   return raw.map((msg: any) => {
     if (msg.role === 'tool') {
@@ -97,7 +114,7 @@ export class AgentExecutor {
   constructor(
     private readonly llmClient: LlmClientService,
     private readonly toolRegistry: ToolRegistry,
-    private readonly conversationManager: ConversationManager,
+    private readonly conversationService: ConversationService,
     private readonly contentSafetyService: ContentSafetyService,
   ) {}
 
@@ -116,6 +133,8 @@ export class AgentExecutor {
     executionContext?: { childId?: number; parentId?: number },
     bookId?: number,
     bookTitle?: string,
+    userMessage?: string,
+    careTopic?: string,
   ): string {
     const contextHints = [
       '## Runtime Context',
@@ -124,6 +143,8 @@ export class AgentExecutor {
       '- IMPORTANT: Use these IDs directly when calling tools. Never guess IDs.',
       '- If childId is already known, do not call listChildren only to discover childId.',
       '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
+      this.memoryTriggerHint(userMessage),
+      careCuePrompt(careTopic),
       bookId != null && bookTitle != null
         ? `\n## 当前知识书上下文\n用户正在查看"${bookTitle}"这本书，请优先回答与这本书内容相关的问题。\n你可以使用 queryBookSkill 工具搜索这本书中的章节、术语和模式。\n当用户问到书中角色、情节、知识点时，请用 queryBookSkill 搜索相关章节来回答。\n如果用户没有明确指定书本，但问题与当前上下文相关，也请优先搜索这本书。\n- bookId: ${bookId}`
         : '',
@@ -141,6 +162,28 @@ export class AgentExecutor {
   }
 
   /**
+   * A local nudge, computed without any model call.
+   *
+   * The model decides whether to use the memory tools; this line only
+   * lowers the chance that it forgets they exist. It is a hint, not a
+   * switch: a false positive costs one sentence of prompt, and a false
+   * negative is covered by the tools' own descriptions.
+   *
+   * Deliberately age-agnostic — the wording of whatever the model then
+   * says comes from the active age-group prompt, which is what keeps the
+   * memory capability independent of age.
+   */
+  private memoryTriggerHint(userMessage?: string): string {
+    if (!userMessage || !MEMORY_TRIGGER.test(userMessage)) return '';
+    return (
+      '- 这句话里出现了可能指向过去的说法（记忆触发词）。' +
+      '如果确实在问以前的事，可以调用 recallMemory；' +
+      '如果孩子说出了值得长期记住的偏好或事件，可以调用 saveMemory。' +
+      '不确定时宁可不调用，普通闲聊不要调用。'
+    );
+  }
+
+  /**
    * Execute the agent loop: send message to LLM, handle tool calls, return final answer.
    */
   async execute(
@@ -151,9 +194,10 @@ export class AgentExecutor {
     executionContext?: { childId?: number; parentId?: number },
     bookId?: number,
     bookTitle?: string,
+    careTopic?: string,
   ): Promise<{ reply: string; toolCalls: ToolCallInfo[] }> {
     // Save user message
-    await this.conversationManager.addMessage(sessionId, 'user', userMessage);
+    await this.conversationService.addMessage(sessionId, 'user', userMessage);
 
     // Build system prompt
     const systemPrompt = this.buildSystemPrompt(
@@ -162,10 +206,12 @@ export class AgentExecutor {
       executionContext,
       bookId,
       bookTitle,
+      userMessage,
+      careTopic,
     );
 
     // Load conversation history
-    const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
+    const rawHistory = await this.conversationService.buildMessageArray(sessionId);
 
     // Build full message array
     const messages: LlmMessage[] = [
@@ -192,7 +238,7 @@ export class AgentExecutor {
         });
 
         // Save to DB
-        await this.conversationManager.addMessage(
+        await this.conversationService.addMessage(
           sessionId,
           'assistant',
           stripThinking(response.content || ''),
@@ -235,7 +281,7 @@ export class AgentExecutor {
           });
 
           // Save to DB
-          await this.conversationManager.addMessage(sessionId, 'tool', result, {
+          await this.conversationService.addMessage(sessionId, 'tool', result, {
             toolCallId: toolCall.id,
             toolName,
           });
@@ -262,14 +308,19 @@ export class AgentExecutor {
       finalReply = safeResult.content;
 
       // Save assistant response
-      await this.conversationManager.addMessage(sessionId, 'assistant', finalReply);
+      await this.conversationService.addMessage(sessionId, 'assistant', finalReply);
+
+      // The turn is over: hand the rolling summary to the background so the
+      // reply is not delayed by a model call nobody is waiting for.
+      this.conversationService.scheduleSummary(sessionId);
 
       return { reply: finalReply, toolCalls: toolCallLog };
     }
 
     // Max iterations reached — return what we have
     const fallback = '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟';
-    await this.conversationManager.addMessage(sessionId, 'assistant', fallback);
+    await this.conversationService.addMessage(sessionId, 'assistant', fallback);
+    this.conversationService.scheduleSummary(sessionId);
     return { reply: fallback, toolCalls: toolCallLog };
   }
 
@@ -285,6 +336,7 @@ export class AgentExecutor {
     executionContext?: { childId?: number; parentId?: number },
     bookId?: number,
     bookTitle?: string,
+    careTopic?: string,
   ): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'tool_start' | 'tool_result' | 'error' | 'game_data';
     content?: string;
@@ -297,7 +349,7 @@ export class AgentExecutor {
     wasFiltered?: boolean;
   }> {
     // Save user message
-    await this.conversationManager.addMessage(sessionId, 'user', userMessage);
+    await this.conversationService.addMessage(sessionId, 'user', userMessage);
 
     const systemPrompt = this.buildSystemPrompt(
       ageGroup,
@@ -305,8 +357,10 @@ export class AgentExecutor {
       executionContext,
       bookId,
       bookTitle,
+      userMessage,
+      careTopic,
     );
-    const rawHistory = await this.conversationManager.buildMessageArray(sessionId);
+    const rawHistory = await this.conversationService.buildMessageArray(sessionId);
     const messages: LlmMessage[] = [
       { role: 'system', content: systemPrompt },
       ...toLlmMessages(rawHistory),
@@ -331,7 +385,7 @@ export class AgentExecutor {
           toolCalls: response.toolCalls,
         });
 
-        await this.conversationManager.addMessage(
+        await this.conversationService.addMessage(
           sessionId,
           'assistant',
           stripThinking(response.content || ''),
@@ -403,7 +457,7 @@ export class AgentExecutor {
             toolCallId: toolCall.id,
           });
 
-          await this.conversationManager.addMessage(sessionId, 'tool', result, {
+          await this.conversationService.addMessage(sessionId, 'tool', result, {
             toolCallId: toolCall.id,
             toolName,
           });
@@ -449,7 +503,11 @@ export class AgentExecutor {
       // Safety filter
       const safeResult = this.contentSafetyService.filterContent(cleanContent);
 
-      await this.conversationManager.addMessage(sessionId, 'assistant', safeResult.content);
+      await this.conversationService.addMessage(sessionId, 'assistant', safeResult.content);
+
+      // Fire-and-forget: the stream must close on the reply, not on a
+      // summary the client is not waiting for.
+      this.conversationService.scheduleSummary(sessionId);
 
       yield {
         type: 'done',
@@ -461,6 +519,7 @@ export class AgentExecutor {
     }
 
     // Fallback
+    this.conversationService.scheduleSummary(sessionId);
     yield {
       type: 'token',
       content: '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟',
@@ -545,6 +604,12 @@ export class AgentExecutor {
 
     if (toolName === 'assignActivity' && conversationId && normalized.conversationId == null) {
       normalized.conversationId = conversationId;
+    }
+
+    if (SESSION_ID_TOOLS.has(toolName) && conversationId && normalized.sessionId == null) {
+      // `saveMemory` proves the quote against this conversation's messages,
+      // so the id is supplied here rather than trusted from the model.
+      normalized.sessionId = conversationId;
     }
 
     return normalized;

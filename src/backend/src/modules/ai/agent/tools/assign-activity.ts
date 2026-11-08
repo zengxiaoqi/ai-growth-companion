@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AssignmentService } from '../../../assignment/assignment.service';
-import { ConversationManager } from '../../conversation/conversation-manager';
+import { ConversationService } from '../../../../agent-framework/conversation/conversation.service';
 import { GenerateActivityTool } from './generate-activity';
 
 type PendingAssignmentDraft = {
@@ -28,7 +28,7 @@ export class AssignActivityTool {
   constructor(
     private readonly generateActivityTool: GenerateActivityTool,
     private readonly assignmentService: AssignmentService,
-    private readonly conversationManager: ConversationManager,
+    private readonly conversationService: ConversationService,
   ) {}
 
   async execute(args: {
@@ -167,7 +167,7 @@ export class AssignActivityTool {
   }
 
   private async loadValidDrafts(conversationId: string): Promise<PendingAssignmentDraft[]> {
-    const conversation = await this.conversationManager.getConversationByUuid(conversationId);
+    const conversation = await this.conversationService.getConversationByUuid(conversationId);
     const raw = conversation?.metadata?.[DRAFTS_METADATA_KEY];
     if (!Array.isArray(raw)) {
       const legacyDraft = conversation?.metadata?.pendingAssignmentDraft;
@@ -189,7 +189,7 @@ export class AssignActivityTool {
     conversationId: string,
     drafts: PendingAssignmentDraft[],
   ): Promise<void> {
-    await this.conversationManager.updateMetadata(conversationId, {
+    await this.conversationService.updateMetadata(conversationId, {
       [DRAFTS_METADATA_KEY]: drafts,
       pendingAssignmentDraft: drafts.length === 1 ? drafts[0] : null,
     });

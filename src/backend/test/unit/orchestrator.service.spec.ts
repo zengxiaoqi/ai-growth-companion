@@ -158,6 +158,36 @@ describe('OrchestratorService', () => {
     );
   });
 
+  /**
+   * The framework path builds its own system prompt, so the opening care
+   * cue has to be wired here as well as in the legacy AgentExecutor —
+   * otherwise enabling the orchestrator would silently disable care cues.
+   */
+  describe('opening care cue', () => {
+    beforeEach(() => {
+      runLoopQueue.push({ response: 'ok', toolCalls: [], wasFiltered: false });
+    });
+
+    it('appends the rendered note to the system prompt', async () => {
+      const context: AgentContext = {
+        ...baseContext,
+        metadata: { ...baseContext.metadata, careCueNote: '孩子之前提到过「春游」。' },
+      };
+
+      await service.route('你好', context);
+
+      const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
+      expect(systemPrompt).toContain('孩子之前提到过「春游」。');
+    });
+
+    it('leaves the prompt untouched when no note was supplied', async () => {
+      await service.route('你好', baseContext);
+
+      const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
+      expect(systemPrompt).not.toContain('本轮可以主动关心的事');
+    });
+  });
+
   it('coordinates course and activity specialists for composite parent query', async () => {
     runLoopQueue.push(
       {

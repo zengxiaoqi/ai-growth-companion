@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { LearningRecord } from '../../database/entities/learning-record.entity';
 import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
 import { Achievement } from '../../database/entities/achievement.entity';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
+import { MemoryService } from '../memory/memory.service';
 
 interface ReportParams {
   userId: number;
@@ -23,6 +24,12 @@ export class ReportService {
     @InjectRepository(Achievement)
     private achievementRepository: Repository<Achievement>,
     private readonly llmClient: LlmClientService,
+    /**
+     * Optional so existing unit specs that construct ReportService by hand
+     * keep working; without it the report simply has no conversation
+     * section.
+     */
+    @Optional() private readonly memoryService?: MemoryService,
   ) {}
 
   async generateReport(params: ReportParams) {
@@ -50,6 +57,10 @@ export class ReportService {
       achievements: achievementStats.recent || [],
       insights: await this.generateInsights(learningStats, achievementStats),
       streak: learningStats.streakDays,
+      // 「报话题，不告状」：topics only, never quotes, never a transcript.
+      // Queried directly instead of going through the model's tool choice,
+      // because this is the scene where memory actually pays off.
+      conversationTopics: await this.getConversationTopics(userId, dateRange),
       // Extra fields for backward compatibility
       summary: learningSummary,
       learning: learningStats,
@@ -58,8 +69,63 @@ export class ReportService {
     };
   }
 
-  private getDateRange(period: string) {
-    const now = new Date();
+  /**
+   * What the child has been talking about, as topics.
+   *
+   * Deliberately narrow in what it exposes:
+   *  - only `content`, which is a third-person summary — never
+   *    `verbatimQuote`, so the report cannot become a transcript reader;
+   *  - L2 is excluded by the query in `MemoryService.recentForDigest`,
+   *    so a secret cannot reach a parent through the report;
+   *  - no counts of "problems", no per-event log. A parent gets "he keeps
+   *    coming back to dinosaurs", not a surveillance feed.
+   *
+   * Returns an empty structure when the memory module is absent or the
+   * child has no memories yet — the report simply has no conversation
+   * section, which is honest.
+   */
+  private async getConversationTopics(
+    userId: number,
+    dateRange: { start: Date; end: Date },
+  ): Promise<{
+    total: number;
+    topics: Array<{ topic: string; kind: string; lastMentionedAt: string }>;
+    summary: string;
+  }> {
+    if (!this.memoryService) {
+      return { total: 0, topics: [], summary: '' };
+    }
+
+    try {
+      const memories = await this.memoryService.recentForDigest(userId, dateRange.start, 30);
+      const seen = new Set<string>();
+      const topics: Array<{ topic: string; kind: string; lastMentionedAt: string }> = [];
+
+      for (const memory of memories) {
+        const topic = (memory.content ?? '').trim();
+        if (!topic || seen.has(topic)) continue;
+        seen.add(topic);
+        topics.push({
+          topic,
+          kind: memory.kind,
+          lastMentionedAt: (memory.createdAt ?? new Date()).toISOString(),
+        });
+        if (topics.length >= 8) break;
+      }
+
+      const summary = topics.length
+        ? `最近他常聊到：${topics.slice(0, 5).map((item) => item.topic).join('；')}`
+        : '';
+
+      return { total: memories.length, topics, summary };
+    } catch (err) {
+      // A report must not fail because the memory table is unavailable.
+      this.logger.warn(`conversation topics unavailable: ${(err as Error).message}`);
+      return { total: 0, topics: [], summary: '' };
+    }
+  }
+
+  private getDateRange(period: string) {    const now = new Date();
     let start: Date;
 
     switch (period) {

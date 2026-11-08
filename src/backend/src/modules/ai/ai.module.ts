@@ -1,5 +1,4 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
@@ -10,8 +9,6 @@ import { ContentsModule } from '../contents/contents.module';
 import { RecommendModule } from '../recommend/recommend.module';
 import { ParentModule } from '../parent/parent.module';
 import { ContentSafetyService } from '../../common/services/content-safety.service';
-import { Conversation, ConversationMessage } from './conversation/conversation.entity';
-import { ConversationManager } from './conversation/conversation-manager';
 import { AgentExecutor } from './agent/agent-executor';
 import { ToolRegistry } from './agent/tool-registry';
 import { GetUserProfileTool } from './agent/tools/get-user-profile';
@@ -34,11 +31,16 @@ import { EnqueueTeachingVideoTool } from './agent/tools/enqueue-teaching-video';
 import { GenerateCoursePackTool as LegacyGenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import { QueryBookSkillTool } from './agent/tools/query-book-skill';
 import { GenerateBookLessonTool } from './agent/tools/generate-book-lesson';
+import { RecallMemoryTool } from './agent/tools/recall-memory';
+import { SaveMemoryTool } from './agent/tools/save-memory';
 import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
 import { BookSkillModule } from '../book-skill/book-skill.module';
 import { ReportModule } from '../report/report.module';
 import { VoiceModule } from '../voice/voice.module';
 import { RewardModule } from '../reward/reward.module';
+import { SafetyModule } from '../safety/safety.module';
+import { MemoryModule } from '../memory/memory.module';
+import { CareModule } from '../care/care.module';
 
 // Reward tools
 import { GetPointsSummaryTool } from './agent/tools/get-points-summary';
@@ -86,8 +88,10 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     ReportModule,
     VoiceModule,
     RewardModule,
+    SafetyModule,
+    MemoryModule,
+    CareModule,
     ConfigModule,
-    TypeOrmModule.forFeature([Conversation, ConversationMessage]),
     // New agent framework
     AgentFrameworkModule,
     // Book-skill module (for agent tools)
@@ -96,8 +100,9 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
   providers: [
     AiService,
     ContentSafetyService,
-    // Conversation layer (legacy)
-    ConversationManager,
+    // Conversation persistence lives in the agent framework
+    // (ConversationService, exported by AgentFrameworkModule). It replaced the
+    // module-local ConversationManager, which used to be provided here.
     // Agent layer (legacy)
     AgentExecutor,
     ToolRegistry,
@@ -125,6 +130,9 @@ import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-
     // Book-skill tool
     QueryBookSkillTool,
     GenerateBookLessonTool,
+    // Long-term memory tools (memory module owns the gates)
+    RecallMemoryTool,
+    SaveMemoryTool,
     GetPointRecordsTool,
     GetTodayRecordsTool,
     GetWeeklyStatsTool,

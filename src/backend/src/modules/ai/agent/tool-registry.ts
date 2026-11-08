@@ -19,6 +19,9 @@ import { GenerateCoursePackTool } from './tools/generate-course-pack';
 import { EnqueueTeachingVideoTool } from './tools/enqueue-teaching-video';
 import { QueryBookSkillTool } from './tools/query-book-skill';
 import { GenerateBookLessonTool } from './tools/generate-book-lesson';
+import { RecallMemoryTool } from './tools/recall-memory';
+import { SaveMemoryTool } from './tools/save-memory';
+import { requiresParentApproval, toolRiskOf } from './tools/tool-risk';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
 
 @Injectable()
@@ -46,6 +49,9 @@ export class ToolRegistry {
     private readonly enqueueTeachingVideoTool: EnqueueTeachingVideoTool,
     private readonly queryBookSkillTool: QueryBookSkillTool,
     private readonly generateBookLessonTool: GenerateBookLessonTool,
+    // Appended last so every earlier parameter keeps its position.
+    private readonly recallMemoryTool?: RecallMemoryTool,
+    private readonly saveMemoryTool?: SaveMemoryTool,
   ) {
     this.handlers = new Map([
       ['getUserProfile', (args) => this.getUserProfileTool.execute(args)],
@@ -67,6 +73,12 @@ export class ToolRegistry {
       ['enqueueTeachingVideo', (args) => this.enqueueTeachingVideoTool.execute(args)],
       ['queryBookSkill', (args) => this.queryBookSkillTool.execute(args)],
       ['generateBookLesson', (args) => this.generateBookLessonTool.execute(args)],
+      ...(this.recallMemoryTool
+        ? [['recallMemory', (args) => this.recallMemoryTool!.execute(args)] as const]
+        : []),
+      ...(this.saveMemoryTool
+        ? [['saveMemory', (args) => this.saveMemoryTool!.execute(args)] as const]
+        : []),
     ]);
   }
 
@@ -81,6 +93,22 @@ export class ToolRegistry {
     if (!handler) {
       this.logger.warn(`Unknown tool called: ${toolName}`);
       return JSON.stringify({ error: `未知工具: ${toolName}` });
+    }
+
+    // Risk gate. The policy map is always consulted; the enforcement set is
+    // empty by default, so this is a no-op until a product decision puts a
+    // tool in it. Returning a structured refusal rather than throwing keeps
+    // the model able to explain itself and carry on.
+    const policy = toolRiskOf(toolName);
+    if (policy.risk !== 'low') {
+      this.logger.debug(`Tool ${toolName} risk=${policy.risk}`);
+    }
+    if (requiresParentApproval(toolName) && args?.__parentApproved !== true) {
+      this.logger.warn(`Tool ${toolName} blocked: needs parent approval`);
+      return JSON.stringify({
+        error: '这个操作需要家长确认后才能进行',
+        reason: 'parent_approval_required',
+      });
     }
 
     try {

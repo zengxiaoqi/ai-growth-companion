@@ -303,6 +303,30 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   }
 
   /**
+   * Fold system messages into the one `systemPrompt` pi-ai accepts.
+   *
+   * The previous code took `find(role === 'system')` and dropped every
+   * other system message with `filter`. That silently discarded any
+   * additional one — notably the rolling-summary note
+   * `ConversationService` prefixes onto a truncated history, which made
+   * summaries invisible on pi-ai providers while working on the legacy
+   * OpenAI path. Joining keeps all of them, in order.
+   */
+  private splitSystemMessages(messages: LlmMessage[]): {
+    systemPrompt: string | undefined;
+    nonSystemMessages: LlmMessage[];
+  } {
+    const parts = messages
+      .filter((m) => m.role === 'system')
+      .map((m) => (typeof m.content === 'string' ? m.content : ''))
+      .filter(Boolean);
+    return {
+      systemPrompt: parts.length > 0 ? parts.join('\n\n') : undefined,
+      nonSystemMessages: messages.filter((m) => m.role !== 'system'),
+    };
+  }
+
+  /**
    * Call a single provider via pi-ai's Models.complete().
    */
   private async callProvider(
@@ -313,8 +337,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   ): Promise<LlmResponse> {
     if (!this.models) throw new Error('pi-ai not initialized');
 
-    const systemPrompt = messages.find((m) => m.role === 'system')?.content;
-    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+    const { systemPrompt, nonSystemMessages } = this.splitSystemMessages(messages);
 
     const context: any = {
       systemPrompt,
@@ -358,8 +381,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
     const entry = this.entries[0];
 
-    const systemPrompt = messages.find((m) => m.role === 'system')?.content;
-    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+    const { systemPrompt, nonSystemMessages } = this.splitSystemMessages(messages);
 
     const context: any = {
       systemPrompt,

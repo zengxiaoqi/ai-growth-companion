@@ -180,6 +180,7 @@ describe('AgentExecutor bookId/bookTitle context', () => {
       const conversationManager = {
         addMessage: jest.fn().mockResolvedValue(undefined),
         buildMessageArray: jest.fn().mockResolvedValue([]),
+        scheduleSummary: jest.fn(),
       };
       const safety = {
         filterContent: jest.fn().mockReturnValue({ content: 'ok', wasFiltered: false }),
@@ -209,6 +210,11 @@ describe('AgentExecutor bookId/bookTitle context', () => {
         { childId: 2 },
         123,
         '安徒生童话',
+        // The user message is passed through so the memory trigger hint can
+        // be computed locally (zero LLM cost).
+        '问个书里的问题',
+        // No care cue on this turn.
+        undefined,
       );
     });
   });
@@ -225,6 +231,7 @@ describe('AgentExecutor bookId/bookTitle context', () => {
       const conversationManager = {
         addMessage: jest.fn().mockResolvedValue(undefined),
         buildMessageArray: jest.fn().mockResolvedValue([]),
+        scheduleSummary: jest.fn(),
       };
       const safety = {
         filterContent: jest.fn().mockReturnValue({ content: '你好呀！', wasFiltered: false }),
@@ -257,6 +264,8 @@ describe('AgentExecutor bookId/bookTitle context', () => {
         { childId: 5 },
         99,
         '小猪佩奇',
+        '读了这本书的哪一章？',
+        undefined,
       );
       // Should have collected a 'done' event
       expect(events.some((e) => e.type === 'done')).toBe(true);

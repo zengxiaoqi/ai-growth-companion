@@ -2,7 +2,7 @@
  * AgentExecutorService — the core agent execution loop.
  *
  * Extracted from modules/ai/agent/agent-executor.ts, but made fully generic:
- * - No dependency on ConversationManager (caller handles persistence)
+ * - No dependency on ConversationService (caller handles persistence)
  * - No dependency on ContentSafetyService (caller handles safety filtering)
  * - Works with any IAgent definition, ILlmClient, and IToolRegistry
  * - Accepts a plain messages array and returns ExecutionResult / yields StreamEvents

@@ -25,6 +25,31 @@ import { BentoModule } from './modules/bento/bento.module';
 import { BookSkillModule } from './modules/book-skill/book-skill.module';
 import { DatabaseSeederModule } from './database/seeds/seeder.module';
 import { HealthModule } from './modules/health/health.module';
+import { SafetyModule } from './modules/safety/safety.module';
+import { MemoryModule } from './modules/memory/memory.module';
+import { CareModule } from './modules/care/care.module';
+
+/**
+ * Read the schema-sync switch.
+ *
+ * `synchronize: true` is convenient in development but dangerous in
+ * production: one deploy with a renamed column can drop a table. The
+ * switch exists so an operator can lock the schema without editing code:
+ *
+ *   DB_SYNCHRONIZE=false   → schema is frozen, migrations own it
+ *   unset / anything else  → current behaviour (auto-sync), unchanged
+ *
+ * Defaulting to `true` is deliberate: this repository has no migration
+ * baseline for the 20 pre-existing entities yet, so flipping the default
+ * would leave a fresh database empty. New tables (`memories`,
+ * `safety_events`, `recall_audit`, `care_cues`) do ship an idempotent
+ * migration, so turning the switch off still creates them.
+ */
+function resolveSynchronize(configService: ConfigService): boolean {
+  const raw = configService.get<string>('DB_SYNCHRONIZE');
+  if (raw == null || raw === '') return true;
+  return !['false', '0', 'no', 'off'].includes(String(raw).trim().toLowerCase());
+}
 
 /**
  * Detect whether better-sqlite3 native bindings are available.
@@ -65,6 +90,10 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): any => {
         const databaseUrl = configService.get('DATABASE_URL');
+        const synchronize = resolveSynchronize(configService);
+        if (!synchronize) {
+          Logger.log('DB_SYNCHRONIZE=false — schema is owned by migrations', 'AppModule');
+        }
 
         // PostgreSQL (Railway 生产环境)
         if (databaseUrl) {
@@ -72,7 +101,9 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
             type: 'postgres',
             url: databaseUrl,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
+            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+            migrationsRun: !synchronize,
+            synchronize,
             ssl:
               configService.get('NODE_ENV') === 'production'
                 ? { rejectUnauthorized: false }
@@ -94,9 +125,18 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
           Logger.log(`sql.js fallback: using file-based database at ${dbPath}`, 'AppModule');
           return {
             type: 'sqljs',
-            database: dbPath,
+            // `location` is the file; `database` would have to be a
+            // Uint8Array. Passing the path as `database` left the driver
+            // with neither option set, so it threw
+            // "Driver option (location or autoSaveCallback) is not set"
+            // and the app could not boot at all on a machine without the
+            // better-sqlite3 native addon — the exact case this fallback
+            // exists for.
+            location: dbPath,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
+            migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+            migrationsRun: !synchronize,
+            synchronize,
             autoSave: true,
             logging: ['error', 'warn'],
           };
@@ -106,7 +146,9 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
           type: 'better-sqlite3',
           database: configService.get('DB_PATH', 'lingxi.db'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrationsRun: !synchronize,
+          synchronize,
           logging: ['error', 'warn'],
         };
       },
@@ -136,6 +178,9 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
     PublicApiModule,
     BentoModule,
     BookSkillModule,
+    SafetyModule,
+    MemoryModule,
+    CareModule,
     DatabaseSeederModule,
     HealthModule,
   ],

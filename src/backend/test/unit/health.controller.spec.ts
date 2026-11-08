@@ -18,7 +18,9 @@ describe('HealthController', () => {
     expect(result.uptime).toBeGreaterThanOrEqual(0);
     expect(result.timestamp).toBeDefined();
     expect(result.node).toBeDefined();
-    expect(result.platform).toBe('linux');
+    // The controller reports the host platform; pin it to the real one so
+    // this suite passes on Windows and Linux alike.
+    expect(result.platform).toBe(process.platform);
     expect(result.memory).toBeDefined();
   });
 

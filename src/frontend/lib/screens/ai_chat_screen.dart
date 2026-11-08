@@ -2,7 +2,7 @@
 // 原始功能（内联测验、TTS朗读、语音输入）已完整保留
 
 import 'dart:async';
-import 'dart:html' as html;
+import '../utils/web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -1034,6 +1034,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
         // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
         return Column(children: [
+          // 碎碎念闲聊模式开关
+          _buildCasualModeToggle(provider),
           // 加载历史消息时显示顶部小进度条
           if (provider.isLoadingMessages)
             const LinearProgressIndicator(minHeight: 2, backgroundColor: Colors.transparent),
@@ -1059,6 +1061,56 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           return Center(child: Text('⚠️ 消息列表渲染错误: $e', style: const TextStyle(color: Colors.red)));
         }
       },
+    );
+  }
+
+  /// 碎碎念闲聊模式开关（顶部小胶囊）
+  /// 开启后 AI 只用短句口语闲聊，不出题不安排任务
+  Widget _buildCasualModeToggle(ChatSessionProvider provider) {
+    final casual = provider.casualMode;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () {
+            provider.toggleCasualMode();
+            // 仅剩开场白时，切换后刷新欢迎语
+            final msgs = provider.localMessages;
+            if (msgs.length == 1 && msgs.first.role == 'assistant') {
+              provider.resetGreeting();
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: casual
+                  ? AppTheme.primaryColor
+                  : AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: casual
+                  ? null
+                  : Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(
+                casual ? '💬 碎碎念闲聊中' : '💬 碎碎念闲聊',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: casual ? Colors.white : AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                casual ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+                size: 18,
+                color: casual ? Colors.white : AppTheme.textSecondary,
+              ),
+            ]),
+          ),
+        ),
+      ]),
     );
   }
 

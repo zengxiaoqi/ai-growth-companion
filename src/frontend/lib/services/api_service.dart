@@ -13,17 +13,25 @@ final _log = AppLogger('ApiService');
 /// 默认生产环境 API 地址
 const String _defaultApiUrl = 'https://lingxi.chataifree.eu.org/api';
 
+/// 本地联调覆盖地址：运行时通过 `flutter run --dart-define=API_BASE_URL=...`
+/// 传入。未指定时回退到生产域名，生产构建不受影响。
+const String _overrideApiUrl = bool.hasEnvironment('API_BASE_URL')
+    ? String.fromEnvironment('API_BASE_URL')
+    : '';
+
 /// 动态获取 API base URL
 /// - Web: 使用当前页面同源 + /api
-/// - 真机 / iOS / 桌面: 统一走 Cloudflare Tunnel 生产地址
-/// - Android 模拟器本地开发时，可临时改为 http://10.0.2.2:3001/api
+/// - 非 Web 且指定了 API_BASE_URL: 走本地联调地址（模拟器 / 真机）
+/// - 其它: 统一走生产域名
 String getApiBaseUrl() {
   if (kIsWeb) {
     // Web 环境：从当前页面 URL 自动构建（同源 API）
     return '/api';
   }
 
-  // 所有非 Web 平台统一走生产域名（真机、模拟器均可访问外网）
+  if (_overrideApiUrl.isNotEmpty) return _overrideApiUrl;
+
+  // 真机、模拟器默认走生产域名（均可访问外网）
   return _defaultApiUrl;
 }
 
@@ -1405,12 +1413,13 @@ class ApiService {
 
   // ==================== AI 对话 ====================
 
-  Future<Map<String, dynamic>?> sendAIChatMessage(String message, {int? childId, String? sessionId}) async {
+  Future<Map<String, dynamic>?> sendAIChatMessage(String message, {int? childId, String? sessionId, String? mode}) async {
     try {
       final response = await _dio.post('/ai/chat', data: {
         'message': message,
         if (childId != null) 'childId': childId,
         if (sessionId != null) 'sessionId': sessionId,
+        if (mode != null) 'mode': mode,
       }, options: Options(
         receiveTimeout: const Duration(seconds: 200),
         sendTimeout: const Duration(seconds: 10),
@@ -1446,6 +1455,7 @@ class ApiService {
     String? sessionId,
     int? bookId,
     String? bookTitle,
+    String? mode,
   }) {
     // Web: 需要完整路径给 fetch()（Dio 不参与 Web SSE）
     // 非 Web: 只给相对路径，Dio 的 baseUrl 会自动拼接
@@ -1467,6 +1477,7 @@ class ApiService {
       if (sessionId != null) 'sessionId': sessionId,
       if (bookId != null) 'bookId': bookId,
       if (bookTitle != null) 'bookTitle': bookTitle,
+      if (mode != null) 'mode': mode,
     };
 
     return fetchSseStream(

@@ -276,6 +276,9 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 是否为家长模式
   bool _isParentMode = false;
 
+  /// 碎碎念闲聊模式：短句口语回复，不走学习工具流程
+  bool _casualMode = false;
+
   /// 知识书上下文（从知识书详情页进入时设置）
   int? _bookId;
   String? _bookTitle;
@@ -290,6 +293,7 @@ class ChatSessionProvider extends ChangeNotifier {
   List<ChatMessageEntry> get localMessages => _localMessages;
   int? get childId => _childId;
   bool get isParentMode => _isParentMode;
+  bool get casualMode => _casualMode;
   int? get bookId => _bookId;
   String? get bookTitle => _bookTitle;
 
@@ -303,6 +307,13 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 设置家长模式
   void setParentMode(bool value) {
     _isParentMode = value;
+  }
+
+  /// 切换碎碎念闲聊模式（返回切换后的值）
+  bool toggleCasualMode() {
+    _casualMode = !_casualMode;
+    notifyListeners();
+    return _casualMode;
   }
 
   /// 设置知识书上下文（来自知识书详情页的 AI 提问按钮）
@@ -523,8 +534,12 @@ class ChatSessionProvider extends ChangeNotifier {
     _localMessages.add(ChatMessageEntry(
       role: 'assistant',
       content: _isParentMode
-          ? '您好！我是灵犀伴学的AI助手，\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？'
-          : '你好呀！我是小犀，\n有什么想聊的吗？',
+          ? (_casualMode
+              ? '嘿，忙了一天啦，想随便聊聊什么呀？'
+              : '您好！我是灵犀伴学的AI助手，\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？')
+          : (_casualMode
+              ? '嘿，我在呢～今天有什么好玩的事，快跟我碎碎念一下吧！'
+              : '你好呀！我是小犀，\n有什么想聊的吗？'),
     ));
     notifyListeners();
   }
@@ -596,6 +611,7 @@ class ChatSessionProvider extends ChangeNotifier {
         sessionId: sessionUuid,
         bookId: _bookId,
         bookTitle: _bookTitle,
+        mode: _casualMode ? 'casual' : null,
       );
 
       String fullReply = '';
@@ -840,9 +856,14 @@ class ChatSessionProvider extends ChangeNotifier {
             trimmed,
             childId: _childId,
             sessionId: targetSession.uuid,
+            mode: _casualMode ? 'casual' : null,
           );
         } else {
-          response = await _apiService.sendAIChatMessage(trimmed, childId: _childId);
+          response = await _apiService.sendAIChatMessage(
+            trimmed,
+            childId: _childId,
+            mode: _casualMode ? 'casual' : null,
+          );
         }
 
         final reply = response?['reply'] as String? ??

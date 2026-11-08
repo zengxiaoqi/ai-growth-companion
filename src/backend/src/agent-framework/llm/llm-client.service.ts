@@ -191,21 +191,122 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
   ): Promise<LlmResponse> {
+    const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      return this.piAiChatCompletion(messages, tools, maxTokensOverride);
+      return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride);
     }
-    return this.legacyChatCompletion(messages, tools, maxTokensOverride, _forceToolChoice);
+    return this.legacyChatCompletion(safeMessages, tools, maxTokensOverride, _forceToolChoice);
   }
 
   async *chatCompletionStream(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
   ): AsyncGenerator<string> {
+    const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      yield* this.piAiChatCompletionStream(messages, tools);
+      yield* this.piAiChatCompletionStream(safeMessages, tools);
       return;
     }
-    yield* this.legacyChatCompletionStream(messages, tools);
+    yield* this.legacyChatCompletionStream(safeMessages, tools);
+  }
+
+  /**
+   * Enforce a provider-valid tool-call sequence before sending to an LLM.
+   *
+   * Strict providers (MiniMax error 2013, OpenAI strict validation) reject:
+   *  - a `tool` result with no preceding assistant `tool_calls` (orphan);
+   *  - a `tool` result that does not IMMEDIATELY follow its assistant call
+   *    (a user/system message wedged between them, e.g. from history
+   *    compaction or prefix re-injection);
+   *  - an assistant `tool_calls` whose results were truncated away.
+   *
+   * Strategy: linear rebuild. For each assistant message carrying tool_calls,
+   * look at the consecutive run of `tool` messages after it; keep the call +
+   * its results only if that run covers every tool_call id (first occurrence
+   * wins for duplicates); otherwise strip the tool_calls and drop the run.
+   * Orphan tool results anywhere else are dropped.
+   */
+  private sanitizeToolMessageSequence(messages: LlmMessage[]): LlmMessage[] {
+    const hasToolTraffic = messages.some(
+      (m) => m.role === 'tool' || (m.role === 'assistant' && m.toolCalls),
+    );
+    if (!hasToolTraffic) return messages;
+
+    const out: LlmMessage[] = [];
+    let dropped = 0;
+    let seq = 0;
+
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+
+      if (m.role === 'tool') {
+        dropped++; // orphan here: not preceded by an assistant(tool_calls) we handled
+        continue;
+      }
+
+      const calls = m.role === 'assistant' && m.toolCalls ? (m.toolCalls as Array<{ id?: string }>) : null;
+      if (!calls || calls.length === 0) {
+        out.push(m);
+        continue;
+      }
+
+      const callIds = calls.map((tc) => tc?.id).filter((id): id is string => Boolean(id));
+      const wantIds = new Set(callIds);
+
+      // Find the consecutive run of tool results right after this assistant.
+      let j = i + 1;
+      while (j < messages.length && messages[j].role === 'tool') j++;
+      const runStart = i + 1;
+      const runEnd = j; // exclusive
+
+      // Keep only results that reference one of this assistant's calls
+      // (first occurrence wins for duplicates).
+      const validResults: LlmMessage[] = [];
+      const seenOrig = new Set<string>();
+      for (let k = runStart; k < runEnd; k++) {
+        const t = messages[k];
+        const tid = t.toolCallId as string;
+        if (!tid || !wantIds.has(tid) || seenOrig.has(tid)) {
+          dropped++;
+          continue;
+        }
+        seenOrig.add(tid);
+        validResults.push(t);
+      }
+
+      if (callIds.length > 0 && validResults.length === callIds.length) {
+        // Rewrite ids to globally-unique values: strict providers (MiniMax
+        // 2013) match results to calls by id across the WHOLE conversation,
+        // so repeated ids from a tool-loop (e.g. "call_0_..." every round)
+        // collide and get rejected.
+        const newIds = calls.map(() => `tcall_${seq++}`);
+
+        // Split parallel tool calls into sequential single-call rounds:
+        // the MiniMax gateway rejects any assistant message carrying more
+        // than one tool_calls entry ("tool call result does not follow tool
+        // call", 2013) even when ids are unique and results are adjacent.
+        // A(call)+result+A(call)+result is protocol-valid and semantically
+        // equivalent for every provider.
+        for (let idx = 0; idx < calls.length; idx++) {
+          out.push({ ...m, toolCalls: [{ ...calls[idx], id: newIds[idx] }] });
+          out.push({ ...validResults[idx], toolCallId: newIds[idx] });
+        }
+        i = runEnd - 1;
+      } else {
+        // Results incomplete (truncated) or not adjacent: strip the calls,
+        // keep the assistant text, and drop the whole result run.
+        dropped += runEnd - runStart;
+        out.push({ ...m, toolCalls: undefined });
+        i = runEnd - 1;
+      }
+    }
+
+    if (dropped > 0) {
+      this.logger.warn(
+        `sanitizeToolMessageSequence: repaired/dropped ${dropped} tool message(s) to satisfy strict provider validation`,
+      );
+    }
+    return out;
   }
 
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
@@ -540,16 +641,24 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private toOpenAIMessages(messages: LlmMessage[]): OpenAI.ChatCompletionMessageParam[] {
     return messages.map((msg) => {
       if (msg.role === 'tool') {
+        // Strict providers require a string content on tool results.
+        const content =
+          typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content ?? '');
         return {
           role: 'tool' as const,
-          content: msg.content,
+          content,
           tool_call_id: msg.toolCallId,
         } as any;
       }
       if (msg.role === 'assistant' && msg.toolCalls) {
+        // Assistant messages carrying tool_calls must have null (not '') content.
+        const content =
+          msg.content === undefined || msg.content === null || msg.content === ''
+            ? null
+            : msg.content;
         return {
           role: 'assistant' as const,
-          content: msg.content,
+          content,
           tool_calls: msg.toolCalls,
         } as any;
       }
@@ -571,6 +680,24 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
   ): Promise<LlmResponse> {
+    // Debug aid: dump the message shape actually being sent, one line per
+    // message, to diagnose strict-provider validation errors (MiniMax 2013).
+    this.logger.debug(
+      `LLM request dump (${messages.length} msgs): ${messages
+        .map((m) => {
+          const ct =
+            typeof m.content === 'string'
+              ? `str(${(m.content || '').length})`
+              : Array.isArray(m.content as any)
+                ? `parts(${(m.content as any).length})`
+                : m.content === null
+                  ? 'null'
+                  : typeof m.content;
+          const tcs = (m as any).toolCalls?.map?.((t: any) => t.id).join(',') || '';
+          return `${m.role}${tcs ? `[calls:${tcs}]` : ''}[${m.toolCallId ? `res:${m.toolCallId}` : ''}](${ct})`;
+        })
+        .join(' -> ')}`,
+    );
     return this.retryStrategy.execute(async () => {
       const TIMEOUT_MS = 300_000;
       const effectiveMaxTokens = maxTokensOverride ?? this.config.maxTokens;
@@ -581,6 +708,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             messages: this.toOpenAIMessages(messages),
             tools: this.toOpenAITools(tools),
             tool_choice: tools ? 'auto' : undefined,
+            parallel_tool_calls: false,
             max_tokens: effectiveMaxTokens,
             temperature: this.config.temperature,
           },

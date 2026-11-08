@@ -3,7 +3,7 @@
 
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:html' as html;
+import '../../utils/web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';

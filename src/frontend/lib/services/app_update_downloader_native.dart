@@ -178,8 +178,10 @@ Future<ResponseBody> _openStream(
 }
 
 int? _contentLengthOf(ResponseBody body) {
-  final value = body.headers.value(Headers.contentLengthHeader);
-  return value == null ? null : int.tryParse(value);
+  // dio ResponseBody.headers 是 Map<String, List<String>>，无 .value() 方法
+  final values = body.headers[Headers.contentLengthHeader];
+  if (values == null || values.isEmpty) return null;
+  return int.tryParse(values.first);
 }
 
 /// 206 的 content-length 是剩余长度，200 是全量；都拿不到就用清单里的 sizeBytes

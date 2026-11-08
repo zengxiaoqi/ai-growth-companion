@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import '../utils/app_logger.dart';
 import 'api_service.dart';
@@ -26,7 +28,7 @@ class Poem {
   factory Poem.fromJson(Map<String, dynamic> json) {
     String content = '';
     if (json['content'] is String) {
-      content = json['content'] as String;
+      content = _normalizeContent(json['content'] as String);
     } else if (json['content'] is List) {
       content = (json['content'] as List).join('\n');
     }
@@ -39,6 +41,23 @@ class Poem {
       author: json['author'] != null ? Author.fromJson(json['author']) : null,
       dynasty: json['dynasty'] != null ? Dynasty.fromJson(json['dynasty']) : null,
     );
+  }
+
+  /// 归一化内容字符串：后端把行数组存成 JSON 字符串（如 '["行1","行2"]'），
+  /// 解析失败则按原文返回（兼容按换行分隔的旧格式）
+  static String _normalizeContent(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is List) {
+          return decoded.map((l) => l.toString()).join('\n');
+        }
+      } catch (_) {
+        // 非 JSON 数组，按原文处理
+      }
+    }
+    return raw;
   }
 
   /// 获取内容行列表
@@ -435,7 +454,7 @@ class FlyingFlowerEntry {
   factory FlyingFlowerEntry.fromJson(Map<String, dynamic> json) {
     String content = '';
     if (json['fullContent'] is String) {
-      content = json['fullContent'] as String;
+      content = Poem._normalizeContent(json['fullContent'] as String);
     } else if (json['fullContent'] is List) {
       content = (json['fullContent'] as List).join('\n');
     }

@@ -1,4 +1,4 @@
-import 'dart:html' as html;
+import '../../utils/web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/video_download_models.dart';

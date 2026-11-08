@@ -168,7 +168,7 @@ class VideoDownloadScreen extends StatefulWidget {
 }
 
 class _VideoDownloadScreenState extends State<VideoDownloadScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _urlController = TextEditingController();
 
   late TabController _tabCtrl;

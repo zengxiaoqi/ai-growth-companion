@@ -54,6 +54,7 @@ import {
   MoonIcon,
   PaperAirplaneIcon,
   PhoneIcon,
+  PhoneXMarkIcon,
   PhotoIcon,
   PlusIcon,
   RocketLaunchIcon,
@@ -134,6 +135,7 @@ export const Moon = MoonIcon;
 export const PartyPopper = GiftIcon;
 export const Pause = PauseIcon;
 export const Phone = PhoneIcon;
+export const PhoneOff = PhoneXMarkIcon;
 export const Palette = SwatchIcon;
 export const Play = PlayIcon;
 export const Plus = PlusIcon;

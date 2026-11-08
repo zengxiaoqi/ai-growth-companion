@@ -21,7 +21,9 @@ import {
   Volume2,
   VolumeX,
   ArrowDown,
+  Phone,
 } from '@/icons';
+import { VoiceCallOverlay } from './VoiceCallOverlay';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -237,6 +239,26 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
       return next;
     });
   }, []);
+
+  // 豆包式语音通话：全屏通话界面，连续听-说对话
+  const [callOpen, setCallOpen] = useState(false);
+  const handleCallEnd = useCallback(
+    (turns: { role: 'user' | 'assistant'; content: string }[]) => {
+      if (!turns.length) return;
+      setMessages((prev) => [
+        ...prev,
+        ...turns.map((t, i) => ({
+          id: `call-${Date.now()}-${i}`,
+          role: t.role as 'user' | 'assistant',
+          content: t.content,
+          timestamp: new Date(),
+          thinkingSteps: [],
+          toolSteps: [],
+        })),
+      ]);
+    },
+    [],
+  );
   const FAB_SIZE = 64;
   const FAB_EDGE_MARGIN = 12;
   const FAB_DEFAULT_RIGHT = 24;
@@ -1034,6 +1056,14 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             </button>
           </div>
           <button
+            onClick={() => setCallOpen(true)}
+            className="touch-target w-9 h-9 rounded-full bg-white/10 text-white/75 hover:text-white hover:bg-white/20 flex items-center justify-center transition-colors"
+            aria-label="开始语音通话"
+            title="语音通话：像打电话一样实时连续对话"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
+          <button
             onClick={toggleChatMode}
             className={cn(
               'touch-target h-9 rounded-full px-3 flex items-center justify-center text-xs font-bold transition-colors',
@@ -1559,6 +1589,14 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               >
                 💬 碎碎念
               </button>
+              <button
+                onClick={() => setCallOpen(true)}
+                className="mr-1 h-7 w-7 rounded-full bg-white/10 text-white/75 hover:text-white hover:bg-white/20 flex items-center justify-center transition-colors"
+                aria-label="开始语音通话"
+                title="语音通话：像打电话一样实时连续对话"
+              >
+                <Phone className="w-4 h-4" />
+              </button>
               <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">
                 <button
                   onClick={() => setViewMode('chat')}
@@ -2011,6 +2049,15 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           </motion.div>
         )}
       </AnimatePresence>
+      <VoiceCallOverlay
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        onEnd={handleCallEnd}
+        childId={childId}
+        parentId={parentId}
+        sessionId={sessionId}
+        avatarSrc={aiAvatarSrc}
+      />
     </>
   );
 }

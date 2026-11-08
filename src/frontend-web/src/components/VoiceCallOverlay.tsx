@@ -58,6 +58,8 @@ export function VoiceCallOverlay({
   /** 识别服务连续失败提示（网络不通/浏览器不支持） */
   const [asrIssue, setAsrIssue] = useState<string | null>(null);
   const [typedText, setTypedText] = useState('');
+  /** 实时麦克风输入电平 0~1（诊断「收不到语音」用） */
+  const [micLevel, setMicLevel] = useState(0);
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -69,6 +71,17 @@ export function VoiceCallOverlay({
   const sessionIdRef = useRef(sessionId);
   const networkFailRef = useRef(0);
   const asrPausedRef = useRef(false);
+  // 麦克风诊断
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const micLevelRef = useRef(0);
+  const lastVoiceAtRef = useRef(0);
+  const listeningSinceRef = useRef(0);
+  const lastResultAtRef = useRef(0);
+  const engineStateRef = useRef<'off' | 'starting' | 'on'>('off');
+  const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const silenceHintRef = useRef(false);
 
   const pushTurn = useCallback((turn: VoiceCallTurn) => {
     turnsRef.current = [...turnsRef.current, turn];
@@ -101,6 +114,66 @@ export function VoiceCallOverlay({
       audioRef.current = null;
     }
   }, []);
+
+  const stopMicMonitor = useCallback(() => {
+    if (micTimerRef.current) {
+      clearInterval(micTimerRef.current);
+      micTimerRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      try {
+        audioCtxRef.current.close();
+      } catch {
+        // ignore
+      }
+      audioCtxRef.current = null;
+    }
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
+    micLevelRef.current = 0;
+    setMicLevel(0);
+  }, []);
+
+  /**
+   * 打开独立于识别引擎的麦克风电平监测：
+   * 音量条不动 = 系统层就没采到声音（设备/静音/被占用）；
+   * 音量条动但无识别结果 = 声音进来了，是识别引擎/服务的问题。
+   */
+  const startMicMonitor = useCallback(async () => {
+    stopMicMonitor();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      micTimerRef.current = setInterval(() => {
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const level = Math.min(1, rms * 4);
+        micLevelRef.current = level;
+        setMicLevel(level);
+        if (level > 0.08) {
+          lastVoiceAtRef.current = Date.now();
+          if (silenceHintRef.current) {
+            silenceHintRef.current = false;
+            setAsrIssue(null);
+          }
+        }
+      }, 200);
+    } catch {
+      setAsrIssue('无法读取麦克风音频：请检查系统录音输入设备，或是否被其他程序占用');
+    }
+  }, [stopMicMonitor]);
 
   /** 开始一轮对话：发送用户语音转写，拿 casual 短回复并播报 */
   const runTurn = useCallback(
@@ -227,6 +300,7 @@ export function VoiceCallOverlay({
 
     recognition.onresult = (event: any) => {
       networkFailRef.current = 0;
+      lastResultAtRef.current = Date.now();
       let interimText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -272,6 +346,7 @@ export function VoiceCallOverlay({
 
     recognition.onend = () => {
       recognitionRef.current = null;
+      engineStateRef.current = 'off';
       // Chrome 会周期性自动断开 continuous 识别，只要还在通话中就续上
       if (activeRef.current && !mutedRef.current && !audioRef.current && !asrPausedRef.current) {
         setPhase((p) => (p === 'listening' || p === 'muted' ? 'listening' : p));
@@ -284,6 +359,9 @@ export function VoiceCallOverlay({
     };
 
     recognitionRef.current = recognition;
+    engineStateRef.current = 'starting';
+    listeningSinceRef.current = Date.now();
+    lastResultAtRef.current = Date.now();
     try {
       recognition.start();
     } catch {
@@ -336,13 +414,51 @@ export function VoiceCallOverlay({
       setElapsed((s) => s + 1);
     }, 1000);
 
+    // 麦克风电平监测（独立于识别引擎）
+    startMicMonitor();
+
+    // 看门狗：区分「麦克风静音」与「引擎无响应」两类故障
+    watchdogRef.current = setInterval(() => {
+      if (!activeRef.current || mutedRef.current || asrPausedRef.current) return;
+      const now = Date.now();
+      const hasVoice = now - lastVoiceAtRef.current < 3000;
+      const listeningFor = now - listeningSinceRef.current;
+
+      // 麦克风长时间完全无声（从接通起就没动过）
+      if (!hasVoice && lastVoiceAtRef.current === 0 && listeningFor > 10000 && !silenceHintRef.current) {
+        silenceHintRef.current = true;
+        setAsrIssue(
+          '麦克风没有采集到任何声音：请检查系统录音输入设备是否正确、麦克风是否被静音、或是否被其他程序占用',
+        );
+      }
+
+      // 有声音但识别引擎 15 秒无结果 → 引擎/服务无响应，强制重启一次
+      if (
+        hasVoice &&
+        !audioRef.current &&
+        engineStateRef.current === 'on' &&
+        now - lastResultAtRef.current > 15000
+      ) {
+        lastResultAtRef.current = now;
+        stopRecognition();
+        startListening();
+      }
+    }, 3000);
+
     return () => {
       activeRef.current = false;
       clearTimeout(connectTimer);
       if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
       clearInterval(tick);
+      if (watchdogRef.current) {
+        clearInterval(watchdogRef.current);
+        watchdogRef.current = null;
+      }
       stopRecognition();
       stopAudio();
+      stopMicMonitor();
+      silenceHintRef.current = false;
+      lastVoiceAtRef.current = 0;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -403,6 +519,26 @@ export function VoiceCallOverlay({
         >
           {PHASE_TEXT[phase]} {elapsed > 0 && phase !== 'error' && `· ${mm}:${ss}`}
         </div>
+        {/* 麦克风实时电平：条不动 = 系统没采到声音 */}
+        {!muted && phase !== 'error' && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <Mic
+              className={cn(
+                'w-3.5 h-3.5',
+                micLevel > 0.08 ? 'text-emerald-300' : 'text-white/35',
+              )}
+            />
+            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/15">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-150',
+                  micLevel > 0.08 ? 'bg-emerald-300' : 'bg-white/30',
+                )}
+                style={{ width: `${Math.max(4, Math.round(micLevel * 100))}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 中部：头像 + 呼吸环 */}

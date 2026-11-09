@@ -25,8 +25,8 @@ class AppUpdatePrompt {
     if (!await AppUpdateService.instance.shouldPromptToday(info.versionCode)) {
       return;
     }
-    if (!context.mounted) return;
     await AppUpdateService.instance.markPrompted(info.versionCode);
+    if (!context.mounted) return;
     _showUpdateDialog(context, result);
   }
 

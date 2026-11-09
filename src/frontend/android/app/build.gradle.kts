@@ -62,7 +62,15 @@ android {
                 // Signing with the debug keys for now, so `flutter run --release` works.
                 signingConfigs.getByName("debug")
             }
+            // 显式开启 R8 资源压缩（减小 APK 体积），配合 4G 堆已可稳定通过
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 

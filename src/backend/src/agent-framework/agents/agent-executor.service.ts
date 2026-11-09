@@ -14,6 +14,7 @@ import type {
   ILlmClient,
   LlmMessage,
   LlmToolDefinition,
+  LlmResponse,
   AgentContext,
   ExecutionResult,
   StreamEvent,
@@ -46,6 +47,12 @@ export class AgentExecutorService {
    * @param onToolCall - Optional callback invoked after each tool call (for persistence)
    * @returns ExecutionResult with final response and tool call log
    */
+  /** Model override for casual (碎碎念) chats: LLM_MODEL_CASUAL, if configured */
+  private casualModelOverride(context: AgentContext): string | undefined {
+    const isCasual = (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
+    return isCasual ? this.llmClient.casualModel : undefined;
+  }
+
   async runLoop(
     systemPrompt: string,
     messages: LlmMessage[],
@@ -60,6 +67,7 @@ export class AgentExecutorService {
     maxTokensOverride?: number,
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
+    const modelOverride = this.casualModelOverride(context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let gameData: unknown = undefined;
@@ -83,6 +91,7 @@ export class AgentExecutorService {
         toolDefinitions,
         maxTokensOverride,
         forceToolChoice,
+        modelOverride,
       );
 
       // Check for tool calls from LlmResponse
@@ -253,6 +262,7 @@ export class AgentExecutorService {
     }) => Promise<void> | void,
   ): AsyncGenerator<StreamEvent> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
+    const modelOverride = this.casualModelOverride(context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let lastIterationHadToolCall = false;
@@ -268,19 +278,28 @@ export class AgentExecutorService {
       // On the first iteration, if tools are available, try with tool_choice='auto'.
       // If the LLM returns no tool calls but tools are available, retry with
       // tool_choice='required' to force a tool call on the next iteration.
-      const forceToolChoice =
-        iteration === 0
-          ? false
-          : !lastIterationHadToolCall && !!toolDefinitions && toolDefinitions.length > 0;
-      const response = await this.llmClient.chatCompletion(
-        fullMessages,
-        toolDefinitions,
-        undefined,
-        forceToolChoice,
-      );
-      const assistantContent = response.content;
-      const assistantToolCalls = response.toolCalls;
-      if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
+      //
+      // When NO tools exist (e.g. casual chat), skip the non-streaming probe
+      // entirely: it generates a full reply that is then thrown away,
+      // doubling the latency of every turn. Fall straight through to the
+      // streaming final response.
+      const hasTools = !!toolDefinitions && toolDefinitions.length > 0;
+      let assistantContent: string | null | undefined = undefined;
+      let assistantToolCalls: LlmResponse['toolCalls'] | undefined = undefined;
+      if (hasTools) {
+        const forceToolChoice =
+          iteration === 0 ? false : !lastIterationHadToolCall;
+        const response = await this.llmClient.chatCompletion(
+          fullMessages,
+          toolDefinitions,
+          undefined,
+          forceToolChoice,
+          modelOverride,
+        );
+        assistantContent = response.content;
+        assistantToolCalls = response.toolCalls;
+        if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
+      }
 
       lastIterationHadToolCall = false;
 
@@ -423,7 +442,11 @@ export class AgentExecutorService {
       let buffer = '';
       let inThinkBlock = false;
 
-      for await (const chunk of this.llmClient.chatCompletionStream(fullMessages, undefined)) {
+      for await (const chunk of this.llmClient.chatCompletionStream(
+        fullMessages,
+        undefined,
+        modelOverride,
+      )) {
         if (!chunk) continue;
         streamedText += chunk;
         buffer += chunk;

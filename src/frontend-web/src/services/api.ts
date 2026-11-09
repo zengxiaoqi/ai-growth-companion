@@ -518,8 +518,10 @@ class ApiService {
   }
 
   // Voice TTS - returns audio stream URL
-  getTTSUrl(text: string, voice: string = 'zh-CN-XiaoxiaoNeural'): string {
-    return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`;
+  // voice 参数留空时由后端默认（zh-CN-XiaoyiNeural，活泼亲和），并统一走后端 emoji 清洗
+  getTTSUrl(text: string, voice?: string): string {
+    const q = voice ? `&voice=${encodeURIComponent(voice)}` : '';
+    return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}${q}`;
   }
 
   // Notifications

@@ -7,14 +7,36 @@ export class VoiceService {
   private readonly logger = new Logger(VoiceService.name);
 
   constructor(@Optional() private readonly aiService?: AiService) {}
+
+  /**
+   * TTS 前清洗：剥离 emoji / 表情符号，避免把表情"读"出来
+   *（如 🌟 被读成"星星脸"之类），标点与汉字保留。
+   */
+  private sanitizeForTTS(text: string): string {
+    return text
+      .replace(/\p{Extended_Pictographic}/gu, '') // emoji & pictographs
+      .replace(/[\u{FE00}-\u{FE0F}\u{1F3FB}-\u{1F3FF}\u{200D}\u{200B}\u{20E3}]/gu, '') // VS16 / 肤色 / ZWJ / keycap
+      .replace(/\s*([，。！？、,.!?])\s*/g, '$1') // 清洗后留下的孤立标点空格
+      .replace(/^[，。！？、,.!?～~\s]+/, '') // 开头残标点
+      .trim();
+  }
+
   /**
    * 文字转语音 - 使用 Edge-TTS
    * 返回 MP3 音频 Buffer
+   *
+   * 默认 XiaoyiNeural（少女活泼音色）+ 语速 +12%，比 XiaoxiaoNeural 更亲和轻快。
    */
-  async textToSpeech(text: string, voice: string = 'zh-CN-XiaoxiaoNeural'): Promise<Buffer> {
+  async textToSpeech(
+    text: string,
+    voice: string = 'zh-CN-XiaoyiNeural',
+  ): Promise<Buffer> {
+    const clean = this.sanitizeForTTS(text);
     const tts = new EdgeTTS();
-    await tts.synthesize(text, voice, {
+    await tts.synthesize(clean || '嗯嗯', voice, {
       outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+      rate: '+12%',
+      pitch: '+2Hz',
     });
     return tts.toBuffer();
   }

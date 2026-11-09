@@ -186,10 +186,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       _interim = interimText;
       if (finalText.isNotEmpty) _utteranceBuf = finalText;
     });
-    // 静默判定：有内容后 800ms 无新结果就提交一轮
+    // 静默判定：有内容后 500ms 无新结果就提交一轮（短延迟换更快响应）
     if (_utteranceBuf.trim().isNotEmpty) {
       _commitTimer?.cancel();
-      _commitTimer = Timer(const Duration(milliseconds: 800), _commitUtterance);
+      _commitTimer = Timer(const Duration(milliseconds: 500), _commitUtterance);
     }
   }
 

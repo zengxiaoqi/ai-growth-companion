@@ -45,6 +45,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private entries: ProviderEntry[] = [];
   private piAiEnabled = false;
 
+  /** Casual-mode model override (LLM_MODEL_CASUAL); undefined when unset */
+  readonly casualModel?: string;
+
   constructor(private readonly configService: ConfigService) {
     this.config = {
       baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
@@ -53,6 +56,12 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       maxTokens: Number(this.configService.get<string>('LLM_MAX_TOKENS', '4096')),
       temperature: Number(this.configService.get<string>('LLM_TEMPERATURE', '0.7')),
     };
+
+    // Casual (碎碎念) chat mode can use a lighter/faster model: the default
+    // model may be a reasoning model whose thinking chain makes a 40-char
+    // murmur reply take 10-20s. Configured via LLM_MODEL_CASUAL.
+    const casual = this.configService.get<string>('LLM_MODEL_CASUAL', '').trim();
+    this.casualModel = casual && casual !== this.config.model ? casual : undefined;
 
     this.retryStrategy = new RetryStrategy({
       maxAttempts: 3,
@@ -174,6 +183,18 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       });
     }
 
+    // Casual-mode provider entry (same gateway, lighter model)
+    if (this.casualModel) {
+      configs.push({
+        id: `${primaryId}-casual`,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        model: this.casualModel,
+        maxTokens: Number(this.configService.get<string>('LLM_CASUAL_MAX_TOKENS', '1024')),
+        temperature: Number(this.configService.get<string>('LLM_CASUAL_TEMPERATURE', '0.9')),
+      });
+    }
+
     return configs;
   }
 
@@ -190,24 +211,28 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
+    modelOverride?: string,
   ): Promise<LlmResponse> {
+    this.logger.debug(`chatCompletion model=${modelOverride ?? this.config.model}`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride);
+      return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride, modelOverride);
     }
-    return this.legacyChatCompletion(safeMessages, tools, maxTokensOverride, _forceToolChoice);
+    return this.legacyChatCompletion(safeMessages, tools, maxTokensOverride, _forceToolChoice, modelOverride);
   }
 
   async *chatCompletionStream(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
+    modelOverride?: string,
   ): AsyncGenerator<string> {
+    this.logger.debug(`chatCompletionStream model=${modelOverride ?? this.config.model}`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      yield* this.piAiChatCompletionStream(safeMessages, tools);
+      yield* this.piAiChatCompletionStream(safeMessages, tools, modelOverride);
       return;
     }
-    yield* this.legacyChatCompletionStream(safeMessages, tools);
+    yield* this.legacyChatCompletionStream(safeMessages, tools, modelOverride);
   }
 
   /**
@@ -385,22 +410,39 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
+    modelOverride?: string,
   ): Promise<LlmResponse> {
     let lastError: Error | null = null;
 
-    for (const entry of this.entries) {
+    const candidates = this.selectEntries(modelOverride);
+    for (const entry of candidates) {
       try {
         const result = await this.callProvider(entry, messages, tools, maxTokensOverride);
         return result;
       } catch (err: any) {
         lastError = err;
         this.logger.warn(
-          `Provider ${entry.config.id} failed: ${err.message}${this.entries.length > 1 ? ', trying next...' : ''}`,
+          `Provider ${entry.config.id} failed: ${err.message}${candidates.length > 1 ? ', trying next...' : ''}`,
         );
       }
     }
 
     throw lastError ?? new Error('All providers failed');
+  }
+
+  /**
+   * Choose provider entries for a call: when modelOverride matches a
+   * registered entry, that entry goes first; otherwise all entries in
+   * registration order (primary → fallback → casual).
+   */
+  private selectEntries(modelOverride?: string): ProviderEntry[] {
+    if (!modelOverride) return this.entries;
+    const matched = this.entries.filter((e) => e.config.model === modelOverride);
+    if (matched.length === 0) {
+      this.logger.warn(`modelOverride "${modelOverride}" has no registered entry, using default`);
+      return this.entries;
+    }
+    return [...matched, ...this.entries.filter((e) => e.config.model !== modelOverride)];
   }
 
   /**
@@ -475,12 +517,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private async *piAiChatCompletionStream(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
+    modelOverride?: string,
   ): AsyncGenerator<string> {
     if (!this.models || this.entries.length === 0) {
       throw new Error('pi-ai not initialized');
     }
 
-    const entry = this.entries[0];
+    const entry = this.selectEntries(modelOverride)[0];
 
     const { systemPrompt, nonSystemMessages } = this.splitSystemMessages(messages);
 
@@ -679,6 +722,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
+    modelOverride?: string,
   ): Promise<LlmResponse> {
     // Debug aid: dump the message shape actually being sent, one line per
     // message, to diagnose strict-provider validation errors (MiniMax 2013).
@@ -704,7 +748,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       const response = (await Promise.race([
         this.client.chat.completions.create(
           {
-            model: this.config.model,
+            model: modelOverride ?? this.config.model,
             messages: this.toOpenAIMessages(messages),
             tools: this.toOpenAITools(tools),
             tool_choice: tools ? 'auto' : undefined,
@@ -748,11 +792,12 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private async *legacyChatCompletionStream(
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
+    modelOverride?: string,
   ): AsyncGenerator<string> {
     const TIMEOUT_MS = 300_000;
     try {
       const stream = await this.client.chat.completions.create({
-        model: this.config.model,
+        model: modelOverride ?? this.config.model,
         messages: this.toOpenAIMessages(messages),
         tools: this.toOpenAITools(tools),
         tool_choice: tools ? 'auto' : undefined,

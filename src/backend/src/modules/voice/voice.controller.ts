@@ -13,7 +13,7 @@ export class VoiceController {
   @Get('tts')
   async textToSpeech(
     @Query('text') text: string,
-    @Query('voice') voice: string = 'zh-CN-XiaoxiaoNeural',
+    @Query('voice') voice: string = 'zh-CN-XiaoyiNeural',
     @Res() res: Response,
   ) {
     if (!text) {

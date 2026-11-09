@@ -55,10 +55,18 @@ export interface ILlmClient {
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
     forceToolChoice?: boolean,
+    modelOverride?: string,
   ): Promise<LlmResponse>;
 
   /** Streaming chat completion — yields content chunks */
-  chatCompletionStream(messages: LlmMessage[], tools?: LlmToolDefinition[]): AsyncGenerator<string>;
+  chatCompletionStream(
+    messages: LlmMessage[],
+    tools?: LlmToolDefinition[],
+    modelOverride?: string,
+  ): AsyncGenerator<string>;
+
+  /** Model for the casual (碎碎念) chat mode, when configured via LLM_MODEL_CASUAL */
+  readonly casualModel?: string;
 
   /** Secondary call for structured content generation (quizzes, activities, etc.) */
   generate(prompt: string, systemPrompt?: string): Promise<string>;

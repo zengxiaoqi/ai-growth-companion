@@ -55,9 +55,21 @@ class TtsService {
 
   /// 构建 TTS 请求 URL
   String _buildUrl(String text, {String? voice}) {
-    final v = voice ?? 'zh-CN-XiaoxiaoNeural';
-    return '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(text)}&voice=$v';
+    final v = voice ?? 'zh-CN-XiaoyiNeural';
+    final clean = _stripEmoji(text);
+    return '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(clean)}&voice=$v';
   }
+
+  /// 剥离 emoji / 表情符号，避免后端 TTS 把表情读出来（双保险：
+  /// 后端 sanitizeForTTS 已处理，这里兜底 Web 端与缓存 URL）
+  static final RegExp _emojiRe = RegExp(
+    r'[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}'
+    r'\u{1F1E6}-\u{1F1FF}\u{1F3FB}-\u{1F3FF}\u{200D}\u{200B}\u{20E3}]',
+    unicode: true,
+  );
+
+  static String _stripEmoji(String text) =>
+      text.replaceAll(_emojiRe, '').trim();
 
   /// 朗读文本
   ///

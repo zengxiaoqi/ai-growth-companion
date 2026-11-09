@@ -27,10 +27,7 @@ export class VoiceService {
    *
    * 默认 XiaoyiNeural（少女活泼音色）+ 语速 +12%，比 XiaoxiaoNeural 更亲和轻快。
    */
-  async textToSpeech(
-    text: string,
-    voice: string = 'zh-CN-XiaoyiNeural',
-  ): Promise<Buffer> {
+  async textToSpeech(text: string, voice: string = 'zh-CN-XiaoyiNeural'): Promise<Buffer> {
     const clean = this.sanitizeForTTS(text);
     const tts = new EdgeTTS();
     await tts.synthesize(clean || '嗯嗯', voice, {

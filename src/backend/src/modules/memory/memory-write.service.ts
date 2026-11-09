@@ -2,10 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { And, MoreThanOrEqual, Repository } from 'typeorm';
-import {
-  Conversation,
-  ConversationMessage,
-} from '../../database/entities/conversation.entity';
+import { Conversation, ConversationMessage } from '../../database/entities/conversation.entity';
 import { CareService } from '../care/care.service';
 import { Memory } from './memory.entity';
 import { MemoryVectorService } from './memory-vector.service';
@@ -75,10 +72,7 @@ export class MemoryWriteService {
       this.configService.get<string>('MEMORY_CONFIDENCE_THRESHOLD'),
       0.75,
     );
-    this.fuzzyRatio = numberOr(
-      this.configService.get<string>('MEMORY_FUZZY_RATIO'),
-      0.95,
-    );
+    this.fuzzyRatio = numberOr(this.configService.get<string>('MEMORY_FUZZY_RATIO'), 0.95);
   }
 
   /**
@@ -133,10 +127,7 @@ export class MemoryWriteService {
       return { stored: false, reason: 'duplicate' };
     }
 
-    const sensitivity: Sensitivity = isSecret(
-      match.quote,
-      params.secrets,
-    )
+    const sensitivity: Sensitivity = isSecret(match.quote, params.secrets)
       ? 'L2'
       : (params.sensitivity ?? 'L0');
 
@@ -209,11 +200,7 @@ export class MemoryWriteService {
   }
 
   /** Same content, same kind, same child, same local day: one memory. */
-  private async isDuplicate(
-    childId: number,
-    kind: MemoryKind,
-    content: string,
-  ): Promise<boolean> {
+  private async isDuplicate(childId: number, kind: MemoryKind, content: string): Promise<boolean> {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const existing = await this.memoryRepo.findOne({

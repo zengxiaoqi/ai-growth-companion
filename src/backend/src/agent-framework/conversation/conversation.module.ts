@@ -4,10 +4,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  Conversation,
-  ConversationMessage,
-} from '../../database/entities/conversation.entity';
+import { Conversation, ConversationMessage } from '../../database/entities/conversation.entity';
 import { ConversationService } from './conversation.service';
 import { MessageBuilderService } from './message-builder.service';
 

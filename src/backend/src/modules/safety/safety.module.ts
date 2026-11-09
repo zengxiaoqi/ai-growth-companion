@@ -10,12 +10,7 @@ import { SafetyEvent } from './safety-event.entity';
 import { SafetyService } from './safety.service';
 
 @Module({
-  imports: [
-    ConfigModule,
-    TypeOrmModule.forFeature([SafetyEvent]),
-    NotificationModule,
-    UsersModule,
-  ],
+  imports: [ConfigModule, TypeOrmModule.forFeature([SafetyEvent]), NotificationModule, UsersModule],
   providers: [SafetyDetector, SafetyClassifier, SafetyService],
   controllers: [SafetyController],
   exports: [SafetyService, SafetyDetector],

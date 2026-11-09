@@ -1,10 +1,4 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableColumnOptions,
-  TableIndex,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableColumnOptions, TableIndex } from 'typeorm';
 
 /**
  * Tables added by the feature port from 碎碎念.

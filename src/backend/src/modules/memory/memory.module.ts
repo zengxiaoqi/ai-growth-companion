@@ -1,10 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  Conversation,
-  ConversationMessage,
-} from '../../database/entities/conversation.entity';
+import { Conversation, ConversationMessage } from '../../database/entities/conversation.entity';
 import { CareModule } from '../care/care.module';
 import { UsersModule } from '../users/users.module';
 import { MemoryRecallService } from './memory-recall.service';
@@ -32,12 +29,7 @@ import { RecallAuditService } from './recall-audit.service';
     ConfigModule,
     CareModule,
     UsersModule,
-    TypeOrmModule.forFeature([
-      Memory,
-      RecallAudit,
-      Conversation,
-      ConversationMessage,
-    ]),
+    TypeOrmModule.forFeature([Memory, RecallAudit, Conversation, ConversationMessage]),
   ],
   providers: [
     MemoryVectorService,

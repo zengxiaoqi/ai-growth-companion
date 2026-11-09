@@ -135,9 +135,7 @@ export class ToolRegistryService implements IToolRegistry, OnModuleInit {
     // other execution point. The actor comes from the server-built context,
     // never from the model's tool arguments.
     const actorType =
-      context?.extra?.actorType === 'parent' || context?.ageGroup === 'parent'
-        ? 'parent'
-        : 'child';
+      context?.extra?.actorType === 'parent' || context?.ageGroup === 'parent' ? 'parent' : 'child';
     if (requiresParentApproval(name, { actorType })) {
       this.logger.warn(`Tool ${name} blocked: needs parent approval`);
       return { success: false, error: '这个操作需要家长确认后才能进行' };

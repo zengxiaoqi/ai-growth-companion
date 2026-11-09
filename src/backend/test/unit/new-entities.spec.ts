@@ -25,14 +25,7 @@ describe('new entities on SQLite', () => {
     // entity definitions, not about the driver.
     dataSource = new DataSource({
       type: 'sqljs',
-      entities: [
-        Memory,
-        RecallAudit,
-        SafetyEvent,
-        CareCue,
-        Conversation,
-        ConversationMessage,
-      ],
+      entities: [Memory, RecallAudit, SafetyEvent, CareCue, Conversation, ConversationMessage],
       synchronize: true,
       autoSave: false,
       logging: false,
@@ -45,9 +38,7 @@ describe('new entities on SQLite', () => {
   });
 
   it('creates all four tables', async () => {
-    const rows = await dataSource.query(
-      "SELECT name FROM sqlite_master WHERE type = 'table'",
-    );
+    const rows = await dataSource.query("SELECT name FROM sqlite_master WHERE type = 'table'");
     const tables = rows.map((row: { name: string }) => row.name);
     expect(tables).toEqual(
       expect.arrayContaining(['memories', 'recall_audits', 'safety_events', 'care_cues']),
@@ -101,7 +92,7 @@ describe('new entities on SQLite', () => {
     const visible = await repo
       .createQueryBuilder('m')
       .where('m.childId = :childId', { childId: 2 })
-      .andWhere("(m.sensitivity IS NULL OR m.sensitivity <> :secret)", { secret: 'L2' })
+      .andWhere('(m.sensitivity IS NULL OR m.sensitivity <> :secret)', { secret: 'L2' })
       .getMany();
 
     expect(visible).toHaveLength(1);

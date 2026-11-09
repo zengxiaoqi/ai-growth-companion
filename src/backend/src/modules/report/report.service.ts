@@ -114,7 +114,10 @@ export class ReportService {
       }
 
       const summary = topics.length
-        ? `最近他常聊到：${topics.slice(0, 5).map((item) => item.topic).join('；')}`
+        ? `最近他常聊到：${topics
+            .slice(0, 5)
+            .map((item) => item.topic)
+            .join('；')}`
         : '';
 
       return { total: memories.length, topics, summary };
@@ -125,7 +128,8 @@ export class ReportService {
     }
   }
 
-  private getDateRange(period: string) {    const now = new Date();
+  private getDateRange(period: string) {
+    const now = new Date();
     let start: Date;
 
     switch (period) {

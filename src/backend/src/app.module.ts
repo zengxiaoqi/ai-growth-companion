@@ -73,7 +73,9 @@ function resolveSqliteDriver(): 'better-sqlite3' | 'sqljs' {
         const synchronize = resolveSynchronize(configService);
         Logger.log(
           `Schema mode: synchronize=${synchronize}, migrationsRun=${!synchronize}` +
-            (synchronize ? ' (never enable this in production)' : ' (schema is owned by migrations)'),
+            (synchronize
+              ? ' (never enable this in production)'
+              : ' (schema is owned by migrations)'),
           'AppModule',
         );
 

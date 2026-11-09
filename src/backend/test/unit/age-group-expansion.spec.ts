@@ -75,12 +75,7 @@ describe('content compatibility mapping', () => {
 
   it('scales difficulty and labels with the real group', () => {
     expect(ALL_AGE_GROUPS.map(difficultyForAge)).toEqual([1, 2, 3, 4]);
-    expect(ALL_AGE_GROUPS.map(ageGroupLabel)).toEqual([
-      '3-4岁',
-      '5-6岁',
-      '7-9岁',
-      '10-12岁',
-    ]);
+    expect(ALL_AGE_GROUPS.map(ageGroupLabel)).toEqual(['3-4岁', '5-6岁', '7-9岁', '10-12岁']);
   });
 });
 
@@ -147,7 +142,9 @@ describe('legacy agent executor prompt selector', () => {
 });
 
 describe('tool argument normalisation (both framework execution paths)', () => {
-  const tool = { metadata: { requiresAgeGroup: true, requiresChildId: false, requiresParentId: false } };
+  const tool = {
+    metadata: { requiresAgeGroup: true, requiresChildId: false, requiresParentId: false },
+  };
   const registry = { get: jest.fn(() => tool) };
   const context = (group: string) => ({
     ageGroup: group,
@@ -159,18 +156,11 @@ describe('tool argument normalisation (both framework execution paths)', () => {
     metadata: {},
   });
 
-  it.each(['7-9', '10-12'])(
-    'AgentExecutorService maps %s onto a real content bucket',
-    (group) => {
-      const executor = new AgentExecutorService(registry as any, {} as any);
-      const normalized = (executor as any).normalizeToolArgs(
-        'generateQuiz',
-        {},
-        context(group),
-      );
-      expect(normalized.ageGroup).toBe('5-6');
-    },
-  );
+  it.each(['7-9', '10-12'])('AgentExecutorService maps %s onto a real content bucket', (group) => {
+    const executor = new AgentExecutorService(registry as any, {} as any);
+    const normalized = (executor as any).normalizeToolArgs('generateQuiz', {}, context(group));
+    expect(normalized.ageGroup).toBe('5-6');
+  });
 
   it.each(['3-4', '5-6', '7-9', '10-12'])(
     'BaseAgent maps %s onto a supported content bucket',
@@ -195,11 +185,7 @@ describe('tool argument normalisation (both framework execution paths)', () => {
     const normalize = (BaseAgent.prototype as any).normalizeToolArgs.bind({
       toolRegistry: registry,
     });
-    const normalized = normalize(
-      'generateQuiz',
-      { ageGroup: '7-9' },
-      context('10-12'),
-    );
+    const normalized = normalize('generateQuiz', { ageGroup: '7-9' }, context('10-12'));
     expect(normalized.ageGroup).toBe('5-6');
   });
 });

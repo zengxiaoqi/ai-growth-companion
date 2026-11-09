@@ -44,8 +44,4 @@ export interface SafetyVerdict {
   latencyMs: number;
 }
 
-export const SAFETY_CATEGORIES: readonly SafetyCategory[] = [
-  'self_harm',
-  'violence',
-  'danger',
-];
+export const SAFETY_CATEGORIES: readonly SafetyCategory[] = ['self_harm', 'violence', 'danger'];

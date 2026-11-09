@@ -85,8 +85,7 @@ export class AppUpdateService {
 
   private get cacheDir(): string {
     return resolve(
-      this.config.get<string>('APP_UPDATE_CACHE_DIR') ||
-        join(process.cwd(), 'data', 'app-updates'),
+      this.config.get<string>('APP_UPDATE_CACHE_DIR') || join(process.cwd(), 'data', 'app-updates'),
     );
   }
 
@@ -124,9 +123,7 @@ export class AppUpdateService {
       this.cache = { manifest, at: Date.now() };
       return manifest;
     } catch (err) {
-      this.logger.warn(
-        `拉取发布清单失败 (${this.manifestUrl}): ${(err as Error).message}`,
-      );
+      this.logger.warn(`拉取发布清单失败 (${this.manifestUrl}): ${(err as Error).message}`);
       return this.cache?.manifest ?? null;
     }
   }

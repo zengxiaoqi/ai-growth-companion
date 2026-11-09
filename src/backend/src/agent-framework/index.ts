@@ -48,11 +48,7 @@ export type {
 export type { IAgentExecutor } from './core/interfaces/executor.interface';
 
 // Core types
-export type {
-  AgeGroup,
-  AgeGroupOrParent,
-  ContentAgeGroup,
-} from './core/types/age-group';
+export type { AgeGroup, AgeGroupOrParent, ContentAgeGroup } from './core/types/age-group';
 
 export type {
   StreamEvent,

@@ -63,11 +63,7 @@ export interface QuoteMatch {
  *
  * Returns null when the quote is not there and must be discarded.
  */
-export function resolveQuote(
-  quote: string,
-  texts: string[],
-  fuzzyRatio = 0.95,
-): QuoteMatch | null {
+export function resolveQuote(quote: string, texts: string[], fuzzyRatio = 0.95): QuoteMatch | null {
   const trimmed = (quote ?? '').trim();
   if (!trimmed) return null;
 
@@ -141,11 +137,7 @@ export function normalizedMatches(
  * (13 vs 14 characters scores 26/27 ≈ 0.963) while still refusing a
  * rewrite.
  */
-export function bestWindow(
-  normalizedQuote: string,
-  text: string,
-  ratio: number,
-): string | null {
+export function bestWindow(normalizedQuote: string, text: string, ratio: number): string | null {
   const normalizedText = normalize(text);
   const baseWidth = normalizedQuote.length;
   if (normalizedText.text.length < baseWidth) return null;
@@ -188,9 +180,7 @@ function longestCommonSubsequence(a: string, b: string): number {
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
       current[j] =
-        a[i - 1] === b[j - 1]
-          ? previous[j - 1] + 1
-          : Math.max(previous[j], current[j - 1]);
+        a[i - 1] === b[j - 1] ? previous[j - 1] + 1 : Math.max(previous[j], current[j - 1]);
     }
     const swap = previous;
     previous = current;

@@ -6,7 +6,7 @@ export class HealthController {
   async check() {
     const uptime = process.uptime();
     const memory = process.memoryUsage();
-    
+
     return {
       status: 'ok',
       uptime: Math.floor(uptime),

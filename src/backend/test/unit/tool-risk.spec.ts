@@ -51,7 +51,10 @@ describe('tool risk policy', () => {
 describe('ToolRegistry parent-approval gate', () => {
   function registry(handler: jest.Mock): ToolRegistry {
     const instance = Object.create(ToolRegistry.prototype) as any;
-    instance.handlers = new Map([['updateParentControl', handler], ['recallMemory', handler]]);
+    instance.handlers = new Map([
+      ['updateParentControl', handler],
+      ['recallMemory', handler],
+    ]);
     instance.logger = {
       debug: jest.fn(),
       warn: jest.fn(),

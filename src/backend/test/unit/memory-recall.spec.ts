@@ -1,6 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
-import { MemoryRecallService, queryFragments } from '../../src/modules/memory/memory-recall.service';
+import {
+  MemoryRecallService,
+  queryFragments,
+} from '../../src/modules/memory/memory-recall.service';
 import type { Memory } from '../../src/modules/memory/memory.entity';
 import type { MemoryVectorService } from '../../src/modules/memory/memory-vector.service';
 
@@ -100,7 +103,9 @@ describe('MemoryRecallService', () => {
     });
 
     it('miss when memories exist but nothing passes the gate', async () => {
-      const { service } = buildService([memory({ verbatimQuote: '我最喜欢西瓜', content: '喜欢西瓜' })]);
+      const { service } = buildService([
+        memory({ verbatimQuote: '我最喜欢西瓜', content: '喜欢西瓜' }),
+      ]);
       const result = await service.recall({ childId: 1, query: '霸王龙' });
       expect(result.outcome).toBe('miss');
     });
@@ -121,10 +126,9 @@ describe('MemoryRecallService', () => {
     });
 
     it('degraded when the database exceeds its deadline', async () => {
-      const { service } = buildService(
-        () => new Promise<Memory[]>(() => undefined),
-        { env: { MEMORY_DB_TIMEOUT_MS: '20' } },
-      );
+      const { service } = buildService(() => new Promise<Memory[]>(() => undefined), {
+        env: { MEMORY_DB_TIMEOUT_MS: '20' },
+      });
       const result = await service.recall({ childId: 1, query: '霸王龙' });
       expect(result.outcome).toBe('degraded');
     });
@@ -135,9 +139,7 @@ describe('MemoryRecallService', () => {
       const { service, captured } = buildService([memory()]);
       await service.recall({ childId: 1, query: '霸王龙' });
 
-      const secretClause = captured.wheres.find((entry) =>
-        entry.sql.includes('sensitivity'),
-      );
+      const secretClause = captured.wheres.find((entry) => entry.sql.includes('sensitivity'));
       expect(secretClause).toBeDefined();
       expect(secretClause!.params).toMatchObject({ secret: 'L2' });
     });
@@ -181,7 +183,13 @@ describe('MemoryRecallService', () => {
 
     it('admits a paraphrase above the cosine floor and refuses one below it', async () => {
       const target = [1, 0, 0];
-      const rows = [memory({ verbatimQuote: '我喜欢那个大个子恐龙', content: '喜欢大个子恐龙', vector: target })];
+      const rows = [
+        memory({
+          verbatimQuote: '我喜欢那个大个子恐龙',
+          content: '喜欢大个子恐龙',
+          vector: target,
+        }),
+      ];
 
       const above = buildService(rows, { embed: async () => [0.9, 0.1, 0] });
       expect((await above.service.recall({ childId: 1, query: '霸王龙' })).outcome).toBe('hit');
@@ -208,8 +216,20 @@ describe('MemoryRecallService', () => {
     it('lets a dated event inside the window outrank an undated one', async () => {
       const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
       const rows = [
-        memory({ id: 1, kind: 'event', verbatimQuote: '下周要去春游', content: '春游', occurredAt: null }),
-        memory({ id: 2, kind: 'event', verbatimQuote: '明天要去春游', content: '春游', occurredAt: tomorrow }),
+        memory({
+          id: 1,
+          kind: 'event',
+          verbatimQuote: '下周要去春游',
+          content: '春游',
+          occurredAt: null,
+        }),
+        memory({
+          id: 2,
+          kind: 'event',
+          verbatimQuote: '明天要去春游',
+          content: '春游',
+          occurredAt: tomorrow,
+        }),
       ];
       const { service } = buildService(rows);
       const result = await service.recall({ childId: 1, query: '春游' });

@@ -7,8 +7,7 @@ import { childSchoolAgeSystemPrompt } from '../../../../agent-framework/prompts/
  * wording, while the two preschool templates below stay byte-for-byte
  * unchanged (their exact text is asserted by existing tests).
  */
-export const systemPrompt79 = (childName: string) =>
-  childSchoolAgeSystemPrompt(childName, '7-9');
+export const systemPrompt79 = (childName: string) => childSchoolAgeSystemPrompt(childName, '7-9');
 
 export const systemPrompt1012 = (childName: string) =>
   childSchoolAgeSystemPrompt(childName, '10-12');

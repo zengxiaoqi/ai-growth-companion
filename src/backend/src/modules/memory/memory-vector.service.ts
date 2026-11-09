@@ -25,15 +25,10 @@ export class MemoryVectorService {
 
   constructor(private readonly configService: ConfigService) {
     this.model = this.configService.get<string>('MEMORY_EMBED_MODEL', '').trim();
-    const baseUrl = this.configService
-      .get<string>('LLM_BASE_URL', '')
-      .trim()
-      .replace(/\/+$/, '');
+    const baseUrl = this.configService.get<string>('LLM_BASE_URL', '').trim().replace(/\/+$/, '');
     this.apiKey = this.configService.get<string>('LLM_API_KEY', 'unused');
     this.endpoint =
-      this.model && baseUrl && baseUrl.startsWith('http')
-        ? `${baseUrl}/embeddings`
-        : null;
+      this.model && baseUrl && baseUrl.startsWith('http') ? `${baseUrl}/embeddings` : null;
   }
 
   get enabled(): boolean {

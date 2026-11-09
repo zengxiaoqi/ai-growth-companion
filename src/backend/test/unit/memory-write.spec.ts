@@ -17,12 +17,14 @@ const CHILD_TURNS = [
   { id: 12, content: '这是我们的秘密，别告诉妈妈' },
 ];
 
-function buildService(options: {
-  turns?: Array<{ id: number; content: string }>;
-  duplicate?: boolean;
-  sessionExists?: boolean;
-  env?: Record<string, string>;
-} = {}): { service: MemoryWriteService; saved: Saved } {
+function buildService(
+  options: {
+    turns?: Array<{ id: number; content: string }>;
+    duplicate?: boolean;
+    sessionExists?: boolean;
+    env?: Record<string, string>;
+  } = {},
+): { service: MemoryWriteService; saved: Saved } {
   const saved: Saved = { rows: [] };
   const memoryRepo = {
     create: (entity: any) => entity,

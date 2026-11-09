@@ -29,9 +29,7 @@ export class AppUpdateController {
   @Get('latest')
   async latest(@Query('versionCode') versionCode: string, @Res() res: Response) {
     const code = Number.parseInt(versionCode ?? '', 10);
-    const result = await this.service.check(
-      Number.isFinite(code) && code > 0 ? code : 0,
-    );
+    const result = await this.service.check(Number.isFinite(code) && code > 0 ? code : 0);
     // 清单彻底不可用（GitHub 拉取失败且无缓存/本地覆盖）→ 503，
     // 让客户端走 GitHub 直连兜底，而不是误判"已是最新"
     if (result.latest === null && (await this.service.getManifest()) === null) {
@@ -57,10 +55,7 @@ export class AppUpdateController {
   }
 
   @Get('download')
-  async download(
-    @Query('versionCode') versionCode: string,
-    @Res() res: Response,
-  ) {
+  async download(@Query('versionCode') versionCode: string, @Res() res: Response) {
     const manifest = await this.service.getManifest();
     if (!manifest) {
       res.status(404).json({ message: '没有可用的发布版本' });
@@ -71,10 +66,7 @@ export class AppUpdateController {
     const cached = await this.service.resolveApk(manifest);
     if (cached) {
       res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${basename(cached)}"`,
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${basename(cached)}"`);
       res.setHeader('Content-Length', statSync(cached).size);
       createReadStream(cached).pipe(res);
       return;
@@ -84,9 +76,7 @@ export class AppUpdateController {
     res.redirect(302, await this.fallbackUrl(manifest));
   }
 
-  private async fallbackUrl(manifest: {
-    downloadUrl: string;
-  }): Promise<string> {
+  private async fallbackUrl(manifest: { downloadUrl: string }): Promise<string> {
     if (/^https?:\/\//i.test(manifest.downloadUrl)) return manifest.downloadUrl;
     // 本地清单里的相对路径：拼上配置的公网地址（GitHub 清单总是绝对地址，一般走不到这）
     const base = (this.config.get<string>('APP_UPDATE_PUBLIC_URL') || '').replace(/\/+$/, '');

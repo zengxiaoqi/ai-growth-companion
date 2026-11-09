@@ -21,9 +21,7 @@ import type { ConfigService } from '@nestjs/config';
  * migration baseline, so `false` works on an empty database as well as
  * one built by `synchronize` before the baseline existed.
  */
-export function resolveSynchronize(
-  configService: Pick<ConfigService, 'get'>,
-): boolean {
+export function resolveSynchronize(configService: Pick<ConfigService, 'get'>): boolean {
   const raw = configService.get<string>('DB_SYNCHRONIZE');
   if (raw != null && String(raw).trim() !== '') {
     const value = String(raw).trim().toLowerCase();

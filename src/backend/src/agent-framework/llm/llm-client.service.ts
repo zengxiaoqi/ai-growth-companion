@@ -218,7 +218,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     if (this.piAiEnabled) {
       return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride, modelOverride);
     }
-    return this.legacyChatCompletion(safeMessages, tools, maxTokensOverride, _forceToolChoice, modelOverride);
+    return this.legacyChatCompletion(
+      safeMessages,
+      tools,
+      maxTokensOverride,
+      _forceToolChoice,
+      modelOverride,
+    );
   }
 
   async *chatCompletionStream(
@@ -269,7 +275,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         continue;
       }
 
-      const calls = m.role === 'assistant' && m.toolCalls ? (m.toolCalls as Array<{ id?: string }>) : null;
+      const calls =
+        m.role === 'assistant' && m.toolCalls ? (m.toolCalls as Array<{ id?: string }>) : null;
       if (!calls || calls.length === 0) {
         out.push(m);
         continue;

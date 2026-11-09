@@ -1,9 +1,4 @@
-import {
-  bestWindow,
-  normalize,
-  resolveQuote,
-  similarity,
-} from '../../src/modules/memory/verbatim';
+import { bestWindow, normalize, resolveQuote, similarity } from '../../src/modules/memory/verbatim';
 
 /**
  * The verbatim gate is the reason the product may claim "every quote is

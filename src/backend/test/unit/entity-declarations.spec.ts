@@ -45,9 +45,7 @@ function entityFiles(dir: string): string[] {
  * reads as three declarations of the table.
  */
 function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
 interface Declaration {
@@ -101,9 +99,7 @@ describe('entity declarations', () => {
     // Named explicitly so a future refactor that renames the table still
     // has to come here and say so, rather than quietly reintroducing a
     // second copy under a new name.
-    expect(byTable.get('conversations')).toEqual([
-      'database/entities/conversation.entity.ts',
-    ]);
+    expect(byTable.get('conversations')).toEqual(['database/entities/conversation.entity.ts']);
     expect(byTable.get('conversation_messages')).toEqual([
       'database/entities/conversation.entity.ts',
     ]);

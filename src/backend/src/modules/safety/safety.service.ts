@@ -107,11 +107,7 @@ export class SafetyService {
       .then((flags) => {
         if (flags.length === 0) return;
         const critical = flags.filter((flag) => flag.level === 'critical');
-        return this.persist(
-          params,
-          flags,
-          critical.length > 0 ? 'intercepted' : 'queued',
-        );
+        return this.persist(params, flags, critical.length > 0 ? 'intercepted' : 'queued');
       })
       .catch((err) => {
         this.logger.warn(`safety classifier background pass failed: ${err?.message ?? err}`);

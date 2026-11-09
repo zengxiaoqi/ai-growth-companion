@@ -3,7 +3,9 @@ import type { Repository } from 'typeorm';
 import { CareService } from '../../src/modules/care/care.service';
 import type { CareCue } from '../../src/modules/care/care-cue.entity';
 
-function build(options: { cues?: CareCue[]; askedRecently?: number; env?: Record<string, string> } = {}) {
+function build(
+  options: { cues?: CareCue[]; askedRecently?: number; env?: Record<string, string> } = {},
+) {
   const rows = options.cues ?? [];
   const saved: CareCue[] = [];
   const updates: Array<{ where: any; patch: any }> = [];

@@ -202,11 +202,11 @@ describe('ToolRegistryService', () => {
     const spy = jest.spyOn(tool, 'execute');
     service.register(tool);
 
-    const result = await service.execute(
-      'createGift',
-      { name: '贴纸' },
-      { conversationId: 'conv1', ageGroup: '5-6', extra: {} } as ToolExecutionContext,
-    );
+    const result = await service.execute('createGift', { name: '贴纸' }, {
+      conversationId: 'conv1',
+      ageGroup: '5-6',
+      extra: {},
+    } as ToolExecutionContext);
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('家长确认');
@@ -219,15 +219,11 @@ describe('ToolRegistryService', () => {
     const spy = jest.spyOn(tool, 'execute');
     service.register(tool);
 
-    const result = await service.execute(
-      'createGift',
-      { name: '贴纸', __parentApproved: true },
-      {
-        conversationId: 'conv1',
-        ageGroup: 'parent',
-        extra: { actorType: 'parent' },
-      } as ToolExecutionContext,
-    );
+    const result = await service.execute('createGift', { name: '贴纸', __parentApproved: true }, {
+      conversationId: 'conv1',
+      ageGroup: 'parent',
+      extra: { actorType: 'parent' },
+    } as ToolExecutionContext);
 
     expect(result.success).toBe(true);
     expect(spy).toHaveBeenCalledWith({ name: '贴纸' }, expect.anything());

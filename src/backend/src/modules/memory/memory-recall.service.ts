@@ -58,23 +58,14 @@ export class MemoryRecallService {
     private readonly configService: ConfigService,
   ) {
     this.topK = intOr(this.configService.get<string>('MEMORY_TOP_K'), 8);
-    this.vecThreshold = numberOr(
-      this.configService.get<string>('MEMORY_VEC_THRESHOLD'),
-      0.4,
-    );
+    this.vecThreshold = numberOr(this.configService.get<string>('MEMORY_VEC_THRESHOLD'), 0.4);
     this.rrfK0 = intOr(this.configService.get<string>('MEMORY_RRF_K0'), 60);
     this.rrfWVec = numberOr(this.configService.get<string>('MEMORY_RRF_W_VEC'), 1.0);
     this.rrfWFts = numberOr(this.configService.get<string>('MEMORY_RRF_W_FTS'), 0.8);
     this.rrfWTime = numberOr(this.configService.get<string>('MEMORY_RRF_W_TIME'), 0.6);
-    this.halfLifeDays = numberOr(
-      this.configService.get<string>('MEMORY_HALF_LIFE_DAYS'),
-      14,
-    );
+    this.halfLifeDays = numberOr(this.configService.get<string>('MEMORY_HALF_LIFE_DAYS'), 14);
     this.dbTimeoutMs = intOr(this.configService.get<string>('MEMORY_DB_TIMEOUT_MS'), 200);
-    this.vectorTimeoutMs = intOr(
-      this.configService.get<string>('MEMORY_VECTOR_TIMEOUT_MS'),
-      400,
-    );
+    this.vectorTimeoutMs = intOr(this.configService.get<string>('MEMORY_VECTOR_TIMEOUT_MS'), 400);
   }
 
   /**
@@ -119,10 +110,7 @@ export class MemoryRecallService {
 
     // The vector channel is allowed to be late: it drops out on timeout
     // instead of degrading the whole recall.
-    const queryVector = await this.vectorService.embed(
-      params.query,
-      this.vectorTimeoutMs,
-    );
+    const queryVector = await this.vectorService.embed(params.query, this.vectorTimeoutMs);
     if (queryVector) scoreVector(candidates, queryVector);
 
     const ordered = this.fuse(candidates);
@@ -141,14 +129,11 @@ export class MemoryRecallService {
    * secret must be unreachable by construction, so that a future caller
    * who forgets to check cannot surface one.
    */
-  private async load(params: {
-    childId: number;
-    since?: string;
-  }): Promise<Memory[]> {
+  private async load(params: { childId: number; since?: string }): Promise<Memory[]> {
     const qb = this.memoryRepo
       .createQueryBuilder('m')
       .where('m.childId = :childId', { childId: params.childId })
-      .andWhere("(m.sensitivity IS NULL OR m.sensitivity <> :secret)", {
+      .andWhere('(m.sensitivity IS NULL OR m.sensitivity <> :secret)', {
         secret: SECRET_TIER,
       });
 

@@ -103,9 +103,7 @@ describe('RecallAuditService', () => {
     const s = await service.summarize(7, 999, NOW);
     expect(s.windowDays).toBe(90);
     expect(s.retentionDays).toBe(7);
-    expect(getDeleted().createdAt.value.getTime()).toBe(
-      NOW.getTime() - 7 * 86_400_000,
-    );
+    expect(getDeleted().createdAt.value.getTime()).toBe(NOW.getTime() - 7 * 86_400_000);
 
     const short = await service.summarize(7, 0, NOW);
     expect(short.windowDays).toBe(1);
@@ -143,25 +141,25 @@ describe('RecallAuditController', () => {
 
   it('denies child accounts even for their own id', async () => {
     const { controller: c, audits } = controller(true);
-    await expect(
-      c.summary('7', { user: { sub: 7, type: 'child' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(c.summary('7', { user: { sub: 7, type: 'child' } })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(audits.summarize).not.toHaveBeenCalled();
   });
 
-  it('denies a parent asking about someone else\'s child', async () => {
+  it("denies a parent asking about someone else's child", async () => {
     const { controller: c, audits } = controller(false);
-    await expect(
-      c.summary('99', { user: { sub: 1, type: 'parent' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(c.summary('99', { user: { sub: 1, type: 'parent' } })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(audits.summarize).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed childId before touching the database', async () => {
     const { controller: c, users } = controller(true);
-    await expect(
-      c.summary('abc', { user: { sub: 1, type: 'parent' } }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(c.summary('abc', { user: { sub: 1, type: 'parent' } })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(users.canAccessChild).not.toHaveBeenCalled();
   });
 });

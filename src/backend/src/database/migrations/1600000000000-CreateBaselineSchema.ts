@@ -67,8 +67,7 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
     // therefore carry their own quotes above, and booleans have to be
     // spelled the way each driver stores them — `0`/`1` on SQLite, where
     // `synchronize` writes numbers, and `false`/`true` on PostgreSQL.
-    const bool = (value: boolean): string | number =>
-      isPostgres ? String(value) : value ? 1 : 0;
+    const bool = (value: boolean): string | number => (isPostgres ? String(value) : value ? 1 : 0);
 
     const createdAt = (name = 'createdAt'): TableColumnOptions => ({
       name,
@@ -344,12 +343,10 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
         ],
       }),
     );
-    await this.index(
-      queryRunner,
-      'poem_annotations',
-      'idx_poem_annotation_model',
-      ['poemId', 'model'],
-    );
+    await this.index(queryRunner, 'poem_annotations', 'idx_poem_annotation_model', [
+      'poemId',
+      'model',
+    ]);
 
     // ── Growth records ──────────────────────────────────────────────────
     await this.create(
@@ -505,12 +502,10 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
         ],
       }),
     );
-    await this.index(
-      queryRunner,
-      'point_records',
-      'IDX_363470de29aa61059b7d5e9b2a',
-      ['childId', 'recordedAt'],
-    );
+    await this.index(queryRunner, 'point_records', 'IDX_363470de29aa61059b7d5e9b2a', [
+      'childId',
+      'recordedAt',
+    ]);
 
     await this.create(
       queryRunner,
@@ -553,12 +548,10 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
         ],
       }),
     );
-    await this.index(
-      queryRunner,
-      'redemption_records',
-      'IDX_fc5efcc4869800d1361ad3291f',
-      ['childId', 'redeemedAt'],
-    );
+    await this.index(queryRunner, 'redemption_records', 'IDX_fc5efcc4869800d1361ad3291f', [
+      'childId',
+      'redeemedAt',
+    ]);
 
     // ── Misc ────────────────────────────────────────────────────────────
     await this.create(
@@ -666,12 +659,8 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
     await this.index(queryRunner, 'video_downloads', 'IDX_7d7104f3d5dad81347996ca1e7', [
       'parentId',
     ]);
-    await this.index(queryRunner, 'video_downloads', 'IDX_7234251b1006ddb918df369bb7', [
-      'childId',
-    ]);
-    await this.index(queryRunner, 'video_downloads', 'IDX_6d079ba66d52b09f6550e31de1', [
-      'status',
-    ]);
+    await this.index(queryRunner, 'video_downloads', 'IDX_7234251b1006ddb918df369bb7', ['childId']);
+    await this.index(queryRunner, 'video_downloads', 'IDX_6d079ba66d52b09f6550e31de1', ['status']);
 
     await this.create(
       queryRunner,
@@ -857,14 +846,7 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
       );
     }
 
-    const legacy = [
-      'author',
-      'dynasty',
-      'translation',
-      'appreciation',
-      'popularity',
-      'firstChar',
-    ];
+    const legacy = ['author', 'dynasty', 'translation', 'appreciation', 'popularity', 'firstChar'];
     const present = legacy.filter((name) => table.findColumnByName(name));
     if (present.length > 0) {
       await queryRunner.dropColumns('poems', present);
@@ -897,7 +879,10 @@ export class CreateBaselineSchema1600000000000 implements MigrationInterface {
     isUnique = false,
   ): Promise<void> {
     try {
-      await queryRunner.createIndex(table, new TableIndex({ name, columnNames: columns, isUnique }));
+      await queryRunner.createIndex(
+        table,
+        new TableIndex({ name, columnNames: columns, isUnique }),
+      );
     } catch {
       // Already present — the schema is what we wanted either way.
     }

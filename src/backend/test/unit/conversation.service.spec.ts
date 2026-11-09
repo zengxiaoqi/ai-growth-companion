@@ -13,10 +13,7 @@
 
 import 'reflect-metadata';
 import { DataSource, Repository } from 'typeorm';
-import {
-  Conversation,
-  ConversationMessage,
-} from '../../src/database/entities/conversation.entity';
+import { Conversation, ConversationMessage } from '../../src/database/entities/conversation.entity';
 import { ConversationService } from '../../src/agent-framework/conversation/conversation.service';
 import { MessageBuilderService } from '../../src/agent-framework/conversation/message-builder.service';
 import type { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
@@ -96,11 +93,7 @@ describe('ConversationService', () => {
 
     it('refuses to reuse a session owned by the other role', async () => {
       const childSession = await service.getOrCreateSession(1, 'child');
-      const parentAttempt = await service.getOrCreateSession(
-        1,
-        'parent',
-        childSession.uuid,
-      );
+      const parentAttempt = await service.getOrCreateSession(1, 'parent', childSession.uuid);
 
       // A fresh session, not the child's transcript.
       expect(parentAttempt.uuid).not.toBe(childSession.uuid);
@@ -182,9 +175,7 @@ describe('ConversationService', () => {
 
       await service.addMessage(created.uuid, 'user', 'late message');
 
-      expect(
-        await messages.count({ where: { conversationId: created.conversationId } }),
-      ).toBe(0);
+      expect(await messages.count({ where: { conversationId: created.conversationId } })).toBe(0);
     });
   });
 

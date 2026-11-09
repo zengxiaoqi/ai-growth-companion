@@ -287,8 +287,7 @@ export class AgentExecutorService {
       let assistantContent: string | null | undefined = undefined;
       let assistantToolCalls: LlmResponse['toolCalls'] | undefined = undefined;
       if (hasTools) {
-        const forceToolChoice =
-          iteration === 0 ? false : !lastIterationHadToolCall;
+        const forceToolChoice = iteration === 0 ? false : !lastIterationHadToolCall;
         const response = await this.llmClient.chatCompletion(
           fullMessages,
           toolDefinitions,

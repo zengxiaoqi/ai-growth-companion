@@ -165,7 +165,11 @@ describe('SafetyClassifier', () => {
       '我是多余的',
     );
     expect(flags).toHaveLength(1);
-    expect(flags[0]).toMatchObject({ category: 'self_harm', level: 'critical', source: 'classifier' });
+    expect(flags[0]).toMatchObject({
+      category: 'self_harm',
+      level: 'critical',
+      source: 'classifier',
+    });
   });
 
   it('maps a middle score to a watch flag, which never interrupts the child', async () => {

@@ -543,10 +543,7 @@ export class ConversationService {
       if (recentMessages.length < this.SUMMARY_THRESHOLD) return;
 
       const messageText = recentMessages
-        .map(
-          (m) =>
-            `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`,
-        )
+        .map((m) => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 200)}`)
         .join('\n');
 
       const response = await this.llmClient.chatCompletion([

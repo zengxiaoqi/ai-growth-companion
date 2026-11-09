@@ -36,10 +36,7 @@ export class SafetyController {
     @Param('parentId') parentId: string,
     @Query('limit') limit?: string,
   ): Promise<Array<Omit<SafetyEvent, 'excerpt'>>> {
-    const events = await this.safetyService.listEventsForParent(
-      +parentId,
-      Number(limit) || 20,
-    );
+    const events = await this.safetyService.listEventsForParent(+parentId, Number(limit) || 20);
     return events.map(toPublicEvent);
   }
 }

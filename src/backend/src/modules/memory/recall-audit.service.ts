@@ -56,7 +56,9 @@ export class RecallAuditService {
 
   private get retentionDays(): number {
     const raw = Number(this.config.get('MEMORY_AUDIT_RETENTION_DAYS', DEFAULT_RETENTION_DAYS));
-    return Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 365) : DEFAULT_RETENTION_DAYS;
+    return Number.isFinite(raw)
+      ? Math.min(Math.max(Math.trunc(raw), 1), 365)
+      : DEFAULT_RETENTION_DAYS;
   }
 
   /**
@@ -139,7 +141,9 @@ export class RecallAuditService {
       daily: [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)),
       latencyMs: {
         avg: sorted.length ? Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length) : null,
-        p95: sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : null,
+        p95: sorted.length
+          ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]
+          : null,
       },
       retentionDays: this.retentionDays,
       purgedRows,

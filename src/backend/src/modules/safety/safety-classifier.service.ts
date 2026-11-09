@@ -103,8 +103,7 @@ const SCORE_FIELDS: Array<[string, SafetyCategory]> = [
   ['danger', 'danger'],
 ];
 
-const CLASSIFIER_SYSTEM_PROMPT =
-  '你是儿童安全信号分类器，只输出 JSON，不要解释。';
+const CLASSIFIER_SYSTEM_PROMPT = '你是儿童安全信号分类器，只输出 JSON，不要解释。';
 
 function buildPrompt(text: string): string {
   return `阅读这段孩子说的话，输出三类风险的概率（0 到 1 的小数）：

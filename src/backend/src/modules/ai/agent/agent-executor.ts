@@ -620,11 +620,7 @@ export class AgentExecutor {
       normalized.parentId = executionContext.parentId;
     }
 
-    if (
-      NEEDS_AGE_GROUP_TOOLS.has(toolName) &&
-      ageGroup !== 'parent' &&
-      ageGroup !== 'unknown'
-    ) {
+    if (NEEDS_AGE_GROUP_TOOLS.has(toolName) && ageGroup !== 'parent' && ageGroup !== 'unknown') {
       // The conversation may be in a school-age style, but the content
       // layer still only has two buckets. Inject the bucket here rather
       // than letting a '7-9' string reach a tool that would reject it.

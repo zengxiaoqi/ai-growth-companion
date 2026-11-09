@@ -92,11 +92,7 @@ export class MemoryService {
    * parent report is where memory actually pays off. L2 stays excluded
    * by the same SQL clause.
    */
-  async recentForDigest(
-    childId: number,
-    since: Date,
-    limit = 30,
-  ): Promise<Memory[]> {
+  async recentForDigest(childId: number, since: Date, limit = 30): Promise<Memory[]> {
     return this.memoryRepo.find({
       where: {
         childId,

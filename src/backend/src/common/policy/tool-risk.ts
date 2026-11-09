@@ -95,10 +95,7 @@ export function toolRiskOf(toolName: string): ToolRiskPolicy {
  * context can never widen a permission. A parent account *is* the
  * approval; no extra flag is needed on that path.
  */
-export function requiresParentApproval(
-  toolName: string,
-  ctx: ToolActorContext = {},
-): boolean {
+export function requiresParentApproval(toolName: string, ctx: ToolActorContext = {}): boolean {
   if (ctx.actorType === 'parent') return false;
   if (ctx.parentApproved === true) return false;
   return PARENT_APPROVAL_REQUIRED.has(toolName);

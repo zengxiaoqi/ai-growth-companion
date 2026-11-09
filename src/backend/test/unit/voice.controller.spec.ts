@@ -37,7 +37,7 @@ describe('VoiceController', () => {
 
       await controller.textToSpeech('你好', undefined, res);
 
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-XiaoxiaoNeural');
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-XiaoyiNeural');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'audio/mpeg');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Length', expect.any(Number));
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400');

@@ -95,7 +95,7 @@ describe('AiController', () => {
         })(),
       );
 
-      await controller.chatStream(parentReq as any, 'hi', '2', 's1', res);
+      await controller.chatStream(parentReq as any, 'hi', '2', 's1', '', res);
 
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/event-stream');
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-cache');
@@ -114,7 +114,7 @@ describe('AiController', () => {
         })(),
       );
 
-      await controller.chatStream(parentReq as any, 'hi', '', '', res);
+      await controller.chatStream(parentReq as any, 'hi', '', '', '', res);
 
       expect(res.write).toHaveBeenCalledWith(expect.stringContaining('LLM timeout'));
       expect(res.end).toHaveBeenCalled();
@@ -134,7 +134,7 @@ describe('AiController', () => {
       // Let me set up the mock so canViewerAccessChild returns false.
       // The controller will throw ForbiddenException which is caught.
 
-      await controller.chatStream(parentReq as any, 'hi', '99', '', res);
+      await controller.chatStream(parentReq as any, 'hi', '99', '', '', res);
 
       expect(res.write).toHaveBeenCalledWith(expect.stringContaining('无权访问该学生'));
       expect(res.end).toHaveBeenCalled();
@@ -146,7 +146,7 @@ describe('AiController', () => {
         throw new Error('unexpected');
       });
 
-      await controller.chatStream(parentReq as any, 'hi', '', '', res);
+      await controller.chatStream(parentReq as any, 'hi', '', '', '', res);
 
       expect(res.write).toHaveBeenCalledWith(expect.stringContaining('AI服务暂时不可用'));
     });
@@ -166,7 +166,7 @@ describe('AiController', () => {
         })(),
       );
 
-      await controller.chatStream(childReq as any, 'play', '', '', res);
+      await controller.chatStream(childReq as any, 'play', '', '', '', res);
 
       const writes = res.write.mock.calls.map((c: any[]) => c[0]);
       expect(writes.some((w: string) => w.includes('thinking'))).toBe(true);
@@ -183,7 +183,7 @@ describe('AiController', () => {
         })(),
       );
 
-      await controller.chatStream(parentReq as any, 'hi', '42', '', res);
+      await controller.chatStream(parentReq as any, 'hi', '42', '', '', res);
 
       expect(service.canViewerAccessChild).toHaveBeenCalledWith(
         expect.objectContaining({ childId: 42 }),

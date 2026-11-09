@@ -296,8 +296,6 @@ describe('AgentExecutorService runLoopStream', () => {
       const emptyDefs: LlmToolDefinition[] = [];
       const events: StreamEvent[] = [];
 
-      llmClient.chatCompletion.mockResolvedValueOnce(textOnlyResponse('Hello world'));
-      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('final'));
       llmClient.chatCompletionStream.mockImplementation(async function* () {
         yield '';
       });
@@ -312,8 +310,11 @@ describe('AgentExecutorService runLoopStream', () => {
         events.push(event);
       }
 
-      // Only one chatCompletion call should happen (text-only → immediate finish, no nudge)
-      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(1);
+      // No-tools requests skip the non-streaming probe entirely and stream
+      // the final response directly (latency optimization), so chatCompletion
+      // is never called and no nudge can be pushed.
+      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(0);
+      expect(llmClient.chatCompletionStream).toHaveBeenCalledTimes(1);
     });
 
     it('does NOT push nudge when response content is empty', async () => {

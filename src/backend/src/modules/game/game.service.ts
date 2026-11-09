@@ -350,8 +350,19 @@ export class GameService {
       const operator = isAdd ? '+' : '-';
 
       const wrongAnswers = new Set<number>();
-      while (wrongAnswers.size < 3) {
+      // Bounded retries + deterministic fill. The old unbounded retry loop
+      // spun forever whenever `a - b` landed at <= -3: every candidate
+      // `wrong = correct + (-2..2)` was negative, so `wrong >= 0` never held
+      // and this synchronous loop froze the event loop (jest workers hung,
+      // CI died at its job timeout).
+      let attempts = 0;
+      while (wrongAnswers.size < 3 && attempts < 40) {
         const wrong = correct + Math.floor(Math.random() * 5) - 2;
+        if (wrong !== correct && wrong >= 0) wrongAnswers.add(wrong);
+        attempts++;
+      }
+      for (let offset = 1; wrongAnswers.size < 3; offset++) {
+        const wrong = correct + offset;
         if (wrong !== correct && wrong >= 0) wrongAnswers.add(wrong);
       }
 

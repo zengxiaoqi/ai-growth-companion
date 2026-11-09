@@ -31,7 +31,7 @@ describe('VoiceService', () => {
 
       expect(instance.synthesize).toHaveBeenCalledWith(
         '测试',
-        'zh-CN-XiaoxiaoNeural',
+        'zh-CN-XiaoyiNeural',
         expect.objectContaining({ outputFormat: expect.any(String) }),
       );
     });

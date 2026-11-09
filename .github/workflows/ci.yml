@@ -12,7 +12,9 @@ jobs:
   backend:
     name: Backend CI
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Full backend pipeline (install + lint + fast test + build) fits well
+    # inside 30min; the old 15min budget killed every run since late October.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: src/backend
@@ -38,7 +40,10 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm test
+        # test:ci drops --detectOpenHandles (debug-only, ~6x slower) and the
+        # 2-worker cap; --forceExit stays because some suite leaves open
+        # handles and jest hangs at exit without it (issue #93).
+        run: npm run test:ci
         env:
           DB_PATH: ":memory:"
 

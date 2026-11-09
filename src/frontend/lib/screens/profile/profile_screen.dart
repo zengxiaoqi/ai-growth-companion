@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/user_provider.dart';
+import '../../components/app_update_prompt.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -137,9 +138,15 @@ class ProfileScreen extends StatelessWidget {
         {'icon': Icons.lock_rounded, 'title': '隐私设置', 'emoji': '🔒', 'color': AppTheme.accentColor},
         {'icon': Icons.help_rounded, 'title': '帮助与反馈', 'emoji': '💬', 'color': AppTheme.softYellow},
         {'icon': Icons.info_rounded, 'title': '关于我们', 'emoji': 'ℹ️', 'color': AppTheme.softPurple},
+        {'icon': Icons.system_update_rounded, 'title': '检查更新', 'emoji': '🔄', 'color': AppTheme.infoColor},
       ];
 
       void onSettingTap(String title) {
+        // 检查更新：应用内自升级（自动检测新版本 + 下载安装，仅 Android）
+        if (title == '检查更新') {
+          AppUpdatePrompt.manualCheck(context);
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$title — 功能开发中，敬请期待 ✨'),

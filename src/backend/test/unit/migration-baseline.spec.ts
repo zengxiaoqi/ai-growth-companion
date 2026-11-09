@@ -17,8 +17,11 @@ import { CreateMemoryAndSafetyTables1700000000000 } from '../../src/database/mig
  * as a production `ALTER` nobody reviewed.
  */
 
+/** Entity class target: a constructable class with unknown arguments. */
+type EntityClass = new (...args: any[]) => any;
+
 /** Every entity the application registers, discovered the way AppModule does. */
-function loadEntities(): Function[] {
+function loadEntities(): EntityClass[] {
   const files: string[] = [];
   const walk = (dir: string) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -34,7 +37,7 @@ function loadEntities(): Function[] {
   }
   return getMetadataArgsStorage()
     .tables.map((table) => table.target)
-    .filter((target): target is Function => typeof target === 'function');
+    .filter((target): target is EntityClass => typeof target === 'function');
 }
 
 async function buildFromMigrations(): Promise<DataSource> {
@@ -71,9 +74,7 @@ describe('baseline migration', () => {
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
     );
     const present = new Set(rows.map((row) => row.name));
-    const declared = new Set(
-      dataSource.entityMetadatas.map((meta) => meta.tableName),
-    );
+    const declared = new Set(dataSource.entityMetadatas.map((meta) => meta.tableName));
     const missing = [...declared].filter((table) => !present.has(table));
     expect(missing).toEqual([]);
   });
@@ -86,8 +87,7 @@ describe('baseline migration', () => {
     if (upQueries.length > 0) {
       // eslint-disable-next-line no-console
       console.log(
-        'pending schema changes:\n' +
-          upQueries.map((query: any) => `  ${query.query}`).join('\n'),
+        'pending schema changes:\n' + upQueries.map((query: any) => `  ${query.query}`).join('\n'),
       );
     }
     expect(upQueries).toHaveLength(0);
@@ -127,9 +127,7 @@ describe('baseline migration', () => {
     const applied = await existing.runMigrations({ transaction: 'none' });
     expect(applied).toHaveLength(1);
 
-    const users: Array<{ name: string }> = await existing.query(
-      `SELECT "name" FROM "users"`,
-    );
+    const users: Array<{ name: string }> = await existing.query(`SELECT "name" FROM "users"`);
     expect(users).toEqual([{ name: '小明' }]);
     await existing.destroy();
   }, 60000);

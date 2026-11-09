@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'api_service.dart';
 
 /// TTS 语音朗读服务
@@ -32,6 +33,10 @@ class TtsService {
   }
 
   /// 注册播放完成监听（单次订阅，可重复调用以替换旧订阅）
+  ///
+  /// 播放失败兜底说明（audioplayers 6.x）：
+  /// - 启动失败（URL 无法加载/prepare 失败）→ play() 直接抛异常，speak() 内 catch 后 complete
+  /// - 播放中途错误无 error 事件流 → 依赖上层 `_speak` 对 onComplete 的超时兜底
   void _listenForCompletion() {
     _completionSub?.cancel();
     _completionSub = _player.onPlayerComplete.listen((_) {
@@ -71,8 +76,10 @@ class TtsService {
     final url = _buildUrl(text, voice: voice);
 
     try {
-      await _player.play(UrlSource(url));
-    } catch (_) {
+      // 15s 超时兜底：后端 TTS 生成慢/卡住时放弃本次播报，继续对话循环
+      await _player.play(UrlSource(url)).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      debugPrint('TTS play failed: $e');
       // 播放启动失败：清理状态（但不要重复 complete）
       _isSpeaking = false;
       if (_speakCompleter == completer) {

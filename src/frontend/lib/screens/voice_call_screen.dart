@@ -68,6 +68,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Timer? _commitTimer;
   // 提交/静音期间忽略 stopListening 冲刷出来的识别结果
   bool _suppressResults = false;
+  // 识别引擎连续报错计数（成功收到结果时清零，防无限重启死循环）
+  int _speechFailures = 0;
 
   late final AnimationController _pulse = AnimationController(
     vsync: this,
@@ -109,7 +111,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     if (!_active) return;
     setState(() => _phase = _CallPhase.speaking);
     await _tts.speak(text);
-    await _tts.onComplete;
+    // 30s 超时兜底：即使底层播报事件丢失，也绝不卡死在「对方正在说话」
+    await _tts.onComplete.timeout(const Duration(seconds: 30),
+        onTimeout: () {});
     if (!_active) return;
     setState(() => _phase = _CallPhase.listening);
     await _startListening();
@@ -130,9 +134,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       localeId: 'zh-CN',
       onResult: _onSpeechResult,
       onStateChange: (listening) {
-        // 设备端引擎可能自动停止，聆听阶段兜底重启
+        // 设备端引擎可能自动停止（无语音超时），聆听阶段兜底重启
         if (!listening && _active && !_muted && _phase == _CallPhase.listening) {
-          Future.delayed(const Duration(milliseconds: 400), () {
+          final delay = 400 + _speechFailures * 300;
+          Future.delayed(Duration(milliseconds: delay), () {
             if (_active && !_muted && _phase == _CallPhase.listening) {
               _startListening();
             }
@@ -144,14 +149,39 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         final fatal = err.contains('not_') ||
             err.contains('denied') ||
             err.contains('permission');
-        if (fatal && mounted) setState(() => _phase = _CallPhase.error);
+        if (fatal) {
+          if (mounted) setState(() => _phase = _CallPhase.error);
+          return;
+        }
+        // 非致命错误计入失败，连续多次后停止自动重启，交还给用户
+        _speechFailures++;
+        if (_speechFailures >= 5 && mounted) {
+          setState(() => _phase = _CallPhase.error);
+        }
       },
     );
-    if (!ok && mounted) setState(() => _phase = _CallPhase.error);
+    if (!ok && mounted) {
+      _speechFailures++;
+      if (_speechFailures < 5) {
+        // listen 启动失败，稍后重试而不是直接报错卡死
+        Future.delayed(
+            Duration(milliseconds: 800 + _speechFailures * 300), () {
+          if (_active && !_muted && _phase == _CallPhase.listening) {
+            _startListening();
+          }
+        });
+      } else {
+        setState(() => _phase = _CallPhase.error);
+      }
+    }
   }
 
   void _onSpeechResult(String finalText, String interimText) {
     if (!_active || _suppressResults) return;
+    // 收到任何识别结果说明引擎工作正常，重置失败计数
+    if (finalText.isNotEmpty || interimText.isNotEmpty) {
+      _speechFailures = 0;
+    }
     setState(() {
       _interim = interimText;
       if (finalText.isNotEmpty) _utteranceBuf = finalText;
@@ -168,6 +198,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     final text = _utteranceBuf.trim();
     if (text.isEmpty) return;
 
+    // 在首个 await 之前取好 provider，避免跨 async gap 使用 BuildContext
+    final provider = context.read<ChatSessionProvider>();
     _suppressResults = true;
     setState(() {
       _phase = _CallPhase.thinking;
@@ -180,8 +212,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     if (mounted) {
       setState(() => _turns.add(_CallTurn('user', text)));
     }
-    final provider = context.read<ChatSessionProvider>();
-    final reply = await provider.sendVoiceTurn(text);
+    String reply;
+    try {
+      reply = await provider.sendVoiceTurn(text);
+    } catch (e) {
+      debugPrint('[voice-call] sendVoiceTurn failed: $e');
+      if (!_active || !mounted) return;
+      reply = '哎呀，我这边信号不太好，你再说一遍好吗？';
+    }
     if (!_active || !mounted) return;
     setState(() => _turns.add(_CallTurn('assistant', reply)));
     await _speak(reply);

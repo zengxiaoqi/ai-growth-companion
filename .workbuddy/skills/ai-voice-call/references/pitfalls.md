@@ -45,7 +45,25 @@
 
 - MuMu 没有 `android.speech.RecognitionService`，`speech_to_text` 无法工作。语音输入必须真机验证；不要在模拟器上反复排查 ASR。
 
-## 现象：批量删除 node_modules/.vite 或 dist 被拦截
+## 现象：语音回合延迟 10~20 秒
+
+按顺序检查三个常见的系统性原因（本次实测 15~20s → 4~6s）：
+1. **双倍请求**：stream 路径先发非流式请求做工具预检测再丢弃，然后流式再生成一遍。无工具的闲聊 agent 必须跳过预检测直接流式。
+2. **思考型模型**：闲聊用 reasoning 模型（如 MiniMax-M3），思维链主导延迟。配置轻量模型按模式覆盖（LLM_MODEL_CASUAL），executor 从 metadata.chatMode 传 modelOverride。**注意 stream 路径里的非流式检测调用也要传 override，漏了会退回慢模型**。
+3. **网关抖动**：国内直连 LLM 网关时快时慢。分层对照定位：curl --noproxy 直连 → node 原生 fetch → node TLS 握手 → TCP net.connect → SDK。若仅 SDK 慢，查它是否读了 HTTPS_PROXY 走代理。
+
+## 现象：TTS 把 emoji 读出来
+
+- 后端 TTS 合成前剥离 `\p{Extended_Pictographic}` + 变体选择符/肤色修饰符/ZWJ/keycap。
+- casual 提示词允许模型输出 emoji 用于屏幕显示（朗读自动跳过），两者不冲突。
+- 前端 TTS URL 构建处加同款清洗兜底；Web 端别把旧音色参数钉死在 api 层，让后端默认生效。
+
+## 现象：TTS 语气像机器人
+
+- 音色换 zh-CN-XiaoyiNeural（比 XiaoxiaoNeural 活泼），rate "+12%"、pitch "+2Hz" 提轻快感；edge-tts 的 SynthesisOptions 支持 rate/pitch/volume。
+- 课程旁白等正式内容保留标准音色（XiaoxiaoNeural），只有闲聊场景用活泼配置。
+
+
 
 - WorkBuddy safe-delete shim 会拦截批量删除命令。手动 `rm -rf node_modules/.vite dist` 绕过（仅限构建缓存目录）。
 

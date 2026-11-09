@@ -38,6 +38,9 @@ jobs:
     name: Build & Publish APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # secrets 上下文不能用在 step 的 if: 里，先在 job 级 env 判断
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
 
     steps:
       - name: Checkout code
@@ -73,7 +76,7 @@ jobs:
       # 未配置时沿用 debug 签名 —— Android 默认 debug keystore 全平台一致，
       # 覆盖安装不受影响，但正式分发建议尽快配置固定 keystore。
       - name: Restore signing keystore (optional)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_KEYSTORE == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}

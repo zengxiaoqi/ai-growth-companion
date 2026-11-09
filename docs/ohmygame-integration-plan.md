@@ -1,8 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.0
+> **文档版本**: v1.1
 > **创建日期**: 2026-11-10
-> **状态**: 待评审（调研结论 + 实施设计，代码尚未改动）
+> **更新日期**: 2026-11-10（回填 P0 PoC 验证结论，见附录 D）
+> **状态**: 待评审（调研结论 + 实施设计；**生产代码未改动**，P0 隔离 PoC 已验证通过）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -18,6 +19,7 @@
 | 最优先做什么？ | **方案 B：扩展自有题型 schema + 参数化游戏引擎**（AI 只产参数 JSON，引擎固定）。改动面最小、复用全部学习闭环、零新增信任面。 |
 | 建议的技术路线 | 先 B（近期）→ 再 A（验证价值后）→ **C（线上实时生成）明确否决**。 |
 | 现有基础设施是否就绪？ | **否**。无 iframe/WebView 运行时、无 CSP/沙箱、无第三方静态目录、静态资源被 `expires 1y` 强缓存、生产 nginx 配置不在版本库。 |
+| P0 最小链路是否已验证？ | **是**。`poc/game-bridge/` 隔离 PoC 已跑通 31 项自动化检查（含真实 headless Chromium 的 sandbox iframe 闭环），不改任何生产代码。详见附录 D。 |
 
 **一句话决策**：把 ohmygame 放在**离线生产侧**，把"审核过的静态产物"作为唯一可跨越信任边界的东西；运行时继续坚持"AI 只产数据、引擎固定"。
 
@@ -51,7 +53,7 @@
 | 传统 REST API / OpenAPI | ❌ | 文档与 README 均未声明 |
 | **headless / 服务器模式** | ❌ | `docs/external-agents.md` 依赖 Electron executable（`ELECTRON_RUN_AS_NODE=1`）、stdio launcher、每次启动变端口/token 的 private HTTP daemon；明确把 **"A user-configured HTTP entry" 列为 not in scope** |
 | MCP Server | ✅ 但仅本机 | `ohmygame-studio`，stdio + `POST /external-mcp`；`claude mcp add` / `codex mcp add`；面向 coding agent，不是线上服务 |
-| **通过 API 触发"生成一个游戏"** | ❌ | 公开 18 个工具：`list_projects` `open_project` `get_project` `get_job` `wait_job` `cancel_job` `generate_image` `generate_video` `generate_3d_asset` `animate_3d_asset` `generate_speech` `generate_sound_effect` `generate_music` `generate_audio` `canvas_check` `canvas_initialize` `generate_canvas_media` `game_use` `playable_add_node` `playable_check`。**无 `generate_game` / build / export / static build** |
+| **通过 API 触发"生成一个游戏"** | ❌ | 公开 20 个工具：`list_projects` `open_project` `get_project` `get_job` `wait_job` `cancel_job` `generate_image` `generate_video` `generate_3d_asset` `animate_3d_asset` `generate_speech` `generate_sound_effect` `generate_music` `generate_audio` `canvas_check` `canvas_initialize` `generate_canvas_media` `game_use` `playable_add_node` `playable_check`。**无 `generate_game` / build / export / static build** |
 | 把任务委托给它自己的 Agent | ❌ | `external-agents.md` Not in scope 原文："It nests two agent loops, hides progress, and bills two models for one task."；并写明 "the external agent plans and writes the code" |
 | iframe / embed SDK / postMessage API | ❌ | README 与 `docs/README.md` 索引中 **无 embed / iframe / static build / headless 条目**；仓库内 `web-game-host.html` 属内部宿主页 |
 | 插件扩展 | ✅ | Plugin API 2.3.0、`@ohmygame/plugin-cli`、`gameUse` manifest、`PluginGameRuntime`、Godot/Unity/Cocos/微信小游戏插件 |
@@ -412,14 +414,17 @@ location ^~ /games/ {
     add_header Cache-Control "public, max-age=300" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" always;
+    add_header Content-Security-Policy "default-src ${scheme}://${http_host}; script-src ${scheme}://${http_host}; style-src ${scheme}://${http_host}; img-src ${scheme}://${http_host} data: blob:; media-src ${scheme}://${http_host} data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" always;
 }
 ```
 
 要点：
 
 - `connect-src 'none'` 从网络层保证游戏不能发请求；`postMessage` 不受 CSP `connect-src` 限制，因此回传仍可行。
-- 因为 iframe 不带 `allow-same-origin`，其 origin 为 opaque，即使放开 `'self'` 也无法访问 `/api` 或父页 DOM。
+- **P0 实证修正**：iframe 不带 `allow-same-origin` 时其 origin 为 opaque，序列化为字符串 `"null"`；此时 CSP 的 `'self'` **不匹配**该 iframe 内的资源加载。因此所有源表达式必须写**显式 origin**（上例 `${scheme}://${http_host}`），`img-src` / `media-src` 同理。生产建议用 `map` 把允许的 origin 固定为白名单常量，而不是直接信任 `Host` 头。
+- 同理，**双向** `postMessage` 的 `targetOrigin` 都只能是 `'*'`；安全性不依赖 origin 相等，而依赖 `event.source`、一次性 `sessionId`、`bridgeHash` 与服务端会话绑定（见 6.6 / 6.7）。
+- 去掉 v1.0 里的 `'unsafe-inline'`：PoC 产物全部使用外部脚本即可跑通。若 ohmygame 产物含内联脚本，应在构建期改写为外部文件，或用 nonce/hash 白名单，不要重新放开 `'unsafe-inline'`。
+- 即使显式 origin 放开了资源加载，opaque origin 的 iframe 仍无法访问 `/api` 或父页 DOM；`sandbox` 是独立于 CSP 的第二道闸。
 - `^~` 匹配后 nginx 不再检查 server 级的正则 location，因此直接对整个目录设 `expires 5m` 即可覆盖 `:16` 的 `1y immutable`；**不要在此嵌套正则 location**，避免 location 嵌套的兼容问题。
 - nginx 的 `add_header` 在 location 内会覆盖 server 级同名声明，故必须把 `X-Content-Type-Options` 等重新写全。
 - `frame-ancestors` 建议加在**父页面**响应的 CSP 上（值 `'self'`），而非 `/games/` 子资源。
@@ -459,13 +464,14 @@ location ^~ /games/ {
 校验逻辑（父页 `message` 监听器）：
 
 ```text
-1. event.source === iframeRef.current?.contentWindow
-2. event.origin 与 window.location.origin 一致（同源部署）
-3. msg.channel === 'lingxi-game' 且 msg.sessionId === 签发的 sessionId
-4. 只接受一次 COMPLETE；重复上报直接丢弃
-5. score 做 clamp(0,100)，correctAnswers/totalQuestions 为非负整数且 correct <= total
-6. 5 分钟无 READY 或超时 → 标记 abandoned，不记分，展示"再试一次"
-7. 收到 COMPLETE 后构造 ActivityResult 交给既有 onComplete → api.completeAssignment
+1. `event.source === iframeRef.current?.contentWindow`（唯一的窗口身份依据）
+2. `event.origin === 'null'`（opaque origin，**P0 headless Chromium 实证**）；**不要**判断 `event.origin === window.location.origin`，那会误拒所有消息
+3. 父→子 `INIT` 与子→父全部消息的 `targetOrigin` 均用 `'*'`（见 6.7）
+4. `msg.channel === 'lingxi-game'` 且 `msg.sessionId === 签发的 sessionId`；`READY.bridgeHash` 与 `GameBuild.bridgeHash` 一致
+5. 只接受一次 `COMPLETE`；重复上报直接丢弃。服务端再校验 session 未使用/未过期，且 `buildUuid`、`bridgeHash` 与会话绑定一致
+6. `score` 做 clamp(0,100)，`correctAnswers/totalQuestions` 为非负整数且 `correct <= total`，`timeSpent` 非负
+7. 5 分钟超时 / `HEARTBEAT` 中断 → 标记 abandoned，不记分，展示"再试一次"
+8. 收到 `COMPLETE` 后构造 `ActivityResult` 交给既有 `onComplete` → `api.completeAssignment`；`resultData` 写入 `buildUuid`/`version`/`sessionId`/`bridgeHash`，**会话字段覆盖游戏自报值**
 ```
 
 同时需更新 `activity-normalizer.ts` 的 `isActivityType` 白名单，否则 `html_game` 会被 `normalizeActivityType` 兜底成 `'quiz'`（**最容易被漏掉的一处**）。
@@ -484,8 +490,8 @@ location ^~ /games/ {
 
 | 方向 | `type` | payload | 说明 |
 | --- | --- | --- | --- |
-| 父 → 子 | `INIT` | `{ buildUuid, version, sessionId, ageGroup, difficulty, locale: 'zh-CN' }` | iframe load 后由父页发送；**不含 userId / JWT / 儿童姓名** |
-| 子 → 父 | `READY` | `{ bridgeHash }` | 父页校验 bridge 哈希 |
+| 父 → 子 | `INIT` | 消息顶层 `{ channel, type, sessionId }`，payload `{ buildUuid, version, bridgeHash, ageGroup, difficulty, locale: 'zh-CN' }` | iframe load 后由父页以 `targetOrigin='*'` 发送；**不含 userId / JWT / 儿童姓名** |
+| 子 → 父 | `READY` | `{ bridgeHash, bridgeVersion }` | 父页校验 bridge 哈希与版本 |
 | 子 → 父 | `PROGRESS` | `{ correctAnswers, totalQuestions }` | 可选，仅用于进度展示，不落库 |
 | 子 → 父 | `COMPLETE` | `{ score, correctAnswers, totalQuestions, timeSpent, interactionData }` | 唯一记分消息 |
 | 子 → 父 | `ERROR` | `{ code, message }` | 只记录日志，不记分 |
@@ -494,19 +500,36 @@ location ^~ /games/ {
 **桥接方式**：打包时向产物注入固定的 `lingxi-bridge.js`，暴露唯一出口：
 
 ```js
-window.LingxiGame = {
-  complete(result) {
-    parent.postMessage({
-      channel: 'lingxi-game',
-      type: 'COMPLETE',
-      sessionId: window.__LINGXI_SESSION_ID__,
-      payload: result
-    }, '*');
+// lingxi-bridge.js — 固定文件，sha256 登记在 GameBuild.bridgeHash
+(function () {
+  var CHANNEL = 'lingxi-game';
+  var state = { sessionId: null, bridgeHash: null, completed: false };
+  function post(type, payload) {
+    if (!state.sessionId) return;
+    parent.postMessage({ channel: CHANNEL, type: type,
+                         sessionId: state.sessionId, payload: payload || {} }, '*');
   }
-};
+  window.addEventListener('message', function (event) {
+    var msg = event.data;
+    if (!msg || msg.channel !== CHANNEL || msg.type !== 'INIT' || state.sessionId) return;
+    state.sessionId = msg.sessionId;                 // 来自父页 INIT，不是页面内全局常量
+    state.bridgeHash = msg.payload && msg.payload.bridgeHash;
+    window.dispatchEvent(new CustomEvent('lingxi:init', { detail: msg.payload || {} }));
+    post('READY', { bridgeHash: state.bridgeHash, bridgeVersion: '1.0.0' });
+  });
+  window.LingxiGame = {
+    progress: function (p) { post('PROGRESS', p); },
+    error: function (code, message) { post('ERROR', { code: code, message: message }); },
+    complete: function (result) {
+      if (state.completed) return;
+      state.completed = true;
+      post('COMPLETE', result);
+    }
+  };
+})();
 ```
 
-> 游戏代码只需在通关时调用 `LingxiGame.complete(...)`。审核时校验 `bridge.js` 的 sha256 与 `GameBuild.bridgeHash` 一致，防止产物被替换后伪造消息。由于 iframe 是 opaque origin，`targetOrigin` 只能用 `'*'`；安全性由**父页对 `event.source` + `sessionId` + 同源校验**保证，不依赖 `targetOrigin`。
+> 游戏代码只需在通关时调用 `LingxiGame.complete(...)`。审核时校验 `lingxi-bridge.js` 的 sha256 与 `GameBuild.bridgeHash` 一致，父页在 `READY` 时再次比对，防止产物被替换后伪造消息。由于 iframe 是 opaque origin，`event.origin` 恒为字符串 `"null"`，**双向** `postMessage` 的 `targetOrigin` 都只能是 `'*'`；安全性由 **`event.source` 严格等于 `iframe.contentWindow` + 一次性 `sessionId` + channel 校验 + 服务端会话绑定**保证，**不能**依赖 `event.origin` 与父页 origin 相等。该行为已在 P0 的 headless Chromium 闭环中实证（附录 D）。
 
 **防伪造**：`sessionId` 由后端签发、绑定 `childId` 与 `buildUuid`、一次性、5 分钟过期；服务端在 `complete` 时校验其未被使用。即使恶意产物伪造 `COMPLETE`，也只能给自己那次会话记分，且分数被 clamp。
 
@@ -661,14 +684,64 @@ window.LingxiGame = {
 
 - OhMyGame 侧事实来自 GitHub 仓库页、`README.zh-CN.md`、`docs/external-agents.md`、`docs/README.md` 与 `api.github.com/repos/WhiteTowerAI/ohmygame`，核查日期 2026-11-10。其 `beta` 状态与文档结构可能在后续版本变化，落地前需重查。
 - 本项目侧事实来自工作区源码实读（文件路径与行号见 2.2），基于当前工作区状态；若相关文件后续重构，改动清单需同步更新。
-- 本文所有标注"拟新增 / 建议 / 方案"的接口、实体、脚本与配置**均未实现**，仅作为实施设计。
+- 本文所有标注"拟新增 / 建议 / 方案"的接口、实体、脚本与配置**均未在生产代码实现**，仅作为实施设计。**例外**：`poc/game-bridge/` 下的 P0 隔离 PoC 已把审核扫描、静态托管 + CSP、sandbox iframe、postMessage 校验与模拟回写跑通，仅用于验证可行性，不是生产实现（附录 D）。
 
 ## 附录 C：名词
 
 | 词 | 含义 |
 | --- | --- |
 | BYOK | Bring Your Own Key，自带模型密钥 |
-| opaque origin | iframe 未授予 `allow-same-origin` 时的不可信源，无法访问父页 DOM 或同源 API |
+| opaque origin | iframe 未授予 `allow-same-origin` 时的不可信源；`event.origin` 序列化为 `"null"`，CSP 的 `'self'` 不匹配它，无法访问父页 DOM 或同源 API |
 | 参数化引擎 | 渲染逻辑固定、只由 JSON 参数驱动玩法的组件，AI 不产出代码 |
 | 信任边界 | 本文特指"人工审核通过"这一道闸；只有审核过的静态包可进入线上运行时 |
 | GameBuild | 本文拟新增的实体，代表一个受审、版本化的静态游戏包 |
+
+---
+
+## 附录 D：P0 PoC 验证结论（v1.1 补充）
+
+### D.1 交付物与运行方式
+
+| 项 | 值 |
+| --- | --- |
+| 位置 | `poc/game-bridge/`（**隔离目录，零 npm 依赖，未改动任何生产代码**） |
+| 一键验证 | `node poc/game-bridge/verify.mjs`（`--no-browser` 可跳过浏览器组） |
+| 交互演示 | `node poc/game-bridge/server.mjs` 后打开 `http://127.0.0.1:4173/host.html`；加 `?autoplay=1` 可自动通关 |
+| 自动报告 | `poc/game-bridge/verification-report.md`（每次运行覆盖） |
+| 结论 | **31 项检查全部 PASS，0 FAIL，0 SKIP**（含真实 headless Chromium 的 sandbox iframe 闭环） |
+
+### D.2 链路与覆盖
+
+链路：`audit-game-build.mjs` 静态审核 → `server.mjs` 下发两套 CSP 与 5 分钟缓存 → `host.html` 以 `sandbox="allow-scripts"`（无 `allow-same-origin`）加载产物 → 父页签发一次性 session 并发 `INIT` → 固定 `lingxi-bridge.js` 回 `READY/PROGRESS/COMPLETE` → `host-validator.mjs` 校验 → `toAssignmentCompletion` → 模拟 `POST /api/assignments/42/complete` → 写入 `learningRecord`。
+
+| 组 | 覆盖 | 结果 |
+| --- | --- | --- |
+| A 静态审核 | 样例包放行 + bridge sha256 一致；既有 `kids-brain-training/index.html` 因外链字体 / `localStorage` / `<input>` 被拒（14 命中）；构造恶意包命中 9 类规则；SVG namespace 白名单不误报；5MB 体积上限 | 5 PASS |
+| B 静态托管 | 父页 CSP `frame-ancestors 'self'`；游戏 CSP 显式 origin + `connect-src 'none'`；`Cache-Control: public, max-age=300`（非 `1y immutable`）；MIME；编码路径穿越 403；302 跳转 | 6 PASS |
+| C 会话 | 字段齐全、`bridgeHash` 与磁盘一致、sessionId 唯一、未发布 build 拒签 | 2 PASS |
+| D 消息校验 | source/origin/channel/session/bridgeHash 校验；`INIT` 反向、未知类型、非对象消息；分数与时长 clamp；非法题目数；`COMPLETE` 只记一次；超时；会话字段覆盖游戏自报值 | 9 PASS |
+| E 回写闭环 | 完整消息序列 + 重放拒绝；真实提交后 `learningRecord.contentId === 9001`（**不 fallback 到 1**）；记录可读回 | 3 PASS |
+| F 防伪造 | 重复 session 409、伪造/缺失 404/400、过期 410、`buildUuid`/`bridgeHash` 绑定 400、分数越界 400 | 5 PASS |
+| G 浏览器 | headless Chromium 经 CDP 自动通关，实证 `event.origin === "null"`，父页回写成功且 `contentId=9001` | 1 PASS |
+
+### D.3 由 PoC 实证并回写本文的修正
+
+1. **opaque origin 的真实行为**：`sandbox` 不带 `allow-same-origin` 时 `event.origin` 是字符串 `"null"`，不是父页 origin。原文 6.6 第 2 条写成"`event.origin` 与 `window.location.origin` 一致"会误拒所有消息，已改为 `event.origin === 'null'`。
+2. **CSP 不能用 `'self'`**：opaque origin 下 `'self'` 不匹配 iframe 内资源加载；6.5.1 的 nginx 示例已改为显式 `${scheme}://${http_host}`（并建议生产用 `map` 白名单），同时移除 `'unsafe-inline'`。
+3. **双向 `targetOrigin='*'`**：父→子 `INIT` 同样不能用父页 origin 精确投递；安全性改由 `event.source` + 一次性 session + bridgeHash + 服务端绑定保证。6.6 / 6.7 已同步。
+4. **`INIT` 契约**：`sessionId` 位于消息顶层而非 payload；`payload` 增加 `bridgeHash`；桥接文件由父页 `INIT` 注入 sessionId，而非页面内全局常量。6.7 表格与示例代码已同步。
+5. **事实核查更正**：`external-agents.md` 列出的是 **20** 个公开工具，v1.0 误写为 18，1.3 节已更正。
+6. **`resolveContentId` 修复思路可验证**：PoC 把 `contentId` 放在 `GameBuild` 上显式取用，回写结果不再落到 `contentId=1`；6.8 第 2 条的设计有了可运行依据。
+
+### D.4 已知局限（不得据此直接上线）
+
+- **P0 不是生产实现**：`server.mjs` 用内存 Map 模拟 session、作业与 `LearningRecord`，没有 JWT、`childId` 归属校验、数据库与 migration；真实接入仍需按 6.8 修改 `assignment.service.ts` / `game.service.ts` 并新增 `GameBuild` 实体 + migration。
+- **审核器是静态正则**：能拦住明文外链 / `fetch` / `localStorage` / `eval` / `<iframe>` / `<form>`，但拦不住动态构造（`document.createElement('input')`、字符串拼接后 `eval`、混淆过的 API 名）。生产必须叠加构建期 AST 检查 + 人工试玩 + 运行时 CSP 三道闸，静态扫描不能单独作为信任依据。
+- **未接入真实 ohmygame 产物**：样例游戏是手写的 3 关"数泡泡"，用于验证管线；ohmygame 生成的多文件构建产物（可能含内联脚本、WebGL、外部字体）尚未跑过审核与沙箱。
+- **平台覆盖有限**：只在 Chromium 145 (headless) 验证；Flutter Web 的 `HtmlElementView`、Flutter 原生、两个生产域名的宿主机 nginx 配置均未验证。
+- **运维缺口未关闭**：`docker-compose.prod.yml` 静态卷、生产 nginx 模板、`expires 1y` 覆盖仍需 P2 落地；生产 nginx 配置仍不在版本库。
+- **方案 B 未实现**：本文推荐的第一优先级（扩展 `ActivityType` + 参数化引擎）仍是设计，P0 只验证方案 A 的运行时承载链路。
+
+### D.5 对实施计划的影响
+
+P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**。下一步按第 8 章 P1 直接推进方案 B 的第一种参数化题型（双端渲染 + 白名单四处同步修改）；若决定推进方案 A，则把 `poc/game-bridge/` 的审核器、校验器与桥接文件提升为 `scripts/` 与前端组件，并先补齐 D.4 列出的缺口。

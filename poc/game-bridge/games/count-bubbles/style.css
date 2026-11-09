@@ -1,0 +1,105 @@
+:root {
+  --bg: #FFF6E5;
+  --paper: #FFFFFF;
+  --ink: #2D2A4A;
+  --soft: #6B6790;
+  --coral: #FF7B6B;
+  --mint: #4CC9A0;
+  --line: #EADFC9;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+.wrap {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 18px 20px 28px;
+  text-align: center;
+}
+
+h1 {
+  margin: 4px 0 10px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.prompt {
+  margin: 0 0 18px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--soft);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 22px;
+}
+
+.bubble {
+  aspect-ratio: 1 / 1;
+  border: 3px solid var(--line);
+  border-radius: 50%;
+  background: #F6F1E6;
+  color: var(--soft);
+  font-size: 30px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.bubble:active { transform: scale(0.94); }
+
+.bubble.lit {
+  background: #FFF0C9;
+  border-color: var(--mint);
+  color: #E88A2D;
+}
+
+.bubble:disabled { opacity: 0.55; cursor: default; }
+
+.bubble.shake {
+  border-color: var(--coral);
+  animation: shake 320ms ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.feedback {
+  min-height: 28px;
+  margin: 16px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #E88A2D;
+}
+
+.progress {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line);
+  font-size: 14px;
+  color: var(--soft);
+}
+
+@media (max-width: 380px) {
+  .board { gap: 10px; padding: 12px; }
+  .bubble { font-size: 24px; }
+}

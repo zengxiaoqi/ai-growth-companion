@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>数泡泡 · 灵犀伴学</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">数泡泡</h1>
+  <p id="prompt" class="prompt">正在准备游戏…</p>
+  <div id="board" class="board" role="group" aria-label="泡泡区"></div>
+  <p id="feedback" class="feedback" aria-live="polite"></p>
+  <div class="progress">
+    <span id="step">第 1 关 / 共 3 关</span>
+    <span id="count">已点亮 0 个</span>
+  </div>
+</div>
+<script src="./lingxi-bridge.js"></script>
+<script src="./game.js"></script>
+</body>
+</html>

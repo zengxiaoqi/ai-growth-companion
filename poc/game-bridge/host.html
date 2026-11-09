@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>灵犀伴学 · 游戏桥接 P0 验证</title>
+<link rel="stylesheet" href="./host.css">
+</head>
+<body>
+<header>
+  <h1>游戏桥接 P0 验证</h1>
+  <p>审核产物 → sandbox iframe → postMessage → 回写学习记录</p>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="stage-head">
+      <span>儿童端游戏区</span>
+      <button id="restart" type="button">重新演示</button>
+    </div>
+    <iframe
+      id="frame"
+      title="数泡泡游戏"
+      sandbox="allow-scripts"
+      allow=""
+      referrerpolicy="no-referrer"
+      loading="eager"></iframe>
+    <p class="hint">iframe 未授予 allow-same-origin，因此其 origin 为 null，且无法访问父页或调用 /api。</p>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>会话</h2>
+      <dl>
+        <dt>sessionId</dt><dd id="session">—</dd>
+        <dt>bridgeHash</dt><dd id="hash">—</dd>
+        <dt>iframe origin</dt><dd id="origin">—</dd>
+        <dt>状态</dt><dd id="status">准备中</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h2>回写结果</h2>
+      <pre id="result">等待游戏结果…</pre>
+    </div>
+    <div class="card">
+      <h2>消息日志</h2>
+      <ul id="events"></ul>
+    </div>
+  </aside>
+</main>
+
+<script type="module" src="./host.js"></script>
+</body>
+</html>

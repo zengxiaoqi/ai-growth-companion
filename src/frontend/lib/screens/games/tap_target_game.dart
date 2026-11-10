@@ -315,7 +315,7 @@ class _TapTargetGameState extends State<TapTargetGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons hearing_outlined,
+            const Icon(Icons.hearing_outlined,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无听指令题目'),

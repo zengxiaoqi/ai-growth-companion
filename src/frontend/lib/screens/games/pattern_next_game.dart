@@ -54,7 +54,7 @@ class _PatternNextGameState extends State<PatternNextGame> {
   List<_Entry> _options = const [];
   int _answerIndex = -1;
   int _attempts = 0;
-  int? _wrongPick;
+  String? _wrongPick;
   String? _feedback;
   bool _finished = false;
   bool _completedCalled = false;

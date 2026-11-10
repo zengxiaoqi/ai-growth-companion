@@ -431,6 +431,7 @@ class _InlineGameCardState extends State<_InlineGameCard> {
       'connection': '连线游戏',
       'puzzle': '拼图游戏',
       'drag_sort': '分类游戏',
+      'memory_flip': '记忆翻牌',
     };
     return labels[type] ?? '互动游戏';
   }

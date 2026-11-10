@@ -210,7 +210,7 @@ describe('drag_sort parameter contract', () => {
 describe('drag_sort whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains drag_sort exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'drag_sort')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(8);
+    expect(ACTIVITY_TYPES).toHaveLength(9);
     expect(isActivityType('drag_sort')).toBe(true);
     expect(isActivityType('tap_target')).toBe(false);
   });

@@ -51,6 +51,7 @@ const ACTIVITY_TYPE_NAMES: Record<string, string> = {
   sequencing: '排序游戏',
   puzzle: '拼图游戏',
   drag_sort: '分类游戏',
+  memory_flip: '记忆翻牌',
 };
 
 @Injectable()

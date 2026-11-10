@@ -580,6 +580,9 @@ export class AgentExecutor {
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';
+    // memory_flip carries `pairs` too; check it before the generic
+    // pairs -> matching fallback or the payload is silently mis-typed.
+    if (Array.isArray(value.pairs) && value.gridSize) return 'memory_flip';
     if (Array.isArray(value.pairs)) return 'matching';
     if (
       Array.isArray(value.connections) ||

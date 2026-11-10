@@ -622,6 +622,12 @@ export class AgentExecutorService {
       return 'drag_sort';
     }
 
+    // memory_flip also carries `pairs`; check it before the generic
+    // pairs -> matching fallback or the payload is silently mis-typed.
+    if (Array.isArray(value.pairs) && value.gridSize) {
+      return 'memory_flip';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

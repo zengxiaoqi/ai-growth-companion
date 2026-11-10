@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.2
+> **文档版本**: v1.3
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 结论见附录 D；P1 第一种参数化题型 drag_sort 已落地，见附录 E）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已开始落地生产代码：drag_sort 双端链路 + 单测 + 双端构建通过**）
+> **更新日期**: 2026-11-10（P0 结论见附录 D；P1 第一种参数化题型 drag_sort 见附录 E；第二种 memory_flip 见附录 F）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 持续落地：drag_sort + memory_flip 双端链路 + 单测 + 双端构建通过**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -21,6 +21,7 @@
 | 现有基础设施是否就绪？ | **否**。无 iframe/WebView 运行时、无 CSP/沙箱、无第三方静态目录、静态资源被 `expires 1y` 强缓存、生产 nginx 配置不在版本库。 |
 | P0 最小链路是否已验证？ | **是**。`poc/game-bridge/` 隔离 PoC 已跑通 31 项自动化检查（含真实 headless Chromium 的 sandbox iframe 闭环），不改任何生产代码。详见附录 D。 |
 | P1 第一种参数化题型是否已落地？ | **是（drag_sort）**。后端参数契约/清洗/确定性试玩 + 两套生成工具 + 8 处白名单同步，Web/Flutter 双端渲染，16 项契约单测 + 双端构建通过。剩余 5 种题型待后续迭代，见附录 E。 |
+| P1 第二种参数化题型是否已落地？ | **是（memory_flip）**。同一模式复用：后端契约（对数限定 2/3/4/6/8，grid 必须装下 pairs*2 张卡）+ 双端翻牌组件 + `pairs + gridSize → memory_flip` 推断优先于 `pairs → matching`，见附录 F。 |
 
 **一句话决策**：把 ohmygame 放在**离线生产侧**，把"审核过的静态产物"作为唯一可跨越信任边界的东西；运行时继续坚持"AI 只产数据、引擎固定"。
 
@@ -792,7 +793,51 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 ### E.4 局限与后续
 
-- **方案 B 尚未完成**：本附录只覆盖第一种题型 `drag_sort`；`tap_target` / `trace_path` / `color_fill` / `memory_flip` / `pattern_next` 仍待按同一模式迭代（每种 = 后端契约模块 + 双端组件 + 白名单同步点，参照 E.3 清单）。
+- **方案 B 尚未完成**：本附录只覆盖第一种题型 `drag_sort`；`tap_target` / `trace_path` / `color_fill` / `pattern_next` 仍待按同一模式迭代（每种 = 后端契约模块 + 双端组件 + 白名单同步点，参照 E.3 清单）。`memory_flip` 已作为第二种题型落地，见附录 F。
 - **Flutter 未真机/模拟器验证**：本机无 Dart/Flutter SDK，只做了静态一致性核查；接入 CI 或任一有 SDK 的环境后应先跑 `flutter analyze` 与现有游戏回归。
 - **5.5 验收指标未度量**：`generate-activity` 对 `drag_sort` 参数的一次通过率（100 条抽样）需要接真实 LLM key 才能跑，当前只有确定性校验与 prompt 结构验证。
 - **`game_data` SSE 契约不变**：既有 7 种题型与 `game_data` 事件格式回归全绿；但家长端作业详情、成长报告等下游消费 `interactionData` 的界面尚未针对 `placements` 做展示适配（数据已回写，不影响计分与成就）。
+
+---
+
+## 附录 F：P1 实施记录 — 第二种参数化题型 `memory_flip`（v1.3 补充）
+
+### F.1 交付物与验证结论
+
+| 项 | 值 |
+| --- | --- |
+| 范围 | 方案 B 第二种参数化题型 `memory_flip`（翻牌记忆配对），覆盖后端生成 → 双端渲染 → 学习回写的完整链路 |
+| 后端验证 | `tsc --noEmit` 通过；全量 `npm test` 通过 |
+| 后端单测 | `test/unit/memory-flip-params.spec.ts` **13 项全绿**（示例 JSON 契约、grid 推导/拒绝、重复牌面拒绝、安全文本、单一真源、两套工具 schema 与 prompt、两个 executor 推断回归）；与 drag_sort 相关 5 套件合计 **59 项全绿** |
+| Web 验证 | `tsc --noEmit` + `npm run build` 通过；全量 `vitest` **11 文件 75 项全绿**（含 6 项 MemoryFlipGame 组件测试） |
+| Flutter 验证 | **静态核查通过，未运行 `flutter analyze` / `flutter test`（本机无 Dart/Flutter SDK）**；import 路径、`GameCompletionScreen` 签名、`AppTheme` 成员逐一核对一致 |
+| 提交 | 仅提交 memory_flip 相关文件，不混入用户既有未提交改动 |
+
+### F.2 关键决策
+
+- **棋盘约束（儿童友好 + 完整性）**：`cards = pairs * 2`，rows/cols ∈ [2, 4]，因此合法对数只有 {2, 3, 4, 6, 8}，分别对应 2x2 / 2x3 / 2x4 / 3x4 / 4x4。后端对非法对数直接抛错（进 3 次反射重试）；客户端则防御式裁剪到最近合法对数保持可玩——三层语义分层：生成器严格、渲染端容错。
+- **牌面唯一性**：两对 label+icon 完全相同会让"配对"产生歧义，后端拒绝、双端归一化丢弃后到的一对。
+- **推断坑（与 drag_sort 的 `items` 同类）**：`memory_flip` 也带 `pairs`，旧推断会误判成 `matching`。四处推断（两套后端 executor、Web normalizer、Flutter renderer/chat provider）全部把 `pairs + gridSize → memory_flip` 放在 `pairs → matching` 之前，并加了回归测试。
+- **确定性洗牌**：双端都用"参数派生种子"的确定性洗牌（FNV-1a/mulberry32），同一参数洗牌结果一致，测试可精确复现、双端行为对齐。
+- **计分语义**：翻牌游戏完成即全部配对，score 恒为 100；质量信号放在 `interactionData`（moves / mismatches / 每对 matched），供后续成长报告使用，与 drag_sort 的"首次正确才计分"模式正交。
+- **示例修正**：翻牌配对是"同对两张完全相同的卡"，示例 JSON 用「2+3=5」这类自含算式作牌面，而不是"得数相同的两张算式"（后者会配错对）。
+
+### F.3 同步清单（本次实际改动）
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| 后端契约 | `src/common/activity/memory-flip.ts`（新建） | 参数契约 / PAIR_GRID / 清洗 / 校验 / 确定性试玩 / body text |
+| 单一真源 | `tool-metadata.ts` | `ACTIVITY_TYPES` 扩为 9 种 |
+| 生成工具 | 两套 `generate-activity.ts` | schema / rules / sanitize / prompt / body text |
+| 推断 | 两套 executor | `pairs + gridSize → memory_flip` 先于 `pairs → matching` |
+| 标签 | `assign-activity.ts`、两套儿童 system prompt | 记忆翻牌说明与对数约束 |
+| Web | `types/index.ts`、`MemoryFlipGame.tsx`（新建）、`GameRenderer.tsx`、`activity-normalizer.ts`、`parent/constants.ts`、`StudentDashboard.tsx` | 类型契约、组件、分发、归一化（含非法对数裁剪）、选项与标签 |
+| Flutter | `memory_flip_game.dart`（新建）、`game_renderer.dart`、`chat_session_provider.dart`、`ai_chat_screen.dart`、`learning_home_screen.dart`、`assignment_manager_screen.dart` | 组件、白名单/推断/归一化/分发、标签与图标 |
+| 内容 | `src/content/examples/memory_flip-5-6.json`（新建） | 受单测契约保护的示例 |
+| 测试 | `memory-flip-params.spec.ts`（13 项）、`memory-flip-game.test.tsx`（6 项） | 契约与组件行为 |
+
+### F.4 局限与后续
+
+- 剩余 4 种题型（`tap_target` / `trace_path` / `color_fill` / `pattern_next`）待按同一模式迭代；`trace_path` / `color_fill` 需要先补几何/画布参数设计。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
+- 家长端 / 成长报告对 `interactionData.moves / mismatches` 的展示适配未做（数据已回写）。

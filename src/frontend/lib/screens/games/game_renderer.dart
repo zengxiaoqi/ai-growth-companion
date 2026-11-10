@@ -7,6 +7,7 @@ import 'connection_game.dart';
 import 'drag_sort_game.dart';
 import 'fill_blank_game.dart';
 import 'matching_game.dart';
+import 'memory_flip_game.dart';
 import 'puzzle_game.dart';
 import 'quiz_game.dart';
 import 'sequencing_game.dart';
@@ -93,6 +94,7 @@ class _GameRendererState extends State<GameRenderer> {
     const types = {
       'quiz', 'true_false', 'matching',
       'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
+      'memory_flip',
     };
 
     final candidate = activityType?.trim();
@@ -111,6 +113,9 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'drag_sort' || gameType == 'sort' || gameType == 'classify') {
       return 'drag_sort';
     }
+    if (gameType == 'memory_flip' || gameType == 'memory') {
+      return 'memory_flip';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
@@ -119,6 +124,10 @@ class _GameRendererState extends State<GameRenderer> {
     // drag_sort 同样带 items，必须先于 items -> sequencing 判断，否则被误判。
     if (rawData['buckets'] is List && rawData['items'] is List) {
       return 'drag_sort';
+    }
+    // memory_flip 同样带 pairs，必须先于 pairs -> matching 判断，否则被误判。
+    if (rawData['pairs'] is List && rawData['gridSize'] is Map) {
+      return 'memory_flip';
     }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
@@ -153,6 +162,10 @@ class _GameRendererState extends State<GameRenderer> {
 
     if (type == 'drag_sort') {
       return _normalizeDragSortData(base, rawData);
+    }
+
+    if (type == 'memory_flip') {
+      return _normalizeMemoryFlipData(base, rawData);
     }
 
     if (type == 'matching') {
@@ -503,6 +516,90 @@ class _GameRendererState extends State<GameRenderer> {
     };
   }
 
+  /// 参数化题型 memory_flip 的防御式归一化，与 Web normalizer /
+  /// 后端 sanitizeMemoryFlipParams 保持同一套边界与计分语义。
+  /// 只接受 2/3/4/6/8 对；非法对数直接清空（渲染端会显示空状态）。
+  Map<String, dynamic> _normalizeMemoryFlipData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxPairs = 8;
+    const int maxLabel = 12;
+    const int maxIcon = 8;
+    const Map<int, List<int>> pairGrid = {
+      2: [2, 2],
+      3: [2, 3],
+      4: [2, 4],
+      6: [3, 4],
+      8: [4, 4],
+    };
+
+    String text(dynamic value) {
+      if (value == null) return '';
+      return value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String value, int max) => value.runes.length <= max
+        ? value
+        : String.fromCharCodes(value.runes.take(max));
+
+    String safeId(dynamic value) =>
+        clip(text(value).replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), ''), 32);
+
+    int intOr(dynamic value, int fallback) {
+      if (value == null) return fallback;
+      final n = num.tryParse(value.toString());
+      return (n == null || !n.isFinite) ? fallback : n.truncate();
+    }
+
+    final usedPairIds = <String>{};
+    final usedFaces = <String>{};
+    final pairs = <Map<String, dynamic>>[];
+    final rawPairs = rawData['pairs'];
+    if (rawPairs is List) {
+      for (var i = 0; i < rawPairs.length && pairs.length < maxPairs; i++) {
+        final entry = rawPairs[i];
+        if (entry is! Map) continue;
+        final map = entry.map((k, v) => MapEntry(k.toString(), v));
+        final label = clip(text(map['label']), maxLabel);
+        if (label.isEmpty) continue;
+
+        final icon = clip(text(map['icon']), maxIcon);
+        // 两对牌面完全一致会让配对产生歧义，丢弃后到的一对。
+        final face = '$label|$icon';
+        if (usedFaces.contains(face)) continue;
+        usedFaces.add(face);
+
+        var id = safeId(map['id']);
+        if (id.isEmpty) id = 'p${i + 1}';
+        var suffix = 2;
+        while (usedPairIds.contains(id)) {
+          id = 'p${i + 1}_${suffix++}';
+        }
+        usedPairIds.add(id);
+
+        pairs.add({
+          'id': id,
+          'label': label,
+          if (icon.isNotEmpty) 'icon': icon,
+        });
+      }
+    }
+
+    final grid = pairGrid[pairs.length];
+    final rows = grid?[0] ?? 0;
+    final cols = grid?[1] ?? 0;
+
+    return {
+      ...base,
+      'pairs': pairs,
+      'gridSize': {'rows': rows, 'cols': cols},
+      'prompt': clip(text(rawData['prompt']), 60),
+      'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': intOr(rawData['timeLimitSec'], 180).clamp(60, 300).toInt(),
+    };
+  }
+
   int _toInt(dynamic value) {
     final n = int.tryParse(value?.toString() ?? '');
     return n ?? 0;
@@ -587,6 +684,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'drag_sort':
         return DragSortGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'memory_flip':
+        return MemoryFlipGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

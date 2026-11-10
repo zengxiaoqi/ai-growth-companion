@@ -226,7 +226,8 @@ export type ActivityType =
   | 'connection'
   | 'sequencing'
   | 'puzzle'
-  | 'drag_sort';
+  | 'drag_sort'
+  | 'memory_flip';
 
 export interface ActivityData {
   type: ActivityType;
@@ -254,6 +255,27 @@ export interface DragSortActivityData extends ActivityData {
   prompt?: string;
   buckets: DragSortBucket[];
   items: DragSortItem[];
+  passingScore?: number;
+  timeLimitSec?: number;
+}
+
+/** Parameter-only contract for the memory_flip engine. The LLM never emits code. */
+export interface MemoryFlipPair {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface MemoryFlipGridSize {
+  rows: number;
+  cols: number;
+}
+
+export interface MemoryFlipActivityData extends ActivityData {
+  type: 'memory_flip';
+  prompt?: string;
+  pairs: MemoryFlipPair[];
+  gridSize: MemoryFlipGridSize;
   passingScore?: number;
   timeLimitSec?: number;
 }

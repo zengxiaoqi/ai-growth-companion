@@ -1,4 +1,10 @@
-import type { ActivityData, ActivityType, DragSortActivityData } from '@/types';
+import type {
+  ActivityData,
+  ActivityType,
+  DragSortActivityData,
+  MemoryFlipActivityData,
+  MemoryFlipGridSize,
+} from '@/types';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'quiz',
@@ -9,6 +15,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'sequencing',
   'puzzle',
   'drag_sort',
+  'memory_flip',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -107,6 +114,8 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   if (Array.isArray(rawData?.questions)) return 'quiz';
   if (Array.isArray(rawData?.statements)) return 'true_false';
   if (Array.isArray(rawData?.sentences)) return 'fill_blank';
+  // memory_flip also has `pairs`; check it before the pairs -> matching fallback.
+  if (Array.isArray(rawData?.pairs) && rawData?.gridSize) return 'memory_flip';
   if (Array.isArray(rawData?.pairs)) return 'matching';
   if (
     Array.isArray(rawData?.connections) ||
@@ -117,6 +126,87 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   if (Array.isArray(rawData?.pieces)) return 'puzzle';
 
   return 'quiz';
+}
+
+export const MEMORY_FLIP_LIMITS = {
+  maxPairs: 8,
+  minGridSide: 2,
+  maxGridSide: 4,
+  maxIconLength: 8,
+  maxLabelLength: 12,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 180,
+} as const;
+
+/** Child-friendly boards: legal pair counts map to exactly one grid. */
+const MEMORY_FLIP_GRIDS: Record<number, MemoryFlipGridSize> = {
+  2: { rows: 2, cols: 2 },
+  3: { rows: 2, cols: 3 },
+  4: { rows: 2, cols: 4 },
+  6: { rows: 3, cols: 4 },
+  8: { rows: 4, cols: 4 },
+};
+
+/**
+ * Defensive normalization for memory_flip parameters. Faces are de-duplicated
+ * and the grid is re-derived from the surviving pair count so the board is
+ * always complete and unambiguous.
+ */
+export function normalizeMemoryFlipData(raw: any): Pick<
+  MemoryFlipActivityData,
+  'pairs' | 'gridSize' | 'passingScore' | 'timeLimitSec' | 'prompt'
+> {
+  const usedPairIds = new Set<string>();
+  const usedFaces = new Set<string>();
+  const rawPairs = Array.isArray(raw?.pairs) ? raw.pairs : [];
+  const pairs: MemoryFlipActivityData['pairs'] = [];
+
+  for (let i = 0; i < rawPairs.length && pairs.length < MEMORY_FLIP_LIMITS.maxPairs; i++) {
+    const entry = rawPairs[i];
+    const label = toText(entry?.label).slice(0, MEMORY_FLIP_LIMITS.maxLabelLength);
+    if (!label) continue;
+    const icon = toText(entry?.icon).slice(0, MEMORY_FLIP_LIMITS.maxIconLength);
+    const face = `${label}|${icon}`;
+    if (usedFaces.has(face)) continue;
+    usedFaces.add(face);
+    let id = toSafeId(entry?.id) || `p${i + 1}`;
+    let suffix = 2;
+    while (usedPairIds.has(id)) id = `p${i + 1}_${suffix++}`;
+    usedPairIds.add(id);
+    pairs.push(icon ? { id, label, icon } : { id, label });
+  }
+
+  const grid = MEMORY_FLIP_GRIDS[pairs.length] ?? (() => {
+    // Illegal pair counts (e.g. 5 or 7) are trimmed down to the largest
+    // legal count that keeps a child-friendly complete board.
+    const legal = [2, 3, 4, 6, 8];
+    let trimmed = 0;
+    for (const count of legal) {
+      if (count <= pairs.length) trimmed = count;
+    }
+    pairs.length = trimmed;
+    return (
+      MEMORY_FLIP_GRIDS[trimmed] ?? {
+        rows: MEMORY_FLIP_LIMITS.minGridSide,
+        cols: MEMORY_FLIP_LIMITS.minGridSide,
+      }
+    );
+  })();
+
+  const prompt = toText(raw?.prompt).slice(0, 60);
+  return {
+    pairs,
+    gridSize: { ...grid },
+    ...(prompt ? { prompt } : {}),
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, MEMORY_FLIP_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      60,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, MEMORY_FLIP_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
 }
 
 export function normalizeActivityData(
@@ -133,6 +223,10 @@ export function normalizeActivityData(
 
   if (resolvedType === 'drag_sort') {
     return { ...base, ...normalizeDragSortData(rawData) } as DragSortActivityData;
+  }
+
+  if (resolvedType === 'memory_flip') {
+    return { ...base, ...normalizeMemoryFlipData(rawData) } as MemoryFlipActivityData;
   }
 
   if (resolvedType === 'quiz') {

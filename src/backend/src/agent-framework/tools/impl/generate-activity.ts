@@ -16,6 +16,11 @@ import {
   validateDragSortParams,
   collectDragSortBodyText,
 } from '../../../common/activity/drag-sort';
+import {
+  sanitizeMemoryFlipParams,
+  validateMemoryFlipParams,
+  collectMemoryFlipBodyText,
+} from '../../../common/activity/memory-flip';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -192,7 +197,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持8种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)。AI 只产参数 JSON，不产代码。',
+      '生成互动学习活动，支持9种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -401,6 +406,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return '{"type":"puzzle","title":"...","topic":"...","ageGroup":"...","pieces":[{"id":"pz1","position":0,"label":"...","emoji":"..."}],"gridSize":{"rows":2,"cols":2}}';
       case 'drag_sort':
         return '{"type":"drag_sort","title":"...","topic":"...","ageGroup":"...","prompt":"...","buckets":[{"id":"sky","label":"天上","icon":"☁"}],"items":[{"id":"i1","label":"小鸟","icon":"🐦","bucketId":"sky"}],"passingScore":80,"timeLimitSec":120}';
+      case 'memory_flip':
+        return '{"type":"memory_flip","title":"...","topic":"...","ageGroup":"...","prompt":"...","pairs":[{"id":"p1","label":"小猫","icon":"🐱"},{"id":"p2","label":"小狗","icon":"🐶"}],"gridSize":{"rows":2,"cols":2},"passingScore":80,"timeLimitSec":180}';
       default:
         return '{}';
     }
@@ -457,6 +464,15 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           'icon is optional and must be one emoji or a short plain label.',
           'passingScore is 0-100; timeLimitSec is 30-300.',
         ];
+      case 'memory_flip':
+        return [
+          ...common,
+          'Generate 2, 3, 4, 6 or 8 concept pairs (only these counts have a child-friendly grid: 2x2/2x3/2x4/3x4/4x4).',
+          'Each pair is one concept: {id, label, icon}. label is a short plain Chinese word (max 6 chars recommended); icon is one emoji.',
+          'All pairs must be about the given topic; every face (label+icon) must be unique.',
+          'gridSize MUST fit the pair count exactly: cards = pairs * 2.',
+          'passingScore is 0-100; timeLimitSec is 60-300.',
+        ];
       default:
         return common;
     }
@@ -505,6 +521,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return this.sanitizePuzzle(args, raw);
       case 'drag_sort':
         return this.sanitizeDragSort(args, raw);
+      case 'memory_flip':
+        return this.sanitizeMemoryFlip(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -693,6 +711,17 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     return activity;
   }
 
+  private sanitizeMemoryFlip(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeMemoryFlipParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateMemoryFlipParams(activity);
+    if (!verdict.ok) throw new Error(`memory_flip playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -833,6 +862,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       }
     const dragSortText = collectDragSortBodyText(activity);
     if (dragSortText) parts.push(dragSortText);
+    const memoryFlipText = collectMemoryFlipBodyText(activity);
+    if (memoryFlipText) parts.push(memoryFlipText);
 
     return parts.join(' | ');
   }

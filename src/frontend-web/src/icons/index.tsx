@@ -52,6 +52,8 @@ import {
   MegaphoneIcon,
   MicrophoneIcon,
   MoonIcon,
+  MusicalNoteIcon,
+  MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PhoneIcon,
   PhoneXMarkIcon,
@@ -132,6 +134,8 @@ export const MicOff = MicrophoneIcon;
 export const Microscope = BeakerIcon;
 export const Minimize2 = ArrowsPointingInIcon;
 export const Moon = MoonIcon;
+export const Music = MusicalNoteIcon;
+export const Search = MagnifyingGlassIcon;
 export const PartyPopper = GiftIcon;
 export const Pause = PauseIcon;
 export const Phone = PhoneIcon;

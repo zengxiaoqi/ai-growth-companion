@@ -13,6 +13,7 @@ import {
   Sparkles,
   ChevronDown,
   MessageCircle,
+  Music,
   Calculator,
   Microscope,
   Palette,
@@ -690,7 +691,7 @@ export default function StudentDashboard({
           </div>
         </section>
 
-        <section className="content-visibility-auto mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="content-visibility-auto mb-10 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             {
               label: '课程地图',
@@ -716,11 +717,21 @@ export default function StudentDashboard({
               onClick: onOpenCompanion,
               style: 'bg-surface-container-highest text-on-surface',
             },
+            {
+              label: '音乐乐园',
+              icon: Music,
+              onClick: () => navigate('/student/music'),
+              style: 'bg-secondary-container text-on-secondary-container',
+              className: 'col-span-2 sm:col-span-1',
+            },
           ].map((item) => (
             <button
               key={item.label}
               onClick={item.onClick}
-              className="panel-card flex flex-col items-center gap-2 p-4 tactile-press"
+              className={cn(
+                'panel-card flex flex-col items-center gap-2 p-4 tactile-press',
+                item.className,
+              )}
             >
               <div
                 className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', item.style)}

@@ -465,3 +465,122 @@ const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 - **家长审批状态机未做**：见 3 的边界说明，`parentApproved` 目前只接受服务端上下文赋值。
 - **内容层仍是两桶**：7-12 岁用 5-6 的内容 bucket，只是话术更成熟；要真正按学龄给内容，需要补课程/动画/题库数据，属于内容侧改动。
 
+## 十四、音乐源播放能力移植（music-bridge）—— 已落地（2026-11-10）
+
+> 状态：**三步全部落地**（后端 API + Flutter 音乐页 + React Web 入口），落地记录见 14.7。源对象是 `../碎碎念/music-bridge/`（独立 Node 服务，v0.2.0），
+> 不是第八节「明确不搬」里的 Python `music/`（那是绑定设备与本地模型的音乐生成，仍然不搬）。
+> 本次搬的是**音乐源搜索聚合 + 音频代理播放**：孩子搜「两只老虎」→ 多音源聚合去重 → 点一条直接播放。
+
+### 14.1 源侧事实（核查依据）
+
+music-bridge 是碎碎念为「http-json 音乐 provider」契约写的独立桥接服务，三个入口：
+`GET /?q=` 搜索、`GET /audio/<token>` 回音频字节、`GET /healthz`。核心代码全部只用 Node 内置模块
+（fetch / http / https / dns / crypto），npm 依赖（axios@0.27、cheerio 等 7 个）**只给 MusicFree 第三方插件用**。
+
+| 部件 | 规模 | 干什么 | 搬不搬 |
+|------|------|--------|--------|
+| `src/sources/`（itunes/audius/netease/kuwo/kugou + http/loose-json） | ~700 行 | 5 个原生音源适配器：官方公开接口（iTunes 试听、Audius 完整曲）+ 非官方网页接口（网易云/酷我/酷狗）；硬超时、字节上限、HTML 错误页识别 | **搬**，零新依赖 |
+| `src/tracks.js` | 277 行 | 多源结果按「标题\|歌手」分组、归一化二次合并、完整版优先（iTunes 30 秒试听排后）、查询相关性过滤、TokenRegistry（TTL+限次） | **搬**，这是「孩子点到的那条能放完」的全部策略 |
+| `src/upstream.js` | 302 行 | 出网纪律：仅 http(s)、拒 URL 内嵌凭据、拒私网/loopback、DNS pin 防 rebinding、重定向 ≤2、20MB 上限、m3u8 播放列表识别、防盗链 headers 代理 | **搬**，安全承诺靠它成立 |
+| `src/server.js` 的链路 | 220 行 | 搜索→分组→发 token→`/audio` 按候选顺序多源兜底；**响应头未发才允许换源** | **搬**逻辑，外壳换成 NestJS controller |
+| `src/plugin-host.js` + MusicFree 插件 | 240 行 + 7 个 npm 依赖 | 第三方 CommonJS 插件宿主：NODE_PATH 注入、全局 console 包装、进程级 unhandledRejection 抑制 | **不搬**（见 14.4） |
+| `bridge.bat/sh`、`scripts/ctl.js`、独立进程形态 | — | 为 Python 主程序配的独立进程运维 | **不搬**：灵犀后端本身就是 Node，不需要第二进程 |
+
+### 14.2 落点：NestJS `modules/music/`，进程内、零新依赖
+
+遵循第一节「单仓库单运行时」：全部 TypeScript 化进主后端，不起独立进程、不加 npm 包。
+
+```
+GET /api/music/search?q=两只老虎&limit=10     [JwtAuthGuard]
+  → 并发 search 所有白名单音源（各自硬超时，单源失败只缺席）
+  → 交错合并 → 分组去重 → 完整版优先 → 相关性过滤
+  → 每首歌发一个 token（内存注册表，真实音源 URL/防盗链头不出后端）
+  → { tracks: [{ title, artist, duration_s, url: "/api/music/audio/<token>" }] }
+
+GET /api/music/audio/:token                   [无守卫，token 即能力]
+  → consume token → 按候选顺序 resolveMedia → SSRF 校验 + DNS pin → 流式代理
+  → 一个源失败且响应头未发 → 换下一个源；全灭 → 502
+```
+
+- **audio 端点不设 JWT**：对齐 `voice/tts` 的既有做法（`voice.controller.ts` L13 无守卫），
+   capability URL 本身（24 字节随机 token + TTL + 限次）就是授权；Flutter Web / `<audio>` / audioplayers
+  直接拿 URL 就能播，不用给媒体请求塞 header。
+- **url 只指向自己**：第三方真实 URL、Referer/Cookie 防盗链头只留在后端内存，不进响应、不进日志
+  日志纪律照搬：只打固定 code，不打歌名、token、上游 URL。
+- **Range 透传（新增，原桥没有）**：碎碎念是「下载完再播」，灵犀是播放器直接流播——HTML5 Audio 与
+  audioplayers  seek 时会发 `Range` 请求。移植时把客户端 Range 透传给上游，上游回 206 就原样回
+  206 + Content-Range；上游忽略 Range 回 200 则整段回（仍能顺序播放）。多源兜底纪律不变：
+  响应头未发才换源。相应地 token 默认 TTL 5min→30min、限次 3→20（seek 会多次命中同一 token）。
+- **配置 fail-closed**：`MUSIC_SOURCES` 白名单为空 = 功能关闭（search 返回空列表 + 明确提示），
+  沿用桥「不默认开启任何外部音源」的设计；`.env.example` 给推荐值。
+  酷我音频 URL 是 http，需显式 `MUSIC_ALLOW_HTTP_UPSTREAM=true`（默认拒 http 上游的纪律不变）。
+  其余开关：`MUSIC_ITUNES_COUNTRIES=hk,us`、`MUSIC_MAX_TRACK_SECONDS=1800`、`MUSIC_MAX_BYTES`、
+  `MUSIC_SEARCH_TIMEOUT_MS` 等，全部有安全默认值，不配置时行为与接入前一致（可独立回滚）。
+
+### 14.3 前端接入点（精确到文件）
+
+| 端 | 位置 | 改动 |
+|----|------|------|
+| Flutter 儿童主页 | `screens/child/child_home_screen.dart` `_buildFunctionSection`（诗词大卡片 L608–668 之后） | 加「音乐」卡片，仿诗词卡片样式 |
+| Flutter 音乐页 | 新增 `screens/child/music_screen.dart`；`app.dart` 注册路由 | 搜索框 + 结果列表 + 底部播放条；用已有 `audioplayers@6.7.1` 的 `UrlSource` 直连 `/api/music/audio/<token>`（同 `tts_service.dart` L92 的既有范式） |
+| Flutter API | `services/api_service.dart` | 加 `searchMusic(q)` 一个方法 |
+| React Web | `components/StudentDashboard.tsx` 四宫格快捷入口（L692–732） | 加「音乐」项 → 新 `MusicView`：`new Audio(url)` 播放（同 `AIChat.tsx` L102 范式），`api.ts` 加 `searchMusic()` |
+| 既有儿歌 | `voice/rhyme`（TTS 合成儿歌，硬编码 5 首） | **不动**；真实音乐是新增能力，TTS 儿歌继续独立存在 |
+
+### 14.4 明确不做（本次）
+
+- **MusicFree 插件宿主**：第三方代码进主进程意味着全局 console 包装、进程级 rejection 抑制和
+  7 个额外 npm 依赖，与主后端稳定性冲突；navidrome/webdav 自建曲库随之留作后续可选项。
+  5 个原生音源已覆盖「搜儿歌直接播」的主场景。
+- **下载/离线缓存、播放列表持久化、收藏**：token 音频是流式代理，不落盘；收藏需要新表，属于后续产品改动。
+- **家长控制歌单/收听时长**：后续按家长端既有范式加。
+- **替换 voice/rhyme**：见 14.3。
+
+### 14.5 测试策略
+
+把桥的 `test/sources.js`（417 行：各源解析/异常）、`test/ranking.js`（175 行：分组/去重/完整版优先/
+相关性过滤）、`test/failover.js`（146 行：多源兜底、headersSent 后不换源）逐条翻成 Jest；
+新增 Range 透传（206/200 两条路径）与 token 过期/限次用例。验收：搜「两只老虎」「小星星」能出
+完整版优先的聚合结果，点击即播，seek 可用；单源超时/风控不影响其余源出结果。
+
+### 14.6 分步落地（已全部完成）
+
+| 步 | 内容 | 状态 |
+|----|------|------|
+| 1 | 后端 `modules/music/`（5 音源 + 聚合 + token 代理 + Range）+ Jest + `.env.example` | ✅ |
+| 2 | Flutter 音乐页 + 主页入口 + 路由 | ✅ |
+| 3 | React Web 音乐入口 + MusicView | ✅ |
+
+### 14.7 落地记录（2026-11-10）
+
+**后端** `src/backend/src/modules/music/`：`music.config.ts`（MUSIC_* 环境变量，fail-closed）、
+`sources/`（5 适配器 + http/loose-json）、`tracks.ts`（聚合 + TokenRegistry）、`upstream.ts`
+（SSRF/DNS pin/Range 透传/多源兜底）、`music.service/controller/module.ts`。零新 npm 依赖。
+`app.module.ts` 注册 `MusicModule`；`.env.example` 推荐值 `MUSIC_SOURCES=netease,kuwo,kugou,itunes,audius`。
+
+**与设计的偏差（落地时定稿）**：
+- 未知音源名**丢弃 + warn**，不像原桥那样启动 throw——音乐配置笔误不应拖垮整个后端。
+- track.url 返回 `/music/audio/<token>`（相对 API 根），前端拼 baseUrl（已含 `/api`），
+  与 14.2 示意写的 `/api/music/audio/<token>` 等效。
+- 上游回 `audio/*` content-type 原样转发（原桥强制 octet-stream），播放器能正确识别。
+- Flutter 侧 `searchMusic` 落在新 `services/music_service.dart`（`MusicService` 包装共享
+  `ApiService` 实例以携带 JWT），而非 14.3 写的 `api_service.dart` 内——与 PoetryService 范式一致。
+- React Web 实际已有 react-router（AGENTS.md「无路由库」过时）：音乐页注册为 `/student/music`；
+  四宫格改 5 格（`sm:grid-cols-5`），音乐项移动端占满行（`col-span-2 sm:col-span-1`）。
+
+**验证**：
+- Jest 43/43（`music-tracks/sources/upstream.spec.ts`：聚合排序、token 限次/过期、5 源解析、
+  兜底换源、Range 206/200、SSRF 私网/凭据转换）；`tsc --noEmit`、`npm run build` 通过。
+- 真实后端 E2E（临时 :3101 实例）：搜「小星星」出 8 条真实曲目；整段下载 200 / 1.19MB / ID3 头；
+  `Range: bytes=0-1023` → 206 + 正确 Content-Range，字节与整段前缀一致。
+- React Web 浏览器 E2E（登录 → 学生端 → 音乐乐园 → 搜索 → 播放 → seek → 暂停 → 停止）：
+  搜索 200 出 10 条；播放请求 206 audio/mpeg，进度走动、时长来自真实元数据（74.2s）；
+  seek 到 40s 生效；暂停进度冻结；停止移除播放条。
+- Flutter：`flutter analyze` 0 issue，`flutter build web` 通过。**浏览器可视化验证待补**：
+  内嵌浏览器面板隐藏（0x0 视口）导致 Flutter canvas 不布局；打开面板或真机可验。
+- 顺带修复阻塞 web build 的两处既有编译错误（games 并行工作引入）：
+  `tap_target_game.dart` `Icons hearing_outlined` 缺句点；`pattern_next_game.dart` `_wrongPick` int?→String?。
+
+**部署注意**：音源白名单是 fail-closed——部署环境 `.env` 需显式加 `MUSIC_SOURCES=...` 才开启；
+酷我音频是 http，必须同时 `MUSIC_ALLOW_HTTP_UPSTREAM=true`。运行中的后端需重启才加载本模块。
+

@@ -797,3 +797,18 @@ export interface QuickVideoGenerateResponse {
   contentId: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
 }
+
+// ─── Music (多音源儿歌搜索) ─────────────────────────────────
+
+export interface MusicTrack {
+  title: string;
+  artist: string;
+  /** token 能力 URL，相对 API 根（/music/audio/<token>） */
+  url: string;
+  duration_s?: number;
+}
+
+export interface MusicSearchResult {
+  enabled: boolean;
+  tracks: MusicTrack[];
+}

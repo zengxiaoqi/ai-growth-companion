@@ -39,6 +39,7 @@ import type {
   ConversationMessageHistory,
   QuickVideoGenerateRequest,
   QuickVideoGenerateResponse,
+  MusicSearchResult,
 } from '@/types';
 
 export interface CasualToolInfo {
@@ -553,6 +554,17 @@ class ApiService {
   getTTSUrl(text: string, voice?: string): string {
     const q = voice ? `&voice=${encodeURIComponent(voice)}` : '';
     return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}${q}`;
+  }
+
+  // Music - 多音源儿歌搜索（需 JWT），播放走 token 能力 URL（无需鉴权头）
+  async searchMusic(q: string, limit: number = 10): Promise<MusicSearchResult> {
+    return this.request<MusicSearchResult>(
+      `/music/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    );
+  }
+
+  getMusicAudioUrl(trackUrl: string): string {
+    return `${API_BASE_URL}${trackUrl}`;
   }
 
   // Notifications

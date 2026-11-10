@@ -662,6 +662,63 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
           ),
         ),
         const SizedBox(height: 16),
+        // 音乐乐园入口
+        GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(context, '/music');
+          },
+          child: AppCard(
+            padding: const EdgeInsets.all(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE89BB4), Color(0xFFD67BA0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: AppTheme.softShadow(const Color(0xFFD67BA0)),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('🎵', style: TextStyle(fontSize: 32)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '音乐乐园',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '搜索儿歌，在线听歌',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         // 知识书入口
         GestureDetector(
           onTap: () {

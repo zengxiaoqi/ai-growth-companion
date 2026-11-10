@@ -35,6 +35,7 @@ import 'screens/learning/structured_lesson_screen.dart';
 import 'screens/learning/lesson_scene_player.dart';
 import 'screens/learning/subject_content_list_screen.dart';
 import 'screens/poetry/poetry_home_screen.dart';
+import 'screens/child/music_screen.dart';
 import 'screens/poetry/poetry_detail_screen.dart';
 import 'screens/poetry/poetry_game_screen.dart';
 import 'screens/poetry/fill_blank_game_screen.dart';
@@ -240,6 +241,10 @@ class LingxiApp extends StatelessWidget {
             return page((_) => const FlyingFlowerGameScreen(), slideFromRight);
           case '/poetry/game/solitaire':
             return page((_) => const SolitaireGameScreen(), slideFromRight);
+
+          // ── Music → slideFromRight ──
+          case '/music':
+            return page((_) => const MusicScreen(), slideFromRight);
 
           // ── Book skill → slideFromRight ──
           case '/book-skill/upload':

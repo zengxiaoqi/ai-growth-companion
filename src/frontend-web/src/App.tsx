@@ -38,6 +38,7 @@ const ProfileScreen = lazy(() => import('./components/ProfileScreen'));
 const SettingsScreen = lazy(() => import('./components/SettingsScreen'));
 const AIChat = lazy(() => import('./components/AIChat'));
 const AIChatPage = lazy(() => import('./components/AIChatPage'));
+const MusicView = lazy(() => import('./components/MusicView'));
 
 export type AppMode = 'selection' | 'parent' | 'student';
 
@@ -310,6 +311,15 @@ function StudentCompanionRoute() {
   );
 }
 
+function StudentMusicRoute() {
+  const navigate = useNavigate();
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <MusicView onBack={() => navigate('/student')} />
+    </Suspense>
+  );
+}
+
 function ParentRoute() {
   const navigate = useNavigate();
   return (
@@ -373,6 +383,7 @@ function ProtectedShell() {
         <Route path="/student/profile" element={<StudentProfileRoute />} />
         <Route path="/student/settings" element={<StudentSettingsRoute />} />
         <Route path="/student/companion" element={<StudentCompanionRoute />} />
+        <Route path="/student/music" element={<StudentMusicRoute />} />
         <Route path="/parent" element={<ParentRoute />} />
         <Route path="/parent/content/:id" element={<ParentContentRoute />} />
         <Route

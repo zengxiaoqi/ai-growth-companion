@@ -1086,7 +1086,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 剩余 2 种题型：`color_fill`（形状库 + 色表枚举，附录 H.3）→ `tap_target`（TTS 时序，附录 H.1），按附录 H 设计实施。
 - 覆盖率采样为像素 alpha 网格（步长 6px），字形内部空白计入采样点——描画需覆盖笔画间的空白区域，与既有课程描红画布行为一致；若儿童端反馈过严，可下调 `minCoverage` 至 0.5。
 - 3-4 岁真机手指描画的 ERGONOMICS（笔刷半径 16px 是否合适）待真机验证。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.perTarget` 展示适配未做（数据已回写）。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.perTarget` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 
 ---
 
@@ -1129,7 +1129,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 - 最后一种题型 `tap_target`（TTS 时序，附录 H.1）待实施——完成后 P1 方案 B 全部 6 种新题型落地。
 - 形状库/色表首批各 10 种是代码内常量，教研如需增删需双端 + 后端三处同步（枚举 + 色值表）。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.regionResults` 展示适配未做（数据已回写）。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.regionResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 - 同 shape 重复区域（如 3 个圆）在网格中的顺序即数组顺序，AI 无需感知布局；若教研要求"语义相关图形相邻"，属内容生成侧 prompt 约束，不影响契约。
 
 ---
@@ -1171,6 +1171,21 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 ### K.4 局限与后续
 
 - 双端 TTS 能力不对称是常态而非缺陷：Web 侧实际项目用后端 Edge TTS MP3（`api.getTTSUrl`），`useGameVoice` 已封装；Flutter 侧 audioplayers + `onPlayerComplete`。二者语义一致（播完解锁）。
-- 家长端 `interactionData.roundResults` 展示适配未做（数据已回写，与 regionResults/coverageResults 同批待做）。
+- 家长端 `interactionData.roundResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 - LLM 一次通过率未度量：answerability 强制（prompt 必须含目标 label）是最后一段生成风险，sanitize 抛错 + 3 次反射重试兜底。
 - **P1 方案 B 至此全部收官**：6 种新题型（drag_sort / memory_flip / pattern_next / trace_path / color_fill / tap_target）双端全链路落地。后续横向事项（附录 H.5 之外的收尾建议）：家长端过程数据展示适配、教研端离线批量生成接入 ohmygame 内容工厂（方案 A）、Flutter 带 SDK 环境回归。
+
+### K.5 横向收尾 #1 — 家长端过程数据展示（v1.8 补充）
+
+六种题型的 `interactionData` 早已持久化（`learning_records.interactionData`，simple-json 列），`GET /learning/history/:userId` 也原样返回，但家长端从未读取。本轮补齐读侧：
+
+| 项 | 内容 |
+| --- | --- |
+| 挂载点 | Web `ReportDetail.tsx`（家长端「学习报告详情」页），置于成就亮点与 AI 建议之间；零后端改动 |
+| 新组件 | `parent/ActivityProcessDetails.tsx`：拉取最近 20 条 history，白名单过滤 6 种参数化题型（legacy 题型如 quiz 也有 activityType 字段，不能只判存在），最多展示 8 条 |
+| 摘要文案 | `summarizeInteraction()` 按题型翻译：drag_sort「放错 N 次 · X/Y 首次放对」、memory_flip「N 步完成 · 翻错 M 次」、pattern_next「一次接对/尝试 N 次」、trace_path「描红 N 个字（达标线 P% 覆盖）· X/Y 一次完成」、color_fill「X/Y 个区域一次涂对」、tap_target「X/Y 轮一次听对指令」 |
+| API | `api.getLearningHistory(userId, limit)`（新增，复用现有接口） |
+| 类型 | `types/index.ts` 新增 `LearningInteractionData` / `LearningHistoryRecord` |
+| 测试 | `activity-process-details.test.tsx` 5 项（6 题型摘要单测 + 渲染/白名单过滤/空态/网络降级） |
+
+Flutter 家长端（`report_detail_screen.dart`）暂不适配：`api_service` 无 learning history 调用，需另补 API 层，列入后续。

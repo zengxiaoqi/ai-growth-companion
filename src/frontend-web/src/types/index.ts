@@ -812,3 +812,48 @@ export interface MusicSearchResult {
   enabled: boolean;
   tracks: MusicTrack[];
 }
+
+// ─── Learning history (家长端学习记录 + 过程数据) ─────────────
+
+/**
+ * 一条学习记录的过程数据。参数化题型的 interactionData 由游戏组件
+ * 经 buildGameResult 上传（activityType + 引擎常量 + 各题型专属字段），
+ * 后端原样存入 learning_records.interactionData (simple-json)。
+ */
+export interface LearningInteractionData {
+  activityType?: string;
+  engine?: string;
+  passingScore?: number;
+  timeLimitSec?: number;
+  // drag_sort
+  totalErrors?: number;
+  placements?: Array<{ itemId: string; bucketId: string; correctOnFirstTry: boolean }>;
+  // memory_flip
+  moves?: number;
+  mismatches?: number;
+  pairs?: Array<{ pairId: string; label: string; matched: boolean }>;
+  // pattern_next
+  attempts?: number;
+  firstTryCorrect?: boolean;
+  // trace_path
+  minCoverage?: number;
+  perTarget?: Array<{ id: string; coverage: number; attempts: number; firstTry: boolean }>;
+  // color_fill
+  regionResults?: Array<{ id: string; colorKey: string; firstTry: boolean }>;
+  // tap_target
+  roundResults?: Array<{ roundId: string; firstTry: boolean; taps: number }>;
+  [key: string]: unknown;
+}
+
+/** GET /learning/history/:userId 返回的记录（learning.service.findByUser）。 */
+export interface LearningHistoryRecord {
+  id: number;
+  startedAt: string;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+  score?: number | null;
+  status: string;
+  contentId?: number | null;
+  content?: { id: number; title?: string } | null;
+  interactionData?: LearningInteractionData | null;
+}

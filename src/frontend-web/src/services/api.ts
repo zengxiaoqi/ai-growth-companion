@@ -9,6 +9,7 @@ import type {
   StartLearningRequest,
   CompleteLearningRequest,
   LearningRecord,
+  LearningHistoryRecord,
   AbilityReport,
   Achievement,
   ChatMessage,
@@ -254,6 +255,11 @@ class ApiService {
   // Achievements
   async getAchievements(userId: number): Promise<Achievement[]> {
     return this.request<Achievement[]>(`/achievements/user/${userId}`);
+  }
+
+  // Learning history（含 interactionData 过程数据，供家长端报告详情展示）
+  async getLearningHistory(userId: number, limit = 20): Promise<LearningHistoryRecord[]> {
+    return this.request<LearningHistoryRecord[]>(`/learning/history/${userId}?limit=${limit}`);
   }
 
   // AI Chat

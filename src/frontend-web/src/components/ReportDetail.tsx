@@ -23,6 +23,7 @@ import { cn } from '../lib/utils';
 import api from '../services/api';
 import type { GrowthReport, Achievement } from '@/types';
 import AIChat from './AIChat';
+import ActivityProcessDetails from './parent/ActivityProcessDetails';
 import { Card, EmptyState, IconButton, Tabs, TabsList, TabsTrigger } from './ui';
 import { DOMAIN_CONFIG as PARENT_DOMAIN_CONFIG } from './parent/constants';
 
@@ -374,6 +375,14 @@ export default function ReportDetail({ userId, onBack }: ReportDetailProps) {
                 />
               )}
             </Card>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.17 }}
+          >
+            <ActivityProcessDetails userId={userId} />
           </motion.section>
 
           <motion.section

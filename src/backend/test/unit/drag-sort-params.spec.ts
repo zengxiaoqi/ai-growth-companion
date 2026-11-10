@@ -210,9 +210,9 @@ describe('drag_sort parameter contract', () => {
 describe('drag_sort whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains drag_sort exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'drag_sort')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(12);
+    expect(ACTIVITY_TYPES).toHaveLength(13);
     expect(isActivityType('drag_sort')).toBe(true);
-    expect(isActivityType('tap_target')).toBe(false);
+    expect(isActivityType('nonexistent_type')).toBe(false);
   });
 
   it('both generateActivity tools accept drag_sort', () => {
@@ -225,7 +225,7 @@ describe('drag_sort whitelist single source of truth', () => {
     const args = { type: 'drag_sort', topic: '四季', difficulty: 1, ageGroup: '5-6' };
     expect((legacy as any).normalizeArgs(args).type).toBe('drag_sort');
     expect((legacy as any).schemaForType('drag_sort')).toContain('"type":"drag_sort"');
-    expect(() => (legacy as any).normalizeArgs({ ...args, type: 'tap_target' })).toThrow(
+    expect(() => (legacy as any).normalizeArgs({ ...args, type: 'nonexistent_type' })).toThrow(
       /Unsupported activity type/,
     );
   });

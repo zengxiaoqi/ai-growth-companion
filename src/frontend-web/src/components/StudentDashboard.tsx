@@ -115,6 +115,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   pattern_next: '规律',
   trace_path: '描红',
   color_fill: '涂色',
+  tap_target: '听指令',
 };
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {

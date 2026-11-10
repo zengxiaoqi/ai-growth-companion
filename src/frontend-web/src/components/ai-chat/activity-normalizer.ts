@@ -8,6 +8,7 @@ import type {
   MemoryFlipActivityData,
   MemoryFlipGridSize,
   PatternNextActivityData,
+  TapTargetActivityData,
   TracePathActivityData,
 } from '@/types';
 
@@ -24,6 +25,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'pattern_next',
   'trace_path',
   'color_fill',
+  'tap_target',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -132,6 +134,8 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   if (Array.isArray(rawData?.targets)) return 'trace_path';
   // color_fill uses `regions`; grep-verified unique across the repo.
   if (Array.isArray(rawData?.regions)) return 'color_fill';
+  // tap_target uses `rounds`; grep-verified unique across the repo.
+  if (Array.isArray(rawData?.rounds)) return 'tap_target';
   if (
     Array.isArray(rawData?.connections) ||
     (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))
@@ -486,6 +490,86 @@ export function normalizeColorFillData(raw: any): Pick<
   };
 }
 
+export const TAP_TARGET_LIMITS = {
+  maxRounds: 6,
+  maxTargets: 4,
+  maxLabelLength: 12,
+  maxIconLength: 8,
+  maxPromptLength: 20,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 120,
+} as const;
+
+/**
+ * Defensive normalization for tap_target parameters. Target labels must be
+ * unique per round; correctIds are re-anchored to surviving target ids and
+ * rounds without a surviving correct target are dropped (Appendix H.1).
+ */
+export function normalizeTapTargetData(raw: any): Pick<
+  TapTargetActivityData,
+  'rounds' | 'passingScore' | 'timeLimitSec'
+> {
+  const usedRoundIds = new Set<string>();
+  const rawRounds = Array.isArray(raw?.rounds) ? raw.rounds : [];
+  const rounds: TapTargetActivityData['rounds'] = [];
+
+  for (let i = 0; i < rawRounds.length && rounds.length < TAP_TARGET_LIMITS.maxRounds; i++) {
+    const entry = rawRounds[i];
+    const prompt = toText(entry?.prompt).slice(0, TAP_TARGET_LIMITS.maxPromptLength);
+    if (!prompt) continue;
+
+    const usedTargetIds = new Set<string>();
+    const usedLabels = new Set<string>();
+    const idMap = new Map<string, string>();
+    const targets: TapTargetActivityData['rounds'][number]['targets'] = [];
+    const rawTargets = Array.isArray(entry?.targets) ? entry.targets : [];
+    for (let t = 0; t < rawTargets.length && targets.length < TAP_TARGET_LIMITS.maxTargets; t++) {
+      const item = rawTargets[t];
+      const label = toText(item?.label).slice(0, TAP_TARGET_LIMITS.maxLabelLength);
+      if (!label || usedLabels.has(label)) continue;
+      usedLabels.add(label);
+      let id = toSafeId(item?.id) || `t${i + 1}_${t + 1}`;
+      let suffix = 2;
+      while (usedTargetIds.has(id)) id = `t${i + 1}_${t + 1}_${suffix++}`;
+      usedTargetIds.add(id);
+      const rawId = toText(item?.id);
+      if (rawId) idMap.set(rawId, id);
+      const icon = toText(item?.icon).slice(0, TAP_TARGET_LIMITS.maxIconLength);
+      targets.push(icon ? { id, label, icon } : { id, label });
+    }
+    if (targets.length < 2) continue;
+
+    const survivingIds = new Set(targets.map((t) => t.id));
+    const correctIds: string[] = [];
+    for (const candidate of Array.isArray(entry?.correctIds) ? entry.correctIds : []) {
+      const mapped = idMap.get(toText(candidate)) ?? toText(candidate);
+      if (!survivingIds.has(mapped) || correctIds.includes(mapped)) continue;
+      correctIds.push(mapped);
+      if (correctIds.length >= 2) break;
+    }
+    // A round whose correct target was dropped is unanswerable: drop it.
+    if (correctIds.length < 1) continue;
+
+    let roundId = toSafeId(entry?.id) || `r${i + 1}`;
+    let roundSuffix = 2;
+    while (usedRoundIds.has(roundId)) roundId = `r${i + 1}_${roundSuffix++}`;
+    usedRoundIds.add(roundId);
+    rounds.push({ id: roundId, prompt, targets, correctIds });
+  }
+
+  return {
+    rounds,
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, TAP_TARGET_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      30,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, TAP_TARGET_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
+}
+
 export function normalizeActivityData(
   activityType: ActivityType | string | undefined,
   rawData: any,
@@ -516,6 +600,10 @@ export function normalizeActivityData(
 
   if (resolvedType === 'color_fill') {
     return { ...base, ...normalizeColorFillData(rawData) } as ColorFillActivityData;
+  }
+
+  if (resolvedType === 'tap_target') {
+    return { ...base, ...normalizeTapTargetData(rawData) } as TapTargetActivityData;
   }
 
   if (resolvedType === 'quiz') {

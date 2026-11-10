@@ -230,7 +230,8 @@ export type ActivityType =
   | 'memory_flip'
   | 'pattern_next'
   | 'trace_path'
-  | 'color_fill';
+  | 'color_fill'
+  | 'tap_target';
 
 export interface ActivityData {
   type: ActivityType;
@@ -360,6 +361,27 @@ export interface ColorFillActivityData extends ActivityData {
   prompt?: string;
   regions: ColorFillRegion[];
   palette: ColorFillColor[];
+  passingScore?: number;
+  timeLimitSec?: number;
+}
+
+/** Parameter-only contract for the tap_target engine. The LLM never emits code or timing data. */
+export interface TapTargetItem {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface TapTargetRound {
+  id: string;
+  prompt: string;
+  targets: TapTargetItem[];
+  correctIds: string[];
+}
+
+export interface TapTargetActivityData extends ActivityData {
+  type: 'tap_target';
+  rounds: TapTargetRound[];
   passingScore?: number;
   timeLimitSec?: number;
 }

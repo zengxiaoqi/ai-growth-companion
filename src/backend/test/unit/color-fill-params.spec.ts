@@ -237,15 +237,15 @@ describe('color_fill parameter contract', () => {
 describe('color_fill whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains color_fill exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'color_fill')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(12);
+    expect(ACTIVITY_TYPES).toHaveLength(13);
     expect(isActivityType('color_fill')).toBe(true);
-    expect(isActivityType('tap_target')).toBe(false);
+    expect(isActivityType('nonexistent_type')).toBe(false);
   });
 
   it('both generateActivity tools accept color_fill', () => {
     const framework = new FrameworkGenerateActivityTool({} as any);
     expect(framework.metadata.inputSchema.properties.type.enum).toContain('color_fill');
-    expect(framework.metadata.description).toContain('12种题型');
+    expect(framework.metadata.description).toContain('13种题型');
 
     const legacy = new LegacyGenerateActivityTool({} as any);
     const args = { type: 'color_fill', topic: '天空', difficulty: 1, ageGroup: '3-4' };

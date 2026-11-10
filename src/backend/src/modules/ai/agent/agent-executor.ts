@@ -585,6 +585,8 @@ export class AgentExecutor {
     if (Array.isArray(value.targets)) return 'trace_path';
     // color_fill uses `regions`; grep-verified unique across the repo.
     if (Array.isArray(value.regions)) return 'color_fill';
+    // tap_target uses `rounds`; grep-verified unique across the repo.
+    if (Array.isArray(value.rounds)) return 'tap_target';
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';

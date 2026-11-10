@@ -67,6 +67,7 @@ export const ACTIVITY_TYPES = [
   'pattern_next',
   'trace_path',
   'color_fill',
+  'tap_target',
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

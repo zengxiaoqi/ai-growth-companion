@@ -645,6 +645,11 @@ export class AgentExecutorService {
       return 'color_fill';
     }
 
+    // tap_target uses `rounds`; grep-verified unique across the repo.
+    if (Array.isArray(value.rounds)) {
+      return 'tap_target';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

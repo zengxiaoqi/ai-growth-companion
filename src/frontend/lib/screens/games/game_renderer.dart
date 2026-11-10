@@ -13,6 +13,7 @@ import 'pattern_next_game.dart';
 import 'puzzle_game.dart';
 import 'quiz_game.dart';
 import 'sequencing_game.dart';
+import 'tap_target_game.dart';
 import 'trace_path_game.dart';
 import 'true_false_game.dart';
 
@@ -97,7 +98,7 @@ class _GameRendererState extends State<GameRenderer> {
     const types = {
       'quiz', 'true_false', 'matching',
       'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
-      'memory_flip', 'pattern_next', 'trace_path', 'color_fill',
+      'memory_flip', 'pattern_next', 'trace_path', 'color_fill', 'tap_target',
     };
 
     final candidate = activityType?.trim();
@@ -128,6 +129,9 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'color_fill' || gameType == 'coloring' || gameType == 'paint') {
       return 'color_fill';
     }
+    if (gameType == 'tap_target' || gameType == 'listen_tap' || gameType == 'listen') {
+      return 'tap_target';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
@@ -153,6 +157,10 @@ class _GameRendererState extends State<GameRenderer> {
     // color_fill 用 regions；grep-verified 全仓唯一。
     if (rawData['regions'] is List) {
       return 'color_fill';
+    }
+    // tap_target 用 rounds；grep-verified 全仓唯一。
+    if (rawData['rounds'] is List) {
+      return 'tap_target';
     }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
@@ -203,6 +211,10 @@ class _GameRendererState extends State<GameRenderer> {
 
     if (type == 'color_fill') {
       return _normalizeColorFillData(base, rawData);
+    }
+
+    if (type == 'tap_target') {
+      return _normalizeTapTargetData(base, rawData);
     }
 
     if (type == 'matching') {
@@ -911,6 +923,109 @@ class _GameRendererState extends State<GameRenderer> {
     };
   }
 
+  /// 参数化题型 tap_target 的防御式归一化，与 Web normalizer /
+  /// 后端 sanitizeTapTargetParams 保持同一套边界（附录 H.1）：
+  /// 每轮目标 label 去重、correctIds 重新锚定到清洗后的 id、
+  /// 无幸存正确目标的轮次整轮丢弃。
+  Map<String, dynamic> _normalizeTapTargetData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxRounds = 6;
+    const int maxTargets = 4;
+
+    String text(dynamic value) {
+      if (value == null) return '';
+      return value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String value, int max) => value.runes.length <= max
+        ? value
+        : String.fromCharCodes(value.runes.take(max));
+
+    String safeId(dynamic value) =>
+        clip(text(value).replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), ''), 32);
+
+    final usedRoundIds = <String>{};
+    final rawRounds =
+        rawData['rounds'] is List ? rawData['rounds'] as List : <dynamic>[];
+    final rounds = <Map<String, dynamic>>[];
+
+    for (var i = 0; i < rawRounds.length && rounds.length < maxRounds; i++) {
+      final entry = rawRounds[i];
+      if (entry is! Map) continue;
+      final map = entry.map((k, v) => MapEntry(k.toString(), v));
+      final prompt = clip(text(map['prompt']), 20);
+      if (prompt.isEmpty) continue;
+
+      final rawTargets = map['targets'] is List ? map['targets'] as List : const [];
+      final usedTargetIds = <String>{};
+      final usedLabels = <String>{};
+      final idMap = <String, String>{};
+      final targets = <Map<String, dynamic>>[];
+      for (var t = 0; t < rawTargets.length && targets.length < maxTargets; t++) {
+        final item = rawTargets[t];
+        if (item is! Map) continue;
+        final itemMap = item.map((k, v) => MapEntry(k.toString(), v));
+        final label = clip(text(itemMap['label']), 12);
+        if (label.isEmpty || usedLabels.contains(label)) continue;
+        usedLabels.add(label);
+        var id = safeId(itemMap['id']);
+        if (id.isEmpty) id = 't${i + 1}_${t + 1}';
+        var suffix = 2;
+        while (usedTargetIds.contains(id)) {
+          id = 't${i + 1}_${t + 1}_${suffix++}';
+        }
+        usedTargetIds.add(id);
+        final rawId = text(itemMap['id']);
+        if (rawId.isNotEmpty) idMap[rawId] = id;
+        final icon = clip(text(itemMap['icon']), 8);
+        targets.add({
+          'id': id,
+          'label': label,
+          if (icon.isNotEmpty) 'icon': icon,
+        });
+      }
+      if (targets.length < 2) continue;
+
+      final survivingIds = targets.map((t) => t['id'] as String).toSet();
+      final rawCorrect = map['correctIds'] is List
+          ? map['correctIds'] as List
+          : <dynamic>[];
+      final correctIds = <String>[];
+      for (final candidate in rawCorrect) {
+        final raw = text(candidate);
+        final mapped = idMap[raw] ?? raw;
+        if (!survivingIds.contains(mapped) || correctIds.contains(mapped)) continue;
+        correctIds.add(mapped);
+        if (correctIds.length >= 2) break;
+      }
+      // 正确目标被清洗掉、无 correctId 的轮次无法作答：整轮丢弃。
+      if (correctIds.isEmpty) continue;
+
+      var roundId = safeId(map['id']);
+      if (roundId.isEmpty) roundId = 'r${i + 1}';
+      var roundSuffix = 2;
+      while (usedRoundIds.contains(roundId)) {
+        roundId = 'r${i + 1}_${roundSuffix++}';
+      }
+      usedRoundIds.add(roundId);
+      rounds.add({
+        'id': roundId,
+        'prompt': prompt,
+        'targets': targets,
+        'correctIds': correctIds,
+      });
+    }
+
+    return {
+      ...base,
+      'rounds': rounds,
+      'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1014,6 +1129,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'color_fill':
         return ColorFillGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'tap_target':
+        return TapTargetGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

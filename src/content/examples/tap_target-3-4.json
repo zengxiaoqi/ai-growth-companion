@@ -1,0 +1,44 @@
+{
+  "id": "example_tap_target_3_4",
+  "ageGroup": "3-4",
+  "domain": "science",
+  "topic": "农场动物",
+  "activityType": "tap_target",
+  "type": "tap_target",
+  "title": "听指令点一点",
+  "passingScore": 80,
+  "timeLimitSec": 120,
+  "rounds": [
+    {
+      "id": "r1",
+      "prompt": "请点出小猫",
+      "targets": [
+        { "id": "t1", "label": "小猫", "icon": "🐱" },
+        { "id": "t2", "label": "小狗", "icon": "🐶" },
+        { "id": "t3", "label": "小鸭", "icon": "🦆" }
+      ],
+      "correctIds": ["t1"]
+    },
+    {
+      "id": "r2",
+      "prompt": "小鸭在哪里",
+      "targets": [
+        { "id": "t4", "label": "母鸡", "icon": "🐔" },
+        { "id": "t5", "label": "小鸭", "icon": "🦆" },
+        { "id": "t6", "label": "小猪", "icon": "🐷" }
+      ],
+      "correctIds": ["t5"]
+    },
+    {
+      "id": "r3",
+      "prompt": "把小猪和母鸡点出来",
+      "targets": [
+        { "id": "t7", "label": "小猪", "icon": "🐷" },
+        { "id": "t8", "label": "母鸡", "icon": "🐔" },
+        { "id": "t9", "label": "小猫", "icon": "🐱" }
+      ],
+      "correctIds": ["t7", "t8"]
+    }
+  ],
+  "note": "参数化题型示例（方案 B 附录 H.1）。AI 只产出本 JSON 的参数，渲染逻辑由 Web/Flutter 的 TapTargetGame 固定组件提供：指令经 TTS 播报、播报完成前点击锁定，AI 不产时序数据。rounds 3-6、每轮 targets 2-4（label 唯一）、correctIds 1-2 且 prompt 必须包含每个正确目标的 label。此目录不参与 import-content-json.py 导入，仅作教研示例与自动化契约校验输入。"
+}

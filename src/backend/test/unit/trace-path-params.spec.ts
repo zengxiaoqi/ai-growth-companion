@@ -248,15 +248,15 @@ describe('trace_path parameter contract', () => {
 describe('trace_path whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains trace_path exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'trace_path')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(12);
+    expect(ACTIVITY_TYPES).toHaveLength(13);
     expect(isActivityType('trace_path')).toBe(true);
-    expect(isActivityType('tap_target')).toBe(false);
+    expect(isActivityType('nonexistent_type')).toBe(false);
   });
 
   it('both generateActivity tools accept trace_path', () => {
     const framework = new FrameworkGenerateActivityTool({} as any);
     expect(framework.metadata.inputSchema.properties.type.enum).toContain('trace_path');
-    expect(framework.metadata.description).toContain('12种题型');
+    expect(framework.metadata.description).toContain('13种题型');
 
     const legacy = new LegacyGenerateActivityTool({} as any);
     const args = { type: 'trace_path', topic: '常用字', difficulty: 1, ageGroup: '3-4' };

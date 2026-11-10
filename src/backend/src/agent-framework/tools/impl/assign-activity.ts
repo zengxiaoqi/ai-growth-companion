@@ -55,6 +55,7 @@ const ACTIVITY_TYPE_NAMES: Record<string, string> = {
   pattern_next: '规律接龙',
   trace_path: '描红游戏',
   color_fill: '涂色游戏',
+  tap_target: '听指令点一点',
 };
 
 @Injectable()

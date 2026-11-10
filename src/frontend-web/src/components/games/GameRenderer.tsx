@@ -11,6 +11,7 @@ import MemoryFlipGame from './MemoryFlipGame';
 import PatternNextGame from './PatternNextGame';
 import TracePathGame from './TracePathGame';
 import ColorFillGame from './ColorFillGame';
+import TapTargetGame from './TapTargetGame';
 
 interface GameRendererProps {
   type: ActivityType;
@@ -45,6 +46,8 @@ export default function GameRenderer({ type, data, onComplete }: GameRendererPro
       return <TracePathGame data={data} onComplete={onComplete} />;
     case 'color_fill':
       return <ColorFillGame data={data} onComplete={onComplete} />;
+    case 'tap_target':
+      return <TapTargetGame data={data} onComplete={onComplete} />;
     default:
       return <div className="p-4 text-on-surface-variant">暂不支持的活动类型</div>;
   }

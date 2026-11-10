@@ -36,6 +36,11 @@ import {
   validateColorFillParams,
   collectColorFillBodyText,
 } from '../../../common/activity/color-fill';
+import {
+  sanitizeTapTargetParams,
+  validateTapTargetParams,
+  collectTapTargetBodyText,
+} from '../../../common/activity/tap-target';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -212,7 +217,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持12种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)、color_fill(按色号涂色)。AI 只产参数 JSON，不产代码。',
+      '生成互动学习活动，支持13种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)、color_fill(按色号涂色)、tap_target(听指令点目标)。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -429,6 +434,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return '{"type":"trace_path","title":"...","topic":"...","ageGroup":"...","prompt":"请沿着虚线描一描","targets":[{"id":"g1","kind":"glyph","text":"火","label":"火"},{"id":"g2","kind":"glyph","text":"山","label":"山"}],"minCoverage":0.7,"passingScore":80,"timeLimitSec":180}';
       case 'color_fill':
         return '{"type":"color_fill","title":"...","topic":"...","ageGroup":"...","prompt":"给太阳涂上黄色","regions":[{"id":"s1","shape":"sun","colorKey":"yellow"},{"id":"s2","shape":"cloud","colorKey":"white"}],"palette":["red","yellow","blue","white"],"passingScore":80,"timeLimitSec":120}';
+      case 'tap_target':
+        return '{"type":"tap_target","title":"...","topic":"...","ageGroup":"...","rounds":[{"id":"r1","prompt":"请点出小猫","targets":[{"id":"t1","label":"小猫","icon":"🐱"},{"id":"t2","label":"小狗","icon":"🐶"},{"id":"t3","label":"苹果","icon":"🍎"}],"correctIds":["t1"]}],"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -520,6 +527,15 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           'The color assignment must be semantically sensible for a 3-4 year old (e.g. sun=yellow, leaf=green).',
           'passingScore is 0-100; timeLimitSec is 30-300.',
         ];
+      case 'tap_target':
+        return [
+          ...common,
+          'Generate 3-6 rounds about the given topic.',
+          'Each round is {id, prompt, targets, correctIds}: prompt is <=20 chars and MUST name every correct target (e.g. "请点出小猫"); targets is 2-4 items {id, label, icon} with unique labels; correctIds lists 1-2 target ids.',
+          'icon is one emoji matching the label. All rounds must stay on the given topic.',
+          'The child hears the prompt read aloud, so keep it a simple spoken sentence without punctuation tricks.',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -576,6 +592,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return this.sanitizeTracePath(args, raw);
       case 'color_fill':
         return this.sanitizeColorFill(args, raw);
+      case 'tap_target':
+        return this.sanitizeTapTarget(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -808,6 +826,17 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     return activity;
   }
 
+  private sanitizeTapTarget(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeTapTargetParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateTapTargetParams(activity);
+    if (!verdict.ok) throw new Error(`tap_target playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -956,6 +985,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     if (tracePathText) parts.push(tracePathText);
     const colorFillText = collectColorFillBodyText(activity);
     if (colorFillText) parts.push(colorFillText);
+    const tapTargetText = collectTapTargetBodyText(activity);
+    if (tapTargetText) parts.push(tapTargetText);
 
     return parts.join(' | ');
   }

@@ -48,6 +48,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     _ActivityTypeMeta(value: 'pattern_next', label: '规律接龙'),
     _ActivityTypeMeta(value: 'trace_path', label: '描红游戏'),
     _ActivityTypeMeta(value: 'color_fill', label: '涂色游戏'),
+    _ActivityTypeMeta(value: 'tap_target', label: '听指令点一点'),
     _ActivityTypeMeta(value: 'video', label: '视频'),
     _ActivityTypeMeta(value: 'animation', label: '动画'),
     _ActivityTypeMeta(value: 'lesson', label: '课程'),

@@ -435,6 +435,7 @@ class _InlineGameCardState extends State<_InlineGameCard> {
       'pattern_next': '规律接龙',
       'trace_path': '描红游戏',
       'color_fill': '涂色游戏',
+      'tap_target': '听指令点一点',
     };
     return labels[type] ?? '互动游戏';
   }

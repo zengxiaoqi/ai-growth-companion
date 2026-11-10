@@ -314,6 +314,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'pattern_next': '规律接龙',
       'trace_path': '描红游戏',
       'color_fill': '涂色游戏',
+      'tap_target': '听指令点一点',
     };
     return labels[type] ?? '互动游戏';
   }
@@ -332,6 +333,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'pattern_next': Icons.auto_awesome_outlined,
       'trace_path': Icons.draw_outlined,
       'color_fill': Icons.palette_outlined,
+      'tap_target': Icons.hearing_outlined,
     };
     return icons[type] ?? Icons.play_circle_rounded;
   }

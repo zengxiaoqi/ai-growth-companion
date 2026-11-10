@@ -56,6 +56,7 @@ export const ACTIVITY_TYPES = [
   { value: 'pattern_next', label: '规律接龙' },
   { value: 'trace_path', label: '描红游戏' },
   { value: 'color_fill', label: '涂色游戏' },
+  { value: 'tap_target', label: '听指令点一点' },
 ];
 
 export const defaultChartData: { name: string; time: number }[] = [];

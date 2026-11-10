@@ -198,9 +198,9 @@ describe('memory_flip parameter contract', () => {
 describe('memory_flip whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains memory_flip exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'memory_flip')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(12);
+    expect(ACTIVITY_TYPES).toHaveLength(13);
     expect(isActivityType('memory_flip')).toBe(true);
-    expect(isActivityType('tap_target')).toBe(false);
+    expect(isActivityType('nonexistent_type')).toBe(false);
   });
 
   it('both generateActivity tools accept memory_flip', () => {

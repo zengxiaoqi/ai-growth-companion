@@ -232,7 +232,10 @@ String _inferGameType(Map<String, dynamic> data) {
   // trace_path 用 targets；必须先于下方的 items+targets -> matching 回退判断。
   if (data['targets'] is List) return 'trace_path';
   // color_fill 用 regions；grep-verified 全仓唯一。
+  // color_fill 用 regions；grep-verified 全仓唯一。
   if (data['regions'] is List) return 'color_fill';
+  // tap_target 用 rounds；grep-verified 全仓唯一。
+  if (data['rounds'] is List) return 'tap_target';
   if (data['pairs'] is List || (data['items'] is List && data['targets'] is List)) {
     return 'matching';
   }
@@ -1056,7 +1059,10 @@ class ChatSessionProvider extends ChangeNotifier {
     // trace_path 用 targets；无 legacy 题型单独使用 targets。
     if (data['targets'] is List) return 'trace_path';
     // color_fill 用 regions；grep-verified 全仓唯一。
+    // color_fill 用 regions；grep-verified 全仓唯一。
     if (data['regions'] is List) return 'color_fill';
+    // tap_target 用 rounds；grep-verified 全仓唯一。
+    if (data['rounds'] is List) return 'tap_target';
     if (data['pairs'] is List) return 'matching';
     if (data['connections'] is List ||
         (data['leftItems'] is List && data['rightItems'] is List)) {
@@ -1084,6 +1090,7 @@ class ChatSessionProvider extends ChangeNotifier {
       'pattern_next': '规律接龙',
       'trace_path': '描红游戏',
       'color_fill': '涂色游戏',
+      'tap_target': '听指令点一点',
     };
     return labels[type] ?? '互动游戏';
   }

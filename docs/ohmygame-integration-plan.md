@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.7
+> **文档版本**: v1.8
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、设计评审见附录 H、trace_path 见附录 I、color_fill 见附录 J）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地五种题型（drag_sort + memory_flip + pattern_next + trace_path + color_fill）双端链路 + 单测 + 双端构建通过；最后一种 tap_target 按附录 H 设计待实施**）
+> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、设计评审见附录 H、trace_path 见附录 I、color_fill 见附录 J、tap_target 见附录 K）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 方案 B 全部 6 种新题型（drag_sort + memory_flip + pattern_next + trace_path + color_fill + tap_target）已落地：双端链路 + 单测 + 双端构建/测试通过**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -1032,7 +1032,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 ### H.5 实施顺序建议与待评审确认项
 
-**实施进度（v1.6）**：`trace_path` 已按本附录设计落地（附录 I）；剩余 `color_fill` → `tap_target` 待实施。
+**实施进度（v1.8）**：`trace_path`（附录 I）→ `color_fill`（附录 J）→ `tap_target`（附录 K）已全部按本附录设计落地。**P1 方案 B 六种新题型全部完成**，H.4 推断风险登记中 `rounds` 结构已验证全仓唯一、无与既有题型冲突。
 
 **建议顺序**：`trace_path`（复用最多、无 TTS 依赖）→ `color_fill`（形状库一次性投入）→ `tap_target`（TTS 时序最复杂、降级路径最多）。
 
@@ -1131,3 +1131,46 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 形状库/色表首批各 10 种是代码内常量，教研如需增删需双端 + 后端三处同步（枚举 + 色值表）。
 - Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.regionResults` 展示适配未做（数据已回写）。
 - 同 shape 重复区域（如 3 个圆）在网格中的顺序即数组顺序，AI 无需感知布局；若教研要求"语义相关图形相邻"，属内容生成侧 prompt 约束，不影响契约。
+
+---
+
+## 附录 K：P1 实施记录 — 第六种参数化题型 `tap_target`（v1.8 补充，P1 收官）
+
+### K.1 设计落地结论（对应附录 H.1）
+
+附录 H.1 的四项设计决策全部按原样落地：
+
+| 设计决策 | 落地方式 |
+| --- | --- |
+| 无轮内倒计时，仅全局 `timeLimitSec`（30-300，默认 120） | 双端一致：Web 顶部仅展示"建议在 N 秒内完成"；Flutter 同。轮内无任何倒计时 UI |
+| TTS 播报完成前锁定点击 | Web：`useGameVoice.isPlaying` 为 true 时 `locked`，点击直接忽略；Flutter：`TtsService().speak()` 后 `await onComplete.timeout(15s)`，完成前 `setState` 解锁。TTS 失败/不可用时 15s 超时或 Web speechSynthesis 立即回调，点击解锁（优雅降级） |
+| 每轮一次判定 | 点中全部 `correctIds` 该轮 firstTry 通过；碰到任一干扰项该轮即失败，正确目标高亮 800ms 后自动推进（不给孩子"再试一次"的疑惑窗口） |
+| answerability：指令必须能听出来 | 后端 sanitize 强制 `prompt.includes(target.label)`，违反即抛错进入 3 次反射重试；生成工具 typeRules 附加 "MUST name every correct target's label in the spoken prompt" |
+
+### K.2 交付清单
+
+| 层 | 文件 | 内容 |
+| --- | --- | --- |
+| 单一真源 | `agent-framework/core/types/tool-metadata.ts` | `ACTIVITY_TYPES` 扩为 13 种 |
+| 后端契约 | `common/activity/tap-target.ts`（新建） | `TAP_TARGET_LIMITS`（rounds 3-6、targets 2-4/轮、correctIds ≤2、prompt ≤20 字）、sanitize / validate / simulate 三段式 |
+| 生成工具 | 两套 `generate-activity.ts` | schema、typeRules（MUST name every correct target）、sanitize、试玩 |
+| 推断 | 两套 executor + 双端归一化 | `Array.isArray(value.rounds) → 'tap_target'`（grep-verified 全仓唯一，且排在 `items+targets→matching` legacy 回退之后不冲突） |
+| Web | `types/index.ts`、`TapTargetGame.tsx`（新建）、`GameRenderer.tsx`、`activity-normalizer.ts`（`normalizeTapTargetData`：id 重锚/label 去重/无幸存正确目标的轮丢弃）、`parent/constants.ts`、`StudentDashboard.tsx` | 组件含 🔊 重听按钮、多选 correctIds、reveal 800ms、`roundResultsRef` 过程数据 |
+| Flutter | `tap_target_game.dart`（新建）、`game_renderer.dart`、`chat_session_provider.dart`、`ai_chat_screen.dart`、`learning/learning_home_screen.dart`、`parent/assignment_manager_screen.dart` | 防御式归一化与 Web 语义逐条对齐 |
+| 内容 | `src/content/examples/tap_target-3-4.json`（新建） | 3 轮含 1 个多点轮（correctIds 2 个） |
+| 标签 | `assign-activity.ts` + 两套儿童 system prompt | "听指令点一点" + 指令必须含正确目标 label 的说明 |
+| 测试 | `tap-target-params.spec.ts`（14 项）、`tap-target-game.test.tsx`（7 项，fake timers 驱动 800ms 推进）；5 套既有 spec 断言 12→13 | 契约与组件行为 |
+
+### K.3 验证结论
+
+- 后端 `tsc --noEmit` 通过；`tap-target-params.spec.ts` 14/14 通过。
+- Web `tsc --noEmit` 通过；`tap-target-game.test.tsx` 7/7 通过（TTS hook 打桩，`vi.useFakeTimers` 驱动轮间 800ms 推进）；Web 全量 vitest 通过；Web build 通过。
+- 后端全量 `npm test`：仅剩两个既有失败（database-seeder / migration-baseline），均由用户本地未提交改动引起、与本题型无关（附录 J.3 已登记）。
+- Flutter：本机无 SDK，静态核查通过（类结构、TTS 时序、判定语义、归一化、分发、标签 grep 核对一致）。
+
+### K.4 局限与后续
+
+- 双端 TTS 能力不对称是常态而非缺陷：Web 侧实际项目用后端 Edge TTS MP3（`api.getTTSUrl`），`useGameVoice` 已封装；Flutter 侧 audioplayers + `onPlayerComplete`。二者语义一致（播完解锁）。
+- 家长端 `interactionData.roundResults` 展示适配未做（数据已回写，与 regionResults/coverageResults 同批待做）。
+- LLM 一次通过率未度量：answerability 强制（prompt 必须含目标 label）是最后一段生成风险，sanitize 抛错 + 3 次反射重试兜底。
+- **P1 方案 B 至此全部收官**：6 种新题型（drag_sort / memory_flip / pattern_next / trace_path / color_fill / tap_target）双端全链路落地。后续横向事项（附录 H.5 之外的收尾建议）：家长端过程数据展示适配、教研端离线批量生成接入 ohmygame 内容工厂（方案 A）、Flutter 带 SDK 环境回归。

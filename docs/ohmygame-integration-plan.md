@@ -842,7 +842,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 ### F.4 局限与后续
 
 - 剩余 4 种题型（`tap_target` / `trace_path` / `color_fill` / `pattern_next`）待按同一模式迭代；`trace_path` / `color_fill` 需要先补几何/画布参数设计。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
+- Flutter 已在 `D:/flutter`（3.47.9 / Dart 3.13.7）跑通 `flutter analyze` / `flutter test` / `flutter build web`（见 K.6）。
 - 家长端 / 成长报告对 `interactionData.moves / mismatches` 的展示适配未做（数据已回写）。
 
 ---
@@ -885,7 +885,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 ### G.4 局限与后续
 
 - 剩余 3 种题型：`tap_target`（依赖语音/TTS 时序）、`trace_path` / `color_fill`（需要先补几何/画布参数设计）——专项参数设计已完成并写入**附录 H（v1.5）**，评审通过后按 E.3 清单模式实施。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
+- Flutter 已在 `D:/flutter`（3.47.9 / Dart 3.13.7）跑通 `flutter analyze` / `flutter test` / `flutter build web`（见 K.6）。
 - 家长端 / 成长报告对 `interactionData.attempts / firstTryCorrect` 的展示适配未做（数据已回写）。
 - 规律的"可解性"只能由 LLM 保证（确定性模拟只能验证结构可答）；数字递增类规律（如 2/4/6→8）的 answer 不在序列中出现，因此不能强制 `answer ∈ sequence`，这是确定性校验的固有边界。
 
@@ -1086,7 +1086,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 剩余 2 种题型：`color_fill`（形状库 + 色表枚举，附录 H.3）→ `tap_target`（TTS 时序，附录 H.1），按附录 H 设计实施。
 - 覆盖率采样为像素 alpha 网格（步长 6px），字形内部空白计入采样点——描画需覆盖笔画间的空白区域，与既有课程描红画布行为一致；若儿童端反馈过严，可下调 `minCoverage` 至 0.5。
 - 3-4 岁真机手指描画的 ERGONOMICS（笔刷半径 16px 是否合适）待真机验证。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.perTarget` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
+- Flutter 已跑通 `flutter analyze` / `flutter test` / `flutter build web`（见 K.6）；家长端 `interactionData.perTarget` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 
 ---
 
@@ -1129,7 +1129,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 - 最后一种题型 `tap_target`（TTS 时序，附录 H.1）待实施——完成后 P1 方案 B 全部 6 种新题型落地。
 - 形状库/色表首批各 10 种是代码内常量，教研如需增删需双端 + 后端三处同步（枚举 + 色值表）。
-- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.regionResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
+- Flutter 已跑通 `flutter analyze` / `flutter test` / `flutter build web`（见 K.6）；家长端 `interactionData.regionResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 - 同 shape 重复区域（如 3 个圆）在网格中的顺序即数组顺序，AI 无需感知布局；若教研要求"语义相关图形相邻"，属内容生成侧 prompt 约束，不影响契约。
 
 ---
@@ -1173,7 +1173,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 双端 TTS 能力不对称是常态而非缺陷：Web 侧实际项目用后端 Edge TTS MP3（`api.getTTSUrl`），`useGameVoice` 已封装；Flutter 侧 audioplayers + `onPlayerComplete`。二者语义一致（播完解锁）。
 - 家长端 `interactionData.roundResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
 - LLM 一次通过率未度量：answerability 强制（prompt 必须含目标 label）是最后一段生成风险，sanitize 抛错 + 3 次反射重试兜底。
-- **P1 方案 B 至此全部收官**：6 种新题型（drag_sort / memory_flip / pattern_next / trace_path / color_fill / tap_target）双端全链路落地。后续横向事项（附录 H.5 之外的收尾建议）：家长端过程数据展示适配、教研端离线批量生成接入 ohmygame 内容工厂（方案 A）、Flutter 带 SDK 环境回归。
+- **P1 方案 B 至此全部收官**：6 种新题型（drag_sort / memory_flip / pattern_next / trace_path / color_fill / tap_target）双端全链路落地。后续横向事项（附录 H.5 之外）：家长端过程数据展示适配（已完成，K.5）、Flutter 带 SDK 环境回归（已完成，K.6）、教研端离线批量生成接入 ohmygame 内容工厂（方案 A，未启动）。
 
 ### K.5 横向收尾 #1 — 家长端过程数据展示（v1.8 补充）
 
@@ -1189,3 +1189,25 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 | 测试 | `activity-process-details.test.tsx` 5 项（6 题型摘要单测 + 渲染/白名单过滤/空态/网络降级） |
 
 Flutter 家长端（`report_detail_screen.dart`）暂不适配：`api_service` 无 learning history 调用，需另补 API 层，列入后续。
+
+### K.6 横向收尾 #2 — Flutter 带 SDK 环境回归（v1.8 补充）
+
+本机 `D:/flutter`（Flutter 3.47.9 / Dart 3.13.7）实测：
+
+| 命令 | 结果 |
+| --- | --- |
+| `flutter analyze --no-fatal-infos --no-fatal-warnings` | **EXIT=0，零 error / 零 warning**；首次分析 16 项全部 info 级，修掉本轮新增文件的 2 项 `prefer_is_empty`（`trace_path_game.dart` 与 `game_renderer.dart` 的 `runes.length >= 1` → `runes.isNotEmpty`）后剩 14 项 info（均为既有的 deprecated web 库 / js_interop / `onReorder` 提示，与六种题型无关） |
+| `flutter test` | **12/12 全绿**（`widget_test.dart` 2 项 + `speech_input_widget_test.dart` 10 项） |
+| `flutter build web` | **EXIT=0**（main.dart 全量编译通过，覆盖双端条件编译路径；构建产物在 .gitignore 内） |
+
+**环境坑（重要）**：本机 `HTTP_PROXY=http://127.0.0.1:56471` 会劫持 `flutter_tester` 的本地 WebSocket，导致所有 `flutter test` 报 `WebSocketException: Invalid WebSocket upgrade request`（连加载测试文件都失败），与代码无关。解法：运行前清空代理并设 `NO_PROXY=localhost,127.0.0.1`：
+
+```bash
+NO_PROXY=localhost,127.0.0.1 no_proxy=localhost,127.0.0.1 \
+HTTP_PROXY= HTTPS_PROXY= http_proxy= https_proxy= \
+D:/flutter/bin/flutter test --no-pub
+```
+
+**顺带修复的既有测试缺陷**：`speech_input_widget_test.dart` 最后一项「permission denied icon uses textSecondary color」在全量运行时失败（单独跑通过）。根因是前序「错误状态」用例注册的 `plugin.csdcorp.com/speech_to_text` 平台通道 mock 跨用例泄漏，使后续用例 `_checkSupport()` 判为不支持、提前走 error 分支，权限拒绝 UI 不再渲染。已在 `main()` 加 `tearDown` 清除两个通道的 mock handler，恢复测试隔离；**未改动生产代码**。
+
+至此附录 G/I/J/K 中「Flutter 仍需带 SDK 回归」的待办全部关闭。剩余横向事项：Flutter 家长端过程数据展示（需补 api_service 层）、LLM 一次通过率度量、方案 A 评审。

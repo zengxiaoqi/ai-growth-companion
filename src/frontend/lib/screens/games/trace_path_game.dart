@@ -46,7 +46,7 @@ final RegExp _glyphTextRe = RegExp(r'^[\u4e00-\u9fa5a-zA-Z0-9]+$');
 
 bool _isValidGlyphText(String value) {
   final runes = value.runes.toList();
-  return runes.length >= 1 && runes.length <= 2 && _glyphTextRe.hasMatch(value);
+  return runes.isNotEmpty && runes.length <= 2 && _glyphTextRe.hasMatch(value);
 }
 
 String _clip(String value, int maxRunes) {

@@ -779,7 +779,7 @@ class _GameRendererState extends State<GameRenderer> {
     final glyphRe = RegExp(r'^[\u4e00-\u9fa5a-zA-Z0-9]+$');
     bool isValidGlyph(String value) {
       final runes = value.runes.toList();
-      return runes.length >= 1 && runes.length <= 2 && glyphRe.hasMatch(value);
+      return runes.isNotEmpty && runes.length <= 2 && glyphRe.hasMatch(value);
     }
 
     double doubleOr(dynamic value, double fallback) {

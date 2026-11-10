@@ -20,6 +20,22 @@ Future<void> pumpSettle(WidgetTester tester) async {
 }
 
 void main() {
+  // 每个用例结束后清除平台通道 mock，避免「错误状态」用例注册的
+  // speech_to_text mock 泄漏到后续权限用例（会导致 _checkSupport 判为
+  // 不支持、提前走 error 分支，权限拒绝 UI 不再出现）。
+  tearDown(() {
+    final messenger =
+        TestWidgetsFlutterBinding.ensureInitialized().defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('flutter.baseflow.com/permissions/methods'),
+      null,
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('plugin.csdcorp.com/speech_to_text'),
+      null,
+    );
+  });
+
   group('SpeechInputWidget', () {
     // ── 基础渲染 ──────────────────────────────────────────────────────
 

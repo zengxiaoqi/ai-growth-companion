@@ -16,6 +16,7 @@ import {
   contentAgeGroup,
 } from '../../../agent-framework/core/types/age-group';
 import { stripThinking, extractThinking } from '../../../agent-framework/core';
+import { ACTIVITY_TYPES } from '../../../agent-framework/core/types/tool-metadata';
 import type { LlmMessage } from '../../../agent-framework/core';
 import type { ToolCallInfo, AgeGroup } from '../ai.types';
 
@@ -55,16 +56,8 @@ const NEEDS_AGE_GROUP_TOOLS = new Set([
   'assignActivity',
   'generateCoursePack',
 ]);
-const SUPPORTED_ACTIVITY_TYPES = [
-  'quiz',
-  'true_false',
-  'fill_blank',
-  'matching',
-  'connection',
-  'sequencing',
-  'puzzle',
-] as const;
-type SupportedActivityType = (typeof SUPPORTED_ACTIVITY_TYPES)[number];
+const SUPPORTED_ACTIVITY_TYPES = ACTIVITY_TYPES;
+type SupportedActivityType = (typeof ACTIVITY_TYPES)[number];
 const SUPPORTED_ACTIVITY_TYPE_SET = new Set<string>(SUPPORTED_ACTIVITY_TYPES);
 
 function isSupportedActivityType(value: unknown): value is SupportedActivityType {
@@ -581,6 +574,9 @@ export class AgentExecutor {
       if (Object.prototype.hasOwnProperty.call(value, key)) return key;
     }
 
+    // drag_sort carries `items` too; check it before the generic
+    // items -> sequencing fallback or the payload is silently mis-typed.
+    if (Array.isArray(value.buckets) && Array.isArray(value.items)) return 'drag_sort';
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';

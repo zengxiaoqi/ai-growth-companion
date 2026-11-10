@@ -48,7 +48,12 @@ export interface ToolMetadata {
   requiresAgeGroup: boolean;
 }
 
-/** Activity types supported by the activity generator */
+/**
+ * Activity types supported by the activity generator.
+ * SINGLE SOURCE OF TRUTH: tool schemas, tool validators and the agent executor
+ * derive their enums from this list. Add a new parameterized type here first,
+ * then add its renderer in both clients (see docs/ohmygame-integration-plan.md §5.3).
+ */
 export const ACTIVITY_TYPES = [
   'quiz',
   'true_false',
@@ -57,6 +62,7 @@ export const ACTIVITY_TYPES = [
   'connection',
   'sequencing',
   'puzzle',
+  'drag_sort',
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

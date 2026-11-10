@@ -25,7 +25,7 @@ export class Assignment {
   contentId: number;
 
   @Column({ length: 50 })
-  activityType: string; // 'quiz', 'true_false', 'fill_blank', 'matching', 'connection', 'sequencing', 'puzzle'
+  activityType: string; // see ACTIVITY_TYPES in agent-framework/core/types/tool-metadata.ts
 
   @Column({ type: 'simple-json', nullable: true })
   activityData: any;

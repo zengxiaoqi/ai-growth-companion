@@ -1,4 +1,5 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions/completions';
+import { ACTIVITY_TYPES } from '../../../../agent-framework/core/types/tool-metadata';
 
 export const toolDefinitions: ChatCompletionTool[] = [
   {
@@ -118,15 +119,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
         properties: {
           type: {
             type: 'string',
-            enum: [
-              'quiz',
-              'true_false',
-              'fill_blank',
-              'matching',
-              'connection',
-              'sequencing',
-              'puzzle',
-            ],
+            enum: [...ACTIVITY_TYPES],
             description: 'Activity type',
           },
           topic: { type: 'string', description: 'Learning topic' },
@@ -190,15 +183,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
           childId: { type: 'number', description: 'Child user ID' },
           activityType: {
             type: 'string',
-            enum: [
-              'quiz',
-              'true_false',
-              'fill_blank',
-              'matching',
-              'connection',
-              'sequencing',
-              'puzzle',
-            ],
+            enum: [...ACTIVITY_TYPES],
             description: 'Activity type',
           },
           topic: { type: 'string', description: 'Learning topic' },

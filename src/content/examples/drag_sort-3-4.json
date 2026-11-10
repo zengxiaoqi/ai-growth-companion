@@ -1,0 +1,26 @@
+{
+  "id": "example_drag_sort_3_4",
+  "ageGroup": "3-4",
+  "domain": "science",
+  "topic": "小动物住哪里",
+  "activityType": "drag_sort",
+  "type": "drag_sort",
+  "title": "送小动物回家",
+  "prompt": "点一点小动物，把它送回该住的篮子",
+  "passingScore": 80,
+  "timeLimitSec": 120,
+  "buckets": [
+    { "id": "sky", "label": "天上飞", "icon": "☁️" },
+    { "id": "water", "label": "水里游", "icon": "🌊" },
+    { "id": "ground", "label": "地上跑", "icon": "🌳" }
+  ],
+  "items": [
+    { "id": "i1", "label": "小鸟", "icon": "🐦", "bucketId": "sky" },
+    { "id": "i2", "label": "蝴蝶", "icon": "🦋", "bucketId": "sky" },
+    { "id": "i3", "label": "小鱼", "icon": "🐟", "bucketId": "water" },
+    { "id": "i4", "label": "乌龟", "icon": "🐢", "bucketId": "water" },
+    { "id": "i5", "label": "兔子", "icon": "🐰", "bucketId": "ground" },
+    { "id": "i6", "label": "小猫", "icon": "🐱", "bucketId": "ground" }
+  ],
+  "note": "参数化题型示例（方案 B）。AI 只产出本 JSON 的参数，渲染逻辑由 Web/Flutter 的 DragSortGame 固定组件提供。此目录不参与 import-content-json.py 导入，仅作教研示例与自动化契约校验输入。"
+}

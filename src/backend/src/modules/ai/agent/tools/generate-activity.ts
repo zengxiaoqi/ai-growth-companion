@@ -1,14 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
+import { ACTIVITY_TYPES } from '../../../../agent-framework/core/types/tool-metadata';
+import {
+  sanitizeDragSortParams,
+  validateDragSortParams,
+  collectDragSortBodyText,
+} from '../../../../common/activity/drag-sort';
 
-export type ActivityType =
-  | 'quiz'
-  | 'true_false'
-  | 'fill_blank'
-  | 'matching'
-  | 'connection'
-  | 'sequencing'
-  | 'puzzle';
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -33,15 +32,7 @@ type JsonExtractionResult = {
 };
 
 const MAX_GENERATION_ATTEMPTS = 3;
-const SUPPORTED_TYPES: ActivityType[] = [
-  'quiz',
-  'true_false',
-  'fill_blank',
-  'matching',
-  'connection',
-  'sequencing',
-  'puzzle',
-];
+const SUPPORTED_TYPES: ActivityType[] = [...ACTIVITY_TYPES];
 const ANIMAL_TOPIC_RE =
   /(\u52a8\u7269|\u519c\u573a|\u68ee\u6797|\u6d77\u6d0b|\u5ba0\u7269|\u5bb6\u79bd|\u5bb6\u755c|\u5c0f\u9e21|\u5c0f\u9e2d|\u5c0f\u732b|\u5c0f\u72d7|animal|farm|zoo|pet|wild|livestock)/i;
 const NUMBER_TOPIC_RE =
@@ -402,6 +393,8 @@ export class GenerateActivityTool {
         return '{"type":"sequencing","title":"...","topic":"...","ageGroup":"...","items":[{"id":"s1","label":"...","order":1}]}';
       case 'puzzle':
         return '{"type":"puzzle","title":"...","topic":"...","ageGroup":"...","pieces":[{"id":"pz1","position":0,"label":"...","emoji":"..."}],"gridSize":{"rows":2,"cols":2}}';
+      case 'drag_sort':
+        return '{"type":"drag_sort","title":"...","topic":"...","ageGroup":"...","prompt":"...","buckets":[{"id":"sky","label":"天上","icon":"☁"}],"items":[{"id":"i1","label":"小鸟","icon":"🐦","bucketId":"sky"}],"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -411,6 +404,8 @@ export class GenerateActivityTool {
     const common = [
       'Use short and answerable sentences.',
       'At least 3 valid items (prefer 4+ for matching/connection).',
+      'Output DATA ONLY. Never output HTML tags, <script>, JavaScript, markdown, URLs, base64 data URIs or event handlers.',
+      'Text values must be plain Chinese words or a single emoji; nothing may contain "http", "//", "<" or ">".',
     ];
 
     switch (type) {
@@ -447,6 +442,16 @@ export class GenerateActivityTool {
         ];
       case 'puzzle':
         return [...common, 'Generate 2x2 or 3x3 puzzle data.', 'pieces should match grid size.'];
+      case 'drag_sort':
+        return [
+          ...common,
+          'Generate 2-4 buckets (categories) and 3-12 items (concrete members of those categories).',
+          'Every item.bucketId MUST equal an existing bucket.id.',
+          'Every bucket MUST receive at least one item.',
+          'Both buckets and items must be about the given topic; use concrete knowledge, not generic placeholders.',
+          'icon is optional and must be one emoji or a short plain label.',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -496,6 +501,8 @@ export class GenerateActivityTool {
         return this.sanitizeSequencing(args, raw);
       case 'puzzle':
         return this.sanitizePuzzle(args, raw);
+      case 'drag_sort':
+        return this.sanitizeDragSort(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -705,6 +712,17 @@ export class GenerateActivityTool {
     };
   }
 
+  private sanitizeDragSort(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeDragSortParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateDragSortParams(activity);
+    if (!verdict.ok) throw new Error(`drag_sort playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -909,6 +927,8 @@ export class GenerateActivityTool {
         pushText(p?.emoji);
       }
     }
+    const dragSortText = collectDragSortBodyText(activity);
+    if (dragSortText) parts.push(dragSortText);
 
     return parts.join(' | ');
   }

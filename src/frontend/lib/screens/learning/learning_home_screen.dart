@@ -309,6 +309,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'sequencing': '排序游戏',
       'connection': '连线游戏',
       'puzzle': '拼图游戏',
+      'drag_sort': '分类游戏',
     };
     return labels[type] ?? '互动游戏';
   }
@@ -322,6 +323,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'sequencing': Icons.sort_rounded,
       'connection': Icons.link_rounded,
       'puzzle': Icons.extension_rounded,
+      'drag_sort': Icons.category_outlined,
     };
     return icons[type] ?? Icons.play_circle_rounded;
   }

@@ -225,13 +225,37 @@ export type ActivityType =
   | 'matching'
   | 'connection'
   | 'sequencing'
-  | 'puzzle';
+  | 'puzzle'
+  | 'drag_sort';
 
 export interface ActivityData {
   type: ActivityType;
   title: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
+}
+
+/** Parameter-only contract for the drag_sort engine. The LLM never emits code. */
+export interface DragSortBucket {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface DragSortItem {
+  id: string;
+  label: string;
+  icon?: string;
+  bucketId: string;
+}
+
+export interface DragSortActivityData extends ActivityData {
+  type: 'drag_sort';
+  prompt?: string;
+  buckets: DragSortBucket[];
+  items: DragSortItem[];
+  passingScore?: number;
+  timeLimitSec?: number;
 }
 
 export interface ActivityResult {

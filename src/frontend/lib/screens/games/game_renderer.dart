@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'connection_game.dart';
+import 'drag_sort_game.dart';
 import 'fill_blank_game.dart';
 import 'matching_game.dart';
 import 'puzzle_game.dart';
@@ -91,7 +92,7 @@ class _GameRendererState extends State<GameRenderer> {
   String _normalizeGameType(String? activityType, Map<String, dynamic> rawData) {
     const types = {
       'quiz', 'true_false', 'matching',
-      'fill_blank', 'sequencing', 'connection', 'puzzle',
+      'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
     };
 
     final candidate = activityType?.trim();
@@ -107,11 +108,18 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'sequence' || gameType == 'sequencing') return 'sequencing';
     if (gameType == 'connect' || gameType == 'connection') return 'connection';
     if (gameType == 'puzzle') return 'puzzle';
+    if (gameType == 'drag_sort' || gameType == 'sort' || gameType == 'classify') {
+      return 'drag_sort';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
 
     // 根据数据结构推断类型。
+    // drag_sort 同样带 items，必须先于 items -> sequencing 判断，否则被误判。
+    if (rawData['buckets'] is List && rawData['items'] is List) {
+      return 'drag_sort';
+    }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
       return 'matching';
@@ -142,6 +150,10 @@ class _GameRendererState extends State<GameRenderer> {
       'type': type,
       'title': title,
     };
+
+    if (type == 'drag_sort') {
+      return _normalizeDragSortData(base, rawData);
+    }
 
     if (type == 'matching') {
       if (rawData['pairs'] is List) {
@@ -394,6 +406,103 @@ class _GameRendererState extends State<GameRenderer> {
     return base;
   }
 
+  /// 参数化题型 drag_sort 的防御式归一化，与 Web normalizer / 后端
+  /// sanitizeDragSortParams 保持同一套边界与计分语义。
+  Map<String, dynamic> _normalizeDragSortData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxBuckets = 4;
+    const int maxItems = 12;
+    const int maxLabel = 16;
+    const int maxIcon = 8;
+
+    String text(dynamic value) {
+      if (value == null) return '';
+      return value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String value, int max) => value.runes.length <= max
+        ? value
+        : String.fromCharCodes(value.runes.take(max));
+
+    String safeId(dynamic value) =>
+        clip(text(value).replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), ''), 32);
+
+    int intOr(dynamic value, int fallback) {
+      if (value == null) return fallback;
+      final n = num.tryParse(value.toString());
+      return (n == null || !n.isFinite) ? fallback : n.truncate();
+    }
+
+    final usedBucketIds = <String>{};
+    final buckets = <Map<String, dynamic>>[];
+    final rawBuckets = rawData['buckets'];
+    if (rawBuckets is List) {
+      for (var i = 0; i < rawBuckets.length && buckets.length < maxBuckets; i++) {
+        final entry = rawBuckets[i];
+        if (entry is! Map) continue;
+        final map = entry.map((k, v) => MapEntry(k.toString(), v));
+        final label = clip(text(map['label']), maxLabel);
+        if (label.isEmpty) continue;
+
+        var id = safeId(map['id']);
+        if (id.isEmpty) id = 'b${i + 1}';
+        var suffix = 2;
+        while (usedBucketIds.contains(id)) {
+          id = 'b${i + 1}_${suffix++}';
+        }
+        usedBucketIds.add(id);
+
+        final icon = clip(text(map['icon']), maxIcon);
+        buckets.add({
+          'id': id,
+          'label': label,
+          if (icon.isNotEmpty) 'icon': icon,
+        });
+      }
+    }
+
+    final usedItemIds = <String>{};
+    final items = <Map<String, dynamic>>[];
+    final rawItems = rawData['items'];
+    if (rawItems is List) {
+      for (var i = 0; i < rawItems.length && items.length < maxItems; i++) {
+        final entry = rawItems[i];
+        if (entry is! Map) continue;
+        final map = entry.map((k, v) => MapEntry(k.toString(), v));
+        final label = clip(text(map['label']), maxLabel);
+        final bucketId = safeId(map['bucketId']);
+        if (label.isEmpty || !usedBucketIds.contains(bucketId)) continue;
+
+        var id = safeId(map['id']);
+        if (id.isEmpty) id = 'i${i + 1}';
+        var suffix = 2;
+        while (usedItemIds.contains(id)) {
+          id = 'i${i + 1}_${suffix++}';
+        }
+        usedItemIds.add(id);
+
+        final icon = clip(text(map['icon']), maxIcon);
+        items.add({
+          'id': id,
+          'label': label,
+          'bucketId': bucketId,
+          if (icon.isNotEmpty) 'icon': icon,
+        });
+      }
+    }
+
+    return {
+      ...base,
+      'buckets': buckets,
+      'items': items,
+      'prompt': clip(text(rawData['prompt']), 60),
+      'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+    };
+  }
+
   int _toInt(dynamic value) {
     final n = int.tryParse(value?.toString() ?? '');
     return n ?? 0;
@@ -472,6 +581,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'puzzle':
         return PuzzleGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'drag_sort':
+        return DragSortGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

@@ -9,6 +9,7 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolExecutionContext, ToolMetadata, ToolResult } from '../../core';
 import { GenerateActivityTool } from './generate-activity';
+import { ACTIVITY_TYPES } from '../../core/types/tool-metadata';
 
 type AssignActivityInput = {
   childId?: number;
@@ -49,6 +50,7 @@ const ACTIVITY_TYPE_NAMES: Record<string, string> = {
   connection: '连线游戏',
   sequencing: '排序游戏',
   puzzle: '拼图游戏',
+  drag_sort: '分类游戏',
 };
 
 @Injectable()
@@ -70,15 +72,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
         childId: { type: 'number', description: '孩子ID' },
         activityType: {
           type: 'string',
-          enum: [
-            'quiz',
-            'true_false',
-            'fill_blank',
-            'matching',
-            'connection',
-            'sequencing',
-            'puzzle',
-          ],
+          enum: [...ACTIVITY_TYPES],
           description: '活动类型',
         },
         topic: { type: 'string', description: '主题' },

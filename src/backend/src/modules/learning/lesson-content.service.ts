@@ -16,6 +16,7 @@ import { StudyPlanRecord } from '../../database/entities/study-plan-record.entit
 import { ContentsService } from '../contents/contents.service';
 import { GenerateCoursePackTool } from '../ai/agent/tools/generate-course-pack';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
+import type { ActivityType } from '../../agent-framework/core/types/tool-metadata';
 import { AiService } from '../ai/ai.service';
 import { AssignmentService } from '../assignment/assignment.service';
 import { LearningTrackerService } from './learning-tracker.service';
@@ -1019,13 +1020,8 @@ export class LessonContentService implements OnModuleInit {
     };
   }
 
-  private resolveGameType(
-    focus: string,
-  ): 'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle' {
-    const map: Record<
-      string,
-      'quiz' | 'true_false' | 'fill_blank' | 'matching' | 'connection' | 'sequencing' | 'puzzle'
-    > = {
+  private resolveGameType(focus: string): ActivityType {
+    const map: Record<string, ActivityType> = {
       literacy: 'fill_blank',
       math: 'quiz',
       science: 'connection',
@@ -1252,14 +1248,7 @@ export class LessonContentService implements OnModuleInit {
   private resolvePracticeScene(
     coursePack: Record<string, any>,
     practiceData: Record<string, any> | null,
-    activityType:
-      | 'quiz'
-      | 'true_false'
-      | 'fill_blank'
-      | 'matching'
-      | 'connection'
-      | 'sequencing'
-      | 'puzzle',
+    activityType: ActivityType,
     topic: string,
   ): LessonSceneDocument {
     return (

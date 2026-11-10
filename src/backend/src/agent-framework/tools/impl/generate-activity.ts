@@ -10,15 +10,12 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { extractJsonObject } from '../../core';
-
-type ActivityType =
-  | 'quiz'
-  | 'true_false'
-  | 'fill_blank'
-  | 'matching'
-  | 'connection'
-  | 'sequencing'
-  | 'puzzle';
+import { ACTIVITY_TYPES, type ActivityType } from '../../core/types/tool-metadata';
+import {
+  sanitizeDragSortParams,
+  validateDragSortParams,
+  collectDragSortBodyText,
+} from '../../../common/activity/drag-sort';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -35,15 +32,7 @@ type ValidationResult = {
 };
 
 const MAX_GENERATION_ATTEMPTS = 3;
-const SUPPORTED_TYPES: ActivityType[] = [
-  'quiz',
-  'true_false',
-  'fill_blank',
-  'matching',
-  'connection',
-  'sequencing',
-  'puzzle',
-];
+const SUPPORTED_TYPES: ActivityType[] = [...ACTIVITY_TYPES];
 
 const ANIMAL_TOPIC_RE =
   /(动物|农场|森林|海洋|宠物|家禽|家畜|小鸡|小鸭|小猫|小狗|animal|farm|zoo|pet|wild|livestock)/i;
@@ -203,7 +192,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持7种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)',
+      '生成互动学习活动，支持8种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -410,6 +399,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return '{"type":"sequencing","title":"...","topic":"...","ageGroup":"...","items":[{"id":"s1","label":"...","order":1}]}';
       case 'puzzle':
         return '{"type":"puzzle","title":"...","topic":"...","ageGroup":"...","pieces":[{"id":"pz1","position":0,"label":"...","emoji":"..."}],"gridSize":{"rows":2,"cols":2}}';
+      case 'drag_sort':
+        return '{"type":"drag_sort","title":"...","topic":"...","ageGroup":"...","prompt":"...","buckets":[{"id":"sky","label":"天上","icon":"☁"}],"items":[{"id":"i1","label":"小鸟","icon":"🐦","bucketId":"sky"}],"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -419,6 +410,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     const common = [
       'Use short and answerable sentences.',
       'At least 3 valid items (prefer 4+ for matching/connection).',
+      'Output DATA ONLY. Never output HTML tags, <script>, JavaScript, markdown, URLs, base64 data URIs or event handlers.',
+      'Text values must be plain Chinese words or a single emoji; nothing may contain "http", "//", "<" or ">".',
     ];
     switch (type) {
       case 'quiz':
@@ -454,6 +447,16 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         ];
       case 'puzzle':
         return [...common, 'Generate 2x2 or 3x3 puzzle data.', 'pieces should match grid size.'];
+      case 'drag_sort':
+        return [
+          ...common,
+          'Generate 2-4 buckets (categories) and 3-12 items (concrete members of those categories).',
+          'Every item.bucketId MUST equal an existing bucket.id.',
+          'Every bucket MUST receive at least one item.',
+          'Both buckets and items must be about the given topic; use concrete knowledge, not generic placeholders.',
+          'icon is optional and must be one emoji or a short plain label.',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -500,6 +503,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return this.sanitizeSequencing(args, raw);
       case 'puzzle':
         return this.sanitizePuzzle(args, raw);
+      case 'drag_sort':
+        return this.sanitizeDragSort(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -677,6 +682,17 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     };
   }
 
+  private sanitizeDragSort(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeDragSortParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateDragSortParams(activity);
+    if (!verdict.ok) throw new Error(`drag_sort playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -815,6 +831,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         pushText(p?.label);
         pushText(p?.emoji);
       }
+    const dragSortText = collectDragSortBodyText(activity);
+    if (dragSortText) parts.push(dragSortText);
 
     return parts.join(' | ');
   }

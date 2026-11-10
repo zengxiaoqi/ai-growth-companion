@@ -1,0 +1,29 @@
+{
+  "id": "example_drag_sort_5_6",
+  "ageGroup": "5-6",
+  "domain": "science",
+  "topic": "四季的特征",
+  "activityType": "drag_sort",
+  "type": "drag_sort",
+  "title": "四季小管家",
+  "prompt": "把每张卡片放进它对应的季节篮子",
+  "passingScore": 80,
+  "timeLimitSec": 150,
+  "buckets": [
+    { "id": "spring", "label": "春天", "icon": "🌸" },
+    { "id": "summer", "label": "夏天", "icon": "☀️" },
+    { "id": "autumn", "label": "秋天", "icon": "🍂" },
+    { "id": "winter", "label": "冬天", "icon": "❄️" }
+  ],
+  "items": [
+    { "id": "i1", "label": "桃花开", "icon": "🌷", "bucketId": "spring" },
+    { "id": "i2", "label": "燕子回来", "icon": "🐦", "bucketId": "spring" },
+    { "id": "i3", "label": "荷花", "icon": "🪷", "bucketId": "summer" },
+    { "id": "i4", "label": "吃西瓜", "icon": "🍉", "bucketId": "summer" },
+    { "id": "i5", "label": "枫叶红", "icon": "🍁", "bucketId": "autumn" },
+    { "id": "i6", "label": "收稻子", "icon": "🌾", "bucketId": "autumn" },
+    { "id": "i7", "label": "下雪", "icon": "⛄", "bucketId": "winter" },
+    { "id": "i8", "label": "堆雪人", "icon": "☃️", "bucketId": "winter" }
+  ],
+  "note": "参数化题型示例（方案 B）。AI 只产出本 JSON 的参数，渲染逻辑由 Web/Flutter 的 DragSortGame 固定组件提供。此目录不参与 import-content-json.py 导入，仅作教研示例与自动化契约校验输入。"
+}

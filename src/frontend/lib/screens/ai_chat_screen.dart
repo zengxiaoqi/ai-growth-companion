@@ -430,6 +430,7 @@ class _InlineGameCardState extends State<_InlineGameCard> {
       'sequencing': '排序游戏',
       'connection': '连线游戏',
       'puzzle': '拼图游戏',
+      'drag_sort': '分类游戏',
     };
     return labels[type] ?? '互动游戏';
   }

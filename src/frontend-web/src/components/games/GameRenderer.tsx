@@ -6,6 +6,7 @@ import MatchingGame from './MatchingGame';
 import ConnectionGame from './ConnectionGame';
 import SequencingGame from './SequencingGame';
 import PuzzleGame from './PuzzleGame';
+import DragSortGame from './DragSortGame';
 
 interface GameRendererProps {
   type: ActivityType;
@@ -30,6 +31,8 @@ export default function GameRenderer({ type, data, onComplete }: GameRendererPro
       return <SequencingGame data={data} onComplete={onComplete} />;
     case 'puzzle':
       return <PuzzleGame data={data} onComplete={onComplete} />;
+    case 'drag_sort':
+      return <DragSortGame data={data} onComplete={onComplete} />;
     default:
       return <div className="p-4 text-on-surface-variant">暂不支持的活动类型</div>;
   }

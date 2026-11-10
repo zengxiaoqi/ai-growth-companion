@@ -1,4 +1,4 @@
-import type { ActivityData, ActivityType } from '@/types';
+import type { ActivityData, ActivityType, DragSortActivityData } from '@/types';
 
 const ACTIVITY_TYPES: ActivityType[] = [
   'quiz',
@@ -8,6 +8,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'connection',
   'sequencing',
   'puzzle',
+  'drag_sort',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -15,14 +16,93 @@ function toSafeInt(value: any, fallback: number): number {
   return Number.isFinite(n) ? Math.trunc(n) : fallback;
 }
 
+function toText(value: any): string {
+  return value == null ? '' : String(value).replace(/\s+/g, ' ').trim();
+}
+
+/** Same cleaning rule for bucket.id and item.bucketId so references survive. */
+function toSafeId(value: any): string {
+  return toText(value).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+}
+
 function isActivityType(value: unknown): value is ActivityType {
   return typeof value === 'string' && ACTIVITY_TYPES.includes(value as ActivityType);
+}
+
+export const DRAG_SORT_LIMITS = {
+  maxBuckets: 4,
+  maxItems: 12,
+  maxIconLength: 8,
+  maxLabelLength: 16,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 120,
+} as const;
+
+/**
+ * Defensive normalization for drag_sort parameters. The renderer must never
+ * trust LLM output: ids are de-duplicated and items pointing at unknown
+ * buckets are dropped instead of being rendered as unplayable cards.
+ */
+export function normalizeDragSortData(raw: any): Pick<
+  DragSortActivityData,
+  'buckets' | 'items' | 'passingScore' | 'timeLimitSec' | 'prompt'
+> {
+  const usedBucketIds = new Set<string>();
+  const rawBuckets = Array.isArray(raw?.buckets) ? raw.buckets : [];
+  const buckets: DragSortActivityData['buckets'] = [];
+
+  for (let i = 0; i < rawBuckets.length && buckets.length < DRAG_SORT_LIMITS.maxBuckets; i++) {
+    const entry = rawBuckets[i];
+    const label = toText(entry?.label).slice(0, DRAG_SORT_LIMITS.maxLabelLength);
+    if (!label) continue;
+    let id = toSafeId(entry?.id) || `b${i + 1}`;
+    let suffix = 2;
+    while (usedBucketIds.has(id)) id = `b${i + 1}_${suffix++}`;
+    usedBucketIds.add(id);
+    const icon = toText(entry?.icon).slice(0, DRAG_SORT_LIMITS.maxIconLength);
+    buckets.push(icon ? { id, label, icon } : { id, label });
+  }
+
+  const usedItemIds = new Set<string>();
+  const rawItems = Array.isArray(raw?.items) ? raw.items : [];
+  const items: DragSortActivityData['items'] = [];
+
+  for (let i = 0; i < rawItems.length && items.length < DRAG_SORT_LIMITS.maxItems; i++) {
+    const entry = rawItems[i];
+    const label = toText(entry?.label).slice(0, DRAG_SORT_LIMITS.maxLabelLength);
+    const bucketId = toSafeId(entry?.bucketId);
+    if (!label || !usedBucketIds.has(bucketId)) continue;
+    let id = toSafeId(entry?.id) || `i${i + 1}`;
+    let suffix = 2;
+    while (usedItemIds.has(id)) id = `i${i + 1}_${suffix++}`;
+    usedItemIds.add(id);
+    const icon = toText(entry?.icon).slice(0, DRAG_SORT_LIMITS.maxIconLength);
+    items.push(icon ? { id, label, icon, bucketId } : { id, label, bucketId });
+  }
+
+  const prompt = toText(raw?.prompt).slice(0, 60);
+  return {
+    buckets,
+    items,
+    ...(prompt ? { prompt } : {}),
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, DRAG_SORT_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      30,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, DRAG_SORT_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
 }
 
 export function normalizeActivityType(activityType: unknown, rawData?: any): ActivityType {
   if (isActivityType(activityType)) return activityType;
   if (isActivityType(rawData?.type)) return rawData.type;
   if (isActivityType(rawData?.activityType)) return rawData.activityType;
+
+  // drag_sort also has `items`; check it before the items -> sequencing fallback.
+  if (Array.isArray(rawData?.buckets) && Array.isArray(rawData?.items)) return 'drag_sort';
 
   if (Array.isArray(rawData?.questions)) return 'quiz';
   if (Array.isArray(rawData?.statements)) return 'true_false';
@@ -48,8 +128,12 @@ export function normalizeActivityData(
   const base: ActivityData = {
     ...(rawData && typeof rawData === 'object' ? rawData : {}),
     type: resolvedType,
-    title: typeof rawData?.title === 'string' ? rawData.title : '������ϰ',
+    title: typeof rawData?.title === 'string' ? rawData.title : '趣味练习',
   };
+
+  if (resolvedType === 'drag_sort') {
+    return { ...base, ...normalizeDragSortData(rawData) } as DragSortActivityData;
+  }
 
   if (resolvedType === 'quiz') {
     const rawQuestions = Array.isArray(rawData?.questions) ? rawData.questions : [];

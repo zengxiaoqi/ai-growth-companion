@@ -43,6 +43,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     _ActivityTypeMeta(value: 'connection', label: '连线游戏'),
     _ActivityTypeMeta(value: 'sequencing', label: '排序游戏'),
     _ActivityTypeMeta(value: 'puzzle', label: '拼图游戏'),
+    _ActivityTypeMeta(value: 'drag_sort', label: '分类游戏'),
     _ActivityTypeMeta(value: 'video', label: '视频'),
     _ActivityTypeMeta(value: 'animation', label: '动画'),
     _ActivityTypeMeta(value: 'lesson', label: '课程'),

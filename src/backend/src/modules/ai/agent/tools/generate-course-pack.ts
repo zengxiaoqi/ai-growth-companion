@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LlmClientService } from '../../../../agent-framework/llm/llm-client.service';
 import { GenerateActivityTool, type ActivityType } from './generate-activity';
+import { ACTIVITY_TYPES as CORE_ACTIVITY_TYPES } from '../../../../agent-framework/core/types/tool-metadata';
 import {
   buildTemplatePromptContext,
   KNOWN_TEMPLATE_IDS,
@@ -53,15 +54,7 @@ type JsonParseResult = {
 };
 
 const MAX_ATTEMPTS = 3;
-const ACTIVITY_TYPES: ActivityType[] = [
-  'quiz',
-  'true_false',
-  'fill_blank',
-  'matching',
-  'connection',
-  'sequencing',
-  'puzzle',
-];
+const ACTIVITY_TYPES: ActivityType[] = [...CORE_ACTIVITY_TYPES];
 
 @Injectable()
 export class GenerateCoursePackTool {

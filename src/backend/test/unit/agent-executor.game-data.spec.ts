@@ -9,7 +9,8 @@ import type { LlmMessage, LlmResponse } from '../../src/agent-framework/core';
  * 2. generateActivity tool calls emit game_data events
  * 3. Invalid game_data payloads (error payloads, unparseable JSON) are skipped
  * 4. Non-game tools do NOT emit game_data events
- * 5. All 7 supported activity types are correctly inferred
+ * 5. All supported activity types are correctly inferred
+ * 6. drag_sort (buckets + items) wins over the items -> sequencing fallback
  */
 describe('AgentExecutor game_data emission', () => {
   let executor: AgentExecutor;
@@ -228,6 +229,21 @@ describe('AgentExecutor game_data emission', () => {
         expect(gameDataEvents).toHaveLength(1);
         expect(gameDataEvents[0].activityType).toBe(expected);
       });
+    });
+
+    it('infers "drag_sort" from buckets + items, not "sequencing"', async () => {
+      const result = JSON.stringify({
+        type: 'drag_sort',
+        buckets: [{ id: 'sky', label: '天上飞' }],
+        items: [{ id: 'i1', label: '小鸟', bucketId: 'sky' }],
+      });
+      const events = await collectStreamEvents(
+        [toolCallResponse('generateActivity', {}), finalResponse('done')],
+        { generateActivity: result },
+      );
+      const gameDataEvents = events.filter((e) => e.type === 'game_data');
+      expect(gameDataEvents).toHaveLength(1);
+      expect(gameDataEvents[0].activityType).toBe('drag_sort');
     });
 
     it('infers "connection" from connections array', async () => {

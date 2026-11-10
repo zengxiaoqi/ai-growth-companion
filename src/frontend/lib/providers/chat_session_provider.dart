@@ -83,7 +83,7 @@ class ChatMessageEntry {
   String? thinkingContent;   // 存储 thinking 事件的内容
   bool isThinkingExpanded;   // 控制思考区域展开/折叠
 
-  // ── 非测验类游戏数据（matching/fill_blank/sequencing/connection/puzzle/true_false）──
+  // ── 非测验类游戏数据（matching/fill_blank/sequencing/connection/puzzle/drag_sort/true_false）──
   // 支持多条游戏数据（AI 可能在一次回复中生成多个游戏）
   final List<String> gameTypes;           // 游戏类型列表
   final List<Map<String, dynamic>> gameDatas; // 游戏原始数据列表
@@ -224,6 +224,8 @@ String _buildDisplayText(Map<String, dynamic> decoded) {
 
 /// 根据数据结构推断游戏类型（与 GameRenderer._normalizeGameType 的推断逻辑一致）
 String _inferGameType(Map<String, dynamic> data) {
+  // drag_sort 也带 items，必须先于 items -> sequencing 判断。
+  if (data['buckets'] is List && data['items'] is List) return 'drag_sort';
   if (data['pairs'] is List || (data['items'] is List && data['targets'] is List)) {
     return 'matching';
   }
@@ -1048,6 +1050,7 @@ class ChatSessionProvider extends ChangeNotifier {
       return 'connection';
     }
     if (data['pieces'] is List || data['gridSize'] is Map) return 'puzzle';
+    if (data['buckets'] is List && data['items'] is List) return 'drag_sort';
     if (data['items'] is List) return 'sequencing';
 
     return 'quiz'; // 默认
@@ -1063,6 +1066,7 @@ class ChatSessionProvider extends ChangeNotifier {
       'sequencing': '排序游戏',
       'connection': '连线游戏',
       'puzzle': '拼图游戏',
+      'drag_sort': '分类游戏',
     };
     return labels[type] ?? '互动游戏';
   }

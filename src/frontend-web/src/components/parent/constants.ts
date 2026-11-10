@@ -51,6 +51,7 @@ export const ACTIVITY_TYPES = [
   { value: 'connection', label: '连线游戏' },
   { value: 'sequencing', label: '排序游戏' },
   { value: 'puzzle', label: '拼图游戏' },
+  { value: 'drag_sort', label: '分类游戏' },
 ];
 
 export const defaultChartData: { name: string; time: number }[] = [];

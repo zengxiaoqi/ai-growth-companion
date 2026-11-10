@@ -616,6 +616,12 @@ export class AgentExecutorService {
     if (isActivityType(value.type)) return value.type;
     if (isActivityType(value.activityType)) return value.activityType;
 
+    // drag_sort also carries `items`; check it before the generic
+    // items -> sequencing fallback or the payload is silently mis-typed.
+    if (Array.isArray(value.buckets) && Array.isArray(value.items)) {
+      return 'drag_sort';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

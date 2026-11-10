@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.1
+> **文档版本**: v1.2
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（回填 P0 PoC 验证结论，见附录 D）
-> **状态**: 待评审（调研结论 + 实施设计；**生产代码未改动**，P0 隔离 PoC 已验证通过）
+> **更新日期**: 2026-11-10（P0 结论见附录 D；P1 第一种参数化题型 drag_sort 已落地，见附录 E）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已开始落地生产代码：drag_sort 双端链路 + 单测 + 双端构建通过**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -20,6 +20,7 @@
 | 建议的技术路线 | 先 B（近期）→ 再 A（验证价值后）→ **C（线上实时生成）明确否决**。 |
 | 现有基础设施是否就绪？ | **否**。无 iframe/WebView 运行时、无 CSP/沙箱、无第三方静态目录、静态资源被 `expires 1y` 强缓存、生产 nginx 配置不在版本库。 |
 | P0 最小链路是否已验证？ | **是**。`poc/game-bridge/` 隔离 PoC 已跑通 31 项自动化检查（含真实 headless Chromium 的 sandbox iframe 闭环），不改任何生产代码。详见附录 D。 |
+| P1 第一种参数化题型是否已落地？ | **是（drag_sort）**。后端参数契约/清洗/确定性试玩 + 两套生成工具 + 8 处白名单同步，Web/Flutter 双端渲染，16 项契约单测 + 双端构建通过。剩余 5 种题型待后续迭代，见附录 E。 |
 
 **一句话决策**：把 ohmygame 放在**离线生产侧**，把"审核过的静态产物"作为唯一可跨越信任边界的东西；运行时继续坚持"AI 只产数据、引擎固定"。
 
@@ -277,7 +278,7 @@ interface GameResult {
 
 | # | 文件 | 改动 |
 | --- | --- | --- |
-| B1 | `src/backend/src/agent-framework/tools/impl/generate-activity.ts` | `ActivityType` 联合类型 + `SUPPORTED_TYPES` + `metadata.description`；`buildPrompt` 增加各题型的参数模板与"禁止输出 HTML/JS/URL"约束 |
+| B1 | `src/backend/src/agent-framework/tools/impl/generate-activity.ts` | `ActivityType` 联合类型 + `SUPPORTED_TYPES` + `metadata.description`；`buildPrompt` 增加各题型的参数模板与“禁止输出 HTML/JS/URL”约束 |
 | B2 | `src/backend/src/modules/ai/agent/tools/generate-activity.ts`（旧工具链） | 同步，避免两套工具行为不一致 |
 | B3 | `src/frontend-web/src/types/index.ts` | `ActivityType` 联合类型扩展；为各新题型补 `ActivityData` 的可选字段类型 |
 | B4 | `src/frontend-web/src/components/ai-chat/activity-normalizer.ts` | `isActivityType` 白名单 + `normalizeActivityType` 结构推断分支（**易漏**） |
@@ -286,7 +287,11 @@ interface GameResult {
 | B7 | `src/content/` 课程 JSON | 用新题型补充 3-4 / 5-6 岁示例活动 |
 | B8 | `src/backend/test/unit/` | 新增题型参数校验单测；`generate-activity` 的 prompt 快照测试 |
 
+> **实施修正（v1.2）**：实际调研发现白名单/推断/标签映射分散在 **18 处左右**（本表 B1–B6 只覆盖了其中一部分），且 Flutter 与两套后端 executor 的结构推断都会把 `drag_sort` 的 `items` 误判成 `sequencing`。为此 P1 引入了单一真源 `ACTIVITY_TYPES`（`agent-framework/core/types/tool-metadata.ts`），后端各枚举从它派生；客户端各处仍需逐点同步。完整落地情况与剩余 5 种题型的待同步点见附录 E。
+
 ### 5.4 自动试玩校验（借鉴 ohmygame 的 playtest 思路）
+
+> **实施状态（v1.2）**：`drag_sort` 已按此思路实现于 `src/backend/src/common/activity/drag-sort.ts`：`sanitizeDragSortParams()`（边界清洗 + 安全文本过滤，越界/不安全直接抛错进 3 次反射重试）→ `validateDragSortParams()`（语义校验）→ `simulateDragSortPlay()`（确定性状态机试玩）。其他题型接入时复用同一模式。
 
 不引入浏览器，改为**对参数做确定性模拟**，成本极低且可进 CI：
 
@@ -740,8 +745,54 @@ location ^~ /games/ {
 - **未接入真实 ohmygame 产物**：样例游戏是手写的 3 关"数泡泡"，用于验证管线；ohmygame 生成的多文件构建产物（可能含内联脚本、WebGL、外部字体）尚未跑过审核与沙箱。
 - **平台覆盖有限**：只在 Chromium 145 (headless) 验证；Flutter Web 的 `HtmlElementView`、Flutter 原生、两个生产域名的宿主机 nginx 配置均未验证。
 - **运维缺口未关闭**：`docker-compose.prod.yml` 静态卷、生产 nginx 模板、`expires 1y` 覆盖仍需 P2 落地；生产 nginx 配置仍不在版本库。
-- **方案 B 未实现**：本文推荐的第一优先级（扩展 `ActivityType` + 参数化引擎）仍是设计，P0 只验证方案 A 的运行时承载链路。
+- **方案 B 未实现**：本文推荐的第一优先级（扩展 `ActivityType` + 参数化引擎）在 P0 阶段仍是设计，P0 只验证方案 A 的运行时承载链路。**（v1.2 更新：P1 已开始落地，见附录 E。）**
 
 ### D.5 对实施计划的影响
 
 P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**。下一步按第 8 章 P1 直接推进方案 B 的第一种参数化题型（双端渲染 + 白名单四处同步修改）；若决定推进方案 A，则把 `poc/game-bridge/` 的审核器、校验器与桥接文件提升为 `scripts/` 与前端组件，并先补齐 D.4 列出的缺口。
+
+---
+
+## 附录 E：P1 实施记录 — 第一种参数化题型 `drag_sort`（v1.2 补充）
+
+### E.1 交付物与验证结论
+
+| 项 | 值 |
+| --- | --- |
+| 范围 | 方案 B 第一种参数化题型 `drag_sort`（拖拽分类到多个篮子），覆盖后端生成 → 双端渲染 → 学习回写的完整链路 |
+| 后端验证 | `tsc --noEmit` 通过；`tsc -p tsconfig.json --outDir <临时目录>` 编译出 295 个 JS 文件（`nest build` 因本机批量删除保护拦截 dist 清理无法执行，已用同价方式验证） |
+| 后端单测 | `test/unit/drag-sort-params.spec.ts` **16 项全绿**（示例 JSON 契约校验、清洗/拒绝/去重/上限、单一真源、两套工具 schema 与 prompt、两个 executor 推断）；`agent-executor.game-data.spec.ts` 等 4 个既有回归套件 29 项全绿（含新增 buckets+items→drag_sort 回归用例） |
+| Web 验证 | `tsc --noEmit` 通过；`npm run build`（tsc -b + vite）通过；全量 `vitest` **10 个文件 69 项全绿**（含 8 项 DragSortGame 组件测试） |
+| Flutter 验证 | **静态核查通过，未运行 `flutter analyze` / `flutter test`（本机无 Dart/Flutter SDK）**；import 路径、API 存在性（`withValues`/`DragTarget.onAcceptWithDetails`/`AppTheme.softShadow`/`GameCompletionScreen` 签名）与既有游戏组件逐一核对一致 |
+| 提交 | 仅提交 P1 相关文件，未混入用户既有未提交改动 |
+
+### E.2 关键实现决策
+
+1. **单一真源**：`ACTIVITY_TYPES`（`agent-framework/core/types/tool-metadata.ts`）扩展为 8 种；两套 `GenerateActivityTool`、`assignActivity`、旧 tool definitions、course pack、lesson content 全部从它派生枚举，消除后续再漏改的一大类风险。
+2. **推断顺序是关键坑**：`drag_sort` 与 `sequencing` 都有 `items` 字段。三处结构推断（旧 executor、新 executor.service、Web normalizer、Flutter `_inferGameType`/`_inferActivityType`）都必须把 `buckets + items -> drag_sort` 放在 `items -> sequencing` **之前**，否则 payload 会被静默误判，并已补进回归测试。
+3. **参数契约与清洗**：`src/backend/src/common/activity/drag-sort.ts` 定义严格边界（2-4 篮子、3-12 卡片、文本长度上限、`UNSAFE_TEXT_RE` 拒绝 HTML/JS/URL/控制字符），不安全输入直接抛错进入现有 3 次反射重试；`bucketId` 必须指向已存在 `bucket.id` 且每个篮子至少收到一张卡片，保证可解性。
+4. **确定性试玩**：`simulateDragSortPlay()` 按标准答案跑状态机，替代浏览器试玩，成本为零且可进 CI。
+5. **计分语义双端一致**：首次投放正确才计分；放错记录 attempt、卡片留在待分类区；撤回保留 attempt；`score = round(首次正确数 / 总数 * 100)`；`interactionData` 附带 `placements` / `totalErrors` 供教研分析。Web 与 Flutter 共用同一套语义与字段名。
+6. **客户端防御式归一化**：Web `normalizeDragSortData()` 与 Flutter `_normalizeDragSortData()` 独立实现同一套 id 清洗 / 去重 / 未知 bucket 丢弃 / 数值 clamp，渲染端永不信任 LLM 输出。
+7. **示例即契约**：`src/content/examples/drag_sort-3-4.json`、`drag_sort-5-6.json` 不参与课程导入（避免扰动 curriculum seed），但被单测加载并跑完 `sanitize → validate → playtest` 全链路，示例数据从此不可能与代码契约漂移。
+
+### E.3 白名单/映射同步清单（P1 已完成）
+
+| 端 | 文件 | 改动 |
+| --- | --- | --- |
+| 后端 | `agent-framework/core/types/tool-metadata.ts` | `ACTIVITY_TYPES` 加入 `drag_sort`（单一真源） |
+| 后端 | `agent-framework/tools/impl/generate-activity.ts` / `modules/ai/agent/tools/generate-activity.ts` | schema、typeRules、sanitizeDragSort、body text、prompt 安全约束 |
+| 后端 | `agent-framework/tools/impl/assign-activity.ts` | 枚举派生 + `ACTIVITY_TYPE_NAMES` 补「分类游戏」 |
+| 后端 | `modules/ai/agent/agent-executor.ts` / `agent-framework/agents/agent-executor.service.ts` | 推断加入 `buckets + items -> drag_sort`（先于 items→sequencing） |
+| 后端 | `modules/ai/agent/prompts/tool-definitions.ts`、`generate-course-pack.ts`、`learning/lesson-content.service.ts`、`database/entities/assignment.entity.ts`、两个儿童 system prompt | 枚举派生 / 签名引用 / 注释 / type 提示与使用建议 |
+| Web | `types/index.ts`、`components/games/DragSortGame.tsx`（新建）、`gameResult.ts`（新建）、`GameRenderer.tsx`、`ai-chat/activity-normalizer.ts`、`components/parent/constants.ts`、`StudentDashboard.tsx` | 类型契约、组件、分发、归一化、家长端与看板标签 |
+| Flutter | `screens/games/drag_sort_game.dart`（新建）、`game_renderer.dart`、`providers/chat_session_provider.dart`、`ai_chat_screen.dart`、`learning/learning_home_screen.dart`、`parent/assignment_manager_screen.dart` | 组件、白名单+推断+归一化+分发、聊天标签、作业标签/图标、家长端类型配置 |
+| 内容 | `src/content/examples/drag_sort-3-4.json`、`drag_sort-5-6.json`（新建） | 3-4 / 5-6 岁示例活动，受单测契约保护 |
+| 测试 | `src/backend/test/unit/drag-sort-params.spec.ts`（新建 16 项）、`agent-executor.game-data.spec.ts`（+1 回归）、`src/frontend-web/src/test/drag-sort-game.test.tsx`（8 项） | 契约、推断回归与组件行为 |
+
+### E.4 局限与后续
+
+- **方案 B 尚未完成**：本附录只覆盖第一种题型 `drag_sort`；`tap_target` / `trace_path` / `color_fill` / `memory_flip` / `pattern_next` 仍待按同一模式迭代（每种 = 后端契约模块 + 双端组件 + 白名单同步点，参照 E.3 清单）。
+- **Flutter 未真机/模拟器验证**：本机无 Dart/Flutter SDK，只做了静态一致性核查；接入 CI 或任一有 SDK 的环境后应先跑 `flutter analyze` 与现有游戏回归。
+- **5.5 验收指标未度量**：`generate-activity` 对 `drag_sort` 参数的一次通过率（100 条抽样）需要接真实 LLM key 才能跑，当前只有确定性校验与 prompt 结构验证。
+- **`game_data` SSE 契约不变**：既有 7 种题型与 `game_data` 事件格式回归全绿；但家长端作业详情、成长报告等下游消费 `interactionData` 的界面尚未针对 `placements` 做展示适配（数据已回写，不影响计分与成就）。

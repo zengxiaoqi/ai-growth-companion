@@ -110,6 +110,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   connection: '连线',
   sequencing: '排序',
   puzzle: '拼图',
+  drag_sort: '分类',
 };
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {

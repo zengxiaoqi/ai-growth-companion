@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.4
+> **文档版本**: v1.5
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 持续落地：drag_sort + memory_flip + pattern_next 三种题型双端链路 + 单测 + 双端构建通过**）
+> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、剩余三题型设计评审见附录 H）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地三种题型（drag_sort + memory_flip + pattern_next）双端链路 + 单测 + 双端构建通过；剩余 tap_target / trace_path / color_fill 专项参数设计见附录 H（评审稿）**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -252,6 +252,8 @@ interface GameResult {
 | `color_fill` | 按色号涂色 | `regions: {id,colorKey}[]`、`palette[]` | 3-4 |
 | `memory_flip` | 翻牌记忆配对 | `pairs: {id,label,icon}[]`、`gridSize` | 5-6 |
 | `pattern_next` | 规律推理选下一个 | `sequence[]`、`options[]`、`answerIndex` | 5-6 |
+
+> 注：`tap_target` / `trace_path` / `color_fill` 三行的参数为最初草案；正式契约以**附录 H（v1.5 专项参数设计）**为准（已修订：取消 tap_target 轮内倒计时、trace_path 限 glyph 模式、color_fill 引入形状库 + 色表枚举）。
 
 **参数示例（`drag_sort`）**：
 
@@ -882,7 +884,159 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 ### G.4 局限与后续
 
-- 剩余 3 种题型：`tap_target`（依赖语音/TTS 时序）、`trace_path` / `color_fill`（需要先补几何/画布参数设计）——均不适合直接套用本轮模式，需先做专项参数设计再实现。
+- 剩余 3 种题型：`tap_target`（依赖语音/TTS 时序）、`trace_path` / `color_fill`（需要先补几何/画布参数设计）——专项参数设计已完成并写入**附录 H（v1.5）**，评审通过后按 E.3 清单模式实施。
 - Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
 - 家长端 / 成长报告对 `interactionData.attempts / firstTryCorrect` 的展示适配未做（数据已回写）。
 - 规律的"可解性"只能由 LLM 保证（确定性模拟只能验证结构可答）；数字递增类规律（如 2/4/6→8）的 answer 不在序列中出现，因此不能强制 `answer ∈ sequence`，这是确定性校验的固有边界。
+
+---
+
+## 附录 H：剩余三种题型专项参数设计（v1.5 补充，评审稿）
+
+> 本附录是 `tap_target` / `trace_path` / `color_fill` 三种题型的**实现前置设计评审**，依据代码实况（Flutter 端既有 `TracePathInteraction` / `trace_path_canvas.dart`、双端 TTS 能力差异）逐项定契约。评审通过后按 E.3 同步清单模式实施。
+
+### H.0 共性设计约束（三种题型共用）
+
+1. 沿用方案 B 三段式：`sanitize*Params()`（越界/不安全直接抛错进 3 次反射重试）→ `validate*Params()`（语义校验）→ `simulate*Play()`（确定性状态机试玩）。
+2. **核心命题：三种题型的共同风险是"几何/音频这类 AI 不可靠产物"。对策各不相同**：
+   - `trace_path` → 几何交给客户端（字形采样，AI 只给文字）；
+   - `color_fill` → 几何交给客户端（形状库 + 网格布局，AI 只给枚举与颜色）;
+   - `tap_target` → 时序交给客户端（TTS 播报完成才起算，AI 不感知时序）。
+3. 单一真源 `ACTIVITY_TYPES` 由 10 种扩为 13 种；三份示例 JSON 放 `src/content/examples/`，受单测契约保护。
+4. 计分语义对齐前三种：只有无失误的作答计入 `firstTryCorrect`；`interactionData` 记录过程数据供成长报告。
+5. 适龄均为 3-4 岁：文案长度校验收紧（prompt ≤ 20 字），无倒计时压力（见 H.1 决策）。
+
+### H.1 `tap_target`（听指令点目标）
+
+**交互**：每轮 TTS 播报一句指令（如"请点出小猫"），孩子在 2-4 个图标中点出正确目标；多轮推进。
+
+**参数契约**：
+
+```json
+{
+  "type": "tap_target",
+  "rounds": [
+    {
+      "id": "r1",
+      "prompt": "请点出小猫",
+      "targets": [
+        { "id": "t1", "label": "小猫", "icon": "cat" },
+        { "id": "t2", "label": "小狗", "icon": "dog" },
+        { "id": "t3", "label": "苹果", "icon": "apple" }
+      ],
+      "correctIds": ["t1"]
+    }
+  ],
+  "passingScore": 80,
+  "timeLimitSec": 120
+}
+```
+
+| 字段 | 约束 |
+| --- | --- |
+| `rounds` | 3-6 轮；id 唯一 |
+| `round.prompt` | ≤ 20 字；**必须包含每个 correctId 对应目标的 label 子串**（否则孩子听指令无法作答，validate 直接拒绝） |
+| `round.targets` | 2-4 个；label 唯一；icon 取项目自有图标标识 |
+| `round.correctIds` | 1-2 个，⊆ targets 的 id；支持"把所有的水果都点出来"式多点 |
+
+**关键设计决策**：
+
+- **TTS 时序（本题最大风险）**：双端 TTS 能力不对称——Web 端 `useGameVoice`（speechSynthesis，同步可感知 `onend`）；Flutter 端 `TtsService`（后端 Edge TTS MP3，异步，靠 `onPlayerComplete` + 15s 超时兜底）。因此**计时/判定的起算点统一为"播报完成"**：Web 用 `utterance.onend`，Flutter `await TtsService().speak()` 后再解锁点击。TTS 失败/不可用时降级为直接展示 prompt 文本并立即解锁。
+- **取消轮内倒计时**（对 5.2 草案中 `roundDurationMs` 的修订）：3-4 岁不宜单轮倒计时压力，改为整题全局 `timeLimitSec`（30-300，沿用既有语义）；超时按已完成轮数结算。
+- **防连点误判**：播报未完成期间点击不判定也不计失误（避免"还没说完就点"被记为答错）；每轮只有一次判定机会，点错后展示正确目标 800ms 再进入下一轮（与 memory_flip 的 resolving 锁盘同模式）。
+- **计分**：`score = round(无失误轮数 / 总轮数 × 100)`；"无失误轮"= 未点任何干扰项且一次点中全部 correctIds。
+- **interactionData**：`{ roundResults: [{ roundId, firstTry, taps }] }`。
+
+**确定性试玩**：模拟"听懂指令的孩子"按 `correctIds` 逐轮点击，验证可达 COMPLETE；validate 阶段已保证 prompt ⊇ label，故可解性可静态保证。
+
+### H.2 `trace_path`（描红）
+
+**交互**：屏幕上以浅色虚线展示目标字形，孩子手指沿笔画描画，覆盖率达阈值即通过；2-4 个字形依次完成。
+
+**参数契约（AI 生成只允许 glyph 模式）**：
+
+```json
+{
+  "type": "trace_path",
+  "prompt": "请沿着虚线描一描",
+  "targets": [
+    { "id": "g1", "kind": "glyph", "text": "火", "label": "火" },
+    { "id": "g2", "kind": "glyph", "text": "山", "label": "山" }
+  ],
+  "minCoverage": 0.7,
+  "passingScore": 80,
+  "timeLimitSec": 180
+}
+```
+
+| 字段 | 约束 |
+| --- | --- |
+| `targets` | 2-4 个；id 唯一；`text` 为 **1-2 个字符**，仅允许常用汉字/数字/英文字母（**禁止 emoji、生僻字**——无轮廓字形会导致采样点退化到全画布网格，覆盖率计算失真） |
+| `minCoverage` | 0.5-0.85，缺省 0.7 |
+
+**关键设计决策**：
+
+- **复用而非重写**：Flutter 端已有 `TracePathInteraction` / `TraceGlyphTarget`（`lesson_scene_models.dart`）与 `trace_path_canvas.dart`（`TextPainter.getBoxesForSelection` 字形包围盒采样 + 5px 步长覆盖率计算）。新题型**不新增几何参数，直接复用该画布**；AI 提供的只是 `text`，采样点完全由客户端字体渲染派生——这是"AI 产参数、客户端产几何"的天然实现，零坐标漂移风险。
+- **polyline 模式不对 LLM 开放**（P1 决策）：`kind: "polyline"` 的坐标点只能由人工制作的课程内容使用；LLM 生成折线坐标存在严重漂移且 validate 无法可靠判断形状正确性。若未来开放，需约定 0-1000 归一化坐标并加自交/最小边长校验——**本次不做**。
+- **字符白名单校验**：sanitize 阶段拒绝 emoji/生僻字（采样降级路径 `_simpleGlyphSampling` 会让任何乱涂都达标，等于取消判定）。
+- **计分**：`score = round(达标字数 / 总字数 × 100)`；每字形可重试，覆盖率达阈值即锁定该字形。
+- **interactionData**：`{ perTarget: [{ id, coverage, attempts }] }`。
+
+**确定性试玩**：glyph 模式采样点必然非空（validate 保证字符白名单），模拟手指沿包围盒扫过即可达 COMPLETE。
+
+### H.3 `color_fill`（按色号涂色）
+
+**交互**：画布上 2-6 个简单图形（网格排布），下方色盘；孩子选色后点图形上色，全部涂对即通过。
+
+**参数契约（AI 只给枚举，不给坐标）**：
+
+```json
+{
+  "type": "color_fill",
+  "prompt": "给太阳涂上黄色，给云朵涂上白色",
+  "regions": [
+    { "id": "s1", "shape": "sun", "colorKey": "yellow" },
+    { "id": "s2", "shape": "cloud", "colorKey": "white" },
+    { "id": "s3", "shape": "star", "colorKey": "yellow" }
+  ],
+  "palette": ["red", "yellow", "blue", "white"],
+  "passingScore": 80,
+  "timeLimitSec": 120
+}
+```
+
+| 字段 | 约束 |
+| --- | --- |
+| `regions` | 2-6 个；id 唯一；`shape` ∈ 形状库枚举（可重复）；`colorKey` ∈ 色表枚举 |
+| `palette` | 3-8 色，⊆ 色表；**必须包含所有 regions 的 colorKey**，且 **≥ 不同目标色数 + 1**（至少一个干扰色，避免"色盘只有一个正确色、无需认知"的退化） |
+| 形状库 | `circle / star / heart / triangle / square / flower / sun / moon / cloud / fish`（10 种起步，双端各持同一枚举与绘制实现） |
+| 色表 | `red / blue / yellow / green / orange / purple / pink / brown / black / white`（色值由双端常量表保证一致） |
+
+**关键设计决策**：
+
+- **形状库 + 客户端确定性布局**：AI 永不提供坐标。Web 端用内置 SVG path 常量，Flutter 端用 `CustomPainter` 按枚举绘制；区域位置按 regions 数组顺序网格排布。SVG path / painter 是组件资产（代码审核范围内），不是"AI 产代码"。
+- **可解性可静态保证**：validate 确保 `regions.colorKey ⊆ palette`，试玩模拟"选中正确色 → 点击对应 region"即可通关。
+- **归一化策略（渲染端防御）**：未知 `colorKey` 或不在库中的 `shape` 的 region 直接移除；若移除后剩余 region < 2，整题按不可玩处理（显示重试，等同生成失败）——与 memory_flip 的"裁剪到最近合法值"同一防御哲学，但此处选择**删除而非重映射**（颜色没有"最近合法值"语义）。
+- **计分**：`score = round(涂对 region 数 / 总 region 数 × 100)`；可重涂（最后状态为准），每 region 首次即涂对计入 `firstTryCorrect`。
+- **interactionData**：`{ regionResults: [{ id, colorKey, firstTry }] }`。
+
+### H.4 推断链风险登记（实现前须核查）
+
+| 题型 | 拟用结构键 | 风险 | 核查方式 |
+| --- | --- | --- | --- |
+| `tap_target` | `rounds` | 预计唯一（无 legacy 题型用 `rounds`） | 实现:`前 grep 全仓确认 |
+| `trace_path` | `targets` | **待查**：课程 interaction 场景可能已有 `targets` 用法，需确认 game-data 推断上下文不会与之混淆 | 实现:前 grep 全仓确认 |
+| `color_fill` | `regions` | 预计唯一 | 实现:前 grep 全仓确认 |
+
+> 教训回顾（附录 G.2）：结构键进入 `ACTIVITY_STRUCTURAL_KEYS` 前必须确认"单独出现时无歧义"，否则会被 executor 误判为其他题型。
+
+### H.5 实施顺序建议与待评审确认项
+
+**建议顺序**：`trace_path`（复用最多、无 TTS 依赖）→ `color_fill`（形状库一次性投入）→ `tap_target`（TTS 时序最复杂、降级路径最多）。
+
+**待评审确认项**（默认按本文档建议执行，如有异议请指出）：
+
+1. `tap_target` 取消轮内倒计时、只保留全局 `timeLimitSec` —— 是否同意？
+2. `trace_path` polyline 模式不对 LLM 开放 —— 是否同意？
+3. `color_fill` palette 强制至少 1 个干扰色 —— 是否同意？
+4. 形状库/色表首批枚举范围（各 10 项）—— 是否需要教研增删？

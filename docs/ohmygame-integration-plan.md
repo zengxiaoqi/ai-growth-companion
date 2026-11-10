@@ -1188,7 +1188,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 | 类型 | `types/index.ts` 新增 `LearningInteractionData` / `LearningHistoryRecord` |
 | 测试 | `activity-process-details.test.tsx` 5 项（6 题型摘要单测 + 渲染/白名单过滤/空态/网络降级） |
 
-Flutter 家长端（`report_detail_screen.dart`）暂不适配：`api_service` 无 learning history 调用，需另补 API 层，列入后续。
+Flutter 家长端已在 v1.8 横向收尾 #4 完成（见 K.8）。**此处更正**：K.5 初稿误判「`api_service` 无 learning history 调用」——实际 `getLearningHistoryResult/getLearningHistory`（`api_service.dart:473/484`）早已存在，无需补 API 层。
 
 ### K.6 横向收尾 #2 — Flutter 带 SDK 环境回归（v1.8 补充）
 
@@ -1210,7 +1210,7 @@ D:/flutter/bin/flutter test --no-pub
 
 **顺带修复的既有测试缺陷**：`speech_input_widget_test.dart` 最后一项「permission denied icon uses textSecondary color」在全量运行时失败（单独跑通过）。根因是前序「错误状态」用例注册的 `plugin.csdcorp.com/speech_to_text` 平台通道 mock 跨用例泄漏，使后续用例 `_checkSupport()` 判为不支持、提前走 error 分支，权限拒绝 UI 不再渲染。已在 `main()` 加 `tearDown` 清除两个通道的 mock handler，恢复测试隔离；**未改动生产代码**。
 
-至此附录 G/I/J/K 中「Flutter 仍需带 SDK 回归」的待办全部关闭。剩余横向事项：Flutter 家长端过程数据展示（需补 api_service 层）、LLM 一次通过率的生产基线采样（脚本已就位，见 K.7）、方案 A 评审。
+至此附录 G/I/J/K 中「Flutter 仍需带 SDK 回归」的待办全部关闭。横向收尾 #1 家长端过程数据展示（K.5 Web + K.8 Flutter）、#2 Flutter 回归（K.6）、#3 一次通过率度量能力（K.7）均已完成。剩余横向事项：LLM 一次通过率的生产基线采样（脚本已就位，需教研定主题 + 真实 LLM 调用）、方案 A 评审。
 
 ### K.7 横向收尾 #3 — LLM 参数一次通过率度量（v1.8 补充）
 
@@ -1234,3 +1234,19 @@ node scripts/measure-activity-pass-rate.js --type tap_target --json
 **当前基线（2026-11-11 实测）**：`logs/app.log` 中 0 条 `[generateActivity]` 事件（仅有工具注册日志），脚本正确输出「尚无生产基线」提示。合成样本回放验证报告格式与全部统计口径（3 run → 一次通过率 50.0%、失败率 33.3%、按题型 quiz 100% / tap_target 0% / color_fill 失败）。**真实基线需先通过对话触发 N 次 generateActivity 再运行脚本**；建议每种题型至少 20 次采样后评估 typeRules 与 sanitize 的收紧/放宽。
 
 **不做的事**：未擅自调用真实 LLM（.env 中虽有 `LLM_API_KEY` 配置位，但真实调用涉及费用与网络，且需教研设定采样主题），也未改动生产代码 / 新增数据库表。
+
+### K.8 横向收尾 #4 — Flutter 家长端过程数据展示（v1.8 补充）
+
+与 Web 端 K.5 对齐。**关键更正**：K.5 初稿以为 Flutter `api_service` 没有 learning history 调用；实际 `getLearningHistoryResult`（`api_service.dart:473`，兼容裸 List 或 `{list:[]}`）与 `getLearningHistory`（:484，失败返 `[]`）早已存在，本轮零网络层改动，直接复用。
+
+| 项 | 内容 |
+| --- | --- |
+| 新组件 | `lib/components/activity_process_details.dart`：`summarizeInteraction()` 六题型摘要（口径与 Web 逐条一致）、`filterProcessRecords()` 白名单过滤 6 种参数化题型并最多取 8 条、`ActivityProcessDetails` 卡片（题型标签 / 内容标题 / 日期时长 / 得分 / 摘要 / 空态） |
+| 挂载 | `growth_report_screen.dart`（家长端真实入口，`parent_home_screen.dart` 跳转）与 `report_detail_screen.dart`（路由存在但当前无调用方），均置于成就亮点与 AI 建议之间；`_loadData` 追加 `api.getLearningHistory(childId, limit: 20)`，失败降级为空态 |
+| 常量 | `kActivityTypeLabels` 与 Web `parent/constants.ts::ACTIVITY_TYPES` 一致；主题沿用 `AppTheme` 与页面既有白卡片风格 |
+| 测试 | `test/activity_process_details_test.dart` 5 项（六题型摘要、legacy/不完整数据返回 null、白名单 + 8 条截断、widget 渲染、空态）；组件不发起网络请求，records 由构造参数注入，零 mock 依赖 |
+| 验证 | `flutter analyze` 零 error/warning、`flutter test` 全绿、`flutter build web` 通过（运行前需清空代理，见 K.6） |
+
+双端口径对照（同一条 interactionData 产出同一句话）：拖拽「放错 N 次 · X/Y 首次放对」、翻牌「N 步完成 · 翻错 M 次」、规律「一次接对 / 尝试 N 次」、描红「描红 N 个字（达标线 P% 覆盖）· X/Y 一次完成」、涂色「X/Y 个区域一次涂对」、听指令「X/Y 轮一次听对指令」。
+
+**P1 方案 B + 四项横向收尾至此全部完成**（K.5 / K.6 / K.7 / K.8）。

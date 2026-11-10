@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/activity_process_details.dart';
 import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -38,6 +39,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   Map<String, int> _skillProgress = {};
   List<_Achievement> _achievements = [];
   List<String> _aiInsights = [];
+  List<Map<String, dynamic>> _processRecords = [];
 
   // 领域配置
   static const _domains = <String, _DomainConfig>{
@@ -119,6 +121,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               .toList();
         } catch (_) {
           _achievements = [];
+        }
+
+        // 加载互动活动过程明细（interactionData，复用学习历史接口）
+        try {
+          final history = await api.getLearningHistory(
+            _selectedChildId!,
+            limit: 20,
+          );
+          _processRecords = filterProcessRecords(history);
+        } catch (_) {
+          _processRecords = [];
         }
       }
 
@@ -279,6 +292,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
           // 成就亮点
           _buildAchievements(),
+          const SizedBox(height: 16),
+
+          // 活动过程明细
+          ActivityProcessDetails(records: _processRecords),
           const SizedBox(height: 16),
 
           // AI 学习建议

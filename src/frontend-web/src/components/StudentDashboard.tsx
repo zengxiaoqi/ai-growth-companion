@@ -114,6 +114,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   memory_flip: '翻牌',
   pattern_next: '规律',
   trace_path: '描红',
+  color_fill: '涂色',
 };
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {

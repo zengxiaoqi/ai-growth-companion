@@ -229,7 +229,8 @@ export type ActivityType =
   | 'drag_sort'
   | 'memory_flip'
   | 'pattern_next'
-  | 'trace_path';
+  | 'trace_path'
+  | 'color_fill';
 
 export interface ActivityData {
   type: ActivityType;
@@ -319,6 +320,46 @@ export interface TracePathActivityData extends ActivityData {
   prompt?: string;
   targets: TracePathTarget[];
   minCoverage: number;
+  passingScore?: number;
+  timeLimitSec?: number;
+}
+
+/** Parameter-only contract for the color_fill engine. The LLM never emits code or coordinates. */
+export type ColorFillShape =
+  | 'circle'
+  | 'star'
+  | 'heart'
+  | 'triangle'
+  | 'square'
+  | 'flower'
+  | 'sun'
+  | 'moon'
+  | 'cloud'
+  | 'fish';
+
+export type ColorFillColor =
+  | 'red'
+  | 'blue'
+  | 'yellow'
+  | 'green'
+  | 'orange'
+  | 'purple'
+  | 'pink'
+  | 'brown'
+  | 'black'
+  | 'white';
+
+export interface ColorFillRegion {
+  id: string;
+  shape: ColorFillShape;
+  colorKey: ColorFillColor;
+}
+
+export interface ColorFillActivityData extends ActivityData {
+  type: 'color_fill';
+  prompt?: string;
+  regions: ColorFillRegion[];
+  palette: ColorFillColor[];
   passingScore?: number;
   timeLimitSec?: number;
 }

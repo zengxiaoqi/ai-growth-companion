@@ -21,6 +21,11 @@ import {
   validateTracePathParams,
   collectTracePathBodyText,
 } from '../../../../common/activity/trace-path';
+import {
+  sanitizeColorFillParams,
+  validateColorFillParams,
+  collectColorFillBodyText,
+} from '../../../../common/activity/color-fill';
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -416,6 +421,8 @@ export class GenerateActivityTool {
         return '{"type":"pattern_next","title":"...","topic":"...","ageGroup":"...","prompt":"...","sequence":[{"id":"s1","label":"苹果","icon":"🍎"},{"id":"s2","label":"香蕉","icon":"🍌"},{"id":"s3","label":"苹果","icon":"🍎"}],"options":[{"id":"o1","label":"香蕉","icon":"🍌"},{"id":"o2","label":"葡萄","icon":"🍇"}],"answerIndex":0,"passingScore":80,"timeLimitSec":120}';
       case 'trace_path':
         return '{"type":"trace_path","title":"...","topic":"...","ageGroup":"...","prompt":"请沿着虚线描一描","targets":[{"id":"g1","kind":"glyph","text":"火","label":"火"},{"id":"g2","kind":"glyph","text":"山","label":"山"}],"minCoverage":0.7,"passingScore":80,"timeLimitSec":180}';
+      case 'color_fill':
+        return '{"type":"color_fill","title":"...","topic":"...","ageGroup":"...","prompt":"给太阳涂上黄色","regions":[{"id":"s1","shape":"sun","colorKey":"yellow"},{"id":"s2","shape":"cloud","colorKey":"white"}],"palette":["red","yellow","blue","white"],"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -499,6 +506,15 @@ export class GenerateActivityTool {
           'Glyphs must be visually simple and appropriate for tracing by a 3-4 year old.',
           'minCoverage is 0.5-0.85 (0.7 recommended); passingScore is 0-100; timeLimitSec is 30-300.',
         ];
+      case 'color_fill':
+        return [
+          ...common,
+          'Generate 2-6 regions about the given topic.',
+          'Each region is {id, shape, colorKey}: shape is circle/star/heart/triangle/square/flower/sun/moon/cloud/fish; colorKey is red/blue/yellow/green/orange/purple/pink/brown/black/white. NEVER invent other shapes or colors, NEVER provide coordinates.',
+          'palette lists 3-8 colorKeys, MUST include every region colorKey plus at least one distractor color.',
+          'The color assignment must be semantically sensible for a 3-4 year old (e.g. sun=yellow, leaf=green).',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -556,6 +572,8 @@ export class GenerateActivityTool {
         return this.sanitizePatternNext(args, raw);
       case 'trace_path':
         return this.sanitizeTracePath(args, raw);
+      case 'color_fill':
+        return this.sanitizeColorFill(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -809,6 +827,17 @@ export class GenerateActivityTool {
     return activity;
   }
 
+  private sanitizeColorFill(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeColorFillParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateColorFillParams(activity);
+    if (!verdict.ok) throw new Error(`color_fill playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -1021,6 +1050,8 @@ export class GenerateActivityTool {
     if (patternNextText) parts.push(patternNextText);
     const tracePathText = collectTracePathBodyText(activity);
     if (tracePathText) parts.push(tracePathText);
+    const colorFillText = collectColorFillBodyText(activity);
+    if (colorFillText) parts.push(colorFillText);
 
     return parts.join(' | ');
   }

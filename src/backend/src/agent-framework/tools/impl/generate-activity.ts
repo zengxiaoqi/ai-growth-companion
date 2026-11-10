@@ -31,6 +31,11 @@ import {
   validateTracePathParams,
   collectTracePathBodyText,
 } from '../../../common/activity/trace-path';
+import {
+  sanitizeColorFillParams,
+  validateColorFillParams,
+  collectColorFillBodyText,
+} from '../../../common/activity/color-fill';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -207,7 +212,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持11种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)。AI 只产参数 JSON，不产代码。',
+      '生成互动学习活动，支持12种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)、color_fill(按色号涂色)。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -422,6 +427,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return '{"type":"pattern_next","title":"...","topic":"...","ageGroup":"...","prompt":"...","sequence":[{"id":"s1","label":"苹果","icon":"🍎"},{"id":"s2","label":"香蕉","icon":"🍌"},{"id":"s3","label":"苹果","icon":"🍎"}],"options":[{"id":"o1","label":"香蕉","icon":"🍌"},{"id":"o2","label":"葡萄","icon":"🍇"}],"answerIndex":0,"passingScore":80,"timeLimitSec":120}';
       case 'trace_path':
         return '{"type":"trace_path","title":"...","topic":"...","ageGroup":"...","prompt":"请沿着虚线描一描","targets":[{"id":"g1","kind":"glyph","text":"火","label":"火"},{"id":"g2","kind":"glyph","text":"山","label":"山"}],"minCoverage":0.7,"passingScore":80,"timeLimitSec":180}';
+      case 'color_fill':
+        return '{"type":"color_fill","title":"...","topic":"...","ageGroup":"...","prompt":"给太阳涂上黄色","regions":[{"id":"s1","shape":"sun","colorKey":"yellow"},{"id":"s2","shape":"cloud","colorKey":"white"}],"palette":["red","yellow","blue","white"],"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -504,6 +511,15 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           'Glyphs must be visually simple and appropriate for tracing by a 3-4 year old.',
           'minCoverage is 0.5-0.85 (0.7 recommended); passingScore is 0-100; timeLimitSec is 30-300.',
         ];
+      case 'color_fill':
+        return [
+          ...common,
+          'Generate 2-6 regions about the given topic.',
+          'Each region is {id, shape, colorKey}: shape is circle/star/heart/triangle/square/flower/sun/moon/cloud/fish; colorKey is red/blue/yellow/green/orange/purple/pink/brown/black/white. NEVER invent other shapes or colors, NEVER provide coordinates.',
+          'palette lists 3-8 colorKeys, MUST include every region colorKey plus at least one distractor color.',
+          'The color assignment must be semantically sensible for a 3-4 year old (e.g. sun=yellow, leaf=green).',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -558,6 +574,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return this.sanitizePatternNext(args, raw);
       case 'trace_path':
         return this.sanitizeTracePath(args, raw);
+      case 'color_fill':
+        return this.sanitizeColorFill(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -779,6 +797,17 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     return activity;
   }
 
+  private sanitizeColorFill(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeColorFillParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateColorFillParams(activity);
+    if (!verdict.ok) throw new Error(`color_fill playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -925,6 +954,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     if (patternNextText) parts.push(patternNextText);
     const tracePathText = collectTracePathBodyText(activity);
     if (tracePathText) parts.push(tracePathText);
+    const colorFillText = collectColorFillBodyText(activity);
+    if (colorFillText) parts.push(colorFillText);
 
     return parts.join(' | ');
   }

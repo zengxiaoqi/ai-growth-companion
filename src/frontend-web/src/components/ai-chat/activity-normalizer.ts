@@ -1,6 +1,9 @@
 import type {
   ActivityData,
   ActivityType,
+  ColorFillActivityData,
+  ColorFillColor,
+  ColorFillShape,
   DragSortActivityData,
   MemoryFlipActivityData,
   MemoryFlipGridSize,
@@ -20,6 +23,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'memory_flip',
   'pattern_next',
   'trace_path',
+  'color_fill',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -126,6 +130,8 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   // trace_path uses `targets`; verified that no legacy type in this chain uses
   // a bare `targets` array (Appendix H.4).
   if (Array.isArray(rawData?.targets)) return 'trace_path';
+  // color_fill uses `regions`; grep-verified unique across the repo.
+  if (Array.isArray(rawData?.regions)) return 'color_fill';
   if (
     Array.isArray(rawData?.connections) ||
     (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))
@@ -381,6 +387,105 @@ export function normalizeTracePathData(raw: any): Pick<
   };
 }
 
+export const COLOR_FILL_SHAPES: readonly ColorFillShape[] = [
+  'circle',
+  'star',
+  'heart',
+  'triangle',
+  'square',
+  'flower',
+  'sun',
+  'moon',
+  'cloud',
+  'fish',
+];
+
+export const COLOR_FILL_COLORS: readonly ColorFillColor[] = [
+  'red',
+  'blue',
+  'yellow',
+  'green',
+  'orange',
+  'purple',
+  'pink',
+  'brown',
+  'black',
+  'white',
+];
+
+export const COLOR_FILL_LIMITS = {
+  maxRegions: 6,
+  maxPalette: 8,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 120,
+} as const;
+
+/**
+ * Defensive normalization for color_fill parameters. Unknown shapes/colors
+ * and regions whose colorKey is missing from the palette are dropped —
+ * such a region would be unfillable and break the board (Appendix H.3).
+ */
+export function normalizeColorFillData(raw: any): Pick<
+  ColorFillActivityData,
+  'regions' | 'palette' | 'passingScore' | 'timeLimitSec' | 'prompt'
+> {
+  const usedIds = new Set<string>();
+  const rawRegions = Array.isArray(raw?.regions) ? raw.regions : [];
+  const palette: ColorFillColor[] = [];
+  const seenPalette = new Set<string>();
+  for (const entry of Array.isArray(raw?.palette) ? raw.palette : []) {
+    if (typeof entry !== 'string' || !COLOR_FILL_COLORS.includes(entry as ColorFillColor)) continue;
+    if (seenPalette.has(entry)) continue;
+    seenPalette.add(entry);
+    palette.push(entry as ColorFillColor);
+    if (palette.length >= COLOR_FILL_LIMITS.maxPalette) break;
+  }
+  const paletteSet = new Set<string>(palette);
+
+  const regions: ColorFillActivityData['regions'] = [];
+  for (
+    let i = 0;
+    i < rawRegions.length && regions.length < COLOR_FILL_LIMITS.maxRegions;
+    i++
+  ) {
+    const entry = rawRegions[i];
+    const shape = entry?.shape;
+    const colorKey = entry?.colorKey;
+    if (typeof shape !== 'string' || !COLOR_FILL_SHAPES.includes(shape as ColorFillShape)) continue;
+    if (
+      typeof colorKey !== 'string' ||
+      !COLOR_FILL_COLORS.includes(colorKey as ColorFillColor) ||
+      !paletteSet.has(colorKey)
+    ) {
+      continue;
+    }
+    let id = toSafeId(entry?.id) || `s${i + 1}`;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `s${i + 1}_${suffix++}`;
+    usedIds.add(id);
+    regions.push({
+      id,
+      shape: shape as ColorFillShape,
+      colorKey: colorKey as ColorFillColor,
+    });
+  }
+
+  const prompt = toText(raw?.prompt).slice(0, 60);
+  return {
+    regions,
+    palette,
+    ...(prompt ? { prompt } : {}),
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, COLOR_FILL_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      30,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, COLOR_FILL_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
+}
+
 export function normalizeActivityData(
   activityType: ActivityType | string | undefined,
   rawData: any,
@@ -407,6 +512,10 @@ export function normalizeActivityData(
 
   if (resolvedType === 'trace_path') {
     return { ...base, ...normalizeTracePathData(rawData) } as TracePathActivityData;
+  }
+
+  if (resolvedType === 'color_fill') {
+    return { ...base, ...normalizeColorFillData(rawData) } as ColorFillActivityData;
   }
 
   if (resolvedType === 'quiz') {

@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.6
+> **文档版本**: v1.7
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、设计评审见附录 H、trace_path 实施记录见附录 I）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地四种题型（drag_sort + memory_flip + pattern_next + trace_path）双端链路 + 单测 + 双端构建通过；剩余 tap_target / color_fill 按附录 H 设计待实施**）
+> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、设计评审见附录 H、trace_path 见附录 I、color_fill 见附录 J）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地五种题型（drag_sort + memory_flip + pattern_next + trace_path + color_fill）双端链路 + 单测 + 双端构建通过；最后一种 tap_target 按附录 H 设计待实施**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -1087,3 +1087,47 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 覆盖率采样为像素 alpha 网格（步长 6px），字形内部空白计入采样点——描画需覆盖笔画间的空白区域，与既有课程描红画布行为一致；若儿童端反馈过严，可下调 `minCoverage` 至 0.5。
 - 3-4 岁真机手指描画的 ERGONOMICS（笔刷半径 16px 是否合适）待真机验证。
 - Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.perTarget` 展示适配未做（数据已回写）。
+
+---
+
+## 附录 J：P1 实施记录 — 第五种参数化题型 `color_fill`（v1.7 补充）
+
+### J.1 交付物与验证结论
+
+| 项 | 值 |
+| --- | --- |
+| 范围 | 方案 B 第五种参数化题型 `color_fill`（按色号涂色），覆盖后端生成 → 双端渲染 → 学习回写的完整链路 |
+| 后端验证 | `tsc --noEmit` 通过；相关 6 套件 **98/98 全绿**；全量 `npm test` **1676/1677**（唯一失败 `migration-baseline` 源于工作区未提交的 `parent-control.entity.ts` 本地改动造成的 schema 漂移，与本次无关；seeder 同前） |
+| 后端单测 | `test/unit/color-fill-params.spec.ts` **16 项全绿**（示例 JSON 契约、形状/颜色枚举拒绝、palette 覆盖与干扰色强制、重复 id/色去重、安全文本、单一真源 12 种、两套工具 schema/prompt、两套 executor 推断回归） |
+| Web 验证 | `tsc --noEmit` + `npm run build` 通过；全量 `vitest` 通过（含 8 项 ColorFillGame 组件测试，SVG 在 jsdom 直接渲染无需打桩） |
+| Flutter 验证 | **静态核查通过，未运行 `flutter analyze` / `flutter test`（本机无 Dart/Flutter SDK）**；`AppTheme.successColor`、`GameCompletionScreen` 签名逐一核对 |
+| 提交 | 仅提交 color_fill 相关文件，不混入用户既有未提交改动 |
+
+### J.2 关键决策
+
+- **形状库 + 色表枚举（附录 H.3 兑现）**：LLM 只产出 `{id, shape, colorKey}` 与 `palette`；区域位置由双端网格布局（Web flex wrap / Flutter Wrap），SVG path / CustomPainter 是组件资产而非生成内容。色值双端常量表逐项一致（`COLOR_VALUES` / `_kColorValues`）。
+- **palette 双重强制**：必须包含全部 region colorKey（缺色 region 无法涂色，sanitize 直接抛错列出缺失色）+ 至少 1 个干扰色（`palette.length > 目标色数`，否则"色盘只剩正确答案"退化）。
+- **渲染端防御**：未知 shape/colorKey、palette 缺对应色块的 region 直接删除（颜色没有"最近合法值"语义，删除而非重映射）；区域或色盘不足时显示空态。
+- **计分语义**：区域可重涂（以最后一次为准），第一次上色决定该区域 firstTry；`score = round(firstTry / regions × 100)`；`interactionData.regionResults: [{id, colorKey, firstTry}]`。
+- **推断**：`regions` 键 grep-verified 全仓唯一（两套 executor、Web normalizer、Flutter 渲染器/chat provider 均无 legacy 冲突），推断链插在 trace_path 之后。
+
+### J.3 同步清单（本次实际改动）
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| 后端契约 | `src/common/activity/color-fill.ts`（新建） | 形状库/色表枚举、契约 / 清洗 / 校验 / 确定性试玩 / body text |
+| 单一真源 | `tool-metadata.ts` | `ACTIVITY_TYPES` 扩为 12 种 |
+| 生成工具 | 两套 `generate-activity.ts` | schema / rules（含 NEVER provide coordinates）/ sanitize / prompt / body text |
+| 推断 | 两套 executor | `regions → color_fill` |
+| 标签 | `assign-activity.ts`、两套儿童 system prompt | 涂色说明、枚举约束与 palette 规则 |
+| Web | `types/index.ts`、`ColorFillGame.tsx`（新建）、`GameRenderer.tsx`、`activity-normalizer.ts`、`parent/constants.ts`、`StudentDashboard.tsx` | 类型契约、SVG 形状库组件、分发、归一化、选项与标签 |
+| Flutter | `color_fill_game.dart`（新建）、`game_renderer.dart`、`chat_session_provider.dart`、`ai_chat_screen.dart`、`learning/learning_home_screen.dart`、`parent/assignment_manager_screen.dart` | CustomPainter 形状库组件、白名单/推断/归一化/分发、标签与图标 |
+| 内容 | `src/content/examples/color_fill-3-4.json`（新建） | 受单测契约保护的示例 |
+| 测试 | `color-fill-params.spec.ts`（16 项）、`color-fill-game.test.tsx`（8 项）；四套既有 spec 的 `ACTIVITY_TYPES` 长度断言 11→12 | 契约与组件行为 |
+
+### J.4 局限与后续
+
+- 最后一种题型 `tap_target`（TTS 时序，附录 H.1）待实施——完成后 P1 方案 B 全部 6 种新题型落地。
+- 形状库/色表首批各 10 种是代码内常量，教研如需增删需双端 + 后端三处同步（枚举 + 色值表）。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.regionResults` 展示适配未做（数据已回写）。
+- 同 shape 重复区域（如 3 个圆）在网格中的顺序即数组顺序，AI 无需感知布局；若教研要求"语义相关图形相邻"，属内容生成侧 prompt 约束，不影响契约。

@@ -583,6 +583,8 @@ export class AgentExecutor {
     // trace_path uses `targets`; verified that no legacy activity type or
     // client inference chain uses a bare `targets` array (Appendix H.4).
     if (Array.isArray(value.targets)) return 'trace_path';
+    // color_fill uses `regions`; grep-verified unique across the repo.
+    if (Array.isArray(value.regions)) return 'color_fill';
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';

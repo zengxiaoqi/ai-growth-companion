@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'connection_game.dart';
+import 'color_fill_game.dart';
 import 'drag_sort_game.dart';
 import 'fill_blank_game.dart';
 import 'matching_game.dart';
@@ -96,7 +97,7 @@ class _GameRendererState extends State<GameRenderer> {
     const types = {
       'quiz', 'true_false', 'matching',
       'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
-      'memory_flip', 'pattern_next', 'trace_path',
+      'memory_flip', 'pattern_next', 'trace_path', 'color_fill',
     };
 
     final candidate = activityType?.trim();
@@ -124,6 +125,9 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'trace_path' || gameType == 'trace' || gameType == 'tracing') {
       return 'trace_path';
     }
+    if (gameType == 'color_fill' || gameType == 'coloring' || gameType == 'paint') {
+      return 'color_fill';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
@@ -145,6 +149,10 @@ class _GameRendererState extends State<GameRenderer> {
     // 回退判断，否则描红数据会被误判成配对游戏（附录 H.4）。
     if (rawData['targets'] is List) {
       return 'trace_path';
+    }
+    // color_fill 用 regions；grep-verified 全仓唯一。
+    if (rawData['regions'] is List) {
+      return 'color_fill';
     }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
@@ -191,6 +199,10 @@ class _GameRendererState extends State<GameRenderer> {
 
     if (type == 'trace_path') {
       return _normalizeTracePathData(base, rawData);
+    }
+
+    if (type == 'color_fill') {
+      return _normalizeColorFillData(base, rawData);
     }
 
     if (type == 'matching') {
@@ -815,6 +827,90 @@ class _GameRendererState extends State<GameRenderer> {
     return n ?? fallback;
   }
 
+  /// 参数化题型 color_fill 的防御式归一化，与 Web normalizer /
+  /// 后端 sanitizeColorFillParams 保持同一套边界（附录 H.3）：
+  /// 形状/颜色枚举、palette 去重裁剪、色盘缺对应色块的区域删除。
+  Map<String, dynamic> _normalizeColorFillData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxRegions = 6;
+    const int maxPalette = 8;
+
+    const shapes = <String>[
+      'circle', 'star', 'heart', 'triangle', 'square',
+      'flower', 'sun', 'moon', 'cloud', 'fish',
+    ];
+    const colors = <String>[
+      'red', 'blue', 'yellow', 'green', 'orange',
+      'purple', 'pink', 'brown', 'black', 'white',
+    ];
+
+    String cleanId(String value) {
+      final cleaned = value.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
+      return cleaned.runes.length <= 32
+          ? cleaned
+          : String.fromCharCodes(cleaned.runes.take(32));
+    }
+
+    final rawPalette = rawData['palette'] is List
+        ? rawData['palette'] as List
+        : <dynamic>[];
+    final seenPalette = <String>{};
+    final palette = <String>[];
+    for (final entry in rawPalette) {
+      final color = entry?.toString() ?? '';
+      if (!colors.contains(color) || seenPalette.contains(color)) continue;
+      seenPalette.add(color);
+      palette.add(color);
+      if (palette.length >= maxPalette) break;
+    }
+    final paletteSet = palette.toSet();
+
+    final rawRegions = rawData['regions'] is List
+        ? rawData['regions'] as List
+        : <dynamic>[];
+    final usedIds = <String>{};
+    final regions = <Map<String, dynamic>>[];
+    for (var i = 0; i < rawRegions.length && regions.length < maxRegions; i++) {
+      final entry = rawRegions[i];
+      if (entry is! Map) continue;
+      final map = entry.map((k, v) => MapEntry(k.toString(), v));
+      final shape = map['shape']?.toString() ?? '';
+      final colorKey = map['colorKey']?.toString() ?? '';
+      // 未知形状/颜色、色盘缺对应色块的区域：无法涂色，直接丢弃。
+      if (!shapes.contains(shape) ||
+          !colors.contains(colorKey) ||
+          !paletteSet.contains(colorKey)) {
+        continue;
+      }
+      var id = cleanId(map['id']?.toString() ?? '');
+      if (id.isEmpty) id = 's${i + 1}';
+      var suffix = 2;
+      while (usedIds.contains(id)) {
+        id = 's${i + 1}_${suffix++}';
+      }
+      usedIds.add(id);
+      regions.add({'id': id, 'shape': shape, 'colorKey': colorKey});
+    }
+
+    final prompt = (rawData['prompt']?.toString() ?? '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final clippedPrompt = prompt.runes.length <= 60
+        ? prompt
+        : String.fromCharCodes(prompt.runes.take(60));
+
+    return {
+      ...base,
+      'regions': regions,
+      'palette': palette,
+      'prompt': clippedPrompt,
+      'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -912,6 +1008,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'trace_path':
         return TracePathGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'color_fill':
+        return ColorFillGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

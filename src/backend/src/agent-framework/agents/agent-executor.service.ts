@@ -640,6 +640,11 @@ export class AgentExecutorService {
       return 'trace_path';
     }
 
+    // color_fill uses `regions`; grep-verified unique across the repo.
+    if (Array.isArray(value.regions)) {
+      return 'color_fill';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

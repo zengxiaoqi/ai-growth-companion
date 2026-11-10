@@ -66,6 +66,7 @@ export const ACTIVITY_TYPES = [
   'memory_flip',
   'pattern_next',
   'trace_path',
+  'color_fill',
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

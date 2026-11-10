@@ -74,4 +74,24 @@ export class ParentService {
     if (!control) throw new NotFoundException('设置不存在');
     return control;
   }
+
+  /** Per-child 碎碎念 tool override; null means "inherit the env default". */
+  async getCasualTools(childId: number): Promise<string[] | null> {
+    const control = await this.controlRepository.findOne({ where: { childId } });
+    return control?.casualTools ?? null;
+  }
+
+  /** Set the per-child override (null = inherit). Creates the control if absent. */
+  async setCasualTools(
+    parentId: number,
+    childId: number,
+    tools: string[] | null,
+  ): Promise<ParentControl> {
+    let control = await this.controlRepository.findOne({ where: { childId } });
+    if (!control) {
+      control = await this.create(parentId, childId);
+    }
+    control.casualTools = tools;
+    return this.controlRepository.save(control);
+  }
 }

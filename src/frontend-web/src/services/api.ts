@@ -41,6 +41,19 @@ import type {
   QuickVideoGenerateResponse,
 } from '@/types';
 
+export interface CasualToolInfo {
+  name: string;
+  label: string;
+  description: string;
+}
+
+export interface CasualToolsConfig {
+  available: CasualToolInfo[];
+  default: string[];
+  override: string[] | null;
+  effective: string[];
+}
+
 const API_BASE_URL = (() => {
   const fromEnv = import.meta.env.VITE_API_BASE_URL as string | undefined;
   if (fromEnv && fromEnv.trim()) {
@@ -515,6 +528,24 @@ class ApiService {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
+  }
+
+  // Casual chat tools (per-child override; null = inherit env default)
+  async getCasualTools(childId: number): Promise<CasualToolsConfig> {
+    return this.request<CasualToolsConfig>(`/parent/controls/child/${childId}/casual-tools`);
+  }
+
+  async setCasualTools(
+    childId: number,
+    tools: string[] | null,
+  ): Promise<{ override: string[] | null }> {
+    return this.request<{ override: string[] | null }>(
+      `/parent/controls/child/${childId}/casual-tools`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ tools }),
+      },
+    );
   }
 
   // Voice TTS - returns audio stream URL

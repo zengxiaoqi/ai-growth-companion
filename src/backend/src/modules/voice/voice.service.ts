@@ -85,9 +85,15 @@ export class VoiceService {
     };
   }
 
-  async generateStory(userId: number, theme: string, ageRange: string) {
+  /** Story text only (no TTS) — reused by the playStory agent tool. */
+  buildStory(theme: string, ageRange: string) {
     const storyLength = ageRange === '3-4' ? '短' : '中';
     const story = this.generateStoryContent(theme, storyLength);
+    return { title: story.title, content: story.content, keywords: story.keywords };
+  }
+
+  async generateStory(userId: number, theme: string, ageRange: string) {
+    const story = this.buildStory(theme, ageRange);
     const audioBuffer = await this.textToSpeech(story.content);
     return {
       title: story.title,

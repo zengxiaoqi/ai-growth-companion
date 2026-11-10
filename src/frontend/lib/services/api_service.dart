@@ -1051,6 +1051,25 @@ class ApiService {
     }
   }
 
+  /// 碎碎念可用技能（按孩子配置）。返回 available/default/override/effective。
+  Future<Map<String, dynamic>?> getCasualTools(int childId) async {
+    try {
+      final response = await _dio.get('/parent/controls/child/$childId/casual-tools');
+      final data = response.data;
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return data.map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      _log.warning('Get casual tools error: $e');
+      return null;
+    }
+  }
+
+  /// 设置碎碎念可用技能覆盖；[tools] 为 null 表示跟随系统默认。
+  Future<void> setCasualTools(int childId, List<String>? tools) async {
+    await _dio.patch('/parent/controls/child/$childId/casual-tools', data: {'tools': tools});
+  }
+
   // ==================== 通知 API ====================
 
   /// [FIXED: was missing userId param]

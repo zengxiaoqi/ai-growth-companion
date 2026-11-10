@@ -35,6 +35,12 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
   List<String> _allowedDomains = ['language', 'math', 'science', 'art', 'social'];
   List<String> _blockedTopics = [];
 
+  // 碎碎念可用技能（按孩子配置）
+  List<Map<String, dynamic>> _casualAvailable = [];
+  List<String> _casualDefault = [];
+  List<String>? _casualOverride;
+  List<String> _casualEffective = [];
+
   static const _allDomains = [
     {'key': 'language', 'label': '语言', 'icon': Icons.language_rounded, 'color': Color(0xFF006384)},
     {'key': 'math', 'label': '数学', 'icon': Icons.calculate_rounded, 'color': Color(0xFF586000)},
@@ -103,6 +109,13 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
         }
       }
 
+      // 加载碎碎念可用技能（按孩子配置）
+      final childId = _selectedChildId;
+      if (childId != null) {
+        final casual = await api.getCasualTools(childId);
+        _applyCasualTools(casual);
+      }
+
       if (!mounted) return;
       setState(() {
         _children = childList;
@@ -135,6 +148,10 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
         'allowedDomains': _allowedDomains,
         'blockedTopics': _blockedTopics,
       });
+      final childId = _selectedChildId;
+      if (childId != null && _casualAvailable.isNotEmpty) {
+        await api.setCasualTools(childId, _casualOverride);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -173,6 +190,29 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
       return value.map((k, v) => MapEntry(k.toString(), v));
     }
     return {};
+  }
+
+  void _applyCasualTools(Map<String, dynamic>? data) {
+    if (data == null) {
+      _casualAvailable = [];
+      _casualDefault = [];
+      _casualOverride = null;
+      _casualEffective = [];
+      return;
+    }
+    final available = data['available'];
+    _casualAvailable = available is List
+        ? available
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList()
+        : [];
+    final def = data['default'];
+    _casualDefault = def is List ? def.map((e) => e.toString()).toList() : [];
+    final override = data['override'];
+    _casualOverride = override is List ? override.map((e) => e.toString()).toList() : null;
+    final effective = data['effective'];
+    _casualEffective = effective is List ? effective.map((e) => e.toString()).toList() : [];
   }
 
   @override
@@ -411,8 +451,76 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
               onChanged: (v) => setState(() => _appLockEnabled = v),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // 碎碎念可用技能
+          _buildSection(
+            theme: theme,
+            title: '碎碎念可用技能',
+            icon: Icons.auto_awesome_rounded,
+            iconColor: AppTheme.secondaryColor,
+            child: _buildCasualTools(theme),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCasualTools(ThemeData theme) {
+    if (_casualAvailable.isEmpty) {
+      return Text(
+        '暂无可配置的技能',
+        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+      );
+    }
+    final inherit = _casualOverride == null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSwitchRow(
+          label: '跟随系统默认',
+          description: inherit ? '当前使用默认技能组合' : '已自定义，开启后恢复默认',
+          value: inherit,
+          onChanged: (v) {
+            setState(() {
+              if (v) {
+                _casualOverride = null;
+                _casualEffective = List<String>.from(_casualDefault);
+              } else {
+                _casualOverride = List<String>.from(_casualEffective);
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 12),
+        ..._casualAvailable.map((tool) {
+          final name = tool['name']?.toString() ?? '';
+          final label = tool['label']?.toString() ?? name;
+          final description = tool['description']?.toString() ?? '';
+          final enabled = _casualEffective.contains(name);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildSwitchRow(
+              label: label,
+              description: description,
+              value: enabled,
+              enabled: !inherit,
+              onChanged: (v) {
+                setState(() {
+                  final next = List<String>.from(_casualEffective);
+                  if (v) {
+                    if (!next.contains(name)) next.add(name);
+                  } else {
+                    next.remove(name);
+                  }
+                  _casualEffective = next;
+                  _casualOverride = next;
+                });
+              },
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -498,6 +606,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
     required String description,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool enabled = true,
   }) {
     return Row(
       children: [
@@ -525,7 +634,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
         ),
         Switch(
           value: value,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null,
           activeThumbColor: AppTheme.primaryColor,
         ),
       ],

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { BookOpen, CheckCircle2, Eye, Loader2, Save, ShieldCheck, Timer } from '@/icons';
 import { cn } from '../../lib/utils';
 import { ALL_DOMAINS, DOMAIN_CONFIG } from './constants';
+import CasualToolsCard from './CasualToolsCard';
 import type { ParentControl } from '@/types';
 import api from '../../services/api';
 import { Button, Card } from '../ui';
@@ -24,6 +25,7 @@ interface ParentalControlsProps {
     eyeProtectionEnabled?: boolean;
   }) => Promise<void>;
   userId: number;
+  childId?: number | null;
   controlsRef?: RefObject<HTMLDivElement | null>;
 }
 
@@ -67,6 +69,7 @@ export default function ParentalControls({
   studySchedule: initialSchedule,
   onSave,
   userId,
+  childId,
   controlsRef,
 }: ParentalControlsProps) {
   const [dailyLimit, setDailyLimit] = useState(controls?.dailyLimitMinutes || 30);
@@ -314,6 +317,8 @@ export default function ParentalControls({
           ))}
         </div>
       </Card>
+
+      {childId ? <CasualToolsCard childId={childId} /> : null}
 
       {saveError ? <p className="text-sm font-semibold text-error">{saveError}</p> : null}
 

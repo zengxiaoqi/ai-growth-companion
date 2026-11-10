@@ -22,6 +22,9 @@ import { VoiceService } from '../voice/voice.service';
 import { SafetyService } from '../safety/safety.service';
 import { CareService } from '../care/care.service';
 import { careCuePrompt } from '../care/care-prompt';
+import { ConfigService } from '@nestjs/config';
+import { ParentService } from '../parent/parent.service';
+import { parseCasualToolsEnv } from '../../common/policy/casual-tools';
 import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
 
 type CoursePackExportFormat =
@@ -65,6 +68,8 @@ export class AiService {
     // so existing unit specs that construct AiService by hand still line up.
     @Optional() private readonly safetyService?: SafetyService,
     @Optional() private readonly careService?: CareService,
+    @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly parentService?: ParentService,
   ) {
     this.frameworkOrchestrator =
       agentRegistry && frameworkExecutor && skillRegistry
@@ -483,6 +488,7 @@ export class AiService {
     targetChildId?: number;
     careTopic?: string;
     mode?: 'default' | 'casual';
+    casualTools?: string[];
   }): AgentContext {
     return {
       childId: params.executionContext.childId,
@@ -498,11 +504,33 @@ export class AiService {
         actorType: params.actorType,
         targetChildId: params.targetChildId,
         chatMode: params.mode === 'casual' ? 'casual' : 'default',
+        casualTools: params.casualTools,
         // Rendered here so the framework layer never imports a business
         // module just to format a sentence.
         careCueNote: careCuePrompt(params.careTopic),
       },
     };
+  }
+
+  /**
+   * Resolve the 碎碎念 casual-tool allowlist. A per-child parent override
+   * (ParentControl.casualTools) wins; otherwise the env default applies.
+   * Resolved in the business layer and passed via context.metadata so the
+   * framework never imports a business module.
+   */
+  private async resolveCasualTools(childId?: number): Promise<string[]> {
+    if (childId != null && this.parentService) {
+      try {
+        const control = await this.parentService.getByChild(childId);
+        if (control && Array.isArray(control.casualTools)) {
+          return control.casualTools;
+        }
+      } catch {
+        // A lookup failure must not break chat — fall back to the env default.
+      }
+    }
+    const raw = this.configService?.get<string>('CASUAL_ALLOWED_TOOLS');
+    return parseCasualToolsEnv(raw);
   }
 
   private async executeRoutedChat(params: {
@@ -519,8 +547,13 @@ export class AiService {
     mode?: 'default' | 'casual';
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
     if (this.frameworkOrchestrator) {
+      const casualTools =
+        params.mode === 'casual'
+          ? await this.resolveCasualTools(params.executionContext.childId)
+          : undefined;
       const context = this.buildAgentContext({
         ...params,
+        casualTools,
         actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
       });
       const result = await this.frameworkOrchestrator.route(params.message, context);
@@ -576,8 +609,13 @@ export class AiService {
     domain?: string;
   }> {
     if (this.frameworkOrchestrator) {
+      const casualTools =
+        params.mode === 'casual'
+          ? await this.resolveCasualTools(params.executionContext.childId)
+          : undefined;
       const context = this.buildAgentContext({
         ...params,
+        casualTools,
         actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
       });
       for await (const event of this.frameworkOrchestrator.routeStream(params.message, context)) {

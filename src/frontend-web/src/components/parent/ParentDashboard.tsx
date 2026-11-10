@@ -698,6 +698,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                   studySchedule={INITIAL_STUDY_SCHEDULE}
                   onSave={handleSaveControls}
                   userId={user?.id ?? 0}
+                  childId={selectedChildId}
                   controlsRef={controlsRef}
                 />
               </div>

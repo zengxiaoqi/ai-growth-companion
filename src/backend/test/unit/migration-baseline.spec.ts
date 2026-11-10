@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CreateBaselineSchema1600000000000 } from '../../src/database/migrations/1600000000000-CreateBaselineSchema';
 import { CreateMemoryAndSafetyTables1700000000000 } from '../../src/database/migrations/1700000000000-CreateMemoryAndSafetyTables';
+import { AddCasualToolsToParentControls1762800000000 } from '../../src/database/migrations/1762800000000-AddCasualToolsToParentControls';
 
 /**
  * The baseline migration has exactly one job worth testing: after it runs, the
@@ -48,6 +49,7 @@ async function buildFromMigrations(): Promise<DataSource> {
     migrations: [
       CreateBaselineSchema1600000000000,
       CreateMemoryAndSafetyTables1700000000000,
+      AddCasualToolsToParentControls1762800000000,
     ] as any[],
     migrationsRun: false,
     synchronize: false,
@@ -94,13 +96,14 @@ describe('baseline migration', () => {
     expect(downQueries).toHaveLength(0);
   }, 60000);
 
-  it('records both migrations as applied', async () => {
+  it('records all migrations as applied', async () => {
     const rows: Array<{ name: string }> = await dataSource.query(
       `SELECT name FROM migrations ORDER BY timestamp`,
     );
     expect(rows.map((row) => row.name)).toEqual([
       'CreateBaselineSchema1600000000000',
       'CreateMemoryAndSafetyTables1700000000000',
+      'AddCasualToolsToParentControls1762800000000',
     ]);
   });
 

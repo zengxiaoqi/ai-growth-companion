@@ -162,9 +162,9 @@ export class OrchestratorService implements OnApplicationBootstrap {
   async route(input: string, context: AgentContext): Promise<ExecutionResult> {
     const startedAt = Date.now();
 
-    // 碎碎念闲聊模式：no routing, no tools — just a short spoken-style chat.
+    // 碎碎念闲聊模式：no routing; only allowlisted casual tools (if any).
     if (this.isCasualMode(context)) {
-      this.logger.log(`[SYNC] Route plan: casual chat mode (no routing, no tools)`);
+      this.logger.log(`[SYNC] Route plan: casual chat mode (no routing, allowlisted tools)`);
       await this.persistMessage(context, 'user', input);
       const history = await this.loadHistory(context);
       const result = await this.runCasualAgent(context, history);
@@ -199,20 +199,27 @@ export class OrchestratorService implements OnApplicationBootstrap {
   async *routeStream(input: string, context: AgentContext): AsyncGenerator<StreamEvent> {
     const startedAt = Date.now();
 
-    // 碎碎念闲聊模式：no routing, no tools — just a short spoken-style chat.
+    // 碎碎念闲聊模式：no routing; only allowlisted casual tools (if any).
     if (this.isCasualMode(context)) {
-      this.logger.log(`[STREAM] Route plan: casual chat mode (no routing, no tools)`);
+      this.logger.log(`[STREAM] Route plan: casual chat mode (no routing, allowlisted tools)`);
       await this.persistMessage(context, 'user', input);
       const history = await this.loadHistory(context);
 
       let finalContent = '';
+      const casualTools = this.getCasualToolDefinitions(context);
       const stream = this.executorService.runLoopStream(
         this.buildCasualSystemPrompt(context),
         history,
-        undefined,
-        1,
+        casualTools,
+        casualTools ? 3 : 1,
         context,
-        undefined,
+        casualTools
+          ? async (event) => {
+              await this.persistMessage(context, 'tool', event.result, {
+                toolName: event.toolName,
+              });
+            }
+          : undefined,
       );
 
       for await (const event of stream) {
@@ -328,13 +335,36 @@ export class OrchestratorService implements OnApplicationBootstrap {
     context: AgentContext,
     history: LlmMessage[],
   ): Promise<ExecutionResult> {
+    const tools = this.getCasualToolDefinitions(context);
     return this.executorService.runLoop(
       this.buildCasualSystemPrompt(context),
       history,
-      undefined,
-      1,
+      tools,
+      tools ? 3 : 1,
       context,
+      tools
+        ? async (event) => {
+            await this.persistMessage(context, 'tool', event.result, {
+              toolName: event.toolName,
+            });
+          }
+        : undefined,
     );
+  }
+
+  /**
+   * 碎碎念 tool allowlist: resolved in the business layer (env default +
+   * per-child parent override) and passed via context.metadata.casualTools.
+   * Empty/absent → no tools, preserving the pure short-chat behaviour.
+   */
+  private getCasualToolDefinitions(context: AgentContext): LlmToolDefinition[] | undefined {
+    const allow = (context.metadata as Record<string, any> | undefined)?.casualTools;
+    if (!Array.isArray(allow) || allow.length === 0) return undefined;
+    const set = new Set<string>(allow);
+    const defs = this.executorService['toolRegistry'].getToolDefinitions((tool) =>
+      set.has(tool.metadata.name),
+    ) as LlmToolDefinition[] | undefined;
+    return defs && defs.length > 0 ? defs : undefined;
   }
 
   /**
@@ -348,7 +378,11 @@ export class OrchestratorService implements OnApplicationBootstrap {
       ? `你正在和${name || '家长'}随口闲聊。`
       : `你正在和${name || '小朋友'}（${context.ageGroup} 岁段的孩子）随口闲聊。`;
 
-    return [
+    const allow = (context.metadata as Record<string, any> | undefined)?.casualTools;
+    const tools: string[] = Array.isArray(allow) ? allow : [];
+    const hasTools = tools.length > 0;
+
+    const lines = [
       '你是「灵犀」，一个温暖可爱的 AI 小伙伴。现在是"碎碎念"闲聊时间——像好朋友之间有一搭没一搭地唠嗑。',
       audience,
       '',
@@ -360,12 +394,36 @@ export class OrchestratorService implements OnApplicationBootstrap {
       '- 可以在文字里加 1 个可爱的表情符号（屏幕上会显示，朗读时会自动跳过）。',
       '- 文字要"说"出来顺口——写完后在心里读一遍，别扭就改，避免书面语和翻译腔。',
       '',
+    ];
+
+    if (hasTools) {
+      lines.push('你可以使用的小帮手（只在孩子明确需要时才用，不要每句话都调用）：');
+      if (tools.includes('translate')) {
+        lines.push(
+          '- 孩子问某个词或句子用别的语言怎么说、是什么意思时，调用 translate 翻译，再用一句话把结果告诉孩子。',
+        );
+      }
+      if (tools.includes('playStory')) {
+        lines.push(
+          '- 孩子想听故事时，调用 playStory（传入主题），拿到故事后把内容讲给孩子听。讲故事时可以把故事讲完整，这时不受"40 字"限制，但语气依然温柔口语。',
+        );
+      }
+      const others = tools.filter((t) => t !== 'translate' && t !== 'playStory');
+      if (others.length > 0) {
+        lines.push(`- 需要时也可以调用这些工具：${others.join('、')}，调用后把结果用口语讲给孩子听。`);
+      }
+      lines.push('');
+    }
+
+    lines.push(
       '禁止事项：',
       '- 不要出题、讲课、安排任务、生成课程/练习/游戏/视频，也不要提学习计划。',
       '- 不要用列表、标题、加粗、代码块等任何格式，只输出纯文本短句。',
-      '- 不要一次把话说完，不要长篇大论。',
+      hasTools ? '- 除了讲故事，不要一次把话说完，不要长篇大论。' : '- 不要一次把话说完，不要长篇大论。',
       '- 不要说"作为AI""我能帮您"这类客服腔。',
-    ].join('\n');
+    );
+
+    return lines.join('\n');
   }
 
   private buildRoutePlan(input: string, context: AgentContext, selectedType: AgentType): RoutePlan {

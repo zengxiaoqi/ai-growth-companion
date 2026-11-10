@@ -1,3 +1,4 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ParentController } from '../../src/modules/parent/parent.controller';
 
 describe('ParentController', () => {
@@ -6,13 +7,25 @@ describe('ParentController', () => {
     create: jest.fn(),
     update: jest.fn(),
     createWithDefaults: jest.fn(),
+    getCasualTools: jest.fn(),
+    setCasualTools: jest.fn(),
+  };
+  const usersService = {
+    canAccessChild: jest.fn(),
+  };
+  const configService = {
+    get: jest.fn(),
   };
 
   let controller: ParentController;
 
   beforeEach(() => {
     jest.resetAllMocks();
-    controller = new ParentController(parentService as any);
+    controller = new ParentController(
+      parentService as any,
+      usersService as any,
+      configService as any,
+    );
   });
 
   describe('GET /parent/controls/:parentId', () => {
@@ -89,6 +102,107 @@ describe('ParentController', () => {
 
       expect(result).toEqual(defaults);
       expect(parentService.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /parent/controls/child/:childId/casual-tools', () => {
+    const req = { user: { sub: 1, type: 'parent' } };
+
+    it('returns catalog, default, override and effective (override wins)', async () => {
+      usersService.canAccessChild.mockResolvedValue(true);
+      parentService.getCasualTools.mockResolvedValue(['translate']);
+      configService.get.mockReturnValue(undefined);
+
+      const result = await controller.getCasualTools('2', req);
+
+      expect(usersService.canAccessChild).toHaveBeenCalledWith(1, 'parent', 2);
+      expect(result.default).toEqual(['translate', 'playStory']);
+      expect(result.override).toEqual(['translate']);
+      expect(result.effective).toEqual(['translate']);
+      expect(result.available.map((t: any) => t.name)).toEqual(['translate', 'playStory']);
+    });
+
+    it('falls back to default when override is null', async () => {
+      usersService.canAccessChild.mockResolvedValue(true);
+      parentService.getCasualTools.mockResolvedValue(null);
+      configService.get.mockReturnValue('playStory');
+
+      const result = await controller.getCasualTools('2', req);
+
+      expect(result.override).toBeNull();
+      expect(result.default).toEqual(['playStory']);
+      expect(result.effective).toEqual(['playStory']);
+    });
+
+    it('rejects non-parent callers', async () => {
+      const childReq = { user: { sub: 2, type: 'child' } };
+
+      await expect(controller.getCasualTools('2', childReq)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(usersService.canAccessChild).not.toHaveBeenCalled();
+    });
+
+    it('rejects parents without access to the child', async () => {
+      usersService.canAccessChild.mockResolvedValue(false);
+
+      await expect(controller.getCasualTools('2', req)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(parentService.getCasualTools).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PATCH /parent/controls/child/:childId/casual-tools', () => {
+    const req = { user: { sub: 1, type: 'parent' } };
+
+    beforeEach(() => {
+      usersService.canAccessChild.mockResolvedValue(true);
+    });
+
+    it('deduplicates and persists a valid tool list', async () => {
+      parentService.setCasualTools.mockResolvedValue({ casualTools: ['translate', 'playStory'] });
+
+      const result = await controller.setCasualTools(
+        '2',
+        { tools: ['translate', 'playStory', 'translate'] },
+        req,
+      );
+
+      expect(parentService.setCasualTools).toHaveBeenCalledWith(1, 2, ['translate', 'playStory']);
+      expect(result).toEqual({ override: ['translate', 'playStory'] });
+    });
+
+    it('accepts null to inherit the default', async () => {
+      parentService.setCasualTools.mockResolvedValue({ casualTools: null });
+
+      const result = await controller.setCasualTools('2', { tools: null }, req);
+
+      expect(parentService.setCasualTools).toHaveBeenCalledWith(1, 2, null);
+      expect(result).toEqual({ override: null });
+    });
+
+    it('rejects unknown tool names', async () => {
+      await expect(
+        controller.setCasualTools('2', { tools: ['translate', 'bogus'] }, req),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(parentService.setCasualTools).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-array, non-null body', async () => {
+      await expect(
+        controller.setCasualTools('2', { tools: 'translate' as any }, req),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(parentService.setCasualTools).not.toHaveBeenCalled();
+    });
+
+    it('rejects parents without access to the child', async () => {
+      usersService.canAccessChild.mockResolvedValue(false);
+
+      await expect(
+        controller.setCasualTools('2', { tools: ['translate'] }, req),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(parentService.setCasualTools).not.toHaveBeenCalled();
     });
   });
 });

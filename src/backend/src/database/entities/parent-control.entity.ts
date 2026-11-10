@@ -49,4 +49,14 @@ export class ParentControl {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  /**
+   * Per-child override for 碎碎念 casual-mode tools.
+   * null = inherit the env default (CASUAL_ALLOWED_TOOLS);
+   * [] = parent disabled all casual tools; array = exactly these tools.
+   * Declared last so it matches the additive migration's appended column
+   * order on SQLite (avoids a synchronize table rebuild).
+   */
+  @Column({ type: 'simple-json', nullable: true })
+  casualTools: string[] | null;
 }

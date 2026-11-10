@@ -1,0 +1,25 @@
+{
+  "id": "example_pattern_next_5_6",
+  "ageGroup": "5-6",
+  "domain": "math",
+  "topic": "10以内的加法",
+  "activityType": "pattern_next",
+  "type": "pattern_next",
+  "title": "数字接龙找规律",
+  "prompt": "想一想，问号处应该是哪个数字？",
+  "passingScore": 80,
+  "timeLimitSec": 120,
+  "sequence": [
+    { "id": "s1", "label": "2", "icon": "2️⃣" },
+    { "id": "s2", "label": "4", "icon": "4️⃣" },
+    { "id": "s3", "label": "6", "icon": "6️⃣" },
+    { "id": "s4", "label": "8", "icon": "8️⃣" }
+  ],
+  "options": [
+    { "id": "o1", "label": "10", "icon": "🔟" },
+    { "id": "o2", "label": "7", "icon": "7️⃣" },
+    { "id": "o3", "label": "9", "icon": "9️⃣" }
+  ],
+  "answerIndex": 0,
+  "note": "参数化题型示例（方案 B）。AI 只产出本 JSON 的参数，渲染逻辑由 Web/Flutter 的 PatternNextGame 固定组件提供。sequence 2-8 项、options 2-4 项（label 唯一）、answerIndex 零基且必须指向正确延续规律的选项。此目录不参与 import-content-json.py 导入，仅作教研示例与自动化契约校验输入。"
+}

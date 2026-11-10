@@ -8,6 +8,7 @@ import SequencingGame from './SequencingGame';
 import PuzzleGame from './PuzzleGame';
 import DragSortGame from './DragSortGame';
 import MemoryFlipGame from './MemoryFlipGame';
+import PatternNextGame from './PatternNextGame';
 
 interface GameRendererProps {
   type: ActivityType;
@@ -36,6 +37,8 @@ export default function GameRenderer({ type, data, onComplete }: GameRendererPro
       return <DragSortGame data={data} onComplete={onComplete} />;
     case 'memory_flip':
       return <MemoryFlipGame data={data} onComplete={onComplete} />;
+    case 'pattern_next':
+      return <PatternNextGame data={data} onComplete={onComplete} />;
     default:
       return <div className="p-4 text-on-surface-variant">暂不支持的活动类型</div>;
   }

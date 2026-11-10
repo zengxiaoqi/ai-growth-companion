@@ -628,6 +628,12 @@ export class AgentExecutorService {
       return 'memory_flip';
     }
 
+    // pattern_next uses `sequence` + `options`; no legacy type uses
+    // `sequence`, but check it before the generic fallbacks for safety.
+    if (Array.isArray(value.sequence) && Array.isArray(value.options)) {
+      return 'pattern_next';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

@@ -227,7 +227,8 @@ export type ActivityType =
   | 'sequencing'
   | 'puzzle'
   | 'drag_sort'
-  | 'memory_flip';
+  | 'memory_flip'
+  | 'pattern_next';
 
 export interface ActivityData {
   type: ActivityType;
@@ -276,6 +277,29 @@ export interface MemoryFlipActivityData extends ActivityData {
   prompt?: string;
   pairs: MemoryFlipPair[];
   gridSize: MemoryFlipGridSize;
+  passingScore?: number;
+  timeLimitSec?: number;
+}
+
+/** Parameter-only contract for the pattern_next engine. The LLM never emits code. */
+export interface PatternNextItem {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface PatternNextOption {
+  id: string;
+  label: string;
+  icon?: string;
+}
+
+export interface PatternNextActivityData extends ActivityData {
+  type: 'pattern_next';
+  prompt?: string;
+  sequence: PatternNextItem[];
+  options: PatternNextOption[];
+  answerIndex: number;
   passingScore?: number;
   timeLimitSec?: number;
 }

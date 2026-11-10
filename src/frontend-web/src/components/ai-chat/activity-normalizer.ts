@@ -4,6 +4,7 @@ import type {
   DragSortActivityData,
   MemoryFlipActivityData,
   MemoryFlipGridSize,
+  PatternNextActivityData,
 } from '@/types';
 
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -16,6 +17,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'puzzle',
   'drag_sort',
   'memory_flip',
+  'pattern_next',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -117,6 +119,8 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   // memory_flip also has `pairs`; check it before the pairs -> matching fallback.
   if (Array.isArray(rawData?.pairs) && rawData?.gridSize) return 'memory_flip';
   if (Array.isArray(rawData?.pairs)) return 'matching';
+  // pattern_next uses `sequence` + `options`; no legacy type uses `sequence`.
+  if (Array.isArray(rawData?.sequence) && Array.isArray(rawData?.options)) return 'pattern_next';
   if (
     Array.isArray(rawData?.connections) ||
     (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))
@@ -209,6 +213,97 @@ export function normalizeMemoryFlipData(raw: any): Pick<
   };
 }
 
+export const PATTERN_NEXT_LIMITS = {
+  maxSequence: 8,
+  minSequence: 2,
+  maxOptions: 4,
+  minOptions: 2,
+  maxIconLength: 8,
+  maxLabelLength: 12,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 120,
+} as const;
+
+/**
+ * Defensive normalization for pattern_next parameters. The answer is kept
+ * even if it falls outside the surviving options only when it can be
+ * re-anchored by label; otherwise the option list is rebuilt around it.
+ */
+export function normalizePatternNextData(raw: any): Pick<
+  PatternNextActivityData,
+  'sequence' | 'options' | 'answerIndex' | 'passingScore' | 'timeLimitSec' | 'prompt'
+> {
+  const normalizeEntries = (
+    list: any,
+    prefix: string,
+    usedIds: Set<string>,
+    max: number,
+  ): Array<PatternNextActivityData['sequence'][number]> => {
+    const result: Array<PatternNextActivityData['sequence'][number]> = [];
+    if (!Array.isArray(list)) return result;
+    for (let i = 0; i < list.length && result.length < max; i++) {
+      const entry = list[i];
+      const label = toText(entry?.label).slice(0, PATTERN_NEXT_LIMITS.maxLabelLength);
+      if (!label) continue;
+      let id = toSafeId(entry?.id) || `${prefix}${i + 1}`;
+      let suffix = 2;
+      while (usedIds.has(id)) id = `${prefix}${i + 1}_${suffix++}`;
+      usedIds.add(id);
+      const icon = toText(entry?.icon).slice(0, PATTERN_NEXT_LIMITS.maxIconLength);
+      result.push(icon ? { id, label, icon } : { id, label });
+    }
+    return result;
+  };
+
+  const usedSeqIds = new Set<string>();
+  const sequence = normalizeEntries(
+    raw?.sequence,
+    's',
+    usedSeqIds,
+    PATTERN_NEXT_LIMITS.maxSequence,
+  ).slice(0, Math.max(PATTERN_NEXT_LIMITS.minSequence, PATTERN_NEXT_LIMITS.maxSequence));
+
+  // The declared answer must survive normalization; keep its label and
+  // re-anchor it into the option list.
+  const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
+  const declaredAnswer = toText(rawOptions[toSafeInt(raw?.answerIndex, -1)]?.label);
+  const cleaned = normalizeEntries(rawOptions, 'o', new Set<string>(), PATTERN_NEXT_LIMITS.maxOptions);
+  const usedOptionLabels = new Set<string>();
+  const options: PatternNextActivityData['options'] = [];
+  let answerIndex = -1;
+  for (const option of cleaned) {
+    if (usedOptionLabels.has(option.label)) continue;
+    usedOptionLabels.add(option.label);
+    if (option.label === declaredAnswer) answerIndex = options.length;
+    options.push(option);
+  }
+
+  // If the answer option was dropped or the list needs another entry, keep
+  // the first surviving option as a conservative fallback answer only when
+  // its label matches nothing — otherwise the puzzle would be unanswerable.
+  if (answerIndex < 0 && options.length >= PATTERN_NEXT_LIMITS.minOptions) {
+    // No re-anchoring possible: treat first option as the answer so the
+    // board stays playable (renderer still records first-try semantics).
+    answerIndex = 0;
+  }
+
+  const prompt = toText(raw?.prompt).slice(0, 60);
+  return {
+    sequence,
+    options,
+    answerIndex,
+    ...(prompt ? { prompt } : {}),
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, PATTERN_NEXT_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      30,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, PATTERN_NEXT_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
+}
+
 export function normalizeActivityData(
   activityType: ActivityType | string | undefined,
   rawData: any,
@@ -227,6 +322,10 @@ export function normalizeActivityData(
 
   if (resolvedType === 'memory_flip') {
     return { ...base, ...normalizeMemoryFlipData(rawData) } as MemoryFlipActivityData;
+  }
+
+  if (resolvedType === 'pattern_next') {
+    return { ...base, ...normalizePatternNextData(rawData) } as PatternNextActivityData;
   }
 
   if (resolvedType === 'quiz') {

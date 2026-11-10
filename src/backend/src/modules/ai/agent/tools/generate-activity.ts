@@ -11,6 +11,11 @@ import {
   validateMemoryFlipParams,
   collectMemoryFlipBodyText,
 } from '../../../../common/activity/memory-flip';
+import {
+  sanitizePatternNextParams,
+  validatePatternNextParams,
+  collectPatternNextBodyText,
+} from '../../../../common/activity/pattern-next';
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -402,6 +407,8 @@ export class GenerateActivityTool {
         return '{"type":"drag_sort","title":"...","topic":"...","ageGroup":"...","prompt":"...","buckets":[{"id":"sky","label":"天上","icon":"☁"}],"items":[{"id":"i1","label":"小鸟","icon":"🐦","bucketId":"sky"}],"passingScore":80,"timeLimitSec":120}';
       case 'memory_flip':
         return '{"type":"memory_flip","title":"...","topic":"...","ageGroup":"...","prompt":"...","pairs":[{"id":"p1","label":"小猫","icon":"🐱"},{"id":"p2","label":"小狗","icon":"🐶"}],"gridSize":{"rows":2,"cols":2},"passingScore":80,"timeLimitSec":180}';
+      case 'pattern_next':
+        return '{"type":"pattern_next","title":"...","topic":"...","ageGroup":"...","prompt":"...","sequence":[{"id":"s1","label":"苹果","icon":"🍎"},{"id":"s2","label":"香蕉","icon":"🍌"},{"id":"s3","label":"苹果","icon":"🍎"}],"options":[{"id":"o1","label":"香蕉","icon":"🍌"},{"id":"o2","label":"葡萄","icon":"🍇"}],"answerIndex":0,"passingScore":80,"timeLimitSec":120}';
       default:
         return '{}';
     }
@@ -468,6 +475,15 @@ export class GenerateActivityTool {
           'gridSize MUST fit the pair count exactly: cards = pairs * 2.',
           'passingScore is 0-100; timeLimitSec is 60-300.',
         ];
+      case 'pattern_next':
+        return [
+          ...common,
+          'Generate a 2-8 item sequence with a clear repeating or growing pattern, plus 2-4 answer options.',
+          'sequence and options items are {id, label, icon}; label is a short plain Chinese word; icon is one emoji.',
+          'options labels MUST be unique; answerIndex MUST point at the option that correctly continues the pattern.',
+          'The pattern must be truly solvable by a 3-6 year old (e.g. ABAB, ABCABC, size/color alternation, +1/+2 counting).',
+          'passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -521,6 +537,8 @@ export class GenerateActivityTool {
         return this.sanitizeDragSort(args, raw);
       case 'memory_flip':
         return this.sanitizeMemoryFlip(args, raw);
+      case 'pattern_next':
+        return this.sanitizePatternNext(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -752,6 +770,17 @@ export class GenerateActivityTool {
     return activity;
   }
 
+  private sanitizePatternNext(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizePatternNextParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validatePatternNextParams(activity);
+    if (!verdict.ok) throw new Error(`pattern_next playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -960,6 +989,8 @@ export class GenerateActivityTool {
     if (dragSortText) parts.push(dragSortText);
     const memoryFlipText = collectMemoryFlipBodyText(activity);
     if (memoryFlipText) parts.push(memoryFlipText);
+    const patternNextText = collectPatternNextBodyText(activity);
+    if (patternNextText) parts.push(patternNextText);
 
     return parts.join(' | ');
   }

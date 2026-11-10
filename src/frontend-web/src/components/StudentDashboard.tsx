@@ -112,6 +112,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   puzzle: '拼图',
   drag_sort: '分类',
   memory_flip: '翻牌',
+  pattern_next: '规律',
 };
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {

@@ -577,6 +577,9 @@ export class AgentExecutor {
     // drag_sort carries `items` too; check it before the generic
     // items -> sequencing fallback or the payload is silently mis-typed.
     if (Array.isArray(value.buckets) && Array.isArray(value.items)) return 'drag_sort';
+    // pattern_next uses `sequence` + `options`; no legacy type uses
+    // `sequence`, but check it before the generic fallbacks for safety.
+    if (Array.isArray(value.sequence) && Array.isArray(value.options)) return 'pattern_next';
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';

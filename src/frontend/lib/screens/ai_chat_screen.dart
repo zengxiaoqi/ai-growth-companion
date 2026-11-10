@@ -432,6 +432,7 @@ class _InlineGameCardState extends State<_InlineGameCard> {
       'puzzle': '拼图游戏',
       'drag_sort': '分类游戏',
       'memory_flip': '记忆翻牌',
+      'pattern_next': '规律接龙',
     };
     return labels[type] ?? '互动游戏';
   }

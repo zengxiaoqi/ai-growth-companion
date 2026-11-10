@@ -311,6 +311,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'puzzle': '拼图游戏',
       'drag_sort': '分类游戏',
       'memory_flip': '记忆翻牌',
+      'pattern_next': '规律接龙',
     };
     return labels[type] ?? '互动游戏';
   }
@@ -326,6 +327,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       'puzzle': Icons.extension_rounded,
       'drag_sort': Icons.category_outlined,
       'memory_flip': Icons.style_outlined,
+      'pattern_next': Icons.auto_awesome_outlined,
     };
     return icons[type] ?? Icons.play_circle_rounded;
   }

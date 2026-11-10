@@ -64,6 +64,7 @@ export const ACTIVITY_TYPES = [
   'puzzle',
   'drag_sort',
   'memory_flip',
+  'pattern_next',
 ] as const;
 
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];

@@ -8,6 +8,7 @@ import 'drag_sort_game.dart';
 import 'fill_blank_game.dart';
 import 'matching_game.dart';
 import 'memory_flip_game.dart';
+import 'pattern_next_game.dart';
 import 'puzzle_game.dart';
 import 'quiz_game.dart';
 import 'sequencing_game.dart';
@@ -94,7 +95,7 @@ class _GameRendererState extends State<GameRenderer> {
     const types = {
       'quiz', 'true_false', 'matching',
       'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
-      'memory_flip',
+      'memory_flip', 'pattern_next',
     };
 
     final candidate = activityType?.trim();
@@ -116,6 +117,9 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'memory_flip' || gameType == 'memory') {
       return 'memory_flip';
     }
+    if (gameType == 'pattern_next' || gameType == 'pattern' || gameType == 'riddle_sequence') {
+      return 'pattern_next';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
@@ -128,6 +132,10 @@ class _GameRendererState extends State<GameRenderer> {
     // memory_flip 同样带 pairs，必须先于 pairs -> matching 判断，否则被误判。
     if (rawData['pairs'] is List && rawData['gridSize'] is Map) {
       return 'memory_flip';
+    }
+    // pattern_next 用 sequence + options；sequence 是无歧义的结构键。
+    if (rawData['sequence'] is List && rawData['options'] is List) {
+      return 'pattern_next';
     }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
@@ -166,6 +174,10 @@ class _GameRendererState extends State<GameRenderer> {
 
     if (type == 'memory_flip') {
       return _normalizeMemoryFlipData(base, rawData);
+    }
+
+    if (type == 'pattern_next') {
+      return _normalizePatternNextData(base, rawData);
     }
 
     if (type == 'matching') {
@@ -600,6 +612,105 @@ class _GameRendererState extends State<GameRenderer> {
     };
   }
 
+  /// 参数化题型 pattern_next 的防御式归一化，与 Web normalizer /
+  /// 后端 sanitizePatternNextParams 保持同一套边界与计分语义。
+  Map<String, dynamic> _normalizePatternNextData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxSequence = 8;
+    const int maxOptions = 4;
+    const int maxLabel = 12;
+    const int maxIcon = 8;
+
+    String text(dynamic value) {
+      if (value == null) return '';
+      return value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String value, int max) => value.runes.length <= max
+        ? value
+        : String.fromCharCodes(value.runes.take(max));
+
+    String safeId(dynamic value) =>
+        clip(text(value).replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), ''), 32);
+
+    int intOr(dynamic value, int fallback) {
+      if (value == null) return fallback;
+      final n = num.tryParse(value.toString());
+      return (n == null || !n.isFinite) ? fallback : n.truncate();
+    }
+
+    List<Map<String, dynamic>> parseEntries(
+      dynamic raw,
+      String prefix,
+      int max,
+    ) {
+      if (raw is! List) return <Map<String, dynamic>>[];
+      final used = <String>{};
+      final result = <Map<String, dynamic>>[];
+      for (var i = 0; i < raw.length && result.length < max; i++) {
+        final entry = raw[i];
+        if (entry is! Map) continue;
+        final map = entry.map((k, v) => MapEntry(k.toString(), v));
+        final label = clip(text(map['label']), maxLabel);
+        if (label.isEmpty) continue;
+
+        var id = safeId(map['id']);
+        if (id.isEmpty) id = '$prefix${i + 1}';
+        var suffix = 2;
+        while (used.contains(id)) {
+          id = '$prefix${i + 1}_${suffix++}';
+        }
+        used.add(id);
+
+        final icon = clip(text(map['icon']), maxIcon);
+        result.add({
+          'id': id,
+          'label': label,
+          if (icon.isNotEmpty) 'icon': icon,
+        });
+      }
+      return result;
+    }
+
+    final sequence = parseEntries(rawData['sequence'], 's', maxSequence);
+
+    // 答案必须能在清洗后的选项里按 label 重新锚定，否则重建选项列表。
+    final rawOptions = rawData['options'] is List ? rawData['options'] as List : [];
+    final answerIdx = intOr(rawData['answerIndex'], -1);
+    final declaredAnswer = (answerIdx >= 0 && answerIdx < rawOptions.length)
+        ? text((rawOptions[answerIdx] as Map?)?['label'])
+        : '';
+
+    final cleaned = parseEntries(rawOptions, 'o', maxOptions);
+    final usedOptionLabels = <String>{};
+    final options = <Map<String, dynamic>>[];
+    var answerIndex = -1;
+    for (final option in cleaned) {
+      final label = option['label'] as String;
+      if (usedOptionLabels.contains(label)) continue;
+      usedOptionLabels.add(label);
+      if (label == declaredAnswer) answerIndex = options.length;
+      options.add(option);
+    }
+
+    if (answerIndex < 0 && options.length >= 2) {
+      // 无法按 label 重新锚定：保守取第一个选项，保证棋盘可答。
+      answerIndex = 0;
+    }
+
+    return {
+      ...base,
+      'sequence': sequence,
+      'options': options,
+      'answerIndex': answerIndex,
+      'prompt': clip(text(rawData['prompt']), 60),
+      'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+    };
+  }
+
   int _toInt(dynamic value) {
     final n = int.tryParse(value?.toString() ?? '');
     return n ?? 0;
@@ -690,6 +801,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'memory_flip':
         return MemoryFlipGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'pattern_next':
+        return PatternNextGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

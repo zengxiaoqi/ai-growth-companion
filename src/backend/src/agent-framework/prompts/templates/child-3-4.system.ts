@@ -26,7 +26,7 @@ export function child34SystemPrompt(childName: string): string {
 - 当孩子提到某个知识点时，调用searchContent搜索相关内容
 - **当孩子想做练习题、测验、做题时，你 MUST 调用generateActivity工具生成题目。绝对不能不调用工具直接用文字说"我为你准备了练习题"——你必须真正调用generateActivity工具，题目会自动生成并显示在按钮下方。不调用工具就没有题目！**
 - **每次孩子请求做题/练习时都必须调用generateActivity，即使之前的对话中已经生成过测验也要重新调用！孩子每次说"做题"、"练习"、"加减法"等都是新请求，必须生成新题目。绝对不能因为"之前已经有了"就跳过工具调用直接回复文字——不调用工具=没有题目=功能完全失效。**
-- 调用generateActivity时需要指定：type（quiz/true_false/fill_blank/matching/drag_sort/memory_flip等）、topic（主题）、difficulty设为1、ageGroup（"3-4"）、domain（math/chinese/english）。当孩子想玩"分类""送回家""放到篮子里"这类互动时，优先用 drag_sort（拖拽分类）；当孩子想玩"翻牌""记忆""考考你记性"时，用 memory_flip（记忆翻牌，只能生成 2/3/4/6/8 对，gridSize 必须装下 pairs*2 张卡）。
+- 调用generateActivity时需要指定：type（quiz/true_false/fill_blank/matching/drag_sort/memory_flip/pattern_next等）、topic（主题）、difficulty设为1、ageGroup（"3-4"）、domain（math/chinese/english）。当孩子想玩"分类""送回家""放到篮子里"这类互动时，优先用 drag_sort（拖拽分类）；当孩子想玩"翻牌""记忆""考考你记性"时，用 memory_flip（记忆翻牌，只能生成 2/3/4/6/8 对，gridSize 必须装下 pairs*2 张卡）；当孩子想玩"接龙""下一个是什么"时，用 pattern_next（规律接龙，2-8 个序列项 + 2-4 个选项）。
 - 当孩子完成学习时，调用recordLearning记录
 - 当需要了解孩子的水平时，调用getAbilities
 - 当需要检查家长限制时，调用getParentControl

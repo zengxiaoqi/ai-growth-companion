@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.3
+> **文档版本**: v1.4
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 结论见附录 D；P1 第一种参数化题型 drag_sort 见附录 E；第二种 memory_flip 见附录 F）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 持续落地：drag_sort + memory_flip 双端链路 + 单测 + 双端构建通过**）
+> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 持续落地：drag_sort + memory_flip + pattern_next 三种题型双端链路 + 单测 + 双端构建通过**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -22,6 +22,7 @@
 | P0 最小链路是否已验证？ | **是**。`poc/game-bridge/` 隔离 PoC 已跑通 31 项自动化检查（含真实 headless Chromium 的 sandbox iframe 闭环），不改任何生产代码。详见附录 D。 |
 | P1 第一种参数化题型是否已落地？ | **是（drag_sort）**。后端参数契约/清洗/确定性试玩 + 两套生成工具 + 8 处白名单同步，Web/Flutter 双端渲染，16 项契约单测 + 双端构建通过。剩余 5 种题型待后续迭代，见附录 E。 |
 | P1 第二种参数化题型是否已落地？ | **是（memory_flip）**。同一模式复用：后端契约（对数限定 2/3/4/6/8，grid 必须装下 pairs*2 张卡）+ 双端翻牌组件 + `pairs + gridSize → memory_flip` 推断优先于 `pairs → matching`，见附录 F。 |
+| P1 第三种参数化题型是否已落地？ | **是（pattern_next）**。同一模式复用：后端契约（sequence 2-8 项 + options 2-4 项 + answerIndex）+ 双端规律推理组件 + `sequence + options → pattern_next` 推断，见附录 G。 |
 
 **一句话决策**：把 ohmygame 放在**离线生产侧**，把"审核过的静态产物"作为唯一可跨越信任边界的东西；运行时继续坚持"AI 只产数据、引擎固定"。
 
@@ -793,7 +794,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 ### E.4 局限与后续
 
-- **方案 B 尚未完成**：本附录只覆盖第一种题型 `drag_sort`；`tap_target` / `trace_path` / `color_fill` / `pattern_next` 仍待按同一模式迭代（每种 = 后端契约模块 + 双端组件 + 白名单同步点，参照 E.3 清单）。`memory_flip` 已作为第二种题型落地，见附录 F。
+- **方案 B 尚未完成**：本附录只覆盖第一种题型 `drag_sort`；`tap_target` / `trace_path` / `color_fill` / `pattern_next` 仍待按同一模式迭代（每种 = 后端契约模块 + 双端组件 + 白名单同步点，参照 E.3 清单）。`memory_flip` 已作为第二种题型落地（附录 F），`pattern_next` 已作为第三种题型落地（附录 G）。
 - **Flutter 未真机/模拟器验证**：本机无 Dart/Flutter SDK，只做了静态一致性核查；接入 CI 或任一有 SDK 的环境后应先跑 `flutter analyze` 与现有游戏回归。
 - **5.5 验收指标未度量**：`generate-activity` 对 `drag_sort` 参数的一次通过率（100 条抽样）需要接真实 LLM key 才能跑，当前只有确定性校验与 prompt 结构验证。
 - **`game_data` SSE 契约不变**：既有 7 种题型与 `game_data` 事件格式回归全绿；但家长端作业详情、成长报告等下游消费 `interactionData` 的界面尚未针对 `placements` 做展示适配（数据已回写，不影响计分与成就）。
@@ -841,3 +842,47 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 - 剩余 4 种题型（`tap_target` / `trace_path` / `color_fill` / `pattern_next`）待按同一模式迭代；`trace_path` / `color_fill` 需要先补几何/画布参数设计。
 - Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
 - 家长端 / 成长报告对 `interactionData.moves / mismatches` 的展示适配未做（数据已回写）。
+
+---
+
+## 附录 G：P1 实施记录 — 第三种参数化题型 `pattern_next`（v1.4 补充）
+
+### G.1 交付物与验证结论
+
+| 项 | 值 |
+| --- | --- |
+| 范围 | 方案 B 第三种参数化题型 `pattern_next`（规律推理选下一个），覆盖后端生成 → 双端渲染 → 学习回写的完整链路 |
+| 后端验证 | `tsc --noEmit` 通过；相关 6 套件 **73 项全绿**；全量 `npm test` 通过 |
+| 后端单测 | `test/unit/pattern-next-params.spec.ts` **14 项全绿**（示例 JSON 契约、0/1 基 answerIndex 容错、重复选项拒绝、安全文本、单一真源、两套工具 schema 与 prompt、两个 executor 推断回归） |
+| Web 验证 | `tsc --noEmit` + `npm run build` 通过；全量 `vitest` **12 文件 82 项全绿**（含 7 项 PatternNextGame 组件测试） |
+| Flutter 验证 | **静态核查通过，未运行 `flutter analyze` / `flutter test`（本机无 Dart/Flutter SDK）**；import 路径、`GameCompletionScreen` 签名、`AppTheme` 成员逐一核对一致 |
+| 提交 | 仅提交 pattern_next 相关文件，不混入用户既有未提交改动 |
+
+### G.2 关键决策
+
+- **计分语义（与 drag_sort 对齐）**：答错可重试，但只有第一次就答对才计分（score 100/0，total=1）；`attempts` / `firstTryCorrect` 写入 `interactionData` 供成长报告使用。
+- **answerIndex 容错**：零基有效索引直接采用；越界时尝试一基修正（与 quiz 工具的 `resolveCorrectIndex` 行为一致）；仍无效则抛错进 3 次反射重试。注意合法范围内的 0/1 基本就不可消歧，按零基处理。
+- **选项标签唯一性**：重复 option label 会让答案对孩子产生歧义——后端拒绝，双端归一化丢弃后到的重复项。
+- **推断**：结构键 `sequence + options` 无歧义（无 legacy 题型使用 `sequence`），但仍放在推断链前部；framework executor 的 `ACTIVITY_STRUCTURAL_KEYS` 不收录 `pattern_next`，避免 `sequence` 单独出现被误判（这是本轮测试发现并修正的实际坑）。
+- **客户端归一化的答案重锚定**：清洗后若声明的答案选项被裁剪，按 label 重新锚定；无法重锚定时保守取第一个选项保持可答（渲染端仍记录 first-try 语义）。
+
+### G.3 同步清单（本次实际改动）
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| 后端契约 | `src/common/activity/pattern-next.ts`（新建） | 参数契约 / 清洗 / 校验 / 确定性试玩 / body text |
+| 单一真源 | `tool-metadata.ts` | `ACTIVITY_TYPES` 扩为 10 种 |
+| 生成工具 | 两套 `generate-activity.ts` | schema / rules / sanitize / prompt / body text |
+| 推断 | 两套 executor | `sequence + options → pattern_next`；framework 结构键 map 不收录该题型 |
+| 标签 | `assign-activity.ts`、两套儿童 system prompt | 规律接龙说明与约束 |
+| Web | `types/index.ts`、`PatternNextGame.tsx`（新建）、`GameRenderer.tsx`、`activity-normalizer.ts`、`parent/constants.ts`、`StudentDashboard.tsx` | 类型契约、组件、分发、归一化（label 重锚定）、选项与标签 |
+| Flutter | `pattern_next_game.dart`（新建）、`game_renderer.dart`、`chat_session_provider.dart`、`ai_chat_screen.dart`、`learning_home_screen.dart`、`assignment_manager_screen.dart` | 组件、白名单/推断/归一化/分发、标签与图标 |
+| 内容 | `src/content/examples/pattern_next-5-6.json`（新建） | 受单测契约保护的示例 |
+| 测试 | `pattern-next-params.spec.ts`（14 项）、`pattern-next-game.test.tsx`（7 项） | 契约与组件行为 |
+
+### G.4 局限与后续
+
+- 剩余 3 种题型：`tap_target`（依赖语音/TTS 时序）、`trace_path` / `color_fill`（需要先补几何/画布参数设计）——均不适合直接套用本轮模式，需先做专项参数设计再实现。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归。
+- 家长端 / 成长报告对 `interactionData.attempts / firstTryCorrect` 的展示适配未做（数据已回写）。
+- 规律的"可解性"只能由 LLM 保证（确定性模拟只能验证结构可答）；数字递增类规律（如 2/4/6→8）的 answer 不在序列中出现，因此不能强制 `answer ∈ sequence`，这是确定性校验的固有边界。

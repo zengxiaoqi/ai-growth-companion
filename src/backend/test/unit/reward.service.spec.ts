@@ -289,7 +289,9 @@ describe('RewardService', () => {
     });
 
     it('should use provided recordedAt when given', async () => {
-      const customDate = new Date('2026-11-01T10:00:00Z');
+      // Relative date: the service rejects backfill older than 30 days, so a
+      // hard-coded date goes stale over time (this test rotted once already).
+      const customDate = new Date(Date.now() - 10 * 24 * 3600 * 1000);
       const data = {
         childId: 1,
         behaviorName: '学习',

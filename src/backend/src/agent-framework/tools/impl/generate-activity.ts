@@ -26,6 +26,11 @@ import {
   validatePatternNextParams,
   collectPatternNextBodyText,
 } from '../../../common/activity/pattern-next';
+import {
+  sanitizeTracePathParams,
+  validateTracePathParams,
+  collectTracePathBodyText,
+} from '../../../common/activity/trace-path';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -202,7 +207,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持10种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)。AI 只产参数 JSON，不产代码。',
+      '生成互动学习活动，支持11种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -415,6 +420,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return '{"type":"memory_flip","title":"...","topic":"...","ageGroup":"...","prompt":"...","pairs":[{"id":"p1","label":"小猫","icon":"🐱"},{"id":"p2","label":"小狗","icon":"🐶"}],"gridSize":{"rows":2,"cols":2},"passingScore":80,"timeLimitSec":180}';
       case 'pattern_next':
         return '{"type":"pattern_next","title":"...","topic":"...","ageGroup":"...","prompt":"...","sequence":[{"id":"s1","label":"苹果","icon":"🍎"},{"id":"s2","label":"香蕉","icon":"🍌"},{"id":"s3","label":"苹果","icon":"🍎"}],"options":[{"id":"o1","label":"香蕉","icon":"🍌"},{"id":"o2","label":"葡萄","icon":"🍇"}],"answerIndex":0,"passingScore":80,"timeLimitSec":120}';
+      case 'trace_path':
+        return '{"type":"trace_path","title":"...","topic":"...","ageGroup":"...","prompt":"请沿着虚线描一描","targets":[{"id":"g1","kind":"glyph","text":"火","label":"火"},{"id":"g2","kind":"glyph","text":"山","label":"山"}],"minCoverage":0.7,"passingScore":80,"timeLimitSec":180}';
       default:
         return '{}';
     }
@@ -489,6 +496,14 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           'The pattern must be truly solvable by a 3-6 year old (e.g. ABAB, ABCABC, size/color alternation, +1/+2 counting).',
           'passingScore is 0-100; timeLimitSec is 30-300.',
         ];
+      case 'trace_path':
+        return [
+          ...common,
+          'Generate 2-4 tracing targets about the given topic.',
+          'Each target is {id, kind:"glyph", text, label}: text is 1-2 common Chinese characters, digits or letters (NEVER emoji or rare characters); label defaults to the text.',
+          'Glyphs must be visually simple and appropriate for tracing by a 3-4 year old.',
+          'minCoverage is 0.5-0.85 (0.7 recommended); passingScore is 0-100; timeLimitSec is 30-300.',
+        ];
       default:
         return common;
     }
@@ -541,6 +556,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         return this.sanitizeMemoryFlip(args, raw);
       case 'pattern_next':
         return this.sanitizePatternNext(args, raw);
+      case 'trace_path':
+        return this.sanitizeTracePath(args, raw);
       default:
         throw new Error(`Unsupported type: ${args.type}`);
     }
@@ -751,6 +768,17 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     return activity;
   }
 
+  private sanitizeTracePath(args: GenerateActivityArgs, raw: any) {
+    const activity = sanitizeTracePathParams(raw, {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      domain: args.domain,
+    });
+    const verdict = validateTracePathParams(activity);
+    if (!verdict.ok) throw new Error(`trace_path playtest failed: ${verdict.reason}`);
+    return activity;
+  }
+
   private validateTopicAlignment(args: GenerateActivityArgs, activity: any): ValidationResult {
     const topic = this.toText(args.topic).toLowerCase();
     const bodyContent = this.collectActivityBodyText(activity).toLowerCase();
@@ -895,6 +923,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     if (memoryFlipText) parts.push(memoryFlipText);
     const patternNextText = collectPatternNextBodyText(activity);
     if (patternNextText) parts.push(patternNextText);
+    const tracePathText = collectTracePathBodyText(activity);
+    if (tracePathText) parts.push(tracePathText);
 
     return parts.join(' | ');
   }

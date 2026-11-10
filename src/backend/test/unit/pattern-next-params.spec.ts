@@ -188,7 +188,7 @@ describe('pattern_next parameter contract', () => {
 describe('pattern_next whitelist single source of truth', () => {
   it('ACTIVITY_TYPES contains pattern_next exactly once and is exposed by isActivityType', () => {
     expect(ACTIVITY_TYPES.filter((type) => type === 'pattern_next')).toHaveLength(1);
-    expect(ACTIVITY_TYPES).toHaveLength(10);
+    expect(ACTIVITY_TYPES).toHaveLength(11);
     expect(isActivityType('pattern_next')).toBe(true);
     expect(isActivityType('color_fill')).toBe(false);
   });

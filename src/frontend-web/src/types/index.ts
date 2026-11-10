@@ -228,7 +228,8 @@ export type ActivityType =
   | 'puzzle'
   | 'drag_sort'
   | 'memory_flip'
-  | 'pattern_next';
+  | 'pattern_next'
+  | 'trace_path';
 
 export interface ActivityData {
   type: ActivityType;
@@ -300,6 +301,24 @@ export interface PatternNextActivityData extends ActivityData {
   sequence: PatternNextItem[];
   options: PatternNextOption[];
   answerIndex: number;
+  passingScore?: number;
+  timeLimitSec?: number;
+}
+
+/** Parameter-only contract for the trace_path engine. The LLM never emits code or coordinates. */
+export interface TracePathTarget {
+  id: string;
+  kind: 'glyph';
+  /** 1-2 characters: common CJK ideographs, digits or ASCII letters. */
+  text: string;
+  label: string;
+}
+
+export interface TracePathActivityData extends ActivityData {
+  type: 'trace_path';
+  prompt?: string;
+  targets: TracePathTarget[];
+  minCoverage: number;
   passingScore?: number;
   timeLimitSec?: number;
 }

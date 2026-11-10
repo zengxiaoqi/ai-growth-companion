@@ -53,6 +53,7 @@ const ACTIVITY_TYPE_NAMES: Record<string, string> = {
   drag_sort: '分类游戏',
   memory_flip: '记忆翻牌',
   pattern_next: '规律接龙',
+  trace_path: '描红游戏',
 };
 
 @Injectable()

@@ -12,6 +12,7 @@ import 'pattern_next_game.dart';
 import 'puzzle_game.dart';
 import 'quiz_game.dart';
 import 'sequencing_game.dart';
+import 'trace_path_game.dart';
 import 'true_false_game.dart';
 
 /// 游戏渲染器：根据类型分发到具体游戏组件，并负责数据加载与归一化。
@@ -95,7 +96,7 @@ class _GameRendererState extends State<GameRenderer> {
     const types = {
       'quiz', 'true_false', 'matching',
       'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
-      'memory_flip', 'pattern_next',
+      'memory_flip', 'pattern_next', 'trace_path',
     };
 
     final candidate = activityType?.trim();
@@ -120,6 +121,9 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'pattern_next' || gameType == 'pattern' || gameType == 'riddle_sequence') {
       return 'pattern_next';
     }
+    if (gameType == 'trace_path' || gameType == 'trace' || gameType == 'tracing') {
+      return 'trace_path';
+    }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
       return 'quiz';
     }
@@ -136,6 +140,11 @@ class _GameRendererState extends State<GameRenderer> {
     // pattern_next 用 sequence + options；sequence 是无歧义的结构键。
     if (rawData['sequence'] is List && rawData['options'] is List) {
       return 'pattern_next';
+    }
+    // trace_path 用 targets；必须先于下方的 items+targets -> matching
+    // 回退判断，否则描红数据会被误判成配对游戏（附录 H.4）。
+    if (rawData['targets'] is List) {
+      return 'trace_path';
     }
     if (rawData['pairs'] is List ||
         (rawData['items'] is List && rawData['targets'] is List)) {
@@ -178,6 +187,10 @@ class _GameRendererState extends State<GameRenderer> {
 
     if (type == 'pattern_next') {
       return _normalizePatternNextData(base, rawData);
+    }
+
+    if (type == 'trace_path') {
+      return _normalizeTracePathData(base, rawData);
     }
 
     if (type == 'matching') {
@@ -716,6 +729,92 @@ class _GameRendererState extends State<GameRenderer> {
     return n ?? 0;
   }
 
+  /// 参数化题型 trace_path 的防御式归一化，与 Web normalizer /
+  /// 后端 sanitizeTracePathParams 保持同一套边界（附录 H.2）：
+  /// 字形白名单（常用汉字/数字/字母，1-2 个）、polyline 丢弃、去重、
+  /// minCoverage 裁剪到 [0.5, 0.85]。
+  Map<String, dynamic> _normalizeTracePathData(
+    Map<String, dynamic> base,
+    Map<String, dynamic> rawData,
+  ) {
+    const int maxTargets = 4;
+    const int maxLabel = 12;
+
+    String text(dynamic value) {
+      if (value == null) return '';
+      return value.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String value, int max) => value.runes.length <= max
+        ? value
+        : String.fromCharCodes(value.runes.take(max));
+
+    String safeId(dynamic value) =>
+        clip(text(value).replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), ''), 32);
+
+    final glyphRe = RegExp(r'^[\u4e00-\u9fa5a-zA-Z0-9]+$');
+    bool isValidGlyph(String value) {
+      final runes = value.runes.toList();
+      return runes.length >= 1 && runes.length <= 2 && glyphRe.hasMatch(value);
+    }
+
+    double doubleOr(dynamic value, double fallback) {
+      final n = num.tryParse(value?.toString() ?? '');
+      return (n == null || !n.isFinite) ? fallback : n.toDouble();
+    }
+
+    final usedIds = <String>{};
+    final usedTexts = <String>{};
+    final rawTargets = rawData['targets'] is List
+        ? rawData['targets'] as List
+        : <dynamic>[];
+    final targets = <Map<String, dynamic>>[];
+    for (var i = 0; i < rawTargets.length && targets.length < maxTargets; i++) {
+      final entry = rawTargets[i];
+      if (entry is! Map) continue;
+      final map = entry.map((k, v) => MapEntry(k.toString(), v));
+      // polyline 模式仅限人工课程内容，LLM 生成一律丢弃。
+      final kind = text(map['kind']);
+      if (kind.isNotEmpty && kind != 'glyph') continue;
+      final glyph = clip(text(map['text']), 8);
+      if (!isValidGlyph(glyph) || usedTexts.contains(glyph)) continue;
+      usedTexts.add(glyph);
+      var id = safeId(map['id']);
+      if (id.isEmpty) id = 'g${i + 1}';
+      var suffix = 2;
+      while (usedIds.contains(id)) {
+        id = 'g${i + 1}_${suffix++}';
+      }
+      usedIds.add(id);
+      final label = clip(text(map['label']), maxLabel);
+      targets.add({
+        'id': id,
+        'kind': 'glyph',
+        'text': glyph,
+        'label': label.isEmpty ? glyph : label,
+      });
+    }
+
+    final rawCoverage = doubleOr(rawData['minCoverage'], 0.7);
+    final minCoverage = rawCoverage > 0
+        ? rawCoverage.clamp(0.5, 0.85).toDouble()
+        : 0.7;
+
+    return {
+      ...base,
+      'targets': targets,
+      'minCoverage': minCoverage,
+      'prompt': clip(text(rawData['prompt']), 60),
+      'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
+      'timeLimitSec': _intOr(rawData['timeLimitSec'], 180).clamp(30, 300).toInt(),
+    };
+  }
+
+  int _intOr(dynamic value, int fallback) {
+    final n = int.tryParse(value?.toString() ?? '');
+    return n ?? fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -807,6 +906,12 @@ class _GameRendererState extends State<GameRenderer> {
         );
       case 'pattern_next':
         return PatternNextGame(
+          data: _resolvedData,
+          onExit: widget.onExit,
+          onFinished: widget.onCompleted,
+        );
+      case 'trace_path':
+        return TracePathGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,

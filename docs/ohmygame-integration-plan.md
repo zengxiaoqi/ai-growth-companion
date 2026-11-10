@@ -1,9 +1,9 @@
 # OhMyGame 集成调研与实施方案 — 灵犀伴学
 
-> **文档版本**: v1.5
+> **文档版本**: v1.6
 > **创建日期**: 2026-11-10
-> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、剩余三题型设计评审见附录 H）
-> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地三种题型（drag_sort + memory_flip + pattern_next）双端链路 + 单测 + 双端构建通过；剩余 tap_target / trace_path / color_fill 专项参数设计见附录 H（评审稿）**）
+> **更新日期**: 2026-11-10（P0 见附录 D；P1：drag_sort 见附录 E、memory_flip 见附录 F、pattern_next 见附录 G、设计评审见附录 H、trace_path 实施记录见附录 I）
+> **状态**: 待评审（调研结论 + 实施设计；P0 隔离 PoC 已验证；**P1 已落地四种题型（drag_sort + memory_flip + pattern_next + trace_path）双端链路 + 单测 + 双端构建通过；剩余 tap_target / color_fill 按附录 H 设计待实施**）
 > **调研对象**: [WhiteTowerAI/ohmygame](https://github.com/WhiteTowerAI/ohmygame) — <https://ohmygame.ai/>
 > **核查基准**: 仓库 `main` 分支 `beta.5.5`（2026-11-06），API 快照 `pushed_at=2026-11-09`
 
@@ -1032,6 +1032,8 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 ### H.5 实施顺序建议与待评审确认项
 
+**实施进度（v1.6）**：`trace_path` 已按本附录设计落地（附录 I）；剩余 `color_fill` → `tap_target` 待实施。
+
 **建议顺序**：`trace_path`（复用最多、无 TTS 依赖）→ `color_fill`（形状库一次性投入）→ `tap_target`（TTS 时序最复杂、降级路径最多）。
 
 **待评审确认项**（默认按本文档建议执行，如有异议请指出）：
@@ -1040,3 +1042,48 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 2. `trace_path` polyline 模式不对 LLM 开放 —— 是否同意？
 3. `color_fill` palette 强制至少 1 个干扰色 —— 是否同意？
 4. 形状库/色表首批枚举范围（各 10 项）—— 是否需要教研增删？
+
+---
+
+## 附录 I：P1 实施记录 — 第四种参数化题型 `trace_path`（v1.6 补充）
+
+### I.1 交付物与验证结论
+
+| 项 | 值 |
+| --- | --- |
+| 范围 | 方案 B 第四种参数化题型 `trace_path`（描红），覆盖后端生成 → 双端渲染 → 学习回写的完整链路 |
+| 后端验证 | `tsc --noEmit` 通过；全量 `npm test` **1670/1671 通过**（唯一失败 `database-seeder.spec` 源于工作区未提交的本地 `seeder.service.ts` 改动，与本次无关）；另顺手修复了 `reward.service.spec` 的日期定时炸弹（fixture 固定日期超 30 天补录上限，改为相对日期） |
+| 后端单测 | `test/unit/trace-path-params.spec.ts` **16 项全绿**（示例 JSON 契约、字形白名单、polyline 拒绝、重复字拒绝、安全文本、单一真源 11 种、两套工具 schema/prompt、两套 executor 推断与 items+targets 无回归） |
+| Web 验证 | `tsc --noEmit` 通过；`vitest run` 全量通过（含 7 项 TracePathGame 组件测试，canvas 打桩模拟字形采样）；`npm run build` 通过 |
+| Flutter 验证 | **静态核查通过，未运行 `flutter analyze` / `flutter test`（本机无 Dart/Flutter SDK）**；`GameCompletionScreen` 签名、`AppTheme` 成员、TextPainter/`picture.dispose()` 逐一核对 |
+| 提交 | 仅提交 trace_path 相关文件，不混入用户既有未提交改动 |
+
+### I.2 关键决策
+
+- **几何零下放（附录 H.2 兑现）**：LLM 只提供 1-2 个字形字符；双端均把字形渲染到离屏画布后按像素 alpha 生成采样点（Web: offscreen canvas + `getImageData`；Flutter: `PictureRecorder` + `toImage` + `toByteData`），笔画覆盖判定与既有课程描红画布（`trace_path_canvas.dart`）的覆盖率语义一致。
+- **评估时序**：抬笔静止 1 秒才评估；达标锁定该字，未达标清笔重描并累计失败次数（对齐 Flutter 既有描红画布的 `_reset()` + `_attempts++` 行为）。
+- **计分语义**：每个字第一次评估即达标（firstTry）计 1 分，`score = round(firstTry / targets × 100)`；`interactionData.perTarget: [{id, coverage, attempts, firstTry}]`。
+- **字形白名单**：`[\u4e00-\u9fa5a-zA-Z0-9]`，1-2 字符；CJK 扩展区（如 𠀀）与 emoji 被拒（采样退化风险）。基本区内的低频字（如 龘）可渲染、被接受——实现上以"可渲染"为准，而非严格常用字表。
+- **polyline 拒绝**：后端 sanitize 抛错（`only accepts glyph`），双端归一化静默丢弃。
+- **推断顺序（H.4 核查结论）**：两个后端 executor 均无 `targets` 结构键，裸 `targets` 无歧义；Flutter `game_renderer` 与 `chat_session_provider` 存在 `items + targets → matching` 的 legacy 回退，`targets → trace_path` 检查必须且已经插在它们**之前**；Web normalizer 推断链无冲突。
+
+### I.3 同步清单（本次实际改动）
+
+| 层 | 文件 | 改动 |
+| --- | --- | --- |
+| 后端契约 | `src/common/activity/trace-path.ts`（新建） | 契约 / 白名单 / 清洗 / 校验 / 确定性试玩 / body text |
+| 单一真源 | `tool-metadata.ts` | `ACTIVITY_TYPES` 扩为 11 种 |
+| 生成工具 | 两套 `generate-activity.ts` | schema / rules / sanitize / prompt / body text |
+| 推断 | 两套 executor | 裸 `targets → trace_path` |
+| 标签 | `assign-activity.ts`、两套儿童 system prompt | 描红说明与约束 |
+| Web | `types/index.ts`、`TracePathGame.tsx`（新建）、`GameRenderer.tsx`、`activity-normalizer.ts`、`parent/constants.ts`、`StudentDashboard.tsx` | 类型契约、组件（离屏采样 + 指针描画 + 静止评估）、分发、归一化、选项与标签 |
+| Flutter | `trace_path_game.dart`（新建）、`game_renderer.dart`、`chat_session_provider.dart`、`ai_chat_screen.dart`、`learning/learning_home_screen.dart`、`parent/assignment_manager_screen.dart` | 组件、白名单/推断/归一化/分发、标签与图标 |
+| 内容 | `src/content/examples/trace_path-3-4.json`（新建） | 受单测契约保护的示例 |
+| 测试 | `trace-path-params.spec.ts`（16 项）、`trace-path-game.test.tsx`（7 项）；三套既有 spec 的 `ACTIVITY_TYPES` 长度断言 10→11、memory_flip spec 的反向断言更新 | 契约与组件行为 |
+
+### I.4 局限与后续
+
+- 剩余 2 种题型：`color_fill`（形状库 + 色表枚举，附录 H.3）→ `tap_target`（TTS 时序，附录 H.1），按附录 H 设计实施。
+- 覆盖率采样为像素 alpha 网格（步长 6px），字形内部空白计入采样点——描画需覆盖笔画间的空白区域，与既有课程描红画布行为一致；若儿童端反馈过严，可下调 `minCoverage` 至 0.5。
+- 3-4 岁真机手指描画的 ERGONOMICS（笔刷半径 16px 是否合适）待真机验证。
+- Flutter 仍需在带 SDK 的环境跑 `flutter analyze` 与现有游戏回归；家长端 `interactionData.perTarget` 展示适配未做（数据已回写）。

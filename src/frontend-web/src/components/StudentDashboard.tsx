@@ -113,6 +113,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   drag_sort: '分类',
   memory_flip: '翻牌',
   pattern_next: '规律',
+  trace_path: '描红',
 };
 
 const ACHIEVEMENT_ICONS: Record<string, string> = {

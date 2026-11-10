@@ -580,6 +580,9 @@ export class AgentExecutor {
     // pattern_next uses `sequence` + `options`; no legacy type uses
     // `sequence`, but check it before the generic fallbacks for safety.
     if (Array.isArray(value.sequence) && Array.isArray(value.options)) return 'pattern_next';
+    // trace_path uses `targets`; verified that no legacy activity type or
+    // client inference chain uses a bare `targets` array (Appendix H.4).
+    if (Array.isArray(value.targets)) return 'trace_path';
     if (Array.isArray(value.questions)) return 'quiz';
     if (Array.isArray(value.statements)) return 'true_false';
     if (Array.isArray(value.sentences)) return 'fill_blank';

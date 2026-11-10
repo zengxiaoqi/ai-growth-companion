@@ -5,6 +5,7 @@ import type {
   MemoryFlipActivityData,
   MemoryFlipGridSize,
   PatternNextActivityData,
+  TracePathActivityData,
 } from '@/types';
 
 const ACTIVITY_TYPES: ActivityType[] = [
@@ -18,6 +19,7 @@ const ACTIVITY_TYPES: ActivityType[] = [
   'drag_sort',
   'memory_flip',
   'pattern_next',
+  'trace_path',
 ];
 
 function toSafeInt(value: any, fallback: number): number {
@@ -121,6 +123,9 @@ export function normalizeActivityType(activityType: unknown, rawData?: any): Act
   if (Array.isArray(rawData?.pairs)) return 'matching';
   // pattern_next uses `sequence` + `options`; no legacy type uses `sequence`.
   if (Array.isArray(rawData?.sequence) && Array.isArray(rawData?.options)) return 'pattern_next';
+  // trace_path uses `targets`; verified that no legacy type in this chain uses
+  // a bare `targets` array (Appendix H.4).
+  if (Array.isArray(rawData?.targets)) return 'trace_path';
   if (
     Array.isArray(rawData?.connections) ||
     (Array.isArray(rawData?.leftItems) && Array.isArray(rawData?.rightItems))
@@ -304,6 +309,78 @@ export function normalizePatternNextData(raw: any): Pick<
   };
 }
 
+export const TRACE_PATH_LIMITS = {
+  minTargets: 2,
+  maxTargets: 4,
+  maxLabelLength: 12,
+  minCoverage: 0.5,
+  maxCoverage: 0.85,
+  defaultCoverage: 0.7,
+  defaultPassingScore: 80,
+  defaultTimeLimitSec: 180,
+} as const;
+
+/** Glyph whitelist: common CJK ideographs, digits and ASCII letters only. */
+const GLYPH_TEXT_RE = /^[\u4e00-\u9fa5a-zA-Z0-9]+$/u;
+
+function isValidGlyphText(value: string): boolean {
+  const chars = Array.from(value);
+  return chars.length >= 1 && chars.length <= 2 && GLYPH_TEXT_RE.test(value);
+}
+
+/**
+ * Defensive normalization for trace_path parameters. Emoji, rare characters
+ * and polyline targets are dropped — an unrenderable glyph would degrade
+ * coverage sampling and silently disable the judgement (Appendix H.2).
+ */
+export function normalizeTracePathData(raw: any): Pick<
+  TracePathActivityData,
+  'targets' | 'minCoverage' | 'passingScore' | 'timeLimitSec' | 'prompt'
+> {
+  const usedIds = new Set<string>();
+  const usedTexts = new Set<string>();
+  const rawTargets = Array.isArray(raw?.targets) ? raw.targets : [];
+  const targets: TracePathActivityData['targets'] = [];
+
+  for (let i = 0; i < rawTargets.length && targets.length < TRACE_PATH_LIMITS.maxTargets; i++) {
+    const entry = rawTargets[i];
+    if (entry?.kind != null && toText(entry.kind) !== 'glyph') continue;
+    const text = toText(entry?.text).slice(0, 8);
+    if (!isValidGlyphText(text) || usedTexts.has(text)) continue;
+    usedTexts.add(text);
+    let id = toSafeId(entry?.id) || `g${i + 1}`;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `g${i + 1}_${suffix++}`;
+    usedIds.add(id);
+    const label = toText(entry?.label).slice(0, TRACE_PATH_LIMITS.maxLabelLength) || text;
+    targets.push({ id, kind: 'glyph', text, label });
+  }
+
+  const rawCoverage = Number(raw?.minCoverage);
+  const minCoverage =
+    Number.isFinite(rawCoverage) && rawCoverage > 0
+      ? Math.max(
+          TRACE_PATH_LIMITS.minCoverage,
+          Math.min(TRACE_PATH_LIMITS.maxCoverage, rawCoverage),
+        )
+      : TRACE_PATH_LIMITS.defaultCoverage;
+
+  const prompt = toText(raw?.prompt).slice(0, 60);
+  return {
+    targets,
+    minCoverage: Math.round(minCoverage * 100) / 100,
+    ...(prompt ? { prompt } : {}),
+    passingScore: Math.max(
+      0,
+      Math.min(100, toSafeInt(raw?.passingScore, TRACE_PATH_LIMITS.defaultPassingScore)),
+    ),
+    timeLimitSec: Math.max(
+      30,
+      Math.min(300, toSafeInt(raw?.timeLimitSec, TRACE_PATH_LIMITS.defaultTimeLimitSec)),
+    ),
+  };
+}
+
 export function normalizeActivityData(
   activityType: ActivityType | string | undefined,
   rawData: any,
@@ -326,6 +403,10 @@ export function normalizeActivityData(
 
   if (resolvedType === 'pattern_next') {
     return { ...base, ...normalizePatternNextData(rawData) } as PatternNextActivityData;
+  }
+
+  if (resolvedType === 'trace_path') {
+    return { ...base, ...normalizeTracePathData(rawData) } as TracePathActivityData;
   }
 
   if (resolvedType === 'quiz') {

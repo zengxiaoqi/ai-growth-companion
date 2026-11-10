@@ -1,0 +1,19 @@
+{
+  "id": "example_trace_path_3_4",
+  "ageGroup": "3-4",
+  "domain": "language",
+  "topic": "常用字描红",
+  "activityType": "trace_path",
+  "type": "trace_path",
+  "title": "描一描：火与山",
+  "prompt": "请沿着虚线描一描",
+  "passingScore": 80,
+  "timeLimitSec": 180,
+  "minCoverage": 0.7,
+  "targets": [
+    { "id": "g1", "kind": "glyph", "text": "火", "label": "火" },
+    { "id": "g2", "kind": "glyph", "text": "山", "label": "山" },
+    { "id": "g3", "kind": "glyph", "text": "水", "label": "水" }
+  ],
+  "note": "参数化题型示例（方案 B 附录 H.2）。AI 只产出本 JSON 的参数，渲染逻辑由 Web/Flutter 的 TracePathGame 固定组件提供：采样点由客户端按字形渲染派生，LLM 永不提供坐标。targets 2-4 个、kind 仅允许 glyph、text 为 1-2 个常用汉字/数字/字母（禁止 emoji 与生僻字）、minCoverage 0.5-0.85。此目录不参与 import-content-json.py 导入，仅作教研示例与自动化契约校验输入。"
+}

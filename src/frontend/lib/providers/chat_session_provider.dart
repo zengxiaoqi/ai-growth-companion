@@ -229,6 +229,8 @@ String _inferGameType(Map<String, dynamic> data) {
   if (data['buckets'] is List && data['items'] is List) return 'drag_sort';
   if (data['pairs'] is List && data['gridSize'] is Map) return 'memory_flip';
   if (data['sequence'] is List && data['options'] is List) return 'pattern_next';
+  // trace_path 用 targets；必须先于下方的 items+targets -> matching 回退判断。
+  if (data['targets'] is List) return 'trace_path';
   if (data['pairs'] is List || (data['items'] is List && data['targets'] is List)) {
     return 'matching';
   }
@@ -1049,6 +1051,8 @@ class ChatSessionProvider extends ChangeNotifier {
     if (data['sentences'] is List) return 'fill_blank';
     if (data['pairs'] is List && data['gridSize'] is Map) return 'memory_flip';
     if (data['sequence'] is List && data['options'] is List) return 'pattern_next';
+    // trace_path 用 targets；无 legacy 题型单独使用 targets。
+    if (data['targets'] is List) return 'trace_path';
     if (data['pairs'] is List) return 'matching';
     if (data['connections'] is List ||
         (data['leftItems'] is List && data['rightItems'] is List)) {
@@ -1074,6 +1078,7 @@ class ChatSessionProvider extends ChangeNotifier {
       'drag_sort': '分类游戏',
       'memory_flip': '记忆翻牌',
       'pattern_next': '规律接龙',
+      'trace_path': '描红游戏',
     };
     return labels[type] ?? '互动游戏';
   }

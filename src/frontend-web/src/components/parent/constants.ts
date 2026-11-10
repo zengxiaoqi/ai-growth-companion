@@ -54,6 +54,7 @@ export const ACTIVITY_TYPES = [
   { value: 'drag_sort', label: '分类游戏' },
   { value: 'memory_flip', label: '记忆翻牌' },
   { value: 'pattern_next', label: '规律接龙' },
+  { value: 'trace_path', label: '描红游戏' },
 ];
 
 export const defaultChartData: { name: string; time: number }[] = [];

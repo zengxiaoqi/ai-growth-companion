@@ -634,6 +634,12 @@ export class AgentExecutorService {
       return 'pattern_next';
     }
 
+    // trace_path uses `targets`; verified that no legacy activity type or
+    // structural key map uses a bare `targets` array (Appendix H.4).
+    if (Array.isArray(value.targets)) {
+      return 'trace_path';
+    }
+
     // Infer from known structural keys
     const ACTIVITY_STRUCTURAL_KEYS: Record<string, string[]> = {
       quiz: ['questions'],

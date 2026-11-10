@@ -1172,7 +1172,7 @@ P0 的"验证可行性"目标已达成，**不需要再重复做演示型 PoC**�
 
 - 双端 TTS 能力不对称是常态而非缺陷：Web 侧实际项目用后端 Edge TTS MP3（`api.getTTSUrl`），`useGameVoice` 已封装；Flutter 侧 audioplayers + `onPlayerComplete`。二者语义一致（播完解锁）。
 - 家长端 `interactionData.roundResults` 展示适配已在 v1.8 横向收尾完成（见 K.5）。
-- LLM 一次通过率未度量：answerability 强制（prompt 必须含目标 label）是最后一段生成风险，sanitize 抛错 + 3 次反射重试兜底。
+- LLM 一次通过率已具备离线度量能力（脚本见 K.7），但当前 logs/app.log 无生成事件、尚无生产基线数值；answerability 强制（prompt 必须含目标 label）是最后一段生成风险，sanitize 抛错 + 3 次反射重试兜底。
 - **P1 方案 B 至此全部收官**：6 种新题型（drag_sort / memory_flip / pattern_next / trace_path / color_fill / tap_target）双端全链路落地。后续横向事项（附录 H.5 之外）：家长端过程数据展示适配（已完成，K.5）、Flutter 带 SDK 环境回归（已完成，K.6）、教研端离线批量生成接入 ohmygame 内容工厂（方案 A，未启动）。
 
 ### K.5 横向收尾 #1 — 家长端过程数据展示（v1.8 补充）
@@ -1210,4 +1210,27 @@ D:/flutter/bin/flutter test --no-pub
 
 **顺带修复的既有测试缺陷**：`speech_input_widget_test.dart` 最后一项「permission denied icon uses textSecondary color」在全量运行时失败（单独跑通过）。根因是前序「错误状态」用例注册的 `plugin.csdcorp.com/speech_to_text` 平台通道 mock 跨用例泄漏，使后续用例 `_checkSupport()` 判为不支持、提前走 error 分支，权限拒绝 UI 不再渲染。已在 `main()` 加 `tearDown` 清除两个通道的 mock handler，恢复测试隔离；**未改动生产代码**。
 
-至此附录 G/I/J/K 中「Flutter 仍需带 SDK 回归」的待办全部关闭。剩余横向事项：Flutter 家长端过程数据展示（需补 api_service 层）、LLM 一次通过率度量、方案 A 评审。
+至此附录 G/I/J/K 中「Flutter 仍需带 SDK 回归」的待办全部关闭。剩余横向事项：Flutter 家长端过程数据展示（需补 api_service 层）、LLM 一次通过率的生产基线采样（脚本已就位，见 K.7）、方案 A 评审。
+
+### K.7 横向收尾 #3 — LLM 参数一次通过率度量（v1.8 补充）
+
+调研结论：两套 `generate-activity.ts` **已有完整结构化日志**（`start` / `llm_request` / `attempt_failed` / `attempt_exception` / `success` / `failed_after_retries`，均带 `runId` 与 `attempt`），winston 落 `logs/app.log`；`MAX_GENERATION_ATTEMPTS=3` 的反射重试在工具内部循环完成（执行器只调一次）。因此**零侵入**即可度量，无需新增埋点或指标表。
+
+**交付**：`src/backend/scripts/measure-activity-pass-rate.js`（纯 Node，无新依赖）+ `test/unit/measure-activity-pass-rate.spec.ts`（4 项）。
+
+| 项 | 定义 / 能力 |
+| --- | --- |
+| 一次通过（firstPass） | 该 run 的 `success` 事件 `attempt === 1`，即 LLM 首次生成的参数 JSON 直接通过 sanitize → validate → simulate 三段式 |
+| 指标 | 一次通过率（成功 run 为分母）、含失败分母的 overall 通过率、失败率、未完成 run 数、成功 run 平均尝试次数、按题型分组、Top 5 失败原因 |
+| 过滤 | `--log <path>`（默认 `logs/app.log`）、`--since YYYY-MM-DD`、`--type <activityType>`、`--json`（机读）、`--events <json>`（事件数组回放，供离线验证） |
+| 兼容性 | 同时兼容新旧两套工具（旧工具多一个 `llm_response` 事件，统计时忽略）；容忍 winston 追加 meta JSON、缺失 context 段 |
+
+```bash
+cd src/backend
+node scripts/measure-activity-pass-rate.js                       # Markdown 报告
+node scripts/measure-activity-pass-rate.js --type tap_target --json
+```
+
+**当前基线（2026-11-11 实测）**：`logs/app.log` 中 0 条 `[generateActivity]` 事件（仅有工具注册日志），脚本正确输出「尚无生产基线」提示。合成样本回放验证报告格式与全部统计口径（3 run → 一次通过率 50.0%、失败率 33.3%、按题型 quiz 100% / tap_target 0% / color_fill 失败）。**真实基线需先通过对话触发 N 次 generateActivity 再运行脚本**；建议每种题型至少 20 次采样后评估 typeRules 与 sanitize 的收紧/放宽。
+
+**不做的事**：未擅自调用真实 LLM（.env 中虽有 `LLM_API_KEY` 配置位，但真实调用涉及费用与网络，且需教研设定采样主题），也未改动生产代码 / 新增数据库表。

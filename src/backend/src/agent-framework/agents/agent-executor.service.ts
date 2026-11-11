@@ -306,6 +306,31 @@ export class AgentExecutorService {
         assistantContent = response.content;
         assistantToolCalls = response.toolCalls;
         if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
+
+        // Casual fast path: when the probe comes back WITHOUT tool calls, its
+        // content IS the reply. Casual turns are ≤40 chars and the voice call
+        // only speaks the complete text, so emitting the probe result directly
+        // skips a second full request (was doubling every turn's latency).
+        const isCasualTurn =
+          (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
+        if (isCasualTurn && (!assistantToolCalls || assistantToolCalls.length === 0)) {
+          const probeThinking = extractThinking(assistantContent || '');
+          const bodyText = stripThinking(assistantContent || '');
+          if (probeThinking) {
+            yield { type: 'thinking', thinkingContent: probeThinking };
+          }
+          const safeResult = filterContent(bodyText);
+          if (safeResult.content) {
+            yield { type: 'token', content: safeResult.content };
+          }
+          yield {
+            type: 'done',
+            sessionId: context.conversationId,
+            wasFiltered: safeResult.wasFiltered,
+            toolCalls: toolCallLog,
+          };
+          return;
+        }
       }
 
       lastIterationHadToolCall = false;

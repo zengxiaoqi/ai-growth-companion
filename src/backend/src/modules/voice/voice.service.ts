@@ -9,16 +9,38 @@ export class VoiceService {
   constructor(@Optional() private readonly aiService?: AiService) {}
 
   /**
-   * TTS 前清洗：剥离 emoji / 表情符号，避免把表情"读"出来
-   *（如 🌟 被读成"星星脸"之类），标点与汉字保留。
+   * TTS 前清洗：剥离 markdown 格式符与 emoji，避免把"**"、"#"、表情等"读"出来。
+   * 标点与汉字保留。
    */
   private sanitizeForTTS(text: string): string {
-    return text
+    return this.stripMarkdown(text)
       .replace(/\p{Extended_Pictographic}/gu, '') // emoji & pictographs
       .replace(/[\u{FE00}-\u{FE0F}\u{1F3FB}-\u{1F3FF}\u{200D}\u{200B}\u{20E3}]/gu, '') // VS16 / 肤色 / ZWJ / keycap
       .replace(/\s*([，。！？、,.!?])\s*/g, '$1') // 清洗后留下的孤立标点空格
       .replace(/^[，。！？、,.!?～~\s]+/, '') // 开头残标点
       .trim();
+  }
+
+  /** markdown → 口语纯文本：只保留该"念"的内容，去掉格式符号 */
+  private stripMarkdown(text: string): string {
+    return text
+      .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1') // 代码块去围栏
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // 图片 → alt 文本
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接 → 链接文字
+      .replace(/^\s{0,3}#{1,6}\s+/gm, '') // 标题
+      .replace(/^\s{0,3}>\s?/gm, '') // 引用
+      .replace(/^\s*[-*+]\s+/gm, '') // 无序列表符
+      .replace(/^\s*(\d+)[.)]\s+/gm, '$1、') // 有序列表 → 数字+停顿
+      .replace(/^\s*([-*_]\s*){3,}$/gm, '') // 分隔线
+      .replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, '$2') // 加粗
+      .replace(/(\*|_)(?=\S)([^*_\n]*?\S)\1/g, '$2') // 斜体（不匹配 3 * 4 这类乘号）
+      .replace(/~~([\s\S]*?)~~/g, '$1') // 删除线
+      .replace(/`([^`\n]*)`/g, '$1') // 行内代码
+      .replace(/^[ \t]*\|?[ \t:|-]*-[ \t:|-]*\|?[ \t]*\r?\n?/gm, '') // 表格分隔行
+      .replace(/\|/g, ' ') // 表格竖线 → 停顿
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/[ \t]+$/gm, '')
+      .replace(/^[ \t]+/gm, '');
   }
 
   /**

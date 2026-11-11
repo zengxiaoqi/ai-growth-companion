@@ -186,6 +186,53 @@ describe('VoiceService', () => {
     });
   });
 
+  describe('sanitizeForTTS markdown stripping', () => {
+    const sanitize = (text: string) =>
+      (service as unknown as { sanitizeForTTS(t: string): string }).sanitizeForTTS(text);
+
+    it('strips headings, bold and bullet markers', () => {
+      expect(sanitize('## 今日学习\n**数学**很重要\n- 加法\n- 减法')).toBe(
+        '今日学习\n数学很重要\n加法\n减法',
+      );
+    });
+
+    it('keeps link labels, image alt and inline code content', () => {
+      expect(sanitize('看[文档](https://a.b)和![图](https://c.d)，用`print`输出')).toBe(
+        '看文档和图，用print输出',
+      );
+    });
+
+    it('converts ordered list markers to spoken pauses', () => {
+      expect(sanitize('1. 苹果\n2. 香蕉')).toBe('1、苹果\n2、香蕉');
+    });
+
+    it('drops code fences but keeps code text', () => {
+      expect(sanitize('```js\nconsole.log(1)\n```')).toBe('console.log(1)');
+    });
+
+    it('drops table separator rows and pipes', () => {
+      expect(sanitize('| 名字 | 分数 |\n| --- | --- |\n| 小明 | 5 |')).toBe(
+        '名字 分数\n小明 5',
+      );
+    });
+
+    it('keeps multiplication stars intact', () => {
+      expect(sanitize('3 * 4 = 12')).toBe('3 * 4 = 12');
+    });
+
+    it('strips blockquote markers and horizontal rules', () => {
+      expect(sanitize('> 提示\n---\n内容')).toBe('提示\n\n内容');
+    });
+
+    it('still strips emoji', () => {
+      expect(sanitize('真棒🌟继续加油')).toBe('真棒继续加油');
+    });
+
+    it('leaves plain spoken text untouched', () => {
+      expect(sanitize('你好呀！今天开心吗？')).toBe('你好呀！今天开心吗？');
+    });
+  });
+
   describe('voiceQuiz', () => {
     it('should match dog keyword and return answer', async () => {
       const result = await service.voiceQuiz(1, '小狗怎么叫');

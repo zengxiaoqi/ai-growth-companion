@@ -371,16 +371,16 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: SizedBox(
-                height: 140,
+                height: 190,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: const [
                     SizedBox(width: 12),
-                    ShimmerCard(width: 180, height: 140),
+                    ShimmerCard(width: 180, height: 190),
                     SizedBox(width: 12),
-                    ShimmerCard(width: 180, height: 140),
+                    ShimmerCard(width: 180, height: 190),
                     SizedBox(width: 12),
-                    ShimmerCard(width: 180, height: 140),
+                    ShimmerCard(width: 180, height: 190),
                   ],
                 ),
               ),
@@ -395,7 +395,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
             )
           else
             SizedBox(
-              height: 140,
+              height: 190,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _courses.length,
@@ -675,15 +675,18 @@ class _CourseCard extends StatelessWidget {
             const SizedBox(height: 6),
             // Summary
             Expanded(
-              child: Text(
-                summary,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                  height: 1.3,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Text(
+                  summary,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(height: 10),

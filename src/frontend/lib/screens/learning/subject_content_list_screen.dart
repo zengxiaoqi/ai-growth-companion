@@ -80,8 +80,13 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BubbleBackground(
-      child: Scaffold(
+    // BubbleBackground 只画半透明泡泡、不提供底色，而这里的 Scaffold 是
+    // transparent；在 Android 上会透出窗口黑底，深色文字几乎不可读。
+    // 与 parent_home_screen 保持一致，先铺一层 AppTheme 底色再叠泡泡。
+    return ColoredBox(
+      color: AppTheme.backgroundColor,
+      child: BubbleBackground(
+        child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -109,6 +114,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
           ),
         ),
         body: _buildCourseList(context),
+        ),
       ),
     );
   }

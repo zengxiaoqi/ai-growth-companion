@@ -22,8 +22,28 @@ function typeLabel(activityType: string): string {
   return ACTIVITY_TYPES.find((t) => t.value === activityType)?.label ?? activityType;
 }
 
+/**
+ * 展平「作业完成」链路产生的嵌套 interactionData（口径与 Flutter K.8 一致）。
+ *
+ * 六种参数化游戏把过程字段放在结果的 interactionData 子对象里，作业完成接口把
+ * 整个 result 当作 resultData 提交，后端展开后学习记录里就多了一层嵌套
+ * `{activityType, score, ..., interactionData: {placements: [...]}}`。顶层只有题型，
+ * 过程字段全在子对象里，直接读会得不到摘要。顶层字段优先，避免被游戏回写覆盖。
+ */
+function normalizeInteraction(
+  data: LearningInteractionData | null | undefined,
+): LearningInteractionData | null {
+  if (!data) return null;
+  const nested = (data as unknown as Record<string, unknown>).interactionData;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return { ...(nested as LearningInteractionData), ...data };
+  }
+  return data;
+}
+
 /** 把一条记录的 interactionData 翻译成一句家长能读懂的过程摘要。 */
-export function summarizeInteraction(data: LearningInteractionData): string | null {
+export function summarizeInteraction(input: LearningInteractionData): string | null {
+  const data = normalizeInteraction(input) ?? input;
   switch (data.activityType) {
     case 'drag_sort': {
       const placements = data.placements ?? [];
@@ -98,7 +118,7 @@ export default function ActivityProcessDetails({ userId }: { userId: number }) {
           history
             .filter((r) =>
               (PARAMETERIZED_TYPES as readonly string[]).includes(
-                r.interactionData?.activityType ?? '',
+                normalizeInteraction(r.interactionData)?.activityType ?? '',
               ),
             )
             .slice(0, MAX_RECORDS),
@@ -147,7 +167,8 @@ export default function ActivityProcessDetails({ userId }: { userId: number }) {
 
       <div className="space-y-3">
         {records.map((record, i) => {
-          const interaction = record.interactionData!;
+          const interaction =
+            normalizeInteraction(record.interactionData) ?? record.interactionData!;
           const summary = summarizeInteraction(interaction);
           const duration = formatDuration(record.durationSeconds);
           return (

@@ -82,6 +82,23 @@ describe('summarizeInteraction', () => {
     ).toBe('2/3 轮一次听对指令');
   });
 
+  it('reads process data nested inside interactionData (assignment completion)', () => {
+    const nested = {
+      source: 'assignment_completion',
+      activityType: 'drag_sort',
+      score: 100,
+      interactionData: {
+        activityType: 'drag_sort',
+        totalErrors: 1,
+        placements: [
+          { itemId: 'a', bucketId: 'b1', correctOnFirstTry: true },
+          { itemId: 'b', bucketId: 'b2', correctOnFirstTry: false },
+        ],
+      },
+    } as unknown as LearningInteractionData;
+    expect(summarizeInteraction(nested)).toBe('放错 1 次 · 1/2 个物品首次放对');
+  });
+
   it('returns null for legacy or incomplete interaction data', () => {
     expect(summarizeInteraction({ activityType: 'quiz' })).toBeNull();
     expect(summarizeInteraction({ activityType: 'drag_sort', placements: [] })).toBeNull();
@@ -126,6 +143,33 @@ describe('ActivityProcessDetails', () => {
     // Legacy quiz record is not rendered.
     expect(screen.queryByText('选择题')).toBeNull();
     expect(getLearningHistoryMock).toHaveBeenCalledWith(42, 20);
+  });
+
+  it('renders summaries for nested assignment-completion records', async () => {
+    getLearningHistoryMock.mockResolvedValue([
+      record({
+        id: 7,
+        interactionData: {
+          source: 'assignment_completion',
+          activityType: 'drag_sort',
+          interactionData: {
+            activityType: 'drag_sort',
+            totalErrors: 1,
+            placements: [
+              { itemId: 'a', bucketId: 'b1', correctOnFirstTry: true },
+              { itemId: 'b', bucketId: 'b2', correctOnFirstTry: false },
+            ],
+          },
+        } as unknown as LearningInteractionData,
+      }),
+    ]);
+
+    render(<ActivityProcessDetails userId={42} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('放错 1 次 · 1/2 个物品首次放对')).toBeTruthy();
+    });
+    expect(screen.getByText('分类游戏')).toBeTruthy();
   });
 
   it('shows the empty state when there are no parameterized records', async () => {

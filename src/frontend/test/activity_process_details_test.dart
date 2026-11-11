@@ -138,6 +138,58 @@ void main() {
     });
   });
 
+  group('nested interactionData（作业完成链路）', () {
+    // 后端 LearningTracker.recordActivity 展开 resultData 后的真实结构：
+    // 顶层只有题型标签，过程字段全在 interactionData 子对象里。
+    Map<String, dynamic> nestedRecord() => {
+          'id': 77,
+          'startedAt': '2026-11-12T01:20:00.000Z',
+          'durationSeconds': 45,
+          'score': 100,
+          'interactionData': {
+            'source': 'assignment_completion',
+            'assignmentId': 38,
+            'domain': 'science',
+            'activityType': 'drag_sort',
+            'score': 100,
+            'totalQuestions': 8,
+            'interactionData': {
+              'activityType': 'drag_sort',
+              'engine': 'parameterized',
+              'totalErrors': 1,
+              'placements': [
+                {'itemId': 'a', 'correctOnFirstTry': true},
+                {'itemId': 'b', 'correctOnFirstTry': false},
+              ],
+            },
+          },
+        };
+
+    test('normalizeInteraction 展平过程字段且顶层优先', () {
+      final normalized = normalizeInteraction(
+        nestedRecord()['interactionData'] as Map,
+      );
+      expect(normalized['source'], 'assignment_completion');
+      expect(normalized['activityType'], 'drag_sort');
+      expect(normalized['totalErrors'], 1);
+      expect((normalized['placements'] as List).length, 2);
+      expect(
+        summarizeInteraction(normalized),
+        '放错 1 次 · 1/2 个物品首次放对',
+      );
+    });
+
+    testWidgets('嵌套记录仍能渲染出过程摘要', (tester) async {
+      final filtered = filterProcessRecords([nestedRecord()]);
+      expect(filtered.length, 1);
+      await tester.pumpWidget(
+        _wrap(ActivityProcessDetails(records: filtered)),
+      );
+      expect(find.text('分类游戏'), findsOneWidget);
+      expect(find.text('放错 1 次 · 1/2 个物品首次放对'), findsOneWidget);
+    });
+  });
+
   group('ActivityProcessDetails widget', () {
     testWidgets('renders labels and process summaries', (tester) async {
       final records = [

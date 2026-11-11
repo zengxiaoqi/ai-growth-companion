@@ -1264,3 +1264,39 @@ node scripts/measure-activity-pass-rate.js --type tap_target --json
 同时 §4.3 ADR 的退出条件已具备（方案 B 6 题型上线、§10「≥6 种」达成，无丰富度不达标的证据）。§4.2 评分矩阵 B 4.20 / A 4.00 打分时 B 尚为设计稿，当前时点三处变化（B 交互丰富度上升、A 外部依赖风险上升、A 改动量不低于原估）均使差距扩大；评审不重算加权分（权重属产品决策）。
 
 材料含：复用清单 / 从零建设清单、三选项架构对比、成本粗估（P2 20~29.5 人天、Go 全路径 41~66 工程人天 + 常态化教研审核，未经排期确认）、风险增量（D.4 静态正则拦不住动态构造，需 AST + 人工试玩 + CSP 三闸）、G0 三门禁与分叉规则、9 项 Go/No-Go 检查表。建议顺序：K.7 基线采样 → G0-1/2/3 → 决策。
+
+### K.10 MuMu 模拟器联调与过程数据契约修复（v1.8 补充）
+
+按 `flutter-android-local-debug` 流程在 Windows + MuMu 12（桥接模式）实机联调，验证 P1 方案 B 六题型与家长端过程明细。
+
+**环境与链路**：`setup_env.sh` 9/9 通过（Flutter 3.47.9 / Android SDK / 阿里云+腾讯镜像 / NDK / jstack）；MuMu `adb_host_ip=192.168.1.8:5555`（`player_state=start_finished`）；`adb nodaemon server` 常驻 + `reverse tcp:3000 tcp:3000`；本地后端 `node dist/main` 已在 3000 端口，`/api/health` 200；debug APK 以 `--dart-define=API_BASE_URL=http://127.0.0.1:3000/api` 构建。
+
+**实机验证通过**：
+- 登录态：JWT 过期会触发 `ApiService` 拦截器登出；用保存的账号重新登录后首页「亲子活动推荐」内容实时变化，证明请求确实走本地后端（非静态假数据）
+- 家长端报告页：`活动过程明细` 卡片按设计位于「成就亮点」与「AI 洞察」之间，空态文案正确；修复后用真实作业完成数据跑通摘要渲染（见下方第二轮回归）
+- 学习中心：重新登录后「待完成作业 34 项」「我的课程 20 门课」均正常加载（此前空白是 401 会话失效，非功能缺陷）
+- 参数化游戏：实机打开 `drag_sort`「四季小管家」，8 张卡片 + 4 个季节篮子完整渲染，中文与布局正常；选中→投放交互生效（1/8），错误引导「再想一想…」按预期出现
+- 附带收获：`POST /api/assignments` 会自动触发 AI 生成，日志里产生了**首批真实 `generateActivity` 事件**，K.7 脚本在真实日志上跑通：4 run / 成功 3 / 首次即通过 2 → **一次通过率 66.7%**（含失败分母 50.0%）；`color_fill` 3 次反射后仍失败（6 次 `generic fallback content detected`），`pattern_next` 第 2 次通过。样本由联调触发，非教研采样，不作生产基线结论
+
+**修复后新 APK 回归（第二轮）**：
+- 报告页：用孩子账号走真实链路 `POST /api/assignments/38/complete` 提交 `drag_sort` 结果（`interactionData` 内含 `totalErrors=1` 与 8 条 `placements`，其中 7 条首次放对），后端写入学习记录后刷新报告页，卡片从「暂无互动游戏记录」变为「最近 1 次 · 分类游戏 · 11月11日 · 88分 · 放错 1 次 · 7/8 个物品首次放对」，证明双端 `normalizeInteraction()` 展平在实机生效
+- 学科课程页：「语言」学科列表与课程详情页背景均为正常浅奶油黄、文字清晰，黑底消失
+- 学习中心：新 APK 的 `flutter` 日志全量无 `BOTTOM OVERFLOWED BY 18 PIXELS`，课程卡片摘要按 2 行截断、布局正常
+- 静态检查：`flutter analyze` 清掉 `unnecessary_cast` 与 `_minTargets` 后仅剩既有 info 级提示；`flutter test` 全绿；debug APK 重新构建安装
+
+**发现并修复的问题**：
+
+1. **过程数据契约不一致（核心）**：六种参数化游戏把过程字段放在 `onFinished` 结果的 `interactionData` 子对象里，`assignment_play_screen` 又把整个 result 当作 `resultData` 提交；后端 `LearningTracker.recordActivity` 展开 `resultData` 后，学习记录变成 `{activityType, score, ..., interactionData: {placements: [...]}}` —— 顶层只有题型，过程字段全在子对象里。K.5/K.8 只按顶层白名单 + 顶层过程字段摘要，结果是**卡片能出现但没有过程摘要**（`summarizeInteraction` 返回 null）。已在 Flutter `normalizeInteraction()` 与 Web `normalizeInteraction()` 统一展平（顶层优先），`filterProcessRecords` 把展平结果交回渲染层，历史数据与新数据都可读；双端各加 2 项单测（Flutter 19/19、Web 本文件 7/7）。
+2. **学科课程页黑底**：`subject_content_list_screen.dart` 的 Scaffold 为 `Colors.transparent`，而 `BubbleBackground` 只画半透明泡泡不提供底色，Android 上透出窗口黑底，深色文字几乎不可读；首页用的是 `AppTheme.backgroundColor`。已用 `ColoredBox(color: AppTheme.backgroundColor)` 包底，保留泡泡装饰。
+3. **学习中心课程卡片底部溢出**：`_CourseCard` 固定 140 高度的 Column 内容超出 18px；已把课程卡片与 Shimmer 占位高度调为 190、摘要 `maxLines` 3→2 并用 `Align` 顶部对齐。新 APK 实机日志全量无 `BOTTOM OVERFLOWED`，文字截断正常。
+4. 顺带清掉本轮新增代码的 `unnecessary_cast` lint，以及 `trace_path_game.dart` 里未使用的 `_minTargets` 常量（analyze 唯一 warning，删后仅剩既有 info 级提示）。
+
+**遗留观察（未改）**：
+- `POST /assignments/:id/complete` 要求 `req.user.type === 'child'`，家长身份在家长端点开孩子作业可玩但提交会 403（`assignment_play_screen` 静默吞掉），产品需明确家长端是「预览」还是应自动切孩子身份
+- MuMu 无语音识别服务，AI 页语音输入报 `recognizerNotAvailable`；外部接口（GitHub 更新检查 / ISS）在本机死代理下 20s 超时 —— 均为环境限制，不是代码缺陷
+- 六种参数化题型目前只完整试玩了 `drag_sort`；其余 5 种已创建为待完成作业（id 39~43），入口与参数已就绪，尚未逐一实机验证
+- 调试数据（6 条参数化作业 id 38~43，以及作业 38 完成产生的学习记录）保留在本地 `lingxi.db` 供继续联调，**未清理**、也非生产数据；需要清理时应在后端停止后删除这些行再重启，避免 `sql.js` 内存库把旧快照写回文件
+
+**环境注意（非代码缺陷）**：
+- 本机 `better-sqlite3` native binding 不可用，后端降级为 `sql.js` 内存库（`autoSave: true`），启动时把 `lingxi.db` 载入内存。因此**直接写 DB 文件后端读不到**；调试数据必须走 API 写入（或重启后端重新加载文件）。首轮直插的嵌套学习记录没出现在报告页，正是这个原因，而非读侧组件缺陷
+- MuMu 冷启动首帧偶发黑屏，点击/滑动唤醒渲染后即正常显示，Flutter/Dart VM 与 Activity 日志均无异常

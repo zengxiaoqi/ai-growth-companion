@@ -39,9 +39,30 @@ List<Map<dynamic, dynamic>> _mapsOf(dynamic raw) {
 int _firstTryCount(List<Map<dynamic, dynamic>> entries) =>
     entries.where((e) => e['firstTry'] == true).length;
 
+/// 展平「作业完成」链路产生的嵌套 interactionData。
+///
+/// 六种参数化游戏把过程字段放在 onFinished 结果的 `interactionData` 子对象里，
+/// assignment_play_screen 又把整个 result 当作 resultData 提交；后端
+/// LearningTracker.recordActivity 展开 resultData 后，学习记录里就多了一层嵌套：
+/// `{activityType, score, ..., interactionData: {placements: [...], ...}}`。
+/// 顶层只保留题型标签，过程字段全在子对象里，家长端摘要会读不到。这里统一展平，
+/// 顶层字段优先（后端写入的 activityType / topic 等不被游戏回写覆盖）。
+Map<String, dynamic> normalizeInteraction(Map<dynamic, dynamic> raw) {
+  final data = raw.map((k, v) => MapEntry(k.toString(), v));
+  final nested = data['interactionData'];
+  if (nested is! Map) return data;
+  final merged = <String, dynamic>{};
+  for (final entry in nested.entries) {
+    merged[entry.key.toString()] = entry.value;
+  }
+  merged.addAll(data);
+  return merged;
+}
+
 /// 把一条记录的 interactionData 翻译成一句家长能读懂的过程摘要。
 /// 口径与 Web 端 ActivityProcessDetails.summarizeInteraction 逐条一致。
-String? summarizeInteraction(Map<String, dynamic> data) {
+String? summarizeInteraction(Map<String, dynamic> raw) {
+  final data = normalizeInteraction(raw);
   switch (data['activityType']) {
     case 'drag_sort':
       final placements = _mapsOf(data['placements']);
@@ -93,9 +114,12 @@ List<Map<String, dynamic>> filterProcessRecords(List<dynamic> raw) {
     final record = item.map((k, v) => MapEntry(k.toString(), v));
     final interaction = record['interactionData'];
     if (interaction is! Map) continue;
-    final type = interaction['activityType']?.toString() ?? '';
+    // 兼容嵌套结构（见 normalizeInteraction 注释），同时把展平结果交回渲染层，
+    // 避免卡片行再读一次原始记录时丢失过程字段。
+    final normalized = normalizeInteraction(interaction);
+    final type = normalized['activityType']?.toString() ?? '';
     if (!kParameterizedActivityTypes.contains(type)) continue;
-    result.add(record);
+    result.add({...record, 'interactionData': normalized});
     if (result.length >= kMaxProcessRecords) break;
   }
   return result;
@@ -190,12 +214,12 @@ class ActivityProcessDetails extends StatelessWidget {
 
   Widget _buildRecordRow(BuildContext context, Map<String, dynamic> record) {
     final theme = Theme.of(context);
-    final interaction = record['interactionData'] as Map;
+    final interaction = normalizeInteraction(
+      record['interactionData'] as Map,
+    );
     final type = interaction['activityType']?.toString() ?? '';
     final label = kActivityTypeLabels[type] ?? type;
-    final summary = summarizeInteraction(
-      interaction.map((k, v) => MapEntry(k.toString(), v)),
-    );
+    final summary = summarizeInteraction(interaction);
 
     final content = record['content'];
     final title = content is Map ? content['title']?.toString() ?? '' : '';

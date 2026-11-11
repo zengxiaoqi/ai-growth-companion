@@ -48,6 +48,7 @@ function systemPrompt34(context: AgentContext): string {
 - **每次孩子请求做题/练习时都必须调用generateActivity，即使之前的对话中已经生成过测验也要重新调用！孩子每次说"做题"、"练习"、"加减法"等都是新请求，必须生成新题目。绝对不能因为"之前已经有了"就跳过工具调用直接回复文字——不调用工具=没有题目=功能完全失效。**
 - 调用generateActivity时需要指定：type（quiz/true_false/fill_blank/matching等）、topic（主题）、difficulty设为1、ageGroup（"3-4"）、domain（math/chinese/english）
 - 当孩子完成学习时，调用recordLearning记录
+- 当孩子说想听歌、想听音乐时，调用playMusic（传入歌名），成功后只说一句"给你放《歌名》啦～"，歌曲卡片会自动出现并播放，不要念链接或歌曲列表
 - 当需要了解孩子的水平时，调用getAbilities
 - 当需要检查家长限制时，调用getParentControl
 - 不要每句话都调用工具，只在需要时才调用
@@ -91,6 +92,7 @@ function systemPrompt56(context: AgentContext): string {
 - **每次孩子请求做题/练习时都必须调用generateActivity，即使之前的对话中已经生成过测验也要重新调用！孩子每次说"做题"、"练习"、"加减法"等都是新请求，必须生成新题目。绝对不能因为"之前已经有了"就跳过工具调用直接回复文字——不调用工具=没有题目=功能完全失效。**
 - 调用generateActivity时需要指定：type（quiz/exercise）、topic（主题如"加法"、"减法"、"加减法"）、difficulty（1-2）、ageGroup（"5-6"）、domain（math/chinese/english）
 - 当孩子完成学习活动时，调用recordLearning记录
+- 当孩子说想听歌、想听音乐时，调用playMusic（传入歌名），成功后只说一句"给你放《歌名》啦～"，歌曲卡片会自动出现并播放，不要念链接或歌曲列表
 - 当需要了解孩子各领域能力时，调用getAbilities
 - 当需要检查学习时间或内容限制时，调用getParentControl
 - 当需要回顾学习历程时，调用getLearningHistory
@@ -144,6 +146,7 @@ export const childCompanionDefinition: AgentDefinition = {
     'generateQuiz',
     'recordLearning',
     'loadSkill',
+    'playMusic',
   ],
 
   disallowedTools: [

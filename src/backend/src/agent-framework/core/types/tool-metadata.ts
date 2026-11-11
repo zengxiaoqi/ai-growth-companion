@@ -26,6 +26,11 @@ export interface ToolResult<T = unknown> {
   error?: string;
   /** Optional game data to emit as a stream event */
   gameData?: unknown;
+  /**
+   * Optional music payload for the client's player card. Kept out of `data`
+   * so capability URLs never enter the model prompt or conversation history.
+   */
+  musicData?: unknown;
 }
 
 /** Describes a tool's static capabilities and requirements */

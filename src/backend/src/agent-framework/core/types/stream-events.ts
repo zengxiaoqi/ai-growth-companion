@@ -50,6 +50,12 @@ export interface GameDataEvent {
   domain?: string;
 }
 
+export interface MusicDataEvent {
+  type: 'music_data';
+  /** JSON string: { tracks: [{ title, artist, url, duration_s? }] } */
+  musicData: string;
+}
+
 /** Discriminated union of all stream events */
 export type StreamEvent =
   | TokenEvent
@@ -58,4 +64,5 @@ export type StreamEvent =
   | ThinkingEvent
   | ToolStartEvent
   | ToolResultEvent
-  | GameDataEvent;
+  | GameDataEvent
+  | MusicDataEvent;

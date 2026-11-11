@@ -71,6 +71,7 @@ export class AgentExecutorService {
 
     const toolCallLog: ToolCallInfo[] = [];
     let gameData: unknown = undefined;
+    let musicData: unknown = undefined;
     let lastIterationHadToolCall = false;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
@@ -176,6 +177,12 @@ export class AgentExecutorService {
             }
           }
 
+          // playMusic keeps capability URLs in the musicData side channel so
+          // they never reach the model-facing resultString or history.
+          if (toolName === 'playMusic' && result.success && result.musicData) {
+            musicData = result.musicData;
+          }
+
           // Notify caller (for conversation persistence, etc.)
           if (onToolCall) {
             await onToolCall({
@@ -219,6 +226,7 @@ export class AgentExecutorService {
         toolCalls: toolCallLog,
         wasFiltered: safeResult.wasFiltered,
         gameData,
+        musicData,
         tokenUsage: response.usage
           ? {
               prompt: response.usage.promptTokens,
@@ -385,6 +393,12 @@ export class AgentExecutorService {
             } else {
               this.logger.warn(`[STREAM] Skip invalid game_data payload for ${toolName}`);
             }
+          }
+
+          // Emit music_data for playMusic — the player card payload (with
+          // capability URLs) bypasses the model-facing resultString.
+          if (toolName === 'playMusic' && result.success && result.musicData) {
+            yield { type: 'music_data', musicData: JSON.stringify(result.musicData) };
           }
 
           fullMessages.push({

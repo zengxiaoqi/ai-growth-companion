@@ -149,6 +149,7 @@ export class AiService {
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
         gameData: result.gameData as any,
+        musicData: result.musicData,
       };
     }
 
@@ -249,6 +250,7 @@ export class AiService {
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
         gameData: result.gameData as any,
+        musicData: result.musicData,
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
@@ -258,7 +260,7 @@ export class AiService {
 
   /** Streaming chat — yields tokens via AsyncGenerator */
   async *chatStream(params: ChatRequest): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
+    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
     content?: string;
     thinkingContent?: string;
     toolName?: string;
@@ -271,6 +273,7 @@ export class AiService {
     message?: string;
     activityType?: string;
     gameData?: string;
+    musicData?: string;
     domain?: string;
   }> {
     const {
@@ -545,7 +548,7 @@ export class AiService {
     bookTitle?: string;
     careTopic?: string;
     mode?: 'default' | 'casual';
-  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown }> {
+  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown; musicData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const casualTools =
         params.mode === 'casual'
@@ -562,6 +565,7 @@ export class AiService {
         toolCalls: result.toolCalls,
         wasFiltered: result.wasFiltered,
         gameData: result.gameData,
+        musicData: result.musicData,
       };
     }
 
@@ -594,7 +598,7 @@ export class AiService {
     careTopic?: string;
     mode?: 'default' | 'casual';
   }): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data';
+    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
     content?: string;
     thinkingContent?: string;
     toolName?: string;
@@ -606,6 +610,7 @@ export class AiService {
     message?: string;
     activityType?: string;
     gameData?: string;
+    musicData?: string;
     domain?: string;
   }> {
     if (this.frameworkOrchestrator) {

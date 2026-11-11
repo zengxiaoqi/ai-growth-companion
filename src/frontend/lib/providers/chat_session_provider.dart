@@ -92,6 +92,10 @@ class ChatMessageEntry {
   // 每条 draft 包含 {childId, activityType, activityTypeLabel, topic, difficulty, ...}
   final List<Map<String, dynamic>> drafts; // 作业草稿列表
 
+  // ── AI 点歌（playMusic 工具的 music_data 旁路）──
+  // 每条 track 包含 {title, artist, url, duration_s}；url 是短期 token，不随历史恢复
+  final List<Map<String, dynamic>> musicTracks;
+
   // 兼容旧代码的单值访问器
   String? get gameType => gameTypes.isNotEmpty ? gameTypes.first : null;
   Map<String, dynamic>? get gameData => gameDatas.isNotEmpty ? gameDatas.first : null;
@@ -107,9 +111,11 @@ class ChatMessageEntry {
     List<String>? gameTypes,
     List<Map<String, dynamic>>? gameDatas,
     List<Map<String, dynamic>>? drafts,
+    List<Map<String, dynamic>>? musicTracks,
   }) : gameTypes = gameTypes ?? const [],
        gameDatas = gameDatas ?? const [],
-       drafts = drafts ?? const [];
+       drafts = drafts ?? const [],
+       musicTracks = musicTracks ?? const [];
 
   factory ChatMessageEntry.fromJson(Map<String, dynamic> json) {
     final content = json['content']?.toString() ?? '';
@@ -125,6 +131,24 @@ class ChatMessageEntry {
 }
 
 // ─── 测验解析工具（与 ai_chat_screen.dart 保持一致） ─────────────────────────
+
+/// 解析 music_data / musicData 载荷中的曲目列表（过滤无 URL 的条目）
+List<Map<String, dynamic>> _parseMusicTracks(dynamic raw) {
+  if (raw == null) return const [];
+  try {
+    final decoded = raw is String ? jsonDecode(raw) : raw;
+    if (decoded is Map && decoded['tracks'] is List) {
+      final tracks = <Map<String, dynamic>>[];
+      for (final t in (decoded['tracks'] as List)) {
+        if (t is Map && t['url'] is String && (t['url'] as String).isNotEmpty) {
+          tracks.add(Map<String, dynamic>.from(t));
+        }
+      }
+      return tracks;
+    }
+  } catch (_) {}
+  return const [];
+}
 
 /// 从消息文本中提取测验数据
 (String?, List<Map<String, dynamic>>?) _parseQuizFromAIResponse(String raw) {
@@ -632,6 +656,7 @@ class ChatSessionProvider extends ChangeNotifier {
       final List<String> pendingGameTypes = [];
       final List<Map<String, dynamic>> pendingGameDatas = [];
       final List<Map<String, dynamic>> pendingDrafts = [];
+      final List<Map<String, dynamic>> pendingMusicTracks = [];
 
       debugPrint('🔍 [ChatProvider] SSE stream starting...');
 
@@ -735,6 +760,12 @@ class ChatSessionProvider extends ChangeNotifier {
             }
           }
           notifyListeners();
+        } else if (type == 'music_data') {
+          pendingMusicTracks.addAll(_parseMusicTracks(event['musicData']));
+          if (pendingMusicTracks.isNotEmpty && fullReply.isEmpty) {
+            aiMsg.displayText = '🎵 找到歌曲啦，马上播放～';
+          }
+          notifyListeners();
         } else if (type == 'tool_result') {
           // 捕获 assignActivity 工具返回的草稿数据
           final toolName = event['toolName'] as String? ?? '';
@@ -773,6 +804,9 @@ class ChatSessionProvider extends ChangeNotifier {
           if (fullReply.isEmpty && pendingGameDatas.isNotEmpty) {
             final label = _gameTypeLabel(pendingGameTypes.first);
             fullReply = '来玩个$label吧！🎮';
+          }
+          if (fullReply.isEmpty && pendingMusicTracks.isNotEmpty) {
+            fullReply = '给你放歌啦～🎵';
           }
           // 如果最终还是空的，给个兜底
           if (fullReply.isEmpty) {
@@ -829,6 +863,7 @@ class ChatSessionProvider extends ChangeNotifier {
         gameTypes: List.from(pendingGameTypes),
         gameDatas: List.from(pendingGameDatas),
         drafts: List.from(pendingDrafts),
+        musicTracks: List.from(pendingMusicTracks),
       );
       _localMessages[_localMessages.length - 1] = finalizedMsg;
 
@@ -938,6 +973,7 @@ class ChatSessionProvider extends ChangeNotifier {
           isThinkingExpanded: false,
           gameTypes: List.from(pendingGameTypes),
           gameDatas: List.from(pendingGameDatas),
+          musicTracks: _parseMusicTracks(response?['musicData']),
         );
         _localMessages[_localMessages.length - 1] = finalizedMsg;
 

@@ -42,8 +42,10 @@ import type {
   StudyPlanRecord,
   ConversationSession,
   ConversationMessageHistory,
+  MusicTrack,
 } from '@/types';
 import GameRenderer from './games/GameRenderer';
+import ChatMusicCard from './ai-chat/ChatMusicCard';
 import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
 
 interface ToolStep {
@@ -77,12 +79,16 @@ interface Message {
   gameData?: GameData;
   gameDataList?: GameData[];
   completedGameIndexes?: number[];
+  /** playMusic 返回的歌曲（url 是短期 token，不随历史恢复） */
+  musicTracks?: MusicTrack[];
 }
 
 /** Hook to manage TTS audio playback across messages */
-function useVoicePlayback() {
+function useVoicePlayback(onBeforePlay?: () => void) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingMsgId, setPlayingMsgId] = useState<string | null>(null);
+  const onBeforePlayRef = useRef(onBeforePlay);
+  onBeforePlayRef.current = onBeforePlay;
 
   const play = useCallback((msgId: string, text: string) => {
     const plainText = text
@@ -93,6 +99,8 @@ function useVoicePlayback() {
       .trim()
       .slice(0, 2000);
     if (!plainText) return;
+
+    onBeforePlayRef.current?.();
 
     if (audioRef.current) {
       audioRef.current.pause();
@@ -138,6 +146,70 @@ function useVoicePlayback() {
   );
 
   return { playingMsgId, play, stop, toggle };
+}
+
+/** Hook to manage the inline chat music player (one shared audio element) */
+function useMusicPlayback() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [active, setActive] = useState<{ msgId: string; trackIndex: number } | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    },
+    [],
+  );
+
+  const pause = useCallback(() => {
+    audioRef.current?.pause();
+    setPlaying(false);
+  }, []);
+
+  const playTrack = useCallback((msgId: string, trackIndex: number, url: string) => {
+    const current = activeRef.current;
+    if (current?.msgId === msgId && current.trackIndex === trackIndex && audioRef.current) {
+      if (playingRef.current) {
+        audioRef.current.pause();
+        setPlaying(false);
+      } else {
+        setError(false);
+        setPlaying(true);
+        audioRef.current.play().catch(() => {
+          setPlaying(false);
+          setError(true);
+        });
+      }
+      return;
+    }
+
+    audioRef.current?.pause();
+    const audio = new Audio(api.getMusicAudioUrl(url));
+    audio.volume = getAudioVolume();
+    audioRef.current = audio;
+    setActive({ msgId, trackIndex });
+    setError(false);
+    setPlaying(true);
+
+    audio.onplay = () => setPlaying(true);
+    audio.onended = () => setPlaying(false);
+    audio.onerror = () => {
+      setPlaying(false);
+      setError(true);
+    };
+    audio.play().catch(() => {
+      setPlaying(false);
+      setError(true);
+    });
+  }, []);
+
+  return { active, playing, error, playTrack, pause };
 }
 
 /** Speaker button for AI message bubbles */
@@ -311,12 +383,13 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [avatarState, setAvatarState] = useState<{ userAvatar?: string; aiAvatar?: string }>({});
   const { user } = useAuth();
+  const music = useMusicPlayback();
   const {
     playingMsgId,
     play: playMessage,
     stop: stopPlayback,
     toggle: togglePlayback,
-  } = useVoicePlayback();
+  } = useVoicePlayback(music.pause);
   const reducedMotion = useReducedMotion();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -790,6 +863,25 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                 } catch {
                   // JSON parse error in event data, skip
                 }
+              } else if (currentEvent === 'music_data') {
+                try {
+                  const parsed =
+                    typeof data.musicData === 'string'
+                      ? JSON.parse(data.musicData)
+                      : data.musicData;
+                  const tracks: MusicTrack[] = Array.isArray(parsed?.tracks)
+                    ? parsed.tracks.filter(
+                        (t: any) => t && typeof t.url === 'string' && t.url.length > 0,
+                      )
+                    : [];
+                  if (tracks.length > 0) {
+                    setMessages((prev) =>
+                      prev.map((m) => (m.id === assistantId ? { ...m, musicTracks: tracks } : m)),
+                    );
+                  }
+                } catch {
+                  // JSON parse error in event data, skip
+                }
               } else if (currentEvent === 'token' && data.content) {
                 fullContent += data.content;
                 setMessages((prev) =>
@@ -824,6 +916,9 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           });
           if (response.sessionId) setSessionId(response.sessionId);
           if (response.suggestions?.length) setSuggestions(response.suggestions);
+          const musicTracks = response.musicData?.tracks?.filter(
+            (t) => t && typeof t.url === 'string' && t.url.length > 0,
+          );
           setMessages((prev) => [
             ...prev.filter((m) => m.id !== assistantId),
             {
@@ -833,6 +928,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               timestamp: new Date(),
               thinkingSteps: [],
               toolSteps: [],
+              ...(musicTracks?.length ? { musicTracks } : {}),
             },
           ]);
         } catch {
@@ -915,11 +1011,30 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
       lastMsg?.role === 'assistant' &&
       !lastMsg.isStreaming &&
       getMessageGames(lastMsg).length === 0 &&
+      !lastMsg.musicTracks?.length &&
       lastMsg.content
     ) {
       playMessage(lastMsg.id, lastMsg.content);
     }
   }, [messages, autoRead, playMessage, getMessageGames]);
+
+  const autoPlayedMusicRef = useRef<string | null>(null);
+
+  // Auto-play the first track when a music card arrives; if the browser blocks
+  // it, the card stays paused and the child can tap a track to start
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (
+      lastMsg?.role === 'assistant' &&
+      !lastMsg.isStreaming &&
+      lastMsg.musicTracks?.length &&
+      autoPlayedMusicRef.current !== lastMsg.id
+    ) {
+      autoPlayedMusicRef.current = lastMsg.id;
+      stopPlayback();
+      music.playTrack(lastMsg.id, 0, lastMsg.musicTracks[0].url);
+    }
+  }, [messages, stopPlayback, music.playTrack]);
 
   const hasProcessSteps = (msg: Message) =>
     msg.thinkingSteps.length > 0 || msg.toolSteps.length > 0;
@@ -1243,6 +1358,24 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                             })}
                           </div>
                         )}
+                        {message.role === 'assistant' &&
+                          message.musicTracks &&
+                          message.musicTracks.length > 0 && (
+                            <ChatMusicCard
+                              tracks={message.musicTracks}
+                              activeTrackIndex={
+                                music.active?.msgId === message.id ? music.active.trackIndex : -1
+                              }
+                              isPlaying={music.playing && music.active?.msgId === message.id}
+                              hasError={music.error && music.active?.msgId === message.id}
+                              onPlayTrack={(i) => {
+                                const track = message.musicTracks?.[i];
+                                if (!track) return;
+                                stopPlayback();
+                                music.playTrack(message.id, i, track.url);
+                              }}
+                            />
+                          )}
                       </div>
                       {message.role === 'user' && (
                         <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
@@ -1840,6 +1973,24 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                                 })}
                               </div>
                             )}
+                            {message.role === 'assistant' &&
+                              message.musicTracks &&
+                              message.musicTracks.length > 0 && (
+                                <ChatMusicCard
+                                  tracks={message.musicTracks}
+                                  activeTrackIndex={
+                                    music.active?.msgId === message.id ? music.active.trackIndex : -1
+                                  }
+                                  isPlaying={music.playing && music.active?.msgId === message.id}
+                                  hasError={music.error && music.active?.msgId === message.id}
+                                  onPlayTrack={(i) => {
+                                    const track = message.musicTracks?.[i];
+                                    if (!track) return;
+                                    stopPlayback();
+                                    music.playTrack(message.id, i, track.url);
+                                  }}
+                                />
+                              )}
                           </div>
                           {message.role === 'user' && (
                             <div className="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">

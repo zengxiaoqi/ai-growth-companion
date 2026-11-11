@@ -37,6 +37,7 @@ import { GenerateVideoDataTool } from './agent/tools/generate-video-data';
 import { BookSkillModule } from '../book-skill/book-skill.module';
 import { ReportModule } from '../report/report.module';
 import { VoiceModule } from '../voice/voice.module';
+import { MusicModule } from '../music/music.module';
 import { PublicApiModule } from '../public-api/public-api.module';
 import { RewardModule } from '../reward/reward.module';
 import { SafetyModule } from '../safety/safety.module';
@@ -78,6 +79,7 @@ import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-fram
 import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-framework/tools/impl/enqueue-teaching-video';
 import { TranslateTool as FwTranslate } from '../../agent-framework/tools/impl/translate';
 import { PlayStoryTool as FwPlayStory } from '../../agent-framework/tools/impl/play-story';
+import { PlayMusicTool as FwPlayMusic } from '../../agent-framework/tools/impl/play-music';
 
 @Module({
   imports: [
@@ -90,6 +92,7 @@ import { PlayStoryTool as FwPlayStory } from '../../agent-framework/tools/impl/p
     forwardRef(() => AssignmentModule),
     ReportModule,
     VoiceModule,
+    MusicModule,
     PublicApiModule,
     RewardModule,
     SafetyModule,
@@ -164,9 +167,10 @@ import { PlayStoryTool as FwPlayStory } from '../../agent-framework/tools/impl/p
     FwGenerateActivity,
     FwAssignActivity,
     FwEnqueueTeachingVideo,
-    // Casual-mode capability tools (碎碎念): translate + story
+    // Casual-mode capability tools (碎碎念): translate + story + music
     FwTranslate,
     FwPlayStory,
+    FwPlayMusic,
     // Provide legacy course pack tool as the backing implementation
     {
       provide: FwGenerateCoursePack,

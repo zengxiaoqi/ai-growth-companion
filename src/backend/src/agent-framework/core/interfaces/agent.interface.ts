@@ -73,6 +73,7 @@ export interface ExecutionResult {
   response: string;
   toolCalls: ToolCallInfo[];
   gameData?: unknown;
+  musicData?: unknown;
   tokenUsage?: { prompt: number; completion: number };
   wasFiltered?: boolean;
 }

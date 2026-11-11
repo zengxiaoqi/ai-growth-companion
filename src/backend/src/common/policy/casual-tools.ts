@@ -21,9 +21,10 @@ export interface CasualToolDescriptor {
 export const CASUAL_TOOL_CATALOG: CasualToolDescriptor[] = [
   { name: 'translate', label: '翻译', description: '中英互译，比如问"苹果用英语怎么说"' },
   { name: 'playStory', label: '讲故事', description: '讲一个适合孩子年龄的小故事' },
+  { name: 'playMusic', label: '点歌', description: '孩子说想听歌时搜索并播放，比如"我想听小星星"' },
 ];
 
-export const DEFAULT_CASUAL_TOOLS: string[] = ['translate', 'playStory'];
+export const DEFAULT_CASUAL_TOOLS: string[] = ['translate', 'playStory', 'playMusic'];
 
 export const CASUAL_TOOL_NAMES: ReadonlySet<string> = new Set(
   CASUAL_TOOL_CATALOG.map((t) => t.name),

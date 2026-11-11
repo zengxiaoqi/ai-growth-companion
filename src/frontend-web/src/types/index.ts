@@ -132,6 +132,8 @@ export interface ChatResponse {
   reply: string;
   sessionId?: string;
   suggestions?: string[];
+  /** playMusic 工具返回的歌曲卡片数据（url 为短期 token，不随历史恢复） */
+  musicData?: { tracks: MusicTrack[] };
 }
 
 // Parent Control Types

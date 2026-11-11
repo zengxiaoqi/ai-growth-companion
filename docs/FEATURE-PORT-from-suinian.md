@@ -584,3 +584,117 @@ GET /api/music/audio/:token                   [无守卫，token 即能力]
 **部署注意**：音源白名单是 fail-closed——部署环境 `.env` 需显式加 `MUSIC_SOURCES=...` 才开启；
 酷我音频是 http，必须同时 `MUSIC_ALLOW_HTTP_UPSTREAM=true`。运行中的后端需重启才加载本模块。
 
+## 十五、AI 对话点歌 —— 已落地（2026-11-11）
+
+> 状态：**已落地并真实 E2E 验证**（落地记录见 15.7）。第十四节落地后，孩子还要离开对话去「音乐乐园」搜索；
+> 本节把同一能力接进 AI 对话：孩子说「我想听小星星」→ agent 调 `playMusic` 工具 →
+> 聊天消息里出现音乐卡片 → 直接播放。复用 `MusicService.search` 与 `/music/audio/<token>`，
+> 不新增音源逻辑、不加 npm 依赖。
+> 已定范围：**普通 + 碎碎念两种模式都接**；**自动播第一首**（浏览器拦截时降级为手动点按）。
+
+### 15.1 链路事实（核查依据）
+
+- 框架工具自动注册：`@RegisterTool()` + provider 声明在 `ai.module.ts`（FwPlayStory 范式，
+  `agent-framework/tools/impl/play-story.ts`）。`MusicModule` 已 export `MusicService`。
+- 碎碎念闲聊模式工具 = `CASUAL_TOOL_CATALOG` 白名单（`common/policy/casual-tools.ts`），
+  家长端开关由 catalog 驱动自动出现；prompt 在 `orchestrator.service.ts buildCasualSystemPrompt`。
+- 普通模式孩子对话 = `child-companion` agent，`allowedTools` 白名单
+  （`agents/definitions/child-companion.agent.ts` L137），prompt 按年龄段分 3-4 / 5-6 / 学龄版。
+- 结构化 payload 到前端的既有通道 = `game_data` SSE 事件 + 非流式 `ChatResponse.gameData`；
+  执行器在 `agent-executor.service.ts` 对特定工具名发射。音乐不是游戏，新增平行的 `music_data` 通道。
+- 执行器拿得到结构化 `ToolResult`（L138 `toolRegistry.execute`），`resultString` 只取 `result.data`
+  喂模型/写会话历史（L143）。**因此 token URL 可以只走 `ToolResult.musicData` 旁路**：
+  模型和历史只看到歌名/歌手/时长，URL 不进 prompt、不进历史、不进日志，30 分钟过期后也不会
+  被后续轮次翻出来。卡片是 live 产物，历史重载不恢复（token 本来也会过期）。
+
+### 15.2 后端设计
+
+```
+孩子:「我想听小星星」
+  → LLM 调 playMusic({query:"小星星"})          [框架工具，仿 playStory]
+  → MusicService.search(query, 5)               [第十四节能力，聚合去重完整版优先]
+  → ToolResult {
+      data:      {count, tracks:[{title,artist,duration_s}]}   ← 给模型（无 URL）
+      musicData: {tracks:[{title,artist,url,duration_s}]}      ← 给前端（含 token URL）
+    }
+  → 执行器发 SSE `music_data` / 非流式塞 `ChatResponse.musicData`
+  → LLM 收结果后短回复:「给你放《小星星》啦～」
+```
+
+| 改动点 | 内容 |
+|--------|------|
+| `agent-framework/tools/impl/play-music.ts`（新） | `PlayMusicTool`：`playMusic({query})`，内部固定 limit 5；`enabled=false` → fail「音乐功能暂未开启」；空结果 → fail「没有找到，换个歌名试试」（模型据此向孩子解释） |
+| `core/types/tool-metadata.ts` | `ToolResult` 加 `musicData?: unknown`（与 gameData 平行的旁路字段） |
+| `core/types/stream-events.ts` + `core/interfaces/agent.interface.ts` | `MusicDataEvent` + `ExecutionResult.musicData?` |
+| `agents/agent-executor.service.ts` | runLoop/runLoopStream：`playMusic` 成功且有 musicData → 同步塞结果 / 流式发 `music_data` |
+| `ai.types.ts` / `ai.service.ts` / `ai.controller.ts` | StreamEvent、ChatResponse 加 musicData；两个 SSE handler 写 `event: music_data`；非流式透传 |
+| `ai.module.ts` | imports MusicModule + provider FwPlayMusic |
+| 碎碎念接入 | `CASUAL_TOOL_CATALOG`/`DEFAULT_CASUAL_TOOLS` 加 playMusic（家长可 per-child 关）；casual prompt 加一条用法 |
+| 普通模式接入 | `child-companion.allowedTools` 加 playMusic；各年龄段 prompt 工具指南加一条（想听歌才调用；回复短引导；不念 URL） |
+
+- 旧版 legacy agent-executor 不接（playStory/translate 同样只在框架层）。
+- 安全纪律不变：search 要 JWT（聊天端点本就有 JwtAuthGuard）；audio 仍是 token capability；
+  `requiresParentApproval` 默认低风险不拦截；音乐关闭时工具 fail，模型口头解释，不影响聊天。
+
+### 15.3 前端接入点（精确到文件）
+
+| 端 | 位置 | 改动 |
+|----|------|------|
+| Flutter 状态 | `providers/chat_session_provider.dart` | `ChatMessageEntry.musicTracks`；SSE `music_data` 事件解析；非流式 `musicData` 字段；finalize 时挂到消息 |
+| Flutter UI | `screens/ai_chat_screen.dart` | 消息下方 `_InlineMusicCard`（仿 _InlineGameCard）：曲目列表、播放/暂停、当前高亮；屏幕级单个 AudioPlayer（仿 music_screen 范式），播新歌 stops 旧歌；**播音乐前停 TTS，带音乐卡片的消息跳过自动朗读** |
+| React | `components/AIChat.tsx` | `Message.musicTracks`；SSE/非流式解析；自动朗读 effect 跳过音乐消息 |
+| React UI | 新 `components/ai-chat/ChatMusicCard.tsx` | 卡片展示 + 共享 `useMusicPlayback`（仿 useVoicePlayback）：`new Audio(api.getMusicAudioUrl(url))`，播放/暂停/换曲/错误提示；播放时停 TTS |
+
+- 播放行为候选：自动播第一首（浏览器拦截时降级为手动点播放）vs 一律手动点卡片播放——待选。
+- 模式覆盖候选：普通+碎碎念都接（两端默认都是普通模式，只接碎碎念等于藏在开关后）vs 仅碎碎念——待选。
+
+### 15.4 明确不做（本次）
+
+- 聊天内 seek/进度条/歌单队列：卡片只做「播这首/换这首/暂停」，完整播放器仍在音乐乐园。
+- 历史消息恢复音乐卡片：token 30 分钟过期，恢复无意义。
+- 家长 per-child 普通模式音乐开关：普通模式工具白名单是 agent 级，per-child 覆盖只有碎碎念 catalog
+  有既有机制；普通模式要 gate 需新家长控制字段，后续产品改动。
+- 语音输入直接点歌（「小犀小犀，放首歌」唤醒链路）：本次只做文字/语音转文字后的对话内点歌。
+
+### 15.5 测试策略
+
+- Jest：`play-music.spec.ts`（mock MusicService：关闭→fail、空→fail、成功→data 无 URL/musicData 有 URL）；
+  执行器 music_data 发射用例（成功发、error 不发）。
+- 真实 E2E（React 浏览器）：登录 → 学生端 AI 对话 → 「我想听小星星」→ 卡片出现 → 播放 206 →
+  暂停/换曲；TTS 不与音乐重叠。Flutter analyze + build web，浏览器面板可用时补可视化验证。
+
+### 15.6 分步落地（待选）
+
+| 步 | 内容 | 成本 |
+|----|------|------|
+| 1 | 后端工具 + music_data 通道 + 两种模式接入 + Jest | 中 |
+| 2 | Flutter 聊天音乐卡片 + TTS 协调 | 中 |
+| 3 | React ChatMusicCard + TTS 协调 | 小 |
+
+### 15.7 落地记录（2026-11-11）
+
+按 15.2/15.3 全部实施，两种模式 + 自动播第一首。额外细节：
+
+- React `useVoicePlayback` 加 `onBeforePlay` 钩子（TTS 开播前暂停音乐）；`useMusicPlayback`
+  共享一个 Audio 元素，同曲点按 = 暂停/续播，换曲即切；`onplay` 事件同步 playing 态
+  （E2E 抓到续播后图标不同步的 bug，已修）。
+- Flutter 复用 TtsService 单例：播音乐前 `TtsService().stop()`，TTS 开播前暂停音乐；
+  带音乐卡片的消息跳过自动朗读。
+- 自动播放用 `autoPlayedMusicRef` 按消息 id 防重复触发；历史重载不恢复卡片（token 会过期）。
+
+验证证据：
+
+- Jest：新增 `play-music.tool.spec.ts`（5 例）+ 执行器 music_data 发射（3 例）全过；
+  受影响既有套件 119/119 过；后端 `npm run build` 干净。
+- Flutter：`flutter analyze` 改动文件 0 问题（14 条 info 均为其他文件既有）；`flutter build web` 成功。
+  内置浏览器 0x0 隐藏视口无法渲染 Flutter canvas，可视化验证留待真机/可见浏览器。
+- React：`typecheck` + `build` 干净。真实 E2E（临时后端 :3101 + 临时 DB + Vite :5174，
+  不碰用户 :3000 实例）：
+  - 普通模式「我想听小星星」→ SSE `music_data` → 卡片 5 首 → 回复「给你放《小星星》啦～」→
+    自动播放 `/music/audio/<token>` **206** audio/mpeg；暂停/续播/换曲图标与高亮全部正确；
+    音乐消息无 TTS 自动朗读请求。
+  - 点消息喇叭 → TTS 开播且音乐自动暂停（协调生效）。
+  - 碎碎念「放一首两只老虎」→ 卡片 + 自动播放，回复「《两只老虎》来啦～🐯」。
+  - 家长端 catalog 自动出现「点歌」开关；PATCH 关掉 playMusic 后 casual 再点歌 → 无工具调用、
+    无卡片，模型口头降级；恢复 override=null 复原。
+

@@ -34,6 +34,7 @@ export function childSchoolAgeSystemPrompt(
 - 工具调用里的 ageGroup 由系统自动填写，不要自己编造档位
 - 难度会按孩子年龄自动调整，你只需说明 topic 和 type
 - 当孩子问学习建议时调用getRecommendations，问知识点时调用searchContent
+- 当孩子说想听歌时调用playMusic（传入歌名），成功后只说一句"给你放《歌名》啦～"，歌曲卡片会自动出现并播放，不要念链接或歌曲列表
 - **重要**：调用generateActivity后，回复中不能透露答案、正确选项或解题提示
 
 ## 禁止事项

@@ -408,7 +408,12 @@ export class OrchestratorService implements OnApplicationBootstrap {
           '- 孩子想听故事时，调用 playStory（传入主题），拿到故事后把内容讲给孩子听。讲故事时可以把故事讲完整，这时不受"40 字"限制，但语气依然温柔口语。',
         );
       }
-      const others = tools.filter((t) => t !== 'translate' && t !== 'playStory');
+      if (tools.includes('playMusic')) {
+        lines.push(
+          '- 孩子想听歌时（"我想听小星星""放首歌"），调用 playMusic（传入歌名），成功后只用一句话回应，比如"给你放《小星星》啦～"。歌曲卡片会自动出现并播放，不要念链接或列表。',
+        );
+      }
+      const others = tools.filter((t) => t !== 'translate' && t !== 'playStory' && t !== 'playMusic');
       if (others.length > 0) {
         lines.push(`- 需要时也可以调用这些工具：${others.join('、')}，调用后把结果用口语讲给孩子听。`);
       }

@@ -2,6 +2,7 @@
 // 原始功能（内联测验、TTS朗读、语音输入）已完整保留
 
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import '../utils/web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -327,6 +328,112 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
 // ═══════════════════════════════════════════════════════════════════════════
 // 内联游戏卡 Widget — 非 quiz 类型的游戏渲染（matching/fill_blank/sequencing/connection/puzzle/true_false）
 // ═══════════════════════════════════════════════════════════════════════════
+
+class _InlineMusicCard extends StatelessWidget {
+  final List<Map<String, dynamic>> tracks;
+  final int activeTrackIndex; // -1 = 本卡片没有在播的曲目
+  final bool isPlaying;
+  final void Function(int index) onPlayTrack;
+
+  const _InlineMusicCard({
+    required this.tracks,
+    required this.activeTrackIndex,
+    required this.isPlaying,
+    required this.onPlayTrack,
+  });
+
+  String _durationLabel(dynamic seconds) {
+    final s = seconds is num ? seconds.toInt() : 0;
+    if (s <= 0) return '';
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.softYellow.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  '点歌',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                ),
+              ),
+              const Spacer(),
+              const Text('🎵', style: TextStyle(fontSize: 20)),
+            ],
+          ),
+          for (var i = 0; i < tracks.length; i++) _buildTrack(i),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrack(int i) {
+    final t = tracks[i];
+    final active = i == activeTrackIndex;
+    final artist = t['artist']?.toString() ?? '';
+    final duration = _durationLabel(t['duration_s']);
+    return GestureDetector(
+      onTap: () => onPlayTrack(i),
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.softYellow : Colors.white.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              active && isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              size: 22,
+              color: AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t['title']?.toString() ?? '未知歌曲',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                  ),
+                  if (artist.isNotEmpty)
+                    Text(
+                      artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                ],
+              ),
+            ),
+            if (duration.isNotEmpty)
+              Text(duration, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _InlineGameCard extends StatefulWidget {
   final String gameType;
@@ -725,6 +832,12 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   bool _isListening = false;
   int? _speakingMessageIndex;
 
+  // ─── AI 点歌：屏幕级单个播放器，所有音乐卡片共享 ───
+  AudioPlayer? _musicPlayer;
+  int? _musicMessageIndex;
+  int _musicTrackIndex = -1;
+  bool _musicPlaying = false;
+
   /// 每条消息的答题记录（用于思考内容折叠状态）
   final Map<int, bool> _thinkingExpanded = {};
 
@@ -782,7 +895,68 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _musicPlayer?.dispose();
     super.dispose();
+  }
+
+  // ─── AI 点歌播放 ──────────────────────────────────────────────────
+
+  AudioPlayer _ensureMusicPlayer() {
+    final existing = _musicPlayer;
+    if (existing != null) return existing;
+    final player = AudioPlayer();
+    player.onPlayerStateChanged.listen((state) {
+      if (!mounted) return;
+      setState(() => _musicPlaying = state == PlayerState.playing);
+    });
+    player.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        _musicPlaying = false;
+        _musicMessageIndex = null;
+        _musicTrackIndex = -1;
+      });
+    });
+    _musicPlayer = player;
+    return player;
+  }
+
+  Future<void> _playMusicTrack(int messageIndex, int trackIndex, Map<String, dynamic> track) async {
+    final url = track['url']?.toString() ?? '';
+    if (url.isEmpty) return;
+    await TtsService().stop();
+    if (!mounted) return;
+    if (_speakingMessageIndex != null) {
+      setState(() => _speakingMessageIndex = null);
+    }
+    final player = _ensureMusicPlayer();
+    // 同一首再点 = 暂停/继续
+    if (_musicMessageIndex == messageIndex && _musicTrackIndex == trackIndex) {
+      if (_musicPlaying) {
+        await player.pause();
+      } else {
+        await player.resume();
+      }
+      return;
+    }
+    try {
+      await player.play(UrlSource('${ApiService.baseUrl}$url'));
+      if (!mounted) return;
+      setState(() {
+        _musicMessageIndex = messageIndex;
+        _musicTrackIndex = trackIndex;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _musicMessageIndex = null;
+        _musicTrackIndex = -1;
+        _musicPlaying = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('播放失败，换一首试试')),
+      );
+    }
   }
 
   bool _isLoading = false;
@@ -814,7 +988,14 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       if (mounted) {
         setState(() => _isLoading = false);
         _scrollToBottom();
-        if (_autoPlay) {
+        final provider = context.read<ChatSessionProvider>();
+        final msg = msgIndex >= 0 && msgIndex < provider.localMessages.length
+            ? provider.localMessages[msgIndex]
+            : null;
+        if (msg != null && msg.musicTracks.isNotEmpty) {
+          // 点歌消息：自动播第一首，不朗读（避免与音乐重叠）
+          _playMusicTrack(msgIndex, 0, msg.musicTracks.first);
+        } else if (_autoPlay) {
           _autoSpeakMessage(msgIndex);
         }
       }
@@ -868,6 +1049,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     if (index >= provider.localMessages.length) return;
     final msg = provider.localMessages[index];
     if (msg.role != 'assistant') return;
+    // 点歌消息不自动朗读，避免与音乐重叠
+    if (msg.musicTracks.isNotEmpty) return;
 
     final content = (msg.displayText ?? msg.content).trim();
     if (content.isEmpty) return;
@@ -875,6 +1058,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final tts = TtsService();
     if (!tts.isAvailable) return;
 
+    if (_musicPlaying) await _musicPlayer?.pause();
     await tts.stop();
     setState(() => _speakingMessageIndex = index);
     await tts.speak(content);
@@ -900,6 +1084,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final content = (msg.displayText ?? msg.content).trim();
     if (content.isEmpty) return;
 
+    if (_musicPlaying) await _musicPlayer?.pause();
     setState(() => _speakingMessageIndex = index);
     await tts.speak(content);
     await tts.onComplete;
@@ -1257,6 +1442,17 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           gameData: message.gameDatas[i],
         ));
       }
+    }
+
+    // ── AI 点歌卡片 ──
+    if (!isUser && message.musicTracks.isNotEmpty) {
+      columnChildren.add(const SizedBox(height: 12));
+      columnChildren.add(_InlineMusicCard(
+        tracks: message.musicTracks,
+        activeTrackIndex: _musicMessageIndex == index ? _musicTrackIndex : -1,
+        isPlaying: _musicPlaying,
+        onPlayTrack: (i) => _playMusicTrack(index, i, message.musicTracks[i]),
+      ));
     }
 
     // ── 作业草稿预览卡片（含发布按钮）──

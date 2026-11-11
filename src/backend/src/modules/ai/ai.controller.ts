@@ -187,6 +187,10 @@ export class AiController {
               domain: event.domain,
             })}\n\n`,
           );
+        } else if (event.type === 'music_data') {
+          res.write(
+            `event: music_data\ndata: ${JSON.stringify({ musicData: event.musicData })}\n\n`,
+          );
         }
       }
     } catch (error) {
@@ -285,6 +289,10 @@ export class AiController {
               gameData: event.gameData,
               domain: event.domain,
             })}\n\n`,
+          );
+        } else if (event.type === 'music_data') {
+          res.write(
+            `event: music_data\ndata: ${JSON.stringify({ musicData: event.musicData })}\n\n`,
           );
         }
       }

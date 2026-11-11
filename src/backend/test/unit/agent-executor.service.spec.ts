@@ -695,4 +695,62 @@ describe('AgentExecutorService runLoopStream', () => {
       expect(execContext.ageGroup).toBe('5-6');
     });
   });
+
+  describe('music_data emission', () => {
+    const musicPayload = {
+      tracks: [{ title: '小星星', artist: '儿歌', url: '/music/audio/tok', duration_s: 74 }],
+    };
+
+    it('emits music_data from the musicData side channel, keeping URLs out of tool_result', async () => {
+      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '小星星' }));
+      toolRegistry.execute.mockResolvedValueOnce({
+        success: true,
+        data: { count: 1, tracks: [{ title: '小星星', artist: '儿歌', duration_s: 74 }] },
+        musicData: musicPayload,
+      });
+      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('给你放《小星星》啦～'));
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '给你放《小星星》啦～';
+      });
+
+      const events = await collectEvents();
+
+      const musicEvents = events.filter((e: StreamEvent) => e.type === 'music_data') as any[];
+      expect(musicEvents).toHaveLength(1);
+      expect(JSON.parse(musicEvents[0].musicData)).toEqual(musicPayload);
+
+      const toolResult = events.find((e: StreamEvent) => e.type === 'tool_result') as any;
+      expect(toolResult.toolResult).not.toContain('/music/audio/');
+    });
+
+    it('does not emit music_data when the tool failed', async () => {
+      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '不存在' }));
+      toolRegistry.execute.mockResolvedValueOnce({
+        success: false,
+        error: '没有找到相关的歌曲',
+      });
+      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('没找到这首歌，换一首试试～'));
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '没找到这首歌，换一首试试～';
+      });
+
+      const events = await collectEvents();
+
+      expect(events.some((e: StreamEvent) => e.type === 'music_data')).toBe(false);
+    });
+
+    it('runLoop carries musicData on the execution result', async () => {
+      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '小星星' }));
+      toolRegistry.execute.mockResolvedValueOnce({
+        success: true,
+        data: { count: 1, tracks: [{ title: '小星星', artist: '儿歌', duration_s: 74 }] },
+        musicData: musicPayload,
+      });
+      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('给你放《小星星》啦～'));
+
+      const result = await executor.runLoop('system', [], toolDefinitions, 3, context);
+
+      expect(result.musicData).toEqual(musicPayload);
+    });
+  });
 });

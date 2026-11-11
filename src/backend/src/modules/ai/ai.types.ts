@@ -39,6 +39,7 @@ export interface ChatResponse {
     gameData: string;
     domain: string;
   };
+  musicData?: unknown;
 }
 
 export interface ToolCallInfo {
@@ -67,7 +68,7 @@ export interface QuizResponse {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'done' | 'error' | 'thinking' | 'tool_start' | 'tool_result' | 'game_data';
+  type: 'token' | 'done' | 'error' | 'thinking' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
   content?: string;
   sessionId?: string;
   wasFiltered?: boolean;
@@ -82,4 +83,6 @@ export interface StreamEvent {
   // game_data
   activityType?: string;
   gameData?: string;
+  // music_data
+  musicData?: string;
 }

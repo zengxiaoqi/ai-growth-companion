@@ -16,7 +16,7 @@ type ListChildrenInput = { parentId: number };
 export class ListChildrenTool extends BaseTool<ListChildrenInput> {
   readonly metadata: ToolMetadata = {
     name: 'listChildren',
-    description: '获取家长下所有孩子的列表信息',
+    description: '获取家长下所有孩子的列表信息。需要查看多个孩子或选择孩子时调用。',
     inputSchema: {
       type: 'object',
       properties: {

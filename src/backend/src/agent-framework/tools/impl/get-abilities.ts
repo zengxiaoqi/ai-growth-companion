@@ -16,7 +16,7 @@ type GetAbilitiesInput = { childId: number };
 export class GetAbilitiesTool extends BaseTool<GetAbilitiesInput> {
   readonly metadata: ToolMetadata = {
     name: 'getAbilities',
-    description: '获取孩子的各项能力评分，包括语言表达、数学逻辑、科学探索、艺术创造、社会交往',
+    description: '获取孩子的各项能力评分，包括语言表达、数学逻辑、科学探索、艺术创造、社会交往。家长问"孩子学得怎么样"或需要了解孩子水平时调用。',
     inputSchema: {
       type: 'object',
       properties: {

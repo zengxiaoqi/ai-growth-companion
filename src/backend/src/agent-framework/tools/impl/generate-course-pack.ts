@@ -39,7 +39,7 @@ export class GenerateCoursePackTool extends BaseTool<GenerateCoursePackInput> {
 
   readonly metadata: ToolMetadata = {
     name: 'generateCoursePack',
-    description: '生成完整的多模态课程包，包含听力、口语、阅读、写作、视频和家长指导',
+    description: '生成完整的多模态课程包，包含听力、口语、阅读、写作、视频和家长指导。家长要求一次性生成完整课程（听说读写+游戏+视频）时调用；播放音乐/听歌不是课程需求，不要调用。',
     inputSchema: {
       type: 'object',
       properties: {

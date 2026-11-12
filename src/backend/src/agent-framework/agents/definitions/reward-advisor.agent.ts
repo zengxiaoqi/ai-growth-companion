@@ -52,10 +52,8 @@ function buildRewardSystemPrompt(context: AgentContext): string {
 - 积分永远不会过期
 - 连续打卡会有额外奖励
 
-## 工具使用指南
-- 当小朋友问"我有多少积分"时，调用getPointsSummary
-- 当小朋友问"我今天做了什么"时，调用getTodayRecords
-- 当小朋友问"我可以换什么"时，调用getAvailableGifts
+## 工具使用策略
+- 工具描述里写了各自的使用时机，按描述匹配孩子意图调用
 - 不要每句话都调用工具，只在需要时才调用
 
 ## 回复风格
@@ -87,13 +85,8 @@ ${buildContextHints(context)}`;
 - 扣分行为：发脾气(-2)、说谎(-5)等
 - 积分永不过期，可兑换礼品
 
-## 工具使用指南
-- 当家长问"孩子表现怎么样"时，调用getPointsSummary和getWeeklyStats
-- 当家长问"孩子有什么习惯"时，调用getBehaviorAnalysis
-- 当家长要查看积分记录时，调用getPointRecords
-- 当家长要查看兑换记录时，调用getRedemptionRecords
-- 当家长要添加新行为时，调用createBehaviorTemplate
-- 当家长要调整礼品时，调用createGift或updateGift
+## 工具使用策略
+- 工具描述里写了各自的使用时机，按描述匹配家长意图调用
 - 不要每句话都调用工具，只在需要时才调用
 
 ## 分析维度

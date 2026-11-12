@@ -17,7 +17,7 @@ type ViewAbilitiesInput = { childId: number };
 export class ViewAbilitiesTool extends BaseTool<ViewAbilitiesInput> {
   readonly metadata: ToolMetadata = {
     name: 'viewAbilities',
-    description: '获取孩子的能力分析数据，包含各领域能力评分和趋势分析',
+    description: '获取孩子的能力分析数据，包含各领域能力评分和趋势分析。家长要查看能力趋势时调用。',
     inputSchema: {
       type: 'object',
       properties: {

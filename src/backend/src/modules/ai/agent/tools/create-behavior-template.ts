@@ -22,7 +22,7 @@ type CreateBehaviorTemplateInput = {
 export class CreateBehaviorTemplateTool extends BaseTool<CreateBehaviorTemplateInput> {
   readonly metadata: ToolMetadata = {
     name: 'createBehaviorTemplate',
-    description: '创建新的行为模板，用于积分记录',
+    description: '创建新的行为模板，用于积分记录。家长要添加新行为时调用。',
     inputSchema: {
       type: 'object',
       properties: {

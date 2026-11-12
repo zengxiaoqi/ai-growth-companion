@@ -20,7 +20,7 @@ type SearchContentInput = {
 export class SearchContentTool extends BaseTool<SearchContentInput> {
   readonly metadata: ToolMetadata = {
     name: 'searchContent',
-    description: '搜索学习内容，根据关键词查找适合的学习材料',
+    description: '搜索学习内容，根据关键词查找适合的学习材料。孩子提到某个知识点时调用。',
     inputSchema: {
       type: 'object',
       properties: {

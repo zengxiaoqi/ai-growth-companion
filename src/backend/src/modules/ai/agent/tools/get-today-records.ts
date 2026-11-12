@@ -15,7 +15,7 @@ type GetTodayRecordsInput = { childId: number };
 export class GetTodayRecordsTool extends BaseTool<GetTodayRecordsInput> {
   readonly metadata: ToolMetadata = {
     name: 'getTodayRecords',
-    description: '获取孩子今天的积分记录',
+    description: '获取孩子今天的积分记录。问"我今天做了什么"时调用。',
     inputSchema: {
       type: 'object',
       properties: {

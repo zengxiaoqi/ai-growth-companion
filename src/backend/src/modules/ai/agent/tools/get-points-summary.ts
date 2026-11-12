@@ -15,7 +15,7 @@ type GetPointsSummaryInput = { childId: number };
 export class GetPointsSummaryTool extends BaseTool<GetPointsSummaryInput> {
   readonly metadata: ToolMetadata = {
     name: 'getPointsSummary',
-    description: '获取孩子的积分汇总信息，包括总积分、今日积分、本周积分、连续打卡天数等',
+    description: '获取孩子的积分汇总信息，包括总积分、今日积分、本周积分、连续打卡天数等。问"我有多少积分"或家长问"孩子表现怎么样"时调用。',
     inputSchema: {
       type: 'object',
       properties: {

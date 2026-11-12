@@ -16,7 +16,7 @@ type ListAssignmentsInput = { childId: number };
 export class ListAssignmentsTool extends BaseTool<ListAssignmentsInput> {
   readonly metadata: ToolMetadata = {
     name: 'listAssignments',
-    description: '获取孩子的作业/任务列表，包含作业类型、领域、状态和得分',
+    description: '获取孩子的作业/任务列表，包含作业类型、领域、状态和得分。家长要查看作业时调用。',
     inputSchema: {
       type: 'object',
       properties: {

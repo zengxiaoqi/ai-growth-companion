@@ -217,18 +217,18 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
   readonly metadata: ToolMetadata = {
     name: 'generateActivity',
     description:
-      '生成互动学习活动，支持13种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)、color_fill(按色号涂色)、tap_target(听指令点目标)。AI 只产参数 JSON，不产代码。',
+      '生成互动学习活动，支持13种题型：quiz(选择题)、true_false(判断题)、fill_blank(填空题)、matching(配对)、connection(连线)、sequencing(排序)、puzzle(拼图)、drag_sort(拖拽分类)、memory_flip(记忆翻牌)、pattern_next(规律接龙)、trace_path(描红)、color_fill(按色号涂色)、tap_target(听指令点目标)。选型提示：分类/送回家→drag_sort，翻牌/记忆→memory_flip，接龙/下一个是什么→pattern_next，描红/写字→trace_path，涂色/上色→color_fill，听指令点目标→tap_target。孩子请求做题/练习/出题时调用。AI 只产参数 JSON，不产代码。',
     inputSchema: {
       type: 'object',
       properties: {
         type: {
           type: 'string',
           enum: SUPPORTED_TYPES,
-          description: '活动类型',
+          description: '活动类型，按孩子请求选择',
         },
         topic: { type: 'string', description: '活动主题' },
-        difficulty: { type: 'number', description: '难度(1-3)' },
-        ageGroup: { type: 'string', description: '年龄段 (3-4 或 5-6)' },
+        difficulty: { type: 'number', description: '难度(1-3)：3-4岁用1，5-6岁用1-2' },
+        ageGroup: { type: 'string', description: '年龄段，系统按当前孩子自动填写，不要编造' },
         domain: { type: 'string', description: '学习领域(可选)' },
       },
       required: ['type', 'topic', 'difficulty', 'ageGroup'],

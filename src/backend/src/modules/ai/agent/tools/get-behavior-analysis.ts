@@ -15,7 +15,7 @@ type GetBehaviorAnalysisInput = { childId: number; days?: number };
 export class GetBehaviorAnalysisTool extends BaseTool<GetBehaviorAnalysisInput> {
   readonly metadata: ToolMetadata = {
     name: 'getBehaviorAnalysis',
-    description: '获取孩子行为分析，包括行为频率统计和习惯培养建议',
+    description: '获取孩子行为分析，包括行为频率统计和习惯培养建议。家长问"孩子有什么习惯"时调用。',
     inputSchema: {
       type: 'object',
       properties: {

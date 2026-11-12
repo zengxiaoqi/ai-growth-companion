@@ -15,7 +15,7 @@ type GetPointRecordsInput = { childId: number; limit?: number };
 export class GetPointRecordsTool extends BaseTool<GetPointRecordsInput> {
   readonly metadata: ToolMetadata = {
     name: 'getPointRecords',
-    description: '获取孩子的积分记录列表，包括加分和扣分记录',
+    description: '获取孩子的积分记录列表，包括加分和扣分记录。要查看积分记录时调用。',
     inputSchema: {
       type: 'object',
       properties: {

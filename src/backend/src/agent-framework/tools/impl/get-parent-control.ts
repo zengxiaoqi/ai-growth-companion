@@ -16,7 +16,7 @@ type GetParentControlInput = { childId: number };
 export class GetParentControlTool extends BaseTool<GetParentControlInput> {
   readonly metadata: ToolMetadata = {
     name: 'getParentControl',
-    description: '获取孩子的家长控制设置，包括时间限制、允许领域等',
+    description: '获取孩子的家长控制设置，包括时间限制、允许领域等。需要检查家长限制（学习时间/内容）时调用。',
     inputSchema: {
       type: 'object',
       properties: {

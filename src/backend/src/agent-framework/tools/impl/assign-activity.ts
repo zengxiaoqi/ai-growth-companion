@@ -66,7 +66,7 @@ export class AssignActivityTool extends BaseTool<AssignActivityInput> {
   readonly metadata: ToolMetadata = {
     name: 'assignActivity',
     description:
-      '家长作业两步流：先生成草稿(confirmPublish=false)，家长确认后发布(confirmPublish=true)，也支持取消草稿(cancelDraft=true)',
+      '家长作业两步流：先生成草稿(confirmPublish=false)，家长确认后发布(confirmPublish=true)，也支持取消草稿(cancelDraft=true)。家长要布置作业时调用。',
     inputSchema: {
       type: 'object',
       properties: {

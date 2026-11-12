@@ -20,7 +20,7 @@ export class EnqueueTeachingVideoTool extends BaseTool<EnqueueTeachingVideoInput
   readonly metadata: ToolMetadata = {
     name: 'enqueueTeachingVideo',
     description:
-      '创建课程教学视频异步任务并返回 taskId，默认引擎为 auto（优先 HyperFrames，失败自动回退 Remotion）',
+      '创建课程教学视频异步任务并返回 taskId，默认引擎为 auto（优先 HyperFrames，失败自动回退 Remotion）。用户要求生成教学视频时调用，taskId 供异步进度查询。',
     inputSchema: {
       type: 'object',
       properties: {

@@ -15,7 +15,7 @@ type GetWeeklyStatsInput = { childId: number };
 export class GetWeeklyStatsTool extends BaseTool<GetWeeklyStatsInput> {
   readonly metadata: ToolMetadata = {
     name: 'getWeeklyStats',
-    description: '获取孩子本周的积分统计，包括每天积分和总积分',
+    description: '获取孩子本周的积分统计，包括每天积分和总积分。家长问孩子本周表现时调用。',
     inputSchema: {
       type: 'object',
       properties: {

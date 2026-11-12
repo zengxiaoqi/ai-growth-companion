@@ -15,7 +15,7 @@ type GetAvailableGiftsInput = { userId: number };
 export class GetAvailableGiftsTool extends BaseTool<GetAvailableGiftsInput> {
   readonly metadata: ToolMetadata = {
     name: 'getAvailableGifts',
-    description: '获取可兑换的礼品列表',
+    description: '获取可兑换的礼品列表。问"我可以换什么"时调用。',
     inputSchema: {
       type: 'object',
       properties: {

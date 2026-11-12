@@ -16,7 +16,7 @@ type GetLearningHistoryInput = { childId: number; limit?: number };
 export class GetLearningHistoryTool extends BaseTool<GetLearningHistoryInput> {
   readonly metadata: ToolMetadata = {
     name: 'getLearningHistory',
-    description: '获取孩子的学习历史记录，包括学习内容、得分和时间',
+    description: '获取孩子的学习历史记录，包括学习内容、得分和时间。回顾学习历程、查看学过什么时调用。',
     inputSchema: {
       type: 'object',
       properties: {

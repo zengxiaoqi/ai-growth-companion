@@ -21,7 +21,7 @@ type RecordLearningInput = {
 export class RecordLearningTool extends BaseTool<RecordLearningInput> {
   readonly metadata: ToolMetadata = {
     name: 'recordLearning',
-    description: '记录孩子的学习结果，包含得分和领域，系统会自动更新能力值和检查成就',
+    description: '记录孩子的学习结果，包含得分和领域，系统会自动更新能力值和检查成就。孩子完成学习/练习后调用。',
     inputSchema: {
       type: 'object',
       properties: {

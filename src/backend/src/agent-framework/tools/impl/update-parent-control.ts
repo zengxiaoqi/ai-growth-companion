@@ -24,7 +24,7 @@ type UpdateParentControlInput = {
 export class UpdateParentControlTool extends BaseTool<UpdateParentControlInput> {
   readonly metadata: ToolMetadata = {
     name: 'updateParentControl',
-    description: '更新家长控制设置，包括时间限制、允许领域、屏蔽主题、护眼模式等',
+    description: '更新家长控制设置，包括时间限制、允许领域、屏蔽主题、护眼模式等。家长要修改时间限制、允许领域等设置时调用。',
     inputSchema: {
       type: 'object',
       properties: {

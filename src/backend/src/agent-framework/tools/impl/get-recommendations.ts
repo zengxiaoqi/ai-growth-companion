@@ -17,7 +17,7 @@ type GetRecommendationsInput = { childId: number; limit?: number };
 export class GetRecommendationsTool extends BaseTool<GetRecommendationsInput> {
   readonly metadata: ToolMetadata = {
     name: 'getRecommendations',
-    description: '获取个性化学习推荐内容，基于孩子的年龄和能力推荐适合的学习材料',
+    description: '获取个性化学习推荐内容，基于孩子的年龄和能力推荐适合的学习材料。孩子问"我可以学什么"或要学习建议时调用。',
     inputSchema: {
       type: 'object',
       properties: {

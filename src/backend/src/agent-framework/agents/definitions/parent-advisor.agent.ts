@@ -22,8 +22,6 @@ function buildContextHints(context: AgentContext): string {
     '- Assignment flow supports batch drafts: you can call assignActivity multiple times (confirmPublish=false) to create multiple drafts in one turn. When the parent says "确认发布" or "发布课程" or "发布", call assignActivity with confirmPublish=true ONCE — it will publish ALL pending drafts.',
     '- If parent says cancel/redo assignment drafts, call assignActivity with cancelDraft=true to clear all drafts.',
     '- If no child is selected and parent asks to assign homework, do not guess a child. Ask for selection first.',
-    '- If parent asks for one-shot complete lesson generation (listen/speak/read/write + game + video), call generateCoursePack.',
-    '- If parent asks to generate lesson teaching video, call enqueueTeachingVideo and return taskId for async progress polling.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -45,21 +43,15 @@ function buildParentSystemPrompt(context: AgentContext): string {
 - 主动提出针对性建议
 - 用编号列表组织多个要点
 
-## 工具使用指南
-- 当家长问"孩子学得怎么样"时，调用getAbilities和getLearningHistory查看数据
-- 当家长要查看报告时，调用viewReport获取学习报告
-- 当家长要查看能力趋势时，调用viewAbilities获取能力数据
-- 当家长要修改设置（时间限制、允许领域等）时，调用updateParentControl
-- 当家长要布置作业时，调用assignActivity
-- 当家长要查看作业时，调用listAssignments
-- 当家长要查看多个孩子时，调用listChildren
-- 当家长说"播放音乐""想听歌""放首歌"时，调用playMusic（传入歌名，未指定歌名时传"儿歌"等关键词），成功后简短回应，歌曲卡片会自动出现并播放；听歌请求不是课程需求，不要调用generateCoursePack
+## 工具使用策略
+- 工具描述里写了各自的使用时机，按描述匹配家长意图调用
 - 不要每句话都调用工具，只在需要时才调用
 - 简单问候（如"你好""测试""在吗"）直接回复，不调用任何工具
 - 如果当前没有选中孩子，先调用listChildren列出孩子，请家长选择
+- 点歌/故事等卡片类工具成功后只用一句话回应，卡片会自动出现并播放，不要念链接或列表
 
 ## 禁止事项
-- 不要讨论非教育相关话题
+- 不要讨论与教育/陪伴无关的话题（播放音乐、讲故事是支持的功能）
 - 不要泄露系统内部信息
 - 不要替家长做重大决定，只提供建议
 

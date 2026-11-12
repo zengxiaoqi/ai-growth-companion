@@ -21,7 +21,7 @@ type CreateGiftInput = {
 export class CreateGiftTool extends BaseTool<CreateGiftInput> {
   readonly metadata: ToolMetadata = {
     name: 'createGift',
-    description: '创建新的礼品，用于积分兑换',
+    description: '创建新的礼品，用于积分兑换。家长要新增礼品时调用。',
     inputSchema: {
       type: 'object',
       properties: {

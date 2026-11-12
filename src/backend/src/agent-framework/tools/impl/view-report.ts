@@ -19,7 +19,7 @@ type ViewReportInput = {
 export class ViewReportTool extends BaseTool<ViewReportInput> {
   readonly metadata: ToolMetadata = {
     name: 'viewReport',
-    description: '查看孩子的学习报告，包含学习时长、完成课程数、平均分数、连续学习天数和技能进展',
+    description: '查看孩子的学习报告，包含学习时长、完成课程数、平均分数、连续学习天数和技能进展。家长要查看报告时调用。',
     inputSchema: {
       type: 'object',
       properties: {

@@ -249,7 +249,14 @@ export class AssignmentService {
         Array.isArray(activityData.connections) &&
         activityData.connections.length > 0) ||
       (Array.isArray(activityData.items) && activityData.items.length > 0) ||
-      (Array.isArray(activityData.pieces) && activityData.pieces.length > 0)
+      (Array.isArray(activityData.pieces) && activityData.pieces.length > 0) ||
+      // 参数化互动游戏的题目数组：内容工厂/教研已提供完整数据时不要再触发
+      // AI 重新生成，否则会覆盖掉合法参数并可能超时（P1 方案 B 六种题型）。
+      (Array.isArray(activityData.buckets) && activityData.buckets.length > 0) ||
+      (Array.isArray(activityData.regions) && activityData.regions.length > 0) ||
+      (Array.isArray(activityData.sequence) && activityData.sequence.length > 0) ||
+      (Array.isArray(activityData.rounds) && activityData.rounds.length > 0) ||
+      (Array.isArray(activityData.targets) && activityData.targets.length > 0)
     );
   }
 

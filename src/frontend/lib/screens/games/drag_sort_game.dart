@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -84,18 +86,41 @@ class _DragSortGameState extends State<DragSortGame> {
   final Map<String, _Placement> _placements = {};
   final Map<String, int> _attempts = {};
   String? _selectedId;
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
   int _finalCorrect = 0;
   int _passingScore = 80;
   int _timeLimitSec = 120;
   late int _startedAt;
+  late final ChildGameVoice _voice;
 
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _voice.speak(_introSpeech());
+    });
+  }
+
+  @override
+  void dispose() {
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
+    super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _introSpeech() {
+    final title = widget.data['title']?.toString() ?? '分类小游戏';
+    return '我们来玩$title。${_promptText()}';
   }
 
   void _reset() {
@@ -105,6 +130,7 @@ class _DragSortGameState extends State<DragSortGame> {
     _attempts.clear();
     _selectedId = null;
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
     _finalCorrect = 0;
@@ -201,18 +227,22 @@ class _DragSortGameState extends State<DragSortGame> {
         _placements.clear();
         _placements.addAll(nextPlacements);
         _selectedId = null;
-        _feedback = '放对啦！';
+        _feedback = const ChildFeedback.cheer('放对啦！');
+        _cheerKey += 1;
       });
       if (nextPlacements.length == _items.length) {
         _finish(nextPlacements, nextAttempts);
+      } else {
+        _voice.speak('太棒啦，放对了！');
       }
     } else {
       setState(() {
         _attempts.clear();
         _attempts.addAll(nextAttempts);
         _selectedId = null;
-        _feedback = '再想一想，它应该住在哪个篮子里呢？';
+        _feedback = const ChildFeedback.think('再想一想，它应该住在哪个篮子里呢？');
       });
+      _voice.speak('再想一想，试试别的篮子吧');
     }
   }
 
@@ -227,7 +257,8 @@ class _DragSortGameState extends State<DragSortGame> {
   void _handleBucketTap(String bucketId) {
     final selected = _selectedId;
     if (selected == null) {
-      setState(() => _feedback = '先点一张卡片，再选篮子哦～');
+      setState(() => _feedback = const ChildFeedback.tip('先点一张卡片，再选篮子哦～'));
+      _voice.speak('先点一张小卡片，再点篮子');
       return;
     }
     _place(selected, bucketId);
@@ -279,43 +310,17 @@ class _DragSortGameState extends State<DragSortGame> {
     });
   }
 
-  String _itemText(_Item item) =>
-      item.icon == null ? item.label : '${item.icon} ${item.label}';
-
-  String _bucketText(_Bucket bucket) =>
-      bucket.icon == null ? bucket.label : '${bucket.icon} ${bucket.label}';
-
-  Widget _chip(String text, {required bool selected, bool small = false}) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: small ? 10 : 14,
-        vertical: small ? 6 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: selected
-            ? AppTheme.primaryColor.withValues(alpha: 0.16)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: selected ? AppTheme.primaryColor : const Color(0x33808080),
-          width: selected ? 2 : 1.4,
-        ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: small ? 13 : 16,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.textColor,
-        ),
-      ),
-    );
+  String _promptText() {
+    final raw = (widget.data['prompt']?.toString() ?? '').trim();
+    return raw.isNotEmpty ? raw : '点一点小卡片，把它送回对应的家';
   }
 
   Widget _buildBucketCard(_Bucket bucket) {
     final placed = _items
         .where((item) => _placements[item.id]?.bucketId == bucket.id)
         .toList();
+    final visual = childVisual(icon: bucket.icon, label: bucket.label);
+    final tint = ChildGamePalette.tintFor(_buckets.indexOf(bucket) + 2);
 
     return DragTarget<String>(
       onWillAcceptWithDetails: (details) =>
@@ -323,50 +328,77 @@ class _DragSortGameState extends State<DragSortGame> {
       onAcceptWithDetails: (details) => _place(details.data, bucket.id),
       builder: (context, candidateData, rejectedData) {
         final highlighted = candidateData.isNotEmpty;
-        return Container(
-          width: 165,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          width: 168,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: highlighted
+                ? ChildGamePalette.sunshine.withValues(alpha: 0.5)
+                : tint,
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: highlighted
-                  ? AppTheme.primaryColor
-                  : AppTheme.softPurple.withValues(alpha: 0.5),
-              width: highlighted ? 2.4 : 1.6,
+                  ? ChildGamePalette.coral
+                  : ChildGamePalette.inkSoft.withValues(alpha: 0.3),
+              width: highlighted ? 3 : 2,
             ),
-            boxShadow: AppTheme.softShadow(AppTheme.softPurple),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _bucketText(bucket),
+                visual.glyph,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 38, height: 1.1),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                bucket.label,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
+                  color: ChildGamePalette.ink,
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: placed
-                    .map((item) => GestureDetector(
-                          onTap: () => _undo(item.id),
-                          child: _chip(_itemText(item), selected: false, small: true),
-                        ))
-                    .toList(),
+              Container(
+                constraints: const BoxConstraints(minHeight: 58),
+                alignment: Alignment.center,
+                child: placed.isEmpty
+                    ? Icon(
+                        Icons.inbox_rounded,
+                        size: 34,
+                        color: ChildGamePalette.inkSoft.withValues(alpha: 0.4),
+                      )
+                    : Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: placed
+                            .map((item) => ChildMiniChip(
+                                  visual: childVisual(
+                                      icon: item.icon, label: item.label),
+                                  label: item.label,
+                                  onTap: () => _undo(item.id),
+                                ))
+                            .toList(),
+                      ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                height: 42,
-                child: FilledButton(
-                  onPressed: () => _handleBucketTap(bucket.id),
-                  child: const Text('放到这里'),
-                ),
+              ChildBigButton(
+                label: '放到这里',
+                emoji: '👇',
+                onTap: () => _handleBucketTap(bucket.id),
               ),
             ],
           ),
@@ -403,80 +435,106 @@ class _DragSortGameState extends State<DragSortGame> {
       );
     }
 
-    final pending = _items.where((item) => !_placements.containsKey(item.id)).toList();
+    final pending =
+        _items.where((item) => !_placements.containsKey(item.id)).toList();
     final placedCount = _placements.length;
+    final prompt = _promptText();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '分类小游戏',
+      mascot: '🏠',
+      prompt: prompt,
+      replayText: '把小卡片送回对应的家。$prompt',
+      stepLabel: '点卡片 → 点篮子',
+      current: placedCount,
+      total: _items.length,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.data['title']?.toString() ?? '分类小游戏',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            widget.data['prompt']?.toString().isNotEmpty == true
-                ? widget.data['prompt'].toString()
-                : '点一张卡片，再点它该去的篮子（也可以直接拖过去）',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '已放好 $placedCount / ${_items.length} · 建议在 $_timeLimitSec 秒内完成',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: AppTheme.softShadow(AppTheme.softPurple),
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: ChildGamePalette.inkSoft.withValues(alpha: 0.2),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('待分类',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+                const Row(
+                  children: [
+                    Text('🎈', style: TextStyle(fontSize: 20)),
+                    SizedBox(width: 6),
+                    Text(
+                      '等待送回家',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: ChildGamePalette.inkSoft,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 10,
+                  runSpacing: 10,
                   children: pending.isEmpty
-                      ? [const Text('全部放好啦！')]
+                      ? [
+                          const Text(
+                            '全部放好啦！🎉',
+                            style: TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.w800),
+                          ),
+                        ]
                       : pending.map((item) {
                           final selected = _selectedId == item.id;
-                          final chip = _chip(_itemText(item), selected: selected);
+                          final visual =
+                              childVisual(icon: item.icon, label: item.label);
+                          final tint =
+                              ChildGamePalette.tintFor(_items.indexOf(item));
+                          Widget tileOf(ChildTileState state) => ChildVisualTile(
+                                visual: visual,
+                                label: item.label,
+                                state: state,
+                                tint: tint,
+                                semanticLabel: '选择卡片 ${item.label}',
+                              );
                           return Draggable<String>(
                             data: item.id,
                             feedback: Material(
                               color: Colors.transparent,
-                              child: _chip(_itemText(item), selected: true),
+                              child: tileOf(ChildTileState.selected),
                             ),
                             childWhenDragging: Opacity(
-                              opacity: 0.35,
-                              child: chip,
+                              opacity: 0.3,
+                              child: tileOf(ChildTileState.normal),
                             ),
                             onDragStarted: () {
                               setState(() => _selectedId = item.id);
                             },
-                            child: GestureDetector(
+                            child: ChildVisualTile(
+                              visual: visual,
+                              label: item.label,
+                              state: selected
+                                  ? ChildTileState.selected
+                                  : ChildTileState.normal,
+                              tint: tint,
+                              semanticLabel: '选择卡片 ${item.label}',
                               onTap: () {
                                 setState(() {
                                   _selectedId = selected ? null : item.id;
                                   _feedback = null;
                                 });
+                                _voice.speak('这是${item.label}，把它送回家吧');
                               },
-                              child: chip,
                             ),
                           );
                         }).toList(),
@@ -484,20 +542,12 @@ class _DragSortGameState extends State<DragSortGame> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 10,
             runSpacing: 10,
             children: _buckets.map(_buildBucketCard).toList(),
           ),
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
         ],
       ),
     );

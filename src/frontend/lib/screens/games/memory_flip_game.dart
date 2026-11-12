@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -92,24 +94,42 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
   int _mismatches = 0;
   bool _resolving = false;
   int _resolveGeneration = 0;
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
   int _passingScore = 80;
   int _timeLimitSec = 180;
   late int _startedAt;
+  late final ChildGameVoice _voice;
 
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _voice.speak(_introSpeech());
+    });
   }
 
   @override
   void dispose() {
     // 让任何在飞的 flip-back 定时器失效。
     _resolveGeneration += 1;
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
     super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _introSpeech() {
+    final title = widget.data['title']?.toString() ?? '记忆翻牌';
+    return '我们来玩$title。${_promptText()}';
   }
 
   void _reset() {
@@ -125,6 +145,7 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
     _resolving = false;
     _resolveGeneration += 1;
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
     _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
@@ -224,10 +245,13 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
         _moves += 1;
         _matched.add(a.pairId);
         _flipped.clear();
-        _feedback = '配对成功！';
+        _feedback = const ChildFeedback.cheer('配对成功！');
+        _cheerKey += 1;
       });
       if (_matched.length == _pairs.length) {
         _finish();
+      } else {
+        _voice.speak('太棒了，找到一对！');
       }
       return;
     }
@@ -236,8 +260,9 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
       _moves += 1;
       _mismatches += 1;
       _resolving = true;
-      _feedback = '不是一对，再试试看～';
+      _feedback = const ChildFeedback.think('不是一对，再试试看～');
     });
+    _voice.speak('不是一对，再找找看');
     Future.delayed(const Duration(milliseconds: _flipBackMs), () {
       if (!mounted || generation != _resolveGeneration) return;
       setState(() {
@@ -285,33 +310,32 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
     });
   }
 
-  String _pairText(_Pair pair) =>
-      pair.icon == null ? pair.label : '${pair.icon} ${pair.label}';
+  String _promptText() {
+    final raw = (widget.data['prompt']?.toString() ?? '').trim();
+    return raw.isNotEmpty ? raw : '翻开两张卡片，找到一模一样的一对！';
+  }
 
-  Widget _cardFace(_Card card, bool faceUp) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: faceUp ? AppTheme.primaryColor.withValues(alpha: 0.14) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: faceUp
-              ? AppTheme.primaryColor.withValues(alpha: 0.6)
-              : const Color(0x33808080),
-          width: faceUp ? 2 : 1.4,
-        ),
-      ),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.all(4),
-      child: Text(
-        faceUp ? _pairText(card.pair) : '❓',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: faceUp ? 14 : 20,
-          fontWeight: FontWeight.w800,
-          color: faceUp ? AppTheme.textColor : AppTheme.textSecondary,
-        ),
-      ),
+  Widget _cardFace(_Card card, bool faceUp, bool matched, double size) {
+    if (!faceUp) {
+      return ChildVisualTile(
+        visual: const ChildVisual('❓'),
+        label: '点我翻开',
+        size: size,
+        tint: ChildGamePalette.lilac.withValues(alpha: 0.32),
+        semanticLabel: '翻开卡片',
+        onTap: () => _flip(card),
+      );
+    }
+    return ChildVisualTile(
+      visual: childVisual(icon: card.pair.icon, label: card.pair.label),
+      label: card.pair.label,
+      size: size,
+      state: matched ? ChildTileState.correct : ChildTileState.selected,
+      tint: matched
+          ? null
+          : ChildGamePalette.tintFor(card.key.hashCode.abs() % 6),
+      semanticLabel: card.pair.label,
+      onTap: () => _flip(card),
     );
   }
 
@@ -322,7 +346,8 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.style_outlined, size: 48, color: AppTheme.textSecondary),
+            const Icon(Icons.style_outlined,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无记忆翻牌题目'),
             const SizedBox(height: 12),
@@ -342,64 +367,52 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            widget.data['title']?.toString() ?? '记忆翻牌',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+    final prompt = _promptText();
+
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '记忆翻牌',
+      mascot: '🎲',
+      prompt: prompt,
+      replayText: '翻开卡片找朋友。$prompt',
+      stepLabel: '找一模一样的一对',
+      current: _matched.length,
+      total: _pairs.length,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _cols,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.92,
           ),
-          const SizedBox(height: 6),
-          Text(
-            (widget.data['prompt']?.toString().isNotEmpty == true)
-                ? widget.data['prompt'].toString()
-                : '翻两张卡片，找到一模一样的一对！',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '已配对 ${_matched.length} / ${_pairs.length} · 翻了 $_moves 次 · 建议在 $_timeLimitSec 秒内完成',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: _cols,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 0.95,
-            ),
-            itemCount: _deck.length,
-            itemBuilder: (context, index) {
-              final card = _deck[index];
-              final faceUp =
-                  _matched.contains(card.pairId) ||
-                      _flipped.any((entry) => entry.key == card.key);
-              return GestureDetector(
-                onTap: () => _flip(card),
-                child: _cardFace(card, faceUp),
-              );
-            },
-          ),
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ],
+          itemCount: _deck.length,
+          itemBuilder: (context, index) {
+            final card = _deck[index];
+            final matched = _matched.contains(card.pairId);
+            final faceUp =
+                matched || _flipped.any((entry) => entry.key == card.key);
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final size = constraints.maxWidth < constraints.maxHeight
+                    ? constraints.maxWidth
+                    : constraints.maxHeight;
+                return Center(
+                  child: _cardFace(card, faceUp, matched, size),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

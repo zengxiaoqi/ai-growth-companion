@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult, MemoryFlipPair } from '@/types';
 import { normalizeMemoryFlipData } from '@/components/ai-chat/activity-normalizer';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  VisualTile,
+  inferTone,
+  useChildGameVoice,
+  visualFor,
+} from './ChildGameUI';
 
 interface MemoryFlipGameProps {
   data: ActivityData;
@@ -19,10 +25,6 @@ interface Card {
 interface Feedback {
   kind: 'ok' | 'retry' | 'hint';
   text: string;
-}
-
-function pairText(pair: MemoryFlipPair): string {
-  return pair.icon ? `${pair.icon} ${pair.label}` : pair.label;
 }
 
 /** Deterministic seed so the same parameters always shuffle the same way. */
@@ -99,6 +101,15 @@ export default function MemoryFlipGame({ data, onComplete }: MemoryFlipGameProps
     };
   }, []);
 
+  // Child-first presentation layer. Hooks must stay above the early returns.
+  const guideText = prompt || '翻两张卡片，找到一模一样的一对！';
+  const feedbackText = feedback?.text ?? null;
+  const voice = useChildGameVoice(guideText, feedbackText);
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback.text), text: feedback.text }
+    : null;
+  const stepLabel = `已配对 ${matched.size} / ${pairs.length} · 翻了 ${moves} 次 · 建议在 ${timeLimitSec} 秒内完成`;
+
   const finish = (nextMatched: Set<string>, nextMoves: number, nextMismatches: number) => {
     if (completedRef.current) return;
     completedRef.current = true;
@@ -170,58 +181,52 @@ export default function MemoryFlipGame({ data, onComplete }: MemoryFlipGameProps
     return <GameCompletionScreen score={pairs.length} total={pairs.length} />;
   }
 
-  const matchedCount = matched.size;
-
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '记忆翻牌'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {prompt || '翻两张卡片，找到一模一样的一对！'}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          已配对 {matchedCount} / {pairs.length} · 翻了 {moves} 次 · 建议在 {timeLimitSec} 秒内完成
-        </p>
-      </div>
-
+    <ChildGameShell
+      title={data.title || '记忆翻牌'}
+      mascot="🐻"
+      prompt={guideText}
+      current={matched.size}
+      total={pairs.length}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={voice.onReplay}
+      speaking={voice.speaking}
+      muted={voice.muted}
+      onToggleMute={voice.onToggleMute}
+    >
       <div
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3"
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${gridSize.cols}, minmax(0, 1fr))`, gap: '0.5rem' }}
+        className="rounded-2xl border-2 border-outline-variant/20 bg-white/70 p-3"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${gridSize.cols}, minmax(0, 1fr))`,
+          gap: '0.5rem',
+        }}
         aria-label="翻牌棋盘"
       >
         {deck.map((card) => {
-          const isUp = matched.has(card.pairId) || flipped.some((entry) => entry.key === card.key);
+          const isUp =
+            matched.has(card.pairId) ||
+            flipped.some((entry) => entry.key === card.key);
+          const isMatched = matched.has(card.pairId);
           return (
-            <button
+            <VisualTile
               key={card.key}
-              type="button"
-              aria-label={isUp ? `卡片 ${card.pair.label}` : '背面卡片'}
-              aria-pressed={isUp}
-              onClick={() => flip(card)}
-              className={cn(
-                'min-h-[64px] rounded-2xl border-2 text-lg font-bold transition-tactile flex items-center justify-center',
+              visual={
                 isUp
-                  ? 'bg-primary-container text-on-primary-container border-primary/50'
-                  : 'bg-surface-container text-on-surface-variant border-outline-variant/30 hover:border-primary/60 active:translate-y-0.5',
-              )}
-            >
-              {isUp ? pairText(card.pair) : '❓'}
-            </button>
+                  ? visualFor({ icon: card.pair.icon, label: card.pair.label })
+                  : '❓'
+              }
+              label={isUp ? card.pair.label : ''}
+              state={isUp ? (isMatched ? 'correct' : 'revealed') : 'normal'}
+              ariaLabel={isUp ? `卡片 ${card.pair.label}` : '背面卡片'}
+              pressed={isUp}
+              className="w-full min-w-0"
+              onClick={() => flip(card)}
+            />
           );
         })}
       </div>
-
-      {feedback ? (
-        <p
-          role="status"
-          className={cn(
-            'text-center text-sm font-bold',
-            feedback.kind === 'ok' ? 'text-success' : 'text-on-surface-variant',
-          )}
-        >
-          {feedback.text}
-        </p>
-      ) : null}
-    </div>
+    </ChildGameShell>
   );
 }

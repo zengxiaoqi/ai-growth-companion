@@ -1,14 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import type {
-  ActivityData,
-  ActivityResult,
-  DragSortBucket,
-  DragSortItem,
-} from '@/types';
+import type { ActivityData, ActivityResult } from '@/types';
 import { normalizeDragSortData } from '@/components/ai-chat/activity-normalizer';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  VisualTile,
+  inferTone,
+  useChildGameVoice,
+  visualFor,
+} from './ChildGameUI';
 
 interface DragSortGameProps {
   data: ActivityData;
@@ -24,14 +26,6 @@ interface Placement {
 interface Feedback {
   kind: 'ok' | 'retry' | 'hint';
   text: string;
-}
-
-function itemText(item: DragSortItem): string {
-  return item.icon ? `${item.icon} ${item.label}` : item.label;
-}
-
-function bucketText(bucket: DragSortBucket): string {
-  return bucket.icon ? `${bucket.icon} ${bucket.label}` : bucket.label;
 }
 
 /**
@@ -59,6 +53,16 @@ export default function DragSortGame({ data, onComplete }: DragSortGameProps) {
 
   const placedCount = Object.keys(placements).length;
   const pendingItems = items.filter((item) => !placements[item.id]);
+
+  // Child-first presentation layer. Hooks must stay above the early returns.
+  const guideText =
+    prompt || '点一张卡片，再点它该去的篮子（也可以直接拖过去）';
+  const feedbackText = feedback?.text ?? null;
+  const voice = useChildGameVoice(guideText, feedbackText);
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback.text), text: feedback.text }
+    : null;
+  const stepLabel = `已放好 ${placedCount} / ${items.length} · 建议在 ${timeLimitSec} 秒内完成`;
 
   const finish = (next: Record<string, Placement>, nextAttempts: Record<string, number>) => {
     if (completedRef.current) return;
@@ -150,109 +154,114 @@ export default function DragSortGame({ data, onComplete }: DragSortGameProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '分类小游戏'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {prompt || '点一张卡片，再点它该去的篮子（也可以直接拖过去）'}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          已放好 {placedCount} / {items.length} · 建议在 {timeLimitSec} 秒内完成
-        </p>
-      </div>
+    <ChildGameShell
+      title={data.title || '分类小游戏'}
+      mascot="🏠"
+      prompt={guideText}
+      current={placedCount}
+      total={items.length}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={voice.onReplay}
+      speaking={voice.speaking}
+      muted={voice.muted}
+      onToggleMute={voice.onToggleMute}
+    >
+      <div className="space-y-4">
+        <div
+          className="rounded-2xl border-2 border-outline-variant/20 bg-white/70 p-3"
+          aria-label="待分类卡片"
+        >
+          <p className="mb-2 text-xs font-bold text-on-surface-variant">待分类</p>
+          <div className="flex flex-wrap gap-2">
+            {pendingItems.length === 0 ? (
+              <span className="text-sm font-bold text-on-surface-variant">
+                全部放好啦！
+              </span>
+            ) : (
+              pendingItems.map((item) => (
+                <VisualTile
+                  key={item.id}
+                  visual={visualFor({ icon: item.icon, label: item.label })}
+                  label={item.label}
+                  state={selectedId === item.id ? 'selected' : 'normal'}
+                  ariaLabel={`选择卡片 ${item.label}`}
+                  pressed={selectedId === item.id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', item.id);
+                    event.dataTransfer.effectAllowed = 'move';
+                    setSelectedId(item.id);
+                  }}
+                  onClick={() => {
+                    setSelectedId((prev) => (prev === item.id ? null : item.id));
+                    setFeedback(null);
+                  }}
+                />
+              ))
+            )}
+          </div>
+        </div>
 
-      <div
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3"
-        aria-label="待分类卡片"
-      >
-        <p className="text-xs font-bold text-on-surface-variant mb-2">待分类</p>
-        <div className="flex flex-wrap gap-2">
-          {pendingItems.length === 0 ? (
-            <span className="text-sm text-on-surface-variant">全部放好啦！</span>
-          ) : (
-            pendingItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                draggable
-                aria-label={`选择卡片 ${item.label}`}
-                aria-pressed={selectedId === item.id}
-                onClick={() => {
-                  setSelectedId((prev) => (prev === item.id ? null : item.id));
-                  setFeedback(null);
+        <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+          {buckets.map((bucket) => {
+            const inBucket = items.filter(
+              (item) => placements[item.id]?.bucketId === bucket.id,
+            );
+            return (
+              <div
+                key={bucket.id}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const itemId =
+                    event.dataTransfer.getData('text/plain') || selectedId;
+                  if (itemId) place(itemId, bucket.id);
                 }}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData('text/plain', item.id);
-                  event.dataTransfer.effectAllowed = 'move';
-                  setSelectedId(item.id);
-                }}
-                className={cn(
-                  'min-h-[48px] px-4 py-2 rounded-2xl border-2 text-base font-bold transition-tactile',
-                  'bg-surface-container text-on-surface border-outline-variant/30',
-                  'hover:border-primary/60 active:translate-y-0.5',
-                  selectedId === item.id && 'border-primary ring-2 ring-primary ring-offset-2',
-                )}
+                className="min-h-[140px] rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container-low/70 p-3"
+                aria-label={`篮子 ${bucket.label}`}
               >
-                {itemText(item)}
-              </button>
-            ))
-          )}
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-3xl leading-none" aria-hidden="true">
+                    {visualFor({ icon: bucket.icon, label: bucket.label })}
+                  </span>
+                  <span className="text-base font-black text-on-surface">
+                    {bucket.label}
+                  </span>
+                </div>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {inBucket.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-label={`取回${item.label}`}
+                      onClick={() => undo(item.id)}
+                      className="flex min-h-[44px] items-center gap-1 rounded-xl bg-primary-container px-2.5 py-1 text-sm font-bold text-on-primary-container transition-tactile active:scale-95"
+                    >
+                      <span className="text-xl leading-none" aria-hidden="true">
+                        {visualFor({ icon: item.icon, label: item.label })}
+                      </span>
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  aria-label={`投放到${bucket.label}`}
+                  onClick={() => handleBucketClick(bucket.id)}
+                  className={cn(
+                    'min-h-[56px] w-full rounded-2xl border-2 border-primary/50 bg-white/80',
+                    'text-base font-black text-primary transition-tactile tactile-press',
+                    'hover:bg-primary-container/40 active:scale-95',
+                  )}
+                >
+                  <span aria-hidden="true">👇 </span>放到这里
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
-        {buckets.map((bucket) => {
-          const inBucket = items.filter((item) => placements[item.id]?.bucketId === bucket.id);
-          return (
-            <div
-              key={bucket.id}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                const itemId = event.dataTransfer.getData('text/plain') || selectedId;
-                if (itemId) place(itemId, bucket.id);
-              }}
-              className="rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container-low p-3 min-h-[120px]"
-              aria-label={`篮子 ${bucket.label}`}
-            >
-              <p className="text-sm font-bold text-on-surface mb-2">{bucketText(bucket)}</p>
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {inBucket.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-label={`取回${item.label}`}
-                    onClick={() => undo(item.id)}
-                    className="min-h-[36px] px-2.5 py-1 rounded-xl bg-primary-container text-on-primary-container text-sm font-bold"
-                  >
-                    {itemText(item)}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                aria-label={`投放到${bucket.label}`}
-                onClick={() => handleBucketClick(bucket.id)}
-                className="w-full min-h-[44px] rounded-xl border border-primary/40 text-sm font-bold text-primary hover:bg-primary-container/40 transition-tactile"
-              >
-                放到这里
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {feedback ? (
-        <p
-          role="status"
-          className={cn(
-            'text-center text-sm font-bold',
-            feedback.kind === 'ok' ? 'text-success' : 'text-on-surface-variant',
-          )}
-        >
-          {feedback.text}
-        </p>
-      ) : null}
-    </div>
+    </ChildGameShell>
   );
 }

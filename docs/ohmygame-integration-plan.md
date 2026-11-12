@@ -1300,3 +1300,31 @@ node scripts/measure-activity-pass-rate.js --type tap_target --json
 **环境注意（非代码缺陷）**：
 - 本机 `better-sqlite3` native binding 不可用，后端降级为 `sql.js` 内存库（`autoSave: true`），启动时把 `lingxi.db` 载入内存。因此**直接写 DB 文件后端读不到**；调试数据必须走 API 写入（或重启后端重新加载文件）。首轮直插的嵌套学习记录没出现在报告页，正是这个原因，而非读侧组件缺陷
 - MuMu 冷启动首帧偶发黑屏，点击/滑动唤醒渲染后即正常显示，Flutter/Dart VM 与 Activity 日志均无异常
+
+### K.11 六种参数化游戏儿童友好 UI/语音改造（v1.9）
+
+**背景与目标**：家长实测反馈新游戏「都是文字、不吸引孩子」。本轮对六种参数化题型做整体儿童化改造，设计原则：图形优先（每张卡一个大 emoji/大字形做主视觉）、大触摸区（主操作卡 ≥ 88px、按钮 ≥ 52px）、即时动画反馈（按压回弹、答对星星庆祝、答错温和提示）、语言播报（引导 + 答题 + 鼓励全程 TTS）、文本常显兜底（语音失败不阻塞任何操作）。**所有题型的 `activityData` 解析、计分规则、`onFinished` 结果与 `interactionData` 过程字段契约完全不变**，家长端过程明细读侧无需任何适配。
+
+**共享层（Flutter）**：
+- 新增 `lib/services/child_game_voice.dart`：`ChildGameVoice extends ChangeNotifier` 基于 `TtsService`（后端 Edge TTS，不依赖系统 TTS）封装播报状态、静音开关、generation 取消陈旧播报、12s 超时与异常静默降级；可注入 `ChildSpeakHandler` 便于测试
+- 新增 `lib/components/child_game_ui.dart`：`ChildGamePalette`（奶油黄/珊瑚/薄荷配色）、`childVisual()`（icon → shape → 中文关键词 → 稳定 hash 四级图形兜底，保证纯文字数据也能图形化）、`ChildVisualTile`（大图形卡，六态：normal/selected/correct/wrong/dimmed/revealed）、`ChildMiniChip`、`ChildBigButton`、`ChildStarProgress`、`ChildFeedbackBanner`、`ChildStarBurst`、`ChildVoiceButton`、`ChildGameShell`（统一外壳：吉祥物徽章 + 语音气泡 + 星星进度 + 重听/静音）
+- 六个游戏 `drag_sort / memory_flip / pattern_next / color_fill / trace_path / tap_target` 全部接入共享层；`GameRenderer` switch 未动，旧题型零影响。`tap_target` 保留「播报完成前点击锁定」语义，TTS 失败/超时由 `ChildGameVoice` 自动解锁
+
+**共享层（Web 对齐）**：
+- 新增 `src/frontend-web/src/components/games/ChildGameUI.tsx`：`visualFor()`、`VisualTile`、`StarProgress`、`VoiceButton`、`FeedbackBanner`、`CheerBurst`、`ChildGameShell`、`useChildGameVoice()`，与 Flutter 同一套设计语言
+- `useGameVoice.ts` 增强：保持 `{ speak, stop, isPlaying }` 契约不变，新增 `enabled/toggle`；`audio.play()` reject 或 jsdom 环境时静默降级到 `speechSynthesis`；emoji/markdown 清洗避免读出符号
+- 六个 Web 游戏同步改造；`GameRenderer.tsx`、`GameCompletionScreen.tsx`、全部现有测试（含 `tap_target` 的 `speakMock` 调用次数断言）零改动，全量 vitest 16 文件 / 111 测试通过
+
+**emoji 字体兼容（MuMu 实测修复）**：
+- 实机发现内容工厂样例里的新 Unicode emoji 在 MuMu 系统字体上显示为「方框带叉」豆腐块（🧺 U+1F9FA、🪷 U+1FAB7）或黑白异形（☃️ U+2603 FE0F）
+- 双端渲染层统一兜底：Flutter `safeChildGlyph()` / Web `safeGlyph()`——语义映射优先（🪷→🌸、🧺→🏠、☃️→⛄、🦊→🐻 等），其余 Unicode 9~14 新增码点按稳定 hash 换成已验证可用的老图形，keycap/变体选择符保留（❄️、1️⃣ 原样），描红汉字/数字字形跳过兼容；六个游戏硬编码吉祥物同步换为安全图形（🧺→🏠、🃏→🎲、🦊→🐻、🦉→🐦）。内容工厂未来生成任何新 emoji 都不会出现豆腐块
+
+**后端根因修复**：
+- `AssignmentService.hasStructuredActivityData()` 原先不识别 `buckets / regions / sequence / rounds / targets` 参数化数组，导致教研/内容工厂已提供完整参数时仍触发 AI 重新生成（K.10 中 `pattern_next/color_fill/tap_target` 超时、`trace_path` 400 的根因）。扩展识别后，真实 API 创建 5 条参数化作业（id 40~44）全部秒建、无 AI 调用；新增 7 个单测
+
+**验证结果**：
+- Flutter：全量 `flutter analyze` 仅剩 13 项既有 info；全量 `flutter test` 39/39（含新增共享层 + emoji 兼容 20 项）；debug APK 构建成功
+- Web：全量 vitest 16 文件 / 111 测试通过；`tsc --noEmit` 零错误；生产构建成功
+- 后端：全量 Jest 1781/1781（含 assignment.service 新增 7 项；顺带修复 `parent.controller.spec.ts` 对 `playMusic` 工具的过期期望——此前提交 5b656c4 引入的既有回归，与本轮无关）
+- MuMu 实机：新 APK 安装、孩子账号登录、`memory_flip` 完整验证（翻牌、错配反馈、配对成功、星星进度、语音播报），`drag_sort` 验证统一外壳、语音气泡、大图形卡；截图归档 `.workbuddy-ai/mumu-debug/child-ui/`
+- 遗留：本轮收尾阶段 MuMu 的 adb `input tap` 注入异常（滑动有效、所有 tap 无效，含首页「重试」按钮），属环境问题；`pattern_next / color_fill / trace_path / tap_target` 四种游戏与 emoji 兼容修复的实机复验待 MuMu 输入恢复后进行（兼容逻辑已由 5 项单元测试覆盖，替换目标图形 🌸⛄🏠 在实机截图上确认可显示）

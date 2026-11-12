@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -117,14 +119,37 @@ class _ColorFillGameState extends State<ColorFillGame> {
   String? _selectedColor;
   final Map<String, String> _fills = <String, String>{};
   final Map<String, bool> _firstTry = <String, bool>{};
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
+  late final ChildGameVoice _voice;
 
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _voice.speak(_introSpeech());
+    });
+  }
+
+  @override
+  void dispose() {
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
+    super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _introSpeech() {
+    final title = widget.data['title']?.toString() ?? '涂色游戏';
+    return '我们来玩$title。${_promptText()}';
   }
 
   void _reset() {
@@ -137,6 +162,7 @@ class _ColorFillGameState extends State<ColorFillGame> {
     _fills.clear();
     _firstTry.clear();
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
   }
@@ -193,7 +219,8 @@ class _ColorFillGameState extends State<ColorFillGame> {
     if (_finished || _completedCalled) return;
     final selected = _selectedColor;
     if (selected == null) {
-      setState(() => _feedback = '先在下面选一个颜色吧！');
+      setState(() => _feedback = const ChildFeedback.tip('先在下面选一个颜色吧！'));
+      _voice.speak('先在下面选一个颜色吧');
       return;
     }
     if (_fills[region.id] == selected) return;
@@ -206,10 +233,13 @@ class _ColorFillGameState extends State<ColorFillGame> {
       _fills[region.id] = selected;
       if (_correctCount == _regions.length) {
         _finish();
+      } else if (selected == region.colorKey) {
+        _feedback = const ChildFeedback.cheer('涂对啦，真好看！');
+        _cheerKey += 1;
+        _voice.speak('涂对啦，真好看！');
       } else {
-        _feedback = selected == region.colorKey
-            ? '涂对啦！${_kColorLabels[selected]}正合适！'
-            : '${_kColorLabels[selected]}好像不太对，可以再换个颜色涂。';
+        _feedback = const ChildFeedback.think('这个颜色好像不太对，换一个试试');
+        _voice.speak('换个颜色试试看');
       }
     });
   }
@@ -253,6 +283,168 @@ class _ColorFillGameState extends State<ColorFillGame> {
     });
   }
 
+  String _promptText() {
+    final raw = (widget.data['prompt']?.toString() ?? '').trim();
+    return raw.isNotEmpty ? raw : '选一个颜色，给图形涂上漂亮的颜色吧！';
+  }
+
+  Widget _buildRegionCard(_FillRegion region, int index) {
+    final filled = _fills.containsKey(region.id);
+    final correct = _fills[region.id] == region.colorKey;
+    final fillColor = filled
+        ? (_kColorValues[_fills[region.id]] ?? Colors.grey)
+        : Colors.grey.withValues(alpha: 0.25);
+    final borderColor = correct
+        ? ChildGamePalette.success
+        : filled
+            ? ChildGamePalette.retry
+            : ChildGamePalette.inkSoft.withValues(alpha: 0.3);
+    final targetColor = _kColorValues[region.colorKey] ?? Colors.grey;
+    final glyph = childVisual(shape: region.shape, label: region.shape).glyph;
+
+    return Semantics(
+      button: true,
+      label: '给图形涂上${_kColorLabels[region.colorKey]}',
+      child: GestureDetector(
+        onTap: () => _tapRegion(region),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          width: 112,
+          height: 122,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: correct ? 3 : 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 24),
+                  child: CustomPaint(
+                    painter: _ShapePainter(shape: region.shape, fill: fillColor),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 8,
+                child: Text(glyph, style: const TextStyle(fontSize: 18)),
+              ),
+              Positioned(
+                bottom: 6,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: targetColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ChildGamePalette.inkSoft.withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _kColorLabels[region.colorKey] ?? '',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: ChildGamePalette.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (correct)
+                const Positioned(
+                  top: 4,
+                  left: 8,
+                  child: Text('✅', style: TextStyle(fontSize: 16)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorSwatch(String color) {
+    final selected = _selectedColor == color;
+    return Semantics(
+      button: true,
+      label: '选择${_kColorLabels[color]}',
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedColor = color;
+            _feedback = null;
+          });
+          _voice.speak('你选了${_kColorLabels[color]}');
+        },
+        child: AnimatedScale(
+          scale: selected ? 1.12 : 1.0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutBack,
+          child: Container(
+            width: 68,
+            height: 78,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? ChildGamePalette.coral
+                    : ChildGamePalette.inkSoft.withValues(alpha: 0.25),
+                width: selected ? 3 : 1.5,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _kColorValues[color],
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: ChildGamePalette.inkSoft.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _kColorLabels[color] ?? '',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: ChildGamePalette.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_regions.length < 2 || _palette.length < 2) {
@@ -260,7 +452,8 @@ class _ColorFillGameState extends State<ColorFillGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.palette_outlined, size: 48, color: AppTheme.textSecondary),
+            const Icon(Icons.palette_outlined,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无涂色题目'),
             const SizedBox(height: 12),
@@ -281,116 +474,74 @@ class _ColorFillGameState extends State<ColorFillGame> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
+    final prompt = _promptText();
+
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '涂色游戏',
+      mascot: '🎨',
+      prompt: prompt,
+      replayText: '先选颜色，再点图形。$prompt',
+      stepLabel: '选颜色 → 点图形',
+      current: _correctCount,
+      total: _regions.length,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.data['title']?.toString() ?? '涂色游戏',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            (widget.data['prompt']?.toString().isNotEmpty == true)
-                ? widget.data['prompt'].toString()
-                : '选一个颜色，给每个图形涂上正确的颜色吧！',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(22),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '建议在 $_timeLimitSec 秒内完成 · 已涂对 $_correctCount / ${_regions.length}',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              for (final region in _regions)
-                GestureDetector(
-                  onTap: () => _tapRegion(region),
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _fills[region.id] == region.colorKey
-                            ? AppTheme.successColor.withValues(alpha: 0.7)
-                            : _fills.containsKey(region.id)
-                                ? AppTheme.warningColor.withValues(alpha: 0.5)
-                                : Colors.grey.withValues(alpha: 0.4),
-                        width: 2,
-                      ),
-                    ),
-                    child: CustomPaint(
-                      painter: _ShapePainter(
-                        shape: region.shape,
-                        fill: _fills.containsKey(region.id)
-                            ? _kColorValues[_fills[region.id]]!
-                            : Colors.grey.withValues(alpha: 0.25),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                for (var i = 0; i < _regions.length; i++)
+                  _buildRegionCard(_regions[i], i),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
+          const Row(
             children: [
-              for (final color in _palette)
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _selectedColor = color;
-                    _feedback = null;
-                  }),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _kColorValues[color],
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _selectedColor == color
-                            ? AppTheme.primaryColor
-                            : Colors.grey.withValues(alpha: 0.5),
-                        width: _selectedColor == color ? 3 : 1.4,
-                      ),
-                      boxShadow: _selectedColor == color
-                          ? [
-                              BoxShadow(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
+              Text('🎨', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 6),
+              Text(
+                '先点一个大颜色',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: ChildGamePalette.inkSoft,
                 ),
+              ),
             ],
           ),
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: ChildGamePalette.sunshine.withValues(alpha: 0.5),
+                width: 2,
+              ),
             ),
-          ],
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final color in _palette) _buildColorSwatch(color),
+              ],
+            ),
+          ),
         ],
       ),
     );

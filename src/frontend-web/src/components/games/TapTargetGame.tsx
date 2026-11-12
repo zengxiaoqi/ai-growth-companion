@@ -5,6 +5,12 @@ import { normalizeTapTargetData } from '@/components/ai-chat/activity-normalizer
 import { useGameVoice } from '@/hooks/useGameVoice';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  VisualTile,
+  inferTone,
+  visualFor,
+} from './ChildGameUI';
 
 interface TapTargetGameProps {
   data: ActivityData;
@@ -33,7 +39,13 @@ export default function TapTargetGame({ data, onComplete }: TapTargetGameProps) 
   const params = useMemo(() => normalizeTapTargetData(data), [data]);
   const { rounds, passingScore, timeLimitSec } = params;
 
-  const { speak, stop, isPlaying } = useGameVoice();
+  // NOTE: speak timing is asserted by tests — do NOT add extra narration here.
+  // `enabled` / `toggle` are optional at runtime (tests mock only three keys).
+  const voice = useGameVoice();
+  const { speak, stop, isPlaying } = voice;
+  const enabledOpt = voice.enabled;
+  const toggleOpt = voice.toggle;
+
   const [index, setIndex] = useState(0);
   const [pickedIds, setPickedIds] = useState<string[]>([]);
   const [wrongId, setWrongId] = useState<string | null>(null);
@@ -50,6 +62,12 @@ export default function TapTargetGame({ data, onComplete }: TapTargetGameProps) 
   const roundResultsRef = useRef<Array<{ roundId: string; firstTry: boolean; taps: number }>>([]);
 
   const current: TapTargetRound | undefined = rounds[index];
+
+  // Child-first presentation layer (no extra speech — see note above).
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback), text: feedback }
+    : null;
+  const stepLabel = `第 ${index + 1} / ${rounds.length} 轮 · 建议在 ${timeLimitSec} 秒内完成`;
 
   // Speak the round prompt whenever the active round changes.
   useEffect(() => {
@@ -146,68 +164,77 @@ export default function TapTargetGame({ data, onComplete }: TapTargetGameProps) 
   const locked = isPlaying || revealing;
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '听指令点一点'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {current.prompt}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          第 {index + 1} / {rounds.length} 轮 ·
-          建议在 {timeLimitSec} 秒内完成
-        </p>
-      </div>
+    <ChildGameShell
+      title={data.title || '听指令点一点'}
+      mascot="👂"
+      prompt={current.prompt}
+      current={index}
+      total={rounds.length}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={() => !locked && speak(current.prompt)}
+      speaking={Boolean(isPlaying)}
+      muted={enabledOpt === false}
+      onToggleMute={typeof toggleOpt === 'function' ? toggleOpt : undefined}
+      showVoiceButton={false}
+    >
+      <div className="space-y-4">
+        <div className="flex justify-center">
+          <button
+            type="button"
+            aria-label="再听一遍指令"
+            onClick={() => !locked && speak(current.prompt)}
+            className={cn(
+              'flex h-16 w-16 items-center justify-center rounded-full border-2 border-primary/50',
+              'bg-primary-container text-3xl text-on-primary-container shadow-tactile',
+              'transition-tactile tactile-press active:scale-95',
+              locked && 'animate-voice-pulse',
+            )}
+          >
+            🔊
+          </button>
+        </div>
 
-      <div className="flex justify-center">
-        <button
-          type="button"
-          aria-label="再听一遍指令"
-          onClick={() => !locked && speak(current.prompt)}
-          className="h-12 w-12 rounded-full border-2 border-primary/50 text-primary text-xl transition-tactile active:translate-y-0.5"
+        <div
+          className="grid grid-cols-2 gap-3 rounded-2xl border-2 border-outline-variant/20 bg-white/70 p-3 min-[420px]:grid-cols-4"
+          aria-label="可点选目标"
         >
-          🔊
-        </button>
+          {current.targets.map((target) => {
+            const picked = pickedIds.includes(target.id);
+            const isWrong = wrongId === target.id;
+            const isRevealed = revealing && current.correctIds.includes(target.id);
+            const state = picked
+              ? 'correct'
+              : isWrong
+                ? 'wrong'
+                : isRevealed
+                  ? 'revealed'
+                  : locked && !isRevealed
+                    ? 'dim'
+                    : 'normal';
+            return (
+              <VisualTile
+                key={target.id}
+                visual={visualFor({ icon: target.icon, label: target.label })}
+                label={target.label}
+                ariaLabel={`目标 ${entryText(target.icon, target.label)}`}
+                state={state}
+                className={cn(
+                  'w-full min-w-0',
+                  isRevealed && 'border-primary ring-2 ring-primary/40',
+                )}
+                onClick={() => tap(target.id)}
+              />
+            );
+          })}
+        </div>
+
+        {locked ? (
+          <p className="text-center text-sm font-bold text-on-surface-variant">
+            听完指令再点哦…
+          </p>
+        ) : null}
       </div>
-
-      <div
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3 grid grid-cols-2 min-[420px]:grid-cols-4 gap-3"
-        aria-label="可点选目标"
-      >
-        {current.targets.map((target) => {
-          const picked = pickedIds.includes(target.id);
-          const isWrong = wrongId === target.id;
-          const isRevealed = revealing && current.correctIds.includes(target.id);
-          return (
-            <button
-              key={target.id}
-              type="button"
-              aria-label={`目标 ${entryText(target.icon, target.label)}`}
-              onClick={() => tap(target.id)}
-              className={cn(
-                'min-h-[72px] px-3 py-2 rounded-2xl border-2 text-base font-bold transition-tactile',
-                'bg-surface-container text-on-surface border-outline-variant/30',
-                !locked && 'hover:border-primary/60 active:translate-y-0.5',
-                picked && 'border-success/70 bg-success-container/40',
-                isWrong && 'border-error/60 bg-error-container/40',
-                isRevealed && 'border-primary/70 ring-2 ring-primary/40',
-                locked && !isRevealed && 'opacity-70',
-              )}
-            >
-              {entryText(target.icon, target.label)}
-            </button>
-          );
-        })}
-      </div>
-
-      {locked ? (
-        <p className="text-center text-xs text-on-surface-variant">听完指令再点哦…</p>
-      ) : null}
-
-      {feedback ? (
-        <p role="status" className="text-center text-sm font-bold text-on-surface-variant">
-          {feedback}
-        </p>
-      ) : null}
-    </div>
+    </ChildGameShell>
   );
 }

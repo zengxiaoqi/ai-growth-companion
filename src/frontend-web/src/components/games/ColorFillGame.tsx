@@ -10,6 +10,12 @@ import type {
 import { normalizeColorFillData } from '@/components/ai-chat/activity-normalizer';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  inferTone,
+  useChildGameVoice,
+  visualFor,
+} from './ChildGameUI';
 
 interface ColorFillGameProps {
   data: ActivityData;
@@ -43,6 +49,20 @@ const COLOR_LABELS: Record<ColorFillColor, string> = {
   brown: '棕色',
   black: '黑色',
   white: '白色',
+};
+
+/** Friendly names used as the visualFor label fallback for each shape. */
+const SHAPE_LABELS: Record<ColorFillShape, string> = {
+  circle: '圆形',
+  star: '星星',
+  heart: '爱心',
+  triangle: '三角形',
+  square: '方形',
+  flower: '花朵',
+  sun: '太阳',
+  moon: '月亮',
+  cloud: '云朵',
+  fish: '小鱼',
 };
 
 /**
@@ -191,6 +211,14 @@ export default function ColorFillGame({ data, onComplete }: ColorFillGameProps) 
 
   const correctCount = regions.filter((r) => fills[r.id] === r.colorKey).length;
 
+  // Child-first presentation layer. Hooks must stay above the early returns.
+  const guideText = prompt || '选一个颜色，给每个图形涂上正确的颜色吧！';
+  const voice = useChildGameVoice(guideText, feedback);
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback), text: feedback }
+    : null;
+  const stepLabel = `建议在 ${timeLimitSec} 秒内完成 · 已涂对 ${correctCount} / ${regions.length}`;
+
   const tapRegion = (region: ColorFillRegion) => {
     if (finished || completedRef.current) return;
     if (!selectedColor) {
@@ -252,72 +280,101 @@ export default function ColorFillGame({ data, onComplete }: ColorFillGameProps) 
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '涂色游戏'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {prompt || '选一个颜色，给每个图形涂上正确的颜色吧！'}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          建议在 {timeLimitSec} 秒内完成 · 已涂对 {correctCount} / {regions.length}
-        </p>
-      </div>
+    <ChildGameShell
+      title={data.title || '涂色游戏'}
+      mascot="🎨"
+      prompt={guideText}
+      current={correctCount}
+      total={regions.length}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={voice.onReplay}
+      speaking={voice.speaking}
+      muted={voice.muted}
+      onToggleMute={voice.onToggleMute}
+    >
+      <div className="space-y-4">
+        <div
+          className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border-2 border-outline-variant/20 bg-white/70 p-3"
+          aria-label="涂色区域"
+        >
+          {regions.map((region) => {
+            const fill = fills[region.id];
+            const isCorrect = fill === region.colorKey;
+            return (
+              <button
+                key={region.id}
+                type="button"
+                aria-label={`涂色 ${region.shape}`}
+                onClick={() => tapRegion(region)}
+                className={cn(
+                  'flex min-h-[104px] w-28 flex-col items-center justify-center gap-1 rounded-3xl border-2 bg-white/80 p-2',
+                  'transition-tactile tactile-press hover:-translate-y-0.5 active:scale-95',
+                  isCorrect
+                    ? 'border-success/70'
+                    : fill
+                      ? 'border-danger/50'
+                      : 'border-dashed border-outline-variant/40',
+                )}
+              >
+                <span className="text-2xl leading-none" aria-hidden="true">
+                  {visualFor({
+                    shape: region.shape,
+                    label: SHAPE_LABELS[region.shape],
+                  })}
+                </span>
+                <span className="h-12 w-12">
+                  <ShapeGlyph
+                    shape={region.shape}
+                    fill={fill ? COLOR_VALUES[fill] : '#e7e5e4'}
+                  />
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-bold text-on-surface-variant">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full border border-outline-variant/40"
+                    style={{ backgroundColor: COLOR_VALUES[region.colorKey] }}
+                    aria-hidden="true"
+                  />
+                  {COLOR_LABELS[region.colorKey]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-      <div
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3 flex flex-wrap items-center justify-center gap-3"
-        aria-label="涂色区域"
-      >
-        {regions.map((region) => {
-          const fill = fills[region.id];
-          const isCorrect = fill === region.colorKey;
-          return (
+        <div
+          className="flex flex-wrap items-center justify-center gap-3"
+          aria-label="色盘"
+        >
+          {palette.map((color) => (
             <button
-              key={region.id}
+              key={color}
               type="button"
-              aria-label={`涂色 ${region.shape}`}
-              onClick={() => tapRegion(region)}
+              aria-label={`选择${COLOR_LABELS[color]}`}
+              onClick={() => {
+                setSelectedColor(color);
+                setFeedback(null);
+              }}
               className={cn(
-                'h-24 w-24 rounded-2xl border-2 p-1.5 transition-tactile active:translate-y-0.5',
-                'bg-surface-container',
-                isCorrect
-                  ? 'border-success/70'
-                  : fill
-                    ? 'border-error/50'
-                    : 'border-outline-variant/30 border-dashed',
+                'flex h-[72px] w-[72px] flex-col items-center justify-center gap-0.5 rounded-3xl border-2 bg-white/80',
+                'transition-tactile tactile-press active:scale-95',
+                selectedColor === color
+                  ? 'scale-105 border-primary ring-2 ring-primary/50'
+                  : 'border-outline-variant/40',
               )}
             >
-              <ShapeGlyph shape={region.shape} fill={fill ? COLOR_VALUES[fill] : '#e7e5e4'} />
+              <span
+                className="h-9 w-9 rounded-full border-2 border-black/10"
+                style={{ backgroundColor: COLOR_VALUES[color] }}
+                aria-hidden="true"
+              />
+              <span className="text-[11px] font-bold text-on-surface-variant">
+                {COLOR_LABELS[color]}
+              </span>
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-3" aria-label="色盘">
-        {palette.map((color) => (
-          <button
-            key={color}
-            type="button"
-            aria-label={`选择${COLOR_LABELS[color]}`}
-            onClick={() => {
-              setSelectedColor(color);
-              setFeedback(null);
-            }}
-            className={cn(
-              'h-11 w-11 rounded-full border-2 transition-tactile active:translate-y-0.5',
-              selectedColor === color
-                ? 'border-primary ring-2 ring-primary/40 scale-110'
-                : 'border-outline-variant/40',
-            )}
-            style={{ backgroundColor: COLOR_VALUES[color] }}
-          />
-        ))}
-      </div>
-
-      {feedback ? (
-        <p role="status" className="text-center text-sm font-bold text-on-surface-variant">
-          {feedback}
-        </p>
-      ) : null}
-    </div>
+    </ChildGameShell>
   );
 }

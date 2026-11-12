@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../services/tts_service.dart';
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -79,16 +80,16 @@ class _TapTargetGameState extends State<TapTargetGame> {
   int _index = 0;
   final List<String> _pickedIds = <String>[];
   String? _wrongId;
-  bool _speaking = false;
   bool _revealing = false;
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
   int _taps = 0;
   final List<Map<String, dynamic>> _roundResults = <Map<String, dynamic>>[];
   Timer? _advanceTimer;
   Timer? _revealTimer;
-  StreamSubscription<void>? _completionSub;
+  late final ChildGameVoice _voice;
 
   _TapRound? get _current =>
       _index >= 0 && _index < _rounds.length ? _rounds[_index] : null;
@@ -96,16 +97,26 @@ class _TapTargetGameState extends State<TapTargetGame> {
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    // 与旧逻辑一致：进入游戏时播报第 1 轮指令，播报完成前锁定点击。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _speakPrompt();
+    });
   }
 
   @override
   void dispose() {
     _advanceTimer?.cancel();
     _revealTimer?.cancel();
-    _completionSub?.cancel();
-    TtsService().stop();
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
     super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
   }
 
   void _reset() {
@@ -116,14 +127,13 @@ class _TapTargetGameState extends State<TapTargetGame> {
     _index = 0;
     _pickedIds.clear();
     _wrongId = null;
-    _speaking = false;
     _revealing = false;
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
     _taps = 0;
     _roundResults.clear();
-    _speakPrompt();
   }
 
   List<_TapRound> _parseRounds(dynamic raw) {
@@ -198,27 +208,15 @@ class _TapTargetGameState extends State<TapTargetGame> {
   void _speakPrompt() {
     final current = _current;
     if (current == null || _finished || _completedCalled) return;
-    setState(() => _speaking = true);
-    _completionSub?.cancel();
-    _completionSub = null;
-    // 播报完成（或 15s 超时兜底）后解锁点击；TTS 失败时 onComplete 也会
-    // 被 speak() 内部 complete，等同降级为立即解锁。
-    TtsService().speak(current.prompt).then((_) {
-      _completionSub = null;
-      return TtsService()
-          .onComplete
-          .timeout(const Duration(seconds: 15), onTimeout: () {});
-    }).catchError((_) {}).whenComplete(() {
-      _completionSub = null;
-      if (!mounted || _finished || _completedCalled) return;
-      setState(() => _speaking = false);
-    });
+    // ChildGameVoice 负责 speaking 状态：播报期间点击锁定，
+    // 失败 / 12s 超时会立即降级解锁，指令文本始终常显。
+    _voice.speak(current.prompt);
   }
 
   void _tapItem(_TapItem item) {
     final current = _current;
     if (current == null || _finished || _completedCalled) return;
-    if (_speaking || _revealing) return;
+    if (_voice.speaking || _revealing) return;
     if (_pickedIds.contains(item.id)) return;
 
     _taps += 1;
@@ -228,8 +226,9 @@ class _TapTargetGameState extends State<TapTargetGame> {
       setState(() {
         _wrongId = item.id;
         _revealing = true;
-        _feedback = '再听一次指令哦，正确的是它们！';
+        _feedback = const ChildFeedback.think('再听一次指令哦，正确的是它们！');
       });
+      _voice.speak('再听一次指令哦');
       _recordRound(current.id, firstTry: false, taps: _taps);
       return;
     }
@@ -237,10 +236,14 @@ class _TapTargetGameState extends State<TapTargetGame> {
     setState(() {
       _pickedIds.add(item.id);
       if (_pickedIds.length >= current.correctIds.length) {
-        _feedback = '答对啦！';
+        _feedback = const ChildFeedback.cheer('答对啦！');
+        _cheerKey += 1;
       }
     });
     if (_pickedIds.length >= current.correctIds.length) {
+      if (_roundResults.length + 1 < _rounds.length) {
+        _voice.speak('答对啦，真棒！');
+      }
       _recordRound(current.id, firstTry: true, taps: _taps);
     }
   }
@@ -304,9 +307,6 @@ class _TapTargetGameState extends State<TapTargetGame> {
     });
   }
 
-  String _entryText(_TapItem item) =>
-      item.icon == null ? item.label : '${item.icon} ${item.label}';
-
   @override
   Widget build(BuildContext context) {
     final current = _current;
@@ -333,130 +333,106 @@ class _TapTargetGameState extends State<TapTargetGame> {
         title: widget.data['title']?.toString() ?? '听指令点一点',
         score: cleanRounds,
         total: _rounds.length,
-        onPlayAgain: () => setState(_reset),
+        onPlayAgain: () {
+          setState(_reset);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _speakPrompt();
+          });
+        },
         onBack: widget.onExit,
       );
     }
 
-    final locked = _speaking || _revealing;
+    final locked = _voice.speaking || _revealing;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '听指令点一点',
+      mascot: '👂',
+      prompt: current.prompt,
+      replayText: current.prompt,
+      stepLabel: '第 ${_index + 1} / ${_rounds.length} 轮 · 听完再点',
+      current: _index,
+      total: _rounds.length,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.data['title']?.toString() ?? '听指令点一点',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            current.prompt,
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '第 ${_index + 1} / ${_rounds.length} 轮 · 建议在 $_timeLimitSec 秒内完成',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: GestureDetector(
-              onTap: locked ? null : _speakPrompt,
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.5),
-                    width: 2,
+          if (locked)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: ChildGamePalette.sky.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('👂', style: TextStyle(fontSize: 24)),
+                  SizedBox(width: 8),
+                  Text(
+                    '听完指令再点哦…',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: ChildGamePalette.inkSoft,
+                    ),
                   ),
-                ),
-                child: const Icon(Icons.volume_up_outlined,
-                    color: AppTheme.primaryColor),
+                ],
               ),
             ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                for (var index = 0; index < current.targets.length; index++)
+                  _buildTargetTile(current, index, locked),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 2.2,
-            ),
-            itemCount: current.targets.length,
-            itemBuilder: (context, index) {
-              final item = current.targets[index];
-              final picked = _pickedIds.contains(item.id);
-              final isWrong = _wrongId == item.id;
-              final isRevealed =
-                  _revealing && current.correctIds.contains(item.id);
-              return GestureDetector(
-                onTap: () => _tapItem(item),
-                child: Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: picked
-                        ? AppTheme.successColor.withValues(alpha: 0.12)
-                        : isWrong
-                            ? AppTheme.warningColor.withValues(alpha: 0.12)
-                            : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: picked
-                          ? AppTheme.successColor.withValues(alpha: 0.7)
-                          : isWrong
-                              ? AppTheme.warningColor.withValues(alpha: 0.7)
-                              : isRevealed
-                                  ? AppTheme.primaryColor.withValues(alpha: 0.7)
-                                  : const Color(0x33808080),
-                      width: isRevealed ? 2.4 : 1.4,
-                    ),
-                  ),
-                  child: Text(
-                    _entryText(item),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: locked && !isRevealed
-                          ? AppTheme.textSecondary
-                          : AppTheme.textColor,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          if (locked) ...[
-            const SizedBox(height: 8),
-            const Text(
-              '听完指令再点哦…',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            ),
-          ],
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildTargetTile(_TapRound round, int index, bool locked) {
+    final item = round.targets[index];
+    final picked = _pickedIds.contains(item.id);
+    final isWrong = _wrongId == item.id;
+    final isRevealed = _revealing && round.correctIds.contains(item.id);
+
+    ChildTileState state;
+    if (picked) {
+      state = ChildTileState.correct;
+    } else if (isWrong) {
+      state = ChildTileState.wrong;
+    } else if (isRevealed) {
+      state = ChildTileState.revealed;
+    } else if (locked) {
+      state = ChildTileState.dimmed;
+    } else {
+      state = ChildTileState.normal;
+    }
+
+    return ChildVisualTile(
+      visual: childVisual(icon: item.icon, label: item.label),
+      label: item.label,
+      size: 140,
+      state: state,
+      tint: ChildGamePalette.tintFor(index),
+      semanticLabel: '目标 ${item.label}',
+      onTap: locked ? null : () => _tapItem(item),
     );
   }
 }

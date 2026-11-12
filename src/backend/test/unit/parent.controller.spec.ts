@@ -116,10 +116,15 @@ describe('ParentController', () => {
       const result = await controller.getCasualTools('2', req);
 
       expect(usersService.canAccessChild).toHaveBeenCalledWith(1, 'parent', 2);
-      expect(result.default).toEqual(['translate', 'playStory']);
+      // DEFAULT_CASUAL_TOOLS 与 CASUAL_TOOL_CATALOG 保持一致（含 playMusic）。
+      expect(result.default).toEqual(['translate', 'playStory', 'playMusic']);
       expect(result.override).toEqual(['translate']);
       expect(result.effective).toEqual(['translate']);
-      expect(result.available.map((t: any) => t.name)).toEqual(['translate', 'playStory']);
+      expect(result.available.map((t: any) => t.name)).toEqual([
+        'translate',
+        'playStory',
+        'playMusic',
+      ]);
     });
 
     it('falls back to default when override is null', async () => {

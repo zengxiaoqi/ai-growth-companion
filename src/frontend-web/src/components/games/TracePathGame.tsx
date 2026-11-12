@@ -3,6 +3,11 @@ import type { ActivityData, ActivityResult, TracePathTarget } from '@/types';
 import { normalizeTracePathData } from '@/components/ai-chat/activity-normalizer';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  inferTone,
+  useChildGameVoice,
+} from './ChildGameUI';
 
 interface TracePathGameProps {
   data: ActivityData;
@@ -79,6 +84,26 @@ export default function TracePathGame({ data, onComplete }: TracePathGameProps) 
   const perTargetRef = useRef<Array<{ id: string; coverage: number; attempts: number; firstTry: boolean }>>([]);
 
   const current: TracePathTarget | undefined = targets[index];
+  const glyphIndex = current ? targets.findIndex((t) => t.id === current.id) : 0;
+
+  // Child-first presentation layer. Hooks must stay above the early returns.
+  const guideText = prompt || '用手指沿着浅色的字描一描';
+  const voice = useChildGameVoice(guideText, feedback);
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback), text: feedback }
+    : null;
+  const stepLabel = `第 ${glyphIndex + 1} / ${targets.length} 个 · 建议在 ${timeLimitSec} 秒内完成`;
+
+  // Speak the new glyph when the board advances (the entry guide is spoken
+  // once by useChildGameVoice, so the first glyph is skipped here).
+  const lastGlyphRef = useRef<string | null>(null);
+  useEffect(() => {
+    const text = current?.text ?? null;
+    if (text && lastGlyphRef.current !== null && lastGlyphRef.current !== text) {
+      voice.speak(`现在描一描「${text}」`);
+    }
+    lastGlyphRef.current = text;
+  }, [current?.text, voice.speak]);
 
   const clearStrokes = useCallback(() => {
     coveredRef.current = new Set();
@@ -275,61 +300,68 @@ export default function TracePathGame({ data, onComplete }: TracePathGameProps) 
     return <GameCompletionScreen score={finalCorrect} total={targets.length} />;
   }
 
-  const glyphIndex = targets.findIndex((t) => t.id === current.id);
-
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '描红游戏'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {prompt || '用手指沿着浅色的字描一描'}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          第 {glyphIndex + 1} / {targets.length} 个 ·
-          建议在 {timeLimitSec} 秒内完成
-        </p>
-      </div>
+    <ChildGameShell
+      title={data.title || '描红游戏'}
+      mascot="✏️"
+      prompt={guideText}
+      current={passedIds.length}
+      total={targets.length}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={voice.onReplay}
+      speaking={voice.speaking}
+      muted={voice.muted}
+      onToggleMute={voice.onToggleMute}
+    >
+      <div className="space-y-4">
+        <div className="flex justify-center gap-2" aria-label="描红进度">
+          {targets.map((target, i) => (
+            <span
+              key={target.id}
+              className={
+                'h-3 w-3 rounded-full ' +
+                (passedIds.includes(target.id)
+                  ? 'bg-primary'
+                  : i === glyphIndex
+                    ? 'bg-primary/40'
+                    : 'bg-outline-variant/40')
+              }
+            />
+          ))}
+        </div>
 
-      <div className="flex justify-center gap-2" aria-label="描红进度">
-        {targets.map((target, i) => (
-          <span
-            key={target.id}
-            className={
-              'h-2.5 w-2.5 rounded-full ' +
-              (passedIds.includes(target.id)
-                ? 'bg-primary'
-                : i === glyphIndex
-                  ? 'bg-primary/40'
-                  : 'bg-outline-variant/40')
-            }
+        {/* Big glyph showcase — the only place the character appears as text. */}
+        <div className="flex items-center justify-center gap-4 rounded-3xl border-2 border-primary/20 bg-white/70 px-4 py-2">
+          <span className="text-2xl" aria-hidden="true">
+            🖍️
+          </span>
+          <p
+            className="text-6xl font-black tracking-widest text-primary sm:text-7xl"
+            aria-hidden="true"
+          >
+            {current.text}
+          </p>
+          <span className="text-2xl" aria-hidden="true">
+            ✨
+          </span>
+        </div>
+
+        <div className="flex justify-center">
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_SIZE * 2}
+            height={CANVAS_SIZE * 2}
+            style={{ width: CANVAS_SIZE, height: CANVAS_SIZE, touchAction: 'none' }}
+            className="rounded-3xl border-2 border-dashed border-primary/40 bg-white shadow-card"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            aria-label={`描红 ${current.label}`}
           />
-        ))}
+        </div>
       </div>
-
-      <div className="flex justify-center">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_SIZE * 2}
-          height={CANVAS_SIZE * 2}
-          style={{ width: CANVAS_SIZE, height: CANVAS_SIZE, touchAction: 'none' }}
-          className="rounded-2xl border-2 border-dashed border-outline-variant/40 bg-surface-container-lowest"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          aria-label={`描红 ${current.label}`}
-        />
-      </div>
-
-      <p className="text-center text-on-surface text-3xl font-black tracking-widest" aria-hidden="true">
-        {current.text}
-      </p>
-
-      {feedback ? (
-        <p role="status" className="text-center text-sm font-bold text-on-surface-variant">
-          {feedback}
-        </p>
-      ) : null}
-    </div>
+    </ChildGameShell>
   );
 }

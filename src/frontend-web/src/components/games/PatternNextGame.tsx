@@ -1,9 +1,15 @@
 import { useMemo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import type { ActivityData, ActivityResult, PatternNextItem } from '@/types';
 import { normalizePatternNextData } from '@/components/ai-chat/activity-normalizer';
 import GameCompletionScreen from './GameCompletionScreen';
 import { buildGameResult } from './gameResult';
+import {
+  ChildGameShell,
+  VisualTile,
+  inferTone,
+  useChildGameVoice,
+  visualFor,
+} from './ChildGameUI';
 
 interface PatternNextGameProps {
   data: ActivityData;
@@ -37,6 +43,14 @@ export default function PatternNextGame({ data, onComplete }: PatternNextGamePro
   const completedRef = useRef(false);
 
   const answer = answerIndex >= 0 && answerIndex < options.length ? options[answerIndex] : null;
+
+  // Child-first presentation layer. Hooks must stay above the early returns.
+  const guideText = prompt || '找一找规律，下一个应该是什么呢？';
+  const voice = useChildGameVoice(guideText, feedback);
+  const bannerFeedback = feedback
+    ? { tone: inferTone(feedback), text: feedback }
+    : null;
+  const stepLabel = `建议在 ${timeLimitSec} 秒内完成${attempts > 0 ? ` · 已尝试 ${attempts} 次` : ''}`;
 
   const pick = (index: number) => {
     if (finished || completedRef.current || solved) return;
@@ -84,61 +98,59 @@ export default function PatternNextGame({ data, onComplete }: PatternNextGamePro
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="font-medium text-on-surface text-lg">{data.title || '规律接龙'}</h3>
-        <p className="text-sm text-on-surface-variant">
-          {prompt || '找一找规律，下一个应该是什么呢？'}
-        </p>
-        <p className="text-xs text-on-surface-variant mt-1">
-          建议在 {timeLimitSec} 秒内完成{attempts > 0 ? ` · 已尝试 ${attempts} 次` : ''}
-        </p>
-      </div>
-
-      <div
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3 flex flex-wrap items-center justify-center gap-2"
-        aria-label="规律序列"
-      >
-        {sequence.map((item) => (
-          <span
-            key={item.id}
-            className="min-h-[48px] px-4 py-2 rounded-2xl border-2 border-outline-variant/30 bg-surface-container text-on-surface text-base font-bold"
-          >
-            {entryText(item)}
-          </span>
-        ))}
-        <span
-          className="min-h-[48px] min-w-[64px] px-4 py-2 rounded-2xl border-2 border-dashed border-primary/60 text-primary text-lg font-bold flex items-center justify-center"
-          aria-label="问号占位"
+    <ChildGameShell
+      title={data.title || '规律接龙'}
+      mascot="🐦"
+      prompt={guideText}
+      current={solved ? 1 : 0}
+      total={1}
+      stepLabel={stepLabel}
+      feedback={bannerFeedback}
+      onReplay={voice.onReplay}
+      speaking={voice.speaking}
+      muted={voice.muted}
+      onToggleMute={voice.onToggleMute}
+    >
+      <div className="space-y-4">
+        <div
+          className="flex flex-wrap items-center justify-center gap-2 rounded-2xl border-2 border-outline-variant/20 bg-white/70 p-3"
+          aria-label="规律序列"
         >
-          ？
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 min-[420px]:grid-cols-4 gap-3">
-        {options.map((option, index) => (
-          <button
-            key={option.id}
-            type="button"
-            aria-label={`选项 ${entryText(option)}`}
-            onClick={() => pick(index)}
-            className={cn(
-              'min-h-[64px] px-3 py-2 rounded-2xl border-2 text-base font-bold transition-tactile',
-              'bg-surface-container text-on-surface border-outline-variant/30',
-              'hover:border-primary/60 active:translate-y-0.5',
-              wrongPick === option.id && 'border-error/60 bg-error-container/40',
-            )}
+          {sequence.map((item) => (
+            <VisualTile
+              key={item.id}
+              as="div"
+              visual={visualFor({ icon: item.icon, label: item.label })}
+              label={item.label}
+              state="normal"
+              className="w-auto min-w-[76px]"
+            />
+          ))}
+          <div
+            className="flex min-h-[88px] min-w-[76px] flex-col items-center justify-center gap-1 rounded-3xl border-2 border-dashed border-primary/60 bg-white/70 px-3 py-2"
+            aria-label="问号占位"
           >
-            {entryText(option)}
-          </button>
-        ))}
-      </div>
+            <span className="text-4xl leading-none" aria-hidden="true">
+              ❓
+            </span>
+            <span className="text-xs font-bold text-primary">下一个？</span>
+          </div>
+        </div>
 
-      {feedback ? (
-        <p role="status" className="text-center text-sm font-bold text-on-surface-variant">
-          {feedback}
-        </p>
-      ) : null}
-    </div>
+        <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-4">
+          {options.map((option, index) => (
+            <VisualTile
+              key={option.id}
+              visual={visualFor({ icon: option.icon, label: option.label })}
+              label={option.label}
+              ariaLabel={`选项 ${entryText(option)}`}
+              state={wrongPick === option.id ? 'wrong' : 'normal'}
+              className="w-full min-w-0"
+              onClick={() => pick(index)}
+            />
+          ))}
+        </div>
+      </div>
+    </ChildGameShell>
   );
 }

@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -91,9 +93,11 @@ class _TracePathGameState extends State<TracePathGame> {
   int _failures = 0;
   final List<Map<String, dynamic>> _perTarget = <Map<String, dynamic>>[];
   final Set<String> _passedIds = <String>{};
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
+  late final ChildGameVoice _voice;
 
   /// 通知 CustomPainter 重绘笔画（避免每次移动都 setState 整棵树）。
   final ValueNotifier<int> _repaint = ValueNotifier<int>(0);
@@ -107,7 +111,12 @@ class _TracePathGameState extends State<TracePathGame> {
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _voice.speak(_introSpeech());
+    });
   }
 
   @override
@@ -116,7 +125,18 @@ class _TracePathGameState extends State<TracePathGame> {
     _advanceTimer?.cancel();
     _clearTimer?.cancel();
     _repaint.dispose();
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
     super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _introSpeech() {
+    final title = widget.data['title']?.toString() ?? '描红游戏';
+    return '我们来玩$title。${_promptText()}';
   }
 
   void _reset() {
@@ -137,6 +157,7 @@ class _TracePathGameState extends State<TracePathGame> {
     _perTarget.clear();
     _passedIds.clear();
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
     _buildSamples();
@@ -308,10 +329,14 @@ class _TracePathGameState extends State<TracePathGame> {
       _perTarget.removeWhere((entry) => entry['id'] == record['id']);
       _perTarget.add(record);
       _passedIds.add(current.id);
-      setState(() => _feedback = '真棒，描得很准！');
+      setState(() {
+        _feedback = const ChildFeedback.cheer('真棒，描得很准！');
+        _cheerKey += 1;
+      });
       if (_passedIds.length >= _targets.length) {
         _finish();
       } else {
+        _voice.speak('真棒，描得很准！');
         _advanceTimer?.cancel();
         _advanceTimer = Timer(const Duration(milliseconds: 900), () {
           _advanceTimer = null;
@@ -320,13 +345,15 @@ class _TracePathGameState extends State<TracePathGame> {
             _index = (_index + 1).clamp(0, _targets.length - 1).toInt();
           });
           _buildSamples();
+          _voice.speak('现在描一描${_current?.text ?? ''}');
         });
       }
     } else {
       setState(() {
         _failures += 1;
-        _feedback = '没关系，再描一次试试看！';
+        _feedback = const ChildFeedback.think('没关系，再描一次试试看！');
       });
+      _voice.speak('没关系，再描一次试试看');
       _clearTimer?.cancel();
       _clearTimer = Timer(const Duration(milliseconds: 450), () {
         _clearTimer = null;
@@ -369,6 +396,11 @@ class _TracePathGameState extends State<TracePathGame> {
     setState(() => _finished = true);
   }
 
+  String _promptText() {
+    final raw = (widget.data['prompt']?.toString() ?? '').trim();
+    return raw.isNotEmpty ? raw : '用手指沿着浅色的字描一描';
+  }
+
   @override
   Widget build(BuildContext context) {
     final current = _current;
@@ -377,7 +409,8 @@ class _TracePathGameState extends State<TracePathGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.draw_outlined, size: 48, color: AppTheme.textSecondary),
+            const Icon(Icons.draw_outlined,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无描红题目'),
             const SizedBox(height: 12),
@@ -388,7 +421,8 @@ class _TracePathGameState extends State<TracePathGame> {
     }
 
     if (_finished) {
-      final firstTryCount = _perTarget.where((entry) => entry['firstTry'] == true).length;
+      final firstTryCount =
+          _perTarget.where((entry) => entry['firstTry'] == true).length;
       return GameCompletionScreen(
         title: widget.data['title']?.toString() ?? '描红游戏',
         score: firstTryCount,
@@ -398,56 +432,52 @@ class _TracePathGameState extends State<TracePathGame> {
       );
     }
 
-    final glyphIndex = _targets.indexWhere((t) => t.id == current.id);
+    final prompt = _promptText();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '描红游戏',
+      mascot: '✏️',
+      prompt: prompt,
+      replayText: '用手指沿着字描一描。$prompt',
+      stepLabel: '第 ${_targets.indexWhere((t) => t.id == current.id) + 1} / ${_targets.length} 个字',
+      current: _passedIds.length,
+      total: _targets.length,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.data['title']?.toString() ?? '描红游戏',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            (widget.data['prompt']?.toString().isNotEmpty == true)
-                ? widget.data['prompt'].toString()
-                : '用手指沿着浅色的字描一描',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '第 ${glyphIndex + 1} / ${_targets.length} 个 · 建议在 $_timeLimitSec 秒内完成',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (final target in _targets)
-                Container(
-                  width: 10,
-                  height: 10,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _passedIds.contains(target.id)
-                        ? AppTheme.primaryColor
-                        : target.id == current.id
-                            ? AppTheme.primaryColor.withValues(alpha: 0.4)
-                            : Colors.grey.withValues(alpha: 0.3),
+              ChildVisualTile(
+                visual: ChildVisual(current.text, isTextGlyph: true),
+                label: current.label,
+                size: 92,
+                tint: ChildGamePalette.tintFor(_index),
+                semanticLabel: '描红字 ${current.text}',
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('✍️', style: TextStyle(fontSize: 30)),
+                  SizedBox(height: 4),
+                  Text(
+                    '用手指描一描',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: ChildGamePalette.inkSoft,
+                    ),
                   ),
-                ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Center(
             child: GestureDetector(
               onPanStart: _onPanStart,
@@ -463,11 +493,18 @@ class _TracePathGameState extends State<TracePathGame> {
                 height: _canvasSize,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Colors.grey.withValues(alpha: 0.4),
-                    width: 1.6,
+                    color: ChildGamePalette.sunshine.withValues(alpha: 0.75),
+                    width: 3,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: CustomPaint(
                   painter: _TracePathPainter(
@@ -480,24 +517,6 @@ class _TracePathGameState extends State<TracePathGame> {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            current.text,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 8,
-            ),
-          ),
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-          const SizedBox(height: 8),
         ],
       ),
     );

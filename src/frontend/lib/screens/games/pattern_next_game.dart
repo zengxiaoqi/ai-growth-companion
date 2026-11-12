@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../components/child_game_ui.dart';
+import '../../services/child_game_voice.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -55,17 +57,40 @@ class _PatternNextGameState extends State<PatternNextGame> {
   int _answerIndex = -1;
   int _attempts = 0;
   String? _wrongPick;
-  String? _feedback;
+  ChildFeedback? _feedback;
+  int _cheerKey = 0;
   bool _finished = false;
   bool _completedCalled = false;
   int _passingScore = 80;
   int _timeLimitSec = 120;
   late int _startedAt;
+  late final ChildGameVoice _voice;
 
   @override
   void initState() {
     super.initState();
+    _voice = ChildGameVoice();
+    _voice.addListener(_onVoiceChanged);
     _reset();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _voice.speak(_introSpeech());
+    });
+  }
+
+  @override
+  void dispose() {
+    _voice.removeListener(_onVoiceChanged);
+    _voice.dispose();
+    super.dispose();
+  }
+
+  void _onVoiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  String _introSpeech() {
+    final title = widget.data['title']?.toString() ?? '规律接龙';
+    return '我们来玩$title。${_promptText()}';
   }
 
   void _reset() {
@@ -86,6 +111,7 @@ class _PatternNextGameState extends State<PatternNextGame> {
     _attempts = 0;
     _wrongPick = null;
     _feedback = null;
+    _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
     _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
@@ -166,7 +192,10 @@ class _PatternNextGameState extends State<PatternNextGame> {
 
         setState(() {
           _attempts = nextAttempts;
-          _feedback = firstTry ? '答对啦！' : '答对啦！（第一次就答对才能得分哦）';
+          _feedback = firstTry
+              ? const ChildFeedback.cheer('答对啦！')
+              : const ChildFeedback.cheer('答对啦！（第一次就答对才能得分哦）');
+          _cheerKey += 1;
           _finished = true;
         });
       }
@@ -176,12 +205,15 @@ class _PatternNextGameState extends State<PatternNextGame> {
     setState(() {
       _attempts = nextAttempts;
       _wrongPick = _options[index].id;
-      _feedback = '再想一想，规律是什么呢？';
+      _feedback = const ChildFeedback.think('再想一想，规律是什么呢？');
     });
+    _voice.speak('再想一想，看看前面的规律');
   }
 
-  String _entryText(_Entry entry) =>
-      entry.icon == null ? entry.label : '${entry.icon} ${entry.label}';
+  String _promptText() {
+    final raw = (widget.data['prompt']?.toString() ?? '').trim();
+    return raw.isNotEmpty ? raw : '找一找规律，下一个应该是什么呢？';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,119 +245,112 @@ class _PatternNextGameState extends State<PatternNextGame> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(4),
+    final prompt = _promptText();
+
+    return ChildGameShell(
+      title: widget.data['title']?.toString() ?? '规律接龙',
+      mascot: '🐻',
+      prompt: prompt,
+      replayText: '看看排队的图形，猜猜下一个。$prompt',
+      stepLabel: '找出排队的规律',
+      current: 0,
+      total: 1,
+      voice: _voice,
+      feedback: _feedback,
+      cheerKey: _cheerKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.data['title']?.toString() ?? '规律接龙',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: ChildGamePalette.inkSoft.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Row(
+                  children: [
+                    Text('🚂', style: TextStyle(fontSize: 20)),
+                    SizedBox(width: 6),
+                    Text(
+                      '小火车排队啦',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: ChildGamePalette.inkSoft,
+                      ),
+                    ),
+                  ],
                 ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            (widget.data['prompt']?.toString().isNotEmpty == true)
-                ? widget.data['prompt'].toString()
-                : '找一找规律，下一个应该是什么呢？',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w600,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    for (var i = 0; i < _sequence.length; i++)
+                      ChildVisualTile(
+                        visual: childVisual(
+                            icon: _sequence[i].icon, label: _sequence[i].label),
+                        label: _sequence[i].label,
+                        size: 76,
+                        tint: ChildGamePalette.tintFor(i),
+                        semanticLabel: '序列 ${_sequence[i].label}',
+                      ),
+                    ChildVisualTile(
+                      visual: const ChildVisual('❓'),
+                      label: '下一个?',
+                      size: 76,
+                      state: ChildTileState.revealed,
+                      semanticLabel: '下一个是什么',
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '建议在 $_timeLimitSec 秒内完成${_attempts > 0 ? ' · 已尝试 $_attempts 次' : ''}',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
+          const SizedBox(height: 14),
+          const Row(
             children: [
-              for (final item in _sequence)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0x33808080), width: 1.4),
-                  ),
-                  child: Text(
-                    _entryText(item),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.6),
-                    width: 2,
-                  ),
-                ),
-                child: Text(
-                  '？',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.primaryColor,
-                  ),
+              Text('👇', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 6),
+              Text(
+                '点一个大图形选答案',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: ChildGamePalette.inkSoft,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 2.4,
-            ),
-            itemCount: _options.length,
-            itemBuilder: (context, index) {
-              final isWrong = _wrongPick == _options[index].id;
-              return GestureDetector(
-                onTap: () => _pick(index),
-                child: Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isWrong
-                        ? AppTheme.warningColor.withValues(alpha: 0.12)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isWrong
-                          ? AppTheme.warningColor.withValues(alpha: 0.7)
-                          : const Color(0x33808080),
-                      width: isWrong ? 2 : 1.4,
-                    ),
-                  ),
-                  child: Text(
-                    _entryText(_options[index]),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              for (var index = 0; index < _options.length; index++)
+                ChildVisualTile(
+                  visual: childVisual(
+                      icon: _options[index].icon, label: _options[index].label),
+                  label: _options[index].label,
+                  size: 140,
+                  state: _wrongPick == _options[index].id
+                      ? ChildTileState.wrong
+                      : ChildTileState.normal,
+                  tint: ChildGamePalette.tintFor(index + 1),
+                  semanticLabel: '选项 ${_options[index].label}',
+                  onTap: () => _pick(index),
                 ),
-              );
-            },
+            ],
           ),
-          if (_feedback != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _feedback!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
         ],
       ),
     );

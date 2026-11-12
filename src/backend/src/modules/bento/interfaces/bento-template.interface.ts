@@ -42,6 +42,7 @@ export interface MonthlyReportData extends ReportData {
     science: number;
     art: number;
     social: number;
+    english: number;
   }>;
   monthlyHighlight: string;
 }

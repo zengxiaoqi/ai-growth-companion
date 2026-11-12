@@ -76,6 +76,9 @@ export class TrendHistoryDto {
 
   @IsNumber()
   social: number;
+
+  @IsNumber()
+  english: number;
 }
 
 export class NoteDto {

@@ -6,6 +6,7 @@ import {
   TextElement,
   ShapeElement,
 } from '../interfaces/bento-document.interface';
+import { domainShortLabel } from '../../../common/domain/learning-domains';
 
 const CANVAS_W = 1280;
 const MARGIN = 96;
@@ -238,19 +239,12 @@ export class SemesterReportTemplate implements BentoSlideTemplate<SemesterData> 
     startY: number,
   ): SlideElement[] {
     const elements: SlideElement[] = [];
-    const labels: Record<string, string> = {
-      language: '语言',
-      math: '数学',
-      science: '科学',
-      art: '美术',
-      social: '社交',
-    };
     const entries = Object.entries(skills);
     const barArea = CONTENT_W - 100;
 
     entries.forEach(([key, growth], i) => {
       const y = startY + i * 60;
-      const label = labels[key] || key;
+      const label = domainShortLabel(key);
       elements.push(
         text(`skill-label-${key}`, MARGIN, y, 80, 30, label, {
           fontSize: 18,
@@ -355,13 +349,6 @@ export class SemesterReportTemplate implements BentoSlideTemplate<SemesterData> 
   }
 
   private slideSkillGrowth(data: SemesterData, theme: Theme): Slide {
-    const labels: Record<string, string> = {
-      language: '语言',
-      math: '数学',
-      science: '科学',
-      art: '美术',
-      social: '社交',
-    };
     const entries = Object.entries(data.skillGrowth);
 
     const elements: SlideElement[] = [
@@ -413,7 +400,7 @@ export class SemesterReportTemplate implements BentoSlideTemplate<SemesterData> 
 
     entries.forEach(([key, growth], i) => {
       const y = 175 + i * 55;
-      const label = labels[key] || key;
+      const label = domainShortLabel(key);
       const growthAmount = Math.max(0, growth.end - growth.start);
       const barArea = 390;
 

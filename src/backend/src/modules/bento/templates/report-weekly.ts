@@ -8,6 +8,7 @@ import {
   TableElement,
   TableStyle,
 } from '../interfaces/bento-document.interface';
+import { DOMAIN_ORDER, domainLabel } from '../../../common/domain/learning-domains';
 
 const CANVAS_W = 1280;
 const _CANVAS_H = 720;
@@ -117,16 +118,6 @@ function bentoTable(
     },
   };
 }
-
-const DOMAIN_LABELS: Record<string, string> = {
-  language: '语言表达',
-  math: '数学逻辑',
-  science: '科学探索',
-  art: '艺术创造',
-  social: '社会交往',
-};
-
-const DOMAIN_ORDER = ['language', 'math', 'science', 'art', 'social'];
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}秒`;
@@ -280,7 +271,7 @@ export class ReportWeeklyTemplate implements BentoSlideTemplate<ReportData> {
 
       // 标签
       elements.push(
-        text(`radar-label-${domain}`, cx, cy, 300, 35, DOMAIN_LABELS[domain] || domain, {
+        text(`radar-label-${domain}`, cx, cy, 300, 35, domainLabel(domain), {
           fontSize: 22,
           fontWeight: 600,
           color: theme.color,
@@ -320,7 +311,7 @@ export class ReportWeeklyTemplate implements BentoSlideTemplate<ReportData> {
 
   private slideTrends(data: ReportData, theme: Theme): Slide {
     const rows = DOMAIN_ORDER.map((d) => [
-      DOMAIN_LABELS[d] || d,
+      domainLabel(d),
       `${data.skillProgress[d] || 0} 分`,
     ]);
 
@@ -543,7 +534,7 @@ export class ReportWeeklyTemplate implements BentoSlideTemplate<ReportData> {
 
     const recommendations = [
       `建议每天安排 ${formatDuration(Math.max(1800, Math.round(data.totalLearningTime / 7)))} 的学习时间，保持学习节奏。`,
-      `重点关注 ${DOMAIN_LABELS[weakestDomain] || weakestDomain} 领域（当前 ${weakestScore} 分），可适当增加练习。`,
+      `重点关注 ${domainLabel(weakestDomain)} 领域（当前 ${weakestScore} 分），可适当增加练习。`,
       '尝试不同类型的知识点，拓展学习广度。',
       `保持每周 ${data.streak > 0 ? `${data.streak} 天` : '至少 5 天'} 的学习频率，形成良好习惯。`,
     ];

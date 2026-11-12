@@ -8,6 +8,7 @@ import {
   TableElement,
   TableStyle,
 } from '../interfaces/bento-document.interface';
+import { DOMAIN_ORDER, domainLabel } from '../../../common/domain/learning-domains';
 
 const CANVAS_W = 1280;
 const MARGIN = 96;
@@ -110,15 +111,6 @@ function bentoTable(
     },
   };
 }
-
-const DOMAIN_LABELS: Record<string, string> = {
-  language: '语言表达',
-  math: '数学逻辑',
-  science: '科学探索',
-  art: '艺术创造',
-  social: '社会交往',
-};
-const DOMAIN_ORDER = ['language', 'math', 'science', 'art', 'social'];
 
 function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}秒`;
@@ -293,7 +285,7 @@ export class ReportMonthlyTemplate implements BentoSlideTemplate<MonthlyReportDa
       const cx = MARGIN + col * 380;
       const cy = 210 + row * 200;
       elements.push(
-        text(`radar-label-${domain}`, cx, cy, 300, 35, DOMAIN_LABELS[domain] || domain, {
+        text(`radar-label-${domain}`, cx, cy, 300, 35, domainLabel(domain), {
           fontSize: 22,
           fontWeight: 600,
           color: theme.color,
@@ -350,7 +342,7 @@ export class ReportMonthlyTemplate implements BentoSlideTemplate<MonthlyReportDa
         180,
         900,
         Math.min(400, rows.length * 50 + 40),
-        [0.8, 1, 1, 1, 1, 1],
+        [0.8, ...DOMAIN_ORDER.map(() => 1)],
         rows,
         true,
         { headerBg: theme.accent, headerColor: '#FFFFFF', fontSize: 16 },
@@ -516,7 +508,7 @@ export class ReportMonthlyTemplate implements BentoSlideTemplate<MonthlyReportDa
 
     const recommendations = [
       `建议每天安排 ${formatDuration(Math.max(1800, Math.round(data.totalLearningTime / 7)))} 的学习时间，保持学习节奏。`,
-      `重点关注 ${DOMAIN_LABELS[weakestDomain] || weakestDomain} 领域（当前 ${weakestScore} 分），可适当增加练习。`,
+      `重点关注 ${domainLabel(weakestDomain)} 领域（当前 ${weakestScore} 分），可适当增加练习。`,
       '尝试不同类型的知识点，拓展学习广度。',
       `保持每月学习频率，持续进步！`,
     ];

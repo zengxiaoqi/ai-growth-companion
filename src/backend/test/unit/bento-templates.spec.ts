@@ -162,7 +162,7 @@ function makeMonthlyData(partial?: Record<string, unknown>): MonthlyReportData {
   base.trendHistory =
     'trendHistory' in o
       ? (o.trendHistory as any)
-      : [{ label: '第 1 周', language: 70, math: 65, science: 60, art: 55, social: 50 }];
+      : [{ label: '第 1 周', language: 70, math: 65, science: 60, art: 55, social: 50, english: 45 }];
   base.monthlyHighlight =
     typeof o.monthlyHighlight === 'string' ? o.monthlyHighlight : '本月进步显著！';
   return base;
@@ -643,6 +643,23 @@ describe('ReportMonthlyTemplate', () => {
     it('handles empty trend history', () => {
       const slides = tmpl.toSlides(makeMonthlyData({ trendHistory: [] }), tmpl.defaultTheme());
       expect(slides.length).toBe(9);
+    });
+
+    it('trend table renders english as the 6th domain column', () => {
+      const slides = tmpl.toSlides(
+        makeMonthlyData({
+          trendHistory: [
+            { label: '第 1 周', language: 70, math: 65, science: 60, art: 55, social: 50, english: 45 },
+          ],
+        }),
+        tmpl.defaultTheme(),
+      );
+      const trendSlide = slides.find((s) => s.id === 'trends');
+      const table = trendSlide!.elements.find((e) => e.id === 'trend-table') as any;
+      expect(table).toBeDefined();
+      expect(table.columns).toHaveLength(7); // 1 label + 6 domains
+      expect(table.rows[0].cells).toHaveLength(7);
+      expect(table.rows[0].cells[6].html).toBe('45'); // english score, last column
     });
 
     it('handles empty achievements and empty insights', () => {

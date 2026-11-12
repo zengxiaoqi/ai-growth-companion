@@ -96,6 +96,16 @@
     --duration-fast: 150ms;
     --duration-base: 220ms;
     --duration-slow: 320ms;
+
+    /* 派生变量：引用主题色，切换皮肤时自动重算，避免硬编码蜜黄在深色皮肤下串色 */
+    --app-border-soft: color-mix(in srgb, var(--color-outline-variant) 16%, transparent);
+    --app-ink-04: color-mix(in srgb, var(--color-on-surface) 4%, transparent);
+    --app-ink-08: color-mix(in srgb, var(--color-on-surface) 8%, transparent);
+    --app-ink-12: color-mix(in srgb, var(--color-on-surface) 12%, transparent);
+    --app-ink-20: color-mix(in srgb, var(--color-on-surface) 20%, transparent);
+    --app-surface-glass: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    --app-scroll-thumb: color-mix(in srgb, var(--color-outline-variant) 45%, transparent);
+    --app-scroll-track: color-mix(in srgb, var(--color-surface-container) 60%, transparent);
   }
 
   html[data-font-size='large'] {
@@ -149,7 +159,7 @@
   }
 
   * {
-    border-color: rgb(129 120 61 / 0.14);
+    border-color: var(--app-border-soft);
   }
 
   body {
@@ -173,12 +183,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgb(129 120 61 / 0.35);
+    background: var(--app-scroll-thumb);
     border-radius: 999px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgb(255 255 255 / 0.22);
+    background: var(--app-scroll-track);
   }
 
   *:focus-visible {
@@ -229,11 +239,11 @@
 }
 
 @utility shadow-tactile {
-  box-shadow: 0 8px 0 0 rgba(70, 54, 0, 0.2);
+  box-shadow: var(--child-shadow, 0 8px 0 0 var(--app-ink-20));
 }
 
 @utility shadow-tactile-active {
-  box-shadow: 0 4px 0 0 rgba(70, 54, 0, 0.2);
+  box-shadow: var(--child-shadow-active, 0 4px 0 0 var(--app-ink-20));
 }
 
 @keyframes shimmer {
@@ -258,13 +268,13 @@
 
 @keyframes voice-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(88, 96, 0, 0.4);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 35%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(88, 96, 0, 0);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-primary) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(88, 96, 0, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent);
   }
 }
 
@@ -288,14 +298,14 @@
 
 @utility shadow-card {
   box-shadow:
-    0 1px 3px rgba(70, 54, 0, 0.08),
-    0 1px 2px rgba(70, 54, 0, 0.04);
+    0 1px 3px var(--app-ink-08),
+    0 1px 2px var(--app-ink-04);
 }
 
 @utility shadow-card-hover {
   box-shadow:
-    0 4px 12px rgba(70, 54, 0, 0.12),
-    0 2px 4px rgba(70, 54, 0, 0.06);
+    0 4px 12px var(--app-ink-12),
+    0 2px 4px var(--app-ink-08);
 }
 
 @utility app-shell {
@@ -304,27 +314,23 @@
 }
 
 @utility panel-card {
-  background: #fffdf6;
-  border: 1px solid rgb(129 120 61 / 0.12);
-  border-radius: 1.5rem;
-  box-shadow:
-    0 10px 24px rgb(70 54 0 / 0.08),
-    0 2px 4px rgb(70 54 0 / 0.06);
+  background: var(--color-surface);
+  border: var(--child-border-w, 1px) solid var(--app-border-soft);
+  border-radius: var(--child-radius-lg, 1.5rem);
+  box-shadow: var(--child-shadow-soft, 0 10px 24px var(--app-ink-08), 0 2px 4px var(--app-ink-12));
 }
 
 @utility panel-card-strong {
-  background: #fffdf6;
-  border: 1px solid rgb(129 120 61 / 0.16);
-  border-radius: 1.75rem;
-  box-shadow:
-    0 16px 36px rgb(70 54 0 / 0.12),
-    0 3px 8px rgb(70 54 0 / 0.08);
+  background: var(--color-surface);
+  border: var(--child-border-w, 1px) solid var(--app-border-soft);
+  border-radius: var(--child-radius-lg, 1.75rem);
+  box-shadow: var(--child-shadow-soft, 0 16px 36px var(--app-ink-12), 0 3px 8px var(--app-ink-08));
 }
 
 @utility floating-nav {
-  background: rgb(255 253 246 / 0.96);
-  border: 1px solid rgb(129 120 61 / 0.14);
-  box-shadow: 0 12px 28px rgb(70 54 0 / 0.12);
+  background: var(--app-surface-glass);
+  border: 1px solid var(--app-border-soft);
+  box-shadow: 0 12px 28px var(--app-ink-12);
 }
 
 @utility section-title {
@@ -344,5 +350,450 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   孩子端主题皮肤
+   ------------------------------------------------------------------------
+   由 lib/app-settings.ts 的 applyAppUISettings() 写入
+   html[data-child-theme="…"]；家长端路由会被强制置为 honey，
+   因此这里的作用域天然只影响学生端。
+   Tailwind 工具类全部引用 @theme 的 --color-* 变量，所以在根节点覆盖变量
+   即可整站换肤，组件代码零改动。
+   设计稿：docs/child-ui-redesign-v1-20261112.html（honey）
+           docs/child-ui-themes-v2-20261112.html（candy / forest / space）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 背景光斑：默认主题下变量不存在 → transparent，视觉零变化 */
+body {
+  background-image:
+    radial-gradient(circle at 8% 2%, var(--child-blob1, transparent), transparent 36%),
+    radial-gradient(circle at 94% 16%, var(--child-blob2, transparent), transparent 32%);
+}
+
+/* 0 · 蜜黄绘本（默认，沿用 @theme 原值，只补齐卡通组件变量） */
+:root[data-child-theme='honey'] {
+  --child-radius-lg: 1.5rem;
+  --child-radius-md: 1.25rem;
+  --child-border-w: 1px;
+  --child-blob1: transparent;
+  --child-blob2: transparent;
+}
+
+/* 1 · 糖果云朵国 / 3–4 岁 ─ 草莓粉奶油 */
+:root[data-child-theme='candy'] {
+  color-scheme: light;
+  --color-background: #fff2f7;
+  --color-surface: #ffffff;
+  --color-on-surface: #4a2a46;
+  --color-on-surface-variant: #8a6a85;
+
+  --color-primary: #b32d63;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffd84d;
+  --color-on-primary-container: #4a2a46;
+
+  --color-secondary: #3f718f;
+  --color-on-secondary: #ffffff;
+  --color-secondary-fixed-dim: #7ec8ff;
+  --color-secondary-container: #eaf6ff;
+  --color-on-secondary-container: #31576e;
+
+  --color-tertiary: #8a4cb0;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #f7e3ff;
+  --color-on-tertiary-container: #5b2e78;
+
+  --color-surface-container: #ffe4f0;
+  --color-surface-container-low: #fff7fb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #ffdceb;
+  --color-surface-container-highest: #ffc8dd;
+
+  --color-outline: #4a2a46;
+  --color-outline-variant: #d9a8c4;
+
+  --color-error: #c2333e;
+  --color-error-container: #ffd9dd;
+  --color-error-dim: #8f1f28;
+  --color-success: #2f8f6b;
+  --color-on-success: #ffffff;
+  --color-success-container: #dff5ec;
+  --color-on-success-container: #1f6349;
+  --color-warning: #a76f00;
+  --color-warning-container: #fff4cf;
+  --color-on-warning-container: #7a5400;
+  --color-danger: #d0444f;
+  --color-danger-container: #ffe0e3;
+  --color-on-danger-container: #8a1f28;
+
+  --color-domain-language: #ff8faf;
+  --color-domain-math: #7fc5f5;
+  --color-domain-science: #69d2a6;
+  --color-domain-art: #ffc65c;
+  --color-domain-social: #c79bee;
+  --color-chart-line: #b32d63;
+  --color-chart-fill: rgba(179, 45, 99, 0.18);
+
+  --app-border-soft: color-mix(in srgb, #f2c8dd 80%, #4a2a46);
+
+  --child-radius-lg: 2.125rem;
+  --child-radius-md: 1.625rem;
+  --child-border-w: 3px;
+  --child-shadow: 0 6px 0 0 #f2c8dd;
+  --child-shadow-active: 0 3px 0 0 #f2c8dd;
+  --child-shadow-soft: 0 6px 0 0 #f6dce9;
+  --child-blob1: rgba(255, 111, 165, 0.14);
+  --child-blob2: rgba(126, 200, 255, 0.16);
+}
+
+/* 2 · 森林探险队 / 4–5 岁 ─ 嫩芽绿 + 橘子橙 */
+:root[data-child-theme='forest'] {
+  color-scheme: light;
+  --color-background: #f1f8e6;
+  --color-surface: #ffffff;
+  --color-on-surface: #22402c;
+  --color-on-surface-variant: #5e7a61;
+
+  --color-primary: #2c6b3f;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffc93c;
+  --color-on-primary-container: #22402c;
+
+  --color-secondary: #c05a1e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-fixed-dim: #ff9f5a;
+  --color-secondary-container: #fff0dc;
+  --color-on-secondary-container: #7a3a12;
+
+  --color-tertiary: #4b7a3f;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #e7f5e4;
+  --color-on-tertiary-container: #2f5a2a;
+
+  --color-surface-container: #e4f4d6;
+  --color-surface-container-low: #f7fcf0;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #dceec9;
+  --color-surface-container-highest: #cbe3b0;
+
+  --color-outline: #22402c;
+  --color-outline-variant: #a9c98f;
+
+  --color-error: #b13c25;
+  --color-error-container: #ffe0d4;
+  --color-error-dim: #7f2a18;
+  --color-success: #3ea873;
+  --color-on-success: #ffffff;
+  --color-success-container: #dff3e8;
+  --color-on-success-container: #1e6042;
+  --color-warning: #a06b00;
+  --color-warning-container: #fff2ce;
+  --color-on-warning-container: #6b4700;
+  --color-danger: #c14a34;
+  --color-danger-container: #ffe4dc;
+  --color-on-danger-container: #7f2f1f;
+
+  --color-domain-language: #ff9f5a;
+  --color-domain-math: #6fc5a8;
+  --color-domain-science: #8fd05a;
+  --color-domain-art: #ffd166;
+  --color-domain-social: #a7c47f;
+  --color-chart-line: #2c6b3f;
+  --color-chart-fill: rgba(44, 107, 63, 0.18);
+
+  --app-border-soft: color-mix(in srgb, #cbe3b0 78%, #22402c);
+
+  --child-radius-lg: 1.75rem;
+  --child-radius-md: 1.375rem;
+  --child-border-w: 3px;
+  --child-shadow: 0 6px 0 0 #cbe3b0;
+  --child-shadow-active: 0 3px 0 0 #cbe3b0;
+  --child-shadow-soft: 0 6px 0 0 #ddeec9;
+  --child-blob1: rgba(255, 138, 61, 0.13);
+  --child-blob2: rgba(139, 212, 106, 0.18);
+}
+
+/* 3 · 星际小队 / 5–6 岁 ─ 深紫夜空（唯一深色皮肤） */
+:root[data-child-theme='space'] {
+  color-scheme: dark;
+  --color-background: #241c4e;
+  --color-surface: #332a68;
+  --color-on-surface: #fff5e6;
+  --color-on-surface-variant: #c6bcf0;
+
+  --color-primary: #ffd84d;
+  --color-on-primary: #2a1f52;
+  --color-primary-container: #3b3078;
+  --color-on-primary-container: #fff5e6;
+
+  --color-secondary: #4fe0d0;
+  --color-on-secondary: #241c4e;
+  --color-secondary-fixed-dim: #7aa8ff;
+  --color-secondary-container: #3b3078;
+  --color-on-secondary-container: #b9aef0;
+
+  --color-tertiary: #b18bff;
+  --color-on-tertiary: #241c4e;
+  --color-tertiary-container: #403484;
+  --color-on-tertiary-container: #ede6ff;
+
+  --color-surface-container: #3b3078;
+  --color-surface-container-low: #2e2560;
+  --color-surface-container-lowest: #241c4e;
+  --color-surface-container-high: #463a8a;
+  --color-surface-container-highest: #52459b;
+
+  --color-outline: #7b69d6;
+  --color-outline-variant: #564794;
+
+  --color-error: #ff8a66;
+  --color-error-container: #702410;
+  --color-error-dim: #ffb49c;
+  --color-success: #6be3a2;
+  --color-on-success: #241c4e;
+  --color-success-container: #1d5340;
+  --color-on-success-container: #c9ffe4;
+  --color-warning: #ffd166;
+  --color-warning-container: #5a4510;
+  --color-on-warning-container: #fff0c2;
+  --color-danger: #ff8fb4;
+  --color-danger-container: #6a2340;
+  --color-on-danger-container: #ffd9e6;
+
+  --color-domain-language: #ff8fb4;
+  --color-domain-math: #7aa8ff;
+  --color-domain-science: #4fe0d0;
+  --color-domain-art: #ffd166;
+  --color-domain-social: #b18bff;
+  --color-chart-line: #4fe0d0;
+  --color-chart-fill: rgba(79, 224, 208, 0.2);
+
+  --app-border-soft: color-mix(in srgb, #7b69d6 55%, transparent);
+  --app-scroll-track: #2e2560;
+
+  --child-radius-lg: 1.625rem;
+  --child-radius-md: 1.25rem;
+  --child-border-w: 2.5px;
+  --child-shadow: 0 6px 0 0 #15103a;
+  --child-shadow-active: 0 3px 0 0 #15103a;
+  --child-shadow-soft: 0 8px 0 0 rgba(0, 0, 0, 0.28);
+  --child-blob1: rgba(126, 94, 255, 0.3);
+  --child-blob2: rgba(79, 224, 208, 0.12);
+}
+
+/* 卡通皮肤加粗卡片描边与实体下阴影（honey 保持原样） */
+:root[data-child-theme]:not([data-child-theme='honey']) .panel-card,
+:root[data-child-theme]:not([data-child-theme='honey']) .panel-card-strong {
+  border-style: solid;
+  border-color: var(--app-border-soft);
+}
+
+/* 皮肤切换时给颜色一个柔和过渡，避免闪白 */
+:root[data-child-theme] body,
+:root[data-child-theme] .panel-card,
+:root[data-child-theme] .floating-nav {
+  transition:
+    background-color var(--duration-base, 220ms) ease,
+    border-color var(--duration-base, 220ms) ease,
+    color var(--duration-base, 220ms) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-child-theme] body,
+  :root[data-child-theme] .panel-card,
+  :root[data-child-theme] .floating-nav {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   卡通装饰层 · 视觉增强
+   ------------------------------------------------------------------------
+   设计稿 v2 的卡通感来自组件层：贴纸、胶带、大眼角色、果冻按压、
+   emoji 图标底、主题装饰贴片。这里用纯 CSS 伪元素把这些「内容感」挂到
+   ChildHomeExperience 的语义 class 上（.child-hero / .child-greeting /
+   .child-hero-mascot 等），不改组件逻辑、不碰接口，honey 皮肤零影响。
+   作用域由 html[data-child-theme] 控制，家长端被强制置为 honey。
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root[data-child-theme='candy'] {
+  --child-decor-tint: #ff6fa5;
+  --child-decor-tape: #ffd84d;
+  --child-decor-glyph: '☁ ✨ 🍬';
+  --child-decor-spark: '✦';
+}
+
+:root[data-child-theme='forest'] {
+  --child-decor-tint: #ff8a3d;
+  --child-decor-tape: #ffc93c;
+  --child-decor-glyph: '🍃 ✨ 🍄';
+  --child-decor-spark: '❧';
+}
+
+:root[data-child-theme='space'] {
+  --child-decor-tint: #4fe0d0;
+  --child-decor-tape: #ffd84d;
+  --child-decor-glyph: '✦ 🚀 🪐';
+  --child-decor-spark: '✧';
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) {
+  --child-decor-shadow: color-mix(in srgb, var(--child-decor-tint) 40%, transparent);
+  --child-decor-glow: color-mix(in srgb, var(--child-decor-tint) 26%, transparent);
+}
+
+/* 主任务 Hero：胶带贴纸 + 主题色光晕 */
+:root[data-child-theme]:not([data-child-theme='honey']) .child-hero {
+  background-image:
+    radial-gradient(circle at 88% 6%, var(--child-decor-glow), transparent 44%),
+    radial-gradient(circle at 4% 96%, var(--child-blob2, transparent), transparent 40%);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) .child-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 26px;
+  z-index: 11;
+  width: 64px;
+  height: 18px;
+  border: 2px solid var(--app-border-soft);
+  border-radius: 3px;
+  background: var(--child-decor-tape);
+  transform: rotate(8deg);
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+/* 主题装饰贴片挂在问候区右上角，避免压住主任务标题 */
+:root[data-child-theme]:not([data-child-theme='honey']) .child-greeting::after {
+  content: var(--child-decor-glyph);
+  position: absolute;
+  right: 8px;
+  top: -14px;
+  z-index: 2;
+  font-size: 20px;
+  letter-spacing: 0.25em;
+  white-space: nowrap;
+  opacity: 0.75;
+  transform: rotate(-9deg);
+  pointer-events: none;
+}
+
+/* 小犀：主题色光晕；摆动只给首页大角色，避免顶栏小图标抖动 */
+:root[data-child-theme]:not([data-child-theme='honey']) img[src='/mascot.png'] {
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 55%, var(--child-decor-glow), transparent 70%);
+  filter: saturate(1.35) drop-shadow(0 6px 0 var(--child-decor-shadow));
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) .child-hero-mascot {
+  animation: lx-mascot-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes lx-mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(2deg);
+  }
+}
+
+/* 图标底：从扁平色块变成带描边 + 实体下阴影的贴纸 */
+:root[data-child-theme]:not([data-child-theme='honey']) .panel-card > div[class*='h-10'][class*='w-10'],
+:root[data-child-theme]:not([data-child-theme='honey']) .panel-card > div[class*='h-12'][class*='w-12'],
+:root[data-child-theme]:not([data-child-theme='honey']) .child-discover-card > span[class*='h-12'],
+:root[data-child-theme]:not([data-child-theme='honey']) .child-subject > span[class*='h-14'] {
+  border: 2px solid var(--app-border-soft);
+  box-shadow: 0 3px 0 0 var(--child-decor-shadow);
+  transform: rotate(-3deg);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) .panel-card > div[class*='h-12'][class*='w-12'] > svg,
+:root[data-child-theme]:not([data-child-theme='honey']) .child-subject > span > svg {
+  transform: scale(1.12);
+}
+
+/* 卡片果冻按压：hover 弹起、按下沉底 */
+:root[data-child-theme]:not([data-child-theme='honey']) button.panel-card {
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.2s ease;
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) section[class*='grid-cols-2'] > button.panel-card:nth-child(odd) {
+  transform: rotate(-0.8deg);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) section[class*='grid-cols-2'] > button.panel-card:nth-child(even) {
+  transform: rotate(0.8deg);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) button.panel-card:hover {
+  transform: translateY(-3px) rotate(-0.6deg);
+  box-shadow: 0 9px 0 0 var(--child-decor-shadow);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) button.panel-card:active {
+  transform: translateY(4px) scale(0.99);
+  box-shadow: 0 2px 0 0 var(--child-decor-shadow);
+}
+
+/* 章节标题右侧挂一个主题小挂饰 */
+:root[data-child-theme]:not([data-child-theme='honey']) h3.section-title::after {
+  content: var(--child-decor-spark);
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 18px;
+  color: var(--child-decor-tint);
+  opacity: 0.85;
+  transform: rotate(12deg);
+}
+
+/* 主按钮与底部导航：补粗描边与实体下阴影 */
+:root[data-child-theme]:not([data-child-theme='honey']) button[class~='shadow-tactile'] {
+  border: var(--child-border-w) solid var(--app-border-soft);
+}
+
+:root[data-child-theme]:not([data-child-theme='honey']) nav > div[class~='rounded-2xl'] {
+  border: var(--child-border-w) solid var(--app-border-soft);
+  box-shadow: 0 5px 0 0 var(--child-decor-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-child-theme]:not([data-child-theme='honey']) .child-hero-mascot {
+    animation: none;
+  }
+  :root[data-child-theme]:not([data-child-theme='honey']) button.panel-card {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   年龄密度层（第 3 层）：形状随档位微调，颜色仍由皮肤变量决定。
+   level 0 更大更圆、level 2 更紧凑；level 1（honey / forest / 家长端）
+   保持原有形状，因此默认界面与存量功能零回归。
+   -------------------------------------------------------------------------- */
+:root[data-child-level='0'] .panel-card,
+:root[data-child-level='0'] .panel-card-strong {
+  border-radius: 30px;
+}
+
+:root[data-child-level='2'] .panel-card,
+:root[data-child-level='2'] .panel-card-strong {
+  border-radius: 18px;
+}
+
+:root[data-child-level='0'] .child-round-prompts button {
+  border: 3px solid var(--app-border-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-child-level='0'] .child-round-prompts button {
+    transition: none;
   }
 }

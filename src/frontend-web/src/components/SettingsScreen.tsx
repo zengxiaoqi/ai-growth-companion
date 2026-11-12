@@ -29,6 +29,36 @@ import {
   saveStoredAppUISettings,
 } from '@/lib/app-settings';
 import { Button, Card, IconButton, TopBar } from './ui';
+import {
+  CHILD_THEMES,
+  CHILD_THEME_KEYS,
+  childThemeContextFromUser,
+  resolveChildTheme,
+  type ChildThemeMode,
+} from '@/lib/child-theme';
+
+interface ThemeOption {
+  mode: ChildThemeMode;
+  name: string;
+  age: string;
+  swatches: readonly string[];
+}
+
+/** auto + 四套皮肤，顺序与 docs/child-ui-themes-v2-20261112.html 一致 */
+const THEME_OPTIONS: ThemeOption[] = [
+  {
+    mode: 'auto',
+    name: '跟随年龄',
+    age: '自动推荐',
+    swatches: ['#FFF2F7', '#F1F8E6', '#241C4E', '#FFD84D'],
+  },
+  ...CHILD_THEME_KEYS.map((key) => ({
+    mode: key as ChildThemeMode,
+    name: CHILD_THEMES[key].name,
+    age: CHILD_THEMES[key].age,
+    swatches: CHILD_THEMES[key].swatches,
+  })),
+];
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -187,9 +217,15 @@ export default function SettingsScreen({
   }, [user?.id, user?.settings]);
 
   useEffect(() => {
-    applyAppUISettings(settings);
+    // 设置页位于学生端路由下，切换皮肤时立即应用到根节点做预览。
+    applyAppUISettings(settings, { user, isStudentArea: true });
     saveStoredAppUISettings(settings);
-  }, [settings]);
+  }, [settings, user]);
+
+  const activeChildTheme = resolveChildTheme(
+    settings.childTheme,
+    childThemeContextFromUser(user),
+  );
 
   const userAvatar = chatAvatars.userAvatar || user?.avatar || undefined;
   const aiAvatar = chatAvatars.aiAvatar || undefined;
@@ -438,6 +474,71 @@ export default function SettingsScreen({
             className="hidden"
             onChange={onPickAvatarFile('aiAvatar')}
           />
+        </Card>
+
+        <Card className="space-y-4 p-4 md:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium uppercase tracking-wider text-on-surface-variant">
+                孩子端主题
+              </h2>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                换一套皮肤，学生端所有页面立即变色；偏好保存在本机，点「保存设置」可同步到账号。
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-primary-container px-3 py-1 text-xs font-bold text-on-primary-container">
+              当前 · {CHILD_THEMES[activeChildTheme].name}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {THEME_OPTIONS.map((option) => {
+              const selected = settings.childTheme === option.mode;
+              return (
+                <button
+                  key={option.mode}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    setSettings((prev) => ({ ...prev, childTheme: option.mode }))
+                  }
+                  className={cn(
+                    'touch-target relative flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-tactile',
+                    selected
+                      ? 'border-primary bg-primary-container/25 shadow-tactile'
+                      : 'border-outline-variant/20 bg-surface hover:bg-surface-container',
+                  )}
+                >
+                  <span className="flex gap-1">
+                    {option.swatches.map((color) => (
+                      <span
+                        key={color}
+                        className="h-5 w-5 rounded-md border border-black/10"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-sm font-bold text-on-surface">{option.name}</span>
+                  <span className="text-[11px] font-medium text-on-surface-variant">
+                    {option.age}
+                  </span>
+                  {selected ? (
+                    <CheckCircle2 className="absolute right-2 top-2 h-4 w-4 text-primary" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl bg-surface-container px-3 py-2 text-xs leading-relaxed text-on-surface-variant">
+            <p className="font-semibold text-on-surface">
+              {CHILD_THEMES[activeChildTheme].description}
+            </p>
+            <p className="mt-1">
+              「跟随年龄」按账号年龄自动推荐：3–4 岁糖果云朵国、4–5 岁森林探险队、5–6
+              岁星际小队；没有年龄信息时保持蜜黄绘本。卡通皮肤自带明暗方案，深色模式开关不与它叠加。
+            </p>
+          </div>
         </Card>
 
         <Card className="space-y-3 p-4 md:p-5">

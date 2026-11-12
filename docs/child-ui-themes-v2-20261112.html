@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灵犀伴学 · 孩子端卡通主题 v2 · 年龄化皮肤</title>
+<style>
+:root{
+  --board:#14171D; --panel:#1C2028; --panel-line:#2C323D; --board-text:#EDEAE0; --board-dim:#9BA2AF;
+  --ease:cubic-bezier(.25,1,.5,1);
+}
+/* ══ 主题 1 · 糖果云朵国 / 3–4 岁 ══════════════════════════ */
+[data-theme="candy"]{
+  --paper:#FFF2F7; --card:#FFFFFF; --ink:#4A2A46; --ink-2:#8A6A85; --ink-3:#B397AF;
+  --edge:#4A2A46; --dash:#F2C8DD; --line:#F6DCE9;
+  --pop:#FF6FA5; --cta:#FFD84D; --cta-ink:#4A2A46; --cta-sh:#D9A800;
+  --sh:rgba(74,42,70,.18); --soft:#EAF6FF; --soft-ink:#4C7FA0; --soft-edge:#7EC8FF;
+  --ok:#3FBF95; --sky:#7EC8FF; --mint:#56D6B0; --grape:#B48BEB;
+  --s1:#FF8FAF; --s2:#7FC5F5; --s3:#69D2A6; --s4:#FFC65C; --s5:#C79BEE; --s6:#FF9FC4;
+  --blob1:rgba(255,111,165,.17); --blob2:rgba(126,200,255,.20);
+  --r-lg:34px; --r-md:26px; --r-sm:18px; --bw:3px;
+  --rhino-bg:#FFE4F0; --rhino-body:#FFC3DC; --rhino-ear:#FF9FC4; --rhino-inner:#FF6FA5;
+  --rhino-horn:#FFF3B0; --rhino-snout:#FFE0EE; --rhino-scarf:#FF6FA5;
+  --icon-ink:#4A2A46;
+}
+/* ══ 主题 2 · 森林探险队 / 4–5 岁 ══════════════════════════ */
+[data-theme="forest"]{
+  --paper:#F1F8E6; --card:#FFFFFF; --ink:#22402C; --ink-2:#5E7A61; --ink-3:#93AA8C;
+  --edge:#22402C; --dash:#CBE3B0; --line:#DDEEC9;
+  --pop:#FF8A3D; --cta:#FFC93C; --cta-ink:#22402C; --cta-sh:#C99B00;
+  --sh:rgba(34,64,44,.18); --soft:#E7F5E4; --soft-ink:#4C7A55; --soft-edge:#7FC98B;
+  --ok:#3EA873; --sky:#58B8D8; --mint:#8BD46A; --grape:#E8875B;
+  --s1:#FF9F5A; --s2:#6FC5A8; --s3:#8FD05A; --s4:#FFD166; --s5:#A7C47F; --s6:#E88C8C;
+  --blob1:rgba(255,138,61,.16); --blob2:rgba(139,212,106,.20);
+  --r-lg:28px; --r-md:22px; --r-sm:16px; --bw:3px;
+  --rhino-bg:#E4F4D6; --rhino-body:#B6DE9C; --rhino-ear:#8FC77A; --rhino-inner:#F3AF9B;
+  --rhino-horn:#FFF0B0; --rhino-snout:#D8EEC4; --rhino-scarf:#FF8A3D;
+  --icon-ink:#22402C;
+}
+/* ══ 主题 3 · 星际小队 / 5–6 岁 ════════════════════════════ */
+[data-theme="space"]{
+  --paper:#241C4E; --card:#332A68; --ink:#FFF5E6; --ink-2:#C6BCF0; --ink-3:#948BC4;
+  --edge:#7B69D6; --dash:#564794; --line:#4A3D86;
+  --pop:#4FE0D0; --cta:#FFD84D; --cta-ink:#2A1F52; --cta-sh:#B78E00;
+  --sh:rgba(0,0,0,.40); --soft:#3B3078; --soft-ink:#B9AEF0; --soft-edge:#7B69D6;
+  --ok:#6BE3A2; --sky:#7AA8FF; --mint:#4FE0D0; --grape:#B18BFF;
+  --s1:#FF8FB4; --s2:#7AA8FF; --s3:#4FE0D0; --s4:#FFD166; --s5:#B18BFF; --s6:#FF9F6E;
+  --blob1:rgba(126,94,255,.34); --blob2:rgba(79,224,208,.15);
+  --r-lg:26px; --r-md:20px; --r-sm:14px; --bw:2.5px;
+  --rhino-bg:#3B3078; --rhino-body:#B9A8F0; --rhino-ear:#9A86DD; --rhino-inner:#F7A9C0;
+  --rhino-horn:#FFE9A0; --rhino-snout:#D6CBFA; --rhino-scarf:#4FE0D0;
+  --icon-ink:#332A68;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--board);color:var(--board-text);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button,input{font-family:inherit}
+.board{max-width:1520px;margin:0 auto;padding:48px 40px 110px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.16em;
+  color:#FFD84D;border:1px solid #4A4327;background:#211F17;padding:7px 13px;border-radius:999px}
+.board h1{font-size:clamp(29px,3.3vw,44px);font-weight:800;letter-spacing:-.025em;margin:18px 0 10px;line-height:1.2}
+.board h1 em{font-style:normal;color:#FF8FB4}
+.board h1 small{font-size:14px;font-weight:700;color:var(--board-dim);letter-spacing:0;margin-left:12px;vertical-align:middle}
+.lede{color:var(--board-dim);font-size:14.5px;line-height:1.75;max-width:900px;margin:0}
+.lede b{color:#D7DBE3}
+
+/* ── 主题选择器 ───────────────────────────────── */
+.picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:28px}
+.tcard{text-align:left;border:1.5px solid #343B46;background:#1C2028;border-radius:18px;padding:15px 16px;
+  cursor:pointer;transition:transform .2s var(--ease),border-color .2s,background .2s;color:var(--board-text)}
+.tcard:hover{transform:translateY(-3px);border-color:#5A6272}
+.tcard.on{background:#242A34;border-color:#FFD84D;box-shadow:0 0 0 1px #FFD84D inset}
+.tcard .top{display:flex;align-items:center;gap:9px}
+.tcard .sw{display:flex;gap:4px}
+.tcard .sw i{width:15px;height:15px;border-radius:5px;border:1px solid rgba(255,255,255,.16)}
+.tcard b{font-size:14.5px;font-weight:800}
+.tcard .age{margin-left:auto;font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:999px;
+  background:#2C323D;color:#C7CBD4;white-space:nowrap}
+.tcard.on .age{background:#FFD84D;color:#2A1F52}
+.tcard p{font-size:11.5px;color:#8F96A3;line-height:1.6;margin:9px 0 0}
+.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.tbtn{border:1px solid #3A414D;background:#20242C;color:#D7DBE3;border-radius:12px;padding:10px 15px;
+  font-size:12.5px;font-weight:700;cursor:pointer;transition:transform .15s var(--ease),background .15s}
+.tbtn:hover{background:#2A303A;transform:translateY(-2px)}
+.tbtn.on{background:#FFD84D;color:#2A1F52;border-color:#FFD84D}
+.hint{font-size:11.5px;color:#6E7581;margin-top:12px}
+
+/* ── 舞台 ─────────────────────────────────────── */
+.stage{display:flex;gap:32px;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin-top:40px}
+.device{width:412px;flex:0 0 412px}
+.device-label{display:flex;align-items:center;gap:9px;font-size:12.5px;color:#C7CBD4;margin-bottom:13px;
+  letter-spacing:.03em;cursor:pointer;user-select:none}
+.device-label b{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#2A303A;
+  color:#FFD84D;font-size:11px;font-weight:800}
+.device-label .tag{margin-left:auto;font-size:10.5px;color:#8A92A0;border:1px solid #343B46;padding:3px 8px;border-radius:999px}
+.device-caption{font-size:12px;color:#8F96A3;line-height:1.7;margin:15px 8px 0}
+.device-caption strong{color:#C7CBD4}
+.stage.focus .device{display:none}
+.stage.focus .device.selected{display:block}
+.stage.focus .device.selected .phone{transform:scale(1.05);transform-origin:top center}
+
+.phone{position:relative;width:390px;height:844px;margin:0 auto;background:var(--paper);
+  border:9px solid #262B33;border-radius:48px;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 34px 70px rgba(0,0,0,.5),0 0 0 1px #3A414C;color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  transition:background .35s var(--ease),color .35s var(--ease)}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:112px;height:24px;
+  background:#262B33;border-radius:0 0 16px 16px;z-index:10}
+.statusbar{flex:0 0 36px;height:36px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px;font-size:12.5px;font-weight:800;color:var(--ink);z-index:9}
+.statusbar .sb-r{display:flex;align-items:center;gap:6px}
+.battery{width:22px;height:11px;border:1.8px solid var(--ink);border-radius:3px;position:relative}
+.battery::after{content:"";position:absolute;right:-4px;top:2.5px;width:2.5px;height:4px;background:var(--ink);border-radius:0 2px 2px 0}
+.battery i{position:absolute;inset:1.5px;width:70%;background:var(--ink);border-radius:1px}
+.viewport{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative;
+  background:radial-gradient(circle at 10% 6%,var(--blob1),transparent 38%),
+             radial-gradient(circle at 92% 22%,var(--blob2),transparent 34%),var(--paper)}
+.viewport::-webkit-scrollbar,.rail::-webkit-scrollbar,.hwrail::-webkit-scrollbar,.suggest::-webkit-scrollbar{display:none}
+.screen{position:relative;padding-bottom:22px;min-height:100%}
+.deco{position:absolute;right:14px;top:2px;font-size:15px;letter-spacing:9px;opacity:.5;pointer-events:none;z-index:1}
+.deco.big{font-size:17px}
+
+/* ── 底部导航 ─────────────────────────────────── */
+.tabbar{flex:0 0 78px;height:78px;display:flex;align-items:center;justify-content:space-around;
+  background:var(--card);border-top:var(--bw) solid var(--line);padding:0 6px 4px;position:relative;z-index:8}
+.tab{width:62px;min-height:58px;border:0;background:transparent;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--ink-3);font-size:10.5px;font-weight:800}
+.tab .tab-ic{width:40px;height:28px;border-radius:12px;display:grid;place-items:center;transition:background .2s}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--ink)}
+.tab.on .tab-ic{background:var(--cta)}
+.tab.ai{gap:1px;justify-content:flex-start}
+.ai-ball{width:60px;height:60px;border-radius:50%;background:var(--cta);border:var(--bw) solid var(--edge);
+  box-shadow:0 5px 0 var(--cta-sh);display:grid;place-items:center;margin-top:-30px;transition:transform .15s var(--ease)}
+.ai-ball svg{width:40px;height:40px}
+.tab.ai:active .ai-ball{transform:translateY(4px)}
+.tab.ai .lbl{margin-top:2px}
+
+/* ── 通用卡通组件 ─────────────────────────────── */
+.greet{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 0;position:relative;z-index:2}
+.greet h2{font-size:29px;font-weight:900;letter-spacing:-.03em;margin:0 0 5px;line-height:1.2}
+.greet p{font-size:13.5px;color:var(--ink-2);margin:0;font-weight:700}
+.rhino{width:92px;height:92px;flex:0 0 92px;animation:bob 3.2s ease-in-out infinite;filter:drop-shadow(0 4px 0 var(--sh))}
+.rhino.sm{width:52px;height:52px;flex-basis:52px}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-7px) rotate(4deg)}}
+.bubble-say{margin:12px 20px 0;display:inline-block;background:var(--card);border:var(--bw) solid var(--edge);
+  border-radius:var(--r-md);border-bottom-left-radius:8px;box-shadow:0 4px 0 var(--sh);
+  padding:9px 14px;font-size:13px;font-weight:800;position:relative;z-index:2}
+.bubble-say::before{content:"";position:absolute;left:16px;bottom:-11px;width:12px;height:12px;
+  background:var(--card);border-right:var(--bw) solid var(--edge);border-bottom:var(--bw) solid var(--edge);
+  transform:rotate(45deg)}
+.stars{margin:16px 20px 0;padding:12px 14px;border:var(--bw) dashed var(--dash);border-radius:var(--r-md);
+  display:flex;align-items:center;gap:9px;background:var(--card);position:relative;z-index:2}
+.stars .txt{font-size:12.5px;font-weight:800;margin-right:auto}
+.stars .txt small{display:block;font-size:10.5px;color:var(--ink-2);font-weight:700;margin-top:2px}
+.slot{width:29px;height:29px;flex:0 0 29px;display:grid;place-items:center;font-size:20px;
+  border-radius:50%;background:var(--paper);border:2px solid var(--dash);filter:grayscale(1);opacity:.5}
+.slot.on{background:var(--cta);border-color:var(--edge);filter:none;opacity:1;box-shadow:0 3px 0 var(--sh);animation:pop .45s var(--ease)}
+@keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+.hero{margin:20px 20px 0;background:var(--cta);border:var(--bw) solid var(--edge);border-radius:var(--r-lg);
+  box-shadow:0 7px 0 var(--cta-sh);padding:17px 18px 16px;position:relative;overflow:hidden;
+  transform:rotate(-1.2deg);z-index:2;color:var(--cta-ink)}
+[data-theme="space"] .hero{transform:rotate(0)}
+.hero::before{content:"";position:absolute;right:-38px;top:-42px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.30)}
+.hero .tape{position:absolute;right:16px;top:-9px;width:56px;height:20px;background:var(--pop);
+  border:2px solid var(--edge);border-radius:3px;transform:rotate(8deg);opacity:.92}
+.hero-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:900;letter-spacing:.07em;position:relative}
+.hero-top .pill{background:var(--edge);color:var(--cta);padding:4px 11px;border-radius:999px;letter-spacing:0}
+[data-theme="space"] .hero-top .pill{color:#FFF5E6}
+.hero h3{font-size:24px;font-weight:900;margin:13px 0 5px;position:relative;letter-spacing:-.02em}
+.hero .meta{font-size:12.5px;font-weight:800;opacity:.82;position:relative}
+.hero-art{position:absolute;right:10px;top:46px;width:88px;height:88px;transform:rotate(6deg)}
+.hero-btn{width:100%;height:56px;margin-top:16px;border:var(--bw) solid var(--edge);border-radius:var(--r-md);
+  background:var(--edge);color:var(--cta);font-size:17.5px;font-weight:900;display:flex;align-items:center;
+  justify-content:center;gap:9px;cursor:pointer;box-shadow:0 4px 0 var(--sh);
+  transition:transform .12s,box-shadow .12s;position:relative}
+[data-theme="candy"] .hero-btn,[data-theme="forest"] .hero-btn{color:#FFFFFF}
+[data-theme="space"] .hero-btn{background:#4FE0D0;color:#241C4E;border-color:#241C4E}
+.hero-btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--sh)}
+.dots{display:flex;gap:7px;margin-top:12px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--cta-sh);opacity:.45}
+.dot.on{background:var(--edge);opacity:1}
+
+.tasklist{margin:18px 20px 0;background:var(--card);border:var(--bw) solid var(--edge);border-radius:var(--r-md);
+  box-shadow:0 4px 0 var(--sh);padding:13px 14px;position:relative;z-index:2}
+.tasklist .th{display:flex;justify-content:space-between;font-size:11.5px;font-weight:900;margin-bottom:9px}
+.tasklist .th span:last-child{color:var(--ink-2)}
+.taskrow{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:2px dashed var(--dash);font-size:12.5px;font-weight:800}
+.taskrow:first-of-type{border-top:0}
+.taskrow .ck{width:21px;height:21px;flex:0 0 21px;border-radius:8px;border:2px solid var(--edge);display:grid;place-items:center;font-size:12px}
+.taskrow.done .ck{background:var(--ok);border-color:var(--ok);color:#fff}
+.taskrow.done span{text-decoration:line-through;opacity:.55}
+.taskrow .tail{margin-left:auto;font-size:10.5px;color:var(--ink-2)}
+
+.ai-entry{margin:16px 20px 0;background:var(--soft);border:var(--bw) solid var(--soft-edge);border-radius:var(--r-md);
+  box-shadow:0 5px 0 var(--sh);padding:11px 13px;display:flex;align-items:center;gap:11px;position:relative;z-index:2}
+.ai-entry .mini{width:54px;height:54px;flex:0 0 54px;border-radius:50%;background:var(--card);border:var(--bw) solid var(--edge)}
+.ai-entry .t{flex:1;min-width:0}
+.ai-entry b{font-size:14.5px;display:block;font-weight:900}
+.ai-entry span{font-size:11.5px;color:var(--soft-ink);display:block;margin-top:3px;font-weight:700}
+.go{width:46px;height:46px;flex:0 0 46px;border-radius:50%;border:var(--bw) solid var(--edge);background:var(--cta);
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 var(--sh);transition:transform .14s var(--ease)}
+.go svg{width:21px;height:21px;color:var(--cta-ink)}
+.go:active{transform:translateY(3px);box-shadow:0 0 0 var(--sh)}
+
+.sec{margin:24px 20px 0;display:flex;align-items:baseline;justify-content:space-between;position:relative;z-index:2}
+.sec h3{font-size:18px;font-weight:900;margin:0;letter-spacing:-.01em}
+.sec small{font-size:11.5px;color:var(--ink-2);font-weight:800;cursor:pointer}
+.rail{display:flex;gap:12px;overflow-x:auto;padding:14px 20px 8px;scroll-snap-type:x mandatory;
+  scrollbar-width:none;position:relative;z-index:2}
+.dcard{flex:0 0 var(--cw,158px);height:var(--ch,168px);scroll-snap-align:start;background:var(--card);
+  border:var(--bw) solid var(--c);border-radius:var(--r-md);box-shadow:0 5px 0 var(--sh);padding:13px;
+  display:flex;flex-direction:column;cursor:pointer;text-align:left;
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease)}
+.dcard:hover{transform:translateY(-4px) rotate(-1.5deg);box-shadow:0 9px 0 var(--sh)}
+.dcard:active{transform:translateY(3px);box-shadow:0 1px 0 var(--sh)}
+.dcard .emo{width:48px;height:48px;border-radius:17px;background:var(--c);display:grid;place-items:center;font-size:27px;
+  border:2px solid var(--edge)}
+.dcard b{font-size:14px;font-weight:900;margin-top:10px;color:var(--ink)}
+.dcard p{font-size:11.5px;line-height:1.5;color:var(--ink-2);margin:4px 0 0;flex:1;font-weight:700}
+.dcard .more{font-size:10.5px;font-weight:900;color:var(--ink-2)}
+.quick{margin:18px 20px 0;display:grid;grid-template-columns:repeat(var(--qc,2),1fr);gap:11px;position:relative;z-index:2}
+.qbtn{height:66px;border:var(--bw) solid var(--edge);border-radius:var(--r-md);background:var(--card);
+  box-shadow:0 5px 0 var(--sh);display:flex;align-items:center;justify-content:center;gap:9px;
+  font-size:14px;font-weight:900;cursor:pointer;transition:transform .14s var(--ease);color:var(--ink)}
+.qbtn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sh)}
+.qbtn .ic{font-size:25px}
+
+/* ── 学习页 ───────────────────────────────────── */
+.page-title{padding:12px 20px 0;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2}
+.page-title h2{font-size:27px;font-weight:900;margin:0;letter-spacing:-.02em}
+.page-title p{font-size:12px;color:var(--ink-2);margin:4px 0 0;font-weight:700}
+.badge{font-size:11.5px;font-weight:900;background:var(--cta);color:var(--cta-ink);border:var(--bw) solid var(--edge);
+  border-radius:999px;padding:6px 11px;white-space:nowrap;box-shadow:0 3px 0 var(--sh)}
+.ring-row{margin:18px 20px 0;display:flex;align-items:center;gap:14px;padding:12px 14px;
+  border:var(--bw) solid var(--edge);border-radius:var(--r-md);background:var(--card);
+  box-shadow:0 4px 0 var(--sh);position:relative;z-index:2}
+.ring{width:70px;height:70px;flex:0 0 70px}
+.ring-row b{font-size:17px;font-weight:900}
+.ring-row p{font-size:11.5px;color:var(--ink-2);margin:4px 0 0;line-height:1.5;font-weight:700}
+.bigstars{margin:18px 20px 0;display:flex;gap:10px;justify-content:center;position:relative;z-index:2}
+.bigstars i{width:58px;height:58px;border-radius:50%;background:var(--cta);border:var(--bw) solid var(--edge);
+  box-shadow:0 4px 0 var(--sh);display:grid;place-items:center;font-size:29px;font-style:normal}
+.bigstars i.off{background:var(--card);filter:grayscale(1);opacity:.55}
+.continue{margin:20px 20px 0;border:var(--bw) solid var(--edge);border-radius:var(--r-md);background:var(--soft);
+  box-shadow:0 5px 0 var(--sh);padding:14px 15px;position:relative;z-index:2}
+.continue .top{display:flex;justify-content:space-between;align-items:center}
+.continue .kicker{font-size:10.5px;font-weight:900;letter-spacing:.07em;color:var(--soft-ink)}
+.continue b{font-size:17px;display:block;margin-top:6px;font-weight:900}
+.continue .sub{font-size:11.5px;color:var(--soft-ink);margin-top:3px;font-weight:700}
+.progress{height:12px;border-radius:99px;background:var(--paper);border:2px solid var(--edge);overflow:hidden;margin:11px 0}
+.progress i{display:block;height:100%;width:60%;background:var(--pop);border-radius:99px}
+.continue .btn{display:flex;align-items:center;justify-content:space-between;background:var(--edge);color:var(--cta);
+  height:46px;border-radius:var(--r-sm);padding:0 14px;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 var(--sh)}
+[data-theme="candy"] .continue .btn,[data-theme="forest"] .continue .btn{color:#fff}
+[data-theme="space"] .continue .btn{background:var(--pop);color:#241C4E;border-color:var(--edge)}
+.subjects{margin:14px 20px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:11px;position:relative;z-index:2}
+.subj{height:var(--sh-h,102px);border:var(--bw) solid var(--edge);border-radius:var(--r-md);background:var(--card);
+  box-shadow:0 5px 0 var(--sh);display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;text-align:left;
+  transition:transform .14s var(--ease);color:var(--ink)}
+.subj:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sh)}
+.subj .ic{width:54px;height:54px;flex:0 0 54px;border-radius:19px;display:grid;place-items:center;
+  background:var(--sc);border:2px solid var(--edge)}
+.subj .ic svg{width:31px;height:31px}
+.subj b{font-size:16px;display:block;font-weight:900}
+.subj small{font-size:10.5px;color:var(--ink-2);font-weight:700}
+.hwrail{display:flex;gap:11px;overflow-x:auto;padding:14px 20px 8px;scrollbar-width:none;position:relative;z-index:2}
+.hw{flex:0 0 210px;background:var(--card);border:var(--bw) solid var(--edge);border-radius:var(--r-md);
+  padding:13px;box-shadow:0 4px 0 var(--sh);cursor:pointer}
+.hw .tags{display:flex;gap:6px}
+.hw .tags span{font-size:10px;font-weight:900;background:var(--soft);border-radius:999px;padding:4px 8px;color:var(--soft-ink)}
+.hw b{display:block;font-size:14.5px;margin-top:10px;font-weight:900}
+.hw p{font-size:11px;color:var(--ink-2);margin:4px 0 0;font-weight:700}
+.nudge{margin:18px 20px 0;padding:12px 14px;border:var(--bw) dashed var(--mint);border-radius:var(--r-md);
+  background:var(--card);display:flex;align-items:center;gap:10px;position:relative;z-index:2}
+.nudge .em{font-size:25px}
+.nudge div{flex:1}
+.nudge b{font-size:12.5px;display:block;font-weight:900}
+.nudge span{font-size:11px;color:var(--ink-2);font-weight:700}
+.nudge button{border:var(--bw) solid var(--edge);background:var(--cta);color:var(--cta-ink);font-size:11.5px;
+  font-weight:900;padding:9px 12px;border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;box-shadow:0 3px 0 var(--sh)}
+
+/* ── AI 对话页 ────────────────────────────────── */
+.chat-page{height:100%;min-height:100%;display:flex;flex-direction:column}
+.chat-head{padding:6px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:var(--bw) solid var(--line);
+  background:var(--card);flex:0 0 auto}
+.chat-head .av{width:46px;height:46px;flex:0 0 46px;position:relative}
+.chat-head .av .dot{position:absolute;right:0;bottom:1px;width:12px;height:12px;border-radius:50%;
+  background:var(--ok);border:2px solid var(--card)}
+.chat-head .n{flex:1;min-width:0}
+.chat-head b{font-size:15.5px;display:block;font-weight:900}
+.chat-head span{font-size:11px;color:var(--ink-2);font-weight:700}
+.icon-btn{width:38px;height:38px;border-radius:14px;border:var(--bw) solid var(--edge);background:var(--card);
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 var(--sh);color:var(--ink)}
+.icon-btn svg{width:20px;height:20px}
+.chat-stream{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 16px 12px}
+.chat-stream::-webkit-scrollbar{display:none}
+.welcome{text-align:center;padding:18px 8px 2px}
+.welcome .big{width:104px;height:104px;margin:0 auto;animation:bob 3.4s ease-in-out infinite}
+.welcome h3{font-size:20px;margin:9px 0 5px;font-weight:900}
+.welcome p{font-size:12.5px;color:var(--ink-2);margin:0;line-height:1.6;font-weight:700}
+.roundq{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:18px 6px 6px}
+.roundq button{border:var(--bw) solid var(--edge);background:var(--card);border-radius:var(--r-md);
+  box-shadow:0 5px 0 var(--sh);padding:12px 5px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:6px;font-size:12px;font-weight:900;color:var(--ink);transition:transform .14s var(--ease)}
+.roundq button:active{transform:translateY(4px);box-shadow:0 1px 0 var(--sh)}
+.roundq button .em{font-size:30px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:15px 6px 6px}
+.chip{border:var(--bw) solid var(--edge);background:var(--card);border-radius:999px;padding:9px 13px;
+  font-size:12px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 var(--sh);color:var(--ink)}
+.msg{display:flex;gap:8px;margin:0 0 14px;align-items:flex-end;animation:msgIn .3s var(--ease) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.msg.me{justify-content:flex-end}
+.msg .bubble{max-width:76%;padding:11px 13px;border-radius:var(--r-md);font-size:14px;line-height:1.65;
+  border:var(--bw) solid var(--edge);font-weight:700}
+.msg.bot .bubble{background:var(--card);border-bottom-left-radius:8px;box-shadow:0 4px 0 var(--sh)}
+.msg.me .bubble{background:var(--cta);color:var(--cta-ink);border-bottom-right-radius:8px;box-shadow:0 4px 0 var(--sh)}
+.msg .av{width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:var(--card);border:var(--bw) solid var(--edge)}
+.bubble-actions{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+.tiny{font-size:10.5px;font-weight:900;border:2px solid var(--edge);background:var(--card);border-radius:999px;
+  padding:5px 9px;cursor:pointer;color:var(--ink)}
+.tdots{display:inline-flex;gap:4px;align-items:center;vertical-align:middle;margin-right:5px}
+.tdots i{width:6px;height:6px;border-radius:50%;background:var(--ink-2);animation:blink 1.1s infinite}
+.tdots i:nth-child(2){animation-delay:.18s}.tdots i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.composer{flex:0 0 auto;border-top:var(--bw) solid var(--line);background:var(--card);padding:9px 13px 11px}
+.suggest{display:flex;gap:8px;overflow-x:auto;margin-bottom:9px;scrollbar-width:none}
+.suggest span{flex:0 0 auto;font-size:11px;font-weight:800;background:var(--soft);border:2px solid var(--soft-edge);
+  border-radius:999px;padding:7px 11px;cursor:pointer;white-space:nowrap;color:var(--ink)}
+.input-row{display:flex;align-items:center;gap:9px}
+.mic{width:50px;height:50px;flex:0 0 50px;border-radius:50%;border:var(--bw) solid var(--edge);background:var(--pop);
+  color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 0 var(--sh);transition:transform .12s}
+.mic svg{width:23px;height:23px}
+.mic:active{transform:translateY(4px);box-shadow:0 0 0 var(--sh)}
+.mic.listening{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 4px 0 var(--sh),0 0 0 0 rgba(255,111,165,.55)}50%{box-shadow:0 4px 0 var(--sh),0 0 0 10px rgba(255,111,165,0)}}
+.chat-input{flex:1;min-width:0;height:50px;border:var(--bw) solid var(--edge);border-radius:var(--r-sm);
+  background:var(--card);padding:0 12px;font-size:13.5px;outline:none;color:var(--ink);font-weight:700}
+.chat-input:focus{box-shadow:0 0 0 3px var(--blob1)}
+.chat-input::placeholder{color:var(--ink-3)}
+.send{width:50px;height:50px;flex:0 0 50px;border-radius:var(--r-sm);border:var(--bw) solid var(--edge);
+  background:var(--cta);display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 0 var(--sh)}
+.send svg{width:21px;height:21px;color:var(--cta-ink)}
+.voice-only{display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 0 4px}
+.voice-only .bigmic{width:76px;height:76px;border-radius:50%;background:var(--pop);border:var(--bw) solid var(--edge);
+  box-shadow:0 6px 0 var(--sh);display:grid;place-items:center;cursor:pointer}
+.voice-only .bigmic svg{width:34px;height:34px;color:#fff}
+.voice-only .lbl{font-size:13px;font-weight:900}
+
+/* ── 弹层 / toast ─────────────────────────────── */
+.sheet-layer{position:absolute;inset:0;z-index:30;display:none}
+.sheet-layer.open{display:block}
+.sheet-mask{position:absolute;inset:0;background:rgba(20,16,35,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;
+  border-top:var(--bw) solid var(--edge);padding:20px 20px 28px;animation:sheetUp .3s var(--ease);color:var(--ink)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+.sheet .bar{width:46px;height:6px;border-radius:99px;background:var(--dash);margin:0 auto 16px}
+.sheet .head{display:flex;align-items:center;gap:11px}
+.sheet .head .em{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:29px;
+  background:var(--cta);border:var(--bw) solid var(--edge)}
+.sheet h4{margin:0;font-size:18px;font-weight:900}
+.sheet .head small{font-size:11px;color:var(--ink-2);font-weight:800}
+.sheet .fact{background:var(--soft);border:var(--bw) dashed var(--dash);border-radius:var(--r-md);padding:13px;
+  font-size:13.5px;line-height:1.7;margin:16px 0 18px;font-weight:700}
+.sheet .row{display:flex;gap:10px}
+.sheet .row button{flex:1;height:50px;border-radius:var(--r-sm);border:var(--bw) solid var(--edge);
+  font-size:13.5px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 var(--sh)}
+.sheet .row .primary{background:var(--cta);color:var(--cta-ink)}
+.sheet .row .ghost{background:var(--card);color:var(--ink)}
+#gtoast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,18px);background:#2E2A18;color:#FFF9E9;
+  padding:12px 20px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s var(--ease);z-index:100;box-shadow:0 10px 34px rgba(0,0,0,.35)}
+#gtoast.show{opacity:1;transform:translate(-50%,0)}
+
+body.annot .phone [data-note]{outline:1.5px dashed #E0524B;outline-offset:2px;position:relative}
+body.annot .phone [data-note]::after{content:attr(data-note);position:absolute;top:-15px;left:0;z-index:25;
+  background:#E0524B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap}
+
+/* ── 说明面板 ─────────────────────────────────── */
+.notes{margin-top:74px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:22px;padding:24px 26px}
+.panel.full{grid-column:1/-1}
+.panel h3{font-size:16px;margin:0 0 6px;color:#FFD84D}
+.panel .desc{font-size:12.5px;color:#8C94A1;line-height:1.7;margin:0 0 18px}
+.panel ul{margin:0;padding-left:18px;font-size:13px;line-height:1.85;color:#C3C9D3}
+.panel ul b{color:#EDEAE0}
+.theme-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.theme-table th,.theme-table td{text-align:left;padding:11px 9px;border-bottom:1px solid #2A303A;color:#B9C0CB;vertical-align:middle}
+.theme-table th{color:#7E8693;font-weight:700;font-size:11px;letter-spacing:.04em}
+.theme-table td b{color:#EDEAE0;font-weight:800}
+.sw2{display:inline-flex;gap:3px;vertical-align:middle;margin-right:7px}
+.sw2 i{width:14px;height:14px;border-radius:5px;border:1px solid rgba(255,255,255,.16)}
+.matrix{width:100%;border-collapse:collapse;font-size:12.5px}
+.matrix th,.matrix td{text-align:left;padding:10px 9px;border-bottom:1px solid #2A303A;color:#B9C0CB}
+.matrix th{color:#7E8693;font-size:11px;font-weight:700}
+.matrix td:first-child{color:#8C94A1}
+.foot{margin-top:34px;font-size:12px;color:#6E7581;line-height:1.8;border-top:1px solid #262C35;padding-top:20px}
+@media(max-width:980px){.notes{grid-template-columns:1fr}.panel.full{grid-column:auto}.picker{grid-template-columns:1fr}}
+@media(max-width:520px){.board{padding:32px 18px 70px}.device{width:100%;flex:1 1 100%}.phone{transform:scale(.92);transform-origin:top center}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+</style>
+</head>
+<body data-theme="candy">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-rhino" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="var(--rhino-bg,#FFE4F0)"/>
+    <ellipse cx="24" cy="42" rx="12" ry="15" fill="var(--rhino-ear,#FF9FC4)" stroke="var(--edge,#4A2A46)" stroke-width="3"/>
+    <ellipse cx="96" cy="42" rx="12" ry="15" fill="var(--rhino-ear,#FF9FC4)" stroke="var(--edge,#4A2A46)" stroke-width="3"/>
+    <ellipse cx="24" cy="43" rx="5.5" ry="7.5" fill="var(--rhino-inner,#FF6FA5)"/>
+    <ellipse cx="96" cy="43" rx="5.5" ry="7.5" fill="var(--rhino-inner,#FF6FA5)"/>
+    <rect x="21" y="29" width="78" height="72" rx="36" fill="var(--rhino-body,#FFC3DC)" stroke="var(--edge,#4A2A46)" stroke-width="3.5"/>
+    <path d="M49 32 Q59 3 72 30 Q61 37 49 32Z" fill="var(--rhino-horn,#FFF3B0)" stroke="var(--edge,#4A2A46)" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse cx="43" cy="59" rx="8" ry="9" fill="#fff"/><ellipse cx="77" cy="59" rx="8" ry="9" fill="#fff"/>
+    <ellipse cx="44" cy="60" rx="5" ry="6.5" fill="var(--edge,#4A2A46)"/>
+    <ellipse cx="78" cy="60" rx="5" ry="6.5" fill="var(--edge,#4A2A46)"/>
+    <circle cx="45.5" cy="57.5" r="2.1" fill="#fff"/><circle cx="79.5" cy="57.5" r="2.1" fill="#fff"/>
+    <ellipse cx="60" cy="81" rx="24" ry="16" fill="var(--rhino-snout,#FFE0EE)" stroke="var(--edge,#4A2A46)" stroke-width="3"/>
+    <ellipse cx="52" cy="80" rx="3.2" ry="4.2" fill="var(--edge,#4A2A46)"/>
+    <ellipse cx="68" cy="80" rx="3.2" ry="4.2" fill="var(--edge,#4A2A46)"/>
+    <path d="M53 88 Q60 94 67 88" fill="none" stroke="var(--edge,#4A2A46)" stroke-width="2.6" stroke-linecap="round"/>
+    <ellipse cx="31" cy="71" rx="7" ry="4.5" fill="#FF8FA8" opacity=".75"/>
+    <ellipse cx="89" cy="71" rx="7" ry="4.5" fill="#FF8FA8" opacity=".75"/>
+    <path d="M31 95 Q60 107 89 95 L89 103 Q60 115 31 103Z" fill="var(--rhino-scarf,#FF6FA5)" stroke="var(--edge,#4A2A46)" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="97" cy="88" r="9" fill="var(--rhino-body,#FFC3DC)" stroke="var(--edge,#4A2A46)" stroke-width="3"/>
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2 2 0 0 1 6 3h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 18.5A2 2 0 0 1 6 17h13v4H6a2 2 0 0 1-2-2.5z"/><path d="M9 7h6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.5"/><path d="M8.5 21.5h7"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l1.6 4.2-2 1.5a12 12 0 0 0 6.7 6.7l1.5-2L21 15v3a3 3 0 0 1-3.3 3A16 16 0 0 1 3 6.3 3 3 0 0 1 6 3z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-nums" viewBox="0 0 100 100">
+    <rect x="5" y="33" width="38" height="38" rx="11" fill="#fff" stroke="var(--edge,#4A2A46)" stroke-width="3" transform="rotate(-10 24 52)"/>
+    <text x="24" y="61" font-size="27" font-weight="900" text-anchor="middle" fill="var(--edge,#4A2A46)" transform="rotate(-10 24 52)">1</text>
+    <rect x="43" y="13" width="38" height="38" rx="11" fill="#fff" stroke="var(--edge,#4A2A46)" stroke-width="3" transform="rotate(12 62 32)"/>
+    <text x="62" y="41" font-size="27" font-weight="900" text-anchor="middle" fill="var(--edge,#4A2A46)" transform="rotate(12 62 32)">2</text>
+    <rect x="51" y="53" width="38" height="38" rx="11" fill="var(--pop,#FF6FA5)" stroke="var(--edge,#4A2A46)" stroke-width="3" transform="rotate(-7 70 72)"/>
+    <text x="70" y="81" font-size="27" font-weight="900" text-anchor="middle" fill="#fff" transform="rotate(-7 70 72)">3</text>
+  </symbol>
+  <symbol id="i-language" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h18a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-9l-6 4v-4H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" transform="translate(2)"/><path d="M9 14h11M9 18h7"/></symbol>
+  <symbol id="i-math" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="4" width="10" height="10" rx="3"/><rect x="18" y="18" width="10" height="10" rx="3"/><path d="M19 9h9M23.5 4.5v9"/></symbol>
+  <symbol id="i-science" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4h8M13 4v9l-7 12a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3l-7-12V4"/><path d="M9 20h14"/></symbol>
+  <symbol id="i-art" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4C9 4 4 8.8 4 15c0 6 4.6 9 8 9 2 0 2.6 3 5 3 2 0 2-2 4.5-2H24c3 0 4-2 4-5 0-6.5-5-12-12-12z"/><circle cx="10" cy="13" r="1.7" fill="var(--icon-ink,#4A2A46)" stroke="none"/><circle cx="16" cy="10" r="1.7" fill="var(--icon-ink,#4A2A46)" stroke="none"/><circle cx="22" cy="13" r="1.7" fill="var(--icon-ink,#4A2A46)" stroke="none"/></symbol>
+  <symbol id="i-social" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="16" r="12"/><path d="M4 16h24M16 4c4 4 5 8 5 12s-1 8-5 12M16 4c-4 4-5 8-5 12s1 8 5 12"/></symbol>
+  <symbol id="i-music" viewBox="0 0 32 32" fill="none" stroke="var(--icon-ink,#4A2A46)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 23V8l14-3v15"/><ellipse cx="8.5" cy="23.5" rx="3.5" ry="2.8"/><ellipse cx="22.5" cy="20.5" rx="3.5" ry="2.8"/></symbol>
+</defs></svg>
+
+<div class="board">
+  <span class="eyebrow">THEME SYSTEM · 孩子端 / AGE-ADAPTIVE SKINS</span>
+  <h1>孩子端 <em>卡通主题</em> v2<small>三套皮肤 · 按年龄切换</small></h1>
+  <p class="lede">v1 的「绘本克制版」保留不动。这一版往<b>更卡通</b>走：更大的圆角、更粗的描边、果冻式按压、贴纸倾斜、会挥手的小犀。
+    三套主题<b>不只是换色</b> —— 从 3–4 岁到 5–6 岁，每屏的可选动作数、字数、学科数量、输入方式都随年龄递增。点下面的主题卡即可全场换肤。</p>
+
+  <div class="picker" id="picker"></div>
+  <div class="toolbar">
+    <button class="tbtn on" id="btnScreens">三屏总览</button>
+    <button class="tbtn" id="btnCompare">三主题并排对比</button>
+    <button class="tbtn" id="btnFocus">单屏放大</button>
+    <button class="tbtn" id="btnAnnot">显示设计标注</button>
+  </div>
+  <p class="hint">对比模式会把三套主题的「首页」并排摆出，直接看配色与信息密度差异；每屏底部导航、主按钮、探索卡、AI 对话都可点。</p>
+
+  <main class="stage" id="stage"></main>
+
+  <section class="notes">
+    <div class="panel full">
+      <h3>01 · 三套主题 Token 对照</h3>
+      <p class="desc">所有颜色、圆角、描边、阴影都是 CSS 变量，换主题只切一个 <code>data-theme</code>，组件代码零改动。</p>
+      <table class="theme-table">
+        <tr><th>主题 / 年龄</th><th>色板</th><th>纸底</th><th>卡面</th><th>墨色</th><th>主操作</th><th>强调</th><th>圆角</th><th>描边</th></tr>
+        <tr><td><b>糖果云朵国</b><br><span style="color:#8C94A1;font-size:11px">3–4 岁</span></td>
+          <td><span class="sw2"><i style="background:#FFF2F7"></i><i style="background:#FF6FA5"></i><i style="background:#FFD84D"></i><i style="background:#7EC8FF"></i></span></td>
+          <td>#FFF2F7</td><td>#FFFFFF</td><td>#4A2A46</td><td>#FFD84D</td><td>#FF6FA5</td><td>34 / 26 / 18</td><td>3px</td></tr>
+        <tr><td><b>森林探险队</b><br><span style="color:#8C94A1;font-size:11px">4–5 岁</span></td>
+          <td><span class="sw2"><i style="background:#F1F8E6"></i><i style="background:#FF8A3D"></i><i style="background:#FFC93C"></i><i style="background:#8BD46A"></i></span></td>
+          <td>#F1F8E6</td><td>#FFFFFF</td><td>#22402C</td><td>#FFC93C</td><td>#FF8A3D</td><td>28 / 22 / 16</td><td>3px</td></tr>
+        <tr><td><b>星际小队</b><br><span style="color:#8C94A1;font-size:11px">5–6 岁</span></td>
+          <td><span class="sw2"><i style="background:#241C4E"></i><i style="background:#332A68"></i><i style="background:#4FE0D0"></i><i style="background:#FFD84D"></i></span></td>
+          <td>#241C4E</td><td>#332A68</td><td>#FFF5E6</td><td>#FFD84D</td><td>#4FE0D0</td><td>26 / 20 / 14</td><td>2.5px</td></tr>
+      </table>
+      <p class="desc" style="margin:14px 0 0">星际小队是唯一的深色皮肤：文字改用 <code>#FFF5E6</code>，描边改亮紫 <code>#7B69D6</code>，主按钮仍是黄底深字，浅字/深底对比约 13:1，仍满足 WCAG AA。</p>
+    </div>
+
+    <div class="panel">
+      <h3>02 · 年龄适配矩阵（关键差异）</h3>
+      <p class="desc">项目里的 <code>ageRange</code> 本来就有 <code>3-4</code> / <code>5-6</code> 两档，这套主题把第三档作为 4–5 岁过渡，让主题选择有真实数据依据。</p>
+      <table class="matrix">
+        <tr><th>维度</th><th>3–4 岁</th><th>4–5 岁</th><th>5–6 岁</th></tr>
+        <tr><td>首页主动作</td><td>1 个大按钮</td><td>2 个</td><td>3 个 + 任务清单</td></tr>
+        <tr><td>学科入口</td><td>2×2 共 4 个</td><td>2×3 共 6 个</td><td>2×3 共 6 个 + 关卡条</td></tr>
+        <tr><td>探索小卡</td><td>3 张超大卡</td><td>4 张</td><td>5 张紧凑卡</td></tr>
+        <tr><td>进度表达</td><td>3 颗大星星（纯图形）</td><td>进度环 + 数字</td><td>进度环 + 任务勾选</td></tr>
+        <tr><td>AI 输入方式</td><td>只有大麦克风 + 3 个圆按钮</td><td>语音 + 文字 + 3 chips</td><td>语音 + 文字 + 4 chips + 建议行</td></tr>
+        <tr><td>文案长度</td><td>≤ 8 字短句</td><td>≤ 15 字</td><td>可带说明与数据</td></tr>
+        <tr><td>按钮高度</td><td>66–76px</td><td>56–66px</td><td>48–56px</td></tr>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h3>03 · 相对 v1 的「卡通化」手法</h3>
+      <ul>
+        <li><b>角色变大、会动</b>：小犀 72px → 92px，重画大眼白 + 高光 + 微笑嘴 + 挥手小手，随主题换装（粉 / 绿 / 紫），常驻 bob 摆动。</li>
+        <li><b>更胖的形状</b>：主圆角 26 → 34px，按钮 18 → 26px，图标底 17 → 19px，整体更接近软胶玩具。</li>
+        <li><b>更粗的描边</b>：2px → 3px 实色描边（深色主题用亮紫），配 5–7px 实体下阴影，按下压 4px。</li>
+        <li><b>贴纸感</b>：主任务卡 -1.2° 倾斜 + 胶带装饰，探索卡 hover 再歪 1.5°，打破 v1 的规整网格。</li>
+        <li><b>对话气泡</b>：问候语改成带小尖角的气泡框，文案口语化（「今天先玩这个吧！」）。</li>
+        <li><b>装饰元素</b>：云朵 / 棒棒糖 / 树叶 / 星球按主题切换，背景加双色柔和光斑。</li>
+        <li><b>图形化激励</b>：低龄档用 3 颗可弹跳的大星星替代数字进度条，减少识字依赖。</li>
+        <li><b>克制底线</b>：动效均 &lt; 0.5s 且遵循 <code>prefers-reduced-motion</code>；所有触控目标 ≥ 44px，装饰不遮挡内容。</li>
+      </ul>
+    </div>
+
+    <div class="panel full">
+      <h3>04 · 落地建议</h3>
+      <ul>
+        <li><b>主题来源</b>：读用户 / 内容已有的 <code>ageRange</code>（<code>'3-4'</code> / <code>'5-6'</code>）自动选皮肤；4–5 岁过渡档可由家长在设置里手选，或按 <code>birthDate</code> 计算。</li>
+        <li><b>Flutter</b>：把本稿变量做成 <code>ThemeExtension&lt;LingxiChildTheme&gt;</code>（约 25 个字段），<code>MaterialApp</code> 按 <code>ageRange</code> 注入；卡片组件统一读 <code>context.extension</code>，禁止在组件里硬编码色值。现有 <code>app_theme.dart</code> 的 <code>childColors</code> 可映射为 <code>--s1..--s6</code>。</li>
+        <li><b>React Web</b>：在 <code>index.css</code> 里按 <code>[data-theme="candy|forest|space"]</code> 定义同名变量，根节点由 <code>AuthContext</code> 的 <code>user.ageRange</code> 写入 <code>data-theme</code>，Tailwind 用 <code>@theme inline</code> 引用变量即可，组件零改动。</li>
+        <li><b>密度差异</b>：不要把三档做成三套组件，而是同一组件读 <code>theme.level</code> 控制 <code>subjects / chips / textInput / tasks</code> 四个开关，避免三份代码分叉。</li>
+        <li><b>深色皮肤注意</b>：星际小队要单独校验上传图片、视频封面、Emoji 在深底上的可读性；护眼模式下建议自动回退到森林主题。</li>
+        <li><b>与 v1 的关系</b>：v1（<code>docs/child-ui-redesign-v1-20261112.html</code>）是「克制绘本版」，本稿是「卡通主题版」，两者共用同一套信息架构，可择一落地或做成家长端可切换的皮肤。</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">卡通主题 v2 · 2026-11-12 · 单文件自包含 HTML（内联 SVG / 无外部依赖）· 交互为演示用模拟数据 · 未改动业务代码、未提交 git。</p>
+</div>
+
+<div id="gtoast" role="status" aria-live="polite"></div>
+
+<script>
+const icon = (id) => '<svg><use href="#' + id + '"/></svg>';
+const rhino = (cls) => '<svg class="' + (cls || '') + '" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>';
+
+const DISC = [
+  { em:'☀️', t:'影子变短啦', c:'--s4', fact:'中午太阳升得最高，影子就变得最短；傍晚太阳低低的，影子又被拉得好长好长。去量量自己的影子吧！', ask:'给我讲讲影子' },
+  { em:'🌍', t:'认识日本', c:'--s2', fact:'日本由很多小岛组成，有高高的富士山，春天开满粉色樱花，人们见面会弯腰问好。', ask:'日本有什么好玩的？' },
+  { em:'🔢', t:'数字 7', c:'--s1', fact:'7 藏在小瓢虫背上、彩虹的颜色里，还藏在一周的天数里。家里有哪些东西正好是 7 个？', ask:'教我认数字 7' },
+  { em:'💡', t:'蜗牛爱睡觉', c:'--s3', fact:'天气太热太干时，蜗牛缩进壳里睡一个长长的觉，最长能睡好几年，等下过雨再出来散步。', ask:'蜗牛为什么睡那么久？' },
+  { em:'😄', t:'笑一笑', c:'--s6', fact:'为什么气球不喜欢读书呀？因为它一读书就「涨」得太大啦～ 笑一笑，今天又是棒棒的一天！', ask:'再讲个笑话吧' }
+];
+const SUBJ = [
+  { k:'语言', ic:'i-language', c:'--s1' }, { k:'数学', ic:'i-math', c:'--s2' },
+  { k:'科学', ic:'i-science', c:'--s3' }, { k:'艺术', ic:'i-art', c:'--s4' },
+  { k:'社会', ic:'i-social', c:'--s5' }, { k:'音乐', ic:'i-music', c:'--s6' }
+];
+
+const THEMES = {
+  candy: {
+    name:'糖果云朵国', age:'3–4 岁', tag:'图形优先 · 低认知负荷', level:0,
+    sw:['#FFF2F7','#FF6FA5','#FFD84D','#7EC8FF'],
+    desc:'草莓粉奶油底、34px 超大圆角、大眼小犀；每屏只给 1 个主动作，不依赖识字。',
+    deco:'☁️ ⭐ 🍭 🌈', greet:'嗨，小明！', sub:'今天玩点什么呀？', say:'今天先玩这个吧！',
+    star:'集满 3 颗换贴纸！', starSub:'已经拿到 2 颗啦', heroK:'今天玩这个', heroT:'数字宝宝 1–5',
+    heroM:'一起数苹果 🍎', heroB:'▶ 开始玩', aiT:'和小犀说说话', aiS:'点一下就能聊天啦',
+    discT:'哇！小发现 ✨', discN:3, quickN:2, subjects:4, chips:3, textInput:false, tasks:1,
+    learnT:'玩中学', learnS:'点一个大大的图标！', chatT:'我是小犀！', chatS:'点圆圆的小按钮，就能和我玩～',
+    badge:'🍭 连玩 3 天', cw:'176px', ch:'180px', qc:2, shh:'118px'
+  },
+  forest: {
+    name:'森林探险队', age:'4–5 岁', tag:'探索感 · 中等密度', level:1,
+    sw:['#F1F8E6','#FF8A3D','#FFC93C','#8BD46A'],
+    desc:'嫩芽绿 + 橘子橙，探险地图感；加入任务清单、进度环和文字输入，学科增至 6 个。',
+    deco:'🌿 🍃 🍄 🌳', greet:'出发啦，小明！', sub:'今天去哪边探险？', say:'小犀找到 2 个小任务～',
+    star:'今日小脚印', starSub:'还差 1 个就集满啦', heroK:'探险任务', heroT:'数字小侦探',
+    heroM:'数学 · 找出藏起来的 3', heroB:'🔍 出发', aiT:'问问小犀', aiS:'「树叶为什么会变黄？」',
+    discT:'沿途的小发现 🍃', discN:4, quickN:2, subjects:6, chips:3, textInput:true, tasks:2,
+    learnT:'探险地图', learnS:'选一条小路出发', chatT:'我是小犀向导！', chatS:'想问什么都可以，说或打字都行～',
+    badge:'🔥 连续 4 天', cw:'158px', ch:'168px', qc:2, shh:'102px'
+  },
+  space: {
+    name:'星际小队', age:'5–6 岁', tag:'深色酷感 · 高信息密度', level:2,
+    sw:['#241C4E','#332A68','#4FE0D0','#FFD84D'],
+    desc:'深紫夜空 + 荧光青/黄，火箭与星球装饰；任务清单、等级徽章、关卡进度，最像「大孩子」。',
+    deco:'✦ 🚀 ✧ 🪐', greet:'指挥官小明！', sub:'第 3 关已就绪', say:'完成 2 项就能解锁新徽章',
+    star:'本周能量', starSub:'再得 1 格升到 Lv.4', heroK:'今日主线 · Lv.3', heroT:'数字星球',
+    heroM:'数学 · 8 分钟 · 奖励 20 能量', heroB:'🚀 进入关卡', aiT:'呼叫小犀', aiS:'可问难题，也可让它出小测验',
+    discT:'星际情报站 📡', discN:5, quickN:3, subjects:6, chips:4, textInput:true, tasks:3,
+    learnT:'星图课程', learnS:'6 个星球，选一个降落', chatT:'小犀在线 🦏', chatS:'想聊什么、想练什么，说一声就行～',
+    badge:'⚡ Lv.3', cw:'148px', ch:'156px', qc:3, shh:'98px'
+  }
+};
+
+function starsHTML(T) {
+  if (T.level === 0) return '<div class="bigstars" data-note="低龄档 · 纯图形进度"><i>★</i><i>★</i><i class="off">★</i></div>';
+  return '<div class="stars" data-note="进度条 · 带数字"><div class="txt">' + T.star + '<small>' + T.starSub + '</small></div>' +
+    '<span class="slot on">★</span><span class="slot on">★</span><span class="slot">★</span></div>';
+}
+function tasksHTML(T) {
+  if (T.level === 0) return '';
+  const rows = T.level === 1
+    ? [['数一数小苹果','5 分钟',true],['找一找圆形','4 分钟',false]]
+    : [['热身：数数 1–10','已完成',true],['数字星球 · 连线','8 分钟',true],['小测验 · 3 题','待解锁',false]];
+  let s = '<div class="tasklist" data-note="任务清单 · 年龄越高越详细"><div class="th"><span>今日任务</span><span>' +
+          (T.level === 1 ? '1 / 2 完成' : '2 / 3 完成') + '</span></div>';
+  rows.forEach(r => { s += '<div class="taskrow' + (r[2] ? ' done' : '') + '"><span class="ck">' +
+    (r[2] ? '✓' : '') + '</span><span>' + r[0] + '</span><span class="tail">' + r[1] + '</span></div>'; });
+  return s + '</div>';
+}
+function homeHTML(T) {
+  let disc = '';
+  for (let i = 0; i < T.discN; i++) {
+    const d = DISC[i];
+    disc += '<button class="dcard" style="--c:var(' + d.c + ');--cw:' + T.cw + ';--ch:' + T.ch + '" data-act="discover" data-i="' + i + '">' +
+      '<span class="emo">' + d.em + '</span><b>' + d.t + '</b><p>' + (T.level === 0 ? d.t + '，点开看！' : d.fact.slice(0, 15) + '…') + '</p>' +
+      '<span class="more">点开看看 →</span></button>';
+  }
+  let quick = '';
+  const qs = T.level === 2 ? [['⭐','星星'],['🎵','儿歌'],['🏅','徽章']] : [['⭐','我的星星'],['🎵','听儿歌']];
+  qs.forEach(q => { quick += '<button class="qbtn" data-act="misc" data-t="' + q[1] + '"><span class="ic">' + q[0] + '</span>' + q[1] + '</button>'; });
+  return '<div class="screen" style="--qc:' + T.qc + '">' +
+    '<div class="deco big">' + T.deco + '</div>' +
+    '<section class="greet" data-note="角色 92px · 随主题换装"><div><h2>' + T.greet + '</h2><p>' + T.sub + '</p></div>' + rhino('rhino') + '</section>' +
+    '<div class="bubble-say">' + T.say + '</div>' +
+    starsHTML(T) +
+    '<section class="hero" data-note="贴纸倾斜 -1.2° · 3px 描边 / 7px 实体阴影">' +
+      '<span class="tape"></span><div class="hero-top"><span>' + T.heroK + '</span><span class="pill">' + (T.level === 2 ? 'Lv.3' : '1 / 3') + '</span></div>' +
+      '<h3>' + T.heroT + '</h3><div class="meta">' + T.heroM + '</div>' +
+      '<svg class="hero-art" viewBox="0 0 100 100"><use href="#i-nums"/></svg>' +
+      '<button class="hero-btn" data-act="start"><span>' + T.heroB + '</span></button>' +
+      '<div class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></div></section>' +
+    tasksHTML(T) +
+    '<div class="ai-entry" data-act="gochat"><svg class="mini" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+      '<div class="t"><b>' + T.aiT + '</b><span>' + T.aiS + '</span></div>' +
+      '<button class="go" aria-label="去和小犀聊天">' + icon('i-arrow') + '</button></div>' +
+    '<div class="sec"><h3>' + T.discT + '</h3><small data-act="shuffle">换一批 ›</small></div>' +
+    '<div class="rail" data-note="' + T.discN + ' 张探索卡 · 尺寸随年龄递减">' + disc + '</div>' +
+    '<div class="quick">' + quick + '</div></div>';
+}
+
+function learnHTML(T) {
+  let subs = '';
+  SUBJ.slice(0, T.subjects).forEach(s => {
+    subs += '<button class="subj" style="--sc:var(' + s.c + ');--sh-h:' + T.shh + '" data-act="subject" data-t="' + s.k + '">' +
+      '<span class="ic">' + icon(s.ic) + '</span><span><b>' + s.k + '</b><small>' + (T.level === 0 ? '点我玩' : (3 + (s.k.length % 4)) + ' 个内容') + '</small></span></button>';
+  });
+  const progress = T.level === 0
+    ? '<div class="bigstars"><i>★</i><i>★</i><i class="off">★</i></div>'
+    : '<div class="ring-row"><svg class="ring" viewBox="0 0 80 80"><circle cx="40" cy="40" r="31" fill="none" stroke="var(--line)" stroke-width="9"/>' +
+      '<circle cx="40" cy="40" r="31" fill="none" stroke="var(--ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="117 195" transform="rotate(-90 40 40)"/>' +
+      '<text x="40" y="45" text-anchor="middle" font-size="17" font-weight="900" fill="var(--ink)">12′</text></svg>' +
+      '<div><b>' + (T.level === 2 ? '能量 12 / 20' : '今天学了 12 分钟') + '</b><p>' + (T.level === 2 ? '再完成 1 关即可升级 ⚡' : '再来一小会儿就到目标啦 💪') + '</p></div></div>';
+  const cont = '<div class="continue"><div class="top"><span class="kicker">' + (T.level === 0 ? '接着玩' : '继续上次') + '</span><span style="font-size:11px;font-weight:900">60%</span></div>' +
+    '<b>' + T.heroT + '</b><div class="sub">' + (T.level === 0 ? '上次玩到数苹果啦' : '上次停在「数一数小苹果」') + '</div>' +
+    '<div class="progress"><i></i></div><div class="btn" data-act="misc" data-t="继续学习"><span>' +
+    (T.level === 0 ? '▶ 继续玩' : '接着学') + '</span><span>→</span></div></div>';
+  const hw = T.level === 0 ? '' :
+    '<div class="sec"><h3>' + (T.level === 2 ? '关卡作业' : '待完成作业') + '</h3><small>2 项 ›</small></div>' +
+    '<div class="hwrail"><div class="hw" data-act="misc" data-t="数一数小苹果"><div class="tags"><span>选择题</span><span>简单</span></div><b>数一数小苹果</b><p>数学 · 约 5 分钟</p></div>' +
+    '<div class="hw" data-act="misc" data-t="找一找圆形"><div class="tags"><span>听指令点一点</span><span>简单</span></div><b>找一找圆形</b><p>语言 · 约 4 分钟</p></div></div>';
+  return '<div class="screen"><div class="deco">' + T.deco + '</div>' +
+    '<div class="page-title"><div><h2>' + T.learnT + '</h2><p>' + T.learnS + '</p></div><span class="badge">' + T.badge + '</span></div>' +
+    progress + cont +
+    '<div class="sec"><h3>' + (T.level === 0 ? '选一个大图标 🎲' : '选个星球 / 学科 🎲') + '</h3><small>' + T.subjects + ' 个</small></div>' +
+    '<div class="subjects" data-note="' + T.subjects + ' 个学科 · 低龄档更大">' + subs + '</div>' +
+    hw +
+    '<div class="nudge"><span class="em">🦏</span><div><b>小犀有个主意</b><span>要不要试试「影子的秘密」？</span></div>' +
+      '<button data-act="ask" data-q="给我讲讲影子的秘密">问问它</button></div></div>';
+}
+
+function chatHTML(T) {
+  const round = T.level === 0
+    ? '<div class="roundq" data-note="低龄档 · 3 个超大圆形提问"><button data-act="quick" data-q="云为什么会下雨呀？"><span class="em">☁️</span>下雨</button>' +
+      '<button data-act="quick" data-q="恐龙去哪里了？"><span class="em">🦕</span>恐龙</button>' +
+      '<button data-act="quick" data-q="唱首小星星给我听"><span class="em">🎵</span>唱歌</button></div>'
+    : '<div class="chips">' +
+      (T.level === 1
+        ? '<button class="chip" data-act="quick" data-q="云为什么会下雨呀？">☁️ 云为什么会下雨？</button><button class="chip" data-act="quick" data-q="恐龙去哪里了？">🦕 恐龙去哪了？</button><button class="chip" data-act="quick" data-q="唱首小星星给我听">🎵 唱首小星星</button>'
+        : '<button class="chip" data-act="quick" data-q="云为什么会下雨呀？">☁️ 云为什么会下雨？</button><button class="chip" data-act="quick" data-q="恐龙去哪里了？">🦕 恐龙去哪了？</button><button class="chip" data-act="quick" data-q="考我 3 道数学题">🔢 考我 3 道题</button><button class="chip" data-act="quick" data-q="为什么天是蓝色的？">🌌 天为什么是蓝的？</button>') +
+      '</div>';
+  const composer = T.level === 0
+    ? '<div class="composer" data-note="低龄档 · 只有语音，无文字输入"><div class="voice-only">' +
+      '<div class="bigmic" data-act="mic">' + icon('i-mic') + '</div><span class="lbl">按住大按钮<br>说给小犀听 🎤</span></div></div>'
+    : '<div class="composer" data-note="语音 50px 主按钮 + 文字输入">' +
+      (T.level === 2 ? '<div class="suggest"><span data-act="quick" data-q="再讲一个笑话吧">再讲个笑话</span><span data-act="quick" data-q="教我认数字 3">教我认数字 3</span><span data-act="quick" data-q="给我出个小测验">出个小测验</span></div>' : '') +
+      '<div class="input-row"><button class="mic" data-act="mic" aria-label="按住说话">' + icon('i-mic') + '</button>' +
+      '<input class="chat-input" placeholder="和小犀说点什么…" aria-label="输入想说的话">' +
+      '<button class="send" data-act="send" aria-label="发送">' + icon('i-send') + '</button></div></div>';
+  return '<div class="chat-page"><div class="chat-head">' +
+    '<div class="av"><svg viewBox="0 0 120 120" style="width:100%;height:100%;border-radius:50%"><use href="#i-rhino"/></svg><i class="dot"></i></div>' +
+    '<div class="n"><b>小犀</b><span>' + (T.level === 0 ? '一直在，陪你玩' : '一直在，随时聊 · 会读给你听') + '</span></div>' +
+    '<button class="icon-btn" data-act="misc" data-t="语音通话" aria-label="语音通话">' + icon('i-phone') + '</button>' +
+    '<button class="icon-btn" data-act="newchat" aria-label="新建对话">' + icon('i-plus') + '</button></div>' +
+    '<div class="chat-stream"><div class="welcome">' + rhino('big') + '<h3>' + T.chatT + '</h3><p>' + T.chatS.replace('，','，<br>') + '</p></div>' +
+    round +
+    '<div class="msg bot"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg><div class="bubble">' +
+    (T.level === 0 ? '小明你好呀！想听故事，还是想玩游戏？🦏' : '小明早上好呀！今天想先听个故事，还是先玩个小游戏？🦏') +
+    '<div class="bubble-actions"><button class="tiny" data-act="read">🔊 读给我听</button></div></div></div></div>' +
+    composer + '</div>';
+}
+
+const TABS = [
+  { k:'home', label:'首页', ic:'i-home' }, { k:'learn', label:'学习', ic:'i-book' },
+  { k:'chat', label:'小犀', ai:true }, { k:'star', label:'成就', ic:'i-star' }, { k:'me', label:'我的', ic:'i-user' }
+];
+function tabbarHTML(active) {
+  let s = '';
+  TABS.forEach(t => {
+    if (t.ai) s += '<button class="tab ai' + (active === 'chat' ? ' on' : '') + '" data-act="tab" data-p="chat" aria-label="小犀对话">' +
+      '<span class="ai-ball">' + rhino('') + '</span><span class="lbl">小犀</span></button>';
+    else s += '<button class="tab' + (active === t.k ? ' on' : '') + '" data-act="tab" data-p="' + t.k + '">' +
+      '<span class="tab-ic">' + icon(t.ic) + '</span>' + t.label + '</button>';
+  });
+  return s;
+}
+
+let currentTheme = 'candy';
+let mode = 'screens';           // screens | compare
+const pageState = ['home','learn','chat'];   // 每台设备当前页（screens 模式）
+const stage = document.getElementById('stage');
+
+function labelFor(d, themeKey, page) {
+  const T = THEMES[themeKey];
+  if (mode === 'compare') return { n:String(d + 1).padStart(2,'0'), t:'首页 · ' + T.name, tag:T.age };
+  const names = { home:'首页 · Home', learn:'学习 · Learning', chat:'小犀对话 · AI Chat' };
+  return { n:String(d + 1).padStart(2,'0'), t:names[page], tag:T.name + ' · ' + T.age };
+}
+function captionFor(d, themeKey, page) {
+  const T = THEMES[themeKey];
+  if (mode === 'compare') return '<strong>' + T.name + '</strong>（' + T.age + '）：' + T.desc;
+  if (page === 'home') return '<strong>首页</strong> · ' + T.discN + ' 张探索卡、' + T.quickN + ' 个快捷键、' + (T.level === 0 ? '1 个主动作' : T.tasks + ' 项任务') + '。';
+  if (page === 'learn') return '<strong>学习</strong> · ' + T.subjects + ' 个学科入口，' + (T.level === 0 ? '纯图形星星进度' : '进度环 + 任务列表') + '。';
+  return '<strong>AI 对话</strong> · ' + (T.level === 0 ? '只有大麦克风 + 3 个图形提问，不要求识字' : T.chips + ' 个快捷提问 + 语音 + 文字输入') + '。';
+}
+
+function buildStage() {
+  const themes = mode === 'compare' ? ['candy','forest','space'] : [currentTheme,currentTheme,currentTheme];
+  const pages  = mode === 'compare' ? ['home','home','home'] : pageState.slice();
+  let html = '';
+  for (let d = 0; d < 3; d++) {
+    const L = labelFor(d, themes[d], pages[d]);
+    html += '<section class="device' + (d === 0 ? ' selected' : '') + '" data-d="' + d + '" data-theme="' + themes[d] + '">' +
+      '<div class="device-label" data-act="select" data-d="' + d + '"><b>' + L.n + '</b>' + L.t + '<span class="tag">' + L.tag + '</span></div>' +
+      '<div class="phone"><div class="notch"></div>' +
+      '<div class="statusbar"><span>9:41</span><span class="sb-r">' +
+        '<svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="4.5" y="6" width="3" height="6" rx="1" fill="currentColor"/><rect x="9" y="3" width="3" height="9" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>' +
+        '<svg width="15" height="12" viewBox="0 0 15 12"><path d="M1 4.2a9 9 0 0 1 13 0M3.6 7a5.4 5.4 0 0 1 7.8 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="7.5" cy="10" r="1.4" fill="currentColor"/></svg>' +
+        '<span class="battery"><i style="background:currentColor"></i></span></span></div>' +
+      '<div class="viewport" id="vp-' + d + '"></div>' +
+      '<nav class="tabbar" id="tab-' + d + '" aria-label="底部导航"></nav>' +
+      '<div class="sheet-layer" id="sheet-' + d + '"></div></div>' +
+      '<p class="device-caption">' + captionFor(d, themes[d], pages[d]) + '</p></section>';
+  }
+  stage.innerHTML = html;
+  pages.forEach((p, d) => render(d, p, themes[d]));
+}
+function render(d, page, themeKey) {
+  const T = THEMES[themeKey];
+  if (mode === 'screens') pageState[d] = page;
+  const vp = document.getElementById('vp-' + d);
+  vp.innerHTML = page === 'home' ? homeHTML(T) : page === 'learn' ? learnHTML(T) : chatHTML(T);
+  document.getElementById('tab-' + d).innerHTML = tabbarHTML(page);
+  vp.scrollTop = 0;
+  const stream = vp.querySelector('.chat-stream'); if (stream) stream.scrollTop = stream.scrollHeight;
+  if (page === 'chat' && statePending[d]) { const q = statePending[d]; statePending[d] = null; setTimeout(() => send(d, q), 300); }
+}
+const statePending = [null,null,null];
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('gtoast'); el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+}
+function replyFor(q) {
+  if (/雨|云|天气/.test(q)) return '云朵里藏着好多小水滴，它们挤呀挤、抱在一起变重了，就「哗啦啦」掉下来啦～ 要再听听彩虹的故事吗？☁️🌈';
+  if (/恐龙/.test(q)) return '恐龙很久以前住在地球上，后来天气变得好冷好冷，它们就慢慢不见了～ 不过骨头变成化石，还躺在博物馆里等你去看哦！🦕';
+  if (/唱|歌|星星|音乐/.test(q)) return '一闪一闪亮晶晶，满天都是小星星 ✨ 要不要一起去音乐乐园听完整版？小犀陪你唱第二句～';
+  if (/笑话|笑/.test(q)) return '为什么气球不喜欢读书呀？因为它一读书就「涨」得太大啦～ 🎈 还要再听一个吗？';
+  if (/影子/.test(q)) return '光走直线，被你挡住的地方就变暗了，那就是影子。傍晚太阳低低的，影子就被拉得好长好长～ 🌇';
+  if (/数字|数一数|题|测验/.test(q)) return '我们来数 3！🍎 🍎 🍎 三个红苹果～ 伸出三根手指，跟小犀一起数：一、二、三！';
+  if (/蓝色|天是蓝/.test(q)) return '阳光里藏着好多种颜色，空气最喜欢把蓝色小光波弹来弹去，弹得到处都是，抬头就看见蓝蓝的天啦～ 💙';
+  return '哇，这个问题好有意思！小犀陪你一起想～ 再告诉我一点点，比如它是什么颜色、什么形状呀？🦏';
+}
+function botBubble(text) {
+  return '<div class="msg bot"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg><div class="bubble">' + text +
+    '<div class="bubble-actions"><button class="tiny" data-act="read">🔊 读给我听</button>' +
+    '<button class="tiny" data-act="misc" data-t="我懂啦">👍 我懂啦</button></div></div></div>';
+}
+function send(d, text) {
+  const stream = document.querySelector('.device[data-d="' + d + '"] .chat-stream');
+  if (!stream || !text.trim()) return;
+  text = text.trim();
+  const old = stream.querySelector('#typing'); if (old) old.remove();
+  stream.insertAdjacentHTML('beforeend', '<div class="msg me"><div class="bubble">' + text.replace(/</g,'&lt;') + '</div></div>');
+  stream.insertAdjacentHTML('beforeend', '<div class="msg bot" id="typing"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+    '<div class="bubble"><span class="tdots"><i></i><i></i><i></i></span>小犀正在想…</div></div>');
+  stream.scrollTop = stream.scrollHeight;
+  setTimeout(() => {
+    const t = stream.querySelector('#typing'); if (t) t.remove();
+    stream.insertAdjacentHTML('beforeend', botBubble(replyFor(text)));
+    stream.scrollTop = stream.scrollHeight;
+  }, 900);
+}
+function openSheet(d, i) {
+  const item = DISC[i], layer = document.getElementById('sheet-' + d);
+  layer.innerHTML = '<div class="sheet-mask" data-act="close-sheet"></div><div class="sheet" role="dialog">' +
+    '<div class="bar"></div><div class="head"><span class="em">' + item.em + '</span><div><h4>' + item.t + '</h4><small>今天的小发现</small></div></div>' +
+    '<div class="fact">' + item.fact + '</div><div class="row"><button class="ghost" data-act="close-sheet">知道啦</button>' +
+    '<button class="primary" data-act="ask" data-q="' + item.ask + '">🦏 让小犀讲给我听</button></div></div>';
+  layer.classList.add('open');
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const dev = el.closest('.device'); const d = dev ? Number(dev.dataset.d) : 0;
+  const act = el.dataset.act;
+  switch (act) {
+    case 'tab': {
+      const p = el.dataset.p;
+      if (!['home','learn','chat'].includes(p)) { toast('「成就 / 我的」沿用同一套主题组件，本次未展开'); return; }
+      if (mode === 'compare') { setMode('screens'); currentTheme = dev.dataset.theme; syncPicker(); buildStage(); render(d, p, currentTheme); }
+      else render(d, p, dev.dataset.theme);
+      break;
+    }
+    case 'start': render(d, 'learn', dev.dataset.theme); toast('出发！已进入学习页'); break;
+    case 'gochat': render(d, 'chat', dev.dataset.theme); break;
+    case 'ask': {
+      document.getElementById('sheet-' + d).classList.remove('open');
+      statePending[d] = el.dataset.q;
+      if (pageState[d] === 'chat' && mode === 'screens') { const q = statePending[d]; statePending[d] = null; send(d, q); }
+      else render(d, 'chat', dev.dataset.theme);
+      break;
+    }
+    case 'quick': send(d, el.dataset.q); break;
+    case 'send': {
+      const input = el.closest('.composer').querySelector('.chat-input'); const v = input.value.trim();
+      if (!v) { toast('点一下大话筒，直接说给小犀听哦'); input.focus(); return; }
+      send(d, v); input.value = ''; break;
+    }
+    case 'mic': el.classList.toggle('listening'); toast(el.classList.contains('listening') ? '小犀在听你说～' : '好啦，小犀听到啦'); break;
+    case 'discover': openSheet(d, Number(el.dataset.i)); break;
+    case 'close-sheet': document.getElementById('sheet-' + d).classList.remove('open'); break;
+    case 'shuffle': toast('已换一批小发现（内置兜底知识，接口失败也不显示报错）'); break;
+    case 'read': toast('🔊 小犀正在读给你听～'); break;
+    case 'newchat': render(d, 'chat', dev.dataset.theme); toast('开启了一段新的对话'); break;
+    case 'subject': toast('进入「' + el.dataset.t + '」· ' + THEMES[dev.dataset.theme].age + '档'); break;
+    case 'misc': toast('「' + el.dataset.t + '」· 沿用当前主题的按压式组件'); break;
+    case 'select': {
+      document.querySelectorAll('.device').forEach(x => x.classList.remove('selected'));
+      dev.classList.add('selected'); toast('已选中该屏，可点「单屏放大」看细节'); break;
+    }
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.classList.contains('chat-input')) return;
+  e.preventDefault();
+  const dev = e.target.closest('.device'); const d = Number(dev.dataset.d); const v = e.target.value.trim();
+  if (!v) return; send(d, v); e.target.value = '';
+});
+
+/* ── 主题 / 视图控制 ─────────────────────────── */
+function syncPicker() {
+  document.querySelectorAll('.tcard').forEach(c => c.classList.toggle('on', c.dataset.k === currentTheme));
+}
+function buildPicker() {
+  let html = '';
+  Object.keys(THEMES).forEach(k => {
+    const T = THEMES[k];
+    html += '<button class="tcard' + (k === currentTheme ? ' on' : '') + '" data-k="' + k + '">' +
+      '<div class="top"><span class="sw">' + T.sw.map(c => '<i style="background:' + c + '"></i>').join('') + '</span>' +
+      '<b>' + T.name + '</b><span class="age">' + T.age + '</span></div><p>' + T.desc + '</p></button>';
+  });
+  document.getElementById('picker').innerHTML = html;
+  document.querySelectorAll('.tcard').forEach(c => c.addEventListener('click', () => {
+    currentTheme = c.dataset.k;
+    document.body.dataset.theme = currentTheme;
+    syncPicker();
+    if (mode === 'compare') setMode('screens');
+    buildStage();
+    toast('已切换到「' + THEMES[currentTheme].name + '」· ' + THEMES[currentTheme].age);
+  }));
+}
+function setMode(m) {
+  mode = m;
+  const bS = document.getElementById('btnScreens'), bC = document.getElementById('btnCompare'), bF = document.getElementById('btnFocus');
+  bS.classList.toggle('on', m === 'screens' && !stage.classList.contains('focus'));
+  bC.classList.toggle('on', m === 'compare');
+}
+document.getElementById('btnScreens').addEventListener('click', () => {
+  stage.classList.remove('focus'); mode = 'screens'; setMode('screens'); buildStage();
+});
+document.getElementById('btnCompare').addEventListener('click', () => {
+  stage.classList.remove('focus'); mode = 'compare'; setMode('compare'); buildStage();
+  toast('三套主题的首页并排对比 · 看配色与信息密度差异');
+});
+document.getElementById('btnFocus').addEventListener('click', () => {
+  const on = stage.classList.toggle('focus');
+  if (on && !stage.querySelector('.device.selected')) stage.querySelector('.device').classList.add('selected');
+  document.getElementById('btnFocus').textContent = on ? '退出放大' : '单屏放大';
+  document.getElementById('btnFocus').classList.toggle('on', on);
+});
+document.getElementById('btnAnnot').addEventListener('click', () => {
+  const on = document.body.classList.toggle('annot');
+  const b = document.getElementById('btnAnnot');
+  b.textContent = on ? '隐藏设计标注' : '显示设计标注'; b.classList.toggle('on', on);
+});
+
+/* URL 参数：?theme=forest / ?mode=compare，方便直接分享某一版效果 */
+const initParams = new URLSearchParams(location.search);
+const initTheme = initParams.get('theme');
+if (initTheme && THEMES[initTheme]) { currentTheme = initTheme; document.body.dataset.theme = initTheme; }
+if (initParams.get('mode') === 'compare') mode = 'compare';
+
+buildPicker();
+buildStage();
+setMode(mode);
+</script>
+</body>
+</html>

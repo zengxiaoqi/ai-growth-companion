@@ -13,7 +13,6 @@ import {
   Sparkles,
   ChevronDown,
   MessageCircle,
-  Music,
   Calculator,
   Microscope,
   Palette,
@@ -41,8 +40,17 @@ import type {
   GrowthReport,
 } from '@/types';
 import EmergencyCallDialog from './EmergencyCallDialog';
+import ChildThemeQuickSwitch from './ChildThemeQuickSwitch';
+import {
+  BigSubjectGrid,
+  ChildHomeHero,
+  DiscoveryCards,
+  type PrimaryTask,
+  type SubjectKey,
+} from './ChildHomeExperience';
 import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { useChildDensity } from '@/hooks/useChildDensity';
 
 interface StudentDashboardProps {
   onBack: () => void;
@@ -200,6 +208,7 @@ export default function StudentDashboard({
 
   const [pendingAssignments, setPendingAssignments] = useState<Assignment[]>([]);
   const [showEmergencyDialog, setShowEmergencyDialog] = useState(false);
+  const [showAllTasks, setShowAllTasks] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeRecIndex, setActiveRecIndex] = useState(0);
   const recommendationsRef = useRef<HTMLElement>(null);
@@ -378,30 +387,6 @@ export default function StudentDashboard({
     };
   }, [contentById, lessonTodoEntries, pendingAssignments.length, safeContents]);
 
-  const quickStats = useMemo(
-    () => [
-      {
-        label: '待完成',
-        value: pendingAssignments.length,
-        icon: ClipboardCheck,
-        tone: 'bg-error-container/20 text-error',
-      },
-      {
-        label: '推荐内容',
-        value: recommendations.length,
-        icon: Wand2,
-        tone: 'bg-secondary-container/40 text-on-secondary-container',
-      },
-      {
-        label: '已解锁成就',
-        value: achievements.length,
-        icon: Trophy,
-        tone: 'bg-tertiary-container/35 text-on-tertiary-container',
-      },
-    ],
-    [pendingAssignments.length, recommendations.length, achievements.length],
-  );
-
   const handlePlayContent = useCallback(
     async (contentId: number) => {
       if (!user?.id) {
@@ -457,6 +442,172 @@ export default function StudentDashboard({
     curriculumRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  /**
+   * 首屏唯一主任务：真实作业 → 结构化课程 → 推荐 → 首个内容 → 内置兜底。
+   * 任何一层为空都不会出现「暂无 / 暂时不可用」，最后一层永远有可行动作。
+   */
+  const primaryTask = useMemo<PrimaryTask>(() => {
+    const lesson = lessonTodoEntries[0];
+    if (lesson) {
+      return {
+        kicker: '今天先玩这个',
+        title: lesson.title,
+        meta: lesson.topic ? `${lesson.topic} · 六步小课程` : '看 · 听 · 读 · 写 · 练 · 评',
+        buttonLabel: '开始学习',
+        onStart: () => handlePlayContent(lesson.contentId),
+      };
+    }
+
+    const assignment = standaloneAssignments[0];
+    if (assignment) {
+      const normalizedType = normalizeActivityType(
+        assignment.activityType,
+        assignment.activityData,
+      );
+      const normalizedData = normalizeActivityData(
+        normalizedType,
+        assignment.activityData ?? { type: normalizedType, title: '练习' },
+      );
+      const linkedContent = assignment.contentId
+        ? contentById.get(assignment.contentId)
+        : undefined;
+      const title =
+        (typeof normalizedData.title === 'string' && normalizedData.title.trim()) ||
+        (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
+        linkedContent?.title ||
+        `${ACTIVITY_LABELS[normalizedType] || '小游戏'} 练习`;
+      return {
+        kicker: '今天先玩这个',
+        title,
+        meta: `${ACTIVITY_LABELS[normalizedType] || '小游戏'} · 难度 ${assignment.difficulty}`,
+        buttonLabel: '开始玩',
+        onStart: () =>
+          onOpenAssignment?.({
+            ...assignment,
+            activityType: normalizedType,
+            activityData: normalizedData,
+          }),
+      };
+    }
+
+    const recommendation = recommendations[0];
+    if (recommendation) {
+      return {
+        kicker: '小犀为你挑的',
+        title: recommendation.content.title,
+        meta: (recommendation.reason || '一起看看这个新内容').slice(0, 40),
+        buttonLabel: '开始学习',
+        onStart: () => handlePlayContent(recommendation.contentId),
+      };
+    }
+
+    const firstContent = safeContents[0];
+    if (firstContent) {
+      return {
+        kicker: '今天先玩这个',
+        title: firstContent.title,
+        meta: firstContent.topic || '跟着小犀一起探索',
+        buttonLabel: '开始学习',
+        onStart: () => handlePlayContent(firstContent.id),
+      };
+    }
+
+    return {
+      kicker: '今天先玩这个',
+      title: '认识数字 1–5',
+      meta: '一起数苹果，跟着小犀玩一关 🍎',
+      buttonLabel: '和小犀一起玩',
+      onStart: onOpenCompanion,
+    };
+  }, [
+    lessonTodoEntries,
+    standaloneAssignments,
+    recommendations,
+    safeContents,
+    contentById,
+    handlePlayContent,
+    onOpenAssignment,
+    onOpenCompanion,
+  ]);
+
+  /** 今日任务合并为一条列表，首屏只露 3 项，其余折叠 */
+  const todayTasks = useMemo(() => {
+    const items: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      tone: string;
+      onOpen: () => void;
+    }> = [];
+
+    standaloneAssignments.forEach((assignment) => {
+      const normalizedType = normalizeActivityType(
+        assignment.activityType,
+        assignment.activityData,
+      );
+      const normalizedData = normalizeActivityData(
+        normalizedType,
+        assignment.activityData ?? { type: normalizedType, title: '练习' },
+      );
+      const linkedContent = assignment.contentId
+        ? contentById.get(assignment.contentId)
+        : undefined;
+      const title =
+        (typeof normalizedData.title === 'string' && normalizedData.title.trim()) ||
+        (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
+        linkedContent?.title ||
+        `${ACTIVITY_LABELS[normalizedType] || '练习'} 练习`;
+      const topic =
+        (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
+        linkedContent?.topic ||
+        '';
+      items.push({
+        id: `assignment-${assignment.id}`,
+        title,
+        subtitle: `${topic ? `${topic} · ` : ''}${ACTIVITY_LABELS[normalizedType] || '练习'} · 难度 ${assignment.difficulty} · ${assignment.domain || linkedContent?.domain || '综合'}`,
+        tone: 'bg-tertiary-container text-on-tertiary-container',
+        onOpen: () =>
+          onOpenAssignment?.({
+            ...assignment,
+            activityType: normalizedType,
+            activityData: normalizedData,
+          }),
+      });
+    });
+
+    lessonTodoEntries.forEach((entry) => {
+      items.push({
+        id: `lesson-${entry.contentId}`,
+        title: entry.title,
+        subtitle: `看 · 听 · 读 · 写 · 练 · 评${entry.topic ? ` · ${entry.topic}` : ''}`,
+        tone: 'bg-primary-container text-on-primary-container',
+        onOpen: () => handlePlayContent(entry.contentId),
+      });
+    });
+
+    return items;
+  }, [
+    standaloneAssignments,
+    lessonTodoEntries,
+    contentById,
+    onOpenAssignment,
+    handlePlayContent,
+  ]);
+
+  const earnedStars = Math.min(3, Math.max(1, Math.ceil(achievements.length / 3)));
+
+  const handlePickSubject = useCallback(
+    (domain: Exclude<SubjectKey, 'music'>) => {
+      const contentId = domainContentId[domain];
+      if (contentId) {
+        handlePlayContent(contentId);
+        return;
+      }
+      scrollToSection('curriculum');
+    },
+    [domainContentId, handlePlayContent, scrollToSection],
+  );
+
   const handleSwitchToParent = useCallback(async () => {
     if (!parentPassword) {
       setSwitchError('请输入家长登录密码');
@@ -477,6 +628,15 @@ export default function StudentDashboard({
   }, [parentPassword, switchToParentMode, navigate]);
 
   const userName = user?.name || '小朋友';
+  const density = useChildDensity();
+
+  const secondaryActions = useMemo(
+    () => [
+      { label: '听小犀讲故事', emoji: '🎧', onSelect: onOpenCompanion },
+      { label: '看看我的成就', emoji: '🏅', onSelect: onOpenAchievements },
+    ],
+    [onOpenCompanion, onOpenAchievements],
+  );
 
   return (
     <div className="app-shell min-h-app">
@@ -510,6 +670,7 @@ export default function StudentDashboard({
               <ArrowsRightLeft className="h-4 w-4" />
               家长端
             </button>
+            <ChildThemeQuickSwitch />
             <button
               onClick={onOpenSettings}
               aria-label="打开设置"
@@ -522,119 +683,65 @@ export default function StudentDashboard({
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 md:px-6 md:pt-8">
-        <section className="panel-card-strong content-visibility-auto relative mb-6 overflow-hidden p-6 md:p-8">
-          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-3">
-              <p className="text-lg font-bold text-on-surface-variant">早上好，{userName}</p>
-              <h2 className="text-3xl font-medium leading-tight text-primary md:text-4xl">
-                今天也来一次有趣的学习冒险吧
-              </h2>
-              <div className="inline-flex items-center gap-2 rounded-full bg-tertiary-container px-4 py-2 text-sm font-medium text-on-tertiary-container">
-                <Star className="h-4 w-4 fill-current" />
-                当前状态: 准备就绪
-              </div>
-            </div>
-            <div className="mx-auto h-28 w-28 flex-shrink-0 md:mx-0 md:h-36 md:w-36">
-              <img
-                className="h-full w-full object-contain drop-shadow-xl"
-                src="/mascot.png"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-        </section>
+        <ChildHomeHero
+          userName={userName}
+          task={primaryTask}
+          stars={earnedStars}
+          onOpenCompanion={onOpenCompanion}
+          density={density}
+          secondaryActions={secondaryActions}
+        />
 
-        <section className="content-visibility-auto mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {quickStats.map((item) => (
-            <div key={item.label} className="panel-card flex items-center gap-3 px-4 py-3">
-              <div
-                className={cn('flex h-10 w-10 items-center justify-center rounded-xl', item.tone)}
-              >
-                <item.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-on-surface-variant">{item.label}</p>
-                <p className="text-xl font-medium tabular-nums text-on-surface">{item.value}</p>
-              </div>
-            </div>
-          ))}
-        </section>
+        <DiscoveryCards onOpenCompanion={onOpenCompanion} density={density} />
 
-        {pendingAssignments.length > 0 ? (
+        <BigSubjectGrid
+          onPick={handlePickSubject}
+          onMusic={() => navigate('/student/music')}
+          density={density}
+        />
+
+        {todayTasks.length > 0 ? (
           <section className="content-visibility-auto mb-8">
-            <h3 className="section-title mb-4 flex items-center gap-2 px-1">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
-              今日待完成
-            </h3>
-            <div className="space-y-3">
-              {standaloneAssignments.map((assignment) => {
-                const normalizedType = normalizeActivityType(
-                  assignment.activityType,
-                  assignment.activityData,
-                );
-                const normalizedData = normalizeActivityData(
-                  normalizedType,
-                  assignment.activityData ?? { type: normalizedType, title: '练习' },
-                );
-                const linkedContent = assignment.contentId
-                  ? contentById.get(assignment.contentId)
-                  : undefined;
-                const title =
-                  (typeof normalizedData.title === 'string' && normalizedData.title.trim()) ||
-                  (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
-                  linkedContent?.title ||
-                  `${ACTIVITY_LABELS[normalizedType] || normalizedType} 练习`;
-                const topic =
-                  (typeof normalizedData.topic === 'string' && normalizedData.topic.trim()) ||
-                  linkedContent?.topic ||
-                  '';
-
-                return (
-                  <button
-                    key={assignment.id}
-                    onClick={() =>
-                      onOpenAssignment?.({
-                        ...assignment,
-                        activityType: normalizedType,
-                        activityData: normalizedData,
-                      })
-                    }
-                    className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
-                  >
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-tertiary-container">
-                      <ClipboardList className="h-6 w-6 text-on-tertiary-container" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="truncate text-sm font-bold text-on-surface">{title}</h4>
-                      <p className="text-xs text-on-surface-variant">
-                        {topic ? `${topic} · ` : ''}
-                        {ACTIVITY_LABELS[normalizedType] || normalizedType} · 难度{' '}
-                        {assignment.difficulty} ·{' '}
-                        {assignment.domain || linkedContent?.domain || '综合'}
-                      </p>
-                    </div>
-                    <Play className="h-5 w-5 flex-shrink-0 text-primary" />
-                  </button>
-                );
-              })}
-
-              {lessonTodoEntries.map((lessonEntry) => (
+            <div className="mb-4 flex items-center justify-between gap-2 px-1">
+              <h3 className="section-title flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5 text-primary" />
+                今天要做的事
+              </h3>
+              {todayTasks.length > density.todayTasks ? (
                 <button
-                  key={`lesson-${lessonEntry.contentId}`}
-                  onClick={() => handlePlayContent(lessonEntry.contentId)}
+                  onClick={() => setShowAllTasks((prev) => !prev)}
+                  className="flex items-center gap-1 rounded-full bg-surface-container-high px-3 py-1.5 text-xs font-bold text-on-surface-variant"
+                >
+                  {showAllTasks ? (
+                    <>
+                      收起 <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      查看全部 ({todayTasks.length}) <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              ) : null}
+            </div>
+            <div className="space-y-3">
+              {(showAllTasks ? todayTasks : todayTasks.slice(0, density.todayTasks)).map((task) => (
+                <button
+                  key={task.id}
+                  onClick={task.onOpen}
                   className="panel-card flex w-full items-center gap-4 p-4 text-left transition-transform hover:-translate-y-0.5"
                 >
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-container">
-                    <BookOpen className="h-6 w-6 text-on-primary-container" />
+                  <div
+                    className={cn(
+                      'flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl',
+                      task.tone,
+                    )}
+                  >
+                    <ClipboardList className="h-6 w-6" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-bold text-on-surface">
-                      {lessonEntry.title}
-                    </h4>
-                    <p className="text-xs text-on-surface-variant">
-                      看 · 听 · 读 · 写 · 练 · 评
-                      {lessonEntry.topic ? ` · ${lessonEntry.topic}` : ''}
-                    </p>
+                    <h4 className="truncate text-sm font-bold text-on-surface">{task.title}</h4>
+                    <p className="truncate text-xs text-on-surface-variant">{task.subtitle}</p>
                   </div>
                   <Play className="h-5 w-5 flex-shrink-0 text-primary" />
                 </button>
@@ -691,57 +798,27 @@ export default function StudentDashboard({
           </div>
         </section>
 
-        <section className="content-visibility-auto mb-10 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {[
-            {
-              label: '课程地图',
-              icon: BookOpen,
-              onClick: () => scrollToSection('curriculum'),
-              style: 'bg-secondary-container text-on-secondary-container',
-            },
-            {
-              label: '推荐内容',
-              icon: Wand2,
-              onClick: () => scrollToSection('recommendations'),
-              style: 'bg-primary-container text-on-primary-container',
-            },
-            {
-              label: '我的成就',
-              icon: Trophy,
-              onClick: onOpenAchievements,
-              style: 'bg-tertiary-container text-on-tertiary-container',
-            },
-            {
-              label: '学习伙伴',
-              icon: MessageCircle,
-              onClick: onOpenCompanion,
-              style: 'bg-surface-container-highest text-on-surface',
-            },
-            {
-              label: '音乐乐园',
-              icon: Music,
-              onClick: () => navigate('/student/music'),
-              style: 'bg-secondary-container text-on-secondary-container',
-              className: 'col-span-2 sm:col-span-1',
-            },
-          ].map((item) => (
-            <button
-              key={item.label}
-              onClick={item.onClick}
-              className={cn(
-                'panel-card flex flex-col items-center gap-2 p-4 tactile-press',
-                item.className,
-              )}
-            >
-              <div
-                className={cn('flex h-12 w-12 items-center justify-center rounded-2xl', item.style)}
-              >
-                <item.icon className="h-6 w-6" />
-              </div>
-              <span className="text-sm font-bold text-on-surface">{item.label}</span>
-            </button>
-          ))}
-        </section>
+        {/* 原五宫格降级为一行轻量快捷入口：主视觉让给大图标学科区 */}
+        <div className="mb-10 flex flex-wrap gap-2 px-1">
+          <button
+            onClick={() => scrollToSection('curriculum')}
+            className="flex min-h-[44px] items-center rounded-full bg-surface-container-high px-4 py-2 text-xs font-bold text-on-surface-variant"
+          >
+            课程地图
+          </button>
+          <button
+            onClick={() => scrollToSection('recommendations')}
+            className="flex min-h-[44px] items-center rounded-full bg-surface-container-high px-4 py-2 text-xs font-bold text-on-surface-variant"
+          >
+            推荐内容
+          </button>
+          <button
+            onClick={onOpenAchievements}
+            className="flex min-h-[44px] items-center rounded-full bg-surface-container-high px-4 py-2 text-xs font-bold text-on-surface-variant"
+          >
+            我的成就
+          </button>
+        </div>
 
         <section className="content-visibility-auto mb-10">
           <h3 className="section-title mb-4 flex items-center gap-2 px-1">
@@ -1084,16 +1161,18 @@ export default function StudentDashboard({
                       </div>
                       <div>
                         <h4 className="text-lg font-medium text-on-surface">{item.category}</h4>
-                        <div className="mt-1 flex gap-1.5">
-                          {item.skills.map((skill) => (
-                            <span
-                              key={skill}
-                              className="rounded-md bg-surface-container px-2 py-0.5 text-xs font-medium text-on-surface-variant"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
+                        {density.showMeta ? (
+                          <div className="mt-1 flex gap-1.5">
+                            {item.skills.map((skill) => (
+                              <span
+                                key={skill}
+                                className="rounded-md bg-surface-container px-2 py-0.5 text-xs font-medium text-on-surface-variant"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
@@ -1113,7 +1192,7 @@ export default function StudentDashboard({
 
                   <div className="flex flex-wrap gap-2">
                     {item.topics.length > 0 ? (
-                      item.topics.map((topic) => (
+                      item.topics.slice(0, density.level === 0 ? 2 : undefined).map((topic) => (
                         <span
                           key={topic}
                           className="rounded-xl border border-outline-variant/20 bg-surface px-3 py-1.5 text-sm font-semibold text-on-surface-variant"

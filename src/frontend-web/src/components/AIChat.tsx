@@ -47,6 +47,25 @@ import type {
 import GameRenderer from './games/GameRenderer';
 import ChatMusicCard from './ai-chat/ChatMusicCard';
 import { normalizeActivityData, normalizeActivityType } from './ai-chat/activity-normalizer';
+import { useChildDensity } from '@/hooks/useChildDensity';
+
+/**
+ * 低龄档（3–4 岁）的图形提问：不依赖识字，emoji + 两字标签 + 完整问句。
+ * 与 docs/child-ui-themes-v2-20261112.html 的 chatHTML(level 0) 对齐。
+ */
+const CHILD_ROUND_PROMPTS = [
+  { em: '☁️', label: '下雨', q: '云为什么会下雨呀？' },
+  { em: '🦕', label: '恐龙', q: '恐龙去哪里了？' },
+  { em: '🎵', label: '唱歌', q: '唱首小星星给我听' },
+  { em: '🔢', label: '考我', q: '考我 3 道数学题' },
+] as const;
+
+/** 高龄档的建议行：比快捷提问更长尾，只在 level 2 出现 */
+const CHILD_SUGGESTIONS = [
+  { label: '再讲个笑话', q: '再讲一个笑话吧' },
+  { label: '教我认数字 3', q: '教我认数字 3' },
+  { label: '出个小测验', q: '给我出个小测验' },
+] as const;
 
 interface ToolStep {
   id: string;
@@ -347,6 +366,16 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
     : chatMode === 'casual'
       ? ['今天好好玩呀', '我发现了一个小秘密', '我今天有点开心']
       : ['帮我安排今天的学习计划', '出3道数学小游戏', '讲一个简短睡前故事'];
+
+  // 年龄密度档：level 0 图形提问 + 仅语音；level 2 多一个提问与建议行。
+  // 家长端强制保持中档行为，不受孩子端换肤影响。
+  const density = useChildDensity();
+  const isLowAgeChild = density.level === 0 && !isParentMode;
+  const isHighAgeChild = density.level === 2 && !isParentMode;
+  const quickPrompts = isHighAgeChild
+    ? [...starterPrompts, '为什么天是蓝色的？'].slice(0, density.quickPrompts)
+    : starterPrompts.slice(0, density.quickPrompts);
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -415,6 +444,8 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const hasVoiceInput =
     typeof window !== 'undefined' &&
     ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  // 设备不支持语音时必须保留文字输入，否则低龄档会没有任何输入方式。
+  const allowTextInput = density.textInput || isParentMode || !hasVoiceInput;
   const resolveAvatars = useCallback(() => {
     const contextUser = user as {
       id?: number;
@@ -985,7 +1016,13 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         transcript += event.results[i][0].transcript;
       }
-      setInput(transcript);
+      const lastResult = event.results[event.results.length - 1];
+      if (!allowTextInput) {
+        // 低龄档没有文字输入框：只在最终结果时直接发送，避免 interim 结果重复发消息。
+        if (lastResult?.isFinal && transcript.trim()) handleSendStream(transcript.trim());
+      } else {
+        setInput(transcript);
+      }
     };
 
     recognition.onend = () => {
@@ -1001,7 +1038,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
     recognitionRef.current = recognition;
     recognition.start();
     setIsRecording(true);
-  }, [isRecording]);
+  }, [isRecording, allowTextInput, handleSendStream]);
 
   // Auto-read: when a new assistant message finishes streaming, play it
   useEffect(() => {
@@ -1041,6 +1078,59 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
 
   const isSimpleGame = (type: ActivityType) => ['quiz', 'true_false', 'fill_blank'].includes(type);
   const showStarterPrompts = messages.length <= 1 && suggestions.length === 0 && !isLoading;
+
+  /** 全屏页与浮窗共用同一份密度分档渲染，避免两套组件逻辑分叉 */
+  const renderQuickPrompts = (compact: boolean) =>
+    isLowAgeChild ? (
+      <div className="child-round-prompts flex flex-wrap justify-center gap-3">
+        {CHILD_ROUND_PROMPTS.slice(0, density.quickPrompts).map((item) => (
+          <button
+            key={item.q}
+            onClick={() => handleSendStream(item.q)}
+            aria-label={item.q}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 rounded-full bg-primary-container font-bold text-on-primary-container shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active',
+              compact ? 'min-h-[72px] w-[72px]' : 'min-h-[88px] w-[88px]',
+            )}
+          >
+            <span className={compact ? 'text-xl' : 'text-2xl'} aria-hidden="true">
+              {item.em}
+            </span>
+            <span className="text-xs">{item.label}</span>
+          </button>
+        ))}
+      </div>
+    ) : (
+      <div className={cn('flex flex-wrap', compact ? 'gap-1.5' : 'gap-2')}>
+        {quickPrompts.map((prompt) => (
+          <button
+            key={prompt}
+            onClick={() => handleSendStream(prompt)}
+            className={cn(
+              'flex min-h-[44px] items-center rounded-full bg-primary-container/45 font-semibold text-on-primary-container hover:bg-primary-container/60',
+              compact ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
+            )}
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+    );
+
+  const renderChildSuggestions = (compact: boolean) =>
+    density.suggestions && !isParentMode && showStarterPrompts ? (
+      <div className={cn('flex gap-2 overflow-x-auto', compact ? 'px-3 pb-1.5' : 'px-4 pb-2')}>
+        {CHILD_SUGGESTIONS.map((item) => (
+          <button
+            key={item.q}
+            onClick={() => handleSendStream(item.q)}
+            className="flex min-h-[44px] items-center whitespace-nowrap rounded-full bg-tertiary-container px-3 py-1.5 text-xs font-medium text-on-tertiary-container"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
   const isFormalContentReady = useCallback((msg: Message, games: GameData[]) => {
     if (games.length === 0) return true;
     const completed = new Set(msg.completedGameIndexes || []);
@@ -1234,18 +1324,10 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               >
                 {showStarterPrompts && (
                   <div className="panel-card p-3.5">
-                    <p className="mb-2 text-xs font-bold text-on-surface-variant">快速开始</p>
-                    <div className="flex flex-wrap gap-2">
-                      {starterPrompts.map((prompt) => (
-                        <button
-                          key={prompt}
-                          onClick={() => handleSendStream(prompt)}
-                          className="rounded-full bg-primary-container/45 px-3 py-1.5 text-xs font-semibold text-on-primary-container hover:bg-primary-container/60"
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="mb-2 text-xs font-bold text-on-surface-variant">
+                      {isLowAgeChild ? '点一个圆圆的小按钮' : '快速开始'}
+                    </p>
+                    {renderQuickPrompts(false)}
                   </div>
                 )}
 
@@ -1461,49 +1543,71 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           </div>
         )}
 
-        {/* Input */}
+        {/* 高龄档建议行 */}
+        {viewMode === 'chat' && renderChildSuggestions(false)}
+
+        {/* Input：低龄档只保留大麦克风，识别结果直接发送 */}
         {viewMode === 'chat' && (
           <div className="p-4 border-t border-outline-variant/20 bg-surface-container-lowest/95">
-            <div className="flex gap-2 items-end">
-              {hasVoiceInput && (
+            {allowTextInput ? (
+              <div className="flex gap-2 items-end">
+                {hasVoiceInput && (
+                  <button
+                    onClick={handleToggleRecording}
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                      isRecording && !reducedMotion && 'animate-voice-pulse',
+                      isRecording
+                        ? 'bg-error text-white'
+                        : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
+                    )}
+                    aria-label={isRecording ? '停止录音' : '开始录音'}
+                  >
+                    {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                  </button>
+                )}
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isRecording ? '正在听你说...' : '输入问题，按 Enter 发送，Shift+Enter 换行'
+                  }
+                  className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[120px]"
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={() => handleSendStream()}
+                  disabled={!input.trim() || isLoading}
+                  className="w-10 h-10 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className="child-voice-only flex w-full flex-col items-center gap-2 py-2">
                 <button
                   onClick={handleToggleRecording}
+                  aria-label={isRecording ? '停止录音' : '按住说话，说给小犀听'}
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                    'flex min-h-[66px] min-w-[66px] items-center justify-center rounded-full shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active',
+                    isRecording ? 'bg-error text-white' : 'bg-primary text-on-primary',
                     isRecording && !reducedMotion && 'animate-voice-pulse',
-                    isRecording
-                      ? 'bg-error text-white'
-                      : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                   )}
-                  aria-label={isRecording ? '停止录音' : '开始录音'}
                 >
-                  {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                  {isRecording ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
                 </button>
-              )}
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isRecording ? '正在听你说...' : '输入问题，按 Enter 发送，Shift+Enter 换行'
-                }
-                className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[120px]"
-                disabled={isLoading}
-              />
-              <button
-                onClick={() => handleSendStream()}
-                disabled={!input.trim() || isLoading}
-                className="w-10 h-10 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </button>
-            </div>
+                <span className="text-sm font-bold text-on-surface-variant">
+                  按住大按钮，说给小犀听 🎤
+                </span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1842,19 +1946,9 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                     {showStarterPrompts && (
                       <div className="panel-card p-3">
                         <p className="mb-2 text-[11px] font-bold text-on-surface-variant">
-                          快速开始
+                          {isLowAgeChild ? '点一个圆圆的小按钮' : '快速开始'}
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {starterPrompts.map((prompt) => (
-                            <button
-                              key={prompt}
-                              onClick={() => handleSendStream(prompt)}
-                              className="rounded-full bg-primary-container/45 px-2.5 py-1 text-[11px] font-semibold text-on-primary-container hover:bg-primary-container/60"
-                            >
-                              {prompt}
-                            </button>
-                          ))}
-                        </div>
+                        {renderQuickPrompts(true)}
                       </div>
                     )}
 
@@ -2077,47 +2171,69 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
               </div>
             )}
 
-            {/* Input */}
+            {/* 高龄档建议行 */}
+            {viewMode === 'chat' && renderChildSuggestions(true)}
+
+            {/* Input：低龄档只保留大麦克风 */}
             {viewMode === 'chat' && (
               <div className="p-3 border-t border-outline-variant/20 flex-shrink-0 bg-surface-container-lowest/95">
-                <div className="flex gap-2 items-end">
-                  {hasVoiceInput && (
+                {allowTextInput ? (
+                  <div className="flex gap-2 items-end">
+                    {hasVoiceInput && (
+                      <button
+                        onClick={handleToggleRecording}
+                        className={cn(
+                          'touch-target w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                          isRecording && !reducedMotion && 'animate-voice-pulse',
+                          isRecording
+                            ? 'bg-error text-white'
+                            : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
+                        )}
+                        aria-label={isRecording ? '停止录音' : '开始录音'}
+                      >
+                        {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      </button>
+                    )}
+                    <textarea
+                      ref={inputRef}
+                      rows={1}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={isRecording ? '正在听你说...' : '输入问题，Enter 发送'}
+                      className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[110px]"
+                      disabled={isLoading}
+                    />
+                    <button
+                      onClick={() => handleSendStream()}
+                      disabled={!input.trim() || isLoading}
+                      className="touch-target w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="child-voice-only flex w-full flex-col items-center gap-1.5 py-1">
                     <button
                       onClick={handleToggleRecording}
+                      aria-label={isRecording ? '停止录音' : '按住说话，说给小犀听'}
                       className={cn(
-                        'touch-target w-8 h-8 rounded-full flex items-center justify-center transition-colors tactile-press flex-shrink-0',
+                        'flex min-h-[56px] min-w-[56px] items-center justify-center rounded-full shadow-tactile transition-tactile active:translate-y-0.5 active:shadow-tactile-active',
+                        isRecording ? 'bg-error text-white' : 'bg-primary text-on-primary',
                         isRecording && !reducedMotion && 'animate-voice-pulse',
-                        isRecording
-                          ? 'bg-error text-white'
-                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface',
                       )}
-                      aria-label={isRecording ? '停止录音' : '开始录音'}
                     >
-                      {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      {isRecording ? <MicOff className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
                     </button>
-                  )}
-                  <textarea
-                    ref={inputRef}
-                    rows={1}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={isRecording ? '正在听你说...' : '输入问题，Enter 发送'}
-                    className="flex-1 resize-none bg-surface-container border border-outline-variant/30 rounded-2xl px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-colors leading-5 max-h-[110px]"
-                    disabled={isLoading}
-                  />
-                  <button
-                    onClick={() => handleSendStream()}
-                    disabled={!input.trim() || isLoading}
-                    className="touch-target w-9 h-9 bg-tertiary rounded-full flex items-center justify-center text-white disabled:opacity-50 disabled:cursor-not-allowed tactile-press flex-shrink-0"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
+                    <span className="text-xs font-bold text-on-surface-variant">
+                      点一下，说给小犀听 🎤
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

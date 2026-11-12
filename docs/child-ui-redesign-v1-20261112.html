@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>灵犀伴学 · 孩子端 UI 重构设计稿 v1</title>
+<style>
+:root{
+  /* ── 设计系统 tokens ───────────────────────────── */
+  --paper:#FFF9E9; --paper-2:#FFFDF6;
+  --ink:#2E2A18; --ink-2:#6B6449; --ink-3:#8B8368;
+  --line:#EFE4C7; --dash:#E2D2A4;
+  --sun:#FFC93C; --sun-deep:#C98F00;
+  --coral:#F4795B; --mint:#37A98A; --sky:#4B9BD8; --grape:#9B7BD4;
+  --c-language:#F08A6C; --c-math:#5AA9C8; --c-science:#67B58A;
+  --c-art:#E9A94C; --c-social:#A98BD0; --c-music:#E887A0;
+  --r-lg:26px; --r-md:20px; --r-sm:14px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px; --sp-8:32px; --sp-12:48px;
+  --shadow-tactile:0 4px 0 rgba(46,42,24,.14);
+  --ease:cubic-bezier(.25,1,.5,1);
+  --board:#14171D; --panel:#1C2028; --panel-line:#2C323D; --board-text:#EDEAE0; --board-dim:#9BA2AF;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--board);color:var(--board-text);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+.board{max-width:1520px;margin:0 auto;padding:52px 40px 110px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.16em;
+  color:var(--sun);border:1px solid #4A4327;background:#211F17;padding:7px 13px;border-radius:999px}
+.board h1{font-size:clamp(30px,3.4vw,46px);font-weight:800;letter-spacing:-.025em;margin:18px 0 10px;line-height:1.2}
+.board h1 em{font-style:normal;color:var(--sun)}
+.board h1 small{font-size:15px;font-weight:700;color:var(--board-dim);letter-spacing:0;margin-left:12px;vertical-align:middle}
+.lede{color:var(--board-dim);font-size:15px;line-height:1.75;max-width:820px;margin:0}
+.lede b{color:#D7DBE3;font-weight:700}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.tbtn{border:1px solid #3A414D;background:#20242C;color:#D7DBE3;border-radius:12px;padding:10px 16px;
+  font-size:12.5px;font-weight:700;cursor:pointer;transition:transform .15s var(--ease),background .15s}
+.tbtn:hover{background:#2A303A;transform:translateY(-2px)}
+.tbtn.on{background:var(--sun);color:#2E2A18;border-color:var(--sun)}
+.hint{font-size:12px;color:#6E7581;margin-top:14px}
+
+/* ── 舞台 / 设备 ───────────────────────────────── */
+.stage{display:flex;gap:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin-top:48px}
+.device{width:412px;flex:0 0 412px;cursor:default}
+.device-label{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#C7CBD4;margin-bottom:14px;
+  letter-spacing:.03em;cursor:pointer;user-select:none}
+.device-label b{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#2A303A;
+  color:var(--sun);font-size:11px;font-weight:800}
+.device-label span.tag{margin-left:auto;font-size:10.5px;color:#777F8C;border:1px solid #343B46;padding:3px 8px;border-radius:999px}
+.device-caption{font-size:12.5px;color:#8F96A3;line-height:1.7;margin:16px 8px 0}
+.device-caption strong{color:#C7CBD4;font-weight:700}
+.stage.focus .device{display:none}
+.stage.focus .device.selected{display:block}
+.stage.focus .device.selected .phone{transform:scale(1.05);transform-origin:top center}
+.stage.focus{transition:.3s}
+
+.phone{position:relative;width:390px;height:844px;margin:0 auto;background:var(--paper);
+  border:9px solid #262B33;border-radius:46px;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 34px 70px rgba(0,0,0,.5),0 0 0 1px #3A414C;color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:112px;height:24px;
+  background:#262B33;border-radius:0 0 16px 16px;z-index:10}
+.statusbar{flex:0 0 36px;height:36px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px;font-size:12.5px;font-weight:800;color:var(--ink);z-index:9}
+.statusbar .sb-r{display:flex;align-items:center;gap:6px}
+.battery{width:22px;height:11px;border:1.8px solid var(--ink);border-radius:3px;position:relative}
+.battery::after{content:"";position:absolute;right:-4px;top:2.5px;width:2.5px;height:4px;background:var(--ink);border-radius:0 2px 2px 0}
+.battery i{position:absolute;inset:1.5px;width:70%;background:var(--ink);border-radius:1px}
+.viewport{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative;
+  background:radial-gradient(circle at 10% 6%,rgba(255,201,60,.13),transparent 36%),
+             radial-gradient(circle at 92% 24%,rgba(75,155,216,.10),transparent 32%),var(--paper)}
+.viewport::-webkit-scrollbar,.rail::-webkit-scrollbar,.suggest::-webkit-scrollbar,.hwrail::-webkit-scrollbar{display:none}
+.screen{padding-bottom:24px;min-height:100%}
+
+/* ── 底部导航 ─────────────────────────────────── */
+.tabbar{flex:0 0 78px;height:78px;display:flex;align-items:center;justify-content:space-around;
+  background:var(--paper-2);border-top:2px solid var(--line);padding:0 6px 4px;position:relative;z-index:8}
+.tab{width:62px;min-height:58px;border:0;background:transparent;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--ink-3);font-size:10.5px;font-weight:800}
+.tab .tab-ic{width:40px;height:28px;border-radius:11px;display:grid;place-items:center;transition:background .2s}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--ink)}
+.tab.on .tab-ic{background:#FFE9A8}
+.tab.ai{gap:1px;justify-content:flex-start;padding-top:0}
+.ai-ball{width:58px;height:58px;border-radius:50%;background:var(--sun);border:3px solid var(--ink);
+  box-shadow:0 5px 0 var(--sun-deep);display:grid;place-items:center;margin-top:-30px;transition:transform .15s var(--ease)}
+.ai-ball svg{width:38px;height:38px}
+.tab.ai:active .ai-ball{transform:translateY(3px)}
+.tab.ai .lbl{margin-top:2px}
+
+/* ── 首页 ─────────────────────────────────────── */
+.greet{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 20px 0}
+.greet h2{font-size:27px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;line-height:1.25}
+.greet p{font-size:13.5px;color:var(--ink-2);margin:0;font-weight:600}
+.rhino{width:72px;height:72px;flex:0 0 72px;animation:bob 3.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
+.stars{margin:18px 20px 0;padding:11px 14px;border:2px dashed var(--dash);border-radius:18px;
+  display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.55)}
+.stars .txt{font-size:12px;font-weight:800;margin-right:auto;white-space:nowrap}
+.stars .txt small{display:block;font-size:10.5px;color:var(--ink-3);font-weight:600;margin-top:2px}
+.slot{width:24px;height:24px;flex:0 0 24px;display:grid;place-items:center;font-size:16px;
+  border-radius:50%;background:#F2ECD8;filter:grayscale(1);opacity:.45}
+.slot.on{background:#FFF0B8;filter:none;opacity:1;box-shadow:0 0 0 1.5px #E9B93C}
+
+.quest{margin:22px 20px 0;background:var(--sun);border:2.5px solid var(--ink);border-radius:var(--r-lg);
+  box-shadow:0 6px 0 var(--sun-deep);padding:17px 18px 16px;position:relative;overflow:hidden}
+.quest::before{content:"";position:absolute;right:-34px;top:-38px;width:130px;height:130px;border-radius:50%;
+  background:rgba(255,255,255,.28)}
+.quest-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:800;
+  letter-spacing:.08em;position:relative}
+.quest-top .pill{background:var(--ink);color:var(--sun);padding:4px 10px;border-radius:999px;letter-spacing:0}
+.quest-title{font-size:23px;font-weight:800;margin:14px 0 5px;position:relative;letter-spacing:-.02em}
+.quest-meta{font-size:12.5px;color:#5A4A12;font-weight:700;position:relative}
+.quest-art{position:absolute;right:12px;top:48px;width:88px;height:88px}
+.quest-btn{width:100%;height:54px;margin-top:18px;border:0;border-radius:18px;background:var(--ink);
+  color:var(--paper);font-size:16.5px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  gap:10px;cursor:pointer;box-shadow:0 4px 0 #17150B;transition:transform .12s,box-shadow .12s;position:relative}
+.quest-btn:active{transform:translateY(4px);box-shadow:0 0 0 #17150B}
+.quest-btn .arr{font-size:19px;line-height:1}
+.dots{display:flex;gap:6px;margin-top:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:rgba(46,42,24,.22)}
+.dot.on{background:var(--ink)}
+
+.ai-entry{margin:18px 20px 0;background:#EAF4FB;border:2px solid var(--ink);border-radius:22px;
+  box-shadow:var(--shadow-tactile);padding:11px 13px;display:flex;align-items:center;gap:11px}
+.ai-entry .mini{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
+.ai-entry .t{flex:1;min-width:0}
+.ai-entry b{font-size:14px;display:block;font-weight:800}
+.ai-entry span{font-size:11.5px;color:#4E6A7D;display:block;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.go{width:44px;height:44px;flex:0 0 44px;border-radius:50%;border:2px solid var(--ink);background:#fff;
+  display:grid;place-items:center;cursor:pointer;font-size:18px;box-shadow:0 3px 0 rgba(46,42,24,.18);transition:transform .14s var(--ease)}
+.go svg{width:21px;height:21px;color:var(--ink)}
+.go:active{transform:translateY(3px);box-shadow:0 0 0 rgba(46,42,24,.18)}
+
+.sec{margin:26px 20px 0;display:flex;align-items:baseline;justify-content:space-between}
+.sec h3{font-size:17.5px;font-weight:800;margin:0;letter-spacing:-.01em}
+.sec small{font-size:11.5px;color:var(--ink-3);font-weight:700;cursor:pointer}
+.rail{display:flex;gap:12px;overflow-x:auto;padding:14px 20px 8px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.dcard{flex:0 0 148px;height:156px;scroll-snap-align:start;background:var(--paper-2);border:2px solid var(--c);
+  border-radius:var(--r-md);box-shadow:var(--shadow-tactile);padding:12px;display:flex;flex-direction:column;
+  cursor:pointer;text-align:left;transition:transform .16s var(--ease),box-shadow .16s var(--ease)}
+.dcard:hover{transform:translateY(-3px);box-shadow:0 7px 0 rgba(46,42,24,.14)}
+.dcard:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(46,42,24,.14)}
+.dcard .emo{width:42px;height:42px;border-radius:14px;background:var(--c-soft);display:grid;place-items:center;font-size:23px}
+.dcard b{font-size:13.5px;font-weight:800;margin-top:10px}
+.dcard p{font-size:11.5px;line-height:1.5;color:var(--ink-2);margin:4px 0 0;flex:1;font-weight:600}
+.dcard .more{font-size:10.5px;font-weight:800;color:var(--c);letter-spacing:.02em}
+.quick{margin:18px 20px 0;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qbtn{height:62px;border:2px solid var(--ink);border-radius:var(--r-md);background:var(--paper-2);
+  box-shadow:var(--shadow-tactile);display:flex;align-items:center;gap:10px;padding:0 13px;font-size:13.5px;
+  font-weight:800;cursor:pointer;transition:transform .14s var(--ease)}
+.qbtn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(46,42,24,.14)}
+.qbtn .ic{font-size:23px}
+
+/* ── 学习页 ───────────────────────────────────── */
+.page-title{padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between}
+.page-title h2{font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em}
+.page-title p{font-size:12px;color:var(--ink-3);margin:4px 0 0;font-weight:600}
+.badge-streak{font-size:11.5px;font-weight:800;background:#FFE9C9;border:2px solid var(--c-art);
+  border-radius:999px;padding:6px 11px;white-space:nowrap}
+.ring-row{margin:20px 20px 0;display:flex;align-items:center;gap:15px;padding:13px 15px;
+  border:2px solid var(--line);border-radius:22px;background:var(--paper-2)}
+.ring{width:72px;height:72px;flex:0 0 72px}
+.ring-row b{font-size:18px;font-weight:800}
+.ring-row p{font-size:12px;color:var(--ink-2);margin:5px 0 0;line-height:1.5;font-weight:600}
+.continue{margin:22px 20px 0;border:2px solid var(--ink);border-radius:22px;background:#EAF4FB;
+  box-shadow:0 5px 0 rgba(46,42,24,.16);padding:15px 16px}
+.continue .top{display:flex;justify-content:space-between;align-items:center}
+.continue .kicker{font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#3B6E92}
+.continue b{font-size:17px;display:block;margin-top:7px;font-weight:800}
+.continue .sub{font-size:11.5px;color:#4E6A7D;margin-top:3px;font-weight:600}
+.progress{height:10px;border-radius:99px;background:#D5E5F0;overflow:hidden;margin:12px 0 11px}
+.progress i{display:block;height:100%;width:60%;background:var(--sky);border-radius:99px}
+.continue .btn{display:flex;align-items:center;justify-content:space-between;background:var(--ink);color:#fff;
+  height:44px;border-radius:14px;padding:0 14px;font-size:13.5px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #17150B}
+.subjects{margin:14px 20px 0;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.subj{height:100px;border:2px solid var(--ink);border-radius:var(--r-md);background:var(--paper-2);
+  box-shadow:var(--shadow-tactile);display:flex;align-items:center;gap:11px;padding:11px;cursor:pointer;
+  text-align:left;transition:transform .14s var(--ease),box-shadow .14s}
+.subj:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(46,42,24,.14)}
+.subj .ic{width:50px;height:50px;flex:0 0 50px;border-radius:17px;display:grid;place-items:center;background:var(--sc)}
+.subj .ic svg{width:29px;height:29px}
+.subj b{font-size:15.5px;display:block;font-weight:800}
+.subj small{font-size:10.5px;color:var(--ink-3);font-weight:600}
+.hwrail{display:flex;gap:12px;overflow-x:auto;padding:14px 20px 8px;scrollbar-width:none}
+.hw{flex:0 0 216px;background:var(--paper-2);border:2px solid var(--line);border-radius:18px;padding:13px;
+  box-shadow:var(--shadow-tactile);cursor:pointer}
+.hw .tags{display:flex;gap:6px}
+.hw .tags span{font-size:10px;font-weight:800;background:#F3EDD9;border-radius:999px;padding:4px 8px;color:var(--ink-2)}
+.hw b{display:block;font-size:14.5px;margin-top:10px;font-weight:800}
+.hw p{font-size:11px;color:var(--ink-3);margin:4px 0 0;font-weight:600}
+.nudge{margin:18px 20px 0;padding:13px 15px;border:2px dashed var(--c-science);border-radius:18px;
+  background:#EDF8F2;display:flex;align-items:center;gap:11px}
+.nudge .em{font-size:24px}
+.nudge div{flex:1}
+.nudge b{font-size:12.5px;display:block;font-weight:800}
+.nudge span{font-size:11px;color:#4C7A66;font-weight:600}
+.nudge button{border:0;background:var(--mint);color:#fff;font-size:11.5px;font-weight:800;
+  padding:9px 12px;border-radius:12px;cursor:pointer;white-space:nowrap}
+
+/* ── AI 对话页 ────────────────────────────────── */
+.chat-page{height:100%;min-height:100%;display:flex;flex-direction:column}
+.chat-head{padding:6px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:2px solid var(--line);
+  background:var(--paper-2);flex:0 0 auto}
+.chat-head .av{width:44px;height:44px;flex:0 0 44px;position:relative}
+.chat-head .av .dot{position:absolute;right:0;bottom:1px;width:11px;height:11px;border-radius:50%;
+  background:var(--mint);border:2px solid var(--paper-2)}
+.chat-head .n{flex:1;min-width:0}
+.chat-head b{font-size:15.5px;display:block;font-weight:800}
+.chat-head span{font-size:11px;color:var(--ink-2);font-weight:600}
+.icon-btn{width:38px;height:38px;border-radius:13px;border:2px solid var(--ink);background:#fff;
+  display:grid;place-items:center;cursor:pointer;font-size:16px;box-shadow:0 2px 0 rgba(46,42,24,.16)}
+.icon-btn svg{width:20px;height:20px}
+.chat-stream{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 16px 12px}
+.chat-stream::-webkit-scrollbar{display:none}
+.welcome{text-align:center;padding:20px 8px 4px}
+.welcome .big{width:96px;height:96px;margin:0 auto;animation:bob 4s ease-in-out infinite}
+.welcome h3{font-size:19px;margin:10px 0 6px;font-weight:800}
+.welcome p{font-size:12.5px;color:var(--ink-2);margin:0;line-height:1.6;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:15px 6px 6px}
+.chip{border:2px solid var(--dash);background:var(--paper-2);border-radius:999px;padding:9px 13px;
+  font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 rgba(46,42,24,.10);transition:transform .14s var(--ease)}
+.chip:active{transform:translateY(3px);box-shadow:0 0 0 rgba(46,42,24,.10)}
+.msg{display:flex;gap:8px;margin:0 0 14px;align-items:flex-end;animation:msgIn .3s var(--ease) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.msg.me{justify-content:flex-end}
+.msg .bubble{max-width:76%;padding:11px 13px;border-radius:20px;font-size:14px;line-height:1.65;
+  border:2px solid var(--ink);font-weight:600}
+.msg.bot .bubble{background:var(--paper-2);border-bottom-left-radius:8px;box-shadow:0 3px 0 rgba(46,42,24,.12)}
+.msg.me .bubble{background:#FFE9A8;border-bottom-right-radius:8px;box-shadow:0 3px 0 rgba(46,42,24,.12)}
+.msg .av{width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
+.bubble-actions{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+.tiny{font-size:10.5px;font-weight:800;border:1.5px solid var(--dash);background:#fff;border-radius:999px;
+  padding:5px 9px;cursor:pointer}
+.tdots{display:inline-flex;gap:4px;align-items:center;vertical-align:middle;margin-right:5px}
+.tdots i{width:6px;height:6px;border-radius:50%;background:var(--ink-3);animation:blink 1.1s infinite}
+.tdots i:nth-child(2){animation-delay:.18s}.tdots i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.composer{flex:0 0 auto;border-top:2px solid var(--line);background:var(--paper-2);padding:9px 13px 11px}
+.suggest{display:flex;gap:8px;overflow-x:auto;margin-bottom:9px;scrollbar-width:none}
+.suggest span{flex:0 0 auto;font-size:11px;font-weight:700;background:#EAF4FB;border:1.5px solid #C6DDEF;
+  border-radius:999px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+.input-row{display:flex;align-items:center;gap:9px}
+.mic{width:48px;height:48px;flex:0 0 48px;border-radius:50%;border:2px solid var(--ink);background:var(--coral);
+  color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 #B24D35;transition:transform .12s}
+.mic svg{width:22px;height:22px}
+.mic:active{transform:translateY(3px);box-shadow:0 0 0 #B24D35}
+.mic.listening{animation:pulse 1s ease-in-out infinite;background:var(--mint);box-shadow:0 3px 0 #267A62}
+@keyframes pulse{0%,100%{box-shadow:0 3px 0 #267A62,0 0 0 0 rgba(55,169,138,.5)}50%{box-shadow:0 3px 0 #267A62,0 0 0 9px rgba(55,169,138,0)}}
+.chat-input{flex:1;min-width:0;height:48px;border:2px solid var(--dash);border-radius:16px;background:#fff;
+  padding:0 12px;font-size:13.5px;font-family:inherit;outline:none;color:var(--ink)}
+.chat-input:focus{border-color:var(--ink)}
+.chat-input::placeholder{color:#A39B7E}
+.send{width:48px;height:48px;flex:0 0 48px;border-radius:16px;border:2px solid var(--ink);background:var(--sun);
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 var(--sun-deep);font-size:18px;transition:transform .12s}
+.send svg{width:21px;height:21px;color:var(--ink)}
+.send:active{transform:translateY(3px);box-shadow:0 0 0 var(--sun-deep)}
+
+/* ── 弹层 / toast ─────────────────────────────── */
+.sheet-layer{position:absolute;inset:0;z-index:30;display:none}
+.sheet-layer.open{display:block}
+.sheet-mask{position:absolute;inset:0;background:rgba(46,42,24,.38)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--paper-2);border-radius:28px 28px 0 0;
+  border-top:2.5px solid var(--ink);padding:20px 20px 28px;animation:sheetUp .3s var(--ease)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+.sheet .bar{width:44px;height:5px;border-radius:99px;background:var(--dash);margin:0 auto 16px}
+.sheet .head{display:flex;align-items:center;gap:11px}
+.sheet .head .em{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:26px;background:#FFF0B8}
+.sheet h4{margin:0;font-size:18px;font-weight:800}
+.sheet .head small{font-size:11px;color:var(--ink-3);font-weight:700}
+.sheet p{font-size:14px;line-height:1.75;color:var(--ink-2);margin:16px 0 18px;font-weight:600}
+.sheet .fact{background:#FFF9E3;border:2px dashed var(--dash);border-radius:16px;padding:13px;font-size:13.5px;
+  line-height:1.7;margin-bottom:18px;font-weight:600}
+.sheet .row{display:flex;gap:10px}
+.sheet .row button{flex:1;height:48px;border-radius:15px;border:2px solid var(--ink);font-size:13.5px;font-weight:800;cursor:pointer}
+.sheet .row .primary{background:var(--sun);box-shadow:0 3px 0 var(--sun-deep)}
+.sheet .row .ghost{background:#fff}
+#gtoast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,18px);background:var(--ink);color:var(--paper);
+  padding:12px 20px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s var(--ease);z-index:100;box-shadow:0 10px 34px rgba(0,0,0,.35)}
+#gtoast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ── 标注模式 ─────────────────────────────────── */
+body.annot .phone [data-note]{outline:1.5px dashed #E0524B;outline-offset:2px;position:relative}
+body.annot .phone [data-note]::after{content:attr(data-note);position:absolute;top:-15px;left:0;z-index:25;
+  background:#E0524B;color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap}
+
+/* ── 说明面板 ─────────────────────────────────── */
+.notes{margin-top:78px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:22px;padding:24px 26px}
+.panel.full{grid-column:1/-1}
+.panel h3{font-size:16px;margin:0 0 6px;color:var(--sun);letter-spacing:.01em}
+.panel .desc{font-size:12.5px;color:#8C94A1;line-height:1.7;margin:0 0 18px}
+.panel ul{margin:0;padding-left:18px;font-size:13px;line-height:1.85;color:#C3C9D3}
+.panel ul b{color:#EDEAE0}
+.panel li+li{margin-top:4px}
+.compare{display:grid;grid-template-columns:1fr 44px 1fr;gap:14px;align-items:center}
+.cmp-box{background:#12151A;border:1px solid #2C323D;border-radius:18px;padding:16px}
+.cmp-box .cap{font-size:11px;font-weight:800;letter-spacing:.06em;margin-bottom:12px;color:#7E8693}
+.old .cap{color:#E08A78}.new .cap{color:#7FD0A5}
+.old-line{height:44px;border-radius:11px;margin-bottom:8px;display:flex;align-items:center;padding:0 12px;
+  gap:8px;color:#fff;font-size:10.5px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.old-line b{font-size:11.5px}
+.old-line small{opacity:.9;font-weight:600;margin-left:auto}
+.new-line{height:44px;border-radius:11px;margin-bottom:8px;display:flex;align-items:center;padding:0 12px;gap:8px;
+  font-size:11.5px;font-weight:800;color:var(--ink)}
+.new-line.hero{height:76px;background:var(--sun);border:2px solid var(--ink)}
+.new-line.lite{background:#EAF4FB;border:2px solid var(--ink)}
+.new-line.mini{background:#FFFDF6;border:2px solid var(--dash)}
+.new-line .dots{display:flex;gap:5px;margin-left:auto}
+.new-line .dots i{width:26px;height:26px;border-radius:8px;background:#F4ECD4;border:1.5px solid var(--dash)}
+.cmp-arrow{display:grid;place-items:center;font-size:26px;color:#5D6572}
+.tokens{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:4px}
+.tk{background:#232833;border:1px solid #2E3541;border-radius:12px;padding:9px;display:flex;gap:9px;align-items:center;font-size:10.5px;color:#B9C0CB}
+.tk i{width:26px;height:26px;border-radius:8px;flex:0 0 26px;border:1px solid rgba(255,255,255,.14)}
+.tk b{display:block;color:#EDEAE0;font-size:11px}
+.spec{width:100%;border-collapse:collapse;font-size:12.5px}
+.spec th,.spec td{text-align:left;padding:9px 8px;border-bottom:1px solid #2A303A;color:#B9C0CB}
+.spec th{color:#7E8693;font-weight:700;font-size:11px;letter-spacing:.04em}
+.spec td b{color:#EDEAE0;font-weight:700}
+.foot{margin-top:34px;font-size:12px;color:#6E7581;line-height:1.8;border-top:1px solid #262C35;padding-top:20px}
+@media(max-width:980px){.notes{grid-template-columns:1fr}.panel.full{grid-column:auto}.tokens{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.board{padding:32px 18px 70px}.device{width:100%;flex:1 1 100%}.phone{transform:scale(.92);transform-origin:top center}.compare{grid-template-columns:1fr}.cmp-arrow{transform:rotate(90deg)}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<!-- ── 可复用 SVG 图标库（全部内联，无外部依赖） ─────────────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-rhino" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="58" fill="#EAF1FF"/>
+    <ellipse cx="26" cy="43" rx="11" ry="14" fill="#AFC2E3" stroke="#2E2A18" stroke-width="3"/>
+    <ellipse cx="94" cy="43" rx="11" ry="14" fill="#AFC2E3" stroke="#2E2A18" stroke-width="3"/>
+    <ellipse cx="26" cy="44" rx="5" ry="7" fill="#F3B7B0"/>
+    <ellipse cx="94" cy="44" rx="5" ry="7" fill="#F3B7B0"/>
+    <rect x="22" y="30" width="76" height="70" rx="34" fill="#B9CBE8" stroke="#2E2A18" stroke-width="3.5"/>
+    <path d="M50 33 Q59 5 71 31 Q61 37 50 33Z" fill="#FFF0B8" stroke="#2E2A18" stroke-width="3" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="80" rx="25" ry="17" fill="#D9E4F5" stroke="#2E2A18" stroke-width="3"/>
+    <ellipse cx="51" cy="79" rx="3.4" ry="4.4" fill="#2E2A18"/>
+    <ellipse cx="69" cy="79" rx="3.4" ry="4.4" fill="#2E2A18"/>
+    <ellipse cx="44" cy="60" rx="4.4" ry="5.8" fill="#2E2A18"/>
+    <ellipse cx="76" cy="60" rx="4.4" ry="5.8" fill="#2E2A18"/>
+    <circle cx="45.5" cy="58" r="1.6" fill="#fff"/><circle cx="77.5" cy="58" r="1.6" fill="#fff"/>
+    <ellipse cx="33" cy="70" rx="6.5" ry="4" fill="#F7A9A0" opacity=".8"/>
+    <ellipse cx="87" cy="70" rx="6.5" ry="4" fill="#F7A9A0" opacity=".8"/>
+    <path d="M33 95 Q60 106 87 95 L87 102 Q60 113 33 102Z" fill="#F4795B" stroke="#2E2A18" stroke-width="3" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2 2 0 0 1 6 3h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 18.5A2 2 0 0 1 6 17h13v4H6a2 2 0 0 1-2-2.5z"/><path d="M9 7h6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.5"/><path d="M8.5 21.5h7"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h3l1.6 4.2-2 1.5a12 12 0 0 0 6.7 6.7l1.5-2L21 15v3a3 3 0 0 1-3.3 3A16 16 0 0 1 3 6.3 3 3 0 0 1 6 3z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-language" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h16a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-8l-5 4v-4H5a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3z" transform="translate(2)"/><path d="M9 14h10M9 18h6"/></symbol>
+  <symbol id="i-math" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="4" width="10" height="10" rx="3"/><rect x="18" y="18" width="10" height="10" rx="3"/><path d="M19 9h9M23.5 4.5v9"/></symbol>
+  <symbol id="i-science" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4h8M13 4v9l-7 12a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3l-7-12V4"/><path d="M9 20h14"/><circle cx="14" cy="24" r="1.4" fill="#2E2A18" stroke="none"/></symbol>
+  <symbol id="i-art" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4C9 4 4 8.8 4 15c0 6 4.6 9 8 9 2 0 2.6 3 5 3 2 0 2-2 4.5-2H24c3 0 4-2 4-5 0-6.5-5-12-12-12z"/><circle cx="10" cy="13" r="1.6" fill="#2E2A18" stroke="none"/><circle cx="16" cy="10" r="1.6" fill="#2E2A18" stroke="none"/><circle cx="22" cy="13" r="1.6" fill="#2E2A18" stroke="none"/></symbol>
+  <symbol id="i-social" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="16" r="12"/><path d="M4 16h24M16 4c4 4 5 8 5 12s-1 8-5 12M16 4c-4 4-5 8-5 12s1 8 5 12"/></symbol>
+  <symbol id="i-music" viewBox="0 0 32 32" fill="none" stroke="#2E2A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 23V8l14-3v15"/><ellipse cx="8.5" cy="23.5" rx="3.5" ry="2.8"/><ellipse cx="22.5" cy="20.5" rx="3.5" ry="2.8"/></symbol>
+  <symbol id="i-nums" viewBox="0 0 100 100">
+    <rect x="6" y="34" width="38" height="38" rx="9" fill="#FFFDF6" stroke="#2E2A18" stroke-width="3" transform="rotate(-9 25 53)"/>
+    <text x="25" y="62" font-size="27" font-weight="800" text-anchor="middle" fill="#2E2A18" transform="rotate(-9 25 53)">1</text>
+    <rect x="44" y="14" width="38" height="38" rx="9" fill="#FFFDF6" stroke="#2E2A18" stroke-width="3" transform="rotate(11 63 33)"/>
+    <text x="63" y="42" font-size="27" font-weight="800" text-anchor="middle" fill="#2E2A18" transform="rotate(11 63 33)">2</text>
+    <rect x="52" y="54" width="38" height="38" rx="9" fill="#F4795B" stroke="#2E2A18" stroke-width="3" transform="rotate(-6 71 73)"/>
+    <text x="71" y="82" font-size="27" font-weight="800" text-anchor="middle" fill="#fff" transform="rotate(-6 71 73)">3</text>
+  </symbol>
+</defs></svg>
+
+<div class="board">
+  <span class="eyebrow">UI DESIGN SYSTEM · 孩子端 / CHILD MODE</span>
+  <h1>灵犀伴学 · 孩子端 UI 重构 <em>v1</em><small>首页 / 学习 / 小犀对话</small></h1>
+  <p class="lede">面向 <b>3–6 岁、识字有限、以点按和语音为主</b> 的学龄前儿童。这一版把「四张等高撞色、满屏加载失败文案的大卡」重排为
+    <b>一个 2 秒内就能看懂的主任务</b>、<b>一个常驻的 AI 伙伴入口</b>、<b>一行可滑动的探索小卡</b>；让「小犀」成为主角，让每一次点击都有回应。
+    三台手机均可独立操作，点击底部导航、主按钮、探索卡与聊天输入框即可体验。</p>
+  <div class="toolbar">
+    <button class="tbtn" id="btnFocus">切换单屏放大</button>
+    <button class="tbtn" id="btnAnnot">显示设计标注</button>
+    <button class="tbtn" id="btnTop">回到三屏总览</button>
+  </div>
+  <p class="hint">提示：点击任一设备上方的序号可将其设为放大对象；「成就 / 我的」不在本次三屏重构范围内，点击会给出说明。</p>
+
+  <main class="stage" id="stage"></main>
+
+  <section class="notes">
+    <div class="panel full">
+      <h3>01 · 改版前后：信息架构对照</h3>
+      <p class="desc">同一个首屏高度，旧版把 4 个「每日接口」平铺成 4 张等权重大卡；新版按「今天做什么 → 和谁聊 → 顺便发现点什么」建立层级。</p>
+      <div class="compare">
+        <div class="cmp-box old">
+          <div class="cap">BEFORE · 现状（截图）</div>
+          <div class="old-line" style="background:linear-gradient(100deg,#8FBEE8,#BBD8F2)"><span>☁️</span><b>天气小贴士</b><small>现在看不到天气…</small></div>
+          <div class="old-line" style="background:linear-gradient(100deg,#6FC9A0,#A4DEC0)"><span>🌍</span><b>每日一国</b><small>现在看不到国家…</small></div>
+          <div class="old-line" style="background:linear-gradient(100deg,#F5B347,#FBD27E)"><span>🔢</span><b>今日数字</b><small>数字趣闻暂时不可用…</small></div>
+          <div class="old-line" style="background:linear-gradient(100deg,#A8CFF5,#D3E7FB)"><span>📚</span><b>今日冷知识</b><small>暂时无法获取趣闻</small></div>
+        </div>
+        <div class="cmp-arrow">→</div>
+        <div class="cmp-box new">
+          <div class="cap">AFTER · 重构稿</div>
+          <div class="new-line hero"><span>🎯</span>今天的任务 · 认识数字 1–5<div class="dots"><i></i><i></i><i></i></div></div>
+          <div class="new-line lite"><span>🦏</span>和小犀聊聊 · 去聊聊 →</div>
+          <div class="new-line mini"><span>✨</span>今天的小发现（5 张可滑小卡）<div class="dots"><i></i><i></i><i></i></div></div>
+          <div class="new-line mini"><span>⭐</span>我的星星 / 听儿歌（2 个快捷键）</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>02 · 现状问题诊断</h3>
+      <p class="desc">基于截图与 <code>child_home_screen.dart</code> / <code>learning_home_screen.dart</code> / <code>ai_chat_screen.dart</code> 实际结构。</p>
+      <ul>
+        <li><b>零视觉层级</b>：4 张卡等高、等宽、等圆角、等内边距，眯眼测试完全失败，看不出哪里是主入口。</li>
+        <li><b>首屏全是失败态</b>：天气 / 国家 / 数字 / 冷知识四个外部接口一旦不可用，孩子第一眼看到的是 4 句「看不到 / 暂时不可用 / 无法获取」。</li>
+        <li><b>没有主行动</b>：首页无「开始学习」、无今日任务、无进度，孩子不知道打开 App 要做什么。</li>
+        <li><b>色彩无语义</b>：蓝 / 绿 / 橙 / 浅蓝随机分配且互相撞色；白字压在浅渐变上对比度不足（部分低于 3:1）。</li>
+        <li><b>操作不方便</b>：刷新图标约 24px，远小于 44px 触控下限；整卡不可点、无底部主导航承接、无点击反馈。</li>
+        <li><b>浪费纵向空间</b>：每张卡约 130px 只承载一行字，信息密度失衡；IP「小犀」与星星 / 积分等成长反馈在首屏完全缺席。</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>03 · 设计上下文与原则</h3>
+      <p class="desc">Users：3–6 岁儿童，家长在旁，手机 / 平板竖屏，单次 5–10 分钟。Job：知道今天做什么 → 一点就开始 → 完成后被鼓励。Brand：温暖、绘本感、玩具般俏皮、安全。</p>
+      <ul>
+        <li><b>一眼一件事</b>：首屏只保留一个主 CTA，其余内容降级为探索，不与之争抢注意力。</li>
+        <li><b>永远不说「不可用」</b>：外部接口失败时回退到内置知识 / 插画，孩子看到的永远是内容而非报错。</li>
+        <li><b>角色带路</b>：小犀出现在问候、入口、聊天、空态四处，成为可识别的陪伴线索。</li>
+        <li><b>可按压的实体感</b>：2px 描边 + 4–6px 实体下阴影 + 按下位移，让 3–6 岁孩子「看得见能点」。</li>
+        <li><b>先图形后文字</b>：所有关键动作都有图形 + 大字号短句，文字只作补充，不依赖识字量。</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h3>04 · 设计 Token（可直接映射到代码）</h3>
+      <p class="desc">沿用项目已有的蜜黄绘本基调，收敛撞色、统一饱和度与明度，把彩色留给「图标底 / 描边 / 强调」，文字一律使用深墨色。</p>
+      <div class="tokens">
+        <div class="tk"><i style="background:#FFF9E9"></i><div><b>纸底 paper</b>#FFF9E9</div></div>
+        <div class="tk"><i style="background:#FFFDF6"></i><div><b>卡面 surface</b>#FFFDF6</div></div>
+        <div class="tk"><i style="background:#2E2A18"></i><div><b>墨色 ink</b>#2E2A18</div></div>
+        <div class="tk"><i style="background:#FFC93C"></i><div><b>主操作 sun</b>#FFC93C</div></div>
+        <div class="tk"><i style="background:#F4795B"></i><div><b>强调 coral</b>#F4795B</div></div>
+        <div class="tk"><i style="background:#37A98A"></i><div><b>完成 mint</b>#37A98A</div></div>
+        <div class="tk"><i style="background:#4B9BD8"></i><div><b>探索 sky</b>#4B9BD8</div></div>
+        <div class="tk"><i style="background:#F08A6C"></i><div><b>语言</b>#F08A6C</div></div>
+        <div class="tk"><i style="background:#5AA9C8"></i><div><b>数学</b>#5AA9C8</div></div>
+        <div class="tk"><i style="background:#67B58A"></i><div><b>科学</b>#67B58A</div></div>
+        <div class="tk"><i style="background:#E9A94C"></i><div><b>艺术</b>#E9A94C</div></div>
+        <div class="tk"><i style="background:#A98BD0"></i><div><b>社会</b>#A98BD0</div></div>
+        <div class="tk"><i style="background:#E887A0"></i><div><b>音乐</b>#E887A0</div></div>
+      </div>
+      <p class="desc" style="margin:16px 0 0">间距 4 / 8 / 12 / 16 / 24 / 32 / 48 · 圆角 26 / 20 / 14 / 999 · 描边 2px <code>var(--ink)</code> · 阴影 <code>0 4px 0 rgba(46,42,24,.14)</code> · 缓动 <code>cubic-bezier(.25,1,.5,1)</code></p>
+    </div>
+
+    <div class="panel">
+      <h3>05 · 组件规范与可访问性</h3>
+      <table class="spec">
+        <tr><th>组件</th><th>规格 / 状态</th></tr>
+        <tr><td><b>主按钮</b></td><td>高 54–56px，黄底深墨字，实体下阴影 4px；按下 translateY(4px) 且阴影归零</td></tr>
+        <tr><td><b>内容卡</b></td><td>白纸底 + 2px 描边 + 圆角 20–26px；<b>不再使用满版彩色渐变</b>，彩色只作描边与图标底</td></tr>
+        <tr><td><b>探索小卡</b></td><td>148×156px，横向 scroll-snap；hover 上浮 3px，按下下沉 3px</td></tr>
+        <tr><td><b>底部导航</b></td><td>高 78px，5 项，中央 AI 为 58px 凸起圆钮（-30px），所有项 ≥ 44×44px</td></tr>
+        <tr><td><b>对比度</b></td><td>正文 <code>#2E2A18</code> / <code>#FFFDF6</code> ≈ 14:1；主按钮 <code>#2E2A18</code> / <code>#FFC93C</code> ≈ 9:1，全部 ≥ WCAG AA 4.5:1</td></tr>
+        <tr><td><b>其他</b></td><td>语义标签 + aria-label、可见 focus 环、<code>prefers-reduced-motion</code> 降级、200% 文字缩放不溢出、不单纯依赖颜色传达状态</td></tr>
+      </table>
+    </div>
+
+    <div class="panel full">
+      <h3>06 · 落地建议（对接现有代码）</h3>
+      <p class="desc">本稿是设计验证稿，未改动业务代码。确认方向后建议按下面顺序落地：</p>
+      <ul>
+        <li><b>先落 token</b>：<code>src/frontend/lib/theme/app_theme.dart</code> 增补 <code>paper / surface / ink / sun / coral / mint / tactileShadow</code>；<code>src/frontend-web/src/index.css</code> 的 <code>@theme</code> 同步同名变量，并统一 Flutter <code>childColors</code> 与 Web <code>--color-domain-*</code> 目前不一致的科学 / 艺术 / 社会色值。</li>
+        <li><b>再改首页信息架构</b>：<code>child_home_screen.dart</code> 的 <code>ChildHomeContent</code> 顺序改为 <code>问候+星进度 → 今日任务 Hero → 小犀入口 → 今天的小发现（横向）→ 快捷键</code>；把 WeatherCard / CountryCard / NumberFactCard / FactCard / JokeCard 从「独立通栏大卡」改为统一 <code>DiscoveryCard</code> 组件，并各自配置内置兜底文案（接口失败时不再渲染「不可用」）。</li>
+        <li><b>今日任务数据源</b>：接 <code>GET /assignments/child/:childId</code> 取 <code>status=pending</code> 的首条，展示 <code>activityData.title / domain / difficulty</code>；无作业时回退到推荐内容 <code>GET /recommend</code>，仍无则给「今天自由探索」的图形化空态。</li>
+        <li><b>学习页</b>：6 个学科从列表改 2×3 大图标按钮（≥ 100px 高），补「继续上次」与今日进度环（数据来自 <code>GET /learning/today/:userId</code>）。</li>
+        <li><b>AI 对话页</b>：把语音输入从输入框里的小图标提升为 48px 主按钮（3–6 岁主要输入方式），快捷提问改为图形 chips，AI 气泡常驻「读给我听」按钮对接现有 TTS；「小犀正在想…」承接现有 SSE 流式状态。</li>
+        <li><b>验收清单</b>：44px 触控下限、点击必有反馈、失败态永不出现技术文案、首屏 2 秒内能指出主任务、对比度 ≥ 4.5:1、reduced-motion 下动画停止。</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">设计稿 v1 · 2026-11-12 · 单文件自包含 HTML（无外部字体 / 图片 / 脚本依赖，图标均为内联 SVG）· 交互为演示用模拟数据，业务字段已按现有 API 对齐。</p>
+</div>
+
+<div id="gtoast" role="status" aria-live="polite"></div>
+
+<script>
+/* ────────────────────────────────────────────────────────────
+   设计稿交互层：三台设备各自维护页面状态
+   ──────────────────────────────────────────────────────────── */
+const icon = (id, cls) => '<svg class="' + (cls || '') + '"><use href="#' + id + '"/></svg>';
+const rhino = (cls) => '<svg class="' + (cls || '') + '" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>';
+
+const DISCOVER = [
+  { em:'☀️', title:'天气小课堂', c:'#E9A94C', soft:'#FFF1D2', teaser:'太阳出来时，影子会变短哦', fact:'中午的太阳升得最高，影子就变得最短；到了傍晚太阳低低的，影子又被拉得好长好长。可以拉着爸爸妈妈去量一量自己的影子！', ask:'给我讲讲影子为什么会变长变短' },
+  { em:'🌍', title:'每日一国', c:'#4B9BD8', soft:'#E3F1FC', teaser:'今天认识：日本 🇯🇵', fact:'日本是一个由很多很多小岛组成的国家，那里有高高的富士山，春天会开满粉色的樱花。人们见面时会弯腰问好。', ask:'日本有什么好玩的？' },
+  { em:'🔢', title:'今日数字', c:'#F08A6C', soft:'#FFEBE3', teaser:'7 是小瓢虫背上的点', fact:'数字 7 藏在小瓢虫的背上、彩虹的颜色里，还藏在一周的天数里。找找看，家里还有哪些东西正好是 7 个？', ask:'带我玩一个和数字 7 有关的小游戏' },
+  { em:'💡', title:'今日冷知识', c:'#67B58A', soft:'#E6F6ED', teaser:'蜗牛可以睡好久好久', fact:'天气太热或太干的时候，蜗牛会缩进壳里睡一个长长的觉，最长能睡上好几年，等下过雨再伸着触角出来散步。', ask:'蜗牛为什么可以睡那么久？' },
+  { em:'😄', title:'每日一笑', c:'#E887A0', soft:'#FFECF1', teaser:'什么鱼不能吃？木鱼！', fact:'小犀再讲一个：为什么气球不喜欢读书？因为它一读书就「涨」得太大啦～ 笑一笑，今天又是棒棒的一天！', ask:'再给我讲一个笑话吧' }
+];
+
+const SUBJECTS = [
+  { k:'语言', ic:'i-language', c:'var(--c-language)', n:'8 个内容' },
+  { k:'数学', ic:'i-math', c:'var(--c-math)', n:'6 个内容' },
+  { k:'科学', ic:'i-science', c:'var(--c-science)', n:'5 个内容' },
+  { k:'艺术', ic:'i-art', c:'var(--c-art)', n:'4 个内容' },
+  { k:'社会', ic:'i-social', c:'var(--c-social)', n:'5 个内容' },
+  { k:'音乐', ic:'i-music', c:'var(--c-music)', n:'3 个内容' }
+];
+
+function homeHTML() {
+  let cards = '';
+  DISCOVER.forEach((d, i) => {
+    cards += '<button class="dcard" style="--c:' + d.c + ';--c-soft:' + d.soft + '" data-act="discover" data-i="' + i + '" aria-label="打开' + d.title + '">' +
+      '<span class="emo">' + d.em + '</span><b>' + d.title + '</b><p>' + d.teaser + '</p>' +
+      '<span class="more" style="color:' + d.c + '">点开看看 →</span></button>';
+  });
+  return '<div class="screen">' +
+    '<section class="greet" data-note="问候区 · 20px 页边距">' +
+      '<div><h2>早上好，小明！</h2><p>今天想先玩点什么？</p></div>' + rhino('rhino') +
+    '</section>' +
+    '<div class="stars" data-note="成长反馈 · 虚线框 18px 圆角">' +
+      '<div class="txt">今日星星 ⭐<small>再得 1 颗就能换贴纸啦</small></div>' +
+      '<span class="slot on">★</span><span class="slot on">★</span><span class="slot">★</span>' +
+    '</div>' +
+    '<section class="quest" data-note="唯一 Hero · 26px 圆角 / 6px 实体阴影">' +
+      '<div class="quest-top"><span>今天的任务</span><span class="pill">1 / 3 完成</span></div>' +
+      '<h3 class="quest-title">认识数字 1–5</h3>' +
+      '<div class="quest-meta">数学 · 约 8 分钟 · 有好玩的小游戏</div>' +
+      '<svg class="quest-art" viewBox="0 0 100 100"><use href="#i-nums"/></svg>' +
+      '<button class="quest-btn" data-act="start"><span>开始学习</span><span class="arr">→</span></button>' +
+      '<div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i></div>' +
+    '</section>' +
+    '<div class="ai-entry" data-act="gochat">' +
+      '<svg class="mini" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+      '<div class="t"><b>小犀想和你说件事</b><span>「云为什么会下雨呀？」</span></div>' +
+      '<button class="go" aria-label="去和小犀聊天">' + icon('i-arrow') + '</button>' +
+    '</div>' +
+    '<div class="sec"><h3>今天的小发现 ✨</h3><small data-act="shuffle">换一批 ›</small></div>' +
+    '<div class="rail" data-note="横滑 scroll-snap · 148×156px">' + cards + '</div>' +
+    '<div class="quick">' +
+      '<button class="qbtn" data-act="misc" data-t="我的星星"><span class="ic">⭐</span>我的星星</button>' +
+      '<button class="qbtn" data-act="misc" data-t="音乐乐园"><span class="ic">🎵</span>听儿歌</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function learnHTML() {
+  let subs = '';
+  SUBJECTS.forEach(s => {
+    subs += '<button class="subj" style="--sc:' + s.c + '" data-act="subject" data-t="' + s.k + '">' +
+      '<span class="ic">' + icon(s.ic) + '</span><span><b>' + s.k + '</b><small>' + s.n + '</small></span></button>';
+  });
+  return '<div class="screen">' +
+    '<div class="page-title"><div><h2>学习乐园</h2><p>选一个喜欢的，出发！</p></div>' +
+      '<span class="badge-streak">🔥 连续 4 天</span></div>' +
+    '<div class="ring-row" data-note="进度环 · 真实数据位">' +
+      '<svg class="ring" viewBox="0 0 80 80"><circle cx="40" cy="40" r="31" fill="none" stroke="#EFE4C7" stroke-width="9"/>' +
+      '<circle cx="40" cy="40" r="31" fill="none" stroke="#37A98A" stroke-width="9" stroke-linecap="round" stroke-dasharray="117 195" transform="rotate(-90 40 40)"/>' +
+      '<text x="40" y="45" text-anchor="middle" font-size="17" font-weight="800" fill="#2E2A18">12′</text></svg>' +
+      '<div><b>今天学了 12 分钟</b><p>目标 20 分钟，再来一小会儿就到啦 💪</p></div>' +
+    '</div>' +
+    '<div class="continue"><div class="top"><span class="kicker">继续上次</span><span style="font-size:11px;font-weight:800;color:#3B6E92">60%</span></div>' +
+      '<b>认识数字 1–5</b><div class="sub">数学 · 上次停在「数一数小苹果」</div>' +
+      '<div class="progress"><i></i></div>' +
+      '<div class="btn" data-act="misc" data-t="继续学习"><span>接着学</span><span>→</span></div></div>' +
+    '<div class="sec"><h3>选个好玩的 🎲</h3><small>6 个学科</small></div>' +
+    '<div class="subjects" data-note="2×3 网格 · 单项 100px 高">' + subs + '</div>' +
+    '<div class="sec"><h3>待完成作业</h3><small>2 项 ›</small></div>' +
+    '<div class="hwrail">' +
+      '<div class="hw" data-act="misc" data-t="数一数小苹果"><div class="tags"><span>选择题</span><span>简单</span></div><b>数一数小苹果</b><p>数学 · 约 5 分钟</p></div>' +
+      '<div class="hw" data-act="misc" data-t="找一找圆形"><div class="tags"><span>听指令点一点</span><span>简单</span></div><b>找一找圆形</b><p>语言 · 约 4 分钟</p></div>' +
+    '</div>' +
+    '<div class="nudge"><span class="em">🦏</span><div><b>小犀有个主意</b><span>要不要试试「影子的秘密」？</span></div>' +
+      '<button data-act="ask" data-q="给我讲讲影子的秘密">问问小犀</button></div>' +
+  '</div>';
+}
+
+function chatHTML() {
+  return '<div class="chat-page">' +
+    '<div class="chat-head">' +
+      '<div class="av"><svg viewBox="0 0 120 120" style="width:100%;height:100%;border-radius:50%"><use href="#i-rhino"/></svg><i class="dot"></i></div>' +
+      '<div class="n"><b>小犀</b><span>一直在，随时聊 · 会自动读给你听</span></div>' +
+      '<button class="icon-btn" data-act="misc" data-t="语音通话" aria-label="语音通话">' + icon('i-phone') + '</button>' +
+      '<button class="icon-btn" data-act="newchat" aria-label="新建对话">' + icon('i-plus') + '</button>' +
+    '</div>' +
+    '<div class="chat-stream">' +
+      '<div class="welcome">' + rhino('big') + '<h3>嗨，我是小犀！</h3>' +
+        '<p>想聊什么都可以，点下面的小问题<br>就能开始～</p></div>' +
+      '<div class="chips">' +
+        '<button class="chip" data-act="quick" data-q="云为什么会下雨呀？">☁️ 云为什么会下雨？</button>' +
+        '<button class="chip" data-act="quick" data-q="恐龙去哪里了？">🦕 恐龙去哪了？</button>' +
+        '<button class="chip" data-act="quick" data-q="唱首小星星给我听">🎵 唱首小星星</button>' +
+      '</div>' +
+      '<div class="msg bot"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+        '<div class="bubble">小明早上好呀！今天想先听个故事，还是先玩个小游戏？🦏' +
+        '<div class="bubble-actions"><button class="tiny" data-act="read">🔊 读给我听</button></div></div></div>' +
+    '</div>' +
+    '<div class="composer" data-note="输入区 · 语音键 48px 主操作">' +
+      '<div class="suggest">' +
+        '<span data-act="quick" data-q="再讲一个笑话吧">再讲个笑话</span>' +
+        '<span data-act="quick" data-q="教我认数字 3">教我认数字 3</span>' +
+        '<span data-act="quick" data-q="为什么天是蓝色的？">天为什么是蓝的？</span>' +
+      '</div>' +
+      '<div class="input-row">' +
+        '<button class="mic" data-act="mic" aria-label="按住说话">' + icon('i-mic') + '</button>' +
+        '<input class="chat-input" id="chat-input" placeholder="和小犀说点什么…" aria-label="输入想说的话">' +
+        '<button class="send" data-act="send" aria-label="发送">' + icon('i-send') + '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+const TABS = [
+  { k:'home', label:'首页', ic:'i-home' },
+  { k:'learn', label:'学习', ic:'i-book' },
+  { k:'chat', label:'小犀', ic:'', ai:true },
+  { k:'star', label:'成就', ic:'i-star' },
+  { k:'me', label:'我的', ic:'i-user' }
+];
+function tabbarHTML(active) {
+  let s = '';
+  TABS.forEach(t => {
+    const on = t.k === active ? ' on' : '';
+    if (t.ai) {
+      s += '<button class="tab ai' + on + '" data-act="tab" data-p="chat" aria-label="小犀对话">' +
+           '<span class="ai-ball">' + rhino('') + '</span><span class="lbl">小犀</span></button>';
+    } else {
+      s += '<button class="tab' + on + '" data-act="tab" data-p="' + t.k + '">' +
+           '<span class="tab-ic">' + icon(t.ic) + '</span>' + t.label + '</button>';
+    }
+  });
+  return s;
+}
+
+const LABELS = [
+  { n:'01', t:'首页 · Home', tag:'主任务优先' },
+  { n:'02', t:'学习 · Learning', tag:'大图标 / 可续学' },
+  { n:'03', t:'小犀对话 · AI Chat', tag:'语音优先' }
+];
+const CAPTIONS = [
+  '<strong>层级</strong>：问候 → 星星进度 → 唯一主任务 Hero → AI 入口 → 横滑探索卡。首屏 2 秒内可定位「开始学习」。',
+  '<strong>改动</strong>：6 个学科由列表改 2×3 大图标按钮，新增今日进度环与「继续上次」，作业降为横滑小卡。',
+  '<strong>改动</strong>：语音升级为 48px 主按钮，快捷提问图形化，AI 气泡常驻朗读入口，流式状态用「小犀正在想…」承接。'
+];
+const PAGES = ['home','learn','chat'];
+const state = PAGES.map((p) => ({ page:p, pending:null }));
+
+function buildStage() {
+  let html = '';
+  for (let d = 0; d < 3; d++) {
+    html += '<section class="device" data-d="' + d + '">' +
+      '<div class="device-label" data-act="select" data-d="' + d + '"><b>' + LABELS[d].n + '</b>' + LABELS[d].t +
+        '<span class="tag">' + LABELS[d].tag + '</span></div>' +
+      '<div class="phone">' +
+        '<div class="notch"></div>' +
+        '<div class="statusbar"><span>9:41</span><span class="sb-r">' +
+          '<svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#2E2A18"/><rect x="4.5" y="6" width="3" height="6" rx="1" fill="#2E2A18"/><rect x="9" y="3" width="3" height="9" rx="1" fill="#2E2A18"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="#2E2A18"/></svg>' +
+          '<svg width="15" height="12" viewBox="0 0 15 12"><path d="M1 4.2a9 9 0 0 1 13 0M3.6 7a5.4 5.4 0 0 1 7.8 0" fill="none" stroke="#2E2A18" stroke-width="1.7" stroke-linecap="round"/><circle cx="7.5" cy="10" r="1.4" fill="#2E2A18"/></svg>' +
+          '<span class="battery"><i></i></span></span></div>' +
+        '<div class="viewport" id="vp-' + d + '"></div>' +
+        '<nav class="tabbar" id="tab-' + d + '" aria-label="底部导航"></nav>' +
+        '<div class="sheet-layer" id="sheet-' + d + '"></div>' +
+      '</div>' +
+      '<p class="device-caption">' + CAPTIONS[d] + '</p>' +
+    '</section>';
+  }
+  document.getElementById('stage').innerHTML = html;
+  for (let d = 0; d < 3; d++) render(d, state[d].page);
+}
+
+function render(d, page) {
+  state[d].page = page;
+  const vp = document.getElementById('vp-' + d);
+  vp.innerHTML = page === 'home' ? homeHTML() : page === 'learn' ? learnHTML() : chatHTML();
+  const nav = document.getElementById('tab-' + d);
+  nav.innerHTML = tabbarHTML(page);
+  vp.scrollTop = 0;
+  const stream = vp.querySelector('.chat-stream');
+  if (stream) stream.scrollTop = stream.scrollHeight;
+  if (page === 'chat' && state[d].pending) {
+    const q = state[d].pending; state[d].pending = null;
+    setTimeout(() => send(d, q), 300);
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('gtoast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+}
+
+function replyFor(q) {
+  if (/雨|云|天气/.test(q)) return '云朵里藏着好多好多小水滴，它们挤呀挤、抱在一起变重了，就「哗啦啦」掉下来啦～ 想不想让小犀再讲讲雨后为什么会有彩虹？☁️🌈';
+  if (/恐龙/.test(q)) return '恐龙很久很久以前住在地球上。后来天上掉下一块大石头，天气变得好冷好冷，它们就慢慢不见了～ 不过骨头变成化石，现在还躺在博物馆里等你去看看哦！🦕';
+  if (/唱|歌|星星|音乐/.test(q)) return '好呀～ 一闪一闪亮晶晶，满天都是小星星 ✨ 要不要一起去「音乐乐园」听完整版？小犀可以陪你唱第二句～';
+  if (/笑话|笑/.test(q)) return '来啦！为什么气球不喜欢读书呀？因为它一读书就「涨」得太大啦～ 🎈 还要再听一个吗？';
+  if (/影子/.test(q)) return '光走直线，被你挡住的地方就变暗了，那就是影子。太阳低低的傍晚，光斜着照过来，影子就被拉得好长好长～ 傍晚去量量看！🌇';
+  if (/数字|3|数一数/.test(q)) return '我们来数 3！🍎 🍎 🍎 三个红苹果～ 伸出三根手指头，跟小犀一起数：一、二、三！要不要玩「找一找家里 3 个圆圆的东西」？';
+  if (/蓝色|天是蓝/.test(q)) return '阳光里藏着好多种颜色，空气最喜欢把蓝色的小光波弹来弹去，弹得到处都是，我们抬头就看见蓝蓝的天啦～ 💙';
+  return '哇，这个问题好有意思！小犀陪你一起想一想～ 你可以再告诉我一点点，比如它是什么颜色、什么形状呀？🦏';
+}
+
+function botBubble(text) {
+  return '<div class="msg bot"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+    '<div class="bubble">' + text + '<div class="bubble-actions">' +
+    '<button class="tiny" data-act="read">🔊 读给我听</button>' +
+    '<button class="tiny" data-act="misc" data-t="我懂啦">👍 我懂啦</button></div></div></div>';
+}
+
+function send(d, text) {
+  const stream = document.querySelector('.device[data-d="' + d + '"] .chat-stream');
+  if (!stream || !text.trim()) return;
+  text = text.trim();
+  const old = stream.querySelector('#typing'); if (old) old.remove();
+  stream.insertAdjacentHTML('beforeend', '<div class="msg me"><div class="bubble">' + text.replace(/</g,'&lt;') + '</div></div>');
+  stream.insertAdjacentHTML('beforeend',
+    '<div class="msg bot" id="typing"><svg class="av" viewBox="0 0 120 120"><use href="#i-rhino"/></svg>' +
+    '<div class="bubble"><span class="tdots"><i></i><i></i><i></i></span>小犀正在想…</div></div>');
+  stream.scrollTop = stream.scrollHeight;
+  setTimeout(() => {
+    const typing = stream.querySelector('#typing'); if (typing) typing.remove();
+    stream.insertAdjacentHTML('beforeend', botBubble(replyFor(text)));
+    stream.scrollTop = stream.scrollHeight;
+  }, 950);
+}
+
+function openSheet(d, i) {
+  const item = DISCOVER[i];
+  const layer = document.getElementById('sheet-' + d);
+  layer.innerHTML = '<div class="sheet-mask" data-act="close-sheet"></div>' +
+    '<div class="sheet" role="dialog" aria-label="' + item.title + '">' +
+      '<div class="bar"></div><div class="head"><span class="em">' + item.em + '</span>' +
+      '<div><h4>' + item.title + '</h4><small>今天的小发现 · 第 ' + (i+1) + ' 张</small></div></div>' +
+      '<div class="fact">' + item.fact + '</div>' +
+      '<div class="row"><button class="ghost" data-act="close-sheet">知道啦</button>' +
+      '<button class="primary" data-act="ask" data-q="' + item.ask + '">🦏 让小犀讲给我听</button></div>' +
+    '</div>';
+  layer.classList.add('open');
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const dev = el.closest('.device');
+  const d = dev ? Number(dev.dataset.d) : 0;
+
+  switch (act) {
+    case 'tab': {
+      const p = el.dataset.p;
+      if (PAGES.indexOf(p) === -1) { toast('「成就 / 我的」沿用同一套组件规范，本次未在重构范围内'); return; }
+      render(d, p); break;
+    }
+    case 'start': render(d, 'learn'); toast('已进入学习乐园，接着完成今天的任务吧'); break;
+    case 'gochat': render(d, 'chat'); break;
+    case 'ask': {
+      document.getElementById('sheet-' + d).classList.remove('open');
+      state[d].pending = el.dataset.q;
+      if (state[d].page === 'chat') { const q = state[d].pending; state[d].pending = null; send(d, q); }
+      else render(d, 'chat');
+      break;
+    }
+    case 'quick': send(d, el.dataset.q); break;
+    case 'send': {
+      const input = el.closest('.composer').querySelector('.chat-input');
+      const v = input.value.trim();
+      if (!v) { toast('点一下话筒，也可以直接说给小犀听哦'); input.focus(); return; }
+      send(d, v); input.value = ''; break;
+    }
+    case 'mic': {
+      const on = el.classList.toggle('listening');
+      toast(on ? '小犀在听你说～ 说完点一下话筒' : '好啦，小犀听到啦'); break;
+    }
+    case 'discover': openSheet(d, Number(el.dataset.i)); break;
+    case 'close-sheet': document.getElementById('sheet-' + d).classList.remove('open'); break;
+    case 'shuffle': toast('已换一批小发现（演示稿：内容来自内置兜底知识库）'); break;
+    case 'read': toast('🔊 小犀正在读给你听～'); break;
+    case 'newchat': render(d, 'chat'); toast('开启了一段新的对话'); break;
+    case 'subject': toast('进入「' + el.dataset.t + '」乐园 · 大图标按钮 100px 高'); break;
+    case 'misc': toast('「' + el.dataset.t + '」入口 · 沿用本稿的按压式组件规范'); break;
+    case 'select': {
+      document.querySelectorAll('.device').forEach(x => x.classList.remove('selected'));
+      document.querySelector('.device[data-d="' + el.dataset.d + '"]').classList.add('selected');
+      toast('已选中该屏，点「切换单屏放大」查看细节'); break;
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.classList.contains('chat-input')) return;
+  e.preventDefault();
+  const composer = e.target.closest('.composer');
+  const d = Number(e.target.closest('.device').dataset.d);
+  const v = e.target.value.trim();
+  if (!v) { toast('点一下话筒，也可以直接说给小犀听哦'); return; }
+  send(d, v); e.target.value = '';
+});
+
+const btnFocus = document.getElementById('btnFocus');
+btnFocus.addEventListener('click', () => {
+  const stage = document.getElementById('stage');
+  const on = stage.classList.toggle('focus');
+  if (on && !stage.querySelector('.device.selected')) stage.querySelector('.device').classList.add('selected');
+  btnFocus.textContent = on ? '回到三屏总览' : '切换单屏放大';
+  btnFocus.classList.toggle('on', on);
+});
+const btnAnnot = document.getElementById('btnAnnot');
+btnAnnot.addEventListener('click', () => {
+  const on = document.body.classList.toggle('annot');
+  btnAnnot.textContent = on ? '隐藏设计标注' : '显示设计标注';
+  btnAnnot.classList.toggle('on', on);
+});
+document.getElementById('btnTop').addEventListener('click', () => {
+  document.getElementById('stage').classList.remove('focus');
+  btnFocus.textContent = '切换单屏放大'; btnFocus.classList.remove('on');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+buildStage();
+</script>
+</body>
+</html>

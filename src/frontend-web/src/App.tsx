@@ -353,9 +353,15 @@ function ProtectedShell() {
   const location = useLocation();
   const { user } = useAuth();
 
+  // 孩子端皮肤只在学生路由生效；家长端强制回到默认蜜黄，互不干扰。
+  const isStudentArea = location.pathname.startsWith('/student');
+
   useEffect(() => {
-    applyAppUISettings(resolveAppUISettings(user?.settings as Record<string, unknown> | undefined));
-  }, [JSON.stringify(user?.settings)]);
+    applyAppUISettings(
+      resolveAppUISettings(user?.settings as Record<string, unknown> | undefined),
+      { user, isStudentArea },
+    );
+  }, [JSON.stringify(user?.settings), isStudentArea, user]);
 
   const hideSecurityBadge = useMemo(() => {
     const path = location.pathname;

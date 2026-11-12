@@ -1,9 +1,19 @@
+import {
+  childThemeContextFromUser,
+  normalizeChildThemeMode,
+  resolveChildTheme,
+  type ChildThemeMode,
+} from './child-theme';
+import { syncChildDensity } from './child-density-store';
+
 export type FontSizeMode = 'normal' | 'large';
 
 export interface AppUISettings {
   volume: number;
   fontSize: FontSizeMode;
   darkMode: boolean;
+  /** 孩子端皮肤偏好；'auto' 表示按年龄自动推荐，用户可手动覆盖 */
+  childTheme: ChildThemeMode;
 }
 
 export interface ChatAvatarSettings {
@@ -13,10 +23,14 @@ export interface ChatAvatarSettings {
 
 const STORAGE_KEY = 'app_ui_settings';
 
+/** UI 设置字段名，用于判断后端用户设置里是否保存过 UI 偏好 */
+const UI_SETTING_KEYS = ['volume', 'fontSize', 'darkMode', 'childTheme'] as const;
+
 export const DEFAULT_APP_UI_SETTINGS: AppUISettings = {
   volume: 80,
   fontSize: 'normal',
   darkMode: false,
+  childTheme: 'auto',
 };
 
 export const DEFAULT_CHAT_AVATAR_SETTINGS: ChatAvatarSettings = {};
@@ -45,6 +59,7 @@ export function normalizeAppUISettings(value: unknown): AppUISettings {
     volume: clampVolume(source.volume),
     fontSize: normalizeFontSize(source.fontSize),
     darkMode: normalizeDarkMode(source.darkMode),
+    childTheme: normalizeChildThemeMode(source.childTheme),
   };
 }
 
@@ -64,24 +79,41 @@ export function saveStoredAppUISettings(settings: AppUISettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeAppUISettings(settings)));
 }
 
+/** 从后端 user.settings 中取出 UI 偏好（兼容嵌套 uiSettings 与平铺两种存法） */
 export function getUserAppUISettings(userSettings?: Record<string, unknown>): AppUISettings {
   const settings = toRecord(userSettings);
   const nested = settings.uiSettings;
   if (nested && typeof nested === 'object') return normalizeAppUISettings(nested);
 
-  const hasTopLevel = 'volume' in settings || 'fontSize' in settings || 'darkMode' in settings;
+  const hasTopLevel = UI_SETTING_KEYS.some((key) => key in settings);
   if (hasTopLevel) return normalizeAppUISettings(settings);
 
   return DEFAULT_APP_UI_SETTINGS;
 }
 
+/**
+ * 合并本地偏好与后端偏好。
+ * 后端从未保存过 UI 设置时，以 localStorage 为准 —— 否则用户手动选的主题
+ * 在刷新后会被默认值覆盖。后端保存过则后端优先（跨设备同步）。
+ */
 export function resolveAppUISettings(userSettings?: Record<string, unknown>): AppUISettings {
   const local = readStoredAppUISettings();
-  const user = getUserAppUISettings(userSettings);
+  const raw = toRecord(userSettings);
+  const nested = raw.uiSettings;
+
+  const hasUserPreference =
+    (nested && typeof nested === 'object'
+      ? UI_SETTING_KEYS.some((key) => key in (nested as Record<string, unknown>))
+      : UI_SETTING_KEYS.some((key) => key in raw));
+
+  if (!hasUserPreference) {
+    return normalizeAppUISettings({ ...DEFAULT_APP_UI_SETTINGS, ...local });
+  }
+
   return normalizeAppUISettings({
     ...DEFAULT_APP_UI_SETTINGS,
     ...local,
-    ...user,
+    ...getUserAppUISettings(userSettings),
   });
 }
 
@@ -108,12 +140,36 @@ export function resolveChatAvatarSettings(
   return DEFAULT_CHAT_AVATAR_SETTINGS;
 }
 
-export function applyAppUISettings(settings: AppUISettings): void {
+export interface AppUIApplyContext {
+  /** 当前用户，用于 auto 模式按年龄推断皮肤 */
+  user?: unknown;
+  /** 是否处于学生端路由；家长端强制使用默认蜜黄皮肤 */
+  isStudentArea?: boolean;
+}
+
+export function applyAppUISettings(
+  settings: AppUISettings,
+  context: AppUIApplyContext = {},
+): void {
   if (typeof document === 'undefined') return;
   const normalized = normalizeAppUISettings(settings);
   const root = document.documentElement;
+
   root.dataset.fontSize = normalized.fontSize;
-  root.classList.toggle('theme-dark', normalized.darkMode);
+  root.dataset.childThemeMode = normalized.childTheme;
+
+  const inStudentArea = context.isStudentArea ?? true;
+  const activeTheme: string = inStudentArea
+    ? resolveChildTheme(normalized.childTheme, childThemeContextFromUser(context.user))
+    : 'honey';
+  root.dataset.childTheme = activeTheme;
+
+  // 年龄密度档：CSS 用 data-child-level，React 组件经 store 订阅 useChildDensity。
+  // 家长端 activeTheme 恒为 honey（中档），因此家长端行为保持原样。
+  root.dataset.childLevel = String(syncChildDensity(activeTheme));
+
+  // 卡通皮肤各自带明暗方案；深色模式只在默认蜜黄皮肤下生效，避免叠加串色。
+  root.classList.toggle('theme-dark', normalized.darkMode && activeTheme === 'honey');
   root.style.setProperty('--app-audio-volume', String(normalized.volume / 100));
 }
 

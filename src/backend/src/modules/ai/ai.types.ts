@@ -1,5 +1,7 @@
 /** Shared types for the AI Agent module */
 
+import type { ChatMode } from '../../agent-framework/core';
+
 /**
  * Legacy agent age group. Keep in sync with the framework `AgeGroup`
  * (agent-framework/core/types/age-group.ts); 'unknown' is the legacy
@@ -22,7 +24,7 @@ export interface ChatRequest {
    * english-practice coach, level-adaptive bilingual replies. Omitted/any
    * other value = default agent behaviour.
    */
-  mode?: 'default' | 'casual' | 'english';
+  mode?: ChatMode;
   context?: {
     age?: number;
     currentPage?: string;

@@ -26,6 +26,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AiService } from './ai.service';
+import { normalizeChatMode, type ChatMode } from '../../agent-framework/core';
 
 @ApiTags('AI 服务')
 @Controller('ai')
@@ -45,7 +46,7 @@ export class AiController {
       parentId?: number;
       sessionId?: string;
       context?: any;
-      mode?: 'default' | 'casual' | 'english';
+      mode?: ChatMode;
     },
   ) {
     const viewerId = req.user.sub;
@@ -87,7 +88,7 @@ export class AiController {
       context?: any;
       bookId?: number;
       bookTitle?: string;
-      mode?: 'default' | 'casual' | 'english';
+      mode?: ChatMode;
     },
     @Res() res: Response,
   ) {
@@ -241,7 +242,7 @@ export class AiController {
         viewerId,
         viewerType,
         targetChildId,
-        mode: mode === 'casual' ? 'casual' : mode === 'english' ? 'english' : 'default',
+        mode: normalizeChatMode(mode),
       });
 
       for await (const event of stream) {

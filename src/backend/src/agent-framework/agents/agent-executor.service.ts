@@ -21,7 +21,7 @@ import type {
   ToolCallInfo,
 } from '../core';
 import { stripThinking, extractThinking, filterContent } from '../core';
-import { isActivityType, type ActivityType } from '../core';
+import { isActivityType, normalizeChatMode, type ActivityType } from '../core';
 import { extractJsonObject, contentAgeGroup } from '../core';
 
 /** Fallback reply when max iterations are reached */
@@ -57,7 +57,7 @@ export class AgentExecutorService {
    */
   /** Model override for casual (碎碎念) / english-practice chats, if configured */
   private chatModelOverride(context: AgentContext): string | undefined {
-    const chatMode = (context.metadata as Record<string, any> | undefined)?.chatMode;
+    const chatMode = normalizeChatMode((context.metadata as Record<string, any> | undefined)?.chatMode);
     if (chatMode === 'casual') return this.llmClient.casualModel;
     if (chatMode === 'english') return this.llmClient.englishModel;
     return undefined;
@@ -346,7 +346,7 @@ export class AgentExecutorService {
         // calls, its content IS the reply. These turns are short and the voice
         // call only speaks the complete text, so emitting the probe result
         // directly skips a second full request (was doubling every turn's latency).
-        const chatMode = (context.metadata as Record<string, any> | undefined)?.chatMode;
+        const chatMode = normalizeChatMode((context.metadata as Record<string, any> | undefined)?.chatMode);
         const isFastTurn = chatMode === 'casual' || chatMode === 'english';
         if (isFastTurn && (!assistantToolCalls || assistantToolCalls.length === 0)) {
           const probeThinking = extractThinking(assistantContent || '');

@@ -19,7 +19,7 @@ import type {
   LlmToolDefinition,
   ToolCallInfo,
 } from '../core';
-import { filterContent } from '../core';
+import { filterContent, normalizeChatMode } from '../core';
 import { AgentExecutorService } from './agent-executor.service';
 import { SkillRegistryService } from '../skills/skill-registry.service';
 
@@ -323,12 +323,12 @@ export class OrchestratorService implements OnApplicationBootstrap {
 
   /** 碎碎念闲聊模式开关：由调用方通过 context.metadata.chatMode 传入 */
   private isCasualMode(context: AgentContext): boolean {
-    return (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
+    return normalizeChatMode((context.metadata as Record<string, any> | undefined)?.chatMode) === 'casual';
   }
 
   /** 英语陪练模式开关：由调用方通过 context.metadata.chatMode 传入 */
   private isEnglishMode(context: AgentContext): boolean {
-    return (context.metadata as Record<string, any> | undefined)?.chatMode === 'english';
+    return normalizeChatMode((context.metadata as Record<string, any> | undefined)?.chatMode) === 'english';
   }
 
   /**

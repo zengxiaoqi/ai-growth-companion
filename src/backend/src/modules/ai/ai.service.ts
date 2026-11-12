@@ -10,8 +10,8 @@ import { AgentRegistryService } from '../../agent-framework/agents/agent-registr
 import { AgentExecutorService as FrameworkAgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
 import { SkillRegistryService } from '../../agent-framework/skills/skill-registry.service';
 import { SkillExecutor } from '../../agent-framework/skills/skill-executor';
-import type { AgentContext, AgeGroupOrParent } from '../../agent-framework/core';
-import { contentAgeGroup } from '../../agent-framework/core';
+import type { AgentContext, AgeGroupOrParent, ChatMode } from '../../agent-framework/core';
+import { contentAgeGroup, normalizeChatMode } from '../../agent-framework/core';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
 import JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
@@ -504,12 +504,11 @@ export class AiService {
     actorType: 'parent' | 'child';
     targetChildId?: number;
     careTopic?: string;
-    mode?: 'default' | 'casual' | 'english';
+    mode?: ChatMode;
     casualTools?: string[];
     englishProfile?: EnglishProfile;
   }): AgentContext {
-    const chatMode =
-      params.mode === 'casual' ? 'casual' : params.mode === 'english' ? 'english' : 'default';
+    const chatMode = normalizeChatMode(params.mode);
     return {
       childId: params.executionContext.childId,
       parentId: params.executionContext.parentId,
@@ -569,13 +568,11 @@ export class AiService {
    * per-request and is never persisted, so normal sessions behave as before.
    */
   private resolveChatMode(
-    requestMode: 'default' | 'casual' | 'english' | undefined,
+    requestMode: ChatMode | undefined,
     sessionMetadata?: Record<string, any>,
-  ): 'default' | 'casual' | 'english' {
+  ): ChatMode {
     if (sessionMetadata?.chatMode === 'english') return 'english';
-    if (requestMode === 'english') return 'english';
-    if (requestMode === 'casual') return 'casual';
-    return 'default';
+    return normalizeChatMode(requestMode);
   }
 
   /** Read the child's current english level for done-event / response payloads. */
@@ -591,7 +588,7 @@ export class AiService {
 
   /** Resolve the english profile to inject into AgentContext for english turns. */
   private async resolveEnglishProfileForChat(params: {
-    mode?: 'default' | 'casual' | 'english';
+    mode?: ChatMode;
     ageGroup: AgeGroupOrParent;
     executionContext: { childId?: number; parentId?: number };
   }): Promise<EnglishProfile | undefined> {
@@ -616,7 +613,7 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
-    mode?: 'default' | 'casual' | 'english';
+    mode?: ChatMode;
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown; musicData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const casualTools =
@@ -667,7 +664,7 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
-    mode?: 'default' | 'casual' | 'english';
+    mode?: ChatMode;
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
     content?: string;

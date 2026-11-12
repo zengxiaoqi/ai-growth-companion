@@ -107,11 +107,11 @@ describe('AgentExecutorService runLoopStream', () => {
   });
 
   /** Collect all events from the async generator */
-  async function collectEvents(): Promise<StreamEvent[]> {
+  async function collectEvents(messages: LlmMessage[] = []): Promise<StreamEvent[]> {
     const events: StreamEvent[] = [];
     for await (const event of executor.runLoopStream(
       'You are a teaching assistant.',
-      [],
+      messages,
       toolDefinitions,
       3,
       context,
@@ -215,7 +215,7 @@ describe('AgentExecutorService runLoopStream', () => {
         yield '';
       });
 
-      await collectEvents();
+      await collectEvents([{ role: 'user', content: '出3道数学小游戏' }]);
 
       // Second chatCompletion call (after nudge retry, still iteration 0 effectively)
       // Actually, after the nudge, the next call is still within iteration 0 because the code loops back.
@@ -269,7 +269,7 @@ describe('AgentExecutorService runLoopStream', () => {
         yield '';
       });
 
-      await collectEvents();
+      await collectEvents([{ role: 'user', content: '出3道数学小游戏' }]);
 
       // Verify that the second chatCompletion call received the nudged messages
       const calls = llmClient.chatCompletion.mock.calls;
@@ -390,6 +390,54 @@ describe('AgentExecutorService runLoopStream', () => {
       expect(events.some((e) => e.type === 'token')).toBe(true);
       expect(events.some((e) => e.type === 'done')).toBe(true);
       expect(events.some((e) => e.type === 'tool_start')).toBe(false);
+    });
+
+    it('does NOT push nudge when generateActivity is available but the user is casual chatting (child companion)', async () => {
+      // child-companion HAS generateActivity, so the tool gate alone would still
+      // nudge; the intent gate must let a casual turn fall through to a reply.
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        textOnlyResponse('哇，听起来你今天过得很开心呀！'),
+      );
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '哇，听起来你今天过得很开心呀！';
+      });
+
+      const events = await collectEvents([{ role: 'user', content: '我今天有点开心' }]);
+
+      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(1);
+      const probeMessages = llmClient.chatCompletion.mock.calls[0][0] as LlmMessage[];
+      expect(
+        probeMessages.some(
+          (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('⚠️'),
+        ),
+      ).toBe(false);
+      expect(llmClient.chatCompletionStream).toHaveBeenCalledTimes(1);
+      expect(events.some((e) => e.type === 'tool_start')).toBe(false);
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+    });
+
+    it('pushes nudge for a bare 做题 request (keyword the routing patterns miss)', async () => {
+      llmClient.chatCompletion.mockResolvedValueOnce(textOnlyResponse('我为你准备了一道练习。'));
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        toolCallResponse('generateActivity', { type: 'quiz', domain: 'math' }),
+      );
+      toolRegistry.execute.mockResolvedValueOnce({ data: { type: 'quiz', questions: [] } });
+      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('done'));
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '';
+      });
+
+      await collectEvents([{ role: 'user', content: '我要做题' }]);
+
+      const calls = llmClient.chatCompletion.mock.calls;
+      expect(calls.length).toBeGreaterThanOrEqual(2);
+      const secondCallMessages = calls[1][0] as LlmMessage[];
+      expect(
+        secondCallMessages.some(
+          (m) =>
+            m.role === 'user' && typeof m.content === 'string' && m.content.includes('没有调用任何工具'),
+        ),
+      ).toBe(true);
     });
   });
 

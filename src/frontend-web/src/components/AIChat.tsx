@@ -311,25 +311,6 @@ interface AIChatPageProps extends AIChatSharedProps {
 function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
   const isFullPage = layout === 'full-page';
   const isParentMode = Boolean(parentId);
-  // 碎碎念闲聊模式：短句口语对话，不走学习工具流程
-  const [chatMode, setChatMode] = useState<'normal' | 'casual'>(() => {
-    try {
-      return localStorage.getItem('ai_chat_mode') === 'casual' ? 'casual' : 'normal';
-    } catch {
-      return 'normal';
-    }
-  });
-  const toggleChatMode = useCallback(() => {
-    setChatMode((prev) => {
-      const next = prev === 'casual' ? 'normal' : 'casual';
-      try {
-        localStorage.setItem('ai_chat_mode', next);
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
-  }, []);
 
   // 豆包式语音通话：全屏通话界面，连续听-说对话
   const [callOpen, setCallOpen] = useState(false);
@@ -363,9 +344,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
 
   const starterPrompts = isParentMode
     ? ['看看孩子这周学得怎么样', '根据学情调整下周学习计划', '给孩子安排今天的学习任务']
-    : chatMode === 'casual'
-      ? ['今天好好玩呀', '我发现了一个小秘密', '我今天有点开心']
-      : ['帮我安排今天的学习计划', '出3道数学小游戏', '讲一个简短睡前故事'];
+    : ['帮我安排今天的学习计划', '出3道数学小游戏', '讲一个简短睡前故事'];
 
   // 年龄密度档：level 0 图形提问 + 仅语音；level 2 多一个提问与建议行。
   // 家长端强制保持中档行为，不受孩子端换肤影响。
@@ -551,19 +530,15 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           id: '1',
           role: 'assistant',
           content: isParentMode
-            ? chatMode === 'casual'
-              ? '嘿，忙了一天啦，想随便聊聊什么呀？'
-              : '你好，我是你的 AI 家庭学习助手。我可以帮你查看孩子学习情况，分析薄弱点，并一起调整学习计划和任务安排。'
-            : chatMode === 'casual'
-              ? '嘿，我在呢～今天有什么好玩的事，快跟我碎碎念一下吧！'
-              : '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
+            ? '你好，我是你的 AI 家庭学习助手。我可以帮你查看孩子学习情况，分析薄弱点，并一起调整学习计划和任务安排。'
+            : '你好，我是你的 AI 学习伙伴。你可以让我出题、讲故事、解释知识点，或一起做练习。',
           timestamp: new Date(),
           thinkingSteps: [],
           toolSteps: [],
         },
       ]);
     }
-  }, [isOpen, isFullPage, isParentMode, chatMode, messages.length]);
+  }, [isOpen, isFullPage, isParentMode, messages.length]);
 
   useEffect(() => {
     if (isOpen || isFullPage) setTimeout(() => inputRef.current?.focus(), 300);
@@ -743,7 +718,6 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           childId,
           parentId,
           sessionId,
-          mode: chatMode === 'casual' ? 'casual' : undefined,
         });
         if (!response.ok || !response.body) throw new Error('Stream failed');
 
@@ -943,7 +917,6 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             childId,
             parentId,
             sessionId,
-            mode: chatMode === 'casual' ? 'casual' : undefined,
           });
           if (response.sessionId) setSessionId(response.sessionId);
           if (response.suggestions?.length) setSuggestions(response.suggestions);
@@ -979,7 +952,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
         setIsLoading(false);
       }
     },
-    [input, isLoading, childId, parentId, sessionId, viewMode, chatMode],
+    [input, isLoading, childId, parentId, sessionId, viewMode],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1234,9 +1207,7 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-white font-bold text-sm leading-tight truncate">AI 学习伙伴</h3>
-            <p className="text-xs text-white/70 leading-tight truncate">
-              {chatMode === 'casual' ? '碎碎念闲聊中，随便说～' : '学习 · 提问 · 陪你聊'}
-            </p>
+            <p className="text-xs text-white/70 leading-tight truncate">学习 · 提问 · 陪你聊</p>
           </div>
           <div className="mr-1 flex items-center gap-1 rounded-full bg-white/15 p-1">
             <button
@@ -1267,20 +1238,6 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
             title="语音通话：像打电话一样实时连续对话"
           >
             <Phone className="w-5 h-5" />
-          </button>
-          <button
-            onClick={toggleChatMode}
-            className={cn(
-              'touch-target h-9 rounded-full px-3 flex items-center gap-1.5 text-xs font-medium transition-colors',
-              chatMode === 'casual'
-                ? 'bg-white text-tertiary shadow-sm'
-                : 'bg-white/10 text-white/75 hover:text-white hover:bg-white/20',
-            )}
-            aria-label={chatMode === 'casual' ? '退出碎碎念闲聊模式' : '开启碎碎念闲聊模式'}
-            title="碎碎念：像朋友一样随口闲聊，AI 只回短句，不出题不安排任务"
-          >
-            <MessageCircle className="h-4 w-4" />
-            碎碎念
           </button>
           <button
             onClick={() => {
@@ -1818,25 +1775,9 @@ function AIChatImpl({ childId, parentId, layout, onBack }: AIChatImplProps) {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-white font-bold text-sm truncate">
-                    {chatMode === 'casual' ? '碎碎念闲聊' : 'AI 学习伙伴'}
-                  </h3>
+                  <h3 className="text-white font-bold text-sm truncate">AI 学习伙伴</h3>
                 </div>
               </div>
-              <button
-                onClick={toggleChatMode}
-                className={cn(
-                  'mr-1 h-7 rounded-full px-2 flex items-center gap-1 text-xs font-medium transition-colors',
-                  chatMode === 'casual'
-                    ? 'bg-white text-tertiary shadow-sm'
-                    : 'bg-white/10 text-white/75 hover:text-white hover:bg-white/20',
-                )}
-                aria-label={chatMode === 'casual' ? '退出碎碎念闲聊模式' : '开启碎碎念闲聊模式'}
-                title="碎碎念：像朋友一样随口闲聊，AI 只回短句，不出题不安排任务"
-              >
-                <MessageCircle className="h-4 w-4" />
-                碎碎念
-              </button>
               <button
                 onClick={() => setCallOpen(true)}
                 className="mr-1 h-7 w-7 rounded-full bg-white/10 text-white/75 hover:text-white hover:bg-white/20 flex items-center justify-center transition-colors"

@@ -27,6 +27,14 @@ import { extractJsonObject, contentAgeGroup } from '../core';
 /** Fallback reply when max iterations are reached */
 const MAX_ITERATIONS_FALLBACK = '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟';
 
+/**
+ * Matches a user turn that asks for an activity/quiz/exercise. Used to gate the
+ * iteration-0 generateActivity nudge so it only fires on real activity requests,
+ * never on casual chat (a child sharing their day must not be forced into a quiz).
+ */
+const ACTIVITY_INTENT_PATTERN =
+  /做题|出题|题目|练习|测验|测试|活动|游戏|作业|加减法|口算|算术|数学题|练一练|做一做|考考|闯关|\bactivity\b|\bquiz\b|\bexercise\b|\bgame\b|\bworksheet\b|\bpractice\b|\btest\b/i;
+
 @Injectable()
 export class AgentExecutorService {
   private readonly logger = new Logger(AgentExecutorService.name);
@@ -51,6 +59,21 @@ export class AgentExecutorService {
   private casualModelOverride(context: AgentContext): string | undefined {
     const isCasual = (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
     return isCasual ? this.llmClient.casualModel : undefined;
+  }
+
+  /**
+   * Whether the latest user turn asks for an activity/quiz. The generateActivity
+   * nudge is a safety net for activity requests only — gating it on intent keeps
+   * casual chat from being hijacked into a forced tool call.
+   */
+  private latestUserRequestsActivity(messages: LlmMessage[]): boolean {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'user' && typeof m.content === 'string') {
+        return ACTIVITY_INTENT_PATTERN.test(m.content);
+      }
+    }
+    return false;
   }
 
   async runLoop(
@@ -201,14 +224,16 @@ export class AgentExecutorService {
 
       // If tools are available and this is the first iteration, the LLM may have
       // skipped tool usage. Retry with a stronger prompt nudge — but only for
-      // agents that can call generateActivity, so casual replies from agents
-      // that disallow it (e.g. parent-advisor) are not hijacked into a tool call.
+      // agents that can call generateActivity AND only when the user actually
+      // asked for an activity, so casual replies (e.g. parent-advisor small talk
+      // or a child chatting) are not hijacked into a tool call.
       if (
         toolDefinitions &&
         toolDefinitions.length > 0 &&
         iteration === 0 &&
         response.content &&
-        toolDefinitions.some((t) => t.function.name === 'generateActivity')
+        toolDefinitions.some((t) => t.function.name === 'generateActivity') &&
+        this.latestUserRequestsActivity(messages)
       ) {
         this.logger.log('No tool calls on iteration 1, retrying with stronger prompt');
         fullMessages.push({ role: 'assistant', content: response.content });
@@ -460,16 +485,18 @@ export class AgentExecutorService {
 
       // --- No tool calls this iteration ---
       // The activity-generation nudge only applies to agents that can actually
-      // call generateActivity. Forcing it on every agent (e.g. parent-advisor,
-      // which disallows it) hijacks casual replies into a tool call, so gate it
-      // on the tool being present. Agents without it fall through to a normal
-      // no-tool final response.
+      // call generateActivity AND only when the user asked for an activity.
+      // Forcing it on every agent / every turn hijacks casual replies into a
+      // tool call (parent-advisor small talk, a child sharing their day), so
+      // gate it on tool availability + intent. Otherwise fall through to a
+      // normal no-tool final response.
       if (
         toolDefinitions &&
         toolDefinitions.length > 0 &&
         iteration === 0 &&
         assistantContent &&
-        toolDefinitions.some((t) => t.function.name === 'generateActivity')
+        toolDefinitions.some((t) => t.function.name === 'generateActivity') &&
+        this.latestUserRequestsActivity(messages)
       ) {
         this.logger.log('[STREAM] No tool calls on iteration 1, retrying with stronger prompt');
         fullMessages.push({

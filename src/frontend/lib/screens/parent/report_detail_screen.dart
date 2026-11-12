@@ -7,6 +7,7 @@ import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/domain_registry.dart';
 import 'child_selector.dart';
 
 /// 报告详情页：展示孩子的学习报告详情
@@ -40,16 +41,6 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   List<_Achievement> _achievements = [];
   List<String> _aiInsights = [];
   List<Map<String, dynamic>> _processRecords = [];
-
-  // 领域配置
-  static const _domains = <String, _DomainConfig>{
-    'language': _DomainConfig(label: '语言', color: Color(0xFF006384)),
-    'math': _DomainConfig(label: '数学', color: Color(0xFF586000)),
-    'science': _DomainConfig(label: '科学', color: Color(0xFF705900)),
-    'art': _DomainConfig(label: '艺术', color: Color(0xFFB9AE6E)),
-    'social': _DomainConfig(label: '社交', color: Color(0xFFB02500)),
-    'english': _DomainConfig(label: '英语', color: Color(0xFF6A4C93)),
-  };
 
   static const _periodTabs = [
     _PeriodTab(key: 'daily', label: '日报'),
@@ -694,9 +685,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ..._domains.entries.map((entry) {
-              final domain = entry.key;
-              final config = entry.value;
+            ...kLearningDomains.map((spec) {
+              final domain = spec.key;
               final progress = _skillProgress[domain] ?? 0;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
@@ -709,12 +699,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: config.color,
+                            color: spec.color,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
-                              config.label[0],
+                              spec.label[0],
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -725,7 +715,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          config.label,
+                          spec.label,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -735,7 +725,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           '$progress%',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: config.color,
+                            color: spec.color,
                           ),
                         ),
                       ],
@@ -746,8 +736,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       child: LinearProgressIndicator(
                         value: progress / 100,
                         minHeight: 8,
-                        backgroundColor: config.color.withValues(alpha: 0.12),
-                        color: config.color,
+                        backgroundColor: spec.color.withValues(alpha: 0.12),
+                        color: spec.color,
                       ),
                     ),
                   ],
@@ -1079,13 +1069,6 @@ class _Achievement {
     required this.totalRequired,
     required this.unlocked,
   });
-}
-
-class _DomainConfig {
-  final String label;
-  final Color color;
-
-  const _DomainConfig({required this.label, required this.color});
 }
 
 class _PeriodTab {

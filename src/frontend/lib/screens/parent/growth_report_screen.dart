@@ -6,6 +6,7 @@ import '../../components/activity_process_details.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/domain_registry.dart';
 import 'bento_report_screen.dart';
 import 'child_selector.dart';
 
@@ -38,16 +39,6 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
   List<_Achievement> _achievements = [];
   List<String> _aiInsights = [];
   List<Map<String, dynamic>> _processRecords = [];
-
-  // 领域配置
-  static const _domains = {
-    'language': {'label': '语言', 'color': Color(0xFF006384)},
-    'math': {'label': '数学', 'color': Color(0xFF586000)},
-    'science': {'label': '科学', 'color': Color(0xFF705900)},
-    'art': {'label': '艺术', 'color': Color(0xFFb9ae6e)},
-    'social': {'label': '社会', 'color': Color(0xFFb02500)},
-    'english': {'label': '英语', 'color': Color(0xFF6A4C93)},
-  };
 
   static const _periodTabs = [
     {'key': 'daily', 'label': '日报'},
@@ -770,9 +761,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ..._domains.entries.map((entry) {
-              final domain = entry.key;
-              final config = entry.value;
+            ...kLearningDomains.map((spec) {
+              final domain = spec.key;
               final progress = _skillProgress[domain] ?? 0;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
@@ -785,12 +775,12 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: config['color'] as Color,
+                            color: spec.color,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
-                              (config['label'] as String)[0],
+                              (spec.label)[0],
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -801,7 +791,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          config['label'] as String,
+                          spec.label,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -811,7 +801,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                           '$progress%',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: config['color'] as Color,
+                            color: spec.color,
                           ),
                         ),
                       ],
@@ -823,8 +813,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                         value: progress / 100,
                         minHeight: 8,
                         backgroundColor:
-                            (config['color'] as Color).withValues(alpha: 0.12),
-                        color: config['color'] as Color,
+                            (spec.color).withValues(alpha: 0.12),
+                        color: spec.color,
                       ),
                     ),
                   ],

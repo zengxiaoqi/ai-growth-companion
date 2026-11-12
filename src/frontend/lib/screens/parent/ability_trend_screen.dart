@@ -7,6 +7,7 @@ import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/domain_registry.dart';
 import 'child_selector.dart';
 
 /// 家长端能力趋势页：
@@ -19,15 +20,6 @@ class AbilityTrendScreen extends StatefulWidget {
 }
 
 class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
-  static const List<_DomainMeta> _domains = [
-    _DomainMeta(key: 'language', label: '语言', color: Color(0xFF006384)),
-    _DomainMeta(key: 'math', label: '数学', color: Color(0xFF586000)),
-    _DomainMeta(key: 'science', label: '科学', color: Color(0xFF705900)),
-    _DomainMeta(key: 'art', label: '艺术', color: Color(0xFFB9AE6E)),
-    _DomainMeta(key: 'social', label: '社交', color: Color(0xFFB02500)),
-    _DomainMeta(key: 'english', label: '英语', color: Color(0xFF6A4C93)),
-  ];
-
   int _rangeDays = 30;
   bool _isLoadingChildren = true;
   bool _isLoadingTrend = false;
@@ -321,7 +313,7 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                         ),
                       ),
                     ),
-                    lineBarsData: _domains.map((domain) {
+                    lineBarsData: kLearningDomains.map((domain) {
                       final points =
                           pointsByDomain[domain.key] ?? const <FlSpot>[];
                       return LineChartBarData(
@@ -372,7 +364,7 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
         child: Wrap(
           spacing: 14,
           runSpacing: 10,
-          children: _domains
+          children: kLearningDomains
               .map(
                 (d) => _LegendDot(
                   color: d.color,
@@ -388,13 +380,13 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
   Map<String, List<FlSpot>> _buildLineSpots() {
     // 将每周趋势数据映射为折线点位
     final map = <String, List<FlSpot>>{};
-    for (final domain in _domains) {
+    for (final domain in kLearningDomains) {
       map[domain.key] = <FlSpot>[];
     }
 
     for (var i = 0; i < _trendRows.length; i++) {
       final row = _trendRows[i];
-      for (final domain in _domains) {
+      for (final domain in kLearningDomains) {
         final y = _toScore(row[domain.key]);
         map[domain.key]!.add(FlSpot(i.toDouble(), y));
       }
@@ -449,13 +441,4 @@ class _LegendDot extends StatelessWidget {
       ],
     );
   }
-}
-
-class _DomainMeta {
-  final String key;
-  final String label;
-  final Color color;
-
-  const _DomainMeta(
-      {required this.key, required this.label, required this.color});
 }

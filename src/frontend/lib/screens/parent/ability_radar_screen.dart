@@ -7,6 +7,7 @@ import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/domain_registry.dart';
 import 'child_selector.dart';
 
 /// 家长端能力雷达页：
@@ -21,15 +22,6 @@ class AbilityRadarScreen extends StatefulWidget {
 }
 
 class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
-  static const List<_DomainMeta> _domains = [
-    _DomainMeta(key: 'language', label: '语言', color: Color(0xFF006384)),
-    _DomainMeta(key: 'math', label: '数学', color: Color(0xFF586000)),
-    _DomainMeta(key: 'science', label: '科学', color: Color(0xFF705900)),
-    _DomainMeta(key: 'art', label: '艺术', color: Color(0xFFB9AE6E)),
-    _DomainMeta(key: 'social', label: '社交', color: Color(0xFFB02500)),
-    _DomainMeta(key: 'english', label: '英语', color: Color(0xFF6A4C93)),
-  ];
-
   bool _isLoadingChildren = true;
   bool _isLoadingAbility = false;
   List<Map<String, dynamic>> _children = [];
@@ -185,7 +177,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '五维能力评估',
+              '能力评估',
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -193,7 +185,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '从语言、数学、科学、艺术、社交、英语观察孩子的成长变化',
+              '从${kLearningDomains.map((d) => d.label).join('、')}观察孩子的成长变化',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),
@@ -239,10 +231,10 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                     ),
                     titlePositionPercentageOffset: 0.2,
                     getTitle: (index, _) {
-                      if (index < 0 || index >= _domains.length) {
+                      if (index < 0 || index >= kLearningDomains.length) {
                         return const RadarChartTitle(text: '');
                       }
-                      return RadarChartTitle(text: _domains[index].label);
+                      return RadarChartTitle(text: kLearningDomains[index].label);
                     },
                     dataSets: [
                       RadarDataSet(
@@ -293,15 +285,15 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
-          children: List.generate(_domains.length, (index) {
-            final domain = _domains[index];
+          children: List.generate(kLearningDomains.length, (index) {
+            final domain = kLearningDomains[index];
             final current = chart.currentValues[index];
             final previous = chart.previousValues[index];
             final delta = current - previous;
 
             return Padding(
               padding: EdgeInsets.only(
-                  bottom: index == _domains.length - 1 ? 0 : 12),
+                  bottom: index == kLearningDomains.length - 1 ? 0 : 12),
               child: Row(
                 children: [
                   Container(
@@ -352,7 +344,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
     final lastMonth = DateTime(now.year, now.month - 1, now.day);
 
     final grouped = <String, List<Map<String, dynamic>>>{};
-    for (final domain in _domains) {
+    for (final domain in kLearningDomains) {
       grouped[domain.key] = [];
     }
 
@@ -376,7 +368,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
     final current = <double>[];
     final previous = <double>[];
 
-    for (final domain in _domains) {
+    for (final domain in kLearningDomains) {
       final entries = grouped[domain.key] ?? [];
       if (entries.isEmpty) {
         current.add(0);
@@ -459,13 +451,4 @@ class _RadarCompare {
 
   const _RadarCompare(
       {required this.currentValues, required this.previousValues});
-}
-
-class _DomainMeta {
-  final String key;
-  final String label;
-  final Color color;
-
-  const _DomainMeta(
-      {required this.key, required this.label, required this.color});
 }

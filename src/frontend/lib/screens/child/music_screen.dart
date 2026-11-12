@@ -4,10 +4,12 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/child_fun_page.dart';
 import '../../components/empty_state.dart';
 import '../../providers/user_provider.dart';
 import '../../services/music_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 
 /// 音乐乐园 — 多音源儿歌搜索 + 在线播放
 class MusicScreen extends StatefulWidget {
@@ -162,12 +164,16 @@ class _MusicScreenState extends State<MusicScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('音乐乐园')),
-      body: Column(
+    return ChildFunPage(
+      title: '音乐乐园',
+      subtitle: '想听什么歌？搜一搜就有',
+      icon: Icons.music_note_rounded,
+      scrollable: false,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
                 Expanded(
@@ -242,10 +248,9 @@ class _MusicScreenState extends State<MusicScreen> {
             (_current != null &&
                 track.url == _current!.url &&
                 track.title == _current!.title);
+        final palette = ChildThemePalette.of(context);
         return Material(
-          color: isCurrent
-              ? AppTheme.softYellow
-              : Theme.of(context).colorScheme.surface,
+          color: isCurrent ? palette.soft : palette.card,
           borderRadius: BorderRadius.circular(16),
           child: ListTile(
             shape: RoundedRectangleBorder(
@@ -255,7 +260,7 @@ class _MusicScreenState extends State<MusicScreen> {
               isCurrent && _isPlaying
                   ? Icons.equalizer_rounded
                   : Icons.music_note_rounded,
-              color: AppTheme.primaryColor,
+              color: palette.pop,
             ),
             title: Text(
               track.title,
@@ -303,6 +308,7 @@ class _MusicScreenState extends State<MusicScreen> {
   }
 
   Widget _buildPlayerBar() {
+    final palette = ChildThemePalette.of(context);
     final track = _current!;
     final maxMs = _duration.inMilliseconds.toDouble();
     final posMs = _position.inMilliseconds
@@ -310,14 +316,10 @@ class _MusicScreenState extends State<MusicScreen> {
         .clamp(0, maxMs > 0 ? maxMs : 1)
         .toDouble();
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        8 + MediaQuery.of(context).padding.bottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: palette.card,
+        borderRadius: BorderRadius.circular(palette.radiusMd),
         boxShadow: AppTheme.softShadow(),
       ),
       child: Column(
@@ -344,7 +346,7 @@ class _MusicScreenState extends State<MusicScreen> {
                       ? Icons.pause_circle_filled_rounded
                       : Icons.play_circle_fill_rounded,
                   size: 40,
-                  color: AppTheme.primaryColor,
+                  color: palette.pop,
                 ),
                 onPressed: _togglePlay,
               ),

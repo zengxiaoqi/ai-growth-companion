@@ -159,6 +159,9 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
+    // 首帧必须淡入一次：只靠 didUpdateWidget 触发的话，
+    // 初始 opacity 恒为 0，数值整块不可见（积分页踩过）。
+    _controller.forward();
   }
 
   @override

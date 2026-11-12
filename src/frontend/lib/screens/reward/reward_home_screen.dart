@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 import '../../components/app_card.dart';
+import '../../components/child_fun_page.dart';
 import '../../components/stat_card.dart';
 import '../../components/task_card.dart';
 import '../../components/reward_icon.dart';
@@ -65,15 +67,13 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('积分奖惩'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Consumer<RewardProvider>(
+    return ChildFunPage(
+      title: '积分奖惩',
+      subtitle: '表现好就有星星奖励',
+      icon: Icons.workspace_premium_rounded,
+      scrollable: false,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Consumer<RewardProvider>(
         builder: (context, reward, _) {
           return Column(
             children: [
@@ -111,15 +111,20 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   }
 
   Widget _buildPointsOverview(PointsSummary? summary) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
+        gradient: LinearGradient(
+          colors: [palette.cta, palette.pop],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(palette.radiusLg),
+        border: palette.isCartoon
+            ? Border.all(color: palette.line, width: palette.borderW)
+            : null,
       ),
       child: Row(
         children: [
@@ -127,21 +132,21 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
             label: '总积分',
             value: '${summary?.totalPoints ?? 0}',
             icon: Icons.star_rounded,
-            color: Colors.white,
+            color: palette.ctaInk,
           ),
           const SizedBox(width: 12),
           AnimatedStatCard(
             label: '今日',
             value: '+${summary?.todayPoints ?? 0}',
             icon: Icons.today_rounded,
-            color: Colors.white,
+            color: palette.ctaInk,
           ),
           const SizedBox(width: 12),
           AnimatedStatCard(
             label: '连续',
             value: '${summary?.streak ?? 0}天',
             icon: Icons.local_fire_department_rounded,
-            color: Colors.white,
+            color: palette.ctaInk,
           ),
         ],
       ),
@@ -149,13 +154,19 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   }
 
   Widget _buildTabBar() {
+    final palette = ChildThemePalette.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      margin: const EdgeInsets.symmetric(vertical: 14),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.subtleShadow(),
+        color: palette.card,
+        borderRadius: BorderRadius.circular(palette.radiusMd),
+        border: palette.isCartoon
+            ? Border.all(color: palette.line, width: 2)
+            : null,
+        boxShadow: palette.isCartoon
+            ? null
+            : AppTheme.subtleShadow(),
       ),
       child: Row(
         children: [
@@ -169,6 +180,7 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
   }
 
   Widget _buildTab(int index, String label, IconData icon) {
+    final palette = ChildThemePalette.of(context);
     final isSelected = _currentTab == index;
     return Expanded(
       child: GestureDetector(
@@ -176,12 +188,13 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            gradient: isSelected ? AppTheme.primaryGradient : null,
+            gradient: isSelected
+                ? LinearGradient(colors: [palette.cta, palette.pop])
+                : null,
             color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: isSelected ? AppTheme.softShadow(AppTheme.primaryColor) : null,
+            borderRadius: BorderRadius.circular(palette.radiusSm),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -192,15 +205,15 @@ class _RewardHomeScreenState extends State<RewardHomeScreen> {
                   icon,
                   key: ValueKey('$index-$isSelected'),
                   size: 18,
-                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  color: isSelected ? palette.ctaInk : palette.ink2,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? palette.ctaInk : palette.ink2,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 13,
                 ),
               ),

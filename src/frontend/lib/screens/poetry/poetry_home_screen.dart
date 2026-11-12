@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../components/child_fun_page.dart';
+import '../../components/empty_state.dart';
+import '../../theme/child_theme.dart';
 import '../../services/poetry_service.dart';
 import '../../services/api_service.dart';
 import 'poetry_detail_screen.dart';
@@ -70,7 +72,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = '加载失败: $e';
+        _error = '诗词加载失败';
         _isLoading = false;
       });
     }
@@ -150,71 +152,14 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: '搜索诗词...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.4),
-                  ),
-                ),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                onChanged: (value) => _search(value, _selectedSearchType),
-              )
-            : const Text('诗词鉴赏'),
-        actions: [
-          if (_isSearching)
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                _searchController.clear();
-                setState(() => _isSearching = false);
-              },
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () => setState(() => _isSearching = true),
-            ),
-            IconButton(
-              icon: const Icon(Icons.casino),
-              tooltip: '随机诗词',
-              onPressed: _showRandomPoem,
-            ),
-            // 繁简切换按钮
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _lang = _lang == 'zh-Hans' ? 'zh-Hant' : 'zh-Hans';
-                });
-                _loadData();
-                if (_isSearching) {
-                  _search(_searchController.text.trim(), _selectedSearchType);
-                }
-              },
-              child: Text(
-                _lang == 'zh-Hans' ? '繁' : '简',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      body: _buildBody(),
+    final palette = ChildThemePalette.of(context);
+
+    return ChildFunPage(
+      title: '诗词鉴赏',
+      subtitle: _isSearching ? '输入关键词找诗' : '每天读一首，语感自然来',
+      scrollable: false,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      onBack: () => Navigator.of(context).maybePop(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -223,9 +168,76 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
           );
         },
         tooltip: '诗词游戏',
-        backgroundColor: const Color(0xFF8B2500),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.games),
+        backgroundColor: palette.pop,
+        foregroundColor: palette.onPrimary,
+        child: const Icon(Icons.games_rounded),
+      ),
+      actions: _isSearching
+          ? <Widget>[
+              ChildFunIconButton(
+                icon: Icons.close_rounded,
+                tooltip: '退出搜索',
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() => _isSearching = false);
+                },
+              ),
+              const SizedBox(width: 8),
+            ]
+          : <Widget>[
+              ChildFunIconButton(
+                icon: Icons.search_rounded,
+                tooltip: '搜索诗词',
+                onPressed: () => setState(() => _isSearching = true),
+              ),
+              const SizedBox(width: 8),
+              ChildFunIconButton(
+                icon: Icons.casino_rounded,
+                tooltip: '随机一首',
+                onPressed: _showRandomPoem,
+              ),
+              const SizedBox(width: 8),
+              // 繁简切换
+              ChildFunIconButton(
+                icon: Icons.translate_rounded,
+                tooltip: _lang == 'zh-Hans' ? '切换到繁体' : '切换到简体',
+                onPressed: () {
+                  setState(() {
+                    _lang = _lang == 'zh-Hans' ? 'zh-Hant' : 'zh-Hans';
+                  });
+                  _loadData();
+                  if (_isSearching) {
+                    _search(_searchController.text.trim(), _selectedSearchType);
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
+      child: Column(
+        children: <Widget>[
+          if (_isSearching)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) => _search(value, _selectedSearchType),
+                decoration: InputDecoration(
+                  hintText: '搜索诗词、诗人…',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  filled: true,
+                  fillColor: palette.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                ),
+              ),
+            ),
+          Expanded(child: _buildBody()),
+        ],
       ),
     );
   }
@@ -236,20 +248,13 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     }
 
     if (_error != null && _poems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('重试'),
-            ),
-          ],
-        ),
+      // 不把 DioException 原文丢给孩子看，统一成一句人话 + 重试
+      return EmptyState(
+        icon: Icons.cloud_off_rounded,
+        title: _error!,
+        subtitle: '检查一下网络，再试一次吧',
+        actionLabel: '重试',
+        onAction: _loadData,
       );
     }
 

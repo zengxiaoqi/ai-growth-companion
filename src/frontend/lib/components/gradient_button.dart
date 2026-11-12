@@ -120,9 +120,19 @@ class _GradientButtonState extends State<GradientButton>
   @override
   Widget build(BuildContext context) {
     final isEnabled = !widget.disabled && !widget.loading;
-    final gradient = widget.gradient ?? AppTheme.primaryGradient;
+    final palette = ChildThemePalette.of(context);
+    // 卡通皮肤（candy/forest/space）默认用本皮肤的主行动色渐变，
+    // 否则蜜黄渐变会串到深色/绿色皮肤上；honey 保持原有绘本渐变。
+    final gradient = widget.gradient ??
+        (palette.isCartoon
+            ? LinearGradient(
+                colors: <Color>[palette.cta, palette.pop],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : AppTheme.primaryGradient);
     // 未显式指定文字色时跟随当前皮肤（context 版，不依赖全局同步）
-    final inkColor = widget.textColor ?? ChildThemePalette.of(context).ctaInk;
+    final inkColor = widget.textColor ?? palette.ctaInk;
 
     return GestureDetector(
       onTapDown: _onTapDown,

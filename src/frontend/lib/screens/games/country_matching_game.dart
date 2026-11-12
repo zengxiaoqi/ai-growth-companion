@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 
-import '../../utils/app_logger.dart';
+import '../../components/child_fun_page.dart';
+import '../../components/child_home_experience.dart';
+import '../../components/gradient_button.dart';
 import '../../services/public_api_service.dart';
+import '../../theme/child_theme.dart';
+import '../../utils/app_logger.dart';
 import 'matching_game.dart';
 
 final _log = AppLogger('CountryMatchingGame');
 
-/// 国旗配对游戏（国家 ↔ 首都）
+/// 国旗配对游戏（国家 ↔ 首都）。
 ///
-/// 从后端 `/api/public/country/all` 拉取 30 国数据包，随机选 6 国，
+/// 从后端 `/api/public/country/all` 拉取国家数据包，随机选 6 国，
 /// 构造 [MatchingGame] 期望的 `pairs` 结构。
+///
+/// 外壳走 [ChildFunPage]：跟随皮肤换色，并自带 Scaffold（否则 Text 会退回
+/// Flutter 错误文本样式，出现满屏黄色下划线）。
 class CountryMatchingGame extends StatefulWidget {
   final VoidCallback onExit;
   final GameFinishedCallback? onFinished;
@@ -24,8 +31,7 @@ class CountryMatchingGame extends StatefulWidget {
   State<CountryMatchingGame> createState() => _CountryMatchingGameState();
 }
 
-class _CountryMatchingGameState extends State<CountryMatchingGame>
-    with TickerProviderStateMixin {
+class _CountryMatchingGameState extends State<CountryMatchingGame> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _gameData;
@@ -39,8 +45,8 @@ class _CountryMatchingGameState extends State<CountryMatchingGame>
   Future<void> _load() async {
     try {
       final list = await PublicApiService.instance.getAllCountries();
+      if (!mounted) return;
       if (list == null || list.isEmpty) {
-        if (!mounted) return;
         setState(() {
           _error = '国家数据暂时不可用';
           _loading = false;
@@ -54,7 +60,6 @@ class _CountryMatchingGameState extends State<CountryMatchingGame>
       valid.shuffle();
       final picked = valid.take(6).toList();
       if (picked.length < 3) {
-        if (!mounted) return;
         setState(() {
           _error = '可用国家数量不足';
           _loading = false;
@@ -64,19 +69,18 @@ class _CountryMatchingGameState extends State<CountryMatchingGame>
       final pairs = picked.map((c) {
         final name = (c['name'] as Map?)?['common'] ?? '未知';
         final capital = (c['capital'] as List?)?.firstOrNull ?? '未知';
-        return {
+        return <String, dynamic>{
           'id': 'country_${c['cca3'] ?? c['cca2'] ?? name}',
           'left': name,
           'right': capital,
         };
       }).toList();
-      if (!mounted) return;
       setState(() {
-        _gameData = {
-          'title': '🌍 国旗配对',
+        _gameData = <String, dynamic>{
+          'title': '国旗配对',
           'subtitle': '把国家名和首都配起来',
-          'leftTitle': '🌍 国家',
-          'rightTitle': '🏛️ 首都',
+          'leftTitle': '国家',
+          'rightTitle': '首都',
           'pairs': pairs,
         };
         _loading = false;
@@ -85,454 +89,168 @@ class _CountryMatchingGameState extends State<CountryMatchingGame>
       _log.warning('Country matching load failed: $e');
       if (!mounted) return;
       setState(() {
-        _error = '加载失败：$e';
+        _error = '网络好像不太顺畅';
         _loading = false;
       });
     }
   }
 
+  void _retry() {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+
+    // 配对中：MatchingGame 只返回一个 Column，需要外面包一层 Scaffold + 滚动区。
     if (_gameData != null) {
-      return MatchingGame(
-        data: _gameData!,
-        onExit: widget.onExit,
-        onFinished: widget.onFinished,
+      return Scaffold(
+        backgroundColor: palette.paper,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: MatchingGame(
+              data: _gameData!,
+              onExit: widget.onExit,
+              onFinished: widget.onFinished,
+            ),
+          ),
+        ),
       );
     }
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF4CAE7C), Color(0xFF6BC89A), Color(0xFFD4F1E1)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            // 漂浮的国旗装饰
-            Positioned(
-              top: 90,
-              right: -10,
-              child: _FloatingEmoji(
-                emoji: '🇺🇸',
-                size: 38,
-                delay: const Duration(milliseconds: 0),
-              ),
-            ),
-            Positioned(
-              top: 170,
-              left: 10,
-              child: _FloatingEmoji(
-                emoji: '🇨🇳',
-                size: 32,
-                delay: const Duration(milliseconds: 700),
-              ),
-            ),
-            Positioned(
-              top: 250,
-              right: 30,
-              child: _FloatingEmoji(
-                emoji: '🇫🇷',
-                size: 28,
-                delay: const Duration(milliseconds: 1400),
-              ),
-            ),
-            Column(
-              children: [
-                _buildTopBar(),
-                _buildTitle(),
-                Expanded(
-                  child: Center(
-                    child: _loading
-                        ? _buildLoadingState()
-                        : _buildErrorState(),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return ChildFunPage(
+      title: '国旗配对',
+      subtitle: '把国家和首都配起来',
+      icon: Icons.flag_rounded,
+      onBack: widget.onExit,
+      scrollable: false,
+      child: Center(
+        child: _loading
+            ? _buildLoading(palette)
+            : _buildError(context, palette),
       ),
     );
   }
 
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 16, 0),
-      child: Row(
-        children: [
-          Material(
-            color: Colors.white.withValues(alpha: 0.25),
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: widget.onExit,
-              child: const Padding(
-                padding: EdgeInsets.all(10),
-                child: Icon(Icons.arrow_back_rounded,
-                    color: Colors.white, size: 24),
-              ),
-            ),
-          ),
-          const Spacer(),
-          const Text('🌍', style: TextStyle(fontSize: 22)),
-          const SizedBox(width: 8),
-          const Text('🏳️', style: TextStyle(fontSize: 18)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTitle() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Column(
-        children: [
-          // 大地球 icon，带浮动动画
-          TweenAnimationBuilder<double>(
-            duration: const Duration(seconds: 3),
-            tween: Tween<double>(begin: -6, end: 6),
-            curve: Curves.easeInOut,
-            builder: (context, value, child) {
-              return Transform.translate(
-                offset: Offset(0, value),
-                child: child,
-              );
-            },
-            child: Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Text('🌍', style: TextStyle(fontSize: 50)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.4),
-                width: 1.5,
-              ),
-            ),
-            child: const Text(
-              '国旗配对',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '把国家和首都配起来吧！',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
+  Widget _buildLoading(ChildThemePalette palette) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        // 旋转地球
-        TweenAnimationBuilder<double>(
-          duration: const Duration(seconds: 4),
-          tween: Tween<double>(begin: 0, end: 1),
-          curve: Curves.linear,
-          builder: (context, value, child) {
-            return Transform.rotate(
-              angle: value * 6.283,
-              child: child,
-            );
-          },
-          child: Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.5),
-                width: 2,
-              ),
+      children: <Widget>[
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              palette.pop.withValues(alpha: 0.14),
+              palette.card,
             ),
-            alignment: Alignment.center,
-            child: const Text('🌍', style: TextStyle(fontSize: 44)),
+            shape: BoxShape.circle,
+            border: palette.isCartoon
+                ? Border.all(color: palette.pop, width: 3)
+                : null,
           ),
+          child: Icon(Icons.public_rounded, size: 46, color: palette.pop),
         ),
-        const SizedBox(height: 24),
-        const SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 3,
+        const SizedBox(height: 20),
+        SizedBox(
+          width: 132,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              backgroundColor: palette.soft,
+              color: palette.pop,
+            ),
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          '正在环游世界...',
+        Text(
+          '正在环游世界…',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: palette.ink,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          '收集国家数据中',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 13,
-          ),
+          '正在收集国家数据',
+          style: TextStyle(fontSize: 12.5, color: palette.ink2),
         ),
       ],
     );
   }
 
-  Widget _buildErrorState() {
-    return Padding(
-      padding: const EdgeInsets.all(32),
+  Widget _buildError(BuildContext context, ChildThemePalette palette) {
+    return ChildSticker(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      background: palette.card,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: <Widget>[
           Container(
-            width: 90,
-            height: 90,
+            width: 82,
+            height: 82,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.4),
-                width: 2,
+              color: Color.alphaBlend(
+                palette.subjects[0].withValues(alpha: 0.16),
+                palette.card,
               ),
+              shape: BoxShape.circle,
             ),
-            alignment: Alignment.center,
-            child: const Text('🛰️', style: TextStyle(fontSize: 44)),
+            child: Icon(
+              Icons.cloud_off_rounded,
+              size: 40,
+              color: palette.subjects[0],
+            ),
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 18),
+          Text(
             '数据加载失败',
             style: TextStyle(
-              color: Colors.white,
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
+              color: palette.ink,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             _error ?? '请稍后重试',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 14,
-              height: 1.5,
-            ),
+            style: TextStyle(fontSize: 13.5, height: 1.5, color: palette.ink2),
           ),
-          const SizedBox(height: 28),
-          // 重试按钮 - 弹簧反馈
-          _SpringButton(
-            onTap: () {
-              setState(() {
-                _loading = true;
-                _error = null;
-              });
-              _load();
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.refresh_rounded,
-                      size: 22, color: Color(0xFF4CAE7C)),
-                  SizedBox(width: 8),
-                  Text(
-                    '重试',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4CAE7C),
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 22),
+          GradientButton(
+            text: '重试',
+            icon: Icons.refresh_rounded,
+            minWidth: 168,
+            gradient: LinearGradient(
+              colors: <Color>[palette.cta, palette.pop],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            onPressed: _retry,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           TextButton(
             onPressed: widget.onExit,
             child: Text(
               '返回首页',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w600,
+                color: palette.ink2,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 漂浮的 emoji 装饰
-class _FloatingEmoji extends StatefulWidget {
-  final String emoji;
-  final double size;
-  final Duration delay;
-
-  const _FloatingEmoji({
-    required this.emoji,
-    required this.size,
-    required this.delay,
-  });
-
-  @override
-  State<_FloatingEmoji> createState() => _FloatingEmojiState();
-}
-
-class _FloatingEmojiState extends State<_FloatingEmoji>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(seconds: 5),
-      vsync: this,
-    );
-    _anim = Tween<double>(begin: -10, end: 10).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    Future.delayed(widget.delay, () {
-      if (mounted) _controller.repeat(reverse: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _anim.value),
-          child: child,
-        );
-      },
-      child: Text(
-        widget.emoji,
-        style: TextStyle(fontSize: widget.size),
-      ),
-    );
-  }
-}
-
-/// 弹簧按钮
-class _SpringButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-
-  const _SpringButton({required this.child, this.onTap});
-
-  @override
-  State<_SpringButton> createState() => _SpringButtonState();
-}
-
-class _SpringButtonState extends State<_SpringButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 120),
-      vsync: this,
-    );
-    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.onTap == null
-          ? null
-          : (_) => _controller.forward(),
-      onTapUp: widget.onTap == null
-          ? null
-          : (_) {
-              _controller.reverse();
-              widget.onTap!();
-            },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (context, child) {
-          return Transform.scale(scale: _scale.value, child: child);
-        },
-        child: widget.child,
       ),
     );
   }

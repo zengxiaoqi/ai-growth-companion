@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/animation_utils.dart';
 import '../../components/app_card.dart';
+import '../../components/child_fun_page.dart';
 
 class ChildVideoScreen extends StatefulWidget {
   const ChildVideoScreen({super.key});
@@ -87,27 +88,27 @@ class _ChildVideoScreenState extends State<ChildVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的视频'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
-            onPressed: _loadVideos,
-          ),
-        ],
-      ),
-      body: _isLoading
+    return ChildFunPage(
+      title: '视频学习',
+      subtitle: '和小犀一起看动画',
+      icon: Icons.movie_rounded,
+      scrollable: false,
+      actions: <Widget>[
+        ChildFunIconButton(
+          icon: Icons.refresh_rounded,
+          tooltip: '刷新',
+          onPressed: _loadVideos,
+        ),
+        const SizedBox(width: 8),
+      ],
+      child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _videos.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(
                   onRefresh: _loadVideos,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.only(bottom: 16),
                     itemCount: _videos.length,
                     itemBuilder: (context, index) {
                       final item = _videos[index];

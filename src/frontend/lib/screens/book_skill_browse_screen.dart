@@ -3,9 +3,12 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
 import 'package:provider/provider.dart';
-import '../../services/api_service.dart';
-import '../../theme/app_theme.dart';
+
+import '../components/child_fun_page.dart';
+import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class BookSkillBrowseScreen extends StatefulWidget {
   const BookSkillBrowseScreen({super.key});
@@ -61,13 +64,17 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('知识书')),
-      body: Column(
+    return ChildFunPage(
+      title: '知识书',
+      subtitle: '挑一本，和小犀一起读',
+      icon: Icons.menu_book_rounded,
+      scrollable: false,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Column(
         children: [
           // Age filter chips
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
                 _FilterChip(

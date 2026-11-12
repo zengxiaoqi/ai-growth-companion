@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../components/child_fun_page.dart';
 import '../../components/country_card.dart';
 import '../../components/fact_card.dart';
 import '../../components/joke_card.dart';
 import '../../components/number_fact_card.dart';
 import '../../components/weather_card.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/child_theme.dart';
 
 /// 「每日知识」聚合页。
@@ -20,46 +20,30 @@ class KnowledgeDailyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = ChildThemePalette.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('每日知识'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: palette.ink,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12, left: 4),
-              child: Text(
-                '每天涨一点点小知识',
-                style: TextStyle(fontSize: 13, color: palette.ink2),
-              ),
+    return ChildFunPage(
+      title: '每日知识',
+      subtitle: '每天涨一点点小知识',
+      icon: Icons.wb_sunny_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const WeatherCard(),
+          const SizedBox(height: 16),
+          const CountryCard(),
+          const SizedBox(height: 16),
+          const NumberFactCard(),
+          const SizedBox(height: 16),
+          const FactCard(),
+          const SizedBox(height: 16),
+          const JokeCard(),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              '知识由小犀每天更新',
+              style: TextStyle(fontSize: 11.5, color: palette.ink2),
             ),
-            const WeatherCard(),
-            const SizedBox(height: 16),
-            const CountryCard(),
-            const SizedBox(height: 16),
-            const NumberFactCard(),
-            const SizedBox(height: 16),
-            const FactCard(),
-            const SizedBox(height: 16),
-            const JokeCard(),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                '知识由小犀每天更新',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondary.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

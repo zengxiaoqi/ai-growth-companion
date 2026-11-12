@@ -115,7 +115,20 @@ class _FactCardState extends State<FactCard> {
             // 标题行
             Row(
               children: [
-                const Text('🧠', style: TextStyle(fontSize: 28)),
+                // 不用 🧠：MuMu / 部分安卓缺字形会渲染成空心方框
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.psychology_rounded,
+                    size: 22,
+                    color: Color(0xFF1565C0),
+                  ),
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Column(

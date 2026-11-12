@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/child_density.dart';
+import '../theme/child_theme.dart';
 import '../services/tts_service.dart';
 import '../services/api_service.dart';
 import '../providers/user_provider.dart';
@@ -17,6 +19,40 @@ import '../components/speech_input_widget.dart';
 import '../components/dictionary_sheet.dart';
 import 'games/game_renderer.dart';
 import 'voice_call_screen.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 年龄密度档的首轮引导内容
+// 与 Web 端 `AIChat.tsx` 的 CHILD_ROUND_PROMPTS / CHILD_SUGGESTIONS 同一份口径。
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 低龄档（3–4 岁）的图形提问：不依赖识字，emoji + 两字标签 + 完整问句。
+const List<({String em, String label, String q})> _kChildRoundPrompts = [
+  (em: '☁️', label: '下雨', q: '云为什么会下雨呀？'),
+  (em: '🐘', label: '大象', q: '大象的鼻子为什么这么长呀？'),
+  (em: '🎵', label: '唱歌', q: '唱首小星星给我听'),
+  (em: '🔢', label: '考我', q: '考我 3 道数学题'),
+];
+
+/// 中高年龄档的文字快捷提问（按 density.quickPrompts 截断）。
+const List<({String em, String label, String q})> _kChildPrompts = [
+  (em: '📅', label: '安排学习计划', q: '帮我安排今天的学习计划'),
+  (em: '🎲', label: '出数学小游戏', q: '出3道数学小游戏'),
+  (em: '📖', label: '讲睡前故事', q: '讲一个简短睡前故事'),
+  (em: '🌤️', label: '天空为什么蓝', q: '为什么天是蓝色的？'),
+];
+
+/// 高龄档（5–6 岁）的长尾建议，只在 level 2 出现。
+const List<({String em, String label, String q})> _kChildSuggestions = [
+  (em: '😄', label: '再讲个笑话', q: '再讲一个笑话吧'),
+  (em: '3️⃣', label: '教我认数字 3', q: '教我认数字 3'),
+  (em: '✏️', label: '出个小测验', q: '给我出个小测验'),
+];
+
+const List<({String em, String label, String q})> _kParentPrompts = [
+  (em: '', label: '看看孩子这周学得怎么样', q: '看看孩子这周学得怎么样'),
+  (em: '', label: '根据学情调整下周学习计划', q: '根据学情调整下周学习计划'),
+  (em: '', label: '给孩子安排今天的学习任务', q: '给孩子安排今天的学习任务'),
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 内联答题卡 Widget
@@ -240,15 +276,15 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
                 trailingIcon = const Icon(Icons.cancel_rounded,
                     color: AppTheme.warningColor, size: 22);
               } else {
-                bgColor = Colors.white;
-                borderColor = Colors.grey.shade200;
+                bgColor = AppTheme.active.card;
+                borderColor = AppTheme.active.line;
               }
             } else {
               bgColor = isSelected
                   ? AppTheme.softPink.withValues(alpha: 0.25)
-                  : Colors.white;
+                  : AppTheme.active.card;
               borderColor =
-                  isSelected ? AppTheme.primaryColor : Colors.grey.shade200;
+                  isSelected ? AppTheme.primaryColor : AppTheme.active.line;
             }
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -479,7 +515,7 @@ class _InlineMusicCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: active
               ? AppTheme.softYellow
-              : Colors.white.withValues(alpha: 0.7),
+              : AppTheme.active.card.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -755,7 +791,7 @@ class _DraftItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.8),
+          color: AppTheme.active.card.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -828,11 +864,11 @@ class _SessionDrawer extends StatelessWidget {
       width: MediaQuery.of(context).size.width * 0.82,
       constraints:
           BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: AppTheme.active.card,
+        borderRadius: const BorderRadius.only(
             topRight: Radius.circular(20), bottomRight: Radius.circular(20)),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
               color: Colors.black26, blurRadius: 20, offset: Offset(-5, 0))
         ],
@@ -999,6 +1035,14 @@ class _AIChatScreenState extends State<AIChatScreen>
   final bool _autoPlay = true;
   bool _isListening = false;
   int? _speakingMessageIndex;
+
+  /// 低龄档是否已手动展开文字输入（默认只给语音，避免不识字的孩子卡住）。
+  bool _forceTextInput = false;
+
+  /// 当前年龄密度档；家长端固定中档，不受孩子端换肤影响。
+  ChildDensity get _density => widget.isParentMode
+      ? childDensityForLevel(1)
+      : ChildThemePalette.of(context).density;
 
   // ─── AI 点歌：屏幕级单个播放器，所有音乐卡片共享 ───
   AudioPlayer? _musicPlayer;
@@ -1404,23 +1448,24 @@ class _AIChatScreenState extends State<AIChatScreen>
               const LinearProgressIndicator(
                   minHeight: 2, backgroundColor: Colors.transparent),
             Expanded(
-              child: messages.isEmpty && !provider.isLoadingMessages
-                  ? const Center(
-                      child: Text('和小犀聊天吧~ 🦄',
-                          style: TextStyle(fontSize: 16, color: Colors.grey)))
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        if (index >= messages.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final message = messages[index];
-                        final isUser = message.role == 'user';
-                        return _buildMessageBubble(message, isUser, index);
-                      },
-                    ),
+              child: () {
+                final stillGreeting = !provider.isLoadingMessages &&
+                    !messages.any((m) => m.role == 'user');
+                final itemCount = messages.length + (stillGreeting ? 1 : 0);
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  itemCount: itemCount,
+                  itemBuilder: (context, index) {
+                    if (index >= messages.length) {
+                      return _buildStarterPanel();
+                    }
+                    final message = messages[index];
+                    final isUser = message.role == 'user';
+                    return _buildMessageBubble(message, isUser, index);
+                  },
+                );
+              }(),
             ),
           ]);
         } catch (e, s) {
@@ -1431,6 +1476,135 @@ class _AIChatScreenState extends State<AIChatScreen>
                   style: const TextStyle(color: Colors.red)));
         }
       },
+    );
+  }
+
+  /// 首轮引导区：还没有用户发言时，在消息流尾部给出「点一下就能问」的入口。
+  ///
+  /// - 家长端：三条家长向胶囊，保持中档行为；
+  /// - level 0：图形圆按钮（emoji + 两字标签），不依赖识字；
+  /// - level 1 / 2：文字胶囊，数量按 [ChildDensity.quickPrompts]；
+  /// - level 2：额外一行长尾建议。
+  Widget _buildStarterPanel() {
+    final density = _density;
+    final palette = ChildThemePalette.of(context);
+    final isLowAge = !widget.isParentMode && density.level == 0;
+    final isHighAge = !widget.isParentMode && density.level == 2;
+
+    final prompts = widget.isParentMode
+        ? _kParentPrompts
+        : isLowAge
+            ? _kChildRoundPrompts.take(density.quickPrompts).toList()
+            : _kChildPrompts.take(density.quickPrompts).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.isParentMode)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(children: [
+                const Text('🦄', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    isLowAge ? '想聊什么？点一个就好' : '今天想聊点什么？',
+                    style: TextStyle(
+                        fontSize: isLowAge ? 17 : 15,
+                        fontWeight: FontWeight.w600,
+                        color: palette.ink2),
+                  ),
+                ),
+              ]),
+            ),
+          if (isLowAge)
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final p in prompts) _buildRoundPrompt(p),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final p in prompts)
+                  _buildPromptChip(p.label, p.q, palette: palette),
+              ],
+            ),
+          if (isHighAge) ...[
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                for (final s in _kChildSuggestions)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildPromptChip(s.label, s.q,
+                        palette: palette, soft: true),
+                  ),
+              ]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 低龄档图形圆按钮：72px 起，emoji 大字 + 两字标签。
+  Widget _buildRoundPrompt(({String em, String label, String q}) p) {
+    final palette = ChildThemePalette.of(context);
+    final size = _density.level == 0 ? 76.0 : 72.0;
+    return GestureDetector(
+      onTap: _isLoading ? null : () => _sendMessage(text: p.q),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: palette.soft,
+          shape: BoxShape.circle,
+          border: Border.all(color: palette.line, width: 2),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(p.em, style: const TextStyle(fontSize: 26)),
+            const SizedBox(height: 2),
+            Text(p.label,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: palette.ink)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 中高年龄档文字胶囊：最小 44px 触控高度，宽度跟随文字（不要撑满整行）。
+  Widget _buildPromptChip(String label, String q,
+      {required ChildThemePalette palette, bool soft = false}) {
+    return GestureDetector(
+      onTap: _isLoading ? null : () => _sendMessage(text: q),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: soft ? palette.soft : palette.card,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+              color: soft ? palette.line : palette.line.withValues(alpha: 0.9)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: soft ? palette.ink2 : palette.ink)),
+      ),
     );
   }
 
@@ -1515,8 +1689,8 @@ class _AIChatScreenState extends State<AIChatScreen>
             onTap: () => _exitEnglishPractice(provider),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Text('退出',
-                  style: TextStyle(
-                      fontSize: 12, color: AppTheme.textSecondary)),
+                  style:
+                      TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               const SizedBox(width: 2),
               Icon(Icons.close_rounded,
                   size: 16, color: AppTheme.textSecondary),
@@ -1621,6 +1795,14 @@ class _AIChatScreenState extends State<AIChatScreen>
 
     // Build children list with debug logging
     final List<Widget> columnChildren = [];
+    final palette = ChildThemePalette.of(context);
+    // 低龄档把正文字号放大、行距放松，减少阅读压力；高龄档略收紧以多容纳信息。
+    final bodySize = _density.level == 0
+        ? 18.0
+        : _density.level == 2
+            ? 15.0
+            : 16.0;
+    final bodyHeight = _density.level == 0 ? 1.55 : 1.4;
 
     // ── AI 消息：思考内容区域（可折叠）──
     if (!isUser && showThinking) {
@@ -1653,28 +1835,27 @@ class _AIChatScreenState extends State<AIChatScreen>
             data: displayText,
             styleSheet: MarkdownStyleSheet(
               p: TextStyle(
-                  fontSize: 16, height: 1.4, color: AppTheme.textColor),
+                  fontSize: bodySize, height: bodyHeight, color: palette.ink),
               strong: TextStyle(
-                  fontSize: 16,
-                  height: 1.4,
+                  fontSize: bodySize,
+                  height: bodyHeight,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor),
+                  color: palette.ink),
               horizontalRuleDecoration: BoxDecoration(
                 border: Border(
                     top: BorderSide(
-                        color: AppTheme.textSecondary.withValues(alpha: 0.2),
-                        width: 1)),
+                        color: palette.ink2.withValues(alpha: 0.2), width: 1)),
               ),
               code: TextStyle(
-                  fontSize: 14,
+                  fontSize: bodySize - 2,
                   fontFamily: 'monospace',
-                  color: AppTheme.primaryColor),
+                  color: palette.pop),
               codeblockDecoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: palette.soft,
                 borderRadius: BorderRadius.circular(8),
               ),
               blockquoteDecoration: BoxDecoration(
-                color: AppTheme.textSecondary.withValues(alpha: 0.06),
+                color: palette.ink2.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -1688,8 +1869,8 @@ class _AIChatScreenState extends State<AIChatScreen>
     } else {
       // 用户消息使用 SelectableText 支持选中复制
       columnChildren.add(SelectableText(displayText,
-          style:
-              const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)));
+          style: TextStyle(
+              color: palette.ctaInk, fontSize: bodySize, height: bodyHeight)));
       columnChildren.add(const SizedBox(width: 4));
     }
 
@@ -1764,7 +1945,9 @@ class _AIChatScreenState extends State<AIChatScreen>
             constraints: BoxConstraints(
                 maxWidth: MediaQuery.of(context).size.width * 0.85),
             decoration: BoxDecoration(
-              color: isUser ? AppTheme.primaryColor : Colors.white,
+              color: isUser
+                  ? AppTheme.primaryColor
+                  : ChildThemePalette.of(context).card,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(AppTheme.buttonRadius),
                 topRight: Radius.circular(AppTheme.buttonRadius),
@@ -1774,7 +1957,9 @@ class _AIChatScreenState extends State<AIChatScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                    color: (isUser ? AppTheme.primaryColor : Colors.grey)
+                    color: (isUser
+                            ? AppTheme.primaryColor
+                            : ChildThemePalette.of(context).ink2)
                         .withValues(alpha: 0.15),
                     blurRadius: 15,
                     offset: const Offset(0, 5)),
@@ -1801,7 +1986,7 @@ class _AIChatScreenState extends State<AIChatScreen>
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.active.card,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -2060,112 +2245,186 @@ class _AIChatScreenState extends State<AIChatScreen>
   }
 
   Widget _buildInputArea() {
+    final palette = ChildThemePalette.of(context);
+    final density = _density;
+    // 低龄档（level 0）：默认只给一个大语音按钮，不识字也不会卡住；
+    // 点右侧键盘可展开文字输入，保证语音不可用时仍有出路。
+    final voiceOnly =
+        !widget.isParentMode && density.level == 0 && !_forceTextInput;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding:
+          EdgeInsets.fromLTRB(16, voiceOnly ? 10 : 16, 16, voiceOnly ? 12 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.card,
         borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppTheme.cardRadius)),
+            BorderRadius.vertical(top: Radius.circular(palette.radiusLg)),
+        border: palette.isCartoon
+            ? Border(top: BorderSide(color: palette.line, width: 2))
+            : null,
         boxShadow: [
           BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: palette.pop.withValues(alpha: 0.10),
               blurRadius: 20,
               offset: const Offset(0, -5)),
         ],
       ),
-      child: Row(children: [
-        // 会话历史按钮
-        GestureDetector(
-          onTap: _openSessionDrawer,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: voiceOnly
+          ? _buildVoiceOnlyInput(palette)
+          : _buildTextInputRow(palette, density),
+    );
+  }
+
+  /// 低龄档输入栏：左侧历史、中间 72px 大话筒、右侧切键盘。
+  Widget _buildVoiceOnlyInput(ChildThemePalette palette) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(
+        _isListening ? '我在听，说完等一下…' : '点一下话筒，说给我听',
+        style: TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w600, color: palette.ink2),
+      ),
+      const SizedBox(height: 6),
+      Row(children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _circleAction(
+              icon: Icons.chat_rounded,
+              palette: palette,
+              onTap: _openSessionDrawer,
             ),
-            child: Icon(Icons.chat_rounded,
-                size: 20, color: AppTheme.primaryColor),
           ),
         ),
-        const SizedBox(width: 8),
-        // 文件上传按钮
-        GestureDetector(
-          onTap: _isLoading ? null : _pickChatFile,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-            ),
-            child: Icon(Icons.attach_file_rounded,
-                size: 20, color: AppTheme.primaryColor),
-          ),
-        ),
-        const SizedBox(width: 8),
         Consumer<ChatSessionProvider>(
           builder: (ctx, provider, _) => SpeechInputWidget(
             onResult: _onSpeechResult,
             onListeningChange: _onListeningChange,
             localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
+            size: 72,
           ),
         ),
-        const SizedBox(width: 8),
         Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
-                borderRadius: BorderRadius.circular(AppTheme.buttonRadius + 1)),
-            child: TextField(
-              controller: _controller,
-              maxLines: 3,
-              minLines: 1,
-              decoration: InputDecoration(
-                hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
-                hintStyle: TextStyle(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.5)),
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              ),
-              onSubmitted: (_) => _sendMessage(),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: _circleAction(
+              icon: Icons.keyboard_alt_rounded,
+              palette: palette,
+              onTap: () => setState(() => _forceTextInput = true),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // 发送按钮
-        GestureDetector(
-          onTap: _isLoading ? null : () => _sendMessage(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _isLoading ? Colors.grey.shade400 : AppTheme.primaryColor,
-              shape: BoxShape.circle,
-              boxShadow: _isLoading
-                  ? null
-                  : [
-                      BoxShadow(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5)),
-                    ],
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2.5))
-                : const Icon(Icons.send_rounded, color: Colors.white, size: 24),
           ),
         ),
       ]),
+    ]);
+  }
+
+  Widget _circleAction({
+    required IconData icon,
+    required ChildThemePalette palette,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: palette.soft,
+          shape: BoxShape.circle,
+          border: palette.isCartoon
+              ? Border.all(color: palette.line, width: 2)
+              : null,
+        ),
+        child: Icon(icon, size: 20, color: palette.ink2),
+      ),
     );
+  }
+
+  Widget _buildTextInputRow(ChildThemePalette palette, ChildDensity density) {
+    final isLowAge = !widget.isParentMode && density.level == 0;
+    return Row(children: [
+      // 低龄档：这里是「换回语音」；其余档位是会话历史
+      _circleAction(
+        icon: isLowAge ? Icons.mic_rounded : Icons.chat_rounded,
+        palette: palette,
+        onTap: isLowAge
+            ? () => setState(() => _forceTextInput = false)
+            : _openSessionDrawer,
+      ),
+      const SizedBox(width: 8),
+      // 文件上传按钮
+      GestureDetector(
+        onTap: _isLoading ? null : _pickChatFile,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: palette.card,
+            shape: BoxShape.circle,
+            border: Border.all(color: palette.line),
+          ),
+          child: Icon(Icons.attach_file_rounded, size: 20, color: palette.ink2),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Consumer<ChatSessionProvider>(
+        builder: (ctx, provider, _) => SpeechInputWidget(
+          onResult: _onSpeechResult,
+          onListeningChange: _onListeningChange,
+          localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+              color: palette.soft,
+              borderRadius: BorderRadius.circular(palette.radiusMd + 1)),
+          child: TextField(
+            controller: _controller,
+            maxLines: 3,
+            minLines: 1,
+            style: TextStyle(fontSize: isLowAge ? 17 : 15, color: palette.ink),
+            decoration: InputDecoration(
+              hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
+              hintStyle: TextStyle(color: palette.ink2.withValues(alpha: 0.6)),
+              border: InputBorder.none,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            ),
+            onSubmitted: (_) => _sendMessage(),
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      // 发送按钮
+      GestureDetector(
+        onTap: _isLoading ? null : () => _sendMessage(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: _isLoading ? Colors.grey.shade400 : palette.cta,
+            shape: BoxShape.circle,
+            boxShadow: _isLoading
+                ? null
+                : [
+                    BoxShadow(
+                        color: palette.cta.withValues(alpha: 0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5)),
+                  ],
+          ),
+          child: _isLoading
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      color: palette.ctaInk, strokeWidth: 2.5))
+              : Icon(Icons.send_rounded, color: palette.ctaInk, size: 24),
+        ),
+      ),
+    ]);
   }
 }
 

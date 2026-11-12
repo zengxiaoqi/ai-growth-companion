@@ -232,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const AchievementScreen()));
+                          builder: (_) => const AchievementScreen(showBack: true)));
                 },
               ),
             ),

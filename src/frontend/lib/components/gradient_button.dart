@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
 
 /// 渐变按钮组件 - 带有渐变背景、图标和按压效果
 ///
@@ -32,8 +33,8 @@ class GradientButton extends StatefulWidget {
   /// 前置图标（可选）
   final IconData? icon;
 
-  /// 文字颜色（默认白色）
-  final Color textColor;
+  /// 文字颜色（为空时跟随当前皮肤主行动按钮的文字色）
+  final Color? textColor;
 
   /// 内边距
   final EdgeInsets padding;
@@ -59,7 +60,7 @@ class GradientButton extends StatefulWidget {
     this.onPressed,
     this.gradient,
     this.icon,
-    this.textColor = Colors.white,
+    this.textColor,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     this.borderRadius,
     this.disabled = false,
@@ -120,6 +121,8 @@ class _GradientButtonState extends State<GradientButton>
   Widget build(BuildContext context) {
     final isEnabled = !widget.disabled && !widget.loading;
     final gradient = widget.gradient ?? AppTheme.primaryGradient;
+    // 未显式指定文字色时跟随当前皮肤（context 版，不依赖全局同步）
+    final inkColor = widget.textColor ?? ChildThemePalette.of(context).ctaInk;
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -154,8 +157,7 @@ class _GradientButtonState extends State<GradientButton>
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(widget.textColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(inkColor),
                     ),
                   )
                 : Row(
@@ -164,7 +166,7 @@ class _GradientButtonState extends State<GradientButton>
                       if (widget.icon != null) ...[
                         Icon(
                           widget.icon,
-                          color: widget.textColor,
+                          color: inkColor,
                           size: AppTheme.iconMd,
                         ),
                         const SizedBox(width: 8),
@@ -174,7 +176,7 @@ class _GradientButtonState extends State<GradientButton>
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: widget.textColor,
+                          color: inkColor,
                           height: 1.2,
                         ),
                       ),

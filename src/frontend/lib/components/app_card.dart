@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
 
 /// 统一卡片组件，替代各屏幕中重复的 Container+decoration+BoxShadow 模式。
 ///
@@ -142,6 +143,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildCard() {
+    final palette = ChildThemePalette.of(context);
     final content = widget.isLoading
         ? ShimmerPlaceholder(
             borderRadius: widget.borderRadius ??
@@ -149,7 +151,7 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
             child: Container(
               padding: widget.padding,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: palette.soft,
                 borderRadius: widget.borderRadius ??
                     BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
               ),
@@ -165,9 +167,14 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
       padding: widget.isLoading ? EdgeInsets.zero : widget.padding,
       decoration: BoxDecoration(
         gradient: widget.gradient,
-        color: widget.gradient == null ? (widget.color ?? Colors.white) : null,
+        // 未指定底色时跟随当前皮肤卡片色（原来是写死白色，
+        // 导致 space 等深色皮肤下出现「白卡 + 浅色文字」不可读）
+        color: widget.gradient == null ? (widget.color ?? palette.card) : null,
         borderRadius: widget.borderRadius ??
             BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
+        border: widget.gradient == null && palette.isCartoon
+            ? Border.all(color: palette.line, width: 2)
+            : null,
         boxShadow: widget.boxShadow,
       ),
       clipBehavior: widget.isLoading ? Clip.antiAlias : Clip.none,
@@ -201,15 +208,15 @@ class ShimmerPlaceholder extends StatefulWidget {
   /// 高光颜色（默认白色半透明）
   final Color highlightColor;
 
-  /// 底层骨架颜色（默认浅灰）
-  final Color baseColor;
+  /// 底层骨架颜色（为空时按当前皮肤推算，深色皮肤不会出现「浅灰白块」）
+  final Color? baseColor;
 
   const ShimmerPlaceholder({
     super.key,
     required this.child,
     this.borderRadius,
     this.highlightColor = const Color(0x33FFFFFF),
-    this.baseColor = const Color(0xFFEBEBEB),
+    this.baseColor,
   });
 
   @override
@@ -237,6 +244,10 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+    // 骨架色：在卡片色上叠一点 ink2，浅色皮肤≈浅灰、深色皮肤≈略亮的紫灰
+    final base = widget.baseColor ??
+        Color.alphaBlend(palette.ink2.withValues(alpha: 0.12), palette.card);
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -248,10 +259,7 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
               // 底层骨架色
               Positioned.fill(
                 child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    widget.baseColor,
-                    BlendMode.srcATop,
-                  ),
+                  colorFilter: ColorFilter.mode(base, BlendMode.srcATop),
                   child: child!,
                 ),
               ),
@@ -270,9 +278,9 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            widget.baseColor.withValues(alpha: 0.0),
+                            base.withValues(alpha: 0.0),
                             widget.highlightColor,
-                            widget.baseColor.withValues(alpha: 0.0),
+                            base.withValues(alpha: 0.0),
                           ],
                           stops: const [0.0, 0.5, 1.0],
                         ),

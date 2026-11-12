@@ -466,28 +466,35 @@ class BubbleBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+    // space 是深色纸面：白色泡泡会变成灰污点，改用主题青绿做微光晕；
+    // 浅色皮肤继续用白色柔光点。
+    final isDark = palette.themeKey == ChildThemeKey.space;
+    final base = isDark ? palette.cta : Colors.white;
+    final a = isDark ? [0.05, 0.04, 0.035, 0.045] : [0.18, 0.14, 0.10, 0.15];
+
     return Stack(
       children: [
         // 背景装饰
         Positioned(
           top: 50,
           left: 20,
-          child: _buildBubble(30, Colors.white.withValues(alpha: 0.18)),
+          child: _buildBubble(30, base.withValues(alpha: a[0])),
         ),
         Positioned(
           top: 120,
           right: 30,
-          child: _buildBubble(20, Colors.white.withValues(alpha: 0.14)),
+          child: _buildBubble(20, base.withValues(alpha: a[1])),
         ),
         Positioned(
           bottom: 150,
           left: 40,
-          child: _buildBubble(25, Colors.white.withValues(alpha: 0.10)),
+          child: _buildBubble(25, base.withValues(alpha: a[2])),
         ),
         Positioned(
           bottom: 80,
           right: 50,
-          child: _buildBubble(35, Colors.white.withValues(alpha: 0.15)),
+          child: _buildBubble(35, base.withValues(alpha: a[3])),
         ),
         child,
       ],

@@ -451,7 +451,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 ChildSecondaryAction(
                   label: '看看我的成就',
                   emoji: '🏅',
-                  onSelect: () => _push(const AchievementScreen()),
+                  onSelect: () => _push(const AchievementScreen(showBack: true)),
                 ),
               ],
             ),

@@ -699,8 +699,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: AppTheme.active.isCartoon
+            ? Border.all(color: AppTheme.active.line, width: 2)
+            : null,
         boxShadow: AppTheme.softShadow(),
       ),
       child: Column(
@@ -785,8 +788,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: AppTheme.active.isCartoon
+            ? Border.all(color: AppTheme.active.line, width: 2)
+            : null,
         boxShadow: AppTheme.softShadow(),
       ),
       child: Column(
@@ -863,8 +869,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: AppTheme.active.isCartoon
+            ? Border.all(color: AppTheme.active.line, width: 2)
+            : null,
         boxShadow: AppTheme.softShadow(),
       ),
       child: QuizGame(
@@ -884,8 +893,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: AppTheme.active.isCartoon
+            ? Border.all(color: AppTheme.active.line, width: 2)
+            : null,
         boxShadow: AppTheme.softShadow(),
       ),
       child: Column(
@@ -1049,7 +1061,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
+        color: AppTheme.active.card.withValues(alpha: 0.95),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),

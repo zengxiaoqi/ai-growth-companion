@@ -1,13 +1,22 @@
-// UI Refresh: 2026-05-12 — 统一组件 + 微交互动画
+// 成就页 — 与孩子端 v2 主题（四皮肤 + 年龄密度）对齐
+//
+// 既作为底部导航的「成就」tab，也会被首页「看看我的成就」push 进来：
+// 有可 pop 的路由时才显示返回按钮，tab 模式下不出现多余按钮。
 
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_density.dart';
+import '../../theme/child_theme.dart';
 import '../../theme/animation_utils.dart';
-import '../../components/app_card.dart';
-import '../../components/section_header.dart';
+import '../../components/child_home_experience.dart';
+import 'achievement_data.dart';
 
 class AchievementScreen extends StatefulWidget {
-  const AchievementScreen({super.key});
+  /// 是否为 push 进来的页面（只有这时才显示返回按钮；
+  /// 作为底部导航 tab 时不该出现返回箭头）。
+  final bool showBack;
+
+  const AchievementScreen({super.key, this.showBack = false});
 
   @override
   State<AchievementScreen> createState() => _AchievementScreenState();
@@ -16,44 +25,16 @@ class AchievementScreen extends StatefulWidget {
 class _AchievementScreenState extends State<AchievementScreen> {
   @override
   Widget build(BuildContext context) {
-    // 模拟成就数据
-    final achievements = [
-      {
-        'name': '初次学习',
-        'icon': '🎯',
-        'desc': '完成第一个课程',
-        'color': AppTheme.primaryColor
-      },
-      {
-        'name': '每日目标',
-        'icon': '⭐',
-        'desc': '完成每日学习任务',
-        'color': AppTheme.softYellow
-      },
-      {
-        'name': '学习小达人',
-        'icon': '🏆',
-        'desc': '累计学习 7 天',
-        'color': AppTheme.secondaryColor
-      },
-      {
-        'name': '语言高手',
-        'icon': '📚',
-        'desc': '完成 10 个语言主题',
-        'color': AppTheme.accentColor
-      },
-      {
-        'name': '数学天才',
-        'icon': '🔢',
-        'desc': '完成 10 个数学主题',
-        'color': AppTheme.softPurple
-      },
-      {
-        'name': '探索者',
-        'icon': '🌟',
-        'desc': '尝试所有学科',
-        'color': const Color(0xFFE3BC45)
-      },
+    final palette = ChildThemePalette.of(context);
+    final density = palette.density;
+
+    // 徽章内容取自共享数据，颜色从当前皮肤的学科色板取，四套皮肤各有配色。
+    final achievements = <({ChildAchievement item, Color color})>[
+      for (var i = 0; i < kChildAchievements.length; i++)
+        (
+          item: kChildAchievements[i],
+          color: palette.subjects[i % palette.subjects.length],
+        ),
     ];
 
     const stars = 25;
@@ -61,25 +42,21 @@ class _AchievementScreenState extends State<AchievementScreen> {
     return BubbleBackground(
       child: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 顶部标题
-              _buildHeader(),
-              const SizedBox(height: 20),
-
-              // 星星总数卡片
-              _buildStarsCard(stars),
+              _buildHeader(palette),
+              const SizedBox(height: 16),
+              _buildStarsCard(palette, stars),
+              const SizedBox(height: 22),
+              _sectionTitle(palette, '已获得的徽章', '🏅'),
+              const SizedBox(height: 12),
+              _buildAchievementsGrid(palette, density, achievements),
               const SizedBox(height: 24),
-
-              // 成就列表
-              _buildAchievementsList(achievements),
-              const SizedBox(height: 24),
-
-              // 进度条
-              _buildProgressSection(),
-              const SizedBox(height: 20),
+              _sectionTitle(palette, '学习进度', '📈'),
+              const SizedBox(height: 12),
+              ..._buildProgressItems(palette),
             ],
           ),
         ),
@@ -87,150 +64,177 @@ class _AchievementScreenState extends State<AchievementScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return const SectionHeader(
-      title: '成就徽章',
-      icon: Icons.emoji_events_rounded,
-    );
+  /// 顶部：可返回时才给返回按钮（tab 模式下不显示）
+  Widget _buildHeader(ChildThemePalette palette) {
+    final canPop = widget.showBack;
+    return Row(children: [
+      if (canPop) ...[
+        GestureDetector(
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: palette.card,
+              shape: BoxShape.circle,
+              border: palette.isCartoon
+                  ? Border.all(color: palette.line, width: 2)
+                  : null,
+            ),
+            child: Icon(Icons.arrow_back_rounded, size: 22, color: palette.ink),
+          ),
+        ),
+        const SizedBox(width: 12),
+      ],
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('我的成就',
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: palette.ink)),
+            const SizedBox(height: 2),
+            Text('每学会一件事，就多一枚徽章',
+                style: TextStyle(fontSize: 13, color: palette.ink2)),
+          ],
+        ),
+      ),
+    ]);
   }
 
-  Widget _buildStarsCard(int stars) {
-    return AppCard(
+  Widget _sectionTitle(ChildThemePalette palette, String title, String emoji) {
+    return Row(children: [
+      Text(emoji, style: const TextStyle(fontSize: 18)),
+      const SizedBox(width: 6),
+      Text(title,
+          style: TextStyle(
+              fontSize: 17, fontWeight: FontWeight.w800, color: palette.ink)),
+    ]);
+  }
+
+  /// 星星总数：主色渐变贴纸，四套皮肤都跟随主色（不再写死金色）
+  Widget _buildStarsCard(ChildThemePalette palette, int stars) {
+    return ChildSticker(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      gradient: const LinearGradient(
-        colors: [Color(0xFFE3BC45), Color(0xFFFFD700)],
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      strong: true,
+      gradient: LinearGradient(
+        colors: [palette.cta, palette.pop],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      boxShadow: AppTheme.glowShadow(const Color(0xFFE3BC45)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child:
-                const Icon(Icons.star_rounded, color: Colors.white, size: 32),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: palette.ctaInk.withValues(alpha: 0.18),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 16),
-          Column(
+          child: Icon(Icons.star_rounded, color: palette.ctaInk, size: 30),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '累计获得',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                ),
-              ),
+              Text('累计获得',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: palette.ctaInk.withValues(alpha: 0.85))),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    '$stars',
-                    style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8, left: 8),
-                    child: Text(
-                      '星星',
+                  Text('$stars',
                       style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.white70,
-                      ),
-                    ),
+                          fontSize: 40,
+                          height: 1.1,
+                          fontWeight: FontWeight.w900,
+                          color: palette.ctaInk)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6, left: 6),
+                    child: Text('颗星星',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: palette.ctaInk.withValues(alpha: 0.85))),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(width: 12),
-          const Text('🌟', style: TextStyle(fontSize: 36)),
-        ],
+        ),
+        const Text('🌟', style: TextStyle(fontSize: 34)),
+      ]),
+    );
+  }
+
+  /// 徽章网格：低龄两列大卡、高龄三列小卡
+  Widget _buildAchievementsGrid(ChildThemePalette palette, ChildDensity density,
+      List<({ChildAchievement item, Color color})> achievements) {
+    final columns = density.level == 2 ? 3 : 2;
+    final ratio = density.level == 0
+        ? 1.05
+        : density.level == 2
+            ? 0.86
+            : 1.25;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: ratio,
       ),
+      itemCount: achievements.length,
+      itemBuilder: (context, index) {
+        final a = achievements[index];
+        return _AchievementBadge(
+          name: a.item.name,
+          icon: a.item.icon,
+          desc: a.item.desc,
+          color: a.color,
+          index: index,
+          compact: columns == 3,
+          showDesc: density.showMeta,
+        );
+      },
     );
   }
 
-  Widget _buildAchievementsList(List<Map<String, dynamic>> achievements) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader(
-          title: '已获得',
-          icon: Icons.military_tech_rounded,
-        ),
-        const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.3,
-          ),
-          itemCount: achievements.length,
-          itemBuilder: (context, index) {
-            final a = achievements[index];
-            return _AchievementBadge(
-              name: a['name'] as String,
-              icon: a['icon'] as String,
-              desc: a['desc'] as String,
-              color: a['color'] as Color,
-              index: index,
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressSection() {
-    final progressItems = [
+  List<Widget> _buildProgressItems(ChildThemePalette palette) {
+    final items = [
       {
         'label': '连续学习',
         'value': 0.6,
         'icon': Icons.local_fire_department_rounded,
-        'color': AppTheme.primaryColor
+        'color': palette.subjects[0],
       },
       {
         'label': '完成主题',
         'value': 0.4,
         'icon': Icons.auto_stories_rounded,
-        'color': AppTheme.secondaryColor
+        'color': palette.subjects[3],
       },
       {
         'label': '获得星星',
         'value': 0.5,
         'icon': Icons.star_rounded,
-        'color': AppTheme.softYellow
+        'color': palette.subjects[1],
       },
     ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader(
-          title: '学习进度',
-          icon: Icons.bar_chart_rounded,
-        ),
-        const SizedBox(height: 12),
-        ...progressItems.map((item) => _ProgressItem(
+    return items
+        .map((item) => _ProgressItem(
               label: item['label'] as String,
               value: item['value'] as double,
               icon: item['icon'] as IconData,
               color: item['color'] as Color,
-            )),
-      ],
-    );
+            ))
+        .toList();
   }
 }
 
@@ -240,6 +244,8 @@ class _AchievementBadge extends StatelessWidget {
   final String desc;
   final Color color;
   final int index;
+  final bool compact;
+  final bool showDesc;
 
   const _AchievementBadge({
     required this.name,
@@ -247,10 +253,13 @@ class _AchievementBadge extends StatelessWidget {
     required this.desc,
     required this.color,
     required this.index,
+    this.compact = false,
+    this.showDesc = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return PressAnimation(
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
@@ -262,16 +271,9 @@ class _AchievementBadge extends StatelessWidget {
             child: Opacity(opacity: value, child: child),
           );
         },
-        child: AppCard(
-          padding: const EdgeInsets.all(16),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            ),
-          ],
+        child: ChildSticker(
+          padding: EdgeInsets.all(compact ? 10 : 14),
+          background: palette.card,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -279,57 +281,57 @@ class _AchievementBadge extends StatelessWidget {
                 alignment: Alignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(compact ? 8 : 12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          color.withValues(alpha: 0.2),
-                          color.withValues(alpha: 0.1)
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: Color.alphaBlend(
+                          color.withValues(alpha: 0.18), palette.card),
                       shape: BoxShape.circle,
+                      border: palette.isCartoon
+                          ? Border.all(color: color, width: 2)
+                          : null,
                     ),
-                    child: Text(icon, style: const TextStyle(fontSize: 28)),
+                    child: Text(icon,
+                        style: TextStyle(fontSize: compact ? 22 : 28)),
                   ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accentColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                  if (!compact)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: palette.subjects[2],
+                          shape: BoxShape.circle,
+                          border: Border.all(color: palette.card, width: 2),
+                        ),
+                        child:
+                            Icon(Icons.check, color: palette.ctaInk, size: 11),
                       ),
-                      child: const Icon(Icons.check,
-                          color: Colors.white, size: 12),
                     ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 6 : 10),
               Text(
                 name,
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 12 : 14,
+                  color: palette.ink,
                 ),
                 textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                desc,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (showDesc) ...[
+                const SizedBox(height: 3),
+                Text(
+                  desc,
+                  style: TextStyle(fontSize: 10.5, color: palette.ink2),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         ),
@@ -353,87 +355,82 @@ class _ProgressItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      boxShadow: [
-        BoxShadow(
-          color: color.withValues(alpha: 0.1),
-          blurRadius: 15,
-          offset: const Offset(0, 5),
-        ),
-      ],
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
+    final palette = ChildThemePalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ChildSticker(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        background: palette.card,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                    color.withValues(alpha: 0.16), palette.card),
+                borderRadius: BorderRadius.circular(palette.radiusSm),
+              ),
+              child: Icon(icon, size: 22, color: color),
             ),
-            child: Icon(icon, size: 24, color: color),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                      color: palette.ink,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Stack(
-                  children: [
-                    Container(
+                  const SizedBox(height: 8),
+                  // 用 FractionallySizedBox 取代「屏宽 × 0.5 × 比例」的硬编码宽度，
+                  // 窄屏/平板都不会溢出或过短。
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
                       height: 10,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      height: 10,
-                      width: MediaQuery.of(context).size.width * 0.5 * value,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [color, color.withValues(alpha: 0.7)],
-                        ),
-                        borderRadius: BorderRadius.circular(5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.3),
-                            blurRadius: 5,
+                      color: Color.alphaBlend(
+                          color.withValues(alpha: 0.16), palette.card),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: value.clamp(0.0, 1.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [color, color.withValues(alpha: 0.72)],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.smallRadius),
-            ),
-            child: Text(
-              '${(value * 100).toInt()}%',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                    color.withValues(alpha: 0.14), palette.card),
+                borderRadius: BorderRadius.circular(palette.radiusSm),
+              ),
+              child: Text(
+                '${(value * 100).toInt()}%',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

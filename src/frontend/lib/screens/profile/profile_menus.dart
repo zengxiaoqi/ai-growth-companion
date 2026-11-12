@@ -136,7 +136,7 @@ class _AboutSheetState extends State<_AboutSheet> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -316,7 +316,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -521,7 +521,7 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -803,7 +803,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -877,7 +877,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -954,7 +954,7 @@ class _SheetCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.active.card,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(

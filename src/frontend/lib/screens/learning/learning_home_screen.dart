@@ -122,17 +122,25 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
   }
 
   Widget _buildHeader() {
+    final palette = ChildThemePalette.of(context);
     return Padding(
-      padding: EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      // 用 Row + Expanded 撑满宽度，避免外层 Column 的居中对齐把标题挤到中间
       child: Row(
         children: [
-          CloudDecoration(size: 32, color: AppTheme.softBlue),
-          SizedBox(width: 12),
           Expanded(
-            child: SectionHeader(
-              title: '学习中心',
-              icon: Icons.menu_book_rounded,
-              trailing: Text('✨'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('学习中心',
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: palette.ink)),
+                const SizedBox(height: 2),
+                Text('挑一个喜欢的，和小犀一起玩',
+                    style: TextStyle(fontSize: 13, color: palette.ink2)),
+              ],
             ),
           ),
         ],
@@ -200,6 +208,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                 final color =
                     AppTheme.childColors[index % AppTheme.childColors.length];
 
+                final cardBase = ChildThemePalette.of(context).card;
                 return AppCard(
                   width: 180,
                   height: 100,
@@ -210,10 +219,11 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                       arguments: {'assignment': assignment},
                     );
                   },
+                  // 半透明渐变合成为实色，深色皮肤下卡片仍有底色
                   gradient: LinearGradient(
                     colors: [
-                      color.withValues(alpha: 0.2),
-                      color.withValues(alpha: 0.05),
+                      Color.alphaBlend(color.withValues(alpha: 0.2), cardBase),
+                      Color.alphaBlend(color.withValues(alpha: 0.05), cardBase),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -390,10 +400,12 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
             )
           else if (_courses.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+              padding: EdgeInsets.only(top: 4),
               child: EmptyState(
                 emoji: '🌱',
+                iconSize: 48,
                 title: '暂无课程，等待家长为你生成哦~',
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
             )
           else
@@ -481,6 +493,7 @@ class _CourseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardBase = ChildThemePalette.of(context).card;
     return GestureDetector(
       onTap: onTap,
       child: AppCard(
@@ -488,8 +501,8 @@ class _CourseCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         gradient: LinearGradient(
           colors: [
-            color.withValues(alpha: 0.12),
-            color.withValues(alpha: 0.04),
+            Color.alphaBlend(color.withValues(alpha: 0.12), cardBase),
+            Color.alphaBlend(color.withValues(alpha: 0.04), cardBase),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

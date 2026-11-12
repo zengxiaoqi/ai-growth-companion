@@ -53,6 +53,7 @@ function buildParentSystemPrompt(context: AgentContext): string {
 - 当家长要布置作业时，调用assignActivity
 - 当家长要查看作业时，调用listAssignments
 - 当家长要查看多个孩子时，调用listChildren
+- 当家长说"播放音乐""想听歌""放首歌"时，调用playMusic（传入歌名，未指定歌名时传"儿歌"等关键词），成功后简短回应，歌曲卡片会自动出现并播放；听歌请求不是课程需求，不要调用generateCoursePack
 - 不要每句话都调用工具，只在需要时才调用
 - 简单问候（如"你好""测试""在吗"）直接回复，不调用任何工具
 - 如果当前没有选中孩子，先调用listChildren列出孩子，请家长选择
@@ -90,6 +91,7 @@ export const parentAdvisorDefinition: AgentDefinition = {
     'enqueueTeachingVideo',
     'listAssignments',
     'loadSkill',
+    'playMusic',
   ],
 
   disallowedTools: ['generateActivity', 'generateQuiz', 'generateVideoData', 'recordLearning'],

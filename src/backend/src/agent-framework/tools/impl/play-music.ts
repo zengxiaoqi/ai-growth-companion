@@ -24,7 +24,7 @@ export class PlayMusicTool extends BaseTool<PlayMusicInput> {
   readonly metadata: ToolMetadata = {
     name: 'playMusic',
     description:
-      '给孩子播放一首歌曲。孩子说"我想听歌""放一首小星星""播放两只老虎"时调用，传入歌名或歌手关键词。',
+      '播放一首歌曲。用户说"播放音乐""我想听歌""放一首小星星""播放两只老虎"时调用，传入歌名或歌手关键词。',
     inputSchema: {
       type: 'object',
       properties: {

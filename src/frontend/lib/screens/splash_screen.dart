@@ -115,8 +115,11 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    // 与 Android 12+ 系统启动屏的图标尺寸对齐：SplashScreen API 把图标画在
+    // 240dp 容器里、实际约 160dp（实测截图占屏宽 43%）。之前取 0.355 屏宽
+    // 在 360dp 机型上只有 128dp，切换瞬间会有「图标缩一圈」的跳变。
     final logoSize =
-        (math.min(size.width * 0.355, size.height * 0.2)).clamp(108.0, 152.0);
+        (math.min(size.width * 0.44, size.height * 0.24)).clamp(118.0, 160.0);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -141,17 +144,21 @@ class _SplashScreenState extends State<SplashScreen>
               child: AnimatedBuilder(
                 animation: _intro,
                 builder: (context, _) {
-                  // 首帧就带一层柔和的品牌渐变，不再从纯色慢慢「化开」——
-                  // 纯色停留正是「启动像卡住了」的元凶。
-                  final bloom =
-                      0.42 + 0.58 * _phase(0.0, 0.30, Curves.easeOutCubic);
-                  return CustomPaint(painter: _BackdropPainter(bloom: bloom));
+                  // reveal = 0 时整页就是原生启动屏那层纯色 #241243，
+                  // 系统 splash 切到 Flutter 是**同一帧、同一像素**，看不
+                  // 出接缝；随后 540ms 内渐变从图标位置向外「漫」开。
+                  // 这样「一开始就在动」，而不是先愣一块纯色。
+                  return CustomPaint(
+                    painter: _BackdropPainter(
+                      reveal: _phase(0.0, 0.38, Curves.easeOutCubic),
+                    ),
+                  );
                 },
               ),
             ),
             RepaintBoundary(
               child: AnimatedBuilder(
-                animation: _ambient,
+                animation: Listenable.merge([_intro, _ambient]),
                 builder: (context, _) {
                   final t = _ambient.value;
                   // 流星：每 9s 循环里飞一次
@@ -161,6 +168,9 @@ class _SplashScreenState extends State<SplashScreen>
                       t: t,
                       stars: _stars,
                       meteor: raw >= 0 && raw <= 1 ? raw : -1,
+                      // 首帧不能有星星：原生启动屏那屏是干净的纯色 + 图标，
+                      // 一上来就满天星会立刻暴露「这是另一个界面」。
+                      fade: _phase(0.06, 0.32, Curves.easeOut),
                     ),
                   );
                 },
@@ -225,7 +235,7 @@ class _LogoBlock extends StatelessWidget {
                 size: Size.square(size * 2.9),
                 painter: _HaloOrbitPainter(
                   halo: Curves.easeOutCubic
-                      .transform(Interval(0.05, 0.5).transform(intro.value)),
+                      .transform(Interval(0.02, 0.34).transform(intro.value)),
                   intro: intro.value,
                   t: ambient.value,
                   iconSize: size,
@@ -240,71 +250,76 @@ class _LogoBlock extends StatelessWidget {
             child: AnimatedBuilder(
               animation: Listenable.merge([intro, ambient]),
               builder: (context, child) {
-                // 刻意不做缩放/淡入：首帧就必须和原生启动屏的图标位置、
-                // 大小、透明度一致，否则会「消失再出现」地闪一下。
+                // 图标本身**不做缩放/淡入**：首帧必须和原生启动屏的图标
+                // 同位置、同大小、同透明度，否则会「消失再出现」地闪一下。
+                // 只有投影随入场浮上来 —— 系统那屏的图标没有影子，首帧就
+                // 带投影会让它看起来「忽然变重」。
                 final breath = math.sin(ambient.value * math.pi * 2);
+                final lift = Curves.easeOut.transform(
+                  Interval(0.0, 0.35).transform(intro.value),
+                );
                 return Transform.translate(
                   offset: Offset(0, 3.5 * breath),
                   child: Transform.scale(
                     scale: 1 + 0.012 * breath,
-                    child: child,
+                    child: Container(
+                      width: size,
+                      height: size,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(size * 0.23),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2A0B4F)
+                                .withValues(alpha: 0.30 * lift),
+                            blurRadius: size * (0.08 + 0.14 * lift),
+                            offset: Offset(0, size * 0.10 * lift),
+                          ),
+                        ],
+                      ),
+                      child: child,
+                    ),
                   ),
                 );
               },
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(size * 0.23),
-                  // 一层克制的投影，把图标从星空里「托」起来
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF2A0B4F).withValues(alpha: 0.45),
-                      blurRadius: size * 0.30,
-                      offset: Offset(0, size * 0.14),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Image.asset(
-                      SplashScreen.assetPath,
-                      width: size,
-                      height: size,
-                      filterQuality: FilterQuality.medium,
-                      excludeFromSemantics: true,
-                      gaplessPlayback: true,
-                    ),
-                    // 一道缓慢扫过的高光，让图标「有玻璃质感」
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(size * 0.23),
-                      child: AnimatedBuilder(
-                        animation: ambient,
-                        builder: (context, _) {
-                          final p = (ambient.value * 1.6) % 1.0;
-                          return Transform.translate(
-                            offset: Offset(size * (p * 2.6 - 1.3), 0),
-                            child: Transform.rotate(
-                              angle: -0.35,
-                              child: Container(
-                                width: size * 0.28,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white.withValues(alpha: 0),
-                                      Colors.white.withValues(alpha: 0.16),
-                                      Colors.white.withValues(alpha: 0),
-                                    ],
-                                  ),
+              child: Stack(
+                children: [
+                  Image.asset(
+                    SplashScreen.assetPath,
+                    width: size,
+                    height: size,
+                    filterQuality: FilterQuality.medium,
+                    excludeFromSemantics: true,
+                    gaplessPlayback: true,
+                  ),
+                  // 一道缓慢扫过的高光，让图标「有玻璃质感」
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(size * 0.23),
+                    child: AnimatedBuilder(
+                      animation: ambient,
+                      builder: (context, _) {
+                        final p = (ambient.value * 1.6) % 1.0;
+                        return Transform.translate(
+                          offset: Offset(size * (p * 2.6 - 1.3), 0),
+                          child: Transform.rotate(
+                            angle: -0.35,
+                            child: Container(
+                              width: size * 0.28,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0),
+                                    Colors.white.withValues(alpha: 0.16),
+                                    Colors.white.withValues(alpha: 0),
+                                  ],
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -536,71 +551,106 @@ class _Star {
 
 /// 静态背景层：底色 + 品牌渐变 + 极光光斑 + 暗角。
 ///
-/// 只依赖 [bloom]。bloom 在入场前 300ms 就到 1.0 并保持，之后
-/// [shouldRepaint] 恒为 false，整层被外墙的 RepaintBoundary 直接复用，
-/// 不再参与逐帧绘制 —— 这是中低端机上「启动动画不卡」的关键：
-/// 每帧省掉 4~5 次全屏 gradient 填充。
+/// [reveal] 从 0 走到 1：
+/// - `0`   → 整页就是原生启动屏那层纯色 `#241243`，系统 splash 切过来
+///           是同一像素，看不出接缝；
+/// - `0~1` → 渐变像光一样从图标位置向外漫开，远场仍压回纯色；
+/// - `1`   → 完整极光底，遮罩撤掉，之后 [shouldRepaint] 恒为 false，
+///           整层被外层 RepaintBoundary 复用，不参与逐帧绘制。
+///
+/// 真实设备上「纯色停留很久」的观感，一半来自原生 splash 等待，一半来自
+/// 首帧是一块死色。把首帧做成纯色（对齐原生）再让它立刻漫开，两件事一起
+/// 解决：既无接缝，又不会有「卡住」的错觉。
 class _BackdropPainter extends CustomPainter {
-  _BackdropPainter({required this.bloom});
+  _BackdropPainter({required this.reveal});
 
-  final double bloom;
+  final double reveal;
+
+  /// 图标在屏幕上的纵向中心，与主体布局对齐；渐变从这里扩散。
+  static const double _originY = 0.47;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
 
-    // 1. 底色（与原生启动屏一致）
+    // 1. 底色（与原生启动屏同一色值，首帧必须一模一样）
     canvas.drawRect(rect, Paint()..color = BrandSplashColors.deep);
-    if (bloom <= 0.001) return;
 
-    // 2. 品牌渐变：从纯色「绽放」成极光
-    Color mix(Color c) => Color.lerp(BrandSplashColors.deep, c, bloom)!;
+    final r = reveal.clamp(0.0, 1.0);
+    if (r <= 0.001) return;
+
+    // 2. 品牌渐变
     canvas.drawRect(
       rect,
       Paint()
         ..shader = ui.Gradient.linear(
           Offset(size.width * 0.08, 0),
           Offset(size.width * 0.92, size.height),
-          [
-            mix(BrandSplashColors.gradientTop),
-            mix(BrandSplashColors.gradientMid),
-            mix(BrandSplashColors.gradientLow),
-            mix(BrandSplashColors.gradientBottom),
+          const [
+            BrandSplashColors.gradientTop,
+            BrandSplashColors.gradientMid,
+            BrandSplashColors.gradientLow,
+            BrandSplashColors.gradientBottom,
           ],
           const [0.0, 0.40, 0.72, 1.0],
         ),
     );
 
     // 3. 极光光斑（固定在静态层；大面积 radial 每帧重画非常贵）
+    final glow = Curves.easeOut.transform(r);
     _glow(
       canvas,
       Offset(size.width * 0.80, size.height * 0.90),
       size.width * 0.92,
       BrandSplashColors.pink,
-      0.34 * bloom,
+      0.34 * glow,
     );
     _glow(
       canvas,
       Offset(size.width * 0.10, size.height * 0.04),
       size.width * 0.78,
       BrandSplashColors.periwinkle,
-      0.30 * bloom,
+      0.30 * glow,
     );
     _glow(
       canvas,
       Offset(size.width * 0.92, size.height * 0.24),
       size.width * 0.5,
       BrandSplashColors.mint,
-      0.12 * bloom,
+      0.12 * glow,
     );
 
-    // 4. 暗角：让中心更聚焦
+    // 4. 径向扩散：远场遮回纯色，让渐变看起来是「从图标处亮起来」的。
+    //
+    //    遮罩铺满整屏、靠渐变断点推进 —— 而不是画一个越来越大的圆。
+    //    圆画法在半径处会从 1.0 的 alpha 突然断到 0，边界是一道硬边；
+    //    用 drawRect + 断点推进，边界永远是柔和的「亮到暗」过渡。
+    if (r < 0.999) {
+      final origin = Offset(size.width * 0.5, size.height * _originY);
+      // 保证 r=1 时断点已在屏幕对角之外，全屏无遮罩
+      final maxRadius = math.sqrt(
+            size.width * size.width + size.height * size.height,
+          ) *
+          0.62;
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            origin,
+            maxRadius,
+            [BrandSplashColors.deep.withValues(alpha: 0), BrandSplashColors.deep],
+            [(r * 0.88).clamp(0.0, 0.999), r.clamp(0.001, 1.0)],
+          ),
+      );
+    }
+
+    // 5. 暗角：让中心更聚焦
     canvas.drawRect(
       rect,
       Paint()
         ..shader = ui.Gradient.radial(
-          size.center(Offset.zero),
-          size.width * 1.02,
+          Offset(size.width * 0.5, size.height * _originY),
+          size.width * 1.15,
           const [Color(0x00000000), Color(0x59000000)],
           const [0.42, 1.0],
         ),
@@ -627,7 +677,7 @@ class _BackdropPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_BackdropPainter old) => old.bloom != bloom;
+  bool shouldRepaint(_BackdropPainter old) => old.reveal != reveal;
 }
 
 /// 逐帧层：星野闪烁 + 流星。只有几十个点/线段，成本很低。
@@ -636,6 +686,7 @@ class _StarsPainter extends CustomPainter {
     required this.t,
     required this.stars,
     required this.meteor,
+    required this.fade,
   });
 
   final double t;
@@ -644,12 +695,16 @@ class _StarsPainter extends CustomPainter {
   /// < 0 表示当前没有流星；0~1 为流星飞行进度
   final double meteor;
 
+  /// 整体淡入系数：首帧必须是 0，逐帧层一上来就抢戏会破坏无缝。
+  final double fade;
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (fade <= 0.002) return;
     for (final s in stars) {
       final twinkle = 0.45 +
           0.55 * (0.5 + 0.5 * math.sin(t * math.pi * 2 * s.speed + s.phase));
-      final alpha = (s.alpha * twinkle).clamp(0.0, 1.0);
+      final alpha = (s.alpha * twinkle * fade).clamp(0.0, 1.0);
       final center = Offset(s.x * size.width, s.y * size.height);
       final radius = s.r * size.width;
       if (s.big) {
@@ -674,7 +729,8 @@ class _StarsPainter extends CustomPainter {
       final end = Offset(size.width * 0.32, size.height * 0.30);
       final head = Offset.lerp(start, end, meteor)!;
       final tail = Offset.lerp(start, end, math.max(0.0, meteor - 0.22))!;
-      final opacity = (math.sin(meteor * math.pi) * 0.9).clamp(0.0, 1.0);
+      final opacity =
+          (math.sin(meteor * math.pi) * 0.9 * fade).clamp(0.0, 1.0);
       if (opacity > 0.01) {
         canvas.drawLine(
           tail,
@@ -703,7 +759,8 @@ class _StarsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_StarsPainter old) => old.t != t || old.meteor != meteor;
+  bool shouldRepaint(_StarsPainter old) =>
+      old.t != t || old.meteor != meteor || old.fade != fade;
 }
 
 class _HaloOrbitPainter extends CustomPainter {

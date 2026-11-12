@@ -15,6 +15,7 @@ import '../services/tts_service.dart';
 import '../services/api_service.dart';
 import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
+import '../utils/chat_mode.dart';
 import '../components/speech_input_widget.dart';
 import '../components/dictionary_sheet.dart';
 import 'games/game_renderer.dart';
@@ -1714,7 +1715,7 @@ class _AIChatScreenState extends State<AIChatScreen>
 
   Future<void> _enterEnglishPractice(ChatSessionProvider provider) async {
     if (provider.isEnglishMode) return;
-    await provider.createNewSession(mode: 'english');
+    await provider.createNewSession(mode: ChatMode.english.wire);
   }
 
   Future<void> _exitEnglishPractice(ChatSessionProvider provider) async {

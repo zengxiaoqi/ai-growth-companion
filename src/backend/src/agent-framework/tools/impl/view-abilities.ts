@@ -9,6 +9,7 @@ import { ReportService } from '../../../modules/report/report.service';
 import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { domainLabel } from '../../../common/domain/learning-domains';
 
 type ViewAbilitiesInput = { childId: number };
 
@@ -46,18 +47,10 @@ export class ViewAbilitiesTool extends BaseTool<ViewAbilitiesInput> {
         this.reportService.getAbilityTrend(args.childId, 4),
       ]);
 
-      const domainLabels: Record<string, string> = {
-        language: '语言表达',
-        math: '数学逻辑',
-        science: '科学探索',
-        art: '艺术创造',
-        social: '社会交往',
-      };
-
       return this.ok({
         abilities: abilities.map((a: any) => ({
           domain: a.domain,
-          domainLabel: domainLabels[a.domain] || a.domain,
+          domainLabel: domainLabel(a.domain),
           score: a.score,
           level: a.level,
         })),

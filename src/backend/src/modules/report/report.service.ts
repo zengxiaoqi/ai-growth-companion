@@ -6,6 +6,14 @@ import { AbilityAssessment } from '../../database/entities/ability-assessment.en
 import { Achievement } from '../../database/entities/achievement.entity';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { MemoryService } from '../memory/memory.service';
+import {
+  LEARNING_DOMAINS,
+  DOMAIN_ORDER,
+  isLearningDomain,
+  domainLabel,
+  domainShortLabel,
+  type LearningDomain,
+} from '../../common/domain/learning-domains';
 
 interface ReportParams {
   userId: number;
@@ -240,21 +248,16 @@ export class ReportService {
       order: { assessedAt: 'DESC' },
     });
 
-    const domainProgress: Record<string, number> = {
-      language: 0,
-      math: 0,
-      science: 0,
-      art: 0,
-      social: 0,
-      english: 0,
-    };
+    const domainProgress: Record<string, number> = Object.fromEntries(
+      LEARNING_DOMAINS.map((k) => [k, 0] as [string, number]),
+    );
 
     // Take latest score per domain
     const seen = new Set<string>();
     for (const a of abilities) {
       if (seen.has(a.domain)) continue;
       seen.add(a.domain);
-      if (a.domain in domainProgress) {
+      if (isLearningDomain(a.domain)) {
         domainProgress[a.domain] = Math.min(100, Math.max(0, a.score || 0));
       }
     }
@@ -285,7 +288,7 @@ export class ReportService {
     }
 
     const now = new Date();
-    const domains = ['language', 'math', 'science', 'art', 'social', 'english'] as const;
+    const domains = LEARNING_DOMAINS;
     const weekMap = new Map<number, Map<string, number[]>>();
 
     for (const assessment of assessments) {
@@ -307,15 +310,7 @@ export class ReportService {
       }
     }
 
-    const result: {
-      week: string;
-      language: number;
-      math: number;
-      science: number;
-      art: number;
-      social: number;
-      english: number;
-    }[] = [];
+    const result: ({ week: string } & Record<LearningDomain, number>)[] = [];
     const sortedWeeks = [...weekMap.keys()].sort((a, b) => a - b);
     for (const weekNum of sortedWeeks) {
       const weekData = weekMap.get(weekNum)!;
@@ -325,15 +320,10 @@ export class ReportService {
           ? Math.round((scores.reduce((s, v) => s + v, 0) / scores.length) * 100) / 100
           : 0;
       };
-      result.push({
-        week: `第${weekNum}周`,
-        language: avg('language'),
-        math: avg('math'),
-        science: avg('science'),
-        art: avg('art'),
-        social: avg('social'),
-        english: avg('english'),
-      });
+      const domainScores = Object.fromEntries(
+        DOMAIN_ORDER.map((d) => [d, avg(d)] as [LearningDomain, number]),
+      ) as Record<LearningDomain, number>;
+      result.push({ week: `第${weekNum}周`, ...domainScores });
     }
 
     return result;
@@ -346,19 +336,10 @@ export class ReportService {
       take: limit,
     });
 
-    const domainLabels: Record<string, string> = {
-      language: '语言表达',
-      math: '数学逻辑',
-      science: '科学探索',
-      art: '艺术创造',
-      social: '社会交往',
-      english: '英语能力',
-    };
-
     return assessments.map((a) => ({
       domain: a.domain,
       level: a.level,
-      label: domainLabels[a.domain] || a.domain,
+      label: domainLabel(a.domain),
     }));
   }
 
@@ -416,14 +397,12 @@ export class ReportService {
 
     return {
       current,
-      change: {
-        language: getScore('language', currentByDomain) - getScore('language', previousByDomain),
-        math: getScore('math', currentByDomain) - getScore('math', previousByDomain),
-        science: getScore('science', currentByDomain) - getScore('science', previousByDomain),
-        art: getScore('art', currentByDomain) - getScore('art', previousByDomain),
-        social: getScore('social', currentByDomain) - getScore('social', previousByDomain),
-        english: getScore('english', currentByDomain) - getScore('english', previousByDomain),
-      },
+      change: Object.fromEntries(
+        DOMAIN_ORDER.map((d) => [
+          d,
+          getScore(d, currentByDomain) - getScore(d, previousByDomain),
+        ]),
+      ) as Record<LearningDomain, number>,
     };
   }
 
@@ -481,18 +460,9 @@ export class ReportService {
   }
 
   private async generateLlmInsights(learning: any, achievements: any): Promise<string[]> {
-    const domainNames: Record<string, string> = {
-      language: '语言表达',
-      math: '数学逻辑',
-      science: '科学探索',
-      art: '艺术创造',
-      social: '社会交往',
-      english: '英语能力',
-    };
-
     const domainSummary =
       Object.entries(learning.domainStats || {})
-        .map(([domain, count]) => `${domainNames[domain] || domain}: ${count} 次学习`)
+        .map(([domain, count]) => `${domainLabel(domain)}: ${count} 次学习`)
         .join('；') || '暂无领域数据';
 
     const systemPrompt = `你是一个儿童教育专家，负责根据孩子的学习数据生成个性化、鼓励性的洞察建议。
@@ -537,16 +507,8 @@ export class ReportService {
     const domainEntries = Object.entries(domains) as [string, number][];
     if (domainEntries.length > 0) {
       const maxDomain = domainEntries.sort((a, b) => b[1] - a[1])[0];
-      const domainNames: Record<string, string> = {
-        language: '语言',
-        math: '数学',
-        science: '科学',
-        art: '艺术',
-        social: '社会',
-        english: '英语',
-      };
       if (maxDomain) {
-        insights.push(`喜欢 ${domainNames[maxDomain[0]] || maxDomain[0]} 领域的内容`);
+        insights.push(`喜欢 ${domainShortLabel(maxDomain[0])} 领域的内容`);
       }
     }
 
@@ -564,13 +526,10 @@ export class ReportService {
 
     if (abilities && abilities.change) {
       const change = abilities.change as any;
-      const totalChange =
-        (change.language || 0) +
-        (change.math || 0) +
-        (change.science || 0) +
-        (change.art || 0) +
-        (change.social || 0) +
-        (change.english || 0);
+      const totalChange = DOMAIN_ORDER.reduce(
+        (sum, d) => sum + (change[d] || 0),
+        0,
+      );
 
       if (totalChange > 10) {
         return '进步太大了！为你骄傲！🏆';

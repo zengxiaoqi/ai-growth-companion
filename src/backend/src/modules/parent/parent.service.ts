@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ParentControl } from '../../database/entities/parent-control.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { LEARNING_DOMAINS } from '../../common/domain/learning-domains';
 
 @Injectable()
 export class ParentService {
@@ -21,7 +22,7 @@ export class ParentService {
       id: 0,
       parentId,
       dailyLimitMinutes: 30,
-      allowedDomains: ['language', 'math', 'science', 'art', 'social', 'english'],
+      allowedDomains: [...LEARNING_DOMAINS],
       blockedTopics: [],
       studySchedule: null,
       notifications: null,

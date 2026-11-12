@@ -8,6 +8,7 @@ import { AbilitiesService } from '../../../modules/abilities/abilities.service';
 import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { domainLabel } from '../../../common/domain/learning-domains';
 
 type GetAbilitiesInput = { childId: number };
 
@@ -16,7 +17,7 @@ type GetAbilitiesInput = { childId: number };
 export class GetAbilitiesTool extends BaseTool<GetAbilitiesInput> {
   readonly metadata: ToolMetadata = {
     name: 'getAbilities',
-    description: '获取孩子的各项能力评分，包括语言表达、数学逻辑、科学探索、艺术创造、社会交往。家长问"孩子学得怎么样"或需要了解孩子水平时调用。',
+    description: '获取孩子的各项能力评分，包括语言表达、数学逻辑、科学探索、艺术创造、社会交往、英语能力。家长问"孩子学得怎么样"或需要了解孩子水平时调用。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -38,19 +39,11 @@ export class GetAbilitiesTool extends BaseTool<GetAbilitiesInput> {
   async execute(args: GetAbilitiesInput, _context: ToolExecutionContext): Promise<ToolResult> {
     try {
       const abilities = await this.abilitiesService.getByUser(args.childId);
-      const domainLabels: Record<string, string> = {
-        language: '语言表达',
-        math: '数学逻辑',
-        science: '科学探索',
-        art: '艺术创造',
-        social: '社会交往',
-        english: '英语能力',
-      };
 
       return this.ok(
         abilities.map((a) => ({
           domain: a.domain,
-          domainLabel: domainLabels[a.domain] || a.domain,
+          domainLabel: domainLabel(a.domain),
           score: a.score,
           level: a.level,
         })),

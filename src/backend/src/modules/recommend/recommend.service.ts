@@ -6,6 +6,7 @@ import { Content } from '../../database/entities/content.entity';
 import { AbilityAssessment } from '../../database/entities/ability-assessment.entity';
 import { ParentControl } from '../../database/entities/parent-control.entity';
 import { LearningPoint } from '../../database/entities/learning-point.entity';
+import { domainShortLabel } from '../../common/domain/learning-domains';
 
 interface RecommendParams {
   userId: number;
@@ -183,14 +184,7 @@ export class RecommendService {
 
     const weakDomains = this.getWeakDomains(abilities, domainScores);
     if (weakDomains.length > 0) {
-      const domainNames: Record<string, string> = {
-        language: '语言',
-        math: '数学',
-        science: '科学',
-        art: '艺术',
-        social: '社会',
-      };
-      return `您最近在 ${weakDomains.map((d) => domainNames[d] || d).join('、')} 方面有进步，我们推荐了一些相关内容`;
+      return `您最近在 ${weakDomains.map((d) => domainShortLabel(d)).join('、')} 方面有进步，我们推荐了一些相关内容`;
     }
 
     return '根据您的学习进度推荐';

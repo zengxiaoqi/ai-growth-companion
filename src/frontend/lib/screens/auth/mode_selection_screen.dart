@@ -25,15 +25,17 @@ class ModeSelectionScreen extends StatelessWidget {
               // 顶部标签
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.auto_awesome, size: 16, color: AppTheme.accentColor),
+                      Icon(Icons.auto_awesome,
+                          size: 16, color: AppTheme.accentColor),
                       SizedBox(width: 6),
                       Text(
                         '触控友好模式已开启',
@@ -50,7 +52,7 @@ class ModeSelectionScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // 标题
-              const Text(
+              Text(
                 '请选择使用模式',
                 style: TextStyle(
                   fontSize: 28,
@@ -59,7 +61,7 @@ class ModeSelectionScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '学生端适合沉浸学习，家长端可查看进展并管理学习计划。',
                 style: TextStyle(
                   fontSize: 14,
@@ -81,7 +83,9 @@ class ModeSelectionScreen extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.shield_rounded, size: 16, color: AppTheme.textSecondary.withValues(alpha: 0.6)),
+                    Icon(Icons.shield_rounded,
+                        size: 16,
+                        color: AppTheme.textSecondary.withValues(alpha: 0.6)),
                     const SizedBox(width: 6),
                     Text(
                       '全程启用安全保护与家长管控能力',
@@ -117,12 +121,15 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: isChild ? 0.12 : 0.04),
+              color: AppTheme.primaryColor
+                  .withValues(alpha: isChild ? 0.12 : 0.04),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
           ],
-          border: isChild ? null : Border.all(color: Colors.grey.shade200, width: 1),
+          border: isChild
+              ? null
+              : Border.all(color: Colors.grey.shade200, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,13 +141,15 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: isChild ? 0.15 : 0.08),
+                    color: AppTheme.primaryColor
+                        .withValues(alpha: isChild ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Icon(
                     Icons.rocket_launch_rounded,
                     size: 28,
-                    color: isChild ? AppTheme.primaryColor : Colors.grey.shade400,
+                    color:
+                        isChild ? AppTheme.primaryColor : Colors.grey.shade400,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -153,7 +162,9 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: isChild ? AppTheme.primaryColor : Colors.grey.shade500,
+                          color: isChild
+                              ? AppTheme.primaryColor
+                              : Colors.grey.shade500,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -162,7 +173,9 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isChild ? AppTheme.textSecondary : Colors.grey.shade400,
+                          color: isChild
+                              ? AppTheme.textSecondary
+                              : Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -174,9 +187,7 @@ class ModeSelectionScreen extends StatelessWidget {
 
             // 描述
             Text(
-              isChild
-                  ? '进入学习主界面，开始今日任务、完成互动练习，并解锁成长成就。'
-                  : '仅孩子账号可进入学生端。',
+              isChild ? '进入学习主界面，开始今日任务、完成互动练习，并解锁成长成就。' : '仅孩子账号可进入学生端。',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
@@ -191,14 +202,17 @@ class ModeSelectionScreen extends StatelessWidget {
               height: 50,
               decoration: BoxDecoration(
                 gradient: isChild
-                    ? const LinearGradient(colors: [AppTheme.primaryColor, Color(0xFFD18B7B)])
-                    : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
+                    ? LinearGradient(
+                        colors: [AppTheme.primaryColor, Color(0xFFD18B7B)])
+                    : LinearGradient(
+                        colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.rocket_launch_rounded,
+                      color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
                     isChild ? '进入学生端' : '不可用',
@@ -218,7 +232,8 @@ class ModeSelectionScreen extends StatelessWidget {
   }
 
   // 家长模式卡片
-  Widget _buildParentCard(BuildContext context, String userName, UserProvider userProvider, bool isParent) {
+  Widget _buildParentCard(BuildContext context, String userName,
+      UserProvider userProvider, bool isParent) {
     return GestureDetector(
       onTap: isParent
           ? () {
@@ -233,12 +248,15 @@ class ModeSelectionScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withValues(alpha: isParent ? 0.12 : 0.04),
+              color: AppTheme.secondaryColor
+                  .withValues(alpha: isParent ? 0.12 : 0.04),
               blurRadius: 25,
               offset: const Offset(0, 8),
             ),
           ],
-          border: isParent ? null : Border.all(color: Colors.grey.shade200, width: 1),
+          border: isParent
+              ? null
+              : Border.all(color: Colors.grey.shade200, width: 1),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,13 +268,16 @@ class ModeSelectionScreen extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryColor.withValues(alpha: isParent ? 0.15 : 0.08),
+                    color: AppTheme.secondaryColor
+                        .withValues(alpha: isParent ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Icon(
                     Icons.trending_up_rounded,
                     size: 28,
-                    color: isParent ? AppTheme.secondaryColor : Colors.grey.shade400,
+                    color: isParent
+                        ? AppTheme.secondaryColor
+                        : Colors.grey.shade400,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -269,7 +290,9 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: isParent ? AppTheme.textColor : Colors.grey.shade500,
+                          color: isParent
+                              ? AppTheme.textColor
+                              : Colors.grey.shade500,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -278,7 +301,9 @@ class ModeSelectionScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: isParent ? AppTheme.textSecondary : Colors.grey.shade400,
+                          color: isParent
+                              ? AppTheme.textSecondary
+                              : Colors.grey.shade400,
                         ),
                       ),
                     ],
@@ -301,11 +326,12 @@ class ModeSelectionScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.account_circle_rounded, size: 16, color: AppTheme.textColor),
+                      Icon(Icons.account_circle_rounded,
+                          size: 16, color: AppTheme.textColor),
                       const SizedBox(width: 6),
                       Text(
                         '当前账号：$userName',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textColor,
@@ -316,7 +342,8 @@ class ModeSelectionScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     isParent ? '已登录家长账号' : '当前为孩子账号，家长端不可用',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -329,14 +356,17 @@ class ModeSelectionScreen extends StatelessWidget {
               height: 50,
               decoration: BoxDecoration(
                 gradient: isParent
-                    ? const LinearGradient(colors: [AppTheme.secondaryColor, Color(0xFFBCD9EC)])
-                    : LinearGradient(colors: [Colors.grey.shade300, Colors.grey.shade400]),
+                    ? LinearGradient(
+                        colors: [AppTheme.secondaryColor, Color(0xFFBCD9EC)])
+                    : LinearGradient(
+                        colors: [Colors.grey.shade300, Colors.grey.shade400]),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.lock_outline_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.lock_outline_rounded,
+                      color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
                     isParent ? '进入家长端' : '不可用',

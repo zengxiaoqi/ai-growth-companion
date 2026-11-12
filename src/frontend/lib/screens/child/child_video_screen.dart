@@ -1,4 +1,5 @@
-import '../../utils/web_html_stub.dart' if (dart.library.html) 'dart:html' as html;
+import '../../utils/web_html_stub.dart' if (dart.library.html) 'dart:html'
+    as html;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/video_download_models.dart';
@@ -40,7 +41,8 @@ class _ChildVideoScreenState extends State<ChildVideoScreen> {
         setState(() => _isLoading = false);
         return;
       }
-      final response = await apiService.dio.get('/video-download/child/$childId');
+      final response =
+          await apiService.dio.get('/video-download/child/$childId');
       final list = (response.data as List)
           .map((j) => VideoDownloadItem.fromJson(j as Map<String, dynamic>))
           .toList();
@@ -125,11 +127,13 @@ class _ChildVideoScreenState extends State<ChildVideoScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.video_library_rounded, size: 80, color: Colors.grey.shade300),
+          Icon(Icons.video_library_rounded,
+              size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           const Text(
             '还没有视频',
-            style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 18, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -170,24 +174,27 @@ class _ChildVideoCard extends StatelessWidget {
                   children: [
                     AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: item.thumbnail != null && item.thumbnail!.isNotEmpty
-                          ? Image.network(
-                              item.thumbnail!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey.shade200,
-                                child: const Center(
-                                  child: Icon(Icons.video_file, size: 48, color: Colors.grey),
+                      child:
+                          item.thumbnail != null && item.thumbnail!.isNotEmpty
+                              ? Image.network(
+                                  item.thumbnail!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.grey.shade200,
+                                    child: const Center(
+                                      child: Icon(Icons.video_file,
+                                          size: 48, color: Colors.grey),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.grey.shade200,
+                                  child: Center(
+                                    child: Icon(Icons.video_file,
+                                        size: 48, color: Colors.grey.shade400),
+                                  ),
                                 ),
-                              ),
-                            )
-                          : Container(
-                              color: Colors.grey.shade200,
-                              child: Center(
-                                child: Icon(Icons.video_file, size: 48, color: Colors.grey.shade400),
-                              ),
-                            ),
                     ),
                     // Play button overlay
                     Positioned.fill(
@@ -206,7 +213,8 @@ class _ChildVideoCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.play_arrow_rounded, size: 36, color: AppTheme.primaryColor),
+                          child: Icon(Icons.play_arrow_rounded,
+                              size: 36, color: AppTheme.primaryColor),
                         ),
                       ),
                     ),
@@ -216,14 +224,16 @@ class _ChildVideoCard extends StatelessWidget {
                         right: 8,
                         bottom: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             item.durationDisplay,
-                            style: const TextStyle(fontSize: 12, color: Colors.white),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.white),
                           ),
                         ),
                       ),
@@ -243,17 +253,24 @@ class _ChildVideoCard extends StatelessWidget {
                             item.title ?? '未命名视频',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textColor),
                           ),
-                          if (item.uploader != null && item.uploader!.isNotEmpty) ...[
+                          if (item.uploader != null &&
+                              item.uploader!.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Icon(Icons.person, size: 12, color: Colors.grey.shade500),
+                                Icon(Icons.person,
+                                    size: 12, color: Colors.grey.shade500),
                                 const SizedBox(width: 4),
                                 Text(
                                   item.uploader!,
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500),
                                 ),
                               ],
                             ),
@@ -263,7 +280,8 @@ class _ChildVideoCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: Icon(Icons.download_rounded, color: AppTheme.primaryColor, size: 22),
+                      icon: Icon(Icons.download_rounded,
+                          color: AppTheme.primaryColor, size: 22),
                       tooltip: '下载到本地',
                       onPressed: onDownload,
                     ),
@@ -320,7 +338,8 @@ class _VideoPlayScreenState extends State<_VideoPlayScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        title: Text(widget.title,
+            style: const TextStyle(color: Colors.white, fontSize: 16)),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -331,7 +350,8 @@ class _VideoPlayScreenState extends State<_VideoPlayScreen> {
                 width: double.infinity,
                 height: MediaQuery.of(context).size.height * 0.6,
                 child: const Center(
-                  child: Text('正在加载视频...', style: TextStyle(color: Colors.white54)),
+                  child: Text('正在加载视频...',
+                      style: TextStyle(color: Colors.white54)),
                 ),
               )
             : const Center(

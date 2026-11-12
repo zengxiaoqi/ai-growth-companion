@@ -102,7 +102,8 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.analytics_rounded, color: Colors.white, size: 20),
+                child: const Icon(Icons.analytics_rounded,
+                    color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -207,8 +208,10 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
       );
     }
 
-    final maxPoints =
-        stats.map((s) => s.points).reduce((a, b) => a > b ? a : b).clamp(1, 999);
+    final maxPoints = stats
+        .map((s) => s.points)
+        .reduce((a, b) => a > b ? a : b)
+        .clamp(1, 999);
 
     return AppCard(
       padding: const EdgeInsets.all(20),
@@ -252,8 +255,10 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
                                 ? AppTheme.primaryGradient
                                 : LinearGradient(
                                     colors: [
-                                      AppTheme.secondaryColor.withValues(alpha: 0.6),
-                                      AppTheme.secondaryColor.withValues(alpha: 0.3),
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.6),
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.3),
                                     ],
                                     begin: Alignment.bottomCenter,
                                     end: Alignment.topCenter,
@@ -494,7 +499,7 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
               const Spacer(),
               Text(
                 '共 ${records.length} 条记录',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 12,
                 ),
@@ -549,7 +554,7 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppTheme.textColor,
@@ -561,7 +566,8 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: dayPoints >= 0 ? AppTheme.accentColor : AppTheme.warningColor,
+              color:
+                  dayPoints >= 0 ? AppTheme.accentColor : AppTheme.warningColor,
             ),
           ),
         ],
@@ -619,7 +625,7 @@ class _RewardGrowthReportScreenState extends State<RewardGrowthReportScreen>
                 const SizedBox(height: 2),
                 Text(
                   '${record.recordedAt.hour}:${record.recordedAt.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
                   ),

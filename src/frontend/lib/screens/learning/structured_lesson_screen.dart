@@ -23,7 +23,7 @@ final _log = AppLogger('StructuredLessonScreen');
 
 // ─── 步骤类型元数据 ─────────────────────────────────────────────────────
 
-const Map<String, Map<String, dynamic>> _stepMeta = {
+Map<String, Map<String, dynamic>> _stepMeta = {
   'watch': {
     'emoji': '👁',
     'label': '看',
@@ -240,9 +240,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         .where((e) => e.isNotEmpty)
         .toSet();
 
-    final score = data['overallScore'] is num
-        ? (data['overallScore'] as num).toInt()
-        : 0;
+    final score =
+        data['overallScore'] is num ? (data['overallScore'] as num).toInt() : 0;
 
     return _LessonProgress(completedSteps: completed, overallScore: score);
   }
@@ -253,7 +252,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
     final api = context.read<ApiService>();
     try {
-      final status = await api.getVideoStatus(widget.contentId, widget.childId!);
+      final status =
+          await api.getVideoStatus(widget.contentId, widget.childId!);
       if (status == null || !mounted) return;
 
       final exists = status['exists'] == true;
@@ -323,7 +323,10 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     int? score,
     Map<String, dynamic>? interactionData,
   }) async {
-    if ((widget.childId == null && !widget.previewMode) || _currentStepIndex >= _steps.length) return;
+    if ((widget.childId == null && !widget.previewMode) ||
+        _currentStepIndex >= _steps.length) {
+      return;
+    }
 
     final step = _steps[_currentStepIndex];
     if (_progress.completedSteps.contains(step.id)) {
@@ -468,7 +471,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             ? (module['reading'] as Map)
                 .map((k, v) => MapEntry(k.toString(), v))
             : <String, dynamic>{};
-        final text = reading['text']?.toString() ?? module['content']?.toString() ?? '';
+        final text =
+            reading['text']?.toString() ?? module['content']?.toString() ?? '';
         final questions = reading['questions'] is List
             ? (reading['questions'] as List)
                 .map((e) => e?.toString() ?? '')
@@ -485,7 +489,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         for (final scene in scenes) {
           final narration = scene['narration']?.toString() ?? '';
           final caption = scene['caption']?.toString() ??
-              scene['onScreenText']?.toString() ?? '';
+              scene['onScreenText']?.toString() ??
+              '';
           if (caption.isNotEmpty && caption != narration) {
             buf.writeln(caption);
           }
@@ -525,24 +530,26 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         break;
       case 'practice':
         final game = module['game'] is Map
-            ? (module['game'] as Map)
-                .map((k, v) => MapEntry(k.toString(), v))
+            ? (module['game'] as Map).map((k, v) => MapEntry(k.toString(), v))
             : <String, dynamic>{};
         final title = game['title']?.toString() ?? '';
         final instructions = game['instructions']?.toString() ??
-            game['description']?.toString() ?? '';
+            game['description']?.toString() ??
+            '';
         if (title.isNotEmpty) buf.writeln(title);
         if (instructions.isNotEmpty) buf.writeln(instructions);
         if (buf.isEmpty) {
           final c = module['content']?.toString() ??
-              module['description']?.toString() ?? '';
+              module['description']?.toString() ??
+              '';
           if (c.isNotEmpty) buf.write(c);
         }
         break;
       default:
         final c = module['content']?.toString() ??
             module['text']?.toString() ??
-            module['description']?.toString() ?? '';
+            module['description']?.toString() ??
+            '';
         if (c.isNotEmpty) buf.write(c);
     }
 
@@ -734,7 +741,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -816,7 +823,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         children: [
           TopBar(
             title: _lessonTitle + (widget.previewMode ? ' [预览]' : ''),
-            subtitle: '$completedCount/$totalCount 步骤完成${_ageGroup.isNotEmpty ? ' · $_ageGroup 岁' : ''}',
+            subtitle:
+                '$completedCount/$totalCount 步骤完成${_ageGroup.isNotEmpty ? ' · $_ageGroup 岁' : ''}',
             leftSlot: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).pop(),
@@ -888,7 +896,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               onTap: () => _jumpToStep(index),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: isCurrent
                       ? AppTheme.primaryColor
@@ -939,9 +948,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       Icon(
                         Icons.check_rounded,
                         size: 14,
-                        color: isCurrent
-                            ? Colors.white
-                            : AppTheme.primaryColor,
+                        color: isCurrent ? Colors.white : AppTheme.primaryColor,
                       ),
                     ],
                   ],
@@ -1061,7 +1068,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textColor,
@@ -1072,7 +1079,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     s,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textSecondary,
                     ),
@@ -1164,7 +1171,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           },
           // 提交中提示
           if (_isCompleting)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Center(
                 child: Row(
@@ -1195,7 +1202,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     );
   }
 
-/// 语音朗读控制栏
+  /// 语音朗读控制栏
   Widget _buildTtsBar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -1217,13 +1224,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.volume_up_rounded,
                     size: 18,
                     color: AppTheme.primaryColor,
                   ),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     '正在朗读...',
                     style: TextStyle(
                       fontSize: 13,
@@ -1261,7 +1268,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
@@ -1301,7 +1308,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             children: [
               Text(
                 '${meta['label']} - $title',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -1430,7 +1437,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(16),
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
@@ -1444,7 +1451,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               style: TextStyle(fontSize: 36),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '视频正在生成中...',
               style: TextStyle(
                 fontSize: 18,
@@ -1453,7 +1460,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'AI 正在为这节课制作动画视频\n请稍等片刻，马上就好',
               style: TextStyle(
                 fontSize: 14,
@@ -1505,11 +1512,11 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildReadStep(_LessonStep step, bool isCompleted) {
     final module = step.module;
     final reading = module['reading'] is Map
-        ? (module['reading'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v))
+        ? (module['reading'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : <String, dynamic>{};
 
-    final text = reading['text']?.toString() ?? module['content']?.toString() ?? '';
+    final text =
+        reading['text']?.toString() ?? module['content']?.toString() ?? '';
     final goal = reading['goal']?.toString() ?? '';
     final keywords = reading['keywords'] is List
         ? (reading['keywords'] as List)
@@ -1537,13 +1544,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.flag_rounded,
+                Icon(Icons.flag_rounded,
                     size: 18, color: AppTheme.secondaryColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '目标: $goal',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textColor,
                     ),
@@ -1565,7 +1572,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           ),
           child: Text(
             text.isNotEmpty ? text : '暂无阅读内容',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               height: 1.8,
               color: AppTheme.textColor,
@@ -1580,19 +1587,20 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              const Text(
+              Text(
                 '关键词:',
                 style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
               ...keywords.map((kw) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       kw,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.secondaryColor,
@@ -1617,7 +1625,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '理解问题:',
                   style: TextStyle(
                     fontSize: 15,
@@ -1630,7 +1638,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Text(
                         '${entry.key + 1}. ${entry.value}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textSecondary,
                         ),
@@ -1664,8 +1672,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     }
 
     final writing = module['writing'] is Map
-        ? (module['writing'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v))
+        ? (module['writing'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : <String, dynamic>{};
 
     final goal = writing['goal']?.toString() ?? '';
@@ -1722,8 +1729,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
     // 解析游戏数据
     final game = module['game'] is Map
-        ? (module['game'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v))
+        ? (module['game'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : <String, dynamic>{};
 
     final activityType = game['activityType']?.toString() ??
@@ -1732,16 +1738,14 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         'quiz';
 
     final activityData = game['activityData'] is Map
-        ? (game['activityData'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v))
+        ? (game['activityData'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : game.isNotEmpty
             ? game
             : <String, dynamic>{'type': activityType, 'title': step.label};
 
     final gameId = game['gameId']?.toString() ?? game['id']?.toString();
-    final difficulty = game['difficulty'] is num
-        ? (game['difficulty'] as num).toInt()
-        : 1;
+    final difficulty =
+        game['difficulty'] is num ? (game['difficulty'] as num).toInt() : 1;
 
     return GameRenderer(
       activityType: activityType,
@@ -1777,7 +1781,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           ),
           child: Text(
             content,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               height: 1.6,
               color: AppTheme.textColor,
@@ -1794,7 +1798,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   Widget _buildCompleteButton(bool isCompleted, {int defaultScore = 100}) {
     if (isCompleted) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,
@@ -1816,9 +1820,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       width: double.infinity,
       height: 52,
       child: FilledButton.icon(
-        onPressed: _isCompleting
-            ? null
-            : () => _completeStep(score: defaultScore),
+        onPressed:
+            _isCompleting ? null : () => _completeStep(score: defaultScore),
         icon: _isCompleting
             ? const SizedBox(
                 width: 20,
@@ -1844,7 +1847,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   // ─── 已完成状态 ─────────────────────────────────────────────────────
 
   Widget _buildCompletedState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1902,7 +1905,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           // 步骤指示
           Text(
             '${_currentStepIndex + 1} / ${_steps.length}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               color: AppTheme.textSecondary,
             ),
@@ -1940,7 +1943,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                     icon: const Icon(Icons.arrow_back_rounded),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const Text(
+                  Text(
                     '课程完成',
                     style: TextStyle(
                       fontSize: 20,
@@ -1975,7 +1978,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         '太棒了！',
                         style: TextStyle(
                           fontSize: 28,
@@ -1986,7 +1989,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       const SizedBox(height: 8),
                       Text(
                         '你已经完成了「$_lessonTitle」的全部学习步骤',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           color: AppTheme.textSecondary,
                         ),
@@ -2006,7 +2009,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.star_rounded,
                                 size: 22,
                                 color: AppTheme.primaryColor,
@@ -2014,7 +2017,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 '总分: ${_progress.overallScore} 分',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
@@ -2044,8 +2047,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                             label: const Text('重新学习'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.primaryColor,
-                              side: const BorderSide(
-                                  color: AppTheme.primaryColor),
+                              side: BorderSide(color: AppTheme.primaryColor),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -2126,7 +2128,7 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
               // 场景标题
               Text(
                 caption.isNotEmpty ? caption : '场景 ${_currentIndex + 1}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -2137,7 +2139,7 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
                 const SizedBox(height: 12),
                 Text(
                   narration,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     color: AppTheme.textSecondary,
                     height: 1.5,
@@ -2163,7 +2165,7 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
               ),
               Text(
                 '${_currentIndex + 1} / ${widget.scenes.length}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
                 ),
@@ -2193,7 +2195,7 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
     required VoidCallback onComplete,
   }) {
     if (isCompleted) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,
@@ -2286,13 +2288,12 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.flag_rounded,
-                    size: 18, color: AppTheme.softPurple),
+                Icon(Icons.flag_rounded, size: 18, color: AppTheme.softPurple),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '目标: ${widget.goal}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.textColor,
                     ),
@@ -2324,7 +2325,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '书写任务',
                   style: TextStyle(
                     fontSize: 16,
@@ -2337,7 +2338,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Text(
                         '${entry.key + 1}. ${entry.value}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textSecondary,
                         ),
@@ -2362,7 +2363,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '自检清单',
                   style: TextStyle(
                     fontSize: 16,
@@ -2472,7 +2473,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '描红练习',
             style: TextStyle(
               fontSize: 16,
@@ -2483,7 +2484,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           const SizedBox(height: 2),
           Text(
             '用手指沿着浅色字形描画，完成 $totalCount 个字即可',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: AppTheme.textSecondary,
             ),
@@ -2504,7 +2505,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           color: AppTheme.accentColor.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Text(
+        child: Text(
           '全部完成 ✅',
           style: TextStyle(
             fontSize: 12,
@@ -2516,7 +2517,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
     }
     return Text(
       '$doneCount / $totalCount',
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: AppTheme.primaryColor,
@@ -2551,7 +2552,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
   Widget _buildCompleteButton() {
     if (widget.isCompleted) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,
@@ -2571,9 +2572,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
     // 如果有描红但未完成，禁用按钮并提示
     final canComplete = !_hasTracing || _allTraced;
-    final buttonLabel = _hasTracing && !_allTraced
-        ? '请先完成描红练习 ✍'
-        : '写完了，进入下一步';
+    final buttonLabel = _hasTracing && !_allTraced ? '请先完成描红练习 ✍' : '写完了，进入下一步';
 
     return Column(
       children: [
@@ -2584,9 +2583,8 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             onPressed: canComplete
                 ? () {
                     // 收集描红得分
-                    final traceScores = _traceResults.values
-                        .map((r) => r.score)
-                        .toList();
+                    final traceScores =
+                        _traceResults.values.map((r) => r.score).toList();
                     final avgTraceScore = traceScores.isNotEmpty
                         ? traceScores.reduce((a, b) => a + b) ~/
                             traceScores.length
@@ -2609,9 +2607,8 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             icon: const Icon(Icons.check_rounded),
             label: Text(buttonLabel),
             style: FilledButton.styleFrom(
-              backgroundColor: canComplete
-                  ? AppTheme.primaryColor
-                  : Colors.grey.shade300,
+              backgroundColor:
+                  canComplete ? AppTheme.primaryColor : Colors.grey.shade300,
               foregroundColor:
                   canComplete ? Colors.white : AppTheme.textSecondary,
               shape: RoundedRectangleBorder(
@@ -2625,7 +2622,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               '还有 ${widget.tracingItems.length - _traceResults.length} 个字需要描完哦~',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
               ),
@@ -2658,7 +2655,7 @@ Widget _buildEmptyCard(String message) {
         const SizedBox(height: 12),
         Text(
           message,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             color: AppTheme.textSecondary,
           ),
@@ -2744,7 +2741,8 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
       if (widget.authToken != null && widget.authToken!.isNotEmpty) {
         httpHeaders['Authorization'] = 'Bearer ${widget.authToken}';
       }
-      _controller = VideoPlayerController.networkUrl(uri, httpHeaders: httpHeaders);
+      _controller =
+          VideoPlayerController.networkUrl(uri, httpHeaders: httpHeaders);
       await _controller!.initialize();
       if (!mounted) return;
 
@@ -2755,7 +2753,9 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         if (!mounted) return;
         final position = _controller!.value.position;
         final duration = _controller!.value.duration;
-        if (position >= duration && duration > Duration.zero && !_hasCompleted) {
+        if (position >= duration &&
+            duration > Duration.zero &&
+            !_hasCompleted) {
           _hasCompleted = true;
         }
       });
@@ -2784,7 +2784,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
     }
 
     if (!_isInitialized) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2854,13 +2854,14 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
           children: [
             Text(
               _formatDuration(position),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
             Expanded(
               child: SliderTheme(
                 data: SliderThemeData(
                   trackHeight: 4,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  thumbShape:
+                      const RoundSliderThumbShape(enabledThumbRadius: 6),
                   activeTrackColor: AppTheme.primaryColor,
                   inactiveTrackColor: Colors.grey.shade200,
                   thumbColor: AppTheme.primaryColor,
@@ -2868,8 +2869,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
                 child: Slider(
                   value: progress,
                   onChanged: (value) {
-                    final targetMs =
-                        (value * duration.inMilliseconds).round();
+                    final targetMs = (value * duration.inMilliseconds).round();
                     _controller!.seekTo(Duration(milliseconds: targetMs));
                   },
                 ),
@@ -2877,7 +2877,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             ),
             Text(
               _formatDuration(duration),
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -2902,7 +2902,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             ),
             // Play/pause
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
@@ -3002,13 +3002,13 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.videocam_off_rounded,
               size: 48,
               color: AppTheme.textSecondary,
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '视频加载失败',
               style: TextStyle(
                 fontSize: 16,
@@ -3021,7 +3021,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
               _errorMessage.length > 100
                   ? '${_errorMessage.substring(0, 100)}...'
                   : _errorMessage,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
               ),

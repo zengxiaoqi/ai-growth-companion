@@ -80,7 +80,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 20, color: AppTheme.textColor),
+                child: Icon(Icons.arrow_back_rounded,
+                    size: 20, color: AppTheme.textColor),
               ),
             ),
           ),
@@ -163,7 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Center(
               child: Text(
                 name.isNotEmpty ? name[0] : '?',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -178,7 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textColor,
@@ -187,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   '${type == 'parent' ? '家长端' : '学生端'} · $phone',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),
@@ -214,7 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: '头像、昵称、年龄',
                 color: AppTheme.secondaryColor,
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()));
                 },
               ),
             ),
@@ -226,7 +228,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: '徽章、里程碑',
                 color: AppTheme.accentColor,
                 onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AchievementScreen()));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const AchievementScreen()));
                 },
               ),
             ),
@@ -273,7 +278,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: AppTheme.primaryColor,
-                inactiveTrackColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                inactiveTrackColor:
+                    AppTheme.primaryColor.withValues(alpha: 0.2),
                 thumbColor: AppTheme.primaryColor,
                 trackHeight: 4,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
@@ -292,7 +298,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Switch 开关
-  Widget _buildSwitch({required bool value, required ValueChanged<bool> onChanged}) {
+  Widget _buildSwitch(
+      {required bool value, required ValueChanged<bool> onChanged}) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
@@ -300,7 +307,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         width: 48,
         height: 28,
         decoration: BoxDecoration(
-          color: value ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.35),
+          color: value
+              ? AppTheme.primaryColor
+              : AppTheme.textSecondary.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(14),
         ),
         child: AnimatedAlign(
@@ -399,7 +408,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     option.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textColor,
@@ -408,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 2),
                   Text(
                     option.desc,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppTheme.textSecondary,
                     ),
@@ -469,7 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: AppTheme.accentColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
+            child: Text(
               '已启用',
               style: TextStyle(
                 fontSize: 12,
@@ -487,7 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: AppTheme.primaryColor,
           trailing: Text(
             _versionText,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               color: AppTheme.textSecondary,
@@ -515,7 +524,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text(
+                  : Text(
                       '检查',
                       style: TextStyle(
                         fontSize: 12,
@@ -575,7 +584,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   content: const Text('缓存已清除'),
                   backgroundColor: AppTheme.accentColor,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               );
             }
@@ -632,21 +642,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               },
         style: ElevatedButton.styleFrom(
-          backgroundColor: _saveSuccess ? AppTheme.accentColor : AppTheme.primaryColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          backgroundColor:
+              _saveSuccess ? AppTheme.accentColor : AppTheme.primaryColor,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
         ),
         child: _isSaving
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    _saveSuccess ? Icons.check_circle_rounded : Icons.save_rounded,
+                    _saveSuccess
+                        ? Icons.check_circle_rounded
+                        : Icons.save_rounded,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -674,7 +689,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24)),
               title: const Row(
                 children: [
                   Text('🚪 ', style: TextStyle(fontSize: 24)),
@@ -700,9 +716,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('确定', style: TextStyle(color: Colors.white)),
+                  child:
+                      const Text('确定', style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),
@@ -764,7 +782,7 @@ class _SettingsCard extends StatelessWidget {
         children: [
           Text(
             title.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
@@ -815,7 +833,7 @@ class _SettingsRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -823,7 +841,7 @@ class _SettingsRow extends StatelessWidget {
               ),
               Text(
                 description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
                 ),
@@ -881,7 +899,7 @@ class _QuickLinkButton extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textColor,
@@ -889,7 +907,7 @@ class _QuickLinkButton extends StatelessWidget {
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppTheme.textSecondary,
                     ),

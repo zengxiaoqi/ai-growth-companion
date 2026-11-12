@@ -107,15 +107,18 @@ class _PatternNextGameState extends State<PatternNextGame> {
     }
     _options = unique;
 
-    _answerIndex = _resolveAnswerIndex(widget.data['answerIndex'], _options.length);
+    _answerIndex =
+        _resolveAnswerIndex(widget.data['answerIndex'], _options.length);
     _attempts = 0;
     _wrongPick = null;
     _feedback = null;
     _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
   }
 
@@ -168,10 +171,11 @@ class _PatternNextGameState extends State<PatternNextGame> {
       final firstTry = nextAttempts == 1;
       if (!_completedCalled) {
         _completedCalled = true;
-        final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-            .round()
-            .clamp(0, 86400)
-            .toInt();
+        final seconds =
+            ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+                .round()
+                .clamp(0, 86400)
+                .toInt();
 
         widget.onFinished?.call({
           'score': firstTry ? 100 : 0,
@@ -217,14 +221,13 @@ class _PatternNextGameState extends State<PatternNextGame> {
 
   @override
   Widget build(BuildContext context) {
-    final answerValid =
-        _answerIndex >= 0 && _answerIndex < _options.length;
+    final answerValid = _answerIndex >= 0 && _answerIndex < _options.length;
     if (_sequence.length < 2 || _options.length < 2 || !answerValid) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.auto_awesome_outlined,
+            Icon(Icons.auto_awesome_outlined,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无规律接龙题目'),

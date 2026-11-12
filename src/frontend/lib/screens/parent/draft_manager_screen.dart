@@ -34,13 +34,13 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
   String? _error;
 
   // ── 领域颜色映射 ──
-  static const Map<String, Color> _domainColors = {
-    'language': AppTheme.softPink,
-    'math': AppTheme.softBlue,
-    'science': AppTheme.softMint,
-    'art': AppTheme.softPurple,
-    'social': AppTheme.softOrange,
-  };
+  static Map<String, Color> get _domainColors => {
+        'language': AppTheme.softPink,
+        'math': AppTheme.softBlue,
+        'science': AppTheme.softMint,
+        'art': AppTheme.softPurple,
+        'social': AppTheme.softOrange,
+      };
 
   static const Map<String, String> _domainLabels = {
     'language': '语言',
@@ -52,7 +52,8 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
 
   // ── 课程类型映射 ──
   static const Map<String, _CourseTypeInfo> _courseTypeInfo = {
-    'video': _CourseTypeInfo(label: '视频', icon: Icons.play_circle_outline_rounded),
+    'video':
+        _CourseTypeInfo(label: '视频', icon: Icons.play_circle_outline_rounded),
     'reading': _CourseTypeInfo(label: '阅读', icon: Icons.menu_book_outlined),
     'writing': _CourseTypeInfo(label: '写作', icon: Icons.edit_outlined),
     'game': _CourseTypeInfo(label: '练习', icon: Icons.sports_esports_outlined),
@@ -86,8 +87,8 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     if (!mounted) return;
     setState(() {
       _children = children;
-      _selectedChildId = _toInt(
-          children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId =
+          _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
     if (_selectedChildId != null) {
@@ -130,8 +131,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('确认删除'),
         content: Text('确定要删除草稿"$title"吗？\n删除后无法恢复。'),
         actions: [
@@ -158,8 +158,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     if (!mounted) return;
     if (success) {
       setState(() {
-        _drafts.removeWhere(
-            (d) => _toInt(d['id']) == contentId);
+        _drafts.removeWhere((d) => _toInt(d['id']) == contentId);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +209,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                 // 标题
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textColor,
@@ -219,8 +218,8 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                 if (domain.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: (_domainColors[domain] ?? AppTheme.primaryColor)
                           .withValues(alpha: 0.15),
@@ -231,8 +230,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color:
-                            _domainColors[domain] ?? AppTheme.primaryColor,
+                        color: _domainColors[domain] ?? AppTheme.primaryColor,
                       ),
                     ),
                   ),
@@ -240,10 +238,10 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                 const SizedBox(height: 16),
                 // 步骤摘要
                 if (steps.isEmpty)
-                  const Text(
+                  Text(
                     '暂无课程步骤',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                   )
                 else
                   ...steps.asMap().entries.map((entry) {
@@ -252,8 +250,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                     final stepTitle =
                         step['title']?.toString() ?? '步骤 ${i + 1}';
                     final stepType = step['type']?.toString() ?? '';
-                    final typeInfo =
-                        _courseTypeInfo[stepType];
+                    final typeInfo = _courseTypeInfo[stepType];
                     final preview = step['preview']?.toString() ?? '';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -269,15 +266,14 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor
-                                  .withValues(alpha: 0.12),
-                              borderRadius:
-                                  BorderRadius.circular(8),
+                              color:
+                                  AppTheme.primaryColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
                               child: Text(
                                 '${i + 1}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
@@ -288,8 +284,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
@@ -302,7 +297,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                                       const SizedBox(width: 4),
                                       Text(
                                         typeInfo.label,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           color: AppTheme.textSecondary,
                                         ),
@@ -312,7 +307,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                                     Expanded(
                                       child: Text(
                                         stepTitle,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           color: AppTheme.textColor,
@@ -327,7 +322,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     preview,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textSecondary,
                                     ),
@@ -361,8 +356,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('确认发布'),
         content: Text('确定要发布"$title"吗？\n发布后课程将加入孩子的学习计划。'),
         actions: [
@@ -453,8 +447,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
 
     return rawSteps.whereType<Map>().map((step) {
       final module = step['module'];
-      final moduleType =
-          module is Map ? module['type']?.toString() ?? '' : '';
+      final moduleType = module is Map ? module['type']?.toString() ?? '' : '';
       String preview = '';
       int? count;
       if (module is Map) {
@@ -468,9 +461,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
         } else if (moduleType == 'reading') {
           final text = module['reading']?['text']?.toString();
           if (text != null && text.isNotEmpty) {
-            preview = text.length > 60
-                ? '${text.substring(0, 60)}...'
-                : text;
+            preview = text.length > 60 ? '${text.substring(0, 60)}...' : text;
           }
         } else if (moduleType == 'writing') {
           final items = module['writing']?['tracingItems'];
@@ -478,8 +469,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
             preview = '描红: ${items.join(', ')}';
           }
         } else if (moduleType == 'game') {
-          final questions = module['game']?['activityData']
-                  ?['questions'] ??
+          final questions = module['game']?['activityData']?['questions'] ??
               module['game']?['questions'];
           if (questions is List && questions.isNotEmpty) {
             count = questions.length;
@@ -540,7 +530,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded,
+                child: Icon(Icons.arrow_back_rounded,
                     size: 20, color: AppTheme.textColor),
               ),
             ),
@@ -554,7 +544,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
   Widget _buildBody() {
     // 加载孩子列表中的骨架屏
     if (_isLoadingChildren) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           children: [
@@ -608,7 +598,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: List.generate(
           4,
-          (_) => const Padding(
+          (_) => Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: ShimmerCard(height: 140),
           ),
@@ -624,12 +614,12 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded,
+              Icon(Icons.error_outline_rounded,
                   size: 48, color: AppTheme.textSecondary),
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: const TextStyle(color: AppTheme.textSecondary),
+                style: TextStyle(color: AppTheme.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -650,8 +640,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
         title: '暂无草稿',
         subtitle: '去 AI 课程生成页面创建吧',
         actionLabel: '去生成课程',
-        onAction: () => Navigator.pushNamed(
-            context, '/parent/lessonGenerator'),
+        onAction: () => Navigator.pushNamed(context, '/parent/lessonGenerator'),
       );
     }
 
@@ -671,7 +660,8 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
   Widget _buildDraftCard(Map<String, dynamic> draft) {
     final title = draft['title']?.toString() ?? '未命名课程';
     final domain = draft['domain']?.toString() ?? '';
-    final domainLabel = _domainLabels[domain] ?? (domain.isNotEmpty ? domain : '综合');
+    final domainLabel =
+        _domainLabels[domain] ?? (domain.isNotEmpty ? domain : '综合');
     final domainColor = _domainColors[domain] ?? AppTheme.primaryColor;
     final courseType = _primaryCourseType(draft);
     final typeInfo = _courseTypeInfo[courseType];
@@ -701,7 +691,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textColor,
@@ -722,8 +712,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(typeInfo.icon,
-                                size: 14, color: domainColor),
+                            Icon(typeInfo.icon, size: 14, color: domainColor),
                             const SizedBox(width: 4),
                             Text(
                               typeInfo.label,
@@ -794,12 +783,12 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                 Row(
                   children: [
                     if (createdAt.isNotEmpty) ...[
-                      const Icon(Icons.add_circle_outline_rounded,
+                      Icon(Icons.add_circle_outline_rounded,
                           size: 14, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         '创建: $createdAt',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondary,
                         ),
@@ -809,12 +798,12 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                       const SizedBox(width: 12),
                     ],
                     if (updatedAt.isNotEmpty) ...[
-                      const Icon(Icons.update_rounded,
+                      Icon(Icons.update_rounded,
                           size: 14, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         '更新: $updatedAt',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondary,
                         ),

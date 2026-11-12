@@ -182,7 +182,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     // AI 建议
     final insights = report['insights'];
     if (insights is List) {
-      _aiInsights = insights.whereType<String>().where((s) => s.isNotEmpty).toList();
+      _aiInsights =
+          insights.whereType<String>().where((s) => s.isNotEmpty).toList();
     }
   }
 
@@ -227,7 +228,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded,
+                child: Icon(Icons.arrow_back_rounded,
                     size: 20, color: AppTheme.textColor),
               ),
             ),
@@ -248,7 +249,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.primaryColor),
       );
     }
@@ -339,7 +340,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary,
                     fontSize: 14,
                   ),
                 ),
@@ -533,7 +536,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.bar_chart_rounded,
-                          size: 40, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
+                          size: 40,
+                          color: AppTheme.textSecondary.withValues(alpha: 0.4)),
                       const SizedBox(height: 8),
                       Text(
                         '暂无学习数据',
@@ -595,7 +599,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
                                   _dailyStats[index].label,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.textSecondary,
@@ -627,11 +631,14 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                               colors: isMax
                                   ? [
                                       AppTheme.primaryColor,
-                                      AppTheme.primaryColor.withValues(alpha: 0.7),
+                                      AppTheme.primaryColor
+                                          .withValues(alpha: 0.7),
                                     ]
                                   : [
-                                      AppTheme.secondaryColor.withValues(alpha: 0.6),
-                                      AppTheme.secondaryColor.withValues(alpha: 0.3),
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.6),
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.3),
                                     ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -771,7 +778,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.emoji_events_rounded,
+                Icon(Icons.emoji_events_rounded,
                     color: AppTheme.primaryColor, size: 22),
                 const SizedBox(width: 8),
                 Text(
@@ -824,8 +831,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 itemCount: _achievements.length,
                 itemBuilder: (context, index) {
                   final ach = _achievements[index];
-                  final percent =
-                      (ach.progress / ach.totalRequired * 100).clamp(0.0, 100.0);
+                  final percent = (ach.progress / ach.totalRequired * 100)
+                      .clamp(0.0, 100.0);
                   return Container(
                     decoration: BoxDecoration(
                       color: ach.unlocked
@@ -851,11 +858,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color:
-                                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                                  color: AppTheme.primaryColor
+                                      .withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '已解锁',
                                   style: TextStyle(
                                     fontSize: 9,

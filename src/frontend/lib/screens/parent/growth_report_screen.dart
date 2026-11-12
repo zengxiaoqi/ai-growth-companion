@@ -169,9 +169,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
             final m = item.map((k, v) => MapEntry(k.toString(), v));
             final date = m['date']?.toString() ?? '';
             return _DailyStat(
-              label: date.isNotEmpty
-                  ? _formatDate(date)
-                  : '',
+              label: date.isNotEmpty ? _formatDate(date) : '',
               minutes: (_toInt(m['totalTime']) ?? 0) ~/ 60,
               lessons: _toInt(m['completedLessons']) ?? 0,
             );
@@ -189,10 +187,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
     // AI 建议
     final insights = report['insights'];
     if (insights is List) {
-      _aiInsights = insights
-          .whereType<String>()
-          .where((s) => s.isNotEmpty)
-          .toList();
+      _aiInsights =
+          insights.whereType<String>().where((s) => s.isNotEmpty).toList();
     }
   }
 
@@ -283,7 +279,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
             // 内容区域
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
                         color: AppTheme.primaryColor,
                       ),
@@ -387,7 +383,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [
               AppTheme.primaryColor,
               Color(0xFFD18B7B),
@@ -618,7 +614,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.secondaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
@@ -652,7 +649,10 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                 child: BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
-                    maxY: _dailyStats.map((d) => d.minutes).fold(0, (a, b) => a > b ? a : b) * 1.2,
+                    maxY: _dailyStats
+                            .map((d) => d.minutes)
+                            .fold(0, (a, b) => a > b ? a : b) *
+                        1.2,
                     barTouchData: BarTouchData(
                       enabled: true,
                       touchTooltipData: BarTouchTooltipData(
@@ -689,7 +689,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
                                   _dailyStats[index].label,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.textSecondary,
@@ -708,7 +708,9 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                       final index = entry.key;
                       final stat = entry.value;
                       final isMax = stat.minutes ==
-                          _dailyStats.map((d) => d.minutes).reduce((a, b) => a > b ? a : b);
+                          _dailyStats
+                              .map((d) => d.minutes)
+                              .reduce((a, b) => a > b ? a : b);
                       return BarChartGroupData(
                         x: index,
                         barRods: [
@@ -720,8 +722,17 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                             ),
                             gradient: LinearGradient(
                               colors: isMax
-                                  ? [AppTheme.primaryColor, AppTheme.primaryColor.withValues(alpha: 0.7)]
-                                  : [AppTheme.secondaryColor.withValues(alpha: 0.6), AppTheme.secondaryColor.withValues(alpha: 0.3)],
+                                  ? [
+                                      AppTheme.primaryColor,
+                                      AppTheme.primaryColor
+                                          .withValues(alpha: 0.7)
+                                    ]
+                                  : [
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.6),
+                                      AppTheme.secondaryColor
+                                          .withValues(alpha: 0.3)
+                                    ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                             ),
@@ -810,7 +821,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                       child: LinearProgressIndicator(
                         value: progress / 100,
                         minHeight: 8,
-                        backgroundColor: (config['color'] as Color).withValues(alpha: 0.12),
+                        backgroundColor:
+                            (config['color'] as Color).withValues(alpha: 0.12),
                         color: config['color'] as Color,
                       ),
                     ),
@@ -839,7 +851,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.emoji_events_rounded,
+                Icon(Icons.emoji_events_rounded,
                     color: AppTheme.primaryColor, size: 22),
                 const SizedBox(width: 8),
                 Text(
@@ -957,7 +969,8 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(999),

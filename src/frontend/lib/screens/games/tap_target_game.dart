@@ -121,8 +121,10 @@ class _TapTargetGameState extends State<TapTargetGame> {
 
   void _reset() {
     _rounds = _parseRounds(widget.data['rounds']);
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
     _index = 0;
     _pickedIds.clear();
@@ -147,12 +149,15 @@ class _TapTargetGameState extends State<TapTargetGame> {
       final prompt = _clip((map['prompt']?.toString() ?? '').trim(), 20);
       if (prompt.isEmpty) continue;
 
-      final rawTargets = map['targets'] is List ? map['targets'] as List : const [];
+      final rawTargets =
+          map['targets'] is List ? map['targets'] as List : const [];
       final usedTargetIds = <String>{};
       final usedLabels = <String>{};
       final idMap = <String, String>{};
       final targets = <_TapItem>[];
-      for (var t = 0; t < rawTargets.length && targets.length < _maxTargets; t++) {
+      for (var t = 0;
+          t < rawTargets.length && targets.length < _maxTargets;
+          t++) {
         final item = rawTargets[t];
         if (item is! Map) continue;
         final itemMap = item.map((k, v) => MapEntry(k.toString(), v));
@@ -170,17 +175,21 @@ class _TapTargetGameState extends State<TapTargetGame> {
         final rawId = (itemMap['id']?.toString() ?? '').trim();
         if (rawId.isNotEmpty) idMap[rawId] = id;
         final icon = _clip((itemMap['icon']?.toString() ?? '').trim(), 8);
-        targets.add(_TapItem(id: id, label: label, icon: icon.isEmpty ? null : icon));
+        targets.add(
+            _TapItem(id: id, label: label, icon: icon.isEmpty ? null : icon));
       }
       if (targets.length < 2) continue;
 
       final survivingIds = targets.map((t) => t.id).toSet();
-      final rawCorrect = map['correctIds'] is List ? map['correctIds'] as List : const [];
+      final rawCorrect =
+          map['correctIds'] is List ? map['correctIds'] as List : const [];
       final correctIds = <String>[];
       for (final candidate in rawCorrect) {
         final raw = candidate?.toString() ?? '';
         final mapped = idMap[raw] ?? raw;
-        if (!survivingIds.contains(mapped) || correctIds.contains(mapped)) continue;
+        if (!survivingIds.contains(mapped) || correctIds.contains(mapped)) {
+          continue;
+        }
         correctIds.add(mapped);
         if (correctIds.length >= 2) break;
       }
@@ -248,7 +257,8 @@ class _TapTargetGameState extends State<TapTargetGame> {
     }
   }
 
-  void _recordRound(String roundId, {required bool firstTry, required int taps}) {
+  void _recordRound(String roundId,
+      {required bool firstTry, required int taps}) {
     _roundResults.add({
       'roundId': roundId,
       'firstTry': firstTry,
@@ -280,10 +290,11 @@ class _TapTargetGameState extends State<TapTargetGame> {
     final total = _rounds.length;
     final cleanRounds =
         _roundResults.where((entry) => entry['firstTry'] == true).length;
-    final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-        .round()
-        .clamp(0, 86400)
-        .toInt();
+    final seconds =
+        ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+            .round()
+            .clamp(0, 86400)
+            .toInt();
 
     widget.onFinished?.call({
       'score': total > 0 ? ((cleanRounds / total) * 100).round() : 0,
@@ -315,7 +326,7 @@ class _TapTargetGameState extends State<TapTargetGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.hearing_outlined,
+            Icon(Icons.hearing_outlined,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无听指令题目'),

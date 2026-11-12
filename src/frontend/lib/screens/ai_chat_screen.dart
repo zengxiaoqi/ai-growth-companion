@@ -80,13 +80,15 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
   }
 
   /// 朗读答题反馈：答对/答错 + 正确答案
-  Future<void> _speakFeedback(bool isCorrect, int correctIndex, List<String> options) async {
+  Future<void> _speakFeedback(
+      bool isCorrect, int correctIndex, List<String> options) async {
     final String text;
     if (isCorrect) {
       text = '答对啦！太棒了！';
     } else {
       final correctOption = String.fromCharCode(65 + correctIndex);
-      final correctText = correctIndex < options.length ? options[correctIndex] : '';
+      final correctText =
+          correctIndex < options.length ? options[correctIndex] : '';
       text = '答错了。正确答案是选项$correctOption。$correctText';
     }
     await _tts.stop();
@@ -175,7 +177,8 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
       decoration: BoxDecoration(
         color: AppTheme.softYellow.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(
+            color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,29 +187,41 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '第 ${_currentIndex + 1}/${_questions.length} 题',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor),
                 ),
               ),
               const Spacer(),
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
-                child: SizedBox(width: 60, height: 6, child: LinearProgressIndicator(
-                  value: (_currentIndex + 1) / _questions.length,
-                  backgroundColor: AppTheme.softPink.withValues(alpha: 0.3),
-                  color: AppTheme.primaryColor,
-                )),
+                child: SizedBox(
+                    width: 60,
+                    height: 6,
+                    child: LinearProgressIndicator(
+                      value: (_currentIndex + 1) / _questions.length,
+                      backgroundColor: AppTheme.softPink.withValues(alpha: 0.3),
+                      color: AppTheme.primaryColor,
+                    )),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(questionText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor, height: 1.4)),
+          Text(questionText,
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textColor,
+                  height: 1.4)),
           const SizedBox(height: 12),
           ...List.generate(options.length, (index) {
             final isSelected = _selectedOption == index;
@@ -217,18 +232,23 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               if (isCorrect) {
                 bgColor = AppTheme.accentColor.withValues(alpha: 0.15);
                 borderColor = AppTheme.accentColor;
-                trailingIcon = const Icon(Icons.check_circle_rounded, color: AppTheme.accentColor, size: 22);
+                trailingIcon = Icon(Icons.check_circle_rounded,
+                    color: AppTheme.accentColor, size: 22);
               } else if (isSelected) {
                 bgColor = AppTheme.warningColor.withValues(alpha: 0.18);
                 borderColor = AppTheme.warningColor;
-                trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.warningColor, size: 22);
+                trailingIcon = const Icon(Icons.cancel_rounded,
+                    color: AppTheme.warningColor, size: 22);
               } else {
                 bgColor = Colors.white;
                 borderColor = Colors.grey.shade200;
               }
             } else {
-              bgColor = isSelected ? AppTheme.softPink.withValues(alpha: 0.25) : Colors.white;
-              borderColor = isSelected ? AppTheme.primaryColor : Colors.grey.shade200;
+              bgColor = isSelected
+                  ? AppTheme.softPink.withValues(alpha: 0.25)
+                  : Colors.white;
+              borderColor =
+                  isSelected ? AppTheme.primaryColor : Colors.grey.shade200;
             }
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -240,13 +260,28 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeOut,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                    decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: borderColor, width: 2)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: borderColor, width: 2)),
                     child: Row(children: [
-                      CircleAvatar(radius: 14, backgroundColor: borderColor.withValues(alpha: 0.12), child: Text(
-                        String.fromCharCode(65 + index), style: TextStyle(color: borderColor, fontWeight: FontWeight.bold, fontSize: 14))),
+                      CircleAvatar(
+                          radius: 14,
+                          backgroundColor: borderColor.withValues(alpha: 0.12),
+                          child: Text(String.fromCharCode(65 + index),
+                              style: TextStyle(
+                                  color: borderColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14))),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(options[index], style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textColor))),
+                      Expanded(
+                          child: Text(options[index],
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textColor))),
                       if (trailingIcon != null) trailingIcon,
                     ]),
                   ),
@@ -260,32 +295,53 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: (_selectedOption == correctIndex) ? AppTheme.accentColor.withValues(alpha: 0.12) : AppTheme.warningColor.withValues(alpha: 0.12),
+                color: (_selectedOption == correctIndex)
+                    ? AppTheme.accentColor.withValues(alpha: 0.12)
+                    : AppTheme.warningColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text((_selectedOption == correctIndex) ? '✅' : '❌', style: const TextStyle(fontSize: 18)),
+              child:
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text((_selectedOption == correctIndex) ? '✅' : '❌',
+                    style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(
-                    (_selectedOption == correctIndex) ? '答对啦！太棒了 🎉' : '正确答案是 ${String.fromCharCode(65 + correctIndex)}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textColor),
-                  ),
-                  if (explanation != null && explanation.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(explanation, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.3)),
-                  ],
-                ])),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(
+                        (_selectedOption == correctIndex)
+                            ? '答对啦！太棒了 🎉'
+                            : '正确答案是 ${String.fromCharCode(65 + correctIndex)}',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textColor),
+                      ),
+                      if (explanation != null && explanation.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(explanation,
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                height: 1.3)),
+                      ],
+                    ])),
               ]),
             ),
             if (_revealed && _currentIndex < _questions.length - 1) ...[
               const SizedBox(height: 8),
-              Align(alignment: Alignment.centerRight, child: TextButton.icon(
-                onPressed: _goToNext,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                label: const Text('下一题', style: TextStyle(fontSize: 13)),
-                style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-              )),
+              Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _goToNext,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text('下一题', style: TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6)),
+                  )),
             ],
           ],
         ],
@@ -302,24 +358,45 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
       decoration: BoxDecoration(
         color: allCorrect ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: allCorrect ? AppTheme.accentColor.withValues(alpha: 0.4) : AppTheme.warningColor.withValues(alpha: 0.3)),
+        border: Border.all(
+            color: allCorrect
+                ? AppTheme.accentColor.withValues(alpha: 0.4)
+                : AppTheme.warningColor.withValues(alpha: 0.3)),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(allCorrect ? '🎉 全部答对！' : '🌟 答题完成！',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textColor)),
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textColor)),
         const SizedBox(height: 8),
         Text('答对 $score / $total 题',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: allCorrect ? AppTheme.accentColor : AppTheme.warningColor)),
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color:
+                    allCorrect ? AppTheme.accentColor : AppTheme.warningColor)),
         const SizedBox(height: 10),
-        GestureDetector(onTap: _reset, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.4))),
-          child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.refresh_rounded, size: 16, color: AppTheme.primaryColor),
-            SizedBox(width: 4),
-            Text('再做一次', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primaryColor)),
-          ]),
-        )),
+        GestureDetector(
+            onTap: _reset,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.4))),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.refresh_rounded,
+                    size: 16, color: AppTheme.primaryColor),
+                SizedBox(width: 4),
+                Text('再做一次',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primaryColor)),
+              ]),
+            )),
       ]),
     );
   }
@@ -355,7 +432,8 @@ class _InlineMusicCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.softYellow.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(
+            color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,14 +442,18 @@ class _InlineMusicCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
+                child: Text(
                   '点歌',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor),
                 ),
               ),
               const Spacer(),
@@ -395,13 +477,17 @@ class _InlineMusicCard extends StatelessWidget {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? AppTheme.softYellow : Colors.white.withValues(alpha: 0.7),
+          color: active
+              ? AppTheme.softYellow
+              : Colors.white.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
             Icon(
-              active && isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              active && isPlaying
+                  ? Icons.pause_rounded
+                  : Icons.play_arrow_rounded,
               size: 22,
               color: AppTheme.primaryColor,
             ),
@@ -414,20 +500,26 @@ class _InlineMusicCard extends StatelessWidget {
                     t['title']?.toString() ?? '未知歌曲',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textColor),
                   ),
                   if (artist.isNotEmpty)
                     Text(
                       artist,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary),
                     ),
                 ],
               ),
             ),
             if (duration.isNotEmpty)
-              Text(duration, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              Text(duration,
+                  style:
+                      TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ],
         ),
       ),
@@ -460,7 +552,8 @@ class _InlineGameCardState extends State<_InlineGameCard> {
         decoration: BoxDecoration(
           color: AppTheme.softYellow.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(
+              color: AppTheme.softOrange.withValues(alpha: 0.5), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,14 +562,18 @@ class _InlineGameCardState extends State<_InlineGameCard> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     _gameTypeLabel(widget.gameType),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor),
                   ),
                 ),
                 const Spacer(),
@@ -486,13 +583,17 @@ class _InlineGameCardState extends State<_InlineGameCard> {
             const SizedBox(height: 10),
             Text(
               widget.gameData['title']?.toString() ?? '互动游戏',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textColor),
             ),
             const SizedBox(height: 10),
             GestureDetector(
               onTap: () => setState(() => _expanded = true),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
                   borderRadius: BorderRadius.circular(20),
@@ -500,9 +601,14 @@ class _InlineGameCardState extends State<_InlineGameCard> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.play_arrow_rounded, size: 20, color: Colors.white),
+                    Icon(Icons.play_arrow_rounded,
+                        size: 20, color: Colors.white),
                     SizedBox(width: 4),
-                    Text('开始游戏', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+                    Text('开始游戏',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
                   ],
                 ),
               ),
@@ -579,9 +685,12 @@ class _DraftPreviewCard extends StatelessWidget {
             children: [
               const Text('📋', style: TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '作业草稿',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textColor),
               ),
               const Spacer(),
               Container(
@@ -592,7 +701,10 @@ class _DraftPreviewCard extends StatelessWidget {
                 ),
                 child: Text(
                   '${drafts.length} 个',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue.shade700),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue.shade700),
                 ),
               ),
             ],
@@ -606,12 +718,14 @@ class _DraftPreviewCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onPublish,
               icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: const Text('确认发布全部作业', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              label: const Text('确认发布全部作业',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
               ),
             ),
           ),
@@ -629,7 +743,9 @@ class _DraftItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topic = draft['topic']?.toString() ?? '';
-    final typeLabel = draft['activityTypeLabel']?.toString() ?? draft['activityType']?.toString() ?? '';
+    final typeLabel = draft['activityTypeLabel']?.toString() ??
+        draft['activityType']?.toString() ??
+        '';
     final difficulty = draft['difficulty'];
     final domain = draft['domain']?.toString() ?? '';
     final difficultyStars = difficulty is num ? '⭐' * difficulty.toInt() : '⭐';
@@ -652,21 +768,28 @@ class _DraftItem extends StatelessWidget {
               ),
               child: Text(
                 typeLabel,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 topic,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             if (domain.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(domain, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              Text(domain,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
             ],
             const SizedBox(width: 4),
             Text(difficultyStars, style: const TextStyle(fontSize: 11)),
@@ -703,29 +826,45 @@ class _SessionDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: MediaQuery.of(context).size.width * 0.82,
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(topRight: Radius.circular(20), bottomRight: Radius.circular(20)),
-        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(-5, 0))],
+        borderRadius: BorderRadius.only(
+            topRight: Radius.circular(20), bottomRight: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black26, blurRadius: 20, offset: Offset(-5, 0))
+        ],
       ),
       child: Column(
         children: [
           // 头部
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppTheme.backgroundColor,
               borderRadius: BorderRadius.only(topRight: Radius.circular(20)),
             ),
             child: Row(children: [
-              IconButton(icon: const Icon(Icons.close_rounded), onPressed: onClose,
-                  color: AppTheme.textSecondary, splashRadius: 20),
+              IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: onClose,
+                  color: AppTheme.textSecondary,
+                  splashRadius: 20),
               const Spacer(),
-              const Text('历史对话', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              Text('历史对话',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textColor)),
               const Spacer(),
-              IconButton(icon: const Icon(Icons.add_rounded), onPressed: onCreateNew,
-                  color: AppTheme.primaryColor, tooltip: '新建对话', splashRadius: 20),
+              IconButton(
+                  icon: const Icon(Icons.add_rounded),
+                  onPressed: onCreateNew,
+                  color: AppTheme.primaryColor,
+                  tooltip: '新建对话',
+                  splashRadius: 20),
             ]),
           ),
           // 会话列表
@@ -739,8 +878,10 @@ class _SessionDrawer extends StatelessWidget {
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           itemCount: sessions.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, indent: 20),
-                          itemBuilder: (context, index) => _buildSessionTile(sessions[index], index == 0),
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1, indent: 20),
+                          itemBuilder: (context, index) =>
+                              _buildSessionTile(sessions[index], index == 0),
                         ),
                       ),
           ),
@@ -754,7 +895,8 @@ class _SessionDrawer extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('💬', style: TextStyle(fontSize: 48)),
         const SizedBox(height: 12),
-        const Text('还没有对话记录哦～', style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
+        Text('还没有对话记录哦～',
+            style: TextStyle(fontSize: 15, color: AppTheme.textSecondary)),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           onPressed: onCreateNew,
@@ -764,7 +906,8 @@ class _SessionDrawer extends StatelessWidget {
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
           ),
         ),
       ]),
@@ -773,7 +916,10 @@ class _SessionDrawer extends StatelessWidget {
 
   Widget _buildSessionTile(ChatSessionSummary session, bool isActive) {
     return InkWell(
-      onTap: () { onSelectSession(session); onClose(); },
+      onTap: () {
+        onSelectSession(session);
+        onClose();
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -782,26 +928,46 @@ class _SessionDrawer extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isActive ? AppTheme.primaryColor.withValues(alpha: 0.15) : AppTheme.softPink.withValues(alpha: 0.2),
+              color: isActive
+                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                  : AppTheme.softPink.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(child: Text(isActive ? '🦄' : '💬', style: const TextStyle(fontSize: 20))),
+            child: Center(
+                child: Text(isActive ? '🦄' : '💬',
+                    style: const TextStyle(fontSize: 20))),
           ),
           const SizedBox(width: 12),
           // 内容
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Expanded(child: Text(session.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 14, fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, color: isActive ? AppTheme.primaryColor : AppTheme.textColor))),
+                Expanded(
+                    child: Text(session.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                isActive ? FontWeight.w700 : FontWeight.w500,
+                            color: isActive
+                                ? AppTheme.primaryColor
+                                : AppTheme.textColor))),
                 const SizedBox(width: 8),
-                Text(session.formattedDate, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text(session.formattedDate,
+                    style:
+                        TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               ]),
               if (session.messageCount > 0)
-                Text('${session.messageCount} 条消息', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text('${session.messageCount} 条消息',
+                    style:
+                        TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ]),
           ),
-          if (isActive) const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor, size: 18),
+          if (isActive)
+            Icon(Icons.check_circle_rounded,
+                color: AppTheme.primaryColor, size: 18),
         ]),
       ),
     );
@@ -817,13 +983,15 @@ class AIChatScreen extends StatefulWidget {
   final int? bookId;
   final String? bookTitle;
 
-  const AIChatScreen({super.key, this.isParentMode = false, this.bookId, this.bookTitle});
+  const AIChatScreen(
+      {super.key, this.isParentMode = false, this.bookId, this.bookTitle});
 
   @override
   State<AIChatScreen> createState() => _AIChatScreenState();
 }
 
-class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderStateMixin {
+class _AIChatScreenState extends State<AIChatScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -865,7 +1033,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       final childId = userProvider.activeChildId;
       if (childId != null) {
         provider.setChildId(childId);
-      } else if (widget.isParentMode && userProvider.currentUser?['id'] != null) {
+      } else if (widget.isParentMode &&
+          userProvider.currentUser?['id'] != null) {
         // 家长模式：后端忽略 childId 参数，改用 viewerId 查询家长自己的会话
         // 用家长自己的用户 ID 让前端守卫通过，防止 refresh 后 activeChildId 未加载导致历史记录消失
         final parentId = userProvider.currentUser!['id'] as int;
@@ -921,7 +1090,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     return player;
   }
 
-  Future<void> _playMusicTrack(int messageIndex, int trackIndex, Map<String, dynamic> track) async {
+  Future<void> _playMusicTrack(
+      int messageIndex, int trackIndex, Map<String, dynamic> track) async {
     final url = track['url']?.toString() ?? '';
     if (url.isEmpty) return;
     await TtsService().stop();
@@ -970,20 +1140,20 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     _controller.clear();
 
     final provider = context.read<ChatSessionProvider>();
-    
+
     // 先设置 loading 状态（禁用发送按钮）
     setState(() => _isLoading = true);
-    
+
     // 启动发送流程 - provider.sendMessage 会同步添加用户消息和 AI 占位符
     // 然后异步等待 SSE 流
     final sendFuture = provider.sendMessage(message);
-    
+
     // 等待当前帧完成，确保消息已添加到列表并渲染
     // 使用 addPostFrameCallback 确保 ListView 已布局完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottomImmediate();
     });
-    
+
     sendFuture.then((msgIndex) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1158,7 +1328,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     // Use dart:html FileReader on web
     try {
       // Create a hidden file input
-      final input = html.FileUploadInputElement()..accept = '.pdf,.epub,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp';
+      final input = html.FileUploadInputElement()
+        ..accept = '.pdf,.epub,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp';
       input.click();
       input.onChange.listen((_) {
         final files = input.files;
@@ -1168,7 +1339,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           reader.readAsDataUrl(file);
           reader.onLoadEnd.listen((_) {
             final dataUrl = reader.result as String;
-            completer.complete((path: dataUrl, name: file.name));          });
+            completer.complete((path: dataUrl, name: file.name));
+          });
         } else {
           completer.complete(null);
         }
@@ -1190,7 +1362,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.backgroundColor,
         ),
         child: SafeArea(
@@ -1217,40 +1389,46 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     overlay.insert(entry);
   }
 
-
   Widget _buildMessageList() {
     return Consumer<ChatSessionProvider>(
       builder: (ctx, provider, _) {
         try {
-        final messages = provider.localMessages;
-        // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
-        // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
-        return Column(children: [
-          // 碎碎念闲聊模式开关
-          _buildCasualModeToggle(provider),
-          // 加载历史消息时显示顶部小进度条
-          if (provider.isLoadingMessages)
-            const LinearProgressIndicator(minHeight: 2, backgroundColor: Colors.transparent),
-          Expanded(
-            child: messages.isEmpty && !provider.isLoadingMessages
-                ? const Center(child: Text('和小犀聊天吧~ 🦄', style: TextStyle(fontSize: 16, color: Colors.grey)))
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      if (index >= messages.length) return const SizedBox.shrink();
-                      final message = messages[index];
-                      final isUser = message.role == 'user';
-                      return _buildMessageBubble(message, isUser, index);
-                    },
-                  ),
-          ),
-        ]);
+          final messages = provider.localMessages;
+          // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
+          // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
+          return Column(children: [
+            // 碎碎念闲聊模式开关
+            _buildCasualModeToggle(provider),
+            // 加载历史消息时显示顶部小进度条
+            if (provider.isLoadingMessages)
+              const LinearProgressIndicator(
+                  minHeight: 2, backgroundColor: Colors.transparent),
+            Expanded(
+              child: messages.isEmpty && !provider.isLoadingMessages
+                  ? const Center(
+                      child: Text('和小犀聊天吧~ 🦄',
+                          style: TextStyle(fontSize: 16, color: Colors.grey)))
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        if (index >= messages.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final message = messages[index];
+                        final isUser = message.role == 'user';
+                        return _buildMessageBubble(message, isUser, index);
+                      },
+                    ),
+            ),
+          ]);
         } catch (e, s) {
           debugPrint('🔥 [MessageList] EXCEPTION: $e');
           debugPrint('🔥 [MessageList] STACK: $s');
-          return Center(child: Text('⚠️ 消息列表渲染错误: $e', style: const TextStyle(color: Colors.red)));
+          return Center(
+              child: Text('⚠️ 消息列表渲染错误: $e',
+                  style: const TextStyle(color: Colors.red)));
         }
       },
     );
@@ -1282,7 +1460,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               borderRadius: BorderRadius.circular(20),
               border: casual
                   ? null
-                  : Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  : Border.all(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3)),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Text(
@@ -1307,12 +1486,14 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         GestureDetector(
           onTap: _openVoiceCall,
           child: Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.call_rounded, size: 20, color: AppTheme.primaryColor),
+            child: Icon(Icons.call_rounded,
+                size: 20, color: AppTheme.primaryColor),
           ),
         ),
       ]),
@@ -1337,46 +1518,77 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     final thinkingContent = message.thinkingContent?.trim();
     final showThinking = thinkingContent != null && thinkingContent.isNotEmpty;
     final expanded = _thinkingExpanded[index] ?? false;
-    debugPrint('🔍 [UI] buildBubble idx=$index role=${message.role} isEmpty=$isEmpty isStreaming=$isStreaming displayText="${displayText.length > 50 ? displayText.substring(0, 50) : displayText}" hasGame=$hasGame hasQuiz=$hasQuiz showThinking=$showThinking');
+    debugPrint(
+        '🔍 [UI] buildBubble idx=$index role=${message.role} isEmpty=$isEmpty isStreaming=$isStreaming displayText="${displayText.length > 50 ? displayText.substring(0, 50) : displayText}" hasGame=$hasGame hasQuiz=$hasQuiz showThinking=$showThinking');
 
     try {
-    return _buildMessageBubbleInner(message, isUser, index, isSpeaking, quizQuestions,
-        displayText, hasQuiz, hasGame, isStreaming, isEmpty, thinkingContent, showThinking, expanded);
+      return _buildMessageBubbleInner(
+          message,
+          isUser,
+          index,
+          isSpeaking,
+          quizQuestions,
+          displayText,
+          hasQuiz,
+          hasGame,
+          isStreaming,
+          isEmpty,
+          thinkingContent,
+          showThinking,
+          expanded);
     } catch (e, s) {
       debugPrint('🔥 [UI] EXCEPTION in buildBubble idx=$index: $e');
       debugPrint('🔥 [UI] STACK: $s');
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Align(alignment: Alignment.centerLeft, child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
-          child: Text('⚠️ 渲染错误: $e', style: TextStyle(fontSize: 13, color: Colors.red)),
-        )),
+        child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Text('⚠️ 渲染错误: $e',
+                  style: TextStyle(fontSize: 13, color: Colors.red)),
+            )),
       );
     }
   }
 
-  Widget _buildMessageBubbleInner(ChatMessageEntry message, bool isUser, int index,
-      bool isSpeaking, dynamic quizQuestions, String displayText,
-      bool hasQuiz, bool hasGame, bool isStreaming, bool isEmpty,
-      String? thinkingContent, bool showThinking, bool expanded) {
+  Widget _buildMessageBubbleInner(
+      ChatMessageEntry message,
+      bool isUser,
+      int index,
+      bool isSpeaking,
+      dynamic quizQuestions,
+      String displayText,
+      bool hasQuiz,
+      bool hasGame,
+      bool isStreaming,
+      bool isEmpty,
+      String? thinkingContent,
+      bool showThinking,
+      bool expanded) {
     debugPrint('🔍 [UI] buildInner START idx=$index');
 
     // Build children list with debug logging
     final List<Widget> columnChildren = [];
-    
+
     // ── AI 消息：思考内容区域（可折叠）──
     if (!isUser && showThinking) {
       debugPrint('🔍 [UI] buildInner idx=$index: adding thinking section');
-      columnChildren.addAll(_buildThinkingSection(thinkingContent, expanded, isStreaming, index));
+      columnChildren.addAll(
+          _buildThinkingSection(thinkingContent, expanded, isStreaming, index));
     }
 
     // ── 消息主体文本 ──
     if (!isUser) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding AI message body (isEmpty=$isEmpty, isStreaming=$isStreaming)');
+      debugPrint(
+          '🔍 [UI] buildInner idx=$index: adding AI message body (isEmpty=$isEmpty, isStreaming=$isStreaming)');
       columnChildren.add(Container(
-        width: 28, height: 28,
-        decoration: const BoxDecoration(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
           color: AppTheme.primaryColor,
           shape: BoxShape.circle,
         ),
@@ -1392,12 +1604,23 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           child: MarkdownBody(
             data: displayText,
             styleSheet: MarkdownStyleSheet(
-              p: const TextStyle(fontSize: 16, height: 1.4, color: AppTheme.textColor),
-              strong: const TextStyle(fontSize: 16, height: 1.4, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+              p: TextStyle(
+                  fontSize: 16, height: 1.4, color: AppTheme.textColor),
+              strong: TextStyle(
+                  fontSize: 16,
+                  height: 1.4,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor),
               horizontalRuleDecoration: BoxDecoration(
-                border: Border(top: BorderSide(color: AppTheme.textSecondary.withValues(alpha: 0.2), width: 1)),
+                border: Border(
+                    top: BorderSide(
+                        color: AppTheme.textSecondary.withValues(alpha: 0.2),
+                        width: 1)),
               ),
-              code: TextStyle(fontSize: 14, fontFamily: 'monospace', color: AppTheme.primaryColor),
+              code: TextStyle(
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                  color: AppTheme.primaryColor),
               codeblockDecoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
@@ -1417,7 +1640,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     } else {
       // 用户消息使用 SelectableText 支持选中复制
       columnChildren.add(SelectableText(displayText,
-        style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)));
+          style:
+              const TextStyle(color: Colors.white, fontSize: 16, height: 1.4)));
       columnChildren.add(const SizedBox(width: 4));
     }
 
@@ -1434,7 +1658,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 
     // ── Game cards (支持多个游戏) ──
     if (!isUser && message.gameDatas.isNotEmpty) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding ${message.gameDatas.length} game card(s)');
+      debugPrint(
+          '🔍 [UI] buildInner idx=$index: adding ${message.gameDatas.length} game card(s)');
       for (var i = 0; i < message.gameDatas.length; i++) {
         columnChildren.add(const SizedBox(height: 12));
         columnChildren.add(_InlineGameCard(
@@ -1457,7 +1682,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
 
     // ── 作业草稿预览卡片（含发布按钮）──
     if (!isUser && message.drafts.isNotEmpty) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding ${message.drafts.length} draft preview card(s)');
+      debugPrint(
+          '🔍 [UI] buildInner idx=$index: adding ${message.drafts.length} draft preview card(s)');
       columnChildren.add(const SizedBox(height: 12));
       columnChildren.add(_DraftPreviewCard(
         drafts: message.drafts,
@@ -1471,34 +1697,48 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     if (!isUser && !isStreaming) {
       debugPrint('🔍 [UI] buildInner idx=$index: adding speak button');
       columnChildren.add(const SizedBox(height: 6));
-      columnChildren.add(Align(alignment: Alignment.centerRight, child: _buildSpeakButton(isSpeaking, index)));
+      columnChildren.add(Align(
+          alignment: Alignment.centerRight,
+          child: _buildSpeakButton(isSpeaking, index)));
     }
 
-    debugPrint('🔍 [UI] buildInner idx=$index: assembling widget tree (${columnChildren.length} children)');
+    debugPrint(
+        '🔍 [UI] buildInner idx=$index: assembling widget tree (${columnChildren.length} children)');
 
-    return Padding(padding: const EdgeInsets.only(bottom: 12), child: Align(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
         alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
-          onLongPress: isUser ? null : () => _showAiMessageActions(index, displayText),
+          onLongPress:
+              isUser ? null : () => _showAiMessageActions(index, displayText),
           child: Container(
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
-          decoration: BoxDecoration(
-            color: isUser ? AppTheme.primaryColor : Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(AppTheme.buttonRadius),
-              topRight: const Radius.circular(AppTheme.buttonRadius),
-              bottomLeft: Radius.circular(isUser ? AppTheme.buttonRadius : 6),
-              bottomRight: Radius.circular(isUser ? 6 : AppTheme.buttonRadius),
+            constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.85),
+            decoration: BoxDecoration(
+              color: isUser ? AppTheme.primaryColor : Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(AppTheme.buttonRadius),
+                topRight: Radius.circular(AppTheme.buttonRadius),
+                bottomLeft: Radius.circular(isUser ? AppTheme.buttonRadius : 6),
+                bottomRight:
+                    Radius.circular(isUser ? 6 : AppTheme.buttonRadius),
+              ),
+              boxShadow: [
+                BoxShadow(
+                    color: (isUser ? AppTheme.primaryColor : Colors.grey)
+                        .withValues(alpha: 0.15),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5)),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(color: (isUser ? AppTheme.primaryColor : Colors.grey).withValues(alpha: 0.15),
-                  blurRadius: 15, offset: const Offset(0, 5)),
-            ],
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: columnChildren,
+            ),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: columnChildren,
-        ),
-      ),
         ),
       ),
     );
@@ -1543,7 +1783,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
               },
             ),
             ListTile(
-              leading: const Icon(Icons.volume_up_rounded, color: AppTheme.primaryColor),
+              leading:
+                  Icon(Icons.volume_up_rounded, color: AppTheme.primaryColor),
               title: const Text('朗读消息'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -1577,7 +1818,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '输入一个英文单词，看看它的意思吧~',
                 style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
               ),
@@ -1593,8 +1834,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                        color: AppTheme.primaryColor, width: 2),
+                    borderSide:
+                        BorderSide(color: AppTheme.primaryColor, width: 2),
                   ),
                 ),
                 onSubmitted: (_) =>
@@ -1643,7 +1884,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
     });
   }
 
-  List<Widget> _buildThinkingSection(String? thinkingContent, bool expanded, bool isStreaming, int index) {
+  List<Widget> _buildThinkingSection(
+      String? thinkingContent, bool expanded, bool isStreaming, int index) {
     return [
       GestureDetector(
         onTap: () => _toggleThinking(index),
@@ -1653,17 +1895,29 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           decoration: BoxDecoration(
             color: AppTheme.textSecondary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+            border: Border.all(
+                color: AppTheme.textSecondary.withValues(alpha: 0.15)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(expanded ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded,
-                size: 18, color: AppTheme.textSecondary),
+            Icon(
+                expanded
+                    ? Icons.keyboard_arrow_down_rounded
+                    : Icons.keyboard_arrow_up_rounded,
+                size: 18,
+                color: AppTheme.textSecondary),
             const SizedBox(width: 6),
-            Text('💭 思考过程', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+            Text('💭 思考过程',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary)),
             const Spacer(),
             if (!isStreaming) ...[
-              Text('${(thinkingContent ?? '').replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.5))),
+              Text(
+                  '${(thinkingContent ?? '').replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary.withValues(alpha: 0.5))),
             ],
           ]),
         ),
@@ -1678,20 +1932,31 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
             child: MarkdownBody(
               data: thinkingContent ?? '',
               styleSheet: Theme.of(context).useMaterial3
-                ? MarkdownStyleSheet.fromTheme(Theme.of(context))
-                : MarkdownStyleSheet(
-                    p: TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textSecondary.withValues(alpha: 0.75)),
-                    code: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppTheme.textSecondary),
-                    codeblockDecoration: BoxDecoration(
-                      color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  ? MarkdownStyleSheet.fromTheme(Theme.of(context))
+                  : MarkdownStyleSheet(
+                      p: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color:
+                              AppTheme.textSecondary.withValues(alpha: 0.75)),
+                      code: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: AppTheme.textSecondary),
+                      codeblockDecoration: BoxDecoration(
+                        color: AppTheme.textSecondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      blockquoteDecoration: BoxDecoration(
+                        color: AppTheme.textSecondary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      blockquote: TextStyle(
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color:
+                              AppTheme.textSecondary.withValues(alpha: 0.65)),
                     ),
-                    blockquoteDecoration: BoxDecoration(
-                      color: AppTheme.textSecondary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    blockquote: TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppTheme.textSecondary.withValues(alpha: 0.65)),
-                  ),
             ),
           ),
         ),
@@ -1699,6 +1964,7 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       const SizedBox(height: 8),
     ];
   }
+
   /// 三个跳动圆点的打字指示器（临时用静态组件替代_DotAnimation排查）
   Widget _buildTypingIndicator() {
     debugPrint('🔍 [UI] _buildTypingIndicator CALLED');
@@ -1714,7 +1980,8 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
   /// 流式输出时文末的小跳动点
   Widget _buildStreamingDots() {
     return SizedBox(
-      width: 16, height: 20,
+      width: 16,
+      height: 20,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         _SimpleDot(size: 4),
         const SizedBox(width: 2),
@@ -1728,12 +1995,17 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       onTap: () => _speakMessage(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 36, height: 36,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: isSpeaking ? AppTheme.primaryColor.withValues(alpha: 0.15) : AppTheme.primaryColor.withValues(alpha: 0.08),
+          color: isSpeaking
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : AppTheme.primaryColor.withValues(alpha: 0.08),
           shape: BoxShape.circle,
         ),
-        child: Icon(isSpeaking ? Icons.volume_up_rounded : Icons.volume_mute_rounded, size: 20,
+        child: Icon(
+            isSpeaking ? Icons.volume_up_rounded : Icons.volume_mute_rounded,
+            size: 20,
             color: isSpeaking ? AppTheme.primaryColor : AppTheme.textSecondary),
       ),
     );
@@ -1744,9 +2016,13 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.cardRadius)),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.cardRadius)),
         boxShadow: [
-          BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -5)),
+          BoxShadow(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5)),
         ],
       ),
       child: Row(children: [
@@ -1754,12 +2030,14 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         GestureDetector(
           onTap: _openSessionDrawer,
           child: Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.chat_rounded, size: 20, color: AppTheme.primaryColor),
+            child: Icon(Icons.chat_rounded,
+                size: 20, color: AppTheme.primaryColor),
           ),
         ),
         const SizedBox(width: 8),
@@ -1767,13 +2045,16 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         GestureDetector(
           onTap: _isLoading ? null : _pickChatFile,
           child: Container(
-            width: 40, height: 40,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: AppTheme.backgroundColor,
               shape: BoxShape.circle,
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              border: Border.all(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.3)),
             ),
-            child: const Icon(Icons.attach_file_rounded, size: 20, color: AppTheme.primaryColor),
+            child: Icon(Icons.attach_file_rounded,
+                size: 20, color: AppTheme.primaryColor),
           ),
         ),
         const SizedBox(width: 8),
@@ -1784,15 +2065,20 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
         const SizedBox(width: 8),
         Expanded(
           child: Container(
-            decoration: BoxDecoration(color: AppTheme.backgroundColor, borderRadius: BorderRadius.circular(AppTheme.buttonRadius + 1)),
+            decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                borderRadius: BorderRadius.circular(AppTheme.buttonRadius + 1)),
             child: TextField(
               controller: _controller,
-              maxLines: 3, minLines: 1,
+              maxLines: 3,
+              minLines: 1,
               decoration: InputDecoration(
                 hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
-                hintStyle: TextStyle(color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+                hintStyle: TextStyle(
+                    color: AppTheme.textSecondary.withValues(alpha: 0.5)),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               ),
               onSubmitted: (_) => _sendMessage(),
             ),
@@ -1804,16 +2090,26 @@ class _AIChatScreenState extends State<AIChatScreen> with SingleTickerProviderSt
           onTap: _isLoading ? null : () => _sendMessage(),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 48, height: 48,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: _isLoading ? Colors.grey.shade400 : AppTheme.primaryColor,
               shape: BoxShape.circle,
-              boxShadow: _isLoading ? null : [
-                BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 5)),
-              ],
+              boxShadow: _isLoading
+                  ? null
+                  : [
+                      BoxShadow(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5)),
+                    ],
             ),
             child: _isLoading
-                ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.5))
                 : const Icon(Icons.send_rounded, color: Colors.white, size: 24),
           ),
         ),
@@ -1832,7 +2128,7 @@ class _SimpleDot extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.primaryColor,
         shape: BoxShape.circle,
       ),

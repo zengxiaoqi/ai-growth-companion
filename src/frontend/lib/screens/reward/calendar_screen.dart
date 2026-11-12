@@ -57,7 +57,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Consumer<RewardProvider>(
       builder: (context, reward, _) {
         final calendarData = reward.calendarData;
-        final dailyData = calendarData?['dailyData'] as Map<String, dynamic>? ?? {};
+        final dailyData =
+            calendarData?['dailyData'] as Map<String, dynamic>? ?? {};
 
         return SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 20),
@@ -79,8 +80,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildMonthNav() {
     final monthNames = [
-      '', '一月', '二月', '三月', '四月', '五月', '六月',
-      '七月', '八月', '九月', '十月', '十一月', '十二月'
+      '',
+      '一月',
+      '二月',
+      '三月',
+      '四月',
+      '五月',
+      '六月',
+      '七月',
+      '八月',
+      '九月',
+      '十月',
+      '十一月',
+      '十二月'
     ];
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -123,7 +135,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const SizedBox(width: 8),
                   Text(
                     '${_currentMonth.year}年 ${monthNames[_currentMonth.month]}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textColor,
@@ -180,7 +192,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
             ),
           ),
-          _buildSummaryItem('打卡次数', '$totalRecords', Icons.check_circle_rounded),
+          _buildSummaryItem(
+              '打卡次数', '$totalRecords', Icons.check_circle_rounded),
         ],
       ),
     );
@@ -306,7 +319,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         '$day',
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                          fontWeight:
+                              isToday ? FontWeight.bold : FontWeight.normal,
                           color: isFuture
                               ? AppTheme.textSecondary.withValues(alpha: 0.4)
                               : isWeekend
@@ -369,8 +383,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (!mounted) return;
 
     final monthNames = [
-      '', '一月', '二月', '三月', '四月', '五月', '六月',
-      '七月', '八月', '九月', '十月', '十一月', '十二月'
+      '',
+      '一月',
+      '二月',
+      '三月',
+      '四月',
+      '五月',
+      '六月',
+      '七月',
+      '八月',
+      '九月',
+      '十月',
+      '十一月',
+      '十二月'
     ];
     final weekdayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -405,9 +430,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               const SizedBox(height: 16),
               if (records.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text('暂无记录', style: TextStyle(color: AppTheme.textSecondary)),
+                  child: Text('暂无记录',
+                      style: TextStyle(color: AppTheme.textSecondary)),
                 )
               else
                 Expanded(
@@ -454,7 +480,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   ),
                                   Text(
                                     '${r.recordedAt.hour}:${r.recordedAt.minute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: AppTheme.textSecondary,
                                       fontSize: 11,
                                     ),

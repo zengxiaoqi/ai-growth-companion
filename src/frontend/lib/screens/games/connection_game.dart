@@ -173,7 +173,8 @@ class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.link_off_rounded, size: 48, color: AppTheme.textSecondary),
+            Icon(Icons.link_off_rounded,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无连线题数据'),
             const SizedBox(height: 12),
@@ -201,7 +202,8 @@ class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
             Expanded(
               child: Text(
                 widget.data['title']?.toString() ?? '连线题游戏',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
             buildTtsToggleButton(),
@@ -289,12 +291,15 @@ class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
           // 提交后：判断该项目的连线是否正确。
           if (isLeft) {
             final rightId = _userConnections[item.id];
-            borderColor = rightId != null && _isCorrectConnection(item.id, rightId)
-                ? AppTheme.accentColor
-                : (rightId != null ? AppTheme.warningColor : Colors.grey.shade300);
+            borderColor =
+                rightId != null && _isCorrectConnection(item.id, rightId)
+                    ? AppTheme.accentColor
+                    : (rightId != null
+                        ? AppTheme.warningColor
+                        : Colors.grey.shade300);
           } else {
-            final hasCorrect = _userConnections.entries
-                .any((e) => e.value == item.id && _isCorrectConnection(e.key, e.value));
+            final hasCorrect = _userConnections.entries.any((e) =>
+                e.value == item.id && _isCorrectConnection(e.key, e.value));
             borderColor = hasCorrect
                 ? AppTheme.accentColor
                 : (_userConnections.containsValue(item.id)
@@ -315,7 +320,9 @@ class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
                     : Colors.white))
             : (isSelected
                 ? AppTheme.softBlue.withValues(alpha: 0.25)
-                : (isConnected ? AppTheme.softPink.withValues(alpha: 0.18) : Colors.white));
+                : (isConnected
+                    ? AppTheme.softPink.withValues(alpha: 0.18)
+                    : Colors.white));
 
         return GestureDetector(
           onTap: () => isLeft ? _tapLeft(item.id) : _tapRight(item.id),
@@ -385,9 +392,10 @@ class _ConnectionPainter extends CustomPainter {
 
     final leftWidth = size.width * 0.4;
     final rightStart = size.width * 0.6;
-    final itemHeight = size.height / (leftItems.length > rightItems.length
-        ? leftItems.length
-        : rightItems.length);
+    final itemHeight = size.height /
+        (leftItems.length > rightItems.length
+            ? leftItems.length
+            : rightItems.length);
 
     connections.forEach((leftId, rightId) {
       final leftIndex = leftItems.indexWhere((i) => i.id == leftId);
@@ -414,7 +422,8 @@ class _ConnectionPainter extends CustomPainter {
       path.moveTo(startX, startY);
       final cp1x = startX + (animatedEndX - startX) * 0.35;
       final cp2x = startX + (animatedEndX - startX) * 0.65;
-      path.cubicTo(cp1x, startY, cp2x, animatedEndY, animatedEndX, animatedEndY);
+      path.cubicTo(
+          cp1x, startY, cp2x, animatedEndY, animatedEndX, animatedEndY);
       canvas.drawPath(path, paint);
     });
   }

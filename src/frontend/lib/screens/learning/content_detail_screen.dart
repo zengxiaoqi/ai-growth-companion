@@ -28,7 +28,7 @@ class DomainMeta {
   });
 }
 
-const Map<String, DomainMeta> kDomainMeta = {
+Map<String, DomainMeta> kDomainMeta = {
   'language': DomainMeta(
     label: '语言',
     icon: Icons.chat_bubble_rounded,
@@ -80,7 +80,7 @@ class ContentDetailScreen extends StatefulWidget {
 
 class _ContentDetailScreenState extends State<ContentDetailScreen> {
   ApiService get _api => context.read<ApiService>();
-  
+
   Map<String, dynamic>? _content;
   bool _isLoading = true;
   String? _error;
@@ -152,43 +152,43 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   void _parseQuizSections() {
-      if (_content == null) return;
+    if (_content == null) return;
 
-      final raw = _content!['content'];
-      if (raw == null) return;
+    final raw = _content!['content'];
+    if (raw == null) return;
 
-      try {
-        dynamic parsed;
-        if (raw is String) {
-          parsed = jsonDecode(raw);
-        } else {
-          parsed = raw;
-        }
-
-        // lesson_pack 结构: { type: "lesson_pack", content: [...] }
-        // 取嵌套的 content 数组
-        if (parsed is Map && parsed['content'] is List) {
-          parsed = parsed['content'];
-        }
-
-        if (parsed is List) {
-          _quizSections = parsed
-              .where((item) => item is Map && item['questions'] is List)
-              .map((item) => Map<String, dynamic>.from(item as Map))
-              .toList();
-        }
-      } catch (e) {
-        _log.warning('Parse quiz sections error: $e');
-        _quizSections = [];
+    try {
+      dynamic parsed;
+      if (raw is String) {
+        parsed = jsonDecode(raw);
+      } else {
+        parsed = raw;
       }
+
+      // lesson_pack 结构: { type: "lesson_pack", content: [...] }
+      // 取嵌套的 content 数组
+      if (parsed is Map && parsed['content'] is List) {
+        parsed = parsed['content'];
+      }
+
+      if (parsed is List) {
+        _quizSections = parsed
+            .where((item) => item is Map && item['questions'] is List)
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+      }
+    } catch (e) {
+      _log.warning('Parse quiz sections error: $e');
+      _quizSections = [];
     }
+  }
 
   bool get _hasInteractiveContent => _quizSections.isNotEmpty;
 
   /// 提取内容文本用于显示，避免暴露原始 JSON
   String get _displayText {
     if (_content == null) return '';
-    
+
     final raw = _content!['content'];
     if (raw == null) return '';
 
@@ -211,7 +211,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         }
       }
 
-            // Case 2: lesson_pack { type: "lesson_pack", content: [...] }
+      // Case 2: lesson_pack { type: "lesson_pack", content: [...] }
       if (parsed is Map && parsed['content'] is List) {
         final items = parsed['content'] as List;
         final textBlocks = <String>[];
@@ -299,13 +299,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             final text = item['text']?.toString() ?? '';
             final content = item['content']?.toString() ?? '';
             final meaning = item['meaning']?.toString() ?? '';
-            
+
             final parts = <String>[];
             if (title.isNotEmpty) parts.add(title);
             if (text.isNotEmpty) parts.add(text);
             if (content.isNotEmpty) parts.add(content);
             if (meaning.isNotEmpty) parts.add(meaning);
-            
+
             if (parts.isNotEmpty) {
               textBlocks.add(parts.join('\n'));
             }
@@ -320,7 +320,14 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
       // Case 4: 其他 Map 类型，尝试提取常用文本字段
       if (parsed is Map) {
-        final textFields = ['title', 'text', 'content', 'description', 'moral', 'meaning'];
+        final textFields = [
+          'title',
+          'text',
+          'content',
+          'description',
+          'moral',
+          'meaning'
+        ];
         final parts = <String>[];
         for (final field in textFields) {
           if (parsed.containsKey(field) && parsed[field] is String) {
@@ -339,7 +346,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   DomainMeta get _domainMeta {
     if (_content == null) {
-      return const DomainMeta(
+      return DomainMeta(
         label: '学习',
         icon: Icons.auto_awesome_rounded,
         color: AppTheme.primaryColor,
@@ -347,12 +354,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       );
     }
     final domain = _content!['domain']?.toString() ?? '';
-    return kDomainMeta[domain] ?? const DomainMeta(
-      label: '学习',
-      icon: Icons.auto_awesome_rounded,
-      color: AppTheme.primaryColor,
-      backgroundColor: Color(0xFFFFE4EB),
-    );
+    return kDomainMeta[domain] ??
+        DomainMeta(
+          label: '学习',
+          icon: Icons.auto_awesome_rounded,
+          color: AppTheme.primaryColor,
+          backgroundColor: Color(0xFFFFE4EB),
+        );
   }
 
   void _onContentScroll() {
@@ -379,7 +387,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     _learningTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {
-          _learningElapsedSeconds = DateTime.now().difference(startTime).inSeconds;
+          _learningElapsedSeconds =
+              DateTime.now().difference(startTime).inSeconds;
         });
       }
     });
@@ -498,7 +507,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            const Expanded(
+            Expanded(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: ShimmerCard(height: 200),
@@ -534,14 +543,14 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     const SizedBox(height: 16),
                     Text(
                       _error ?? '内容不存在或已下线',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textColor,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       '你可以返回学习主页，选择其他课程。',
                       style: TextStyle(
                         fontSize: 14,
@@ -593,22 +602,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           children: [
             // 缩略图
             if (_content!['thumbnail'] != null) _buildThumbnail(),
-            
+
             // 内容信息卡片
             _buildContentInfo(),
-            
+
             // 学习内容或测验
             if (_isQuizMode && _hasInteractiveContent)
               _buildQuizSection()
             else if (_displayText.isNotEmpty && !_quizCompleted)
               _buildContentBody(),
-            
+
             // 媒体资源
             if (_content!['mediaUrls'] != null &&
                 _content!['mediaUrls'] is List &&
                 (_content!['mediaUrls'] as List).isNotEmpty)
               _buildMediaSection(),
-            
+
             // 完成评估
             if (_showEvaluation) _buildEvaluation(),
           ],
@@ -632,8 +641,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               errorBuilder: (_, __, ___) => Container(
                 height: 200,
                 color: AppTheme.softBlue.withValues(alpha: 0.2),
-                child: const Center(
-                  child: Icon(Icons.image_rounded, size: 48, color: AppTheme.textSecondary),
+                child: Center(
+                  child: Icon(Icons.image_rounded,
+                      size: 48, color: AppTheme.textSecondary),
                 ),
               ),
             ),
@@ -655,7 +665,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               bottom: 12,
               left: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: _domainMeta.backgroundColor,
                   borderRadius: BorderRadius.circular(999),
@@ -697,7 +708,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         children: [
           Text(
             _content!['title']?.toString() ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
@@ -707,7 +718,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             const SizedBox(height: 6),
             Text(
               _content!['subtitle'].toString(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.textSecondary,
               ),
@@ -783,9 +794,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.menu_book_rounded, color: AppTheme.primaryColor),
+              Icon(Icons.menu_book_rounded, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '学习内容',
                 style: TextStyle(
                   fontSize: 18,
@@ -796,12 +807,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               if (_hasInteractiveContent) ...[
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
+                  child: Text(
                     '含互动练习',
                     style: TextStyle(
                       fontSize: 11,
@@ -826,7 +838,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             child: SingleChildScrollView(
               child: Text(
                 _displayText,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   height: 1.8,
                   color: AppTheme.textColor,
@@ -846,7 +858,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
     // 使用第一个 quiz section
     final quizData = _quizSections.first;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -867,7 +879,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
   Widget _buildMediaSection() {
     final mediaUrls = (_content!['mediaUrls'] as List).cast<String>();
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -879,7 +891,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '媒体资源',
             style: TextStyle(
               fontSize: 18,
@@ -906,8 +918,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     color: AppTheme.softBlue.withValues(alpha: 0.2),
-                    child: const Center(
-                      child: Icon(Icons.image_rounded, color: AppTheme.textSecondary),
+                    child: Center(
+                      child: Icon(Icons.image_rounded,
+                          color: AppTheme.textSecondary),
                     ),
                   ),
                 ),
@@ -942,10 +955,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.auto_awesome_rounded, size: 16, color: AppTheme.primaryColor),
+                Icon(Icons.auto_awesome_rounded,
+                    size: 16, color: AppTheme.primaryColor),
                 SizedBox(width: 4),
                 Text(
                   'AI 评估',
@@ -959,7 +973,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '太棒了！🎉',
             style: TextStyle(
               fontSize: 24,
@@ -970,7 +984,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             '你已经完成《${_content!['title']}》学习，获得 $_score 分。继续保持，下一次会更出色！',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.6,
               color: AppTheme.textSecondary,
@@ -1065,7 +1079,8 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.warningColor),
+                  const Icon(Icons.info_outline_rounded,
+                      size: 16, color: AppTheme.warningColor),
                   const SizedBox(width: 6),
                   Text(
                     _startError ?? '请使用孩子账号开始学习。',
@@ -1081,7 +1096,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: (_isStarting || widget.childId == null) ? null : _handleStartLearning,
+              onPressed: (_isStarting || widget.childId == null)
+                  ? null
+                  : _handleStartLearning,
               icon: _isStarting
                   ? const SizedBox(
                       width: 20,
@@ -1092,7 +1109,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                       ),
                     )
                   : const Icon(Icons.play_arrow_rounded),
-              label: Text(_isStarting ? '正在开始...' : (_hasInteractiveContent ? '开始学习与练习' : '开始学习')),
+              label: Text(_isStarting
+                  ? '正在开始...'
+                  : (_hasInteractiveContent ? '开始学习与练习' : '开始学习')),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -1141,7 +1160,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           ),
           child: Row(
             children: [
-              const Text(
+              Text(
                 '学习评分',
                 style: TextStyle(
                   fontSize: 14,
@@ -1154,11 +1173,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 child: SliderTheme(
                   data: SliderThemeData(
                     activeTrackColor: AppTheme.primaryColor,
-                    inactiveTrackColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    inactiveTrackColor:
+                        AppTheme.primaryColor.withValues(alpha: 0.2),
                     thumbColor: AppTheme.primaryColor,
                     overlayColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                     trackHeight: 6,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 10),
                   ),
                   child: Slider(
                     value: _score.toDouble(),
@@ -1176,7 +1197,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 alignment: Alignment.center,
                 child: Text(
                   '$_score',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -1190,7 +1211,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: (_isCompleting || !_canCompleteReading) ? null : _handleCompleteReading,
+            onPressed: (_isCompleting || !_canCompleteReading)
+                ? null
+                : _handleCompleteReading,
             icon: _isCompleting
                 ? const SizedBox(
                     width: 20,
@@ -1217,7 +1240,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
             _learningElapsedSeconds < kMinReadingSeconds
                 ? '请先学习 ${kMinReadingSeconds - _learningElapsedSeconds} 秒'
                 : '请先滑动阅读学习内容，或使用语音朗读后再完成学习',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               color: AppTheme.textSecondary,
             ),

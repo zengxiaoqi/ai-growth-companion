@@ -101,9 +101,7 @@ class _MatchingGameState extends State<MatchingGame>
           .map((e) {
         final id = e['id']?.toString();
         return _PairItem(
-          id: (id == null || id.isEmpty)
-              ? '${e['left']}_${e['right']}'
-              : id,
+          id: (id == null || id.isEmpty) ? '${e['left']}_${e['right']}' : id,
           left: e['left'].toString(),
           right: e['right'].toString(),
         );
@@ -120,7 +118,8 @@ class _MatchingGameState extends State<MatchingGame>
         final item = raw.map((k, v) => MapEntry(k.toString(), v));
         final id = item['id']?.toString();
         if (id == null || id.isEmpty) continue;
-        leftMap[id] = item['name']?.toString() ?? item['char']?.toString() ?? '';
+        leftMap[id] =
+            item['name']?.toString() ?? item['char']?.toString() ?? '';
       }
 
       final result = <_PairItem>[];
@@ -335,7 +334,7 @@ class _MatchingGameState extends State<MatchingGame>
           const SizedBox(width: 8),
           Text(
             '${_matchedIds.length}/${_pairs.length}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppTheme.accentColor,
@@ -424,7 +423,9 @@ class _MatchingGameState extends State<MatchingGame>
                       opacity: anim.value,
                       child: Transform.translate(
                         offset: Offset(
-                          isLeft ? -30 * (1 - anim.value) : 30 * (1 - anim.value),
+                          isLeft
+                              ? -30 * (1 - anim.value)
+                              : 30 * (1 - anim.value),
                           0,
                         ),
                         child: child,
@@ -438,7 +439,9 @@ class _MatchingGameState extends State<MatchingGame>
                     matched: isMatched,
                     flashError: _flashError && (selected),
                     isChecking: _isChecking,
-                    onTap: (isMatched || _isChecking) ? null : () => onTap(item.id),
+                    onTap: (isMatched || _isChecking)
+                        ? null
+                        : () => onTap(item.id),
                   ),
                 );
               },
@@ -548,9 +551,8 @@ class _PairCardState extends State<_PairCard>
                 : Colors.white));
 
     return GestureDetector(
-      onTapDown: widget.onTap == null
-          ? null
-          : (_) => _pressController.forward(),
+      onTapDown:
+          widget.onTap == null ? null : (_) => _pressController.forward(),
       onTapUp: widget.onTap == null
           ? null
           : (_) {
@@ -619,7 +621,7 @@ class _PairCardState extends State<_PairCard>
               if (widget.matched)
                 Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppTheme.accentColor,
                     shape: BoxShape.circle,
                   ),
@@ -651,13 +653,12 @@ class _LeadingBadge extends StatelessWidget {
       return Container(
         width: 24,
         height: 24,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppTheme.accentColor,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: const Icon(Icons.check_rounded,
-            color: Colors.white, size: 16),
+        child: const Icon(Icons.check_rounded, color: Colors.white, size: 16),
       );
     }
     return AnimatedContainer(
@@ -711,7 +712,7 @@ class _MatchingEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.sentiment_neutral_rounded,
             size: 48,
             color: AppTheme.textSecondary,

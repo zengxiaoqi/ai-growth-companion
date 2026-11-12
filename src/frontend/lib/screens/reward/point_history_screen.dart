@@ -33,7 +33,8 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
     }
 
     _currentPage++;
-    await rewardProvider.loadPointRecords(childId, page: _currentPage, limit: 30, append: true);
+    await rewardProvider.loadPointRecords(childId,
+        page: _currentPage, limit: 30, append: true);
 
     if (mounted) {
       setState(() {
@@ -86,7 +87,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
                   const Spacer(),
                   Text(
                     '共 ${records.length} 条记录',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
                     ),
@@ -212,14 +213,11 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
     }
 
     // 计算当天积分
-    final dayRecords = context
-        .read<RewardProvider>()
-        .pointRecords
-        .where((r) {
-          final rd = DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
-          return rd == dateOnly;
-        })
-        .toList();
+    final dayRecords = context.read<RewardProvider>().pointRecords.where((r) {
+      final rd =
+          DateTime(r.recordedAt.year, r.recordedAt.month, r.recordedAt.day);
+      return rd == dateOnly;
+    }).toList();
     final dayPoints = dayRecords.fold<int>(0, (sum, r) => sum + r.points);
 
     return Padding(
@@ -237,7 +235,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppTheme.textColor,
@@ -249,7 +247,8 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: dayPoints >= 0 ? AppTheme.accentColor : AppTheme.warningColor,
+              color:
+                  dayPoints >= 0 ? AppTheme.accentColor : AppTheme.warningColor,
             ),
           ),
         ],
@@ -303,7 +302,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
                 const SizedBox(height: 2),
                 Text(
                   '${record.recordedAt.hour}:${record.recordedAt.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
                   ),

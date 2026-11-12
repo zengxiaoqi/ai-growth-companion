@@ -236,10 +236,11 @@ class _SequencingGameState extends State<SequencingGame> with GameTtsHelper {
                       vertical: 4,
                     ),
                     leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.14),
+                      backgroundColor:
+                          AppTheme.primaryColor.withValues(alpha: 0.14),
                       child: Text(
                         '${index + 1}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w800,
                         ),
@@ -253,7 +254,7 @@ class _SequencingGameState extends State<SequencingGame> with GameTtsHelper {
                     ),
                     trailing: ReorderableDragStartListener(
                       index: index,
-                      child: const Icon(
+                      child: Icon(
                         Icons.drag_handle_rounded,
                         color: AppTheme.textSecondary,
                       ),
@@ -394,8 +395,9 @@ class _OrderPanel extends StatelessWidget {
                         : AppTheme.warningColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color:
-                          isCorrect ? AppTheme.accentColor : AppTheme.warningColor,
+                      color: isCorrect
+                          ? AppTheme.accentColor
+                          : AppTheme.warningColor,
                       width: 1.6,
                     ),
                   ),
@@ -403,7 +405,7 @@ class _OrderPanel extends StatelessWidget {
                     children: [
                       Text(
                         '${index + 1}.',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textColor,
                         ),
@@ -412,9 +414,10 @@ class _OrderPanel extends StatelessWidget {
                       Expanded(
                         child: Text(
                           item.label,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ),
                       if (compareByPosition)
@@ -466,7 +469,7 @@ class _SequencingEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.sort_rounded,
             size: 48,
             color: AppTheme.textSecondary,

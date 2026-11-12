@@ -98,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(AppTheme.smallRadius),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
+            child: Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
           ),
         ),
         title: const Text('创建账号'),
@@ -114,141 +114,156 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                // 标题
-                const Text(
-                  '加入灵犀伴学',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '开启成长之旅',
-                  style: TextStyle(fontSize: 16, color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 28),
-
-                // 姓名
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: '姓名',
-                    hintText: '请输入姓名',
-                    prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.primaryColor),
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? '请输入姓名' : null,
-                ),
-                const SizedBox(height: 18),
-
-                // 手机号
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 15,
-                  decoration: const InputDecoration(
-                    labelText: '手机号 / 账号',
-                    hintText: '请输入手机号或账号',
-                    prefixIcon: Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
-                    counterText: '',
-                  ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return '请输入手机号或账号';
-                    if (v.trim().length < 5) return '账号太短';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // 密码
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: '密码',
-                    hintText: '请设置密码（至少6位）',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryColor),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AppTheme.textSecondary,
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  // 标题
+                  Text(
+                    '加入灵犀伴学',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
                     ),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return '请输入密码';
-                    if (v.length < 6) return '密码至少6位';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // 确认密码
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirm,
-                  decoration: InputDecoration(
-                    labelText: '确认密码',
-                    hintText: '请再次输入密码',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryColor),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        color: AppTheme.textSecondary,
-                      ),
-                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '开启成长之旅',
+                    style:
+                        TextStyle(fontSize: 16, color: AppTheme.textSecondary),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return '请确认密码';
-                    if (v != _passwordController.text) return '两次密码不一致';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 18),
+                  const SizedBox(height: 28),
 
-                // 角色选择
-                _buildRoleSelector(),
-                const SizedBox(height: 18),
-
-                // 年龄（仅孩子）
-                if (_userType == 'child') ...[
+                  // 姓名
                   TextFormField(
-                    controller: _ageController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '年龄',
-                      hintText: '请输入年龄（3-12岁）',
-                      prefixIcon: Icon(Icons.cake_rounded, color: AppTheme.primaryColor),
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: '姓名',
+                      hintText: '请输入姓名',
+                      prefixIcon: Icon(Icons.person_outline_rounded,
+                          color: AppTheme.primaryColor),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '请输入姓名' : null,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 手机号
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 15,
+                    decoration: InputDecoration(
+                      labelText: '手机号 / 账号',
+                      hintText: '请输入手机号或账号',
+                      prefixIcon: Icon(Icons.phone_android_rounded,
+                          color: AppTheme.primaryColor),
+                      counterText: '',
                     ),
                     validator: (v) {
-                      if (v == null || v.isEmpty) return '请输入年龄';
-                      final age = int.tryParse(v);
-                      if (age == null || age < 3 || age > 12) return '年龄需在3-12岁之间';
+                      if (v == null || v.trim().isEmpty) return '请输入手机号或账号';
+                      if (v.trim().length < 5) return '账号太短';
                       return null;
                     },
                   ),
                   const SizedBox(height: 18),
+
+                  // 密码
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: '密码',
+                      hintText: '请设置密码（至少6位）',
+                      prefixIcon: Icon(Icons.lock_outline_rounded,
+                          color: AppTheme.primaryColor),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return '请输入密码';
+                      if (v.length < 6) return '密码至少6位';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 确认密码
+                  TextFormField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirm,
+                    decoration: InputDecoration(
+                      labelText: '确认密码',
+                      hintText: '请再次输入密码',
+                      prefixIcon: Icon(Icons.lock_outline_rounded,
+                          color: AppTheme.primaryColor),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirm
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: AppTheme.textSecondary,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return '请确认密码';
+                      if (v != _passwordController.text) return '两次密码不一致';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 角色选择
+                  _buildRoleSelector(),
+                  const SizedBox(height: 18),
+
+                  // 年龄（仅孩子）
+                  if (_userType == 'child') ...[
+                    TextFormField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: '年龄',
+                        hintText: '请输入年龄（3-12岁）',
+                        prefixIcon: Icon(Icons.cake_rounded,
+                            color: AppTheme.primaryColor),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return '请输入年龄';
+                        final age = int.tryParse(v);
+                        if (age == null || age < 3 || age > 12) {
+                          return '年龄需在3-12岁之间';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+
+                  // 错误提示
+                  if (_error != null) ...[
+                    _buildErrorBanner(),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 注册按钮
+                  _buildRegisterButton(),
+                  const SizedBox(height: 20),
+
+                  // 登录链接
+                  _buildLoginLink(),
+                  const SizedBox(height: 20),
                 ],
-
-                // 错误提示
-                if (_error != null) ...[
-                  _buildErrorBanner(),
-                  const SizedBox(height: 16),
-                ],
-
-                // 注册按钮
-                _buildRegisterButton(),
-                const SizedBox(height: 20),
-
-                // 登录链接
-                _buildLoginLink(),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
-          ),
           ),
         ),
       ),
@@ -260,7 +275,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '账号类型',
           style: TextStyle(
             fontSize: 14,
@@ -278,23 +293,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: _userType == 'child' ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.white,
+                    color: _userType == 'child'
+                        ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
-                      color: _userType == 'child' ? AppTheme.primaryColor : Colors.grey.shade200,
+                      color: _userType == 'child'
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade200,
                       width: 2,
                     ),
                   ),
                   child: Column(
                     children: [
-                      Text('🧒', style: TextStyle(fontSize: _userType == 'child' ? 32 : 28)),
+                      Text('🧒',
+                          style: TextStyle(
+                              fontSize: _userType == 'child' ? 32 : 28)),
                       const SizedBox(height: 6),
                       Text(
                         '孩子',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: _userType == 'child' ? AppTheme.primaryColor : AppTheme.textSecondary,
+                          color: _userType == 'child'
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -310,23 +333,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: _userType == 'parent' ? AppTheme.secondaryColor.withValues(alpha: 0.1) : Colors.white,
+                    color: _userType == 'parent'
+                        ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     border: Border.all(
-                      color: _userType == 'parent' ? AppTheme.secondaryColor : Colors.grey.shade200,
+                      color: _userType == 'parent'
+                          ? AppTheme.secondaryColor
+                          : Colors.grey.shade200,
                       width: 2,
                     ),
                   ),
                   child: Column(
                     children: [
-                      Text('👨‍👩‍👧', style: TextStyle(fontSize: _userType == 'parent' ? 32 : 28)),
+                      Text('👨‍👩‍👧',
+                          style: TextStyle(
+                              fontSize: _userType == 'parent' ? 32 : 28)),
                       const SizedBox(height: 6),
                       Text(
                         '家长',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: _userType == 'parent' ? AppTheme.secondaryColor : AppTheme.textSecondary,
+                          color: _userType == 'parent'
+                              ? AppTheme.secondaryColor
+                              : AppTheme.textSecondary,
                         ),
                       ),
                     ],
@@ -351,7 +382,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 20),
+          Icon(Icons.error_outline_rounded,
+              color: Colors.red.shade400, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -373,18 +405,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.buttonRadius)),
           elevation: _isLoading ? 0 : 4,
         ),
         child: _isLoading
             ? const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5),
               )
             : const Text(
                 '注册',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
       ),
     );
@@ -394,13 +431,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('已有账号？', style: TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
+        Text('已有账号？',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
         GestureDetector(
           onTap: () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
           ),
-          child: const Text(
+          child: Text(
             '立即登录',
             style: TextStyle(
               color: AppTheme.primaryColor,

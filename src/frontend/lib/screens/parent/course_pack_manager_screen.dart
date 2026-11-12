@@ -20,7 +20,8 @@ class CoursePackManagerScreen extends StatefulWidget {
   const CoursePackManagerScreen({super.key});
 
   @override
-  State<CoursePackManagerScreen> createState() => _CoursePackManagerScreenState();
+  State<CoursePackManagerScreen> createState() =>
+      _CoursePackManagerScreenState();
 }
 
 class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
@@ -88,7 +89,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
     setState(() {
       _children = children;
-      _selectedChildId = _toInt(children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId =
+          _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
 
@@ -271,7 +273,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 20, color: AppTheme.textColor),
+                child: Icon(Icons.arrow_back_rounded,
+                    size: 20, color: AppTheme.textColor),
               ),
             ),
           ),
@@ -283,7 +286,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
   Widget _buildBody() {
     if (_isLoadingChildren) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(16),
         child: ShimmerCard(height: 200),
       );
@@ -345,20 +348,27 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                     color: AppTheme.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.auto_awesome_rounded, size: 18, color: AppTheme.primaryColor),
+                  child: Icon(Icons.auto_awesome_rounded,
+                      size: 18, color: AppTheme.primaryColor),
                 ),
                 const SizedBox(width: 10),
-                const Text(
+                Text(
                   '一句话生成课程包',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textColor),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             // 主题输入
-            const Text(
+            Text(
               '家长需求',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 6),
             TextField(
@@ -377,9 +387,11 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                  borderSide:
+                      BorderSide(color: AppTheme.primaryColor, width: 2),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               maxLines: 2,
               textInputAction: TextInputAction.done,
@@ -399,23 +411,29 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: (_selectedChildId != null && _topicController.text.trim().isNotEmpty && !_isGenerating)
+                onPressed: (_selectedChildId != null &&
+                        _topicController.text.trim().isNotEmpty &&
+                        !_isGenerating)
                     ? _generateCoursePack
                     : null,
                 icon: _isGenerating
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : const Icon(Icons.auto_awesome_rounded, size: 20),
                 label: Text(_isGenerating ? '正在生成...' : '立即生成单节课程包'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  disabledBackgroundColor:
+                      AppTheme.primaryColor.withValues(alpha: 0.4),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  textStyle: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -437,9 +455,12 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '重点方向',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 2),
           DropdownButtonHideUnderline(
@@ -449,7 +470,9 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               items: _focusOptions
                   .map((opt) => DropdownMenuItem(
                         value: opt.value,
-                        child: Text(opt.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        child: Text(opt.label,
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
                       ))
                   .toList(),
               onChanged: (value) {
@@ -475,9 +498,12 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '课程时长',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 2),
           DropdownButtonHideUnderline(
@@ -487,7 +513,9 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               items: _durationOptions
                   .map((m) => DropdownMenuItem(
                         value: m,
-                        child: Text('$m 分钟', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        child: Text('$m 分钟',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
                       ))
                   .toList(),
               onChanged: (value) {
@@ -509,11 +537,13 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFB3261E).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFB3261E).withValues(alpha: 0.25)),
+        border:
+            Border.all(color: const Color(0xFFB3261E).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, size: 18, color: Color(0xFFB3261E)),
+          const Icon(Icons.error_outline_rounded,
+              size: 18, color: Color(0xFFB3261E)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -523,7 +553,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
           ),
           GestureDetector(
             onTap: () => setState(() => _error = null),
-            child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFB3261E)),
+            child: const Icon(Icons.close_rounded,
+                size: 16, color: Color(0xFFB3261E)),
           ),
         ],
       ),
@@ -543,9 +574,12 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   '历史课程包',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textColor),
                 ),
                 TextButton.icon(
                   onPressed: _loadPacks,
@@ -563,9 +597,11 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
             ),
             const SizedBox(height: 10),
             if (_isLoadingPacks)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.primaryColor)),
               )
             else if (_packs.isEmpty)
               const EmptyState(
@@ -607,10 +643,14 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.08) : Colors.white,
+          color: isSelected
+              ? AppTheme.primaryColor.withValues(alpha: 0.08)
+              : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.35) : Colors.grey.shade200,
+            color: isSelected
+                ? AppTheme.primaryColor.withValues(alpha: 0.35)
+                : Colors.grey.shade200,
           ),
         ),
         child: Row(
@@ -621,7 +661,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 color: AppTheme.secondaryColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.menu_book_rounded, size: 20, color: AppTheme.secondaryColor),
+              child: Icon(Icons.menu_book_rounded,
+                  size: 20, color: AppTheme.secondaryColor),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -630,18 +671,23 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textColor),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      const Icon(Icons.schedule_rounded, size: 14, color: AppTheme.textSecondary),
+                      Icon(Icons.schedule_rounded,
+                          size: 14, color: AppTheme.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         _formatDateTime(createdAt),
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -650,10 +696,14 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
             ),
             Text(
               '#${recordId ?? '?'}',
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.textSecondary),
+            Icon(Icons.chevron_right_rounded,
+                size: 20, color: AppTheme.textSecondary),
           ],
         ),
       ),
@@ -686,28 +736,34 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                         color: AppTheme.accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.accentColor),
+                      child: Icon(Icons.visibility_rounded,
+                          size: 18, color: AppTheme.accentColor),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       '课程包预览',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textColor),
                     ),
                   ],
                 ),
                 TextButton.icon(
                   onPressed: _isExporting ? null : _exportPack,
                   icon: _isExporting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                              color: AppTheme.primaryColor, strokeWidth: 2),
                         )
                       : const Icon(Icons.download_rounded, size: 18),
                   label: const Text('导出'),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.primaryColor,
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    textStyle: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 32),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -729,7 +785,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               child: SingleChildScrollView(
                 child: SelectableText(
                   jsonString,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
                     color: AppTheme.textColor,
@@ -775,4 +831,3 @@ class _FocusOption {
 
   const _FocusOption({required this.value, required this.label});
 }
-

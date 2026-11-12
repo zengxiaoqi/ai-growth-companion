@@ -284,8 +284,6 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
     );
   }
 
-
-
   Widget _buildTapToStart() {
     final firstScene = _scenes.first;
     return GestureDetector(
@@ -314,14 +312,14 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
                 size: 40,
                 color: AppTheme.primaryColor,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '点击开始播放场景',
               style: TextStyle(
                 fontSize: 16,
@@ -334,7 +332,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
               const SizedBox(height: 6),
               Text(
                 firstScene.onScreenText ?? firstScene.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.textColor,
@@ -437,13 +435,13 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                     children: [
                       Text(
                         activityInteraction.prompt ?? '互动练习',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textColor,
                         ),
                       ),
-                      const Text(
+                      Text(
                         '完成小游戏后会自动进入反馈场景',
                         style: TextStyle(
                           fontSize: 12,
@@ -454,7 +452,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.volume_up_rounded,
+                  icon: Icon(Icons.volume_up_rounded,
                       size: 20, color: AppTheme.primaryColor),
                   onPressed: () => _speakScene(scene),
                 ),
@@ -490,7 +488,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
+                child: Text(
                   '练习完成，正在进入反馈场景',
                   style: TextStyle(
                     fontSize: 13,
@@ -518,7 +516,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -541,7 +539,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.volume_up_rounded,
+                  icon: Icon(Icons.volume_up_rounded,
                       size: 20, color: AppTheme.primaryColor),
                   onPressed: () => _speakScene(scene),
                 ),
@@ -564,7 +562,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
                       color: AppTheme.textSecondary.withValues(alpha: 0.4),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       '暂无互动内容',
                       style: TextStyle(
                         fontSize: 14,
@@ -594,7 +592,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             color: AppTheme.primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.volume_up_rounded,
@@ -725,8 +723,8 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
   }
 
   Widget _buildStepNavigation() {
-    final traceDone = _currentScene != null &&
-        _traceResults.containsKey(_currentScene!.id);
+    final traceDone =
+        _currentScene != null && _traceResults.containsKey(_currentScene!.id);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -739,7 +737,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
         ),
         Text(
           '${_currentIndex + 1} / ${_scenes.length}',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             color: AppTheme.textSecondary,
           ),
@@ -768,9 +766,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
           width: isCurrent ? 24 : 6,
           height: 6,
           decoration: BoxDecoration(
-            color: isCurrent
-                ? AppTheme.primaryColor
-                : Colors.grey.shade200,
+            color: isCurrent ? AppTheme.primaryColor : Colors.grey.shade200,
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -780,7 +776,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
 
   Widget _buildCompleteSection() {
     if (widget.isCompleted) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,

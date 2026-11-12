@@ -33,7 +33,8 @@ class IconPicker extends StatefulWidget {
   final Future<bool> Function(String filePath)? onImageSelected;
 
   /// 图片上传回调（传入 bytes + 文件名，用于 Web 平台）
-  final Future<bool> Function(Uint8List bytes, String fileName)? onImageSelectedBytes;
+  final Future<bool> Function(Uint8List bytes, String fileName)?
+      onImageSelectedBytes;
 
   /// 图片删除回调
   final Future<bool> Function()? onImageDeleted;
@@ -64,12 +65,42 @@ class _IconPickerState extends State<IconPicker> {
 
   /// 预设 emoji 列表
   static const List<String> _presetEmojis = [
-    '⭐', '🌟', '✨', '☀️', '🌙', '🌈',
-    '🍎', '🍞', '🥛', '🍚', '🥗', '🍜',
-    '📚', '✏️', '🎨', '🎵', '⚽', '🧩',
-    '🛏️', '🚿', '🪥', '🧴', '👕', '👗',
-    '🎁', '🏆', '🎖️', '🏅', '💎', '🔥',
-    '😊', '💪', '👍', '🎯', '📖', '💡',
+    '⭐',
+    '🌟',
+    '✨',
+    '☀️',
+    '🌙',
+    '🌈',
+    '🍎',
+    '🍞',
+    '🥛',
+    '🍚',
+    '🥗',
+    '🍜',
+    '📚',
+    '✏️',
+    '🎨',
+    '🎵',
+    '⚽',
+    '🧩',
+    '🛏️',
+    '🚿',
+    '🪥',
+    '🧴',
+    '👕',
+    '👗',
+    '🎁',
+    '🏆',
+    '🎖️',
+    '🏅',
+    '💎',
+    '🔥',
+    '😊',
+    '💪',
+    '👍',
+    '🎯',
+    '📖',
+    '💡',
   ];
 
   Future<void> _pickImage() async {
@@ -192,7 +223,8 @@ class _IconPickerState extends State<IconPicker> {
                       ),
                     ),
                     const Spacer(),
-                    if (widget.iconImage != null && widget.onImageDeleted != null)
+                    if (widget.iconImage != null &&
+                        widget.onImageDeleted != null)
                       TextButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
@@ -209,13 +241,16 @@ class _IconPickerState extends State<IconPicker> {
                 const SizedBox(height: 16),
 
                 // 上传图片按钮
-                if (widget.onImageSelected != null || widget.onImageSelectedBytes != null) ...[
+                if (widget.onImageSelected != null ||
+                    widget.onImageSelectedBytes != null) ...[
                   _UploadButton(
                     uploading: _uploading,
-                    onTap: _uploading ? null : () {
-                      Navigator.pop(context);
-                      _pickImage();
-                    },
+                    onTap: _uploading
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            _pickImage();
+                          },
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -235,7 +270,8 @@ class _IconPickerState extends State<IconPicker> {
                     child: GridView.builder(
                       shrinkWrap: true,
                       physics: const BouncingScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 6,
                         mainAxisSpacing: 8,
                         crossAxisSpacing: 8,
@@ -244,7 +280,8 @@ class _IconPickerState extends State<IconPicker> {
                       itemCount: _presetEmojis.length,
                       itemBuilder: (context, index) {
                         final emoji = _presetEmojis[index];
-                        final isSelected = emoji == widget.emoji && (widget.iconImage == null);
+                        final isSelected =
+                            emoji == widget.emoji && (widget.iconImage == null);
                         return GestureDetector(
                           onTap: () {
                             widget.onEmojiSelected!(emoji);
@@ -253,11 +290,13 @@ class _IconPickerState extends State<IconPicker> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                  ? AppTheme.primaryColor
+                                      .withValues(alpha: 0.15)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(10),
                               border: isSelected
-                                  ? Border.all(color: AppTheme.primaryColor, width: 2)
+                                  ? Border.all(
+                                      color: AppTheme.primaryColor, width: 2)
                                   : null,
                             ),
                             child: Center(
@@ -377,16 +416,18 @@ class _UploadButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (uploading)
-                const SizedBox(
+                SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                   ),
                 )
               else
-                Icon(Icons.upload_outlined, color: AppTheme.primaryColor, size: 22),
+                Icon(Icons.upload_outlined,
+                    color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 8),
               Text(
                 uploading ? '上传中...' : '上传自定义图片',

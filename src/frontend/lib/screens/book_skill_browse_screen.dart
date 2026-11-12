@@ -108,16 +108,19 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.menu_book_rounded, size: 80, color: Colors.grey[300]),
+                            Icon(Icons.menu_book_rounded,
+                                size: 80, color: Colors.grey[300]),
                             const SizedBox(height: 16),
                             Text(
                               '还没有知识书',
-                              style: TextStyle(fontSize: 18, color: Colors.grey[500]),
+                              style: TextStyle(
+                                  fontSize: 18, color: Colors.grey[500]),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               '让家长上传书籍后就可以在这里学习啦',
-                              style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                              style: TextStyle(
+                                  fontSize: 14, color: Colors.grey[400]),
                             ),
                           ],
                         ),
@@ -129,7 +132,8 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                           itemCount: _books.length,
                           itemBuilder: (context, index) {
                             final book = _books[index];
-                            final fileType = book['fileType'] as String? ?? 'pdf';
+                            final fileType =
+                                book['fileType'] as String? ?? 'pdf';
                             final fileSize = book['fileSize'] as int? ?? 0;
                             final chapters = book['totalChapters'] as int? ?? 0;
                             final viewCount = book['viewCount'] as int? ?? 0;
@@ -139,9 +143,11 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
                                 onTap: () {
-                                  Navigator.pushNamed(context, '/book-skill/detail', arguments: {
-                                    'bookId': book['id'],
-                                  });
+                                  Navigator.pushNamed(
+                                      context, '/book-skill/detail',
+                                      arguments: {
+                                        'bookId': book['id'],
+                                      });
                                 },
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
@@ -151,8 +157,10 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                                         width: 48,
                                         height: 60,
                                         decoration: BoxDecoration(
-                                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color: AppTheme.primaryColor
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Icon(
                                           _fileIcon(fileType),
@@ -163,7 +171,8 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                                       const SizedBox(width: 16),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               book['title'] as String? ?? '未命名',
@@ -184,11 +193,16 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                                             ),
                                             if (viewCount > 0)
                                               Padding(
-                                                padding: const EdgeInsets.only(top: 2),
+                                                padding: const EdgeInsets.only(
+                                                    top: 2),
                                                 child: Row(
                                                   children: [
-                                                    Icon(Icons.visibility_outlined,
-                                                        size: 14, color: Colors.grey[400]),
+                                                    Icon(
+                                                        Icons
+                                                            .visibility_outlined,
+                                                        size: 14,
+                                                        color:
+                                                            Colors.grey[400]),
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       '$viewCount 次浏览',
@@ -203,7 +217,8 @@ class _BookSkillBrowseScreenState extends State<BookSkillBrowseScreen> {
                                           ],
                                         ),
                                       ),
-                                      const Icon(Icons.chevron_right, color: Colors.grey),
+                                      const Icon(Icons.chevron_right,
+                                          color: Colors.grey),
                                     ],
                                   ),
                                 ),
@@ -387,31 +402,36 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
           child: ExpansionTile(
             leading: CircleAvatar(
               backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-              child: Text('${ch['index'] ?? index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('${ch['index'] ?? index + 1}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
             title: Text(ch['title'] as String? ?? '第${index + 1}章'),
-            subtitle: ch['summary'] != null && (ch['summary'] as String).isNotEmpty
-                ? Text(
-                    ch['summary'] as String,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  )
-                : null,
+            subtitle:
+                ch['summary'] != null && (ch['summary'] as String).isNotEmpty
+                    ? Text(
+                        ch['summary'] as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      )
+                    : null,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (ch['summary'] != null && (ch['summary'] as String).isNotEmpty)
+                    if (ch['summary'] != null &&
+                        (ch['summary'] as String).isNotEmpty)
                       Text(
                         ch['summary'] as String,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.5),
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.grey[800], height: 1.5),
                       ),
                     const SizedBox(height: 12),
                     // Key points if available
-                    if (ch['keyPoints'] != null && (ch['keyPoints'] as String).isNotEmpty)
+                    if (ch['keyPoints'] != null &&
+                        (ch['keyPoints'] as String).isNotEmpty)
                       ..._buildKeyPoints(ch['keyPoints'] as String),
                   ],
                 ),
@@ -432,21 +452,30 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
           final parsed = List<dynamic>.from(jsonDecode(raw));
           points = parsed.map((e) => e.toString()).toList();
         } catch (_) {
-          points = raw.replaceAll(RegExp(r'[\[\]"]'), '').split(',').where((s) => s.trim().isNotEmpty).toList();
+          points = raw
+              .replaceAll(RegExp(r'[\[\]"]'), '')
+              .split(',')
+              .where((s) => s.trim().isNotEmpty)
+              .toList();
         }
       } else {
         points = raw.split('\n').where((s) => s.trim().isNotEmpty).toList();
       }
-      return points.take(5).map((p) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('• ', style: TextStyle(color: AppTheme.primaryColor)),
-            Expanded(child: Text(p.toString(), style: const TextStyle(fontSize: 13))),
-          ],
-        ),
-      )).toList();
+      return points
+          .take(5)
+          .map((p) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('• ', style: TextStyle(color: AppTheme.primaryColor)),
+                    Expanded(
+                        child: Text(p.toString(),
+                            style: const TextStyle(fontSize: 13))),
+                  ],
+                ),
+              ))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -479,9 +508,11 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             subtitle: Text(term['definition'] as String? ?? ''),
-            trailing: term['chapterRef'] != null && (term['chapterRef'] as String).isNotEmpty
+            trailing: term['chapterRef'] != null &&
+                    (term['chapterRef'] as String).isNotEmpty
                 ? Chip(
-                    label: Text(term['chapterRef'] as String, style: const TextStyle(fontSize: 11)),
+                    label: Text(term['chapterRef'] as String,
+                        style: const TextStyle(fontSize: 11)),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   )
                 : null,
@@ -522,13 +553,15 @@ class _BookSkillDetailScreenState extends State<BookSkillDetailScreen>
               padding: const EdgeInsets.only(top: 8, bottom: 8),
               child: Text(
                 entry.key,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
             ...entry.value.map((p) => Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    title: Text(p['name'] as String? ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(p['name'] as String? ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: p['description'] != null
                         ? Text(p['description'] as String)
                         : null,

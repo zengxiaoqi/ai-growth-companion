@@ -116,7 +116,8 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
       begin: const Offset(0.15, 0),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _transitionController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+          parent: _transitionController, curve: Curves.easeOutCubic),
     );
     // 初始场景淡入
     _transitionController.forward();
@@ -268,8 +269,6 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
     );
   }
 
-
-
   // ==================== 点击开始覆盖层 ====================
   Widget _buildTapToStartOverlay() {
     final firstScene = widget.scenes.first;
@@ -299,14 +298,14 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
                 color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
                 size: 40,
                 color: AppTheme.primaryColor,
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '点击开始播放动画',
               style: TextStyle(
                 fontSize: 16,
@@ -318,7 +317,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
               const SizedBox(height: 6),
               Text(
                 firstScene.onScreenText,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -415,7 +414,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             Text(
               scene.onScreenText,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: AppTheme.textColor,
@@ -452,7 +451,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
             errorBuilder: (_, __, ___) => _buildCharacterEmoji(scene),
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
-              return const SizedBox(
+              return SizedBox(
                 width: 40,
                 height: 40,
                 child: CircularProgressIndicator(
@@ -490,8 +489,10 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         child: isEmoji
             ? Text(scene.character, style: const TextStyle(fontSize: 52))
             : Text(
-                scene.character.isNotEmpty ? scene.character[0].toUpperCase() : '?',
-                style: const TextStyle(
+                scene.character.isNotEmpty
+                    ? scene.character[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -528,7 +529,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
               color: AppTheme.primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.record_voice_over_rounded,
               size: 18,
               color: AppTheme.primaryColor,
@@ -539,7 +540,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           Expanded(
             child: Text(
               scene.narration,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 color: AppTheme.textColor,
                 height: 1.4,
@@ -603,9 +604,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: isPrimary
-              ? AppTheme.primaryColor
-              : Colors.grey.shade100,
+          color: isPrimary ? AppTheme.primaryColor : Colors.grey.shade100,
           shape: BoxShape.circle,
           boxShadow: isPrimary
               ? [
@@ -661,10 +660,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
   Widget _buildCompleteSection() {
     // 已完成（外部状态）
     if (widget.isCompleted) {
-      return const Row(
+      return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_rounded, size: 18, color: AppTheme.primaryColor),
+          Icon(Icons.check_circle_rounded,
+              size: 18, color: AppTheme.primaryColor),
           SizedBox(width: 6),
           Text(
             '已完成',

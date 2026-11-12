@@ -39,7 +39,8 @@ class _GlyphTarget {
   final String text;
   final String label;
 
-  const _GlyphTarget({required this.id, required this.text, required this.label});
+  const _GlyphTarget(
+      {required this.id, required this.text, required this.label});
 }
 
 /// 字形白名单：常用汉字 / 数字 / 英文字母，1-2 个字符。
@@ -73,6 +74,7 @@ class _TracePathGameState extends State<TracePathGame> {
   static const double _brushRadius = 16;
   static const int _sampleStep = 6;
   static const double _glyphFontSizeRatio = 0.58;
+
   /// 抬笔后静止多久才评估（与 Web 端一致）。
   static const Duration _evaluateDelay = Duration(seconds: 1);
 
@@ -142,11 +144,12 @@ class _TracePathGameState extends State<TracePathGame> {
   void _reset() {
     _targets = _parseTargets(widget.data['targets']);
     final rawCoverage = _toDouble(widget.data['minCoverage'], 0.7);
-    _minCoverage = rawCoverage > 0
-        ? rawCoverage.clamp(0.5, 0.85).toDouble()
-        : 0.7;
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 180).clamp(30, 300).toInt();
+    _minCoverage =
+        rawCoverage > 0 ? rawCoverage.clamp(0.5, 0.85).toDouble() : 0.7;
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 180).clamp(30, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
     _index = 0;
     _strokes.clear();
@@ -187,7 +190,8 @@ class _TracePathGameState extends State<TracePathGame> {
       }
       usedIds.add(id);
       final label = _clip((map['label']?.toString() ?? '').trim(), 12);
-      result.add(_GlyphTarget(id: id, text: text, label: label.isEmpty ? text : label));
+      result.add(_GlyphTarget(
+          id: id, text: text, label: label.isEmpty ? text : label));
     }
     return result;
   }
@@ -316,7 +320,9 @@ class _TracePathGameState extends State<TracePathGame> {
 
   void _evaluate() {
     final current = _current;
-    if (current == null || _samples.isEmpty || _finished || _completedCalled) return;
+    if (current == null || _samples.isEmpty || _finished || _completedCalled) {
+      return;
+    }
     final coverage = _covered.length / _samples.length;
     final passed = coverage >= _minCoverage;
     if (passed) {
@@ -371,12 +377,14 @@ class _TracePathGameState extends State<TracePathGame> {
   void _finish() {
     if (_completedCalled) return;
     _completedCalled = true;
-    final firstTryCount = _perTarget.where((entry) => entry['firstTry'] == true).length;
+    final firstTryCount =
+        _perTarget.where((entry) => entry['firstTry'] == true).length;
     final total = _targets.length;
-    final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-        .round()
-        .clamp(0, 86400)
-        .toInt();
+    final seconds =
+        ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+            .round()
+            .clamp(0, 86400)
+            .toInt();
 
     widget.onFinished?.call({
       'score': total > 0 ? ((firstTryCount / total) * 100).round() : 0,
@@ -389,7 +397,9 @@ class _TracePathGameState extends State<TracePathGame> {
         'passingScore': _passingScore,
         'timeLimitSec': _timeLimitSec,
         'minCoverage': _minCoverage,
-        'perTarget': _perTarget.map((entry) => Map<String, dynamic>.from(entry)).toList(),
+        'perTarget': _perTarget
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList(),
       },
     });
 
@@ -409,8 +419,7 @@ class _TracePathGameState extends State<TracePathGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.draw_outlined,
-                size: 48, color: AppTheme.textSecondary),
+            Icon(Icons.draw_outlined, size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无描红题目'),
             const SizedBox(height: 12),
@@ -439,7 +448,8 @@ class _TracePathGameState extends State<TracePathGame> {
       mascot: '✏️',
       prompt: prompt,
       replayText: '用手指沿着字描一描。$prompt',
-      stepLabel: '第 ${_targets.indexWhere((t) => t.id == current.id) + 1} / ${_targets.length} 个字',
+      stepLabel:
+          '第 ${_targets.indexWhere((t) => t.id == current.id) + 1} / ${_targets.length} 个字',
       current: _passedIds.length,
       total: _targets.length,
       voice: _voice,
@@ -535,7 +545,8 @@ class _TracePathPainter extends CustomPainter {
   }) : super(repaint: repaint);
 
   static const double _canvasSize = _TracePathGameState._canvasSize;
-  static const double _glyphFontSizeRatio = _TracePathGameState._glyphFontSizeRatio;
+  static const double _glyphFontSizeRatio =
+      _TracePathGameState._glyphFontSizeRatio;
   static const double _brushRadius = _TracePathGameState._brushRadius;
 
   @override
@@ -575,5 +586,6 @@ class _TracePathPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_TracePathPainter oldDelegate) => oldDelegate.repaint != repaint;
+  bool shouldRepaint(_TracePathPainter oldDelegate) =>
+      oldDelegate.repaint != repaint;
 }

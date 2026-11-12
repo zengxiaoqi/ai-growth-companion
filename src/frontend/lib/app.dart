@@ -53,7 +53,8 @@ class LingxiApp extends StatelessWidget {
   const LingxiApp({super.key});
 
   /// 解析 childId：路由参数优先，fallback 到 UserProvider.activeChildId
-  static int? _resolveChildId(BuildContext context, Map<String, dynamic>? args) {
+  static int? _resolveChildId(
+      BuildContext context, Map<String, dynamic>? args) {
     if (args != null && args.containsKey('childId')) {
       return args['childId'] as int?;
     }
@@ -116,7 +117,8 @@ class LingxiApp extends StatelessWidget {
         // Helper — wraps a builder with the chosen transition factory.
         Route<T> page<T>(
           WidgetBuilder builder,
-          Route<T> Function(WidgetBuilder, {RouteSettings? settings}) transition,
+          Route<T> Function(WidgetBuilder, {RouteSettings? settings})
+              transition,
         ) {
           return transition(builder, settings: settings);
         }
@@ -307,8 +309,8 @@ class LingxiApp extends StatelessWidget {
                 document: args?['document'] as LessonSceneDocument? ??
                     const LessonSceneDocument(scenes: []),
                 isCompleted: args?['isCompleted'] as bool? ?? false,
-                onComplete: args?['onComplete']
-                    as void Function(int?, Map<String, dynamic>?)?,
+                onComplete: args?['onComplete'] as void Function(
+                    int?, Map<String, dynamic>?)?,
               ),
               childFriendly,
             );
@@ -358,6 +360,15 @@ class _HomeScreen extends StatelessWidget {
         final role = userProvider.activeRole ??
             userProvider.currentUser?['type']?.toString() ??
             'child';
+
+        // 同步全局静态取色板：`AppTheme.xxx` getter 代理 [AppTheme.active]，
+        // 孩子端跟随当前皮肤，家长端 / 未登录强制 honey（与 lightTheme 一致）。
+        // 在 build 中同步赋值即可：随后的子树 build 读取到的是新值；
+        // 换肤时 ChildThemeController.notifyListeners 会重建整个 MaterialApp，
+        // 本 build 会再次执行并刷新 active，无循环重建风险。
+        AppTheme.active = role == 'parent'
+            ? ChildThemePalette.honey
+            : context.read<ChildThemeController>().palette;
 
         if (role == 'parent') {
           // 家长端不参与换肤：强制用原始蜜黄主题覆盖当前孩子皮肤。

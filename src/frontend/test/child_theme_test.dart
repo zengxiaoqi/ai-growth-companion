@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:lingxi_companion/services/storage_service.dart';
+import 'package:lingxi_companion/theme/app_theme.dart';
 import 'package:lingxi_companion/theme/child_theme.dart';
 
 void main() {
@@ -112,6 +113,60 @@ void main() {
       final mid = ChildThemePalette.candy.lerp(ChildThemePalette.forest, 0.5);
       expect(mid.radiusLg, 31);
       expect(ChildThemePalette.candy.lerp(null, 0.5), ChildThemePalette.candy);
+    });
+  });
+
+  group('AppTheme 静态取色代理（历史代码零迁移换肤）', () {
+    test('active=honey 时全部 getter 与蜜黄基准一致', () {
+      AppTheme.active = ChildThemePalette.honey;
+      expect(AppTheme.primaryColor, AppTheme.honeyPrimary);
+      expect(AppTheme.backgroundColor, AppTheme.honeyBackground);
+      expect(AppTheme.textColor, AppTheme.honeyText);
+      expect(AppTheme.textSecondary, AppTheme.honeyTextSecondary);
+      expect(AppTheme.cardRadius, AppTheme.honeyCardRadius);
+      expect(AppTheme.softYellow, AppTheme.honeySoftYellow);
+      expect(AppTheme.childColors, AppTheme.honeyChildColors);
+    });
+
+    test('active=candy 时 getter 跟随糖果皮肤，圆角变大、文字变粉调', () {
+      AppTheme.active = ChildThemePalette.candy;
+      expect(AppTheme.primaryColor, ChildThemePalette.candy.pop);
+      expect(AppTheme.backgroundColor, ChildThemePalette.candy.paper);
+      expect(AppTheme.textColor, ChildThemePalette.candy.ink);
+      expect(AppTheme.cardRadius, 34); // candy radiusLg
+      expect(AppTheme.buttonRadius, 26);
+      expect(AppTheme.softYellow, ChildThemePalette.candy.soft);
+      // 语义色不随皮肤变化
+      expect(AppTheme.warningColor, const Color(0xFFB02500));
+      expect(AppTheme.successColor, const Color(0xFF4CAF50));
+    });
+
+    testWidgets('真实 widget 里的 AppTheme.textColor 随 active 换色', (tester) async {
+      const probeKey = Key('probe');
+      Widget probe(Color color) => Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text('x', key: probeKey, style: TextStyle(color: color)),
+          );
+
+      AppTheme.active = ChildThemePalette.honey;
+      await tester.pumpWidget(probe(AppTheme.textColor));
+      var text = tester.widget<Text>(find.byKey(probeKey));
+      expect(text.style!.color, AppTheme.honeyText);
+
+      AppTheme.active = ChildThemePalette.space;
+      await tester.pumpWidget(probe(AppTheme.textColor));
+      text = tester.widget<Text>(find.byKey(probeKey));
+      expect(text.style!.color, ChildThemePalette.space.ink);
+    });
+
+    testWidgets('lightTheme 恒为蜜黄（家长端不串色）', (tester) async {
+      AppTheme.active = ChildThemePalette.candy;
+      final theme = AppTheme.lightTheme;
+      expect(theme.scaffoldBackgroundColor, AppTheme.honeyBackground);
+      expect(theme.colorScheme.primary, AppTheme.honeyPrimary);
+      // active 仍为 candy，静态 getter 不受 lightTheme 影响
+      expect(AppTheme.primaryColor, ChildThemePalette.candy.pop);
+      AppTheme.active = ChildThemePalette.honey;
     });
   });
 }

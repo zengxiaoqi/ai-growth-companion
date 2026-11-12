@@ -207,7 +207,7 @@ class _StructuredLessonViewState extends State<StructuredLessonView> {
             onPressed: widget.onBack,
           ),
         ),
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor),
         ),
       );
@@ -231,7 +231,7 @@ class _StructuredLessonViewState extends State<StructuredLessonView> {
               children: [
                 Text(
                   _error!,
-                  style: const TextStyle(color: AppTheme.textColor),
+                  style: TextStyle(color: AppTheme.textColor),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -250,7 +250,8 @@ class _StructuredLessonViewState extends State<StructuredLessonView> {
     final completedCount = _completedStepIds.length;
     final totalCount = _steps.length;
     final progress = totalCount == 0 ? 0.0 : completedCount / totalCount;
-    final currentStepIndex = _steps.indexWhere((s) => !_completedStepIds.contains(s.id));
+    final currentStepIndex =
+        _steps.indexWhere((s) => !_completedStepIds.contains(s.id));
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -472,10 +473,11 @@ class _LessonStepCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           statusUi.label,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: statusUi.text,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: statusUi.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                       ],
                     ),
@@ -507,7 +509,8 @@ class _LessonStepLearningScreen extends StatefulWidget {
   });
 
   @override
-  State<_LessonStepLearningScreen> createState() => _LessonStepLearningScreenState();
+  State<_LessonStepLearningScreen> createState() =>
+      _LessonStepLearningScreenState();
 }
 
 class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
@@ -544,9 +547,10 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
                     children: [
                       Text(
                         '学习内容',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -594,7 +598,8 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.task_alt_rounded)),
-                  label: Text(done ? '本章节已完成' : (_isCompleting ? '正在提交...' : '完成本章节')),
+                  label: Text(
+                      done ? '本章节已完成' : (_isCompleting ? '正在提交...' : '完成本章节')),
                 ),
               ),
             ],
@@ -632,7 +637,8 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
                           _toInt(result['timeSpent'], fallback: 60),
                       interactionData: {
                         'stepType': 'game',
-                        'gameType': payload['activityType']?.toString() ?? 'quiz',
+                        'gameType':
+                            payload['activityType']?.toString() ?? 'quiz',
                         'gameResult': result,
                       },
                     );
@@ -663,7 +669,7 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
   }
 
   Widget _buildCompletedState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -691,8 +697,7 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
 
   Map<String, dynamic> _resolveGamePayload(Map<String, dynamic> module) {
     final game = module['game'] is Map
-        ? (module['game'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v))
+        ? (module['game'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : <String, dynamic>{};
 
     final activityType = _pickFirstText([
@@ -755,7 +760,14 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
       chunks.add('类型：${_moduleTypeLabel(type)}');
     }
 
-    final keys = ['title', 'summary', 'description', 'instruction', 'instructions', 'hint'];
+    final keys = [
+      'title',
+      'summary',
+      'description',
+      'instruction',
+      'instructions',
+      'hint'
+    ];
     for (final key in keys) {
       final text = _flatten(module[key]);
       if (text.isNotEmpty) {
@@ -791,10 +803,7 @@ class _LessonStepLearningScreenState extends State<_LessonStepLearningScreen> {
     if (value is String) return value.trim();
     if (value is num || value is bool) return value.toString();
     if (value is List) {
-      return value
-          .map((e) => _flatten(e))
-          .where((e) => e.isNotEmpty)
-          .join('；');
+      return value.map((e) => _flatten(e)).where((e) => e.isNotEmpty).join('；');
     }
     if (value is Map) {
       final parts = <String>[];

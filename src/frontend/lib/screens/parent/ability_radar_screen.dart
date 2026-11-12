@@ -63,7 +63,8 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
 
     setState(() {
       _children = children;
-      _selectedChildId = _toInt(children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId =
+          _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
 
@@ -123,7 +124,8 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 20, color: AppTheme.textColor),
+                child: Icon(Icons.arrow_back_rounded,
+                    size: 20, color: AppTheme.textColor),
               ),
             ),
           ),
@@ -135,7 +137,8 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
 
   Widget _buildBody() {
     if (_isLoadingChildren) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
 
     if (_children.isEmpty) {
@@ -147,7 +150,8 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
     }
 
     final chart = _buildRadarCompare();
-    final hasData = chart.currentValues.any((v) => v > 0) || chart.previousValues.any((v) => v > 0);
+    final hasData = chart.currentValues.any((v) => v > 0) ||
+        chart.previousValues.any((v) => v > 0);
 
     return RefreshIndicator(
       color: AppTheme.primaryColor,
@@ -179,20 +183,25 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '五维能力评估',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '从语言、数学、科学、艺术、社交观察孩子的成长变化',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),
             if (_isLoadingAbility)
-              const SizedBox(
+              SizedBox(
                 height: 280,
-                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.primaryColor)),
               )
             else if (!hasData)
               const SizedBox(
@@ -210,12 +219,12 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                   RadarChartData(
                     radarShape: RadarShape.polygon,
                     tickCount: 5,
-                    titleTextStyle: const TextStyle(
+                    titleTextStyle: TextStyle(
                       color: AppTheme.textColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
-                    ticksTextStyle: const TextStyle(
+                    ticksTextStyle: TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 10,
                     ),
@@ -236,18 +245,24 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                     },
                     dataSets: [
                       RadarDataSet(
-                        fillColor: AppTheme.primaryColor.withValues(alpha: 0.28),
+                        fillColor:
+                            AppTheme.primaryColor.withValues(alpha: 0.28),
                         borderColor: AppTheme.primaryColor,
                         borderWidth: 2,
                         entryRadius: 3,
-                        dataEntries: chart.currentValues.map((v) => RadarEntry(value: v)).toList(),
+                        dataEntries: chart.currentValues
+                            .map((v) => RadarEntry(value: v))
+                            .toList(),
                       ),
                       RadarDataSet(
-                        fillColor: AppTheme.secondaryColor.withValues(alpha: 0.16),
+                        fillColor:
+                            AppTheme.secondaryColor.withValues(alpha: 0.16),
                         borderColor: AppTheme.secondaryColor,
                         borderWidth: 2,
                         entryRadius: 3,
-                        dataEntries: chart.previousValues.map((v) => RadarEntry(value: v)).toList(),
+                        dataEntries: chart.previousValues
+                            .map((v) => RadarEntry(value: v))
+                            .toList(),
                       ),
                     ],
                     borderData: FlBorderData(show: false),
@@ -257,7 +272,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                 ),
               ),
             const SizedBox(height: 8),
-            const Wrap(
+            Wrap(
               spacing: 18,
               children: [
                 _LegendDot(color: AppTheme.primaryColor, text: '当前'),
@@ -284,7 +299,8 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
             final delta = current - previous;
 
             return Padding(
-              padding: EdgeInsets.only(bottom: index == _domains.length - 1 ? 0 : 12),
+              padding: EdgeInsets.only(
+                  bottom: index == _domains.length - 1 ? 0 : 12),
               child: Row(
                 children: [
                   Container(
@@ -299,19 +315,25 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
                   Expanded(
                     child: Text(
                       domain.label,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700),
                     ),
                   ),
                   Text(
                     '${current.toStringAsFixed(0)}分',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textColor),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: AppTheme.textColor),
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    delta == 0 ? '持平' : '${delta > 0 ? '+' : ''}${delta.toStringAsFixed(0)}',
+                    delta == 0
+                        ? '持平'
+                        : '${delta > 0 ? '+' : ''}${delta.toStringAsFixed(0)}',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: delta >= 0 ? const Color(0xFF0B8F55) : const Color(0xFFB3261E),
+                      color: delta >= 0
+                          ? const Color(0xFF0B8F55)
+                          : const Color(0xFFB3261E),
                     ),
                   ),
                 ],
@@ -394,7 +416,9 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
   }
 
   double _toScore(dynamic value) {
-    final score = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
+    final score = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString() ?? '') ?? 0;
     return score.clamp(0, 100).toDouble();
   }
 
@@ -421,18 +445,19 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+        Text(text,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
       ],
     );
   }
 }
 
-
 class _RadarCompare {
   final List<double> currentValues;
   final List<double> previousValues;
 
-  const _RadarCompare({required this.currentValues, required this.previousValues});
+  const _RadarCompare(
+      {required this.currentValues, required this.previousValues});
 }
 
 class _DomainMeta {
@@ -440,5 +465,6 @@ class _DomainMeta {
   final String label;
   final Color color;
 
-  const _DomainMeta({required this.key, required this.label, required this.color});
+  const _DomainMeta(
+      {required this.key, required this.label, required this.color});
 }

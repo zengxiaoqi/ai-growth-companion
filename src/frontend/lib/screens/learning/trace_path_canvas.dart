@@ -224,8 +224,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
     final t = ((point.dx - segment.start.dx) * dx +
             (point.dy - segment.start.dy) * dy) /
-        (dx * dx + dy * dy)
-        .clamp(0.0, 1.0);
+        (dx * dx + dy * dy).clamp(0.0, 1.0);
 
     final px = segment.start.dx + t * dx;
     final py = segment.start.dy + t * dy;
@@ -321,7 +320,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor,
@@ -336,7 +335,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                       color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.refresh_rounded,
@@ -397,10 +396,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
             const SizedBox(height: 12),
 
             // 结果展示
-            if (_solved)
-              _buildSolvedState()
-            else
-              _buildProgressState(),
+            if (_solved) _buildSolvedState() else _buildProgressState(),
           ],
         ),
       ),
@@ -415,7 +411,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
         color: AppTheme.primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle_rounded,
@@ -461,7 +457,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               _warning!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
               ),
@@ -474,14 +470,14 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
           children: [
             Text(
               '覆盖率 ${(_coverage * 100).toInt()}%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
               ),
             ),
             Text(
               '尝试次数: $_attempts',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,
               ),
@@ -658,4 +654,3 @@ class _TracePathPainter extends CustomPainter {
         canvasSize != oldDelegate.canvasSize;
   }
 }
-

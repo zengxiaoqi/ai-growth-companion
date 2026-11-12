@@ -150,7 +150,9 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
 
     try {
       final results = await Future.wait([
-        parentId != null ? api.getAssignmentsByParent(parentId) : Future.value([]),
+        parentId != null
+            ? api.getAssignmentsByParent(parentId)
+            : Future.value([]),
         api.getDraftLessons(childId),
       ]);
 
@@ -302,7 +304,8 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
         if (type != 'video' && type != 'animation') continue;
 
         final scenes = module['visualStory']?['scenes'] ??
-            module['videoLesson']?['shots'] ?? [];
+            module['videoLesson']?['shots'] ??
+            [];
         if (scenes is List) {
           for (final scene in scenes) {
             if (scene is Map) {
@@ -453,7 +456,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded,
+                child: Icon(Icons.arrow_back_rounded,
                     size: 20, color: AppTheme.textColor),
               ),
             ),
@@ -466,7 +469,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
 
   Widget _buildBody() {
     if (_isLoadingChildren) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.primaryColor),
       );
     }
@@ -524,7 +527,8 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
+          Icon(Icons.error_outline_rounded,
+              color: Colors.red.shade700, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -587,7 +591,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '创建新作业',
               style: TextStyle(
                 fontSize: 18,
@@ -617,7 +621,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide:
-                      const BorderSide(color: AppTheme.primaryColor, width: 2),
+                      BorderSide(color: AppTheme.primaryColor, width: 2),
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -704,7 +708,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 草稿作业列表
   Widget _buildDraftSection() {
     if (_isLoadingData) {
-      return const SizedBox(
+      return SizedBox(
         height: 200,
         child: Center(child: ShimmerCard(height: 120)),
       );
@@ -753,8 +757,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     final contentType = draft['contentType']?.toString() ?? '';
     final isCoursePack = contentType == 'course_pack';
     final isVideoDraft = _isVideoContentType(contentType);
-    final hasScenes =
-        isVideoDraft && _extractScenes(draft).isNotEmpty;
+    final hasScenes = isVideoDraft && _extractScenes(draft).isNotEmpty;
     final title = draft['title']?.toString() ?? '未命名草稿';
     final subtitle = draft['subtitle']?.toString();
     final createdAt = _toDateTime(draft['createdAt']);
@@ -798,7 +801,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                           Flexible(
                             child: Text(
                               title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textColor,
@@ -815,7 +818,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                         const SizedBox(height: 2),
                         Text(
                           subtitle,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: AppTheme.textSecondary,
                           ),
@@ -825,7 +828,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                         const SizedBox(height: 2),
                         Text(
                           _formatDate(createdAt),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppTheme.textSecondary,
                           ),
@@ -870,8 +873,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                       label: const Text('预览场景'),
                       style: TextButton.styleFrom(
                         foregroundColor: AppTheme.primaryColor,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
                         minimumSize: const Size(0, 32),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -879,15 +881,13 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                   const SizedBox(width: 4),
                   TextButton.icon(
                     onPressed: () {
-                      Navigator.pushNamed(
-                          context, '/parent/lessonGenerator');
+                      Navigator.pushNamed(context, '/parent/lessonGenerator');
                     },
                     icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
                     label: const Text('去课程生成器'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.secondaryColor,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       minimumSize: const Size(0, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -931,7 +931,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   /// 已布置作业列表
   Widget _buildAssignmentSection() {
     if (_isLoadingData) {
-      return const SizedBox(
+      return SizedBox(
         height: 200,
         child: Center(child: ShimmerCard(height: 120)),
       );
@@ -987,16 +987,15 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
 
     final activityType = assignment['activityType']?.toString() ?? '';
     final activityLabel = _activityTypes
-            .firstWhere(
-              (t) => t.value == activityType,
-              orElse: () => _activityTypes.first,
-            )
-            .label;
+        .firstWhere(
+          (t) => t.value == activityType,
+          orElse: () => _activityTypes.first,
+        )
+        .label;
 
     final activityData = assignment['activityData'];
-    final topic = activityData is Map
-        ? activityData['topic']?.toString()
-        : null;
+    final topic =
+        activityData is Map ? activityData['topic']?.toString() : null;
     final displayTitle = topic?.isNotEmpty == true ? topic! : activityType;
 
     final score = _toInt(assignment['score']);
@@ -1049,7 +1048,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                           Flexible(
                             child: Text(
                               displayTitle,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textColor,
@@ -1067,7 +1066,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                         children: [
                           Text(
                             activityLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary,
                             ),
@@ -1087,7 +1086,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                             const SizedBox(width: 10),
                             Text(
                               _formatDate(createdAt),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: AppTheme.textSecondary,
                               ),
@@ -1208,8 +1207,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    const BorderSide(color: AppTheme.primaryColor, width: 2),
+                borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1255,8 +1253,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                     ))
                 .toList(),
             selectedValue: _editDifficulty.toString(),
-            onSelected: (v) =>
-                setState(() => _editDifficulty = int.parse(v)),
+            onSelected: (v) => setState(() => _editDifficulty = int.parse(v)),
             selectedColor: AppTheme.accentColor,
             compact: true,
           ),
@@ -1339,7 +1336,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
                   Icon(Icons.movie_creation_outlined,
                       size: 18, color: AppTheme.primaryColor),
@@ -1356,7 +1353,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
               ),
               const SizedBox(height: 8),
               if (scenes.isNotEmpty) ...[
-                const Text(
+                Text(
                   '场景列表预览：',
                   style: TextStyle(
                     fontSize: 12,
@@ -1372,7 +1369,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       '... 共 ${scenes.length} 个场景',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppTheme.textSecondary,
                         fontStyle: FontStyle.italic,
@@ -1380,7 +1377,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                     ),
                   ),
               ] else ...[
-                const Text(
+                Text(
                   '作业内容需在"AI 课程生成器"中编辑场景和内容。',
                   style: TextStyle(
                     fontSize: 12,
@@ -1393,8 +1390,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.pushNamed(
-                        context, '/parent/lessonGenerator');
+                    Navigator.pushNamed(context, '/parent/lessonGenerator');
                   },
                   icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
                   label: const Text('去 AI 课程生成器编辑'),
@@ -1443,7 +1439,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
             alignment: Alignment.center,
             child: Text(
               '${index + 1}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.accentColor,
@@ -1457,7 +1453,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
               children: [
                 Text(
                   displayTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppTheme.textColor,
                   ),
@@ -1470,7 +1466,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                     narration.length > 60
                         ? '${narration.substring(0, 60)}...'
                         : narration,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: AppTheme.textSecondary,
                     ),
@@ -1517,8 +1513,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
             if (modules is List) {
               for (final module in modules) {
                 if (module is Map) {
-                  final type =
-                      module['type']?.toString().toLowerCase() ?? '';
+                  final type = module['type']?.toString().toLowerCase() ?? '';
                   if (type == 'video' || type == 'animation') {
                     tryExtract(module['visualStory']?['scenes']);
                     tryExtract(module['videoLesson']?['shots']);
@@ -1540,7 +1535,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
         color: AppTheme.textSecondary,
@@ -1553,7 +1548,7 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   Widget _buildSectionLabel(String label) {
     return Text(
       label,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
         color: AppTheme.textColor,
@@ -1647,9 +1642,6 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
   }
 }
 
-
-
-
 /// 视频/动画作业场景预览底部弹出面板
 class _VideoPreviewSheet extends StatefulWidget {
   final String title;
@@ -1713,17 +1705,16 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
 
             // 标题栏
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.movie_creation_outlined,
+                  Icon(Icons.movie_creation_outlined,
                       color: AppTheme.primaryColor, size: 22),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       widget.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textColor,
@@ -1733,15 +1724,15 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       '${scenes.length} 个场景',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.primaryColor,
@@ -1756,13 +1747,12 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
 
             // 场景进度条
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 children: [
                   Text(
                     '场景 ${_currentScene + 1} / ${scenes.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textSecondary,
@@ -1804,8 +1794,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
 
             // 底部导航栏
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
@@ -1867,7 +1856,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                           color: AppTheme.secondaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.apps_rounded,
                           size: 20,
                           color: AppTheme.secondaryColor,
@@ -1920,7 +1909,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                 ),
                 child: Text(
                   '🎬 场景 ${index + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.accentColor,
@@ -1964,7 +1953,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                     Text(
                       scene.onScreenText,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textColor,
@@ -1990,7 +1979,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.record_voice_over_rounded,
                             size: 16, color: AppTheme.textSecondary),
@@ -2008,7 +1997,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                     const SizedBox(height: 8),
                     Text(
                       scene.narration,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textColor,
                         height: 1.6,
@@ -2031,7 +2020,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '场景详情',
                     style: TextStyle(
                       fontSize: 12,
@@ -2042,8 +2031,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
                   const SizedBox(height: 8),
                   _buildDetailRow('背景', scene.background),
                   _buildDetailRow('角色', scene.character),
-                  if (scene.imageUrl != null &&
-                      scene.imageUrl!.isNotEmpty)
+                  if (scene.imageUrl != null && scene.imageUrl!.isNotEmpty)
                     _buildDetailRow('图片', scene.imageUrl!),
                 ],
               ),
@@ -2059,15 +2047,18 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
     // 尝试解析十六进制颜色
     if (b.startsWith('#') && b.length == 7) {
       try {
-        return Color(
-            int.parse('0xFF${b.substring(1)}'));
+        return Color(int.parse('0xFF${b.substring(1)}'));
       } catch (_) {}
     }
     // 基于关键词返回颜色
     if (b.contains('sky') || b.contains('blue')) return Colors.blue.shade100;
-    if (b.contains('night') || b.contains('dark')) return Colors.indigo.shade100;
+    if (b.contains('night') || b.contains('dark')) {
+      return Colors.indigo.shade100;
+    }
     if (b.contains('sun') || b.contains('yellow')) return Colors.amber.shade100;
-    if (b.contains('forest') || b.contains('green')) return Colors.green.shade100;
+    if (b.contains('forest') || b.contains('green')) {
+      return Colors.green.shade100;
+    }
     if (b.contains('sea') || b.contains('ocean')) return Colors.teal.shade100;
     if (b.contains('pink') || b.contains('rose')) return Colors.pink.shade100;
     return null;
@@ -2084,7 +2075,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
             width: 40,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppTheme.textSecondary,
               ),
@@ -2093,7 +2084,7 @@ class _VideoPreviewSheetState extends State<_VideoPreviewSheet> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textColor,
               ),
@@ -2126,8 +2117,7 @@ class _NavButton extends StatelessWidget {
     return TextButton.icon(
       onPressed: enabled ? onTap : null,
       label: Text(label),
-      icon: Icon(isNext ? icon : icon,
-          size: 18),
+      icon: Icon(isNext ? icon : icon, size: 18),
       style: TextButton.styleFrom(
         foregroundColor: AppTheme.primaryColor,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

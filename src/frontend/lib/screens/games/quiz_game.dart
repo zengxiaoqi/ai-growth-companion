@@ -80,11 +80,13 @@ class _QuizGameState extends State<QuizGame>
       for (var i = 0; i < options.length; i++) {
         parts.add('选项${String.fromCharCode(65 + i)}。${options[i]}');
       }
-      speakAfterDelay(parts.join('。'), delay: const Duration(milliseconds: 400));
+      speakAfterDelay(parts.join('。'),
+          delay: const Duration(milliseconds: 400));
     }
   }
 
-  void _speakAnswerFeedback(List<String> options, int correctIndex, bool isCorrect) {
+  void _speakAnswerFeedback(
+      List<String> options, int correctIndex, bool isCorrect) {
     if (!ttsEnabled) return;
     if (isCorrect) {
       final explanation = _questions[_currentIndex]['explanation']?.toString();
@@ -116,16 +118,17 @@ class _QuizGameState extends State<QuizGame>
         .map((q) => q.map((k, v) => MapEntry(k.toString(), v)))
         .where((q) {
       // Support both 'question' (QuizGame) and 'q' (lesson_pack) field names
-      final questionText = q['question']?.toString() ?? q['q']?.toString() ?? '';
+      final questionText =
+          q['question']?.toString() ?? q['q']?.toString() ?? '';
       return questionText.isNotEmpty && q['options'] is List;
-    })
-        .map((q) {
+    }).map((q) {
       final options = (q['options'] as List)
           .map((e) => e.toString().trim())
           .where((e) => e.isNotEmpty)
           .toList();
       // Support both 'correctIndex'/'correctAnswer' (QuizGame) and 'answer' (lesson_pack) field names
-      var correctIndex = _toInt(q['correctIndex'] ?? q['correctAnswer'] ?? q['answer']);
+      var correctIndex =
+          _toInt(q['correctIndex'] ?? q['correctAnswer'] ?? q['answer']);
       // If answer is a string (e.g. "开心"), find its index in options
       if (correctIndex < 0 || correctIndex >= options.length) {
         final answerStr = q['answer']?.toString() ?? '';
@@ -141,7 +144,8 @@ class _QuizGameState extends State<QuizGame>
             (oneBased >= 0 && oneBased < options.length) ? oneBased : 0;
       }
       // Normalize question field name to 'question'
-      final questionText = q['question']?.toString() ?? q['q']?.toString() ?? '';
+      final questionText =
+          q['question']?.toString() ?? q['q']?.toString() ?? '';
       return {
         'question': questionText,
         'options': options,
@@ -280,16 +284,14 @@ class _QuizGameState extends State<QuizGame>
                 child: LinearProgressIndicator(
                   minHeight: 14,
                   value: (_currentIndex + 1) / questions.length,
-                  backgroundColor:
-                      AppTheme.softBlue.withValues(alpha: 0.2),
+                  backgroundColor: AppTheme.softBlue.withValues(alpha: 0.2),
                   color: AppTheme.primaryColor,
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
@@ -334,7 +336,8 @@ class _QuizGameState extends State<QuizGame>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.secondaryColor.withValues(alpha: 0.15),
+                          color:
+                              AppTheme.secondaryColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -391,8 +394,7 @@ class _QuizGameState extends State<QuizGame>
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _feedbackCorrect
                   ? AppTheme.accentColor.withValues(alpha: 0.15)
@@ -532,9 +534,8 @@ class _QuizOptionState extends State<_QuizOption>
         );
       },
       child: GestureDetector(
-        onTapDown: widget.onTap == null
-            ? null
-            : (_) => _pressController.forward(),
+        onTapDown:
+            widget.onTap == null ? null : (_) => _pressController.forward(),
         onTapUp: widget.onTap == null
             ? null
             : (_) {
@@ -593,7 +594,7 @@ class _QuizOptionState extends State<_QuizOption>
               ),
               // 状态图标
               if (widget.revealed && widget.isCorrect)
-                const Icon(Icons.check_circle_rounded,
+                Icon(Icons.check_circle_rounded,
                     color: AppTheme.accentColor, size: 24),
               if (widget.revealed && widget.isSelected && !widget.isCorrect)
                 const Icon(Icons.cancel_rounded,
@@ -672,7 +673,7 @@ class _EmptyGameState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.sentiment_neutral_rounded,
+          Icon(Icons.sentiment_neutral_rounded,
               size: 48, color: AppTheme.textSecondary),
           const SizedBox(height: 12),
           Text(message),

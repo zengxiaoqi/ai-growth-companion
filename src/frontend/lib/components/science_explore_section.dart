@@ -117,7 +117,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Text('🔭', style: TextStyle(fontSize: 22)),
               SizedBox(width: 8),
@@ -198,7 +198,8 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white.withValues(alpha: 0.7)),
+            icon:
+                Icon(Icons.refresh, color: Colors.white.withValues(alpha: 0.7)),
             onPressed: _loadIss,
           ),
         ],
@@ -408,7 +409,8 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white.withValues(alpha: 0.9)),
+            icon:
+                Icon(Icons.refresh, color: Colors.white.withValues(alpha: 0.9)),
             onPressed: _loadEarthquakes,
           ),
         ],
@@ -474,7 +476,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                 children: [
                   const Text('🌎', style: TextStyle(fontSize: 36)),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       '最近 24 小时地震',
                       style: TextStyle(
@@ -485,8 +487,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close,
-                        color: AppTheme.textSecondary),
+                    icon: Icon(Icons.close, color: AppTheme.textSecondary),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -509,7 +510,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('💡', style: TextStyle(fontSize: 18)),
@@ -562,7 +563,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
           Expanded(
             child: Text(
               place,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.textColor,
               ),
@@ -598,7 +599,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
             children: [
               const Text('🍎', style: TextStyle(fontSize: 22)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '水果百科',
                 style: TextStyle(
                   fontSize: 16,
@@ -609,7 +610,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
               const Spacer(),
               if (!_loadingFruits)
                 IconButton(
-                  icon: const Icon(Icons.refresh,
+                  icon: Icon(Icons.refresh,
                       color: AppTheme.textSecondary, size: 18),
                   onPressed: () {
                     setState(() => _loadingFruits = true);
@@ -640,8 +641,9 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                 childAspectRatio: 1.0,
               ),
               itemCount: _fruits.length,
-              itemBuilder: (ctx, i) =>
-                  _FruitTile(fruit: _fruits[i], onTap: () => _showFruitDetail(ctx, _fruits[i])),
+              itemBuilder: (ctx, i) => _FruitTile(
+                  fruit: _fruits[i],
+                  onTap: () => _showFruitDetail(ctx, _fruits[i])),
             ),
         ],
       ),
@@ -684,7 +686,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                     children: [
                       Text(
                         nameZh,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textColor,
@@ -692,7 +694,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                       ),
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textSecondary,
                           fontStyle: FontStyle.italic,
@@ -702,8 +704,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close,
-                      color: AppTheme.textSecondary),
+                  icon: Icon(Icons.close, color: AppTheme.textSecondary),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
@@ -728,7 +729,8 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
             _fruitInfoRow('属', '$genus'),
             if (calories != null) _fruitInfoRow('热量', '$calories kcal/100g'),
             if (carbs != null) _fruitInfoRow('碳水', '${_numFmt(carbs)} g/100g'),
-            if (protein != null) _fruitInfoRow('蛋白质', '${_numFmt(protein)} g/100g'),
+            if (protein != null)
+              _fruitInfoRow('蛋白质', '${_numFmt(protein)} g/100g'),
             if (sugar != null) _fruitInfoRow('糖', '${_numFmt(sugar)} g/100g'),
             const SizedBox(height: 16),
             Container(
@@ -737,7 +739,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
                 color: AppTheme.backgroundColor,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('💡', style: TextStyle(fontSize: 18)),
@@ -798,7 +800,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.textColor,
                 fontWeight: FontWeight.w500,
@@ -936,7 +938,7 @@ class _FruitTile extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               nameZh,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textColor,
@@ -961,15 +963,16 @@ class _FruitTile extends StatelessWidget {
                 tts.speak(name, voice: 'en-US-AriaNeural');
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppTheme.accentColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.volume_up, size: 10, color: AppTheme.accentColor),
+                  children: [
+                    Icon(Icons.volume_up,
+                        size: 10, color: AppTheme.accentColor),
                     SizedBox(width: 2),
                     Text(
                       '朗读',

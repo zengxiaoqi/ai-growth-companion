@@ -148,8 +148,10 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
     _cheerKey = 0;
     _finished = false;
     _completedCalled = false;
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 180).clamp(60, 300).toInt();
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 180).clamp(60, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
   }
 
@@ -276,10 +278,11 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
     if (_completedCalled) return;
     _completedCalled = true;
 
-    final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-        .round()
-        .clamp(0, 86400)
-        .toInt();
+    final seconds =
+        ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+            .round()
+            .clamp(0, 86400)
+            .toInt();
     final total = _pairs.length;
     const score = 100;
 
@@ -346,8 +349,7 @@ class _MemoryFlipGameState extends State<MemoryFlipGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.style_outlined,
-                size: 48, color: AppTheme.textSecondary),
+            Icon(Icons.style_outlined, size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无记忆翻牌题目'),
             const SizedBox(height: 12),

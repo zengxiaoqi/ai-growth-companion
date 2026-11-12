@@ -279,10 +279,8 @@ class _WeatherCardState extends State<WeatherCard> {
           spacing: 12,
           runSpacing: 8,
           children: [
-            if (humidity is num)
-              _chip('💧', '湿度 $humidity%'),
-            if (wind is num)
-              _chip('🌬️', '风 $wind $windUnit'),
+            if (humidity is num) _chip('💧', '湿度 $humidity%'),
+            if (wind is num) _chip('🌬️', '风 $wind $windUnit'),
             if (sunrise != null) _chip('🌅', '日出 $sunrise'),
             if (sunset != null) _chip('🌇', '日落 $sunset'),
           ],
@@ -364,7 +362,7 @@ class _WeatherCardState extends State<WeatherCard> {
                 Expanded(
                   child: Text(
                     info.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textColor,
@@ -372,13 +370,13 @@ class _WeatherCardState extends State<WeatherCard> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                  icon: Icon(Icons.close, color: AppTheme.textSecondary),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const Row(
+            Row(
               children: [
                 Text('💡', style: TextStyle(fontSize: 20)),
                 SizedBox(width: 8),
@@ -395,7 +393,7 @@ class _WeatherCardState extends State<WeatherCard> {
             const SizedBox(height: 8),
             Text(
               info.fact,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 height: 1.7,
                 color: AppTheme.textColor,

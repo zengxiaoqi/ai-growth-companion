@@ -206,7 +206,8 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
           if (!isListening && _state == SpeechInputState.listening) {
             // 录音意外停止（如浏览器自动停止），等待最终结果
             // 不直接 _stopListening，让 silenceTimer 或 onend 处理
-            debugPrint('[speech] onStateChange(false) during listening — waiting for final result');
+            debugPrint(
+                '[speech] onStateChange(false) during listening — waiting for final result');
           }
         },
         onError: (err) {
@@ -262,7 +263,8 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
     // 最终文字 = final results + interim results
     final finalText = (_recognizedText + _interimText).trim();
-    debugPrint('[speech] stopListening — final="$_recognizedText" interim="$_interimText" → "$finalText"');
+    debugPrint(
+        '[speech] stopListening — final="$_recognizedText" interim="$_interimText" → "$finalText"');
     if (finalText.isNotEmpty) {
       widget.onResult(finalText);
     }
@@ -347,7 +349,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
             ),
           ],
         ),
-        child: const Icon(
+        child: Icon(
           Icons.mic_rounded,
           color: AppTheme.secondaryColor,
           size: 24,
@@ -386,8 +388,8 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.warningColor.withValues(alpha:
-                          0.4 * _pulseOpacity.value,
+                        color: AppTheme.warningColor.withValues(
+                          alpha: 0.4 * _pulseOpacity.value,
                         ),
                         blurRadius: 20,
                         spreadRadius: 2,
@@ -457,7 +459,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
           width: 2,
         ),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(10),
         child: CircularProgressIndicator(
           color: AppTheme.softPurple,
@@ -482,7 +484,8 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
             title: const Row(children: [
               Text('🎤', style: TextStyle(fontSize: 28)),
               SizedBox(width: 10),
-              Text('语音识别不可用', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text('语音识别不可用',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ]),
             content: Text(
               _errorMessage.isEmpty
@@ -491,7 +494,9 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
               style: const TextStyle(fontSize: 14, height: 1.5),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('知道了')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('知道了')),
             ],
           ),
         );
@@ -578,7 +583,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
             width: 2,
           ),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.mic_off_rounded,
           color: AppTheme.textSecondary,
           size: 24,

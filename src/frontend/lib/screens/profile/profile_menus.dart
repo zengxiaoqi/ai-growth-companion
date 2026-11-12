@@ -15,14 +15,15 @@ import '../../theme/app_theme.dart';
 // 通用外壳：底部圆角弹层
 // ─────────────────────────────────────────────────────────────
 
-Future<T?> _showSheet<T>(BuildContext context, Widget child, {double heightFactor = 0.62}) {
+Future<T?> _showSheet<T>(BuildContext context, Widget child,
+    {double heightFactor = 0.62}) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => Container(
       height: MediaQuery.of(context).size.height * heightFactor,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -51,7 +52,7 @@ Widget _sheetTitle(String emoji, String title) => Padding(
           const SizedBox(width: 10),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
@@ -61,7 +62,8 @@ Widget _sheetTitle(String emoji, String title) => Padding(
       ),
     );
 
-void _toast(BuildContext context, String message, {Color color = AppTheme.successColor}) {
+void _toast(BuildContext context, String message,
+    {Color color = AppTheme.successColor}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(message),
@@ -143,18 +145,22 @@ class _AboutSheetState extends State<_AboutSheet> {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.primaryColor,
+                                Color(0xFFFF9EBB)
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
+                            boxShadow:
+                                AppTheme.glowShadow(AppTheme.primaryColor),
                           ),
                           child: const Center(
                             child: Text('🦊', style: TextStyle(fontSize: 40)),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           '灵犀伴学',
                           style: TextStyle(
                             fontSize: 22,
@@ -173,7 +179,8 @@ class _AboutSheetState extends State<_AboutSheet> {
                         const SizedBox(height: 12),
                         // 版本信息行
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: AppTheme.softYellow.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(14),
@@ -181,12 +188,12 @@ class _AboutSheetState extends State<_AboutSheet> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.verified_rounded,
+                              Icon(Icons.verified_rounded,
                                   size: 16, color: AppTheme.secondaryColor),
                               const SizedBox(width: 6),
                               Text(
                                 '当前版本 $_versionText $_buildText',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.secondaryColor,
@@ -234,7 +241,8 @@ class _AboutSheetState extends State<_AboutSheet> {
 // 2. 个人资料（编辑姓名 / 年龄）
 // ─────────────────────────────────────────────────────────────
 
-Future<void> showProfileEditSheet(BuildContext context, UserProvider userProvider) {
+Future<void> showProfileEditSheet(
+    BuildContext context, UserProvider userProvider) {
   return _showSheet(
     context,
     _ProfileEditSheet(userProvider: userProvider),
@@ -261,7 +269,8 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
   void initState() {
     super.initState();
     final user = widget.userProvider.currentUser ?? {};
-    _nameController = TextEditingController(text: (user['name'] ?? '').toString());
+    _nameController =
+        TextEditingController(text: (user['name'] ?? '').toString());
     _age = ((user['age'] ?? 8) as num).toDouble().clamp(3, 18);
     _isParent = user['type']?.toString() == 'parent';
     _phone = (user['phone'] ?? '').toString();
@@ -301,7 +310,8 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetTitle(_isParent ? '👨‍👩‍👧' : '👤', _isParent ? '家长资料' : '个人资料'),
+                  _sheetTitle(_isParent ? '👨‍👩‍👧' : '👤',
+                      _isParent ? '家长资料' : '个人资料'),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(18),
@@ -312,7 +322,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('昵称',
+                        Text('昵称',
                             style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -324,11 +334,12 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                           decoration: InputDecoration(
                             counterText: '',
                             hintText: '输入昵称',
-                            prefixIcon: const Icon(Icons.badge_rounded, size: 20),
+                            prefixIcon:
+                                const Icon(Icons.badge_rounded, size: 20),
                             filled: true,
                             fillColor: AppTheme.backgroundColor,
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
@@ -337,7 +348,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                         ),
                         const SizedBox(height: 12),
                         if (_isParent) ...[
-                          const Text('手机号',
+                          Text('手机号',
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -345,28 +356,29 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                           const SizedBox(height: 6),
                           Text(
                             _phone.isEmpty ? '未绑定' : _phone,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 16, color: AppTheme.textColor),
                           ),
                         ] else ...[
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('年龄',
+                              Text('年龄',
                                   style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: AppTheme.textSecondary)),
                               Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+                                  color: AppTheme.secondaryColor
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
                                   '${_age.round()} 岁',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       color: AppTheme.secondaryColor),
@@ -400,8 +412,8 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                             borderRadius: BorderRadius.circular(16)),
                       ),
                       child: const Text('保存',
-                          style:
-                              TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -483,7 +495,8 @@ class _NotificationSheetState extends State<_NotificationSheet> {
   }
 
   Future<void> _save() async {
-    await _NotificationPrefs.save(enabled: _enabled, hour: _hour, sound: _sound);
+    await _NotificationPrefs.save(
+        enabled: _enabled, hour: _hour, sound: _sound);
     if (mounted) {
       setState(() => _dirty = false);
       _toast(context, '通知设置已保存 🔔');
@@ -527,24 +540,27 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                         ListTile(
                           contentPadding: EdgeInsets.zero,
                           enabled: _enabled,
-                          leading: const Text('⏰', style: TextStyle(fontSize: 20)),
-                          title: const Text('提醒时间',
+                          leading:
+                              const Text('⏰', style: TextStyle(fontSize: 20)),
+                          title: Text('提醒时间',
                               style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: AppTheme.textColor)),
                           subtitle: Text(_hourText,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 12, color: AppTheme.textSecondary)),
-                          trailing: const Icon(Icons.chevron_right_rounded, size: 22),
+                          trailing:
+                              const Icon(Icons.chevron_right_rounded, size: 22),
                           onTap: _enabled
                               ? () async {
                                   final picked = await showTimePicker(
                                     context: context,
-                                    initialTime: TimeOfDay(hour: _hour, minute: 0),
+                                    initialTime:
+                                        TimeOfDay(hour: _hour, minute: 0),
                                     builder: (context, child) => Theme(
-                                      data: Theme.of(context)
-                                          .copyWith(colorScheme: const ColorScheme.light(
+                                      data: Theme.of(context).copyWith(
+                                          colorScheme: ColorScheme.light(
                                         primary: AppTheme.secondaryColor,
                                       )),
                                       child: child!,
@@ -778,7 +794,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                 children: [
                   _sheetTitle('💬', '帮助与反馈'),
                   const SizedBox(height: 8),
-                  const Text('常见问题',
+                  Text('常见问题',
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -798,8 +814,9 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                             if (i > 0) const Divider(height: 1),
                             InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () => setState(() =>
-                                  open ? _expanded.remove(i) : _expanded.add(i)),
+                              onTap: () => setState(() => open
+                                  ? _expanded.remove(i)
+                                  : _expanded.add(i)),
                               child: Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
@@ -808,7 +825,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                                     Expanded(
                                       child: Text(
                                         '❓ ${_faqs[i].$1}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
                                             color: AppTheme.textColor),
@@ -818,8 +835,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                                       turns: open ? 0.5 : 0,
                                       duration:
                                           const Duration(milliseconds: 150),
-                                      child: const Icon(
-                                          Icons.expand_more_rounded,
+                                      child: Icon(Icons.expand_more_rounded,
                                           size: 22,
                                           color: AppTheme.textSecondary),
                                     ),
@@ -832,13 +848,14 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                               crossFadeState: open
                                   ? CrossFadeState.showSecond
                                   : CrossFadeState.showFirst,
-                              firstChild: const SizedBox(width: double.infinity),
+                              firstChild:
+                                  const SizedBox(width: double.infinity),
                               secondChild: Padding(
                                 padding:
                                     const EdgeInsets.only(bottom: 14, left: 4),
                                 child: Text(
                                   _faqs[i].$2,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 14,
                                       height: 1.5,
                                       color: AppTheme.textSecondary),
@@ -851,7 +868,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('意见反馈',
+                  Text('意见反馈',
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -874,7 +891,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                             counterText: '',
                             border: InputBorder.none,
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 14, color: AppTheme.textColor),
                         ),
                         const SizedBox(height: 8),
@@ -885,15 +902,13 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.secondaryColor,
                               foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14)),
                             ),
                             child: Text(_sending ? '提交中…' : '提交反馈',
                                 style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold)),
+                                    fontSize: 15, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -960,7 +975,7 @@ class _SheetCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textColor)),
@@ -1009,13 +1024,13 @@ class _SwitchRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textColor)),
                 Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ],
             ),
           ),

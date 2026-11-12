@@ -120,7 +120,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
   }
 
   Widget _buildHeader() {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.all(20),
       child: Row(
         children: [
@@ -156,14 +156,15 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${_assignments.length} 项',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.primaryColor,
@@ -194,8 +195,8 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                 final typeLabel = _assignmentTypeLabel(type);
                 final typeIcon = _assignmentTypeIcon(type);
 
-                final color = AppTheme.childColors[
-                    index % AppTheme.childColors.length];
+                final color =
+                    AppTheme.childColors[index % AppTheme.childColors.length];
 
                 return AppCard(
                   width: 180,
@@ -241,7 +242,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                           children: [
                             Text(
                               title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textColor,
@@ -279,7 +280,7 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 domain,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   color: AppTheme.textSecondary,
                                 ),
@@ -358,23 +359,23 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
               if (_courses.isNotEmpty)
                 Text(
                   '${_courses.length} 门课',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           // Content
           if (_loadingCourses)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+              padding: EdgeInsets.symmetric(vertical: 24),
               child: SizedBox(
                 height: 190,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  children: const [
+                  children: [
                     SizedBox(width: 12),
                     ShimmerCard(width: 180, height: 190),
                     SizedBox(width: 12),
@@ -410,8 +411,8 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                   final color = AppTheme.childColors[colorIndex];
 
                   final contentType = course['contentType']?.toString() ?? '';
-                  final isStructured =
-                      contentType == 'structured_lesson' || contentType == 'video_lesson';
+                  final isStructured = contentType == 'structured_lesson' ||
+                      contentType == 'video_lesson';
                   return _CourseCard(
                     title: title,
                     summary: summary,
@@ -420,7 +421,9 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
                     onTap: () {
                       Navigator.pushNamed(
                         context,
-                        isStructured ? '/learning/structuredLesson' : '/learning/contentDetail',
+                        isStructured
+                            ? '/learning/structuredLesson'
+                            : '/learning/contentDetail',
                         arguments: {
                           'contentId': courseId,
                           'childId': childId,
@@ -438,12 +441,54 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
 
   Widget _buildSubjectGrid() {
     final subjects = [
-      {'title': '语言', 'domain': 'language', 'icon': Icons.chat_bubble_rounded, 'emoji': '🗣️', 'color': AppTheme.primaryColor, 'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]},
-      {'title': '数学', 'domain': 'math', 'icon': Icons.calculate_rounded, 'emoji': '🔢', 'color': AppTheme.secondaryColor, 'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]},
-      {'title': '科学', 'domain': 'science', 'icon': Icons.science_rounded, 'emoji': '🔬', 'color': AppTheme.accentColor, 'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]},
-      {'title': '艺术', 'domain': 'art', 'icon': Icons.palette_rounded, 'emoji': '🎨', 'color': const Color(0xFF9A8FB8), 'gradient': [const Color(0xFF9A8FB8), const Color(0xFFB3ABC9)]},
-      {'title': '社会', 'domain': 'social', 'icon': Icons.people_rounded, 'emoji': '🌍', 'color': const Color(0xFFE3BC45), 'gradient': [const Color(0xFFE3BC45), const Color(0xFFFFE066)]},
-      {'title': '音乐', 'domain': 'music', 'icon': Icons.music_note_rounded, 'emoji': '🎵', 'color': const Color(0xFFC26B5A), 'gradient': [const Color(0xFFC26B5A), const Color(0xFFD18B7B)]},
+      {
+        'title': '语言',
+        'domain': 'language',
+        'icon': Icons.chat_bubble_rounded,
+        'emoji': '🗣️',
+        'color': AppTheme.primaryColor,
+        'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]
+      },
+      {
+        'title': '数学',
+        'domain': 'math',
+        'icon': Icons.calculate_rounded,
+        'emoji': '🔢',
+        'color': AppTheme.secondaryColor,
+        'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]
+      },
+      {
+        'title': '科学',
+        'domain': 'science',
+        'icon': Icons.science_rounded,
+        'emoji': '🔬',
+        'color': AppTheme.accentColor,
+        'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]
+      },
+      {
+        'title': '艺术',
+        'domain': 'art',
+        'icon': Icons.palette_rounded,
+        'emoji': '🎨',
+        'color': const Color(0xFF9A8FB8),
+        'gradient': [const Color(0xFF9A8FB8), const Color(0xFFB3ABC9)]
+      },
+      {
+        'title': '社会',
+        'domain': 'social',
+        'icon': Icons.people_rounded,
+        'emoji': '🌍',
+        'color': const Color(0xFFE3BC45),
+        'gradient': [const Color(0xFFE3BC45), const Color(0xFFFFE066)]
+      },
+      {
+        'title': '音乐',
+        'domain': 'music',
+        'icon': Icons.music_note_rounded,
+        'emoji': '🎵',
+        'color': const Color(0xFFC26B5A),
+        'gradient': [const Color(0xFFC26B5A), const Color(0xFFD18B7B)]
+      },
     ];
 
     return GridView.builder(
@@ -506,7 +551,8 @@ class _SubjectCard extends StatefulWidget {
   State<_SubjectCard> createState() => _SubjectCardState();
 }
 
-class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderStateMixin {
+class _SubjectCardState extends State<_SubjectCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   bool _isPressed = false;
@@ -588,7 +634,7 @@ class _SubjectCardState extends State<_SubjectCard> with SingleTickerProviderSta
                 const SizedBox(height: 8),
                 Text(
                   widget.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor,
@@ -664,7 +710,7 @@ class _CourseCard extends StatelessWidget {
             // Title
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textColor,
@@ -679,7 +725,7 @@ class _CourseCard extends StatelessWidget {
                 alignment: Alignment.topLeft,
                 child: Text(
                   summary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppTheme.textSecondary,
                     height: 1.3,
@@ -694,7 +740,8 @@ class _CourseCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [color, color.withValues(alpha: 0.7)],
@@ -720,7 +767,8 @@ class _CourseCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(width: 4),
-                    Icon(Icons.play_arrow_rounded, color: Colors.white, size: 16),
+                    Icon(Icons.play_arrow_rounded,
+                        color: Colors.white, size: 16),
                   ],
                 ),
               ),

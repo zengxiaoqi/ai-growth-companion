@@ -351,7 +351,7 @@ class _EmergencyCallScreenState extends State<EmergencyCallScreen>
           },
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           '正在呼叫',
           style: TextStyle(
             fontSize: 32,

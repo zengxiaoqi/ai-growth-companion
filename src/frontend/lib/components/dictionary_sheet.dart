@@ -61,7 +61,8 @@ class _DictionarySheetState extends State<DictionarySheet> {
 
   Future<void> _load() async {
     try {
-      final list = await PublicApiService.instance.getDictionaryEntry(widget.word);
+      final list =
+          await PublicApiService.instance.getDictionaryEntry(widget.word);
       if (!mounted) return;
       if (list == null || list.isEmpty) {
         setState(() {
@@ -152,7 +153,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                icon: Icon(Icons.close, color: AppTheme.textSecondary),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -167,7 +168,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -196,7 +197,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -230,20 +231,20 @@ class _DictionarySheetState extends State<DictionarySheet> {
           const SizedBox(height: 16),
           Text(
             '未找到 "$_wordText"',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppTheme.textColor,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '可能是拼写有误，或者这个词不在词典中。',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             '💡 小提示',
             style: TextStyle(
               fontSize: 14,
@@ -252,7 +253,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
             ),
           ),
           const SizedBox(height: 8),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               '英文单词记得全部小写哦！比如查询 "hello" 而不是 "Hello"。',
@@ -290,7 +291,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
             Expanded(
               child: Text(
                 word,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -346,7 +347,7 @@ class _DictionarySheetState extends State<DictionarySheet> {
           ),
           child: Text(
             _posLabel(partOfSpeech),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               color: AppTheme.primaryColor,
               fontWeight: FontWeight.w600,
@@ -371,12 +372,14 @@ class _DictionarySheetState extends State<DictionarySheet> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('•', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              Text('•',
+                  style:
+                      TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   definition,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textColor,
                     height: 1.5,

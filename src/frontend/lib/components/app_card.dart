@@ -46,7 +46,7 @@ class AppCard extends StatefulWidget {
   final EdgeInsetsGeometry padding;
 
   /// 圆角（默认 [AppTheme.cardRadius]）
-  final BorderRadiusGeometry borderRadius;
+  final BorderRadiusGeometry? borderRadius;
 
   /// 是否展示骨架屏加载占位
   final bool isLoading;
@@ -68,7 +68,7 @@ class AppCard extends StatefulWidget {
     this.color,
     this.boxShadow,
     this.padding = const EdgeInsets.all(16),
-    this.borderRadius = const BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
+    this.borderRadius,
     this.isLoading = false,
     this.width,
     this.height,
@@ -144,12 +144,14 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
   Widget _buildCard() {
     final content = widget.isLoading
         ? ShimmerPlaceholder(
-            borderRadius: widget.borderRadius,
+            borderRadius: widget.borderRadius ??
+                BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
             child: Container(
               padding: widget.padding,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: widget.borderRadius,
+                borderRadius: widget.borderRadius ??
+                    BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
               ),
               child: widget.child,
             ),
@@ -163,10 +165,9 @@ class _AppCardState extends State<AppCard> with SingleTickerProviderStateMixin {
       padding: widget.isLoading ? EdgeInsets.zero : widget.padding,
       decoration: BoxDecoration(
         gradient: widget.gradient,
-        color: widget.gradient == null
-            ? (widget.color ?? Colors.white)
-            : null,
-        borderRadius: widget.borderRadius,
+        color: widget.gradient == null ? (widget.color ?? Colors.white) : null,
+        borderRadius: widget.borderRadius ??
+            BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
         boxShadow: widget.boxShadow,
       ),
       clipBehavior: widget.isLoading ? Clip.antiAlias : Clip.none,
@@ -195,7 +196,7 @@ class ShimmerPlaceholder extends StatefulWidget {
   final Widget child;
 
   /// 闪光遮罩的圆角裁剪
-  final BorderRadiusGeometry borderRadius;
+  final BorderRadiusGeometry? borderRadius;
 
   /// 高光颜色（默认白色半透明）
   final Color highlightColor;
@@ -206,7 +207,7 @@ class ShimmerPlaceholder extends StatefulWidget {
   const ShimmerPlaceholder({
     super.key,
     required this.child,
-    this.borderRadius = const BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
+    this.borderRadius,
     this.highlightColor = const Color(0x33FFFFFF),
     this.baseColor = const Color(0xFFEBEBEB),
   });
@@ -240,7 +241,8 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
       animation: _controller,
       builder: (context, child) {
         return ClipRRect(
-          borderRadius: widget.borderRadius,
+          borderRadius: widget.borderRadius ??
+              BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
           child: Stack(
             children: [
               // 底层骨架色

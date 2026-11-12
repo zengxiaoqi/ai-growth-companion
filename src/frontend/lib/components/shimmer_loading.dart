@@ -44,14 +44,14 @@ class ShimmerCard extends StatelessWidget {
   final EdgeInsetsGeometry margin;
 
   /// 圆角（默认 [AppTheme.cardRadius]）
-  final BorderRadiusGeometry borderRadius;
+  final BorderRadiusGeometry? borderRadius;
 
   const ShimmerCard({
     super.key,
     this.height = 160,
     this.width,
     this.margin = const EdgeInsets.only(bottom: 16),
-    this.borderRadius = const BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
+    this.borderRadius,
   });
 
   @override
@@ -59,7 +59,8 @@ class ShimmerCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: ShimmerPlaceholder(
-        borderRadius: borderRadius,
+        borderRadius: borderRadius ??
+            BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
         child: Container(
           height: height,
           width: width ?? double.infinity,

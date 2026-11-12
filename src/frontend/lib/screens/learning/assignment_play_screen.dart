@@ -23,12 +23,10 @@ class _AssignmentPlayScreenState extends State<AssignmentPlayScreen> {
   bool _submitting = false;
 
   Map<String, dynamic> get _assignment => widget.assignment;
-  String get _activityType =>
-      _assignment['activityType']?.toString() ?? 'quiz';
-  Map<String, dynamic> get _activityData =>
-      _assignment['activityData'] is Map
-          ? Map<String, dynamic>.from(_assignment['activityData'])
-          : {};
+  String get _activityType => _assignment['activityType']?.toString() ?? 'quiz';
+  Map<String, dynamic> get _activityData => _assignment['activityData'] is Map
+      ? Map<String, dynamic>.from(_assignment['activityData'])
+      : {};
   String get _title =>
       _activityData['title']?.toString() ??
       _activityData['topic']?.toString() ??
@@ -41,9 +39,7 @@ class _AssignmentPlayScreenState extends State<AssignmentPlayScreen> {
         title: Text(_title),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: _submitting
-              ? null
-              : () => Navigator.of(context).pop(),
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
         ),
       ),
       body: _completed ? _buildCompletion() : _buildGame(),
@@ -69,10 +65,9 @@ class _AssignmentPlayScreenState extends State<AssignmentPlayScreen> {
 
         // 提交完成结果到后端
         try {
-          await context
-              .read<ApiService>()
-              .completeAssignment(_assignment['id'] as int, score,
-                  resultData: resultData);
+          await context.read<ApiService>().completeAssignment(
+              _assignment['id'] as int, score,
+              resultData: resultData);
         } catch (_) {
           // 即使提交失败也不阻塞用户体验
         }
@@ -84,7 +79,7 @@ class _AssignmentPlayScreenState extends State<AssignmentPlayScreen> {
 
   Widget _buildCompletion() {
     if (_submitting) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -94,7 +89,8 @@ class _AssignmentPlayScreenState extends State<AssignmentPlayScreen> {
               child: CircularProgressIndicator(),
             ),
             SizedBox(height: 16),
-            Text('提交结果…', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+            Text('提交结果…',
+                style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
           ],
         ),
       );

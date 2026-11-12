@@ -101,7 +101,8 @@ class AppUpdatePrompt {
                     size: 22, color: AppTheme.successColor),
               ),
               const SizedBox(width: 10),
-              const Expanded(child: Text('发现新版本', style: TextStyle(fontSize: 18))),
+              const Expanded(
+                  child: Text('发现新版本', style: TextStyle(fontSize: 18))),
             ],
           ),
           content: Column(
@@ -110,7 +111,7 @@ class AppUpdatePrompt {
             children: [
               Text(
                 'v${info.versionName} · ${info.sizeText}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -121,13 +122,13 @@ class AppUpdatePrompt {
                 child: SingleChildScrollView(
                   child: Text(
                     info.changelog,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: AppTheme.textColor, height: 1.5),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 '升级完成后会自动重启到新版本，建议连接 Wi-Fi 后下载。',
                 style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
               ),
@@ -137,7 +138,7 @@ class AppUpdatePrompt {
             if (!info.force)
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('稍后再说',
+                child: Text('稍后再说',
                     style: TextStyle(color: AppTheme.textSecondary)),
               ),
             ElevatedButton(
@@ -230,7 +231,9 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
       if (!mounted) return;
       setState(() {
         _state = _FlowState.failed;
-        _error = e.toString().replaceFirst(RegExp(r'^(Exception|DioException):\s*'), '');
+        _error = e
+            .toString()
+            .replaceFirst(RegExp(r'^(Exception|DioException):\s*'), '');
       });
     }
   }
@@ -282,21 +285,20 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
-                  value: _total > 0 ? (_received / _total).clamp(0.0, 1.0) : null,
+                  value:
+                      _total > 0 ? (_received / _total).clamp(0.0, 1.0) : null,
                   minHeight: 10,
                   backgroundColor: AppTheme.backgroundColor,
-                  valueColor:
-                      const AlwaysStoppedAnimation(AppTheme.primaryColor),
+                  valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
                 ),
               ),
               const SizedBox(height: 12),
               Text(_sizeLine,
-                  style: const TextStyle(
-                      fontSize: 13, color: AppTheme.textColor)),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textColor)),
               const SizedBox(height: 6),
-              const Text('下载中，建议连接 Wi-Fi…',
-                  style: TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary)),
+              Text('下载中，建议连接 Wi-Fi…',
+                  style:
+                      TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ] else if (_state == _FlowState.installing) ...[
               const Row(
                 children: [
@@ -306,7 +308,8 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
                     child: CircularProgressIndicator(strokeWidth: 2.5),
                   ),
                   SizedBox(width: 12),
-                  Expanded(child: Text('正在准备安装…', style: TextStyle(fontSize: 13))),
+                  Expanded(
+                      child: Text('正在准备安装…', style: TextStyle(fontSize: 13))),
                 ],
               ),
             ] else if (_state == _FlowState.needPermission) ...[
@@ -317,8 +320,8 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
               ),
               const SizedBox(height: 6),
               Text('安装包已就绪：${_info.fileName}',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textSecondary)),
+                  style:
+                      TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
             ] else if (_state == _FlowState.launched) ...[
               const Text('已拉起系统安装器，请在安装界面点击「安装」。',
                   style: TextStyle(fontSize: 13)),
@@ -358,8 +361,7 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消',
-                style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('取消', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -376,8 +378,7 @@ class _UpdateFlowDialogState extends State<_UpdateFlowDialog>
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('关闭',
-                style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('关闭', style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

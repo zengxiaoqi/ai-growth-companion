@@ -16,7 +16,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -113,7 +114,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       // 保存 token（仅在"记住我"勾选时持久化，否则仅内存使用）
       final token = result['access_token'] ?? result['token'];
-      debugPrint('[LOGIN] Token found: ${token != null}, rememberMe: $_rememberMe');
+      debugPrint(
+          '[LOGIN] Token found: ${token != null}, rememberMe: $_rememberMe');
       if (token != null) {
         if (_rememberMe) {
           await storage.saveToken(token.toString());
@@ -128,7 +130,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       // 保存用户信息并跳转模式选择
       final user = result['user'] as Map<String, dynamic>? ?? result;
-      debugPrint('[LOGIN] User data: id=${user['id']}, type=${user['type']}, name=${user['name']}');
+      debugPrint(
+          '[LOGIN] User data: id=${user['id']}, type=${user['type']}, name=${user['name']}');
       if (mounted) {
         final userProvider = context.read<UserProvider>();
         // 先注入 token 到 ApiService（不等 userProvider.login 内部处理）
@@ -136,7 +139,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           context.read<ApiService>().setToken(token.toString());
         }
         await userProvider.login(Map<String, dynamic>.from(user));
-        debugPrint('[LOGIN] userProvider.login() done, isLoggedIn=${userProvider.isLoggedIn}');
+        debugPrint(
+            '[LOGIN] userProvider.login() done, isLoggedIn=${userProvider.isLoggedIn}');
       } else {
         debugPrint('[LOGIN] Widget not mounted before userProvider.login()');
       }
@@ -204,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppTheme.primaryColor, Color(0xFFD18B7B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -221,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           '欢迎回来',
           style: TextStyle(
             fontSize: 28,
@@ -230,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           '登录您的账号继续学习之旅',
           style: TextStyle(
             fontSize: 16,
@@ -250,7 +254,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       decoration: InputDecoration(
         labelText: '手机号 / 账号',
         hintText: '请输入手机号或账号',
-        prefixIcon: const Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
+        prefixIcon:
+            Icon(Icons.phone_android_rounded, color: AppTheme.primaryColor),
         counterText: '',
         suffixIcon: _phoneController.text.isNotEmpty
             ? IconButton(
@@ -281,10 +286,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       decoration: InputDecoration(
         labelText: '密码',
         hintText: '请输入密码',
-        prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryColor),
+        prefixIcon:
+            Icon(Icons.lock_outline_rounded, color: AppTheme.primaryColor),
         suffixIcon: IconButton(
           icon: Icon(
-            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            _obscurePassword
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
             color: AppTheme.textSecondary,
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -318,19 +326,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: _rememberMe ? AppTheme.primaryColor : Colors.transparent,
+                  color:
+                      _rememberMe ? AppTheme.primaryColor : Colors.transparent,
                   border: Border.all(
-                    color: _rememberMe ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.4),
+                    color: _rememberMe
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondary.withValues(alpha: 0.4),
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                 ),
                 child: _rememberMe
-                    ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                    ? const Icon(Icons.check_rounded,
+                        size: 16, color: Colors.white)
                     : null,
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 '记住我',
                 style: TextStyle(
                   fontSize: 14,
@@ -356,7 +368,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 20),
+          Icon(Icons.error_outline_rounded,
+              color: Colors.red.shade400, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -419,7 +432,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         onPressed: _showChildLoginDialog,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.primaryColor,
-          side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4), width: 1.5),
+          side: BorderSide(
+              color: AppTheme.primaryColor.withValues(alpha: 0.4), width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
           ),
@@ -449,9 +463,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     '请输入6位登录验证码',
-                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -465,12 +480,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       fontWeight: FontWeight.bold,
                       letterSpacing: 8,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'ABC123',
                       counterText: '',
                       border: OutlineInputBorder(),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderSide:
+                            BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                     autofocus: true,
@@ -479,7 +495,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
               actions: [
                 TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  onPressed:
+                      isSubmitting ? null : () => Navigator.pop(dialogContext),
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
@@ -505,25 +522,32 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                             if (result.containsKey('error')) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(result['error'].toString())),
+                                SnackBar(
+                                    content: Text(result['error'].toString())),
                               );
                               return;
                             }
 
                             // 保存 token（孩子快捷登录也受"记住我"控制）
-                            final token = result['access_token'] ?? result['token'];
+                            final token =
+                                result['access_token'] ?? result['token'];
                             if (token != null) {
                               final storage = context.read<StorageService>();
-await storage.saveToken(token.toString());
+                              await storage.saveToken(token.toString());
                               if (!mounted) return;
-                              context.read<ApiService>().setToken(token.toString());
+                              context
+                                  .read<ApiService>()
+                                  .setToken(token.toString());
                             }
 
                             // 保存用户信息
-                            final user = result['user'] as Map<String, dynamic>? ?? result;
+                            final user =
+                                result['user'] as Map<String, dynamic>? ??
+                                    result;
                             if (mounted) {
                               final userProvider = context.read<UserProvider>();
-                              await userProvider.login(Map<String, dynamic>.from(user));
+                              await userProvider
+                                  .login(Map<String, dynamic>.from(user));
                             }
                           } catch (e) {
                             if (mounted) {
@@ -562,7 +586,7 @@ await storage.saveToken(token.toString());
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           '还没有账号？',
           style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
         ),
@@ -573,7 +597,7 @@ await storage.saveToken(token.toString());
               MaterialPageRoute(builder: (_) => const RegisterScreen()),
             );
           },
-          child: const Text(
+          child: Text(
             '注册新账号',
             style: TextStyle(
               color: AppTheme.primaryColor,

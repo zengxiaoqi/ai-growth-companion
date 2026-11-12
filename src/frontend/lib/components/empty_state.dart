@@ -93,7 +93,7 @@ class EmptyState extends StatelessWidget {
                 header: true,
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textColor,
@@ -107,7 +107,7 @@ class EmptyState extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   subtitle!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
                   ),

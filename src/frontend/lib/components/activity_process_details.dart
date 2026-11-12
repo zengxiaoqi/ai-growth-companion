@@ -67,7 +67,8 @@ String? summarizeInteraction(Map<String, dynamic> raw) {
     case 'drag_sort':
       final placements = _mapsOf(data['placements']);
       if (placements.isEmpty) return null;
-      final first = placements.where((p) => p['correctOnFirstTry'] == true).length;
+      final first =
+          placements.where((p) => p['correctOnFirstTry'] == true).length;
       return '放错 ${_intOf(data, 'totalErrors')} 次 · $first/${placements.length} 个物品首次放对';
 
     case 'memory_flip':
@@ -163,7 +164,7 @@ class ActivityProcessDetails extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.list_alt_rounded, color: AppTheme.primaryColor),
+                Icon(Icons.list_alt_rounded, color: AppTheme.primaryColor),
                 const SizedBox(width: 8),
                 Text(
                   '活动过程明细',

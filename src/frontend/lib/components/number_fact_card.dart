@@ -277,14 +277,14 @@ class _NumberFactCardState extends State<NumberFactCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '今日数字',
                         style: TextStyle(
                           fontSize: 14,
                           color: AppTheme.textSecondary,
                         ),
                       ),
-                      const Text(
+                      Text(
                         '数字趣闻',
                         style: TextStyle(
                           fontSize: 22,
@@ -296,7 +296,7 @@ class _NumberFactCardState extends State<NumberFactCard> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                  icon: Icon(Icons.close, color: AppTheme.textSecondary),
                   onPressed: () => Navigator.pop(ctx),
                 ),
               ],
@@ -311,7 +311,7 @@ class _NumberFactCardState extends State<NumberFactCard> {
               ),
               child: Text(
                 fact,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   height: 1.6,
                   color: AppTheme.textColor,

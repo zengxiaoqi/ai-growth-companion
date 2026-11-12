@@ -32,7 +32,13 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
   int _restReminderMinutes = 20;
   bool _contentFilterEnabled = true;
   bool _appLockEnabled = false;
-  List<String> _allowedDomains = ['language', 'math', 'science', 'art', 'social'];
+  List<String> _allowedDomains = [
+    'language',
+    'math',
+    'science',
+    'art',
+    'social'
+  ];
   List<String> _blockedTopics = [];
 
   // 碎碎念可用技能（按孩子配置）
@@ -42,11 +48,36 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
   List<String> _casualEffective = [];
 
   static const _allDomains = [
-    {'key': 'language', 'label': '语言', 'icon': Icons.language_rounded, 'color': Color(0xFF006384)},
-    {'key': 'math', 'label': '数学', 'icon': Icons.calculate_rounded, 'color': Color(0xFF586000)},
-    {'key': 'science', 'label': '科学', 'icon': Icons.science_rounded, 'color': Color(0xFF705900)},
-    {'key': 'art', 'label': '艺术', 'icon': Icons.palette_rounded, 'color': Color(0xFFb9ae6e)},
-    {'key': 'social', 'label': '社会', 'icon': Icons.people_rounded, 'color': Color(0xFFb02500)},
+    {
+      'key': 'language',
+      'label': '语言',
+      'icon': Icons.language_rounded,
+      'color': Color(0xFF006384)
+    },
+    {
+      'key': 'math',
+      'label': '数学',
+      'icon': Icons.calculate_rounded,
+      'color': Color(0xFF586000)
+    },
+    {
+      'key': 'science',
+      'label': '科学',
+      'icon': Icons.science_rounded,
+      'color': Color(0xFF705900)
+    },
+    {
+      'key': 'art',
+      'label': '艺术',
+      'icon': Icons.palette_rounded,
+      'color': Color(0xFFb9ae6e)
+    },
+    {
+      'key': 'social',
+      'label': '社会',
+      'icon': Icons.people_rounded,
+      'color': Color(0xFFb02500)
+    },
   ];
 
   static const _timeOptions = [15, 20, 30, 45, 60, 90, 120];
@@ -138,7 +169,9 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
       if (parentId == null) {
         throw Exception('未获取到家长账号信息');
       }
-      final notifications = <String, dynamic>{'appLockEnabled': _appLockEnabled};
+      final notifications = <String, dynamic>{
+        'appLockEnabled': _appLockEnabled
+      };
       await api.updateParentControls(parentId, {
         'dailyLimitMinutes': _dailyLimitMinutes,
         'eyeProtectionEnabled': _eyeProtectionEnabled,
@@ -154,7 +187,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('设置已保存'),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppTheme.accentColor,
@@ -210,9 +243,11 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
     final def = data['default'];
     _casualDefault = def is List ? def.map((e) => e.toString()).toList() : [];
     final override = data['override'];
-    _casualOverride = override is List ? override.map((e) => e.toString()).toList() : null;
+    _casualOverride =
+        override is List ? override.map((e) => e.toString()).toList() : null;
     final effective = data['effective'];
-    _casualEffective = effective is List ? effective.map((e) => e.toString()).toList() : [];
+    _casualEffective =
+        effective is List ? effective.map((e) => e.toString()).toList() : [];
   }
 
   @override
@@ -270,7 +305,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
             // 内容区域
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
                         color: AppTheme.primaryColor,
                       ),
@@ -470,7 +505,8 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
     if (_casualAvailable.isEmpty) {
       return Text(
         '暂无可配置的技能',
-        style: theme.textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+        style:
+            theme.textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
       );
     }
     final inherit = _casualOverride == null;
@@ -616,7 +652,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textColor,
                 ),
@@ -624,7 +660,7 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
               const SizedBox(height: 2),
               Text(
                 description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
                 ),

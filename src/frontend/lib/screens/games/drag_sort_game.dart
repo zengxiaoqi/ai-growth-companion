@@ -134,8 +134,10 @@ class _DragSortGameState extends State<DragSortGame> {
     _finished = false;
     _completedCalled = false;
     _finalCorrect = 0;
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
   }
 
@@ -274,10 +276,11 @@ class _DragSortGameState extends State<DragSortGame> {
       0,
       (sum, n) => sum + (n - 1).clamp(0, 1000).toInt(),
     );
-    final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-        .round()
-        .clamp(0, 86400)
-        .toInt();
+    final seconds =
+        ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+            .round()
+            .clamp(0, 86400)
+            .toInt();
     final total = _items.length;
     final score = total > 0 ? ((correct / total) * 100).round() : 0;
 
@@ -414,7 +417,7 @@ class _DragSortGameState extends State<DragSortGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.category_outlined,
+            Icon(Icons.category_outlined,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无分类题目'),
@@ -500,7 +503,8 @@ class _DragSortGameState extends State<DragSortGame> {
                               childVisual(icon: item.icon, label: item.label);
                           final tint =
                               ChildGamePalette.tintFor(_items.indexOf(item));
-                          Widget tileOf(ChildTileState state) => ChildVisualTile(
+                          Widget tileOf(ChildTileState state) =>
+                              ChildVisualTile(
                                 visual: visual,
                                 label: item.label,
                                 state: state,

@@ -73,7 +73,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textColor,
@@ -84,7 +84,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                   if (subtitle != null)
                     Text(
                       subtitle!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.textSecondary,
@@ -122,9 +122,8 @@ class _ActionButton extends StatelessWidget {
       icon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: action.isDanger
-              ? Colors.red.shade50
-              : AppTheme.backgroundColor,
+          color:
+              action.isDanger ? Colors.red.shade50 : AppTheme.backgroundColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(

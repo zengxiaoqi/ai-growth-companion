@@ -111,7 +111,7 @@ class _ChildPickerSheetState extends State<_ChildPickerSheet>
               const SizedBox(width: 8),
               Text(
                 widget.title ?? '发布给孩子观看',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,
@@ -140,16 +140,30 @@ class _ChildPickerSheetState extends State<_ChildPickerSheet>
                 opacity: _fadeAnim,
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppTheme.childColors[i % AppTheme.childColors.length],
+                    backgroundColor:
+                        AppTheme.childColors[i % AppTheme.childColors.length],
                     child: avatar != null && avatar.isNotEmpty
                         ? ClipOval(
-                            child: Image.network(avatar, fit: BoxFit.cover, width: 40, height: 40, errorBuilder: (_, __, ___) => Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                            child: Image.network(avatar,
+                                fit: BoxFit.cover,
+                                width: 40,
+                                height: 40,
+                                errorBuilder: (_, __, ___) => Text(name[0],
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold))),
                           )
-                        : Text(name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        : Text(name[0],
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
                   ),
-                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  trailing: const Icon(Icons.send_rounded, color: AppTheme.primaryColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  title: Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing:
+                      Icon(Icons.send_rounded, color: AppTheme.primaryColor),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   onTap: () => Navigator.pop(context, id),
                 ),
               );
@@ -222,7 +236,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
 
     if (urls.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未找到有效的视频链接'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('未找到有效的视频链接'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -257,7 +272,10 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
       bg = Colors.red;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: bg, duration: const Duration(seconds: 2)),
+      SnackBar(
+          content: Text(msg),
+          backgroundColor: bg,
+          duration: const Duration(seconds: 2)),
     );
   }
 
@@ -303,7 +321,9 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         title: const Text('批量删除'),
         content: Text('确定要删除选中的 $count 个视频吗？\n（视频文件也将一并删除）'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -323,7 +343,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     await provider.batchRetry();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已重试失败任务'), backgroundColor: Colors.orange),
+        const SnackBar(
+            content: Text('已重试失败任务'), backgroundColor: Colors.orange),
       );
     }
   }
@@ -352,11 +373,14 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         title: const Text('删除视频'),
         content: Text('确定要删除 "${item.title ?? '此视频'}" 吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await context.read<VideoDownloadProvider>().deleteDownload(item.id);
+              await context
+                  .read<VideoDownloadProvider>()
+                  .deleteDownload(item.id);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('删除'),
@@ -374,7 +398,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         title: const Text('重新下载'),
         content: Text('确定要重新下载 "${item.title ?? '此视频'}" 吗？\n\n如果原文件还在，将跳过下载。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -396,11 +421,14 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         title: const Text('取消下载'),
         content: Text('确定要取消 "${item.title ?? '此视频'}" 的下载吗？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('继续下载')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('继续下载')),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await context.read<VideoDownloadProvider>().cancelDownload(item.id);
+              await context
+                  .read<VideoDownloadProvider>()
+                  .cancelDownload(item.id);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('取消下载'),
@@ -427,7 +455,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
               controller: urlController,
               decoration: InputDecoration(
                 hintText: '粘贴新的视频链接...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
               keyboardType: TextInputType.url,
               autofocus: true,
@@ -435,19 +464,24 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           ElevatedButton(
             onPressed: () async {
               final newUrl = urlController.text.trim();
               if (newUrl.isEmpty) return;
               Navigator.pop(ctx);
               try {
-                await context.read<VideoDownloadProvider>().updateUrl(item.id, newUrl);
+                await context
+                    .read<VideoDownloadProvider>()
+                    .updateUrl(item.id, newUrl);
                 if (context.mounted) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('链接已更新，正在重新下载...'), backgroundColor: Colors.green),
+                        const SnackBar(
+                            content: Text('链接已更新，正在重新下载...'),
+                            backgroundColor: Colors.green),
                       );
                     }
                   });
@@ -457,7 +491,9 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                            content: Text('更新失败: $e'),
+                            backgroundColor: Colors.red),
                       );
                     }
                   });
@@ -482,7 +518,10 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     }
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('下载链接已复制到剪贴板'), backgroundColor: Colors.green, duration: Duration(seconds: 2)),
+      const SnackBar(
+          content: Text('下载链接已复制到剪贴板'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2)),
     );
   }
 
@@ -500,12 +539,16 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${provider.selectedIds.length}', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    Text('${provider.selectedIds.length}',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 14)),
                     const SizedBox(width: 4),
                     IconButton(
                       icon: const Icon(Icons.select_all, size: 20),
                       tooltip: '全选/取消',
-                      onPressed: provider.allSelected ? provider.deselectAll : provider.selectAll,
+                      onPressed: provider.allSelected
+                          ? provider.deselectAll
+                          : provider.selectAll,
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
@@ -515,7 +558,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   ],
                 );
               }
-              final totalCount = provider.completed.length + provider.failed.length;
+              final totalCount =
+                  provider.completed.length + provider.failed.length;
               if (totalCount == 0) return const SizedBox.shrink();
               return Stack(
                 children: [
@@ -529,14 +573,18 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                       right: 6,
                       top: 6,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
                         child: Text(
                           '$totalCount',
-                          style: TextStyle(fontSize: 9, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -567,11 +615,22 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                           padding: const EdgeInsets.all(4),
                           child: Row(
                             children: [
-                              _buildTab('下载中', provider.inProgress.length, 0, AppTheme.secondaryColor, Icons.downloading_rounded),
+                              _buildTab(
+                                  '下载中',
+                                  provider.inProgress.length,
+                                  0,
+                                  AppTheme.secondaryColor,
+                                  Icons.downloading_rounded),
                               const SizedBox(width: 4),
-                              _buildTab('已完成', provider.completed.length, 1, AppTheme.successColor, Icons.check_circle_outline),
+                              _buildTab(
+                                  '已完成',
+                                  provider.completed.length,
+                                  1,
+                                  AppTheme.successColor,
+                                  Icons.check_circle_outline),
                               const SizedBox(width: 4),
-                              _buildTab('失败', provider.failed.length, 2, AppTheme.errorColor, Icons.error_outline),
+                              _buildTab('失败', provider.failed.length, 2,
+                                  AppTheme.errorColor, Icons.error_outline),
                             ],
                           ),
                         ),
@@ -591,62 +650,86 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                           padding: EdgeInsets.all(40),
                           child: Column(
                             children: [
-                              Icon(Icons.video_library, size: 64, color: Colors.grey),
+                              Icon(Icons.video_library,
+                                  size: 64, color: Colors.grey),
                               SizedBox(height: 16),
-                              Text('还没有下载任务', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                              Text('还没有下载任务',
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 16)),
                               SizedBox(height: 4),
-                              Text('粘贴视频链接开始下载', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              Text('粘贴视频链接开始下载',
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 12)),
                             ],
                           ),
                         ),
                       ),
                     // Tab 0: In Progress
                     if (_tabCtrl.index == 0)
-                      ..._buildCardList(provider.inProgress, provider, (item) => _DownloadCard(
-                        key: ValueKey(item.id),
-                        item: item,
-                        batchMode: provider.batchMode,
-                        isSelected: provider.selectedIds.contains(item.id),
-                        onTap: provider.batchMode ? () => provider.toggleSelection(item.id) : null,
-                        onPlay: null,
-                        onTogglePublish: null,
-                        onRetry: null,
-                        onCancel: () => _cancelDownload(item),
-                        onDelete: () => _confirmDelete(item),
-                        onEditUrl: null,
-                        onCopyLink: null,
-                      )),
+                      ..._buildCardList(
+                          provider.inProgress,
+                          provider,
+                          (item) => _DownloadCard(
+                                key: ValueKey(item.id),
+                                item: item,
+                                batchMode: provider.batchMode,
+                                isSelected:
+                                    provider.selectedIds.contains(item.id),
+                                onTap: provider.batchMode
+                                    ? () => provider.toggleSelection(item.id)
+                                    : null,
+                                onPlay: null,
+                                onTogglePublish: null,
+                                onRetry: null,
+                                onCancel: () => _cancelDownload(item),
+                                onDelete: () => _confirmDelete(item),
+                                onEditUrl: null,
+                                onCopyLink: null,
+                              )),
                     // Tab 1: Completed
                     if (_tabCtrl.index == 1)
-                      ..._buildCardList(provider.completed, provider, (item) => _DownloadCard(
-                        key: ValueKey(item.id),
-                        item: item,
-                        batchMode: provider.batchMode,
-                        isSelected: provider.selectedIds.contains(item.id),
-                        onTap: provider.batchMode ? () => provider.toggleSelection(item.id) : null,
-                        onPlay: () => _playVideo(item),
-                        onTogglePublish: () => _showPublishDialog(singleId: item.id),
-                        onRetry: null,
-                        onReDownload: () => _confirmReDownload(item),
-                        onDelete: () => _confirmDelete(item),
-                        onEditUrl: null,
-                        onCopyLink: () => _copyDownloadLink(item),
-                      )),
+                      ..._buildCardList(
+                          provider.completed,
+                          provider,
+                          (item) => _DownloadCard(
+                                key: ValueKey(item.id),
+                                item: item,
+                                batchMode: provider.batchMode,
+                                isSelected:
+                                    provider.selectedIds.contains(item.id),
+                                onTap: provider.batchMode
+                                    ? () => provider.toggleSelection(item.id)
+                                    : null,
+                                onPlay: () => _playVideo(item),
+                                onTogglePublish: () =>
+                                    _showPublishDialog(singleId: item.id),
+                                onRetry: null,
+                                onReDownload: () => _confirmReDownload(item),
+                                onDelete: () => _confirmDelete(item),
+                                onEditUrl: null,
+                                onCopyLink: () => _copyDownloadLink(item),
+                              )),
                     // Tab 2: Failed
                     if (_tabCtrl.index == 2)
-                      ..._buildCardList(provider.failed, provider, (item) => _DownloadCard(
-                        key: ValueKey(item.id),
-                        item: item,
-                        batchMode: provider.batchMode,
-                        isSelected: provider.selectedIds.contains(item.id),
-                        onTap: provider.batchMode ? () => provider.toggleSelection(item.id) : null,
-                        onPlay: null,
-                        onTogglePublish: null,
-                        onRetry: () => provider.retryDownload(item.id),
-                        onDelete: () => _confirmDelete(item),
-                        onEditUrl: () => _showEditUrlDialog(item),
-                        onCopyLink: null,
-                      )),
+                      ..._buildCardList(
+                          provider.failed,
+                          provider,
+                          (item) => _DownloadCard(
+                                key: ValueKey(item.id),
+                                item: item,
+                                batchMode: provider.batchMode,
+                                isSelected:
+                                    provider.selectedIds.contains(item.id),
+                                onTap: provider.batchMode
+                                    ? () => provider.toggleSelection(item.id)
+                                    : null,
+                                onPlay: null,
+                                onTogglePublish: null,
+                                onRetry: () => provider.retryDownload(item.id),
+                                onDelete: () => _confirmDelete(item),
+                                onEditUrl: () => _showEditUrlDialog(item),
+                                onCopyLink: null,
+                              )),
                     const SliverToBoxAdapter(child: SizedBox(height: 100)),
                   ],
                 ),
@@ -669,7 +752,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     );
   }
 
-  Widget _buildTab(String label, int count, int index, Color color, IconData icon) {
+  Widget _buildTab(
+      String label, int count, int index, Color color, IconData icon) {
     final isSelected = _tabCtrl.index == index;
     return Expanded(
       child: GestureDetector(
@@ -681,7 +765,12 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             boxShadow: isSelected
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))]
+                ? [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ]
                 : null,
           ),
           child: Row(
@@ -701,14 +790,20 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
               if (count > 0) ...[
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: isSelected ? color.withValues(alpha: 0.15) : Colors.grey.shade200,
+                    color: isSelected
+                        ? color.withValues(alpha: 0.15)
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '$count',
-                    style: TextStyle(fontSize: 10, color: isSelected ? color : Colors.grey, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected ? color : Colors.grey,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -719,18 +814,25 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
     );
   }
 
-  List<Widget> _buildCardList(List<VideoDownloadItem> items, VideoDownloadProvider provider, Widget Function(VideoDownloadItem) cardBuilder) {
+  List<Widget> _buildCardList(
+      List<VideoDownloadItem> items,
+      VideoDownloadProvider provider,
+      Widget Function(VideoDownloadItem) cardBuilder) {
     if (items.isEmpty) {
-      final emptyMsg = _tabCtrl.index == 0 ? '没有进行中的下载' : (_tabCtrl.index == 1 ? '没有已完成的任务' : '没有失败的任务');
+      final emptyMsg = _tabCtrl.index == 0
+          ? '没有进行中的下载'
+          : (_tabCtrl.index == 1 ? '没有已完成的任务' : '没有失败的任务');
       return [
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.all(40),
             child: Column(
               children: [
-                Icon(Icons.inbox_rounded, size: 48, color: Colors.grey.shade300),
+                Icon(Icons.inbox_rounded,
+                    size: 48, color: Colors.grey.shade300),
                 const SizedBox(height: 12),
-                Text(emptyMsg, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                Text(emptyMsg,
+                    style: const TextStyle(color: Colors.grey, fontSize: 14)),
               ],
             ),
           ),
@@ -759,7 +861,10 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
-            colors: [Colors.white, AppTheme.backgroundColor.withValues(alpha: 0.5)],
+            colors: [
+              Colors.white,
+              AppTheme.backgroundColor.withValues(alpha: 0.5)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -777,16 +882,23 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                       color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.download_rounded, color: AppTheme.primaryColor, size: 24),
+                    child: Icon(Icons.download_rounded,
+                        color: AppTheme.primaryColor, size: 24),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('无水印视频下载', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+                        Text('无水印视频下载',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textColor)),
                         SizedBox(height: 2),
-                        Text('支持抖音、B站、快手、小红书等平台', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text('支持抖音、B站、快手、小红书等平台',
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.textSecondary)),
                       ],
                     ),
                   ),
@@ -797,8 +909,10 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                 controller: _urlController,
                 decoration: InputDecoration(
                   hintText: '粘贴视频链接，支持批量粘贴...',
-                  hintStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                  prefixIcon: const Icon(Icons.link, size: 20, color: AppTheme.primaryColor),
+                  hintStyle:
+                      TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                  prefixIcon:
+                      Icon(Icons.link, size: 20, color: AppTheme.primaryColor),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -811,9 +925,11 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                    borderSide:
+                        BorderSide(color: AppTheme.primaryColor, width: 2),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 keyboardType: TextInputType.url,
                 maxLines: 3,
@@ -831,7 +947,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
                 ),
@@ -841,9 +958,12 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.info_outline, size: 12, color: AppTheme.textSecondary),
+                    Icon(Icons.info_outline,
+                        size: 12, color: AppTheme.textSecondary),
                     const SizedBox(width: 4),
-                    const Text('下载完成后可发布给孩子观看', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    Text('下载完成后可发布给孩子观看',
+                        style: TextStyle(
+                            fontSize: 11, color: AppTheme.textSecondary)),
                   ],
                 ),
               ),
@@ -855,7 +975,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
   }
 
   Widget _buildBatchActionBar(VideoDownloadProvider provider) {
-    final hasCompleted = provider.selectedItems.any((d) => d.status == 'completed');
+    final hasCompleted =
+        provider.selectedItems.any((d) => d.status == 'completed');
     final hasFailed = provider.selectedItems.any((d) => d.status == 'failed');
     final count = provider.selectedIds.length;
 
@@ -868,7 +989,8 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
       final urls = provider.getSelectedVideoUrls();
       if (urls.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有可下载的视频'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('没有可下载的视频'), backgroundColor: Colors.red),
         );
         return;
       }
@@ -878,7 +1000,10 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         downloadToLocal(url, filename);
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已触发 ${urls.length} 个视频下载'), backgroundColor: Colors.teal, duration: const Duration(seconds: 2)),
+        SnackBar(
+            content: Text('已触发 ${urls.length} 个视频下载'),
+            backgroundColor: Colors.teal,
+            duration: const Duration(seconds: 2)),
       );
     }
 
@@ -887,14 +1012,18 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
       final urls = provider.getSelectedVideoUrls();
       if (urls.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('没有可复制的链接'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('没有可复制的链接'), backgroundColor: Colors.red),
         );
         return;
       }
       final links = urls.join('\n');
       Clipboard.setData(ClipboardData(text: links));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已复制 ${urls.length} 个视频链接'), backgroundColor: Colors.teal, duration: const Duration(seconds: 2)),
+        SnackBar(
+            content: Text('已复制 ${urls.length} 个视频链接'),
+            backgroundColor: Colors.teal,
+            duration: const Duration(seconds: 2)),
       );
     }
 
@@ -903,18 +1032,23 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('批量重新下载'),
-          content: Text('确定要重新下载选中的 ${provider.selectedItems.where((d) => d.status == 'completed').length} 个视频吗？\n\n如果原文件还在，将跳过下载。'),
+          content: Text(
+              '确定要重新下载选中的 ${provider.selectedItems.where((d) => d.status == 'completed').length} 个视频吗？\n\n如果原文件还在，将跳过下载。'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
             TextButton(
               onPressed: () async {
                 Navigator.pop(ctx);
                 await provider.batchReDownload();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已开始重新下载'), backgroundColor: Colors.orange),
+                    const SnackBar(
+                        content: Text('已开始重新下载'),
+                        backgroundColor: Colors.orange),
                   );
                 }
               },
@@ -947,7 +1081,11 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            Text('已选 $count 项', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textColor)),
+            Text('已选 $count 项',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor)),
             const SizedBox(width: 12),
             if (hasCompleted)
               Padding(
@@ -1040,7 +1178,9 @@ class _BatchActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 13, color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -1117,13 +1257,15 @@ class _DownloadCardState extends State<_DownloadCard>
       setState(() => _expanded = !_expanded);
     }
   }
+
   void _onTapCancel() => _pressCtrl.reverse();
 
   @override
   Widget build(BuildContext context) {
     final isFailed = item.status == 'failed';
     final isCompleted = item.status == 'completed';
-    final isInProgress = item.status == 'pending' || item.status == 'downloading';
+    final isInProgress =
+        item.status == 'pending' || item.status == 'downloading';
 
     return AnimatedBuilder(
       animation: _pressAnim,
@@ -1139,7 +1281,9 @@ class _DownloadCardState extends State<_DownloadCard>
               ? BorderSide(color: AppTheme.primaryColor, width: 2)
               : BorderSide.none,
         ),
-        color: widget.isSelected ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.white,
+        color: widget.isSelected
+            ? AppTheme.primaryColor.withValues(alpha: 0.05)
+            : Colors.white,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1149,7 +1293,8 @@ class _DownloadCardState extends State<_DownloadCard>
               onTapUp: _onTapUp,
               onTapCancel: _onTapCancel,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 child: Row(
                   children: [
                     // Selection checkbox in batch mode
@@ -1160,13 +1305,18 @@ class _DownloadCardState extends State<_DownloadCard>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: widget.isSelected ? AppTheme.primaryColor : Colors.grey.shade400,
+                            color: widget.isSelected
+                                ? AppTheme.primaryColor
+                                : Colors.grey.shade400,
                             width: 2,
                           ),
-                          color: widget.isSelected ? AppTheme.primaryColor : Colors.transparent,
+                          color: widget.isSelected
+                              ? AppTheme.primaryColor
+                              : Colors.transparent,
                         ),
                         child: widget.isSelected
-                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            ? const Icon(Icons.check,
+                                size: 16, color: Colors.white)
                             : null,
                       ),
                       const SizedBox(width: 10),
@@ -1177,11 +1327,14 @@ class _DownloadCardState extends State<_DownloadCard>
                       child: SizedBox(
                         width: 56,
                         height: 56,
-                        child: isCompleted && item.thumbnail != null && item.thumbnail!.isNotEmpty
+                        child: isCompleted &&
+                                item.thumbnail != null &&
+                                item.thumbnail!.isNotEmpty
                             ? Image.network(
                                 item.thumbnail!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _buildPlaceholderIcon(isInProgress),
+                                errorBuilder: (_, __, ___) =>
+                                    _buildPlaceholderIcon(isInProgress),
                               )
                             : _buildPlaceholderIcon(isInProgress),
                       ),
@@ -1195,7 +1348,10 @@ class _DownloadCardState extends State<_DownloadCard>
                             item.title ?? item.sourceUrl,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textColor),
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textColor),
                           ),
                           const SizedBox(height: 4),
                           Row(
@@ -1203,11 +1359,13 @@ class _DownloadCardState extends State<_DownloadCard>
                               _buildPlatformChip(),
                               const SizedBox(width: 6),
                               _buildStatusChip(),
-                              if (item.duration != null && item.duration! > 0) ...[
+                              if (item.duration != null &&
+                                  item.duration! > 0) ...[
                                 const SizedBox(width: 6),
                                 Text(
                                   item.durationDisplay,
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.grey),
                                 ),
                               ],
                             ],
@@ -1240,9 +1398,11 @@ class _DownloadCardState extends State<_DownloadCard>
                           _metaRow(Icons.person_outline, item.uploader!),
                         if (item.fileSize != null && item.fileSize! > 0)
                           _metaRow(Icons.storage, item.fileSizeDisplay),
-                        _metaRow(Icons.link, item.sourceUrl.length > 40
-                            ? '${item.sourceUrl.substring(0, 37)}...'
-                            : item.sourceUrl),
+                        _metaRow(
+                            Icons.link,
+                            item.sourceUrl.length > 40
+                                ? '${item.sourceUrl.substring(0, 37)}...'
+                                : item.sourceUrl),
                       ],
                     ),
                     if (isFailed && item.errorMessage != null) ...[
@@ -1256,14 +1416,16 @@ class _DownloadCardState extends State<_DownloadCard>
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.error_outline, size: 14, color: Colors.red.shade400),
+                            Icon(Icons.error_outline,
+                                size: 14, color: Colors.red.shade400),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 item.errorMessage!,
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: Colors.red.shade700),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.red.shade700),
                               ),
                             ),
                           ],
@@ -1299,9 +1461,13 @@ class _DownloadCardState extends State<_DownloadCard>
                     ),
                   if (widget.onTogglePublish != null)
                     _ActionChip(
-                      icon: item.publishedToChild ? Icons.visibility : Icons.send_rounded,
+                      icon: item.publishedToChild
+                          ? Icons.visibility
+                          : Icons.send_rounded,
                       label: item.publishedToChild ? '已发布' : '发布给孩子',
-                      color: item.publishedToChild ? AppTheme.successColor : AppTheme.secondaryColor,
+                      color: item.publishedToChild
+                          ? AppTheme.successColor
+                          : AppTheme.secondaryColor,
                       isPrimary: false,
                       onTap: widget.onTogglePublish,
                     ),
@@ -1321,7 +1487,9 @@ class _DownloadCardState extends State<_DownloadCard>
                       isPrimary: false,
                       onTap: widget.onEditUrl,
                     ),
-                  if (isCompleted && item.filePath != null && widget.onCopyLink != null)
+                  if (isCompleted &&
+                      item.filePath != null &&
+                      widget.onCopyLink != null)
                     _ActionChip(
                       icon: Icons.copy,
                       label: '复制链接',
@@ -1382,7 +1550,8 @@ class _DownloadCardState extends State<_DownloadCard>
       ),
       child: Text(
         item.platformDisplayName,
-        style: TextStyle(fontSize: 10, color: _platformColor(), fontWeight: FontWeight.w500),
+        style: TextStyle(
+            fontSize: 10, color: _platformColor(), fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -1447,7 +1616,8 @@ class _DownloadCardState extends State<_DownloadCard>
             const SizedBox(width: 4),
           Text(
             item.statusDisplay,
-            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 10, color: color, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -1465,7 +1635,8 @@ class _DownloadCardState extends State<_DownloadCard>
     );
   }
 
-  Future<void> _downloadToLocal(BuildContext context, VideoDownloadItem item) async {
+  Future<void> _downloadToLocal(
+      BuildContext context, VideoDownloadItem item) async {
     try {
       final provider = context.read<VideoDownloadProvider>();
       final url = provider.getVideoUrl(item);
@@ -1526,7 +1697,8 @@ class _ActionChip extends StatelessWidget {
           backgroundColor: color,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           elevation: 0,
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1632,7 +1804,8 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: Colors.red),
                   const SizedBox(height: 16),
-                  const Text('视频加载失败', style: TextStyle(fontSize: 16, color: Colors.red)),
+                  const Text('视频加载失败',
+                      style: TextStyle(fontSize: 16, color: Colors.red)),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {

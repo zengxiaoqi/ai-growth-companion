@@ -63,7 +63,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
 
     setState(() {
       _children = children;
-      _selectedChildId = _toInt(children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId =
+          _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
 
@@ -80,7 +81,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
     setState(() => _isLoadingTrend = true);
 
     final api = context.read<ApiService>();
-    final rows = await api.getAbilityTrend(childId, weeks: _weeksFromDays(_rangeDays));
+    final rows =
+        await api.getAbilityTrend(childId, weeks: _weeksFromDays(_rangeDays));
     final normalized = rows
         .whereType<Map>()
         .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
@@ -129,7 +131,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 20, color: AppTheme.textColor),
+                child: Icon(Icons.arrow_back_rounded,
+                    size: 20, color: AppTheme.textColor),
               ),
             ),
           ),
@@ -141,7 +144,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
 
   Widget _buildBody() {
     if (_isLoadingChildren) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
 
     if (_children.isEmpty) {
@@ -153,7 +157,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
     }
 
     final pointsByDomain = _buildLineSpots();
-    final hasData = pointsByDomain.values.any((spots) => spots.any((s) => s.y > 0));
+    final hasData =
+        pointsByDomain.values.any((spots) => spots.any((s) => s.y > 0));
 
     return RefreshIndicator(
       color: AppTheme.primaryColor,
@@ -201,8 +206,10 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
     );
   }
 
-  Widget _buildTrendCard(Map<String, List<FlSpot>> pointsByDomain, bool hasData) {
-    final double maxX = _trendRows.isEmpty ? 0 : (_trendRows.length - 1).toDouble();
+  Widget _buildTrendCard(
+      Map<String, List<FlSpot>> pointsByDomain, bool hasData) {
+    final double maxX =
+        _trendRows.isEmpty ? 0 : (_trendRows.length - 1).toDouble();
 
     return Card(
       elevation: 0,
@@ -212,20 +219,25 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '能力趋势折线图',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor),
             ),
             const SizedBox(height: 4),
             Text(
               '最近 $_rangeDays 天的能力变化',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),
             if (_isLoadingTrend)
-              const SizedBox(
+              SizedBox(
                 height: 300,
-                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+                child: Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.primaryColor)),
               )
             else if (!hasData)
               const SizedBox(
@@ -262,11 +274,15 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                     ),
                     borderData: FlBorderData(
                       show: true,
-                      border: Border.all(color: AppTheme.textSecondary.withValues(alpha: 0.16)),
+                      border: Border.all(
+                          color:
+                              AppTheme.textSecondary.withValues(alpha: 0.16)),
                     ),
                     titlesData: FlTitlesData(
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
@@ -274,7 +290,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                           interval: 20,
                           getTitlesWidget: (value, _) => Text(
                             '${value.toInt()}',
-                            style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                            style: TextStyle(
+                                fontSize: 10, color: AppTheme.textSecondary),
                           ),
                         ),
                       ),
@@ -288,12 +305,15 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                             if (index < 0 || index >= _trendRows.length) {
                               return const SizedBox.shrink();
                             }
-                            final label = _trendRows[index]['week']?.toString() ?? '';
+                            final label =
+                                _trendRows[index]['week']?.toString() ?? '';
                             return Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
                                 label,
-                                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.textSecondary),
                               ),
                             );
                           },
@@ -301,7 +321,8 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
                       ),
                     ),
                     lineBarsData: _domains.map((domain) {
-                      final points = pointsByDomain[domain.key] ?? const <FlSpot>[];
+                      final points =
+                          pointsByDomain[domain.key] ?? const <FlSpot>[];
                       return LineChartBarData(
                         spots: points,
                         color: domain.color,
@@ -398,7 +419,9 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
   }
 
   double _toScore(dynamic value) {
-    final score = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
+    final score = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString() ?? '') ?? 0;
     return score.clamp(0, 100).toDouble();
   }
 }
@@ -420,17 +443,18 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(text,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
 }
-
 
 class _DomainMeta {
   final String key;
   final String label;
   final Color color;
 
-  const _DomainMeta({required this.key, required this.label, required this.color});
+  const _DomainMeta(
+      {required this.key, required this.label, required this.color});
 }

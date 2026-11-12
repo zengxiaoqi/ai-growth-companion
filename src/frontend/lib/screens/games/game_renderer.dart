@@ -94,11 +94,22 @@ class _GameRendererState extends State<GameRenderer> {
     }
   }
 
-  String _normalizeGameType(String? activityType, Map<String, dynamic> rawData) {
+  String _normalizeGameType(
+      String? activityType, Map<String, dynamic> rawData) {
     const types = {
-      'quiz', 'true_false', 'matching',
-      'fill_blank', 'sequencing', 'connection', 'puzzle', 'drag_sort',
-      'memory_flip', 'pattern_next', 'trace_path', 'color_fill', 'tap_target',
+      'quiz',
+      'true_false',
+      'matching',
+      'fill_blank',
+      'sequencing',
+      'connection',
+      'puzzle',
+      'drag_sort',
+      'memory_flip',
+      'pattern_next',
+      'trace_path',
+      'color_fill',
+      'tap_target',
     };
 
     final candidate = activityType?.trim();
@@ -114,22 +125,32 @@ class _GameRendererState extends State<GameRenderer> {
     if (gameType == 'sequence' || gameType == 'sequencing') return 'sequencing';
     if (gameType == 'connect' || gameType == 'connection') return 'connection';
     if (gameType == 'puzzle') return 'puzzle';
-    if (gameType == 'drag_sort' || gameType == 'sort' || gameType == 'classify') {
+    if (gameType == 'drag_sort' ||
+        gameType == 'sort' ||
+        gameType == 'classify') {
       return 'drag_sort';
     }
     if (gameType == 'memory_flip' || gameType == 'memory') {
       return 'memory_flip';
     }
-    if (gameType == 'pattern_next' || gameType == 'pattern' || gameType == 'riddle_sequence') {
+    if (gameType == 'pattern_next' ||
+        gameType == 'pattern' ||
+        gameType == 'riddle_sequence') {
       return 'pattern_next';
     }
-    if (gameType == 'trace_path' || gameType == 'trace' || gameType == 'tracing') {
+    if (gameType == 'trace_path' ||
+        gameType == 'trace' ||
+        gameType == 'tracing') {
       return 'trace_path';
     }
-    if (gameType == 'color_fill' || gameType == 'coloring' || gameType == 'paint') {
+    if (gameType == 'color_fill' ||
+        gameType == 'coloring' ||
+        gameType == 'paint') {
       return 'color_fill';
     }
-    if (gameType == 'tap_target' || gameType == 'listen_tap' || gameType == 'listen') {
+    if (gameType == 'tap_target' ||
+        gameType == 'listen_tap' ||
+        gameType == 'listen') {
       return 'tap_target';
     }
     if (gameType == 'quiz' || gameType == 'count' || gameType == 'riddle') {
@@ -171,7 +192,9 @@ class _GameRendererState extends State<GameRenderer> {
         (rawData['leftItems'] is List && rawData['rightItems'] is List)) {
       return 'connection';
     }
-    if (rawData['pieces'] is List || rawData['gridSize'] is Map) return 'puzzle';
+    if (rawData['pieces'] is List || rawData['gridSize'] is Map) {
+      return 'puzzle';
+    }
     if (rawData['items'] is List) return 'sequencing';
     if (rawData['statements'] is List) return 'true_false';
     if (rawData['questions'] is List) return 'quiz';
@@ -232,7 +255,8 @@ class _GameRendererState extends State<GameRenderer> {
           final item = raw.map((k, v) => MapEntry(k.toString(), v));
           final id = item['id']?.toString();
           if (id == null || id.isEmpty) continue;
-          leftMap[id] = item['name']?.toString() ?? item['char']?.toString() ?? '';
+          leftMap[id] =
+              item['name']?.toString() ?? item['char']?.toString() ?? '';
         }
 
         final pairs = <Map<String, dynamic>>[];
@@ -342,18 +366,20 @@ class _GameRendererState extends State<GameRenderer> {
             .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
             .where((item) => item['label'] != null)
             .map((item) {
-          final id = item['id']?.toString();
-          final label = item['label']?.toString().trim() ?? '';
-          final order = _toInt(item['order'] ?? item['position'] ?? item['index']);
-          return {
-            ...item,
-            'id': (id == null || id.isEmpty) ? label : id,
-            'label': label,
-            'order': order <= 0 ? 1 : order,
-          };
-        }).where((item) => (item['label'] as String).isNotEmpty).toList()
-          ..sort((a, b) =>
-              (a['order'] as int).compareTo(b['order'] as int));
+              final id = item['id']?.toString();
+              final label = item['label']?.toString().trim() ?? '';
+              final order =
+                  _toInt(item['order'] ?? item['position'] ?? item['index']);
+              return {
+                ...item,
+                'id': (id == null || id.isEmpty) ? label : id,
+                'label': label,
+                'order': order <= 0 ? 1 : order,
+              };
+            })
+            .where((item) => (item['label'] as String).isNotEmpty)
+            .toList()
+          ..sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
 
         for (var i = 0; i < items.length; i++) {
           items[i]['order'] = i + 1;
@@ -410,7 +436,8 @@ class _GameRendererState extends State<GameRenderer> {
                   'right': pair['right'].toString(),
                 })
             .where((pair) =>
-                leftIds.contains(pair['left']) && rightIds.contains(pair['right']))
+                leftIds.contains(pair['left']) &&
+                rightIds.contains(pair['right']))
             .toList();
 
         return {
@@ -426,12 +453,10 @@ class _GameRendererState extends State<GameRenderer> {
       final rawPieces = rawData['pieces'];
       final gridRaw = rawData['gridSize'];
 
-      final rows = _toInt(gridRaw is Map ? gridRaw['rows'] : null)
-          .clamp(2, 3)
-          .toInt();
-      final cols = _toInt(gridRaw is Map ? gridRaw['cols'] : null)
-          .clamp(2, 3)
-          .toInt();
+      final rows =
+          _toInt(gridRaw is Map ? gridRaw['rows'] : null).clamp(2, 3).toInt();
+      final cols =
+          _toInt(gridRaw is Map ? gridRaw['cols'] : null).clamp(2, 3).toInt();
       final total = rows * cols;
 
       if (rawPieces is List) {
@@ -447,8 +472,8 @@ class _GameRendererState extends State<GameRenderer> {
                   'emoji': piece['emoji']?.toString() ?? '🧩',
                 })
             .toList()
-          ..sort((a, b) =>
-              (a['position'] as int).compareTo(b['position'] as int));
+          ..sort(
+              (a, b) => (a['position'] as int).compareTo(b['position'] as int));
 
         for (var i = 0; i < pieces.length; i++) {
           pieces[i]['position'] = i;
@@ -501,7 +526,9 @@ class _GameRendererState extends State<GameRenderer> {
     final buckets = <Map<String, dynamic>>[];
     final rawBuckets = rawData['buckets'];
     if (rawBuckets is List) {
-      for (var i = 0; i < rawBuckets.length && buckets.length < maxBuckets; i++) {
+      for (var i = 0;
+          i < rawBuckets.length && buckets.length < maxBuckets;
+          i++) {
         final entry = rawBuckets[i];
         if (entry is! Map) continue;
         final map = entry.map((k, v) => MapEntry(k.toString(), v));
@@ -561,7 +588,8 @@ class _GameRendererState extends State<GameRenderer> {
       'items': items,
       'prompt': clip(text(rawData['prompt']), 60),
       'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+      'timeLimitSec':
+          intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
     };
   }
 
@@ -645,7 +673,8 @@ class _GameRendererState extends State<GameRenderer> {
       'gridSize': {'rows': rows, 'cols': cols},
       'prompt': clip(text(rawData['prompt']), 60),
       'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': intOr(rawData['timeLimitSec'], 180).clamp(60, 300).toInt(),
+      'timeLimitSec':
+          intOr(rawData['timeLimitSec'], 180).clamp(60, 300).toInt(),
     };
   }
 
@@ -714,7 +743,8 @@ class _GameRendererState extends State<GameRenderer> {
     final sequence = parseEntries(rawData['sequence'], 's', maxSequence);
 
     // 答案必须能在清洗后的选项里按 label 重新锚定，否则重建选项列表。
-    final rawOptions = rawData['options'] is List ? rawData['options'] as List : [];
+    final rawOptions =
+        rawData['options'] is List ? rawData['options'] as List : [];
     final answerIdx = intOr(rawData['answerIndex'], -1);
     final declaredAnswer = (answerIdx >= 0 && answerIdx < rawOptions.length)
         ? text((rawOptions[answerIdx] as Map?)?['label'])
@@ -744,7 +774,8 @@ class _GameRendererState extends State<GameRenderer> {
       'answerIndex': answerIndex,
       'prompt': clip(text(rawData['prompt']), 60),
       'passingScore': intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+      'timeLimitSec':
+          intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
     };
   }
 
@@ -789,9 +820,8 @@ class _GameRendererState extends State<GameRenderer> {
 
     final usedIds = <String>{};
     final usedTexts = <String>{};
-    final rawTargets = rawData['targets'] is List
-        ? rawData['targets'] as List
-        : <dynamic>[];
+    final rawTargets =
+        rawData['targets'] is List ? rawData['targets'] as List : <dynamic>[];
     final targets = <Map<String, dynamic>>[];
     for (var i = 0; i < rawTargets.length && targets.length < maxTargets; i++) {
       final entry = rawTargets[i];
@@ -820,9 +850,8 @@ class _GameRendererState extends State<GameRenderer> {
     }
 
     final rawCoverage = doubleOr(rawData['minCoverage'], 0.7);
-    final minCoverage = rawCoverage > 0
-        ? rawCoverage.clamp(0.5, 0.85).toDouble()
-        : 0.7;
+    final minCoverage =
+        rawCoverage > 0 ? rawCoverage.clamp(0.5, 0.85).toDouble() : 0.7;
 
     return {
       ...base,
@@ -830,7 +859,8 @@ class _GameRendererState extends State<GameRenderer> {
       'minCoverage': minCoverage,
       'prompt': clip(text(rawData['prompt']), 60),
       'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': _intOr(rawData['timeLimitSec'], 180).clamp(30, 300).toInt(),
+      'timeLimitSec':
+          _intOr(rawData['timeLimitSec'], 180).clamp(30, 300).toInt(),
     };
   }
 
@@ -850,12 +880,28 @@ class _GameRendererState extends State<GameRenderer> {
     const int maxPalette = 8;
 
     const shapes = <String>[
-      'circle', 'star', 'heart', 'triangle', 'square',
-      'flower', 'sun', 'moon', 'cloud', 'fish',
+      'circle',
+      'star',
+      'heart',
+      'triangle',
+      'square',
+      'flower',
+      'sun',
+      'moon',
+      'cloud',
+      'fish',
     ];
     const colors = <String>[
-      'red', 'blue', 'yellow', 'green', 'orange',
-      'purple', 'pink', 'brown', 'black', 'white',
+      'red',
+      'blue',
+      'yellow',
+      'green',
+      'orange',
+      'purple',
+      'pink',
+      'brown',
+      'black',
+      'white',
     ];
 
     String cleanId(String value) {
@@ -865,9 +911,8 @@ class _GameRendererState extends State<GameRenderer> {
           : String.fromCharCodes(cleaned.runes.take(32));
     }
 
-    final rawPalette = rawData['palette'] is List
-        ? rawData['palette'] as List
-        : <dynamic>[];
+    final rawPalette =
+        rawData['palette'] is List ? rawData['palette'] as List : <dynamic>[];
     final seenPalette = <String>{};
     final palette = <String>[];
     for (final entry in rawPalette) {
@@ -879,9 +924,8 @@ class _GameRendererState extends State<GameRenderer> {
     }
     final paletteSet = palette.toSet();
 
-    final rawRegions = rawData['regions'] is List
-        ? rawData['regions'] as List
-        : <dynamic>[];
+    final rawRegions =
+        rawData['regions'] is List ? rawData['regions'] as List : <dynamic>[];
     final usedIds = <String>{};
     final regions = <Map<String, dynamic>>[];
     for (var i = 0; i < rawRegions.length && regions.length < maxRegions; i++) {
@@ -919,7 +963,8 @@ class _GameRendererState extends State<GameRenderer> {
       'palette': palette,
       'prompt': clippedPrompt,
       'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+      'timeLimitSec':
+          _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
     };
   }
 
@@ -958,12 +1003,15 @@ class _GameRendererState extends State<GameRenderer> {
       final prompt = clip(text(map['prompt']), 20);
       if (prompt.isEmpty) continue;
 
-      final rawTargets = map['targets'] is List ? map['targets'] as List : const [];
+      final rawTargets =
+          map['targets'] is List ? map['targets'] as List : const [];
       final usedTargetIds = <String>{};
       final usedLabels = <String>{};
       final idMap = <String, String>{};
       final targets = <Map<String, dynamic>>[];
-      for (var t = 0; t < rawTargets.length && targets.length < maxTargets; t++) {
+      for (var t = 0;
+          t < rawTargets.length && targets.length < maxTargets;
+          t++) {
         final item = rawTargets[t];
         if (item is! Map) continue;
         final itemMap = item.map((k, v) => MapEntry(k.toString(), v));
@@ -989,14 +1037,15 @@ class _GameRendererState extends State<GameRenderer> {
       if (targets.length < 2) continue;
 
       final survivingIds = targets.map((t) => t['id'] as String).toSet();
-      final rawCorrect = map['correctIds'] is List
-          ? map['correctIds'] as List
-          : <dynamic>[];
+      final rawCorrect =
+          map['correctIds'] is List ? map['correctIds'] as List : <dynamic>[];
       final correctIds = <String>[];
       for (final candidate in rawCorrect) {
         final raw = text(candidate);
         final mapped = idMap[raw] ?? raw;
-        if (!survivingIds.contains(mapped) || correctIds.contains(mapped)) continue;
+        if (!survivingIds.contains(mapped) || correctIds.contains(mapped)) {
+          continue;
+        }
         correctIds.add(mapped);
         if (correctIds.length >= 2) break;
       }
@@ -1022,14 +1071,15 @@ class _GameRendererState extends State<GameRenderer> {
       ...base,
       'rounds': rounds,
       'passingScore': _intOr(rawData['passingScore'], 80).clamp(0, 100).toInt(),
-      'timeLimitSec': _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
+      'timeLimitSec':
+          _intOr(rawData['timeLimitSec'], 120).clamp(30, 300).toInt(),
     };
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: AppTheme.primaryColor),
       );
     }

@@ -1,31 +1,41 @@
 import 'package:flutter/material.dart';
 
+import 'child_theme.dart';
+
+/// 全局活动色板：所有 `AppTheme.xxx` 动态取色的来源。
+///
+/// - 默认 [ChildThemePalette.honey]，未接入换肤同步前行为与旧 static const 一致。
+/// - 孩子端由 `_HomeScreen` 在 build 时同步为当前皮肤；
+///   家长端 / 登录前同步回 honey，保证家长端恒为蜜黄不串色。
+/// - 业务代码仍写 `AppTheme.primaryColor`，无需关心当前端与皮肤。
 class AppTheme {
-  // 品牌色彩 - 蜜黄绘本色系（与 React Web 设计系统对齐）
-  static const Color primaryColor = Color(0xFF705900);    // 深蜜黄（主操作色，白字对比达标）
-  static const Color secondaryColor = Color(0xFF006384);  // 深天蓝
-  static const Color accentColor = Color(0xFF586000);     // 橄榄绿
-  static const Color warningColor = Color(0xFFB02500);    // 深珊瑚红（错误/警示）
-  static const Color backgroundColor = Color(0xFFFFF7D5); // 奶油黄
-  static const Color textColor = Color(0xFF352F00);       // 深橄榄灰
-  static const Color textSecondary = Color(0xFF655C25);   // 中橄榄灰
+  // ── 蜜黄基准值（const） ──
+  // 供 [AppTheme.lightTheme]、[ChildThemePalette.honey] 的 const 构造与
+  // const 构造参数默认值使用；动态取色走下方同名 getter 代理 [active]。
+  static const Color honeyPrimary = Color(0xFF705900); // 深蜜黄（主操作色，白字对比达标）
+  static const Color honeySecondary = Color(0xFF006384); // 深天蓝
+  static const Color honeyAccent = Color(0xFF586000); // 橄榄绿
+  static const Color honeyBackground = Color(0xFFFFF7D5); // 奶油黄
+  static const Color honeyText = Color(0xFF352F00); // 深橄榄灰
+  static const Color honeyTextSecondary = Color(0xFF655C25); // 中橄榄灰
 
-  // 语义化颜色 - 用于状态反馈
-  static const Color successColor = Color(0xFF4CAF50);   // 成功绿
-  static const Color errorColor = Color(0xFFB02500);     // 错误红
-  static const Color infoColor = Color(0xFF006384);      // 信息蓝
-  static const Color disabledColor = Color(0xFFBDBDBD);  // 禁用灰
+  // 语义化颜色 - 用于状态反馈（不随皮肤变化，保持全局一致）
+  static const Color warningColor = Color(0xFFB02500); // 深珊瑚红（错误/警示）
+  static const Color successColor = Color(0xFF4CAF50); // 成功绿
+  static const Color errorColor = Color(0xFFB02500); // 错误红
+  static const Color infoColor = Color(0xFF006384); // 信息蓝
+  static const Color disabledColor = Color(0xFFBDBDBD); // 禁用灰
 
-  // 柔和辅助色（低饱和，融入蜜黄主题）
-  static const Color softPink = Color(0xFFF2C1C8);      // 柔粉
-  static const Color softPurple = Color(0xFFC9C0DE);    // 柔紫
-  static const Color softYellow = Color(0xFFFBE6A2);    // 柔蜜黄
-  static const Color softBlue = Color(0xFFBDD7EA);       // 柔天蓝
-  static const Color softOrange = Color(0xFFF5D5B8);     // 柔橙
-  static const Color softMint = Color(0xFFC5DED3);       // 柔薄荷
+  // 柔和辅助色蜜黄基准（低饱和，融入蜜黄主题）
+  static const Color honeySoftPink = Color(0xFFF2C1C8); // 柔粉
+  static const Color honeySoftPurple = Color(0xFFC9C0DE); // 柔紫
+  static const Color honeySoftYellow = Color(0xFFFBE6A2); // 柔蜜黄
+  static const Color honeySoftBlue = Color(0xFFBDD7EA); // 柔天蓝
+  static const Color honeySoftOrange = Color(0xFFF5D5B8); // 柔橙
+  static const Color honeySoftMint = Color(0xFFC5DED3); // 柔薄荷
 
-  // 儿童分类色（低饱和，仅用于区分，不做大面积铺色）
-  static const List<Color> childColors = [
+  // 蜜黄基准学科分类色（低饱和，仅用于区分，不做大面积铺色）
+  static const List<Color> honeyChildColors = [
     Color(0xFFC26B5A), // 陶土红（语言）
     Color(0xFF4A8F86), // 青碧（数学）
     Color(0xFF6F9E7F), // 苔绿（科学）
@@ -34,50 +44,120 @@ class AppTheme {
     Color(0xFFD9B13B), // 蜜黄（通用）
   ];
 
-  // 渐变 - 同色系微渐变（仅允许同一色相内的轻微深浅变化）
-  static const LinearGradient primaryGradient = LinearGradient(
+  // ── 全局活动色板 ──
+  static ChildThemePalette active = ChildThemePalette.honey;
+
+  static bool get _isHoney => identical(active, ChildThemePalette.honey);
+
+  static Color _mix(Color a, Color b, double t) => Color.lerp(a, b, t)!;
+
+  // ── 动态取色（原 static const 的同名代理） ──
+  // 品牌色彩
+  static Color get primaryColor => active.pop;
+  static Color get secondaryColor =>
+      _isHoney ? honeySecondary : _mix(active.subjects[1], Colors.black, 0.35);
+  static Color get accentColor =>
+      _isHoney ? honeyAccent : _mix(active.subjects[2], Colors.black, 0.25);
+  static Color get backgroundColor => active.paper;
+  static Color get textColor => active.ink;
+  static Color get textSecondary => active.ink2;
+
+  // 柔和辅助色：honey 保持原值零回归；其他皮肤从卡片底色向学科色轻柔混合
+  static Color get softPink =>
+      _isHoney ? honeySoftPink : _mix(active.card, active.subjects[0], 0.3);
+  static Color get softBlue =>
+      _isHoney ? honeySoftBlue : _mix(active.card, active.subjects[1], 0.3);
+  static Color get softMint =>
+      _isHoney ? honeySoftMint : _mix(active.card, active.subjects[2], 0.3);
+  static Color get softOrange =>
+      _isHoney ? honeySoftOrange : _mix(active.card, active.subjects[3], 0.3);
+  static Color get softPurple =>
+      _isHoney ? honeySoftPurple : _mix(active.card, active.subjects[4], 0.3);
+  static Color get softYellow => _isHoney ? honeySoftYellow : active.soft;
+
+  // 儿童分类色
+  static List<Color> get childColors => active.subjects;
+
+  // 渐变 - 同色系微渐变
+  static LinearGradient get primaryGradient => _isHoney
+      ? honeyPrimaryGradient
+      : LinearGradient(
+          colors: [
+            active.pop,
+            _mix(active.pop, Colors.white, 0.35),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+  static LinearGradient get secondaryGradient => _isHoney
+      ? honeySecondaryGradient
+      : LinearGradient(
+          colors: [
+            active.subjects[1],
+            _mix(active.subjects[1], Colors.white, 0.35),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+  static LinearGradient get rainbowGradient => _isHoney
+      ? honeyRainbowGradient
+      : LinearGradient(
+          colors: [active.cta, active.pop],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+  // 蜜黄渐变基准（供 getter 的 honey 分支与 const 场景使用）
+  static const LinearGradient honeyPrimaryGradient = LinearGradient(
     colors: [Color(0xFFFDD34D), Color(0xFFFFE587)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient secondaryGradient = LinearGradient(
+  static const LinearGradient honeySecondaryGradient = LinearGradient(
     colors: [Color(0xFF97DAFF), Color(0xFFC3E8FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient rainbowGradient = LinearGradient(
+  static const LinearGradient honeyRainbowGradient = LinearGradient(
     colors: [Color(0xFFFDD34D), Color(0xFFF5C243)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  // 节日主题渐变
+  // 节日主题渐变（不随皮肤变化）
   static const LinearGradient festivalGradient = LinearGradient(
     colors: [Color(0xFFE8895B), Color(0xFFDE7E50)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  // 成功状态渐变
+  // 成功状态渐变（不随皮肤变化）
   static const LinearGradient successGradient = LinearGradient(
     colors: [Color(0xFF4CAF50), Color(0xFF6FBF73)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  // 温暖渐变（用于奖励/成就）
+  // 温暖渐变（用于奖励/成就，不随皮肤变化）
   static const LinearGradient warmGradient = LinearGradient(
     colors: [Color(0xFFF2B85C), Color(0xFFE8A33D)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
-  // 圆角配置
-  static const double cardRadius = 20.0;
-  static const double buttonRadius = 14.0;
-  static const double smallRadius = 12.0;
+
+  // ── 圆角配置（随皮肤变化：candy 更大圆角、space 收紧） ──
+  static double get cardRadius => active.radiusLg;
+  static double get buttonRadius => active.radiusMd;
+  static double get smallRadius => active.radiusSm;
+
+  // 蜜黄圆角基准
+  static const double honeyCardRadius = 20.0;
+  static const double honeyButtonRadius = 14.0;
+  static const double honeySmallRadius = 12.0;
 
   // 间距系统 - 统一间距规范
   static const double spacingXxs = 4.0;
@@ -121,7 +201,7 @@ class AppTheme {
       ),
     ];
   }
-  
+
   // 增强阴影系统 - 多层阴影实现更真实的效果
   static List<BoxShadow> elevatedShadow([Color? color]) {
     return [
@@ -137,7 +217,7 @@ class AppTheme {
       ),
     ];
   }
-  
+
   // 轻微阴影 - 用于卡片悬浮效果
   static List<BoxShadow> subtleShadow([Color? color]) {
     return [
@@ -150,35 +230,36 @@ class AppTheme {
   }
 
   static ThemeData get lightTheme {
-      return ThemeData(
-        useMaterial3: true,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif',
-        colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
+    return ThemeData(
+      useMaterial3: true,
+      fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif',
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: honeyPrimary,
         brightness: Brightness.light,
-        primary: primaryColor,
-        secondary: secondaryColor,
-        surface: backgroundColor,
+        primary: honeyPrimary,
+        secondary: honeySecondary,
+        surface: honeyBackground,
       ),
-scaffoldBackgroundColor: backgroundColor,
+      scaffoldBackgroundColor: honeyBackground,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-titleTextStyle: TextStyle(
+        titleTextStyle: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.bold,
-          color: textColor,
+          color: honeyText,
         ),
-        iconTheme: IconThemeData(color: textColor),
+        iconTheme: IconThemeData(color: honeyText),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
+          backgroundColor: honeyPrimary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(buttonRadius),
+            borderRadius: BorderRadius.circular(honeyButtonRadius),
           ),
           elevation: 0,
           textStyle: const TextStyle(
@@ -191,13 +272,13 @@ titleTextStyle: TextStyle(
         color: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(cardRadius),
+          borderRadius: BorderRadius.circular(honeyCardRadius),
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: Colors.white,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: textSecondary.withValues(alpha: 0.6),
+        selectedItemColor: honeyPrimary,
+        unselectedItemColor: honeyTextSecondary.withValues(alpha: 0.6),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
         selectedLabelStyle: const TextStyle(
@@ -221,14 +302,15 @@ titleTextStyle: TextStyle(
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: honeyPrimary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.6)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        hintStyle: TextStyle(color: honeyTextSecondary.withValues(alpha: 0.6)),
       ),
       // 添加浮动按钮主题
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
+        backgroundColor: honeyPrimary,
         foregroundColor: Colors.white,
         elevation: 5,
         shape: CircleBorder(),
@@ -238,73 +320,73 @@ titleTextStyle: TextStyle(
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.3,
         ),
         headlineMedium: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.3,
         ),
         headlineSmall: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.4,
         ),
         titleLarge: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.4,
         ),
         titleMedium: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.4,
         ),
         titleSmall: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: textColor,
+          color: honeyText,
           height: 1.5,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          color: textColor,
+          color: honeyText,
           height: 1.5,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: textColor,
+          color: honeyText,
           height: 1.5,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
-          color: textSecondary,
+          color: honeyTextSecondary,
           height: 1.5,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: honeyText,
           height: 1.4,
         ),
         labelMedium: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: textSecondary,
+          color: honeyTextSecondary,
           height: 1.4,
         ),
         labelSmall: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w500,
-          color: textSecondary,
+          color: honeyTextSecondary,
           height: 1.4,
         ),
       ),
@@ -357,12 +439,12 @@ class CloudDecoration extends StatelessWidget {
 // 装饰组件 - 爱心
 class HeartDecoration extends StatelessWidget {
   final double size;
-  final Color color;
+  final Color? color;
 
   const HeartDecoration({
     super.key,
     this.size = 20,
-    this.color = AppTheme.primaryColor,
+    this.color,
   });
 
   @override
@@ -370,7 +452,8 @@ class HeartDecoration extends StatelessWidget {
     return Icon(
       Icons.favorite_rounded,
       size: size,
-      color: color,
+      // 未指定颜色时跟随当前皮肤主色（const 默认参数无法引用动态 getter）
+      color: color ?? AppTheme.primaryColor,
     );
   }
 }

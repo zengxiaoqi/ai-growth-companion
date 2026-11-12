@@ -14,17 +14,46 @@ class AchievementScreen extends StatefulWidget {
 }
 
 class _AchievementScreenState extends State<AchievementScreen> {
-
   @override
   Widget build(BuildContext context) {
     // 模拟成就数据
     final achievements = [
-      {'name': '初次学习', 'icon': '🎯', 'desc': '完成第一个课程', 'color': AppTheme.primaryColor},
-      {'name': '每日目标', 'icon': '⭐', 'desc': '完成每日学习任务', 'color': AppTheme.softYellow},
-      {'name': '学习小达人', 'icon': '🏆', 'desc': '累计学习 7 天', 'color': AppTheme.secondaryColor},
-      {'name': '语言高手', 'icon': '📚', 'desc': '完成 10 个语言主题', 'color': AppTheme.accentColor},
-      {'name': '数学天才', 'icon': '🔢', 'desc': '完成 10 个数学主题', 'color': AppTheme.softPurple},
-      {'name': '探索者', 'icon': '🌟', 'desc': '尝试所有学科', 'color': const Color(0xFFE3BC45)},
+      {
+        'name': '初次学习',
+        'icon': '🎯',
+        'desc': '完成第一个课程',
+        'color': AppTheme.primaryColor
+      },
+      {
+        'name': '每日目标',
+        'icon': '⭐',
+        'desc': '完成每日学习任务',
+        'color': AppTheme.softYellow
+      },
+      {
+        'name': '学习小达人',
+        'icon': '🏆',
+        'desc': '累计学习 7 天',
+        'color': AppTheme.secondaryColor
+      },
+      {
+        'name': '语言高手',
+        'icon': '📚',
+        'desc': '完成 10 个语言主题',
+        'color': AppTheme.accentColor
+      },
+      {
+        'name': '数学天才',
+        'icon': '🔢',
+        'desc': '完成 10 个数学主题',
+        'color': AppTheme.softPurple
+      },
+      {
+        'name': '探索者',
+        'icon': '🌟',
+        'desc': '尝试所有学科',
+        'color': const Color(0xFFE3BC45)
+      },
     ];
 
     const stars = 25;
@@ -39,15 +68,15 @@ class _AchievementScreenState extends State<AchievementScreen> {
               // 顶部标题
               _buildHeader(),
               const SizedBox(height: 20),
-              
+
               // 星星总数卡片
               _buildStarsCard(stars),
               const SizedBox(height: 24),
-              
+
               // 成就列表
               _buildAchievementsList(achievements),
               const SizedBox(height: 24),
-              
+
               // 进度条
               _buildProgressSection(),
               const SizedBox(height: 20),
@@ -84,7 +113,8 @@ class _AchievementScreenState extends State<AchievementScreen> {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.star_rounded, color: Colors.white, size: 32),
+            child:
+                const Icon(Icons.star_rounded, color: Colors.white, size: 32),
           ),
           const SizedBox(width: 16),
           Column(
@@ -165,9 +195,24 @@ class _AchievementScreenState extends State<AchievementScreen> {
 
   Widget _buildProgressSection() {
     final progressItems = [
-      {'label': '连续学习', 'value': 0.6, 'icon': Icons.local_fire_department_rounded, 'color': AppTheme.primaryColor},
-      {'label': '完成主题', 'value': 0.4, 'icon': Icons.auto_stories_rounded, 'color': AppTheme.secondaryColor},
-      {'label': '获得星星', 'value': 0.5, 'icon': Icons.star_rounded, 'color': AppTheme.softYellow},
+      {
+        'label': '连续学习',
+        'value': 0.6,
+        'icon': Icons.local_fire_department_rounded,
+        'color': AppTheme.primaryColor
+      },
+      {
+        'label': '完成主题',
+        'value': 0.4,
+        'icon': Icons.auto_stories_rounded,
+        'color': AppTheme.secondaryColor
+      },
+      {
+        'label': '获得星星',
+        'value': 0.5,
+        'icon': Icons.star_rounded,
+        'color': AppTheme.softYellow
+      },
     ];
 
     return Column(
@@ -179,11 +224,11 @@ class _AchievementScreenState extends State<AchievementScreen> {
         ),
         const SizedBox(height: 12),
         ...progressItems.map((item) => _ProgressItem(
-          label: item['label'] as String,
-          value: item['value'] as double,
-          icon: item['icon'] as IconData,
-          color: item['color'] as Color,
-        )),
+              label: item['label'] as String,
+              value: item['value'] as double,
+              icon: item['icon'] as IconData,
+              color: item['color'] as Color,
+            )),
       ],
     );
   }
@@ -237,7 +282,10 @@ class _AchievementBadge extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.1)],
+                        colors: [
+                          color.withValues(alpha: 0.2),
+                          color.withValues(alpha: 0.1)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -255,7 +303,8 @@ class _AchievementBadge extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
-                      child: const Icon(Icons.check, color: Colors.white, size: 12),
+                      child: const Icon(Icons.check,
+                          color: Colors.white, size: 12),
                     ),
                   ),
                 ],
@@ -273,7 +322,7 @@ class _AchievementBadge extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 desc,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppTheme.textSecondary,
                 ),

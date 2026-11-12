@@ -117,15 +117,17 @@ class ChildSelector extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    selectedChild == null ? '暂无可选孩子' : _childLabel(selectedChild),
-                    style: const TextStyle(
+                    selectedChild == null
+                        ? '暂无可选孩子'
+                        : _childLabel(selectedChild),
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textColor,
@@ -138,7 +140,9 @@ class ChildSelector extends StatelessWidget {
             ),
             Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: children.isEmpty ? Colors.grey.shade400 : AppTheme.textSecondary,
+              color: children.isEmpty
+                  ? Colors.grey.shade400
+                  : AppTheme.textSecondary,
             ),
           ],
         ),
@@ -155,7 +159,7 @@ class ChildSelector extends StatelessWidget {
       backgroundColor: AppTheme.secondaryColor.withValues(alpha: 0.18),
       child: Text(
         display,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
           color: AppTheme.secondaryColor,
         ),
@@ -188,7 +192,8 @@ class ChildSelector extends StatelessWidget {
               ),
               subtitle: Text(_buildChildSubtitle(child)),
               trailing: selected
-                  ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor)
+                  ? Icon(Icons.check_circle_rounded,
+                      color: AppTheme.primaryColor)
                   : null,
               onTap: () {
                 Navigator.of(context).pop();

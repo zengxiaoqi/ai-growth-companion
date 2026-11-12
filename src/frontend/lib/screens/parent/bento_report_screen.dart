@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -62,7 +61,8 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
         throw Exception('未登录，请重新登录后重试');
       }
 
-      final result = await api.generateBentoReport(widget.childId, widget.period);
+      final result =
+          await api.generateBentoReport(widget.childId, widget.period);
 
       if (!mounted) return;
 
@@ -190,7 +190,7 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(
+            CircularProgressIndicator(
               color: AppTheme.primaryColor,
             ),
             const SizedBox(height: 20),

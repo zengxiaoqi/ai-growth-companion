@@ -23,11 +23,11 @@ class ProfileScreen extends StatelessWidget {
               // 头像和名字
               _buildProfileHeader(name, age),
               const SizedBox(height: 32),
-              
+
               // 设置列表
               _buildSettingsSection(context, userProvider),
               const SizedBox(height: 24),
-              
+
               // 退出登录
               _buildLogoutButton(context, userProvider),
               const SizedBox(height: 20),
@@ -46,7 +46,7 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
             ),
             boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
@@ -70,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        
+
         // 名字
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -79,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textColor,
@@ -90,7 +90,7 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        
+
         // 年龄标签
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -101,11 +101,12 @@ class ProfileScreen extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cake_rounded, size: 18, color: AppTheme.secondaryColor),
+              Icon(Icons.cake_rounded,
+                  size: 18, color: AppTheme.secondaryColor),
               const SizedBox(width: 6),
               Text(
                 '$age 岁',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   color: AppTheme.secondaryColor,
                   fontWeight: FontWeight.w600,
@@ -115,9 +116,9 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // 装饰星星
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             StarDecoration(size: 16, color: AppTheme.softYellow),
@@ -131,48 +132,75 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context, UserProvider userProvider) {
-      final settings = [
-        {'icon': Icons.person_rounded, 'title': '个人资料', 'emoji': '👤', 'color': AppTheme.primaryColor},
-        {'icon': Icons.notifications_rounded, 'title': '通知设置', 'emoji': '🔔', 'color': AppTheme.secondaryColor},
-        {'icon': Icons.lock_rounded, 'title': '隐私设置', 'emoji': '🔒', 'color': AppTheme.accentColor},
-        {'icon': Icons.help_rounded, 'title': '帮助与反馈', 'emoji': '💬', 'color': AppTheme.softYellow},
-        {'icon': Icons.info_rounded, 'title': '关于我们', 'emoji': 'ℹ️', 'color': AppTheme.softPurple},
-      ];
+  Widget _buildSettingsSection(
+      BuildContext context, UserProvider userProvider) {
+    final settings = [
+      {
+        'icon': Icons.person_rounded,
+        'title': '个人资料',
+        'emoji': '👤',
+        'color': AppTheme.primaryColor
+      },
+      {
+        'icon': Icons.notifications_rounded,
+        'title': '通知设置',
+        'emoji': '🔔',
+        'color': AppTheme.secondaryColor
+      },
+      {
+        'icon': Icons.lock_rounded,
+        'title': '隐私设置',
+        'emoji': '🔒',
+        'color': AppTheme.accentColor
+      },
+      {
+        'icon': Icons.help_rounded,
+        'title': '帮助与反馈',
+        'emoji': '💬',
+        'color': AppTheme.softYellow
+      },
+      {
+        'icon': Icons.info_rounded,
+        'title': '关于我们',
+        'emoji': 'ℹ️',
+        'color': AppTheme.softPurple
+      },
+    ];
 
-      void onSettingTap(String title) {
-        switch (title) {
-          case '个人资料':
-            showProfileEditSheet(context, userProvider);
-            return;
-          case '通知设置':
-            showNotificationSettingsSheet(context);
-            return;
-          case '隐私设置':
-            showPrivacySheet(context);
-            return;
-          case '帮助与反馈':
-            showHelpFeedbackSheet(context);
-            return;
-          case '关于我们':
-            // 含版本信息与「检查更新」入口
-            showAboutSheet(context);
-            return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$title — 功能开发中，敬请期待 ✨'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+    void onSettingTap(String title) {
+      switch (title) {
+        case '个人资料':
+          showProfileEditSheet(context, userProvider);
+          return;
+        case '通知设置':
+          showNotificationSettingsSheet(context);
+          return;
+        case '隐私设置':
+          showPrivacySheet(context);
+          return;
+        case '帮助与反馈':
+          showHelpFeedbackSheet(context);
+          return;
+        case '关于我们':
+          // 含版本信息与「检查更新」入口
+          showAboutSheet(context);
+          return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$title — 功能开发中，敬请期待 ✨'),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
             Text('⚙️', style: TextStyle(fontSize: 20)),
             SizedBox(width: 8),
@@ -210,7 +238,7 @@ class ProfileScreen extends StatelessWidget {
                 emoji: item['emoji'] as String,
                 color: item['color'] as Color,
                 isLast: isLast,
-                                onTap: () => onSettingTap(item['title'] as String),
+                onTap: () => onSettingTap(item['title'] as String),
               );
             }).toList(),
           ),
@@ -244,15 +272,15 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                                      Navigator.pop(context); // close dialog
-                                      await userProvider.logout();
-                                      // Consumer 会自动重建 home 为 LoginScreen
-                                      // 只需弹回根路由，不要 push 新的 /login
-                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                        Navigator.of(context, rootNavigator: true)
-                                            .popUntil((route) => route.isFirst);
-                                      });
-                                    },
+                    Navigator.pop(context); // close dialog
+                    await userProvider.logout();
+                    // Consumer 会自动重建 home 为 LoginScreen
+                    // 只需弹回根路由，不要 push 新的 /login
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.of(context, rootNavigator: true)
+                          .popUntil((route) => route.isFirst);
+                    });
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[400],
                     shape: RoundedRectangleBorder(
@@ -340,7 +368,9 @@ class _SettingItemState extends State<_SettingItem> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         decoration: BoxDecoration(
-          color: _isPressed ? widget.color.withValues(alpha: 0.05) : Colors.transparent,
+          color: _isPressed
+              ? widget.color.withValues(alpha: 0.05)
+              : Colors.transparent,
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(widget.isLast ? 24 : 0),
             bottom: Radius.circular(widget.isLast ? 24 : 0),
@@ -362,7 +392,7 @@ class _SettingItemState extends State<_SettingItem> {
               Expanded(
                 child: Text(
                   widget.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor,

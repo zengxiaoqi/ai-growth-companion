@@ -22,7 +22,8 @@ class SubjectContentListScreen extends StatefulWidget {
   });
 
   @override
-  State<SubjectContentListScreen> createState() => _SubjectContentListScreenState();
+  State<SubjectContentListScreen> createState() =>
+      _SubjectContentListScreenState();
 }
 
 class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
@@ -48,7 +49,10 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
         ageRange: ageGroup.isEmpty ? null : ageGroup,
       );
       setState(() {
-        _courses = list.whereType<Map>().map((c) => c.map((k, v) => MapEntry(k.toString(), v))).toList();
+        _courses = list
+            .whereType<Map>()
+            .map((c) => c.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
         _isLoading = false;
       });
     } catch (_) {
@@ -87,33 +91,33 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
       color: AppTheme.backgroundColor,
       child: BubbleBackground(
         child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          title: Row(
-            children: [
-              Text(
-                _subjectEmoji,
-                style: const TextStyle(fontSize: 24),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '$subject 课程',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_rounded, color: AppTheme.textColor),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Row(
+              children: [
+                Text(
+                  _subjectEmoji,
+                  style: const TextStyle(fontSize: 24),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  '$subject 课程',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        body: _buildCourseList(context),
+          body: _buildCourseList(context),
         ),
       ),
     );
@@ -121,7 +125,8 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
 
   Widget _buildCourseList(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
 
     if (_courses.isEmpty) {
@@ -144,7 +149,9 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
           title: course['title'] as String? ?? '未命名课程',
           description: course['description'] as String? ?? '',
           type: course['type'] as String? ?? 'normal',
-          durationMinutes: (course['durationMinutes'] ?? course['duration_minutes']) as int? ?? 10,
+          durationMinutes: (course['durationMinutes'] ??
+                  course['duration_minutes']) as int? ??
+              10,
           difficulty: (course['difficulty'] ?? course['level']) as int? ?? 1,
           color: color,
           onTap: () => _navigateToCourse(context, course),
@@ -171,7 +178,8 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
     };
 
     if (type == 'structured_lesson' || type == 'video_lesson') {
-      Navigator.pushNamed(context, '/learning/structuredLesson', arguments: args);
+      Navigator.pushNamed(context, '/learning/structuredLesson',
+          arguments: args);
     } else {
       Navigator.pushNamed(context, '/learning/contentDetail', arguments: args);
     }
@@ -179,14 +187,14 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
 
   // ─── 学科元数据 ────────────────────────────────────────────────────────
 
-  static const Map<String, Map<String, dynamic>> _subjectMeta = {
-    'language': {'emoji': '🗣️', 'color': AppTheme.primaryColor},
-    'math': {'emoji': '🔢', 'color': AppTheme.secondaryColor},
-    'science': {'emoji': '🔬', 'color': AppTheme.accentColor},
-    'art': {'emoji': '🎨', 'color': Color(0xFF9A8FB8)},
-    'social': {'emoji': '🌍', 'color': Color(0xFFE3BC45)},
-    'music': {'emoji': '🎵', 'color': Color(0xFFC26B5A)},
-  };
+  static Map<String, Map<String, dynamic>> get _subjectMeta => {
+        'language': {'emoji': '🗣️', 'color': AppTheme.primaryColor},
+        'math': {'emoji': '🔢', 'color': AppTheme.secondaryColor},
+        'science': {'emoji': '🔬', 'color': AppTheme.accentColor},
+        'art': {'emoji': '🎨', 'color': Color(0xFF9A8FB8)},
+        'social': {'emoji': '🌍', 'color': Color(0xFFE3BC45)},
+        'music': {'emoji': '🎵', 'color': Color(0xFFC26B5A)},
+      };
 }
 
 /// 单个课程卡片
@@ -209,7 +217,8 @@ class _CourseCard extends StatelessWidget {
     required this.onTap,
   });
 
-  bool get _isStructured => type == 'structured_lesson' || type == 'video_lesson';
+  bool get _isStructured =>
+      type == 'structured_lesson' || type == 'video_lesson';
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +251,9 @@ class _CourseCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  _isStructured ? Icons.list_alt_rounded : Icons.play_circle_fill_rounded,
+                  _isStructured
+                      ? Icons.list_alt_rounded
+                      : Icons.play_circle_fill_rounded,
                   color: color,
                   size: 28,
                 ),
@@ -258,7 +269,7 @@ class _CourseCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.textColor,
@@ -270,14 +281,18 @@ class _CourseCard extends StatelessWidget {
                         if (_isStructured) ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: color.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '结构化',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: color),
                             ),
                           ),
                         ],
@@ -299,14 +314,16 @@ class _CourseCard extends StatelessWidget {
                       children: [
                         _infoChip(Icons.timer_outlined, '$durationMinutes 分钟'),
                         const SizedBox(width: 12),
-                        _infoChip(Icons.signal_cellular_alt_rounded, '难度 L$difficulty'),
+                        _infoChip(Icons.signal_cellular_alt_rounded,
+                            '难度 L$difficulty'),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_ios_rounded, size: 16,
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 16,
                   color: AppTheme.textSecondary.withValues(alpha: 0.4)),
             ],
           ),
@@ -319,7 +336,8 @@ class _CourseCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
+        Icon(icon,
+            size: 13, color: AppTheme.textSecondary.withValues(alpha: 0.5)),
         const SizedBox(width: 4),
         Text(
           label,

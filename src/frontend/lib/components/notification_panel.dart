@@ -64,15 +64,19 @@ class _NotificationPanelState extends State<NotificationPanel> {
       final response = await api.getNotifications(userId);
       final list = (response['notifications'] as List?) ?? [];
       setState(() {
-        _notifications = list.map((item) => NotificationItem(
-          id: item['id'] as int,
-          title: item['title'] ?? '',
-          message: item['message'] ?? '',
-          type: item['type'] ?? 'system',
-          isRead: (item['read'] ?? item['isRead'] ?? false) as bool,
-          createdAt: DateTime.tryParse(item['createdAt'] ?? '') ?? DateTime.now(),
-        )).toList();
-        _unreadCount = (response['unreadCount'] as int?) ?? _notifications.where((n) => !n.isRead).length;
+        _notifications = list
+            .map((item) => NotificationItem(
+                  id: item['id'] as int,
+                  title: item['title'] ?? '',
+                  message: item['message'] ?? '',
+                  type: item['type'] ?? 'system',
+                  isRead: (item['read'] ?? item['isRead'] ?? false) as bool,
+                  createdAt: DateTime.tryParse(item['createdAt'] ?? '') ??
+                      DateTime.now(),
+                ))
+            .toList();
+        _unreadCount = (response['unreadCount'] as int?) ??
+            _notifications.where((n) => !n.isRead).length;
         _isLoading = false;
       });
     } catch (_) {
@@ -103,7 +107,8 @@ class _NotificationPanelState extends State<NotificationPanel> {
       await api.markAllNotificationsRead(userId);
     } catch (_) {}
     setState(() {
-      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+      _notifications =
+          _notifications.map((n) => n.copyWith(isRead: true)).toList();
       _unreadCount = 0;
     });
   }
@@ -120,21 +125,31 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   IconData _typeIcon(String type) {
     switch (type) {
-      case 'achievement': return Icons.emoji_events_rounded;
-      case 'learning': return Icons.school_rounded;
-      case 'reminder': return Icons.schedule_rounded;
-      case 'assignment': return Icons.assignment_rounded;
-      default: return Icons.campaign_rounded;
+      case 'achievement':
+        return Icons.emoji_events_rounded;
+      case 'learning':
+        return Icons.school_rounded;
+      case 'reminder':
+        return Icons.schedule_rounded;
+      case 'assignment':
+        return Icons.assignment_rounded;
+      default:
+        return Icons.campaign_rounded;
     }
   }
 
   Color _typeColor(String type) {
     switch (type) {
-      case 'achievement': return AppTheme.accentColor;
-      case 'learning': return AppTheme.primaryColor;
-      case 'reminder': return AppTheme.secondaryColor;
-      case 'assignment': return AppTheme.softPurple;
-      default: return AppTheme.textSecondary;
+      case 'achievement':
+        return AppTheme.accentColor;
+      case 'learning':
+        return AppTheme.primaryColor;
+      case 'reminder':
+        return AppTheme.secondaryColor;
+      case 'assignment':
+        return AppTheme.softPurple;
+      default:
+        return AppTheme.textSecondary;
     }
   }
 
@@ -164,7 +179,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
       padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
       child: Row(
         children: [
-          const Text(
+          Text(
             '消息通知',
             style: TextStyle(
               fontSize: 18,
@@ -182,7 +197,10 @@ class _NotificationPanelState extends State<NotificationPanel> {
               ),
               child: Text(
                 _unreadCount > 9 ? '9+' : '$_unreadCount',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
             ),
           const Spacer(),
@@ -208,9 +226,10 @@ class _NotificationPanelState extends State<NotificationPanel> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.all(40),
-        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        child: Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
@@ -223,7 +242,8 @@ class _NotificationPanelState extends State<NotificationPanel> {
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _notifications.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72, color: Color(0xFFF5F5F5)),
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, indent: 72, color: Color(0xFFF5F5F5)),
       itemBuilder: (_, index) => _buildNotificationItem(_notifications[index]),
     );
   }
@@ -239,7 +259,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
             color: AppTheme.textSecondary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '暂无通知',
             style: TextStyle(
               fontSize: 16,
@@ -291,7 +311,9 @@ class _NotificationPanelState extends State<NotificationPanel> {
                     notification.title,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: notification.isRead ? FontWeight.w500 : FontWeight.bold,
+                      fontWeight: notification.isRead
+                          ? FontWeight.w500
+                          : FontWeight.bold,
                       color: AppTheme.textColor,
                     ),
                   ),
@@ -323,7 +345,7 @@ class _NotificationPanelState extends State<NotificationPanel> {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(top: 6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppTheme.primaryColor,
                   shape: BoxShape.circle,
                 ),

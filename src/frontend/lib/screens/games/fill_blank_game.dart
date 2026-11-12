@@ -290,7 +290,9 @@ class _FillBlankGameState extends State<FillBlankGame> with GameTtsHelper {
                 revealed: _revealed,
                 isCorrect: isCurrentCorrect,
                 onDrop: _applyAnswer,
-                onReplay: _revealed ? null : () => speak(_sentenceTextForSpeech(current.text)),
+                onReplay: _revealed
+                    ? null
+                    : () => speak(_sentenceTextForSpeech(current.text)),
               ),
               if ((current.hint ?? '').trim().isNotEmpty && !_revealed) ...[
                 const SizedBox(height: 10),
@@ -376,9 +378,7 @@ class _FillBlankGameState extends State<FillBlankGame> with GameTtsHelper {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              isCurrentCorrect
-                  ? '答对啦，太棒了！'
-                  : '正确答案是：${current.answer}',
+              isCurrentCorrect ? '答对啦，太棒了！' : '正确答案是：${current.answer}',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -420,7 +420,8 @@ class _SentenceWithBlank extends StatelessWidget {
             top: -4,
             right: -4,
             child: IconButton(
-              icon: const Icon(Icons.campaign_rounded, size: 22, color: Color(0xFF6C5CE7)),
+              icon: const Icon(Icons.campaign_rounded,
+                  size: 22, color: Color(0xFF6C5CE7)),
               onPressed: onReplay,
               tooltip: '重新朗读',
               padding: EdgeInsets.zero,
@@ -568,7 +569,7 @@ class _FillBlankEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.edit_note_rounded,
             size: 48,
             color: AppTheme.textSecondary,

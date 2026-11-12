@@ -26,7 +26,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   static const _navItems = [
     BottomNavItem(key: 'home', label: '首页', icon: Icons.home_rounded),
     BottomNavItem(key: 'learning', label: '学习', icon: Icons.school_rounded),
-    BottomNavItem(key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
+    BottomNavItem(
+        key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
     BottomNavItem(key: 'report', label: '报告', icon: Icons.assessment_rounded),
     BottomNavItem(key: 'profile', label: '我的', icon: Icons.person_rounded),
   ];
@@ -261,12 +262,14 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade700),
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: Colors.orange.shade700),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
                       _loadError!,
-                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.orange.shade800),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -317,7 +320,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           SnackBar(
             content: const Text('已切换到学生端'),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             duration: const Duration(seconds: 1),
           ),
         );
@@ -337,7 +341,10 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
       builder: (_) => const AlertDialog(
         content: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5)),
             SizedBox(width: 16),
             Text('正在切换...'),
           ],
@@ -356,7 +363,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
         SnackBar(
           content: const Text('已切换到学生端'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -373,7 +381,7 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.secondaryColor, Color(0xFF9AD0E8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -389,7 +397,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
               color: Colors.white.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.family_restroom, color: Colors.white, size: 32),
+            child: const Icon(Icons.family_restroom,
+                color: Colors.white, size: 32),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -528,7 +537,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           title: '作业管理',
           subtitle: '布置与检查孩子作业',
           color: AppTheme.softOrange,
-          onTap: () => Navigator.pushNamed(context, '/parent/assignmentManager'),
+          onTap: () =>
+              Navigator.pushNamed(context, '/parent/assignmentManager'),
         ),
         _MenuTile(
           icon: Icons.drafts_rounded,
@@ -542,7 +552,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           title: '课程包管理',
           subtitle: '查看和管理课程包',
           color: AppTheme.softMint,
-          onTap: () => Navigator.pushNamed(context, '/parent/coursePackManager'),
+          onTap: () =>
+              Navigator.pushNamed(context, '/parent/coursePackManager'),
         ),
         _MenuTile(
           icon: Icons.radar_rounded,
@@ -563,7 +574,8 @@ class _ParentHomeContentState extends State<ParentHomeContent> {
           title: '快速视频生成',
           subtitle: 'AI 一键生成教学动画视频',
           color: AppTheme.softPink,
-          onTap: () => Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
+          onTap: () =>
+              Navigator.pushNamed(context, '/parent/quickVideoGenerator'),
         ),
         _MenuTile(
           icon: Icons.download_rounded,
@@ -632,7 +644,7 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: AppTheme.primaryColor,
@@ -640,7 +652,7 @@ class _StatItem extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppTheme.textSecondary,
           ),
         ),
@@ -672,7 +684,8 @@ class _AbilityBar extends StatelessWidget {
                 value: value,
                 backgroundColor: Colors.grey.shade200,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  AppTheme.childColors[label.length % AppTheme.childColors.length],
+                  AppTheme
+                      .childColors[label.length % AppTheme.childColors.length],
                 ),
                 minHeight: 8,
               ),

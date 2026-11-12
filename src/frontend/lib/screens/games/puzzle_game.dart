@@ -143,7 +143,8 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
       }
       // 检查交换后是否有拼图块归位。
       for (final piece in _pieces) {
-        if (piece.currentPosition == piece.correctPosition && !_spokeCorrectIds.contains(piece.id)) {
+        if (piece.currentPosition == piece.correctPosition &&
+            !_spokeCorrectIds.contains(piece.id)) {
           _spokeCorrectIds.add(piece.id);
           speakAfterDelay(piece.label.isNotEmpty ? piece.label : '正确');
         }
@@ -156,7 +157,9 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
 
   void _finish() {
     final result = {
-      'score': _moves <= _pieces.length ? _pieces.length : _pieces.length - (_moves - _pieces.length),
+      'score': _moves <= _pieces.length
+          ? _pieces.length
+          : _pieces.length - (_moves - _pieces.length),
       'totalQuestions': _pieces.length,
       'correctAnswers': _pieces.length,
       'interactionData': {
@@ -178,7 +181,8 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.extension_rounded, size: 48, color: AppTheme.textSecondary),
+            Icon(Icons.extension_rounded,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无拼图数据'),
             const SizedBox(height: 12),
@@ -203,7 +207,8 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
       children: [
         Text(
           widget.data['title']?.toString() ?? '拼图游戏',
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style:
+              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Row(
@@ -221,7 +226,8 @@ class _PuzzleGameState extends State<PuzzleGame> with GameTtsHelper {
               children: [
                 buildTtsToggleButton(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppTheme.softPurple.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(999),
@@ -321,7 +327,8 @@ class _PuzzleGridState extends State<_PuzzleGrid> {
     );
   }
 
-  Widget _buildPieceTile(_PuzzlePiece piece, bool isCorrect, {bool dragging = false}) {
+  Widget _buildPieceTile(_PuzzlePiece piece, bool isCorrect,
+      {bool dragging = false}) {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
@@ -335,9 +342,7 @@ class _PuzzleGridState extends State<_PuzzleGrid> {
               : AppTheme.secondaryColor.withValues(alpha: 0.3),
           width: 2,
         ),
-        boxShadow: dragging
-            ? AppTheme.softShadow(AppTheme.primaryColor)
-            : [],
+        boxShadow: dragging ? AppTheme.softShadow(AppTheme.primaryColor) : [],
       ),
       child: Center(
         child: Column(

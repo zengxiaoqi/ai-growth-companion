@@ -15,13 +15,13 @@ class PoetryHomeScreen extends StatefulWidget {
 
 class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
   late final PoetryService _poetryService;
-  
+
   List<Poem> _poems = [];
   bool _isLoading = true;
   String? _error;
   int _currentPage = 1;
   bool _hasMore = true;
-  
+
   // 搜索相关
   final _searchController = TextEditingController();
   bool _isSearching = false;
@@ -29,7 +29,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
 
   // 搜索类型过滤
   String _selectedSearchType = 'all';
-  
+
   // 繁简切换：zh-Hans（简体）或 zh-Hant（繁体）
   String _lang = 'zh-Hans';
   final List<Map<String, String>> _searchTypes = [
@@ -61,7 +61,8 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     });
 
     try {
-      final result = await _poetryService.getPoems(page: 1, pageSize: 20, lang: _lang);
+      final result =
+          await _poetryService.getPoems(page: 1, pageSize: 20, lang: _lang);
       setState(() {
         _poems = result.list;
         _hasMore = _poems.length < result.total;
@@ -115,7 +116,8 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
     setState(() => _isSearching = true);
 
     try {
-      final result = await _poetryService.searchPoems(query: query, searchType: searchType, lang: _lang);
+      final result = await _poetryService.searchPoems(
+          query: query, searchType: searchType, lang: _lang);
       setState(() => _searchResults = result.list);
     } catch (e) {
       if (mounted) {
@@ -158,7 +160,10 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                   hintText: '搜索诗词...',
                   border: InputBorder.none,
                   hintStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.4),
                   ),
                 ),
                 style: TextStyle(
@@ -199,7 +204,7 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
               },
               child: Text(
                 _lang == 'zh-Hans' ? '繁' : '简',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -311,7 +316,8 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: _searchResults.length,
-            itemBuilder: (context, index) => _buildPoemCard(_searchResults[index]),
+            itemBuilder: (context, index) =>
+                _buildPoemCard(_searchResults[index]),
           ),
         ),
       ],
@@ -321,7 +327,8 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
   Widget _buildPoemList() {
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+        if (notification.metrics.pixels >=
+            notification.metrics.maxScrollExtent - 200) {
           _loadMore();
         }
         return false;
@@ -367,14 +374,15 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                     child: Text(
                       poem.title,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
                   if (poem.type != null) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF6FA3C8).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
@@ -397,7 +405,8 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
                 children: [
                   if (poem.dynasty != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF2C1C8).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
@@ -429,16 +438,16 @@ class _PoetryHomeScreenState extends State<PoetryHomeScreen> {
               const SizedBox(height: 12),
               // 诗词内容预览（前两行）
               ...poem.contentLines.take(2).map(
-                (line) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    line,
-                    style: const TextStyle(fontSize: 15, height: 1.5),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        line,
+                        style: const TextStyle(fontSize: 15, height: 1.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
-                ),
-              ),
               if (poem.contentLines.length > 2)
                 Text(
                   '...',

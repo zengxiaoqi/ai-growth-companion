@@ -152,9 +152,10 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     '请输入孩子账号的手机号/账号和6位登录验证码完成绑定',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -195,12 +196,14 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.orange[700]),
+                        Icon(Icons.info_outline,
+                            size: 16, color: Colors.orange[700]),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             '验证码可在孩子账号的设置页查看，或由已绑定的家长在孩子管理页查看。',
-                            style: TextStyle(fontSize: 11, color: Colors.orange[700]),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.orange[700]),
                           ),
                         ),
                       ],
@@ -210,7 +213,8 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  onPressed:
+                      isSubmitting ? null : () => Navigator.pop(dialogContext),
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
@@ -235,13 +239,16 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
 
                             if (result == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('绑定失败，请检查手机号/账号和验证码')),
+                                const SnackBar(
+                                    content: Text('绑定失败，请检查手机号/账号和验证码')),
                               );
                             } else {
                               await _loadChildren();
                               if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('已成功绑定 ${result['name'] ?? '孩子'}')),
+                                SnackBar(
+                                    content: Text(
+                                        '已成功绑定 ${result['name'] ?? '孩子'}')),
                               );
                             }
                           } catch (e) {
@@ -318,14 +325,15 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               const Text('请记录新的登录验证码：'),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   result['loginCode'].toString(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 8,
@@ -334,7 +342,7 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '孩子可用此验证码在登录页"孩子快捷登录"处登录',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
@@ -372,9 +380,10 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     '输入6位自定义验证码（大写字母+数字，不含 I/O/0/1）',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -399,7 +408,8 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  onPressed:
+                      isSubmitting ? null : () => Navigator.pop(dialogContext),
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
@@ -681,9 +691,12 @@ class _ChildCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.vpn_key, size: 18, color: AppTheme.primaryColor),
+                      Icon(Icons.vpn_key,
+                          size: 18, color: AppTheme.primaryColor),
                       const SizedBox(width: 8),
-                      const Text('登录验证码', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const Text('登录验证码',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                       const Spacer(),
                       GestureDetector(
                         onTap: () {
@@ -701,7 +714,8 @@ class _ChildCard extends StatelessWidget {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
@@ -709,11 +723,13 @@ class _ChildCard extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.copy, size: 14, color: AppTheme.primaryColor),
+                              Icon(Icons.copy,
+                                  size: 14, color: AppTheme.primaryColor),
                               const SizedBox(width: 4),
                               Text(
                                 '复制',
-                                style: TextStyle(fontSize: 12, color: AppTheme.primaryColor),
+                                style: TextStyle(
+                                    fontSize: 12, color: AppTheme.primaryColor),
                               ),
                             ],
                           ),
@@ -752,7 +768,9 @@ class _ChildCard extends StatelessWidget {
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 6,
-                            color: loginCode != null ? AppTheme.primaryColor : Colors.grey,
+                            color: loginCode != null
+                                ? AppTheme.primaryColor
+                                : Colors.grey,
                           ),
                         ),
                       ),
@@ -766,7 +784,8 @@ class _ChildCard extends StatelessWidget {
                         child: TextButton.icon(
                           onPressed: onSetCode,
                           icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('自定义', style: TextStyle(fontSize: 12)),
+                          label:
+                              const Text('自定义', style: TextStyle(fontSize: 12)),
                           style: TextButton.styleFrom(
                             foregroundColor: AppTheme.primaryColor,
                           ),
@@ -776,7 +795,8 @@ class _ChildCard extends StatelessWidget {
                         child: TextButton.icon(
                           onPressed: onRegenerateCode,
                           icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('随机生成', style: TextStyle(fontSize: 12)),
+                          label: const Text('随机生成',
+                              style: TextStyle(fontSize: 12)),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.grey[600],
                           ),
@@ -821,8 +841,10 @@ class _ChildFormDialogState extends State<_ChildFormDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.child?['name'] as String? ?? '');
-    _phoneController = TextEditingController(text: widget.child?['phone'] as String? ?? '');
+    _nameController =
+        TextEditingController(text: widget.child?['name'] as String? ?? '');
+    _phoneController =
+        TextEditingController(text: widget.child?['phone'] as String? ?? '');
     _ageController = TextEditingController(
       text: widget.child?['age']?.toString() ?? '',
     );

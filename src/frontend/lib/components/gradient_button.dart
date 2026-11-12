@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// 渐变按钮组件 - 带有渐变背景、图标和按压效果
-/// 
+///
 /// 支持：
 /// - 渐变背景（可自定义）
 /// - 前置图标
 /// - 按压缩放动画
 /// - 涟漪效果
 /// - 加载状态
-/// 
+///
 /// 用法示例：
 /// ```dart
 /// GradientButton(
@@ -22,34 +22,34 @@ import '../theme/app_theme.dart';
 class GradientButton extends StatefulWidget {
   /// 按钮文本
   final String text;
-  
+
   /// 点击回调
   final VoidCallback? onPressed;
-  
+
   /// 渐变背景（默认使用 primaryGradient）
   final LinearGradient? gradient;
-  
+
   /// 前置图标（可选）
   final IconData? icon;
-  
+
   /// 文字颜色（默认白色）
   final Color textColor;
-  
+
   /// 内边距
   final EdgeInsets padding;
-  
-  /// 圆角
-  final double borderRadius;
-  
+
+  /// 圆角（默认跟随当前皮肤 buttonRadius）
+  final double? borderRadius;
+
   /// 是否禁用
   final bool disabled;
-  
+
   /// 是否加载中
   final bool loading;
-  
+
   /// 最小宽度（可选）
   final double? minWidth;
-  
+
   /// 高度
   final double height;
 
@@ -61,7 +61,7 @@ class GradientButton extends StatefulWidget {
     this.icon,
     this.textColor = Colors.white,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-    this.borderRadius = AppTheme.buttonRadius,
+    this.borderRadius,
     this.disabled = false,
     this.loading = false,
     this.minWidth,
@@ -120,7 +120,7 @@ class _GradientButtonState extends State<GradientButton>
   Widget build(BuildContext context) {
     final isEnabled = !widget.disabled && !widget.loading;
     final gradient = widget.gradient ?? AppTheme.primaryGradient;
-    
+
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
@@ -142,8 +142,10 @@ class _GradientButtonState extends State<GradientButton>
           decoration: BoxDecoration(
             gradient: isEnabled ? gradient : null,
             color: isEnabled ? null : AppTheme.disabledColor,
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            boxShadow: isEnabled ? AppTheme.softShadow(gradient.colors.first) : null,
+            borderRadius: BorderRadius.circular(
+                widget.borderRadius ?? AppTheme.buttonRadius),
+            boxShadow:
+                isEnabled ? AppTheme.softShadow(gradient.colors.first) : null,
           ),
           child: Center(
             child: widget.loading
@@ -152,7 +154,8 @@ class _GradientButtonState extends State<GradientButton>
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(widget.textColor),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(widget.textColor),
                     ),
                   )
                 : Row(
@@ -189,11 +192,11 @@ class OutlineButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
   final IconData? icon;
-  final Color borderColor;
-  final Color textColor;
+  final Color? borderColor;
+  final Color? textColor;
   final Color? backgroundColor;
   final EdgeInsets padding;
-  final double borderRadius;
+  final double? borderRadius;
   final bool disabled;
 
   const OutlineButton({
@@ -201,11 +204,11 @@ class OutlineButton extends StatefulWidget {
     required this.text,
     this.onPressed,
     this.icon,
-    this.borderColor = AppTheme.primaryColor,
-    this.textColor = AppTheme.primaryColor,
+    this.borderColor,
+    this.textColor,
     this.backgroundColor,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-    this.borderRadius = AppTheme.buttonRadius,
+    this.borderRadius,
     this.disabled = false,
   });
 
@@ -260,7 +263,7 @@ class _OutlineButtonState extends State<OutlineButton>
   @override
   Widget build(BuildContext context) {
     final isEnabled = !widget.disabled;
-    
+
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
@@ -277,9 +280,12 @@ class _OutlineButtonState extends State<OutlineButton>
           padding: widget.padding,
           decoration: BoxDecoration(
             color: widget.backgroundColor,
-            borderRadius: BorderRadius.circular(widget.borderRadius),
+            borderRadius: BorderRadius.circular(
+                widget.borderRadius ?? AppTheme.buttonRadius),
             border: Border.all(
-              color: isEnabled ? widget.borderColor : AppTheme.disabledColor,
+              color: isEnabled
+                  ? (widget.borderColor ?? AppTheme.primaryColor)
+                  : AppTheme.disabledColor,
               width: 1.5,
             ),
           ),
@@ -290,7 +296,9 @@ class _OutlineButtonState extends State<OutlineButton>
                 if (widget.icon != null) ...[
                   Icon(
                     widget.icon,
-                    color: isEnabled ? widget.textColor : AppTheme.disabledColor,
+                    color: isEnabled
+                        ? (widget.textColor ?? AppTheme.primaryColor)
+                        : AppTheme.disabledColor,
                     size: AppTheme.iconMd,
                   ),
                   const SizedBox(width: 8),
@@ -300,7 +308,9 @@ class _OutlineButtonState extends State<OutlineButton>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isEnabled ? widget.textColor : AppTheme.disabledColor,
+                    color: isEnabled
+                        ? (widget.textColor ?? AppTheme.primaryColor)
+                        : AppTheme.disabledColor,
                     height: 1.2,
                   ),
                 ),

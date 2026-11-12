@@ -61,7 +61,8 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
 
     setState(() {
       _children = children;
-      _selectedChildId = _toInt(children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId =
+          _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
 
@@ -90,7 +91,10 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
       // 从报告的 insights 字段获取
       final insightsField = report['insights'];
       if (insightsField is List) {
-        insightsList = insightsField.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+        insightsList = insightsField
+            .map((e) => e?.toString() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
       }
     }
 
@@ -156,7 +160,8 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
   @override
   Widget build(BuildContext context) {
     if (_isLoadingChildren) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
 
     if (_children.isEmpty) {
@@ -183,7 +188,9 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
         // 洞察卡片
         Expanded(
           child: _isLoadingInsights
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+              ? Center(
+                  child:
+                      CircularProgressIndicator(color: AppTheme.primaryColor))
               : _buildInsightsCard(),
         ),
       ],
@@ -194,7 +201,9 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
   Widget _buildInsightsCard() {
     // 取第一条作为主洞察，其余为次要洞察
     final primaryInsight = _insights.isNotEmpty ? _insights.first : '';
-    final extraInsights = _insights.length > 1 ? _insights.sublist(1, _insights.length.clamp(1, 3)) : <String>[];
+    final extraInsights = _insights.length > 1
+        ? _insights.sublist(1, _insights.length.clamp(1, 3))
+        : <String>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -258,12 +267,13 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                   children: [
                     // AI 洞察标签
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -287,8 +297,10 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                     const SizedBox(height: 16),
                     // 主洞察（大字）
                     Text(
-                      primaryInsight.isNotEmpty ? primaryInsight : '本周保持了稳定的学习节奏。',
-                      style: const TextStyle(
+                      primaryInsight.isNotEmpty
+                          ? primaryInsight
+                          : '本周保持了稳定的学习节奏。',
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
                         height: 1.35,
@@ -309,7 +321,8 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                                 width: 5,
                                 height: 5,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.textSecondary.withValues(alpha: 0.5),
+                                  color: AppTheme.textSecondary
+                                      .withValues(alpha: 0.5),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -317,7 +330,7 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
                               Expanded(
                                 child: Text(
                                   entry.value,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 14,
                                     height: 1.5,
                                     color: AppTheme.textSecondary,
@@ -382,4 +395,3 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
     return int.tryParse(value?.toString() ?? '');
   }
 }
-

@@ -90,7 +90,8 @@ class _FillRegion {
   final String shape;
   final String colorKey;
 
-  const _FillRegion({required this.id, required this.shape, required this.colorKey});
+  const _FillRegion(
+      {required this.id, required this.shape, required this.colorKey});
 }
 
 String _clip(String value, int maxRunes) {
@@ -155,8 +156,10 @@ class _ColorFillGameState extends State<ColorFillGame> {
   void _reset() {
     _palette = _parsePalette(widget.data['palette']);
     _regions = _parseRegions(widget.data['regions']);
-    _passingScore = _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
-    _timeLimitSec = _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
+    _passingScore =
+        _toInt(widget.data['passingScore'], 80).clamp(0, 100).toInt();
+    _timeLimitSec =
+        _toInt(widget.data['timeLimitSec'], 120).clamp(30, 300).toInt();
     _startedAt = DateTime.now().millisecondsSinceEpoch;
     _selectedColor = null;
     _fills.clear();
@@ -211,9 +214,8 @@ class _ColorFillGameState extends State<ColorFillGame> {
     return result;
   }
 
-  int get _correctCount => _regions
-      .where((region) => _fills[region.id] == region.colorKey)
-      .length;
+  int get _correctCount =>
+      _regions.where((region) => _fills[region.id] == region.colorKey).length;
 
   void _tapRegion(_FillRegion region) {
     if (_finished || _completedCalled) return;
@@ -255,13 +257,13 @@ class _ColorFillGameState extends State<ColorFillGame> {
               'firstTry': _firstTry[region.id] == true,
             })
         .toList();
-    final firstTryCount = regionResults
-        .where((entry) => entry['firstTry'] == true)
-        .length;
-    final seconds = ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
-        .round()
-        .clamp(0, 86400)
-        .toInt();
+    final firstTryCount =
+        regionResults.where((entry) => entry['firstTry'] == true).length;
+    final seconds =
+        ((DateTime.now().millisecondsSinceEpoch - _startedAt) / 1000)
+            .round()
+            .clamp(0, 86400)
+            .toInt();
 
     widget.onFinished?.call({
       'score': total > 0 ? ((firstTryCount / total) * 100).round() : 0,
@@ -329,7 +331,8 @@ class _ColorFillGameState extends State<ColorFillGame> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 24),
                   child: CustomPaint(
-                    painter: _ShapePainter(shape: region.shape, fill: fillColor),
+                    painter:
+                        _ShapePainter(shape: region.shape, fill: fillColor),
                   ),
                 ),
               ),
@@ -353,7 +356,8 @@ class _ColorFillGameState extends State<ColorFillGame> {
                         color: targetColor,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: ChildGamePalette.inkSoft.withValues(alpha: 0.4),
+                          color:
+                              ChildGamePalette.inkSoft.withValues(alpha: 0.4),
                         ),
                       ),
                     ),
@@ -452,7 +456,7 @@ class _ColorFillGameState extends State<ColorFillGame> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.palette_outlined,
+            Icon(Icons.palette_outlined,
                 size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             const Text('暂无涂色题目'),
@@ -653,9 +657,13 @@ class _ShapePainter extends CustomPainter {
         return Path()
           ..moveTo(62, 10)
           ..arcToPoint(const Offset(62, 90),
-              radius: const Radius.circular(42), largeArc: true, clockwise: false)
+              radius: const Radius.circular(42),
+              largeArc: true,
+              clockwise: false)
           ..arcToPoint(const Offset(62, 10),
-              radius: const Radius.circular(34), largeArc: true, clockwise: true)
+              radius: const Radius.circular(34),
+              largeArc: true,
+              clockwise: true)
           ..close();
       case 'cloud':
         return Path()

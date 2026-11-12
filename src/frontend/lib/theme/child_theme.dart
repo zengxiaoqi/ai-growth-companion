@@ -28,9 +28,9 @@ String childThemeModeToStorage(ChildThemeMode mode) => mode.name;
 
 /// 孩子端皮肤的完整色板，作为 [ThemeExtension] 挂在 [ThemeData.extensions] 上。
 ///
-/// 业务代码可用 `ChildThemePalette.of(context)` 取到当前皮肤 token。
-/// 注意：历史代码里的 `AppTheme.xxx` 仍是 `static const` 蜜黄值，本轮不迁移；
-/// 只有走 `Theme.of(context)` / Material 组件取色的部分会跟随换肤。
+/// 业务代码可用 `ChildThemePalette.of(context)` 取到当前皮肤 token；
+/// 历史代码的 `AppTheme.xxx` 已改为代理全局 [AppTheme.active] 色板，
+/// 同样随皮肤变化，无需逐处迁移。
 class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
   // ── 颜色 token（对应设计稿 CSS 变量） ──
   final Color paper; // --paper 页面底色
@@ -79,24 +79,24 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
 
   // ── 四套静态实例 ──
 
-  /// 蜜黄绘本：直接复用 [AppTheme] 现有色值，保证默认皮肤零视觉回归。
+  /// 蜜黄绘本：直接复用 [AppTheme] 蜜黄基准 const 值，保证默认皮肤零视觉回归。
   static const ChildThemePalette honey = ChildThemePalette(
-    paper: AppTheme.backgroundColor,
+    paper: AppTheme.honeyBackground,
     card: Colors.white,
-    ink: AppTheme.textColor,
-    ink2: AppTheme.textSecondary,
-    edge: AppTheme.primaryColor,
-    line: AppTheme.softYellow,
-    pop: AppTheme.primaryColor,
-    cta: AppTheme.primaryColor,
+    ink: AppTheme.honeyText,
+    ink2: AppTheme.honeyTextSecondary,
+    edge: AppTheme.honeyPrimary,
+    line: AppTheme.honeySoftYellow,
+    pop: AppTheme.honeyPrimary,
+    cta: AppTheme.honeyPrimary,
     ctaInk: Colors.white,
-    soft: AppTheme.softYellow,
+    soft: AppTheme.honeySoftYellow,
     onPrimary: Colors.white,
-    radiusLg: AppTheme.cardRadius,
-    radiusMd: AppTheme.buttonRadius,
-    radiusSm: AppTheme.smallRadius,
+    radiusLg: AppTheme.honeyCardRadius,
+    radiusMd: AppTheme.honeyButtonRadius,
+    radiusSm: AppTheme.honeySmallRadius,
     borderW: 0,
-    subjects: AppTheme.childColors,
+    subjects: AppTheme.honeyChildColors,
   );
 
   /// 糖果云朵国 / 3–4 岁
@@ -261,7 +261,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
       radiusMd: ld(radiusMd, other.radiusMd),
       radiusSm: ld(radiusSm, other.radiusSm),
       borderW: ld(borderW, other.borderW),
-      subjects: List<Color>.generate(len, (i) => lc(subjects[i], other.subjects[i])),
+      subjects:
+          List<Color>.generate(len, (i) => lc(subjects[i], other.subjects[i])),
     );
   }
 }
@@ -271,7 +272,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
 /// 原 [AppTheme.lightTheme] 的 textTheme 每个样式都显式写了 color，
 /// 所以 `TextTheme.apply` 不生效，必须逐个 copyWith。
 TextTheme _retintTextTheme(TextTheme base, Color ink, Color ink2) {
-  TextStyle? tint(TextStyle? style, Color color) => style?.copyWith(color: color);
+  TextStyle? tint(TextStyle? style, Color color) =>
+      style?.copyWith(color: color);
   return base.copyWith(
     headlineLarge: tint(base.headlineLarge, ink),
     headlineMedium: tint(base.headlineMedium, ink),

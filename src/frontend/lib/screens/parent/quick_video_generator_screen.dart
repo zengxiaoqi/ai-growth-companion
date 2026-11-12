@@ -265,8 +265,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         _pollTimer?.cancel();
         setState(() {
           _status = VideoGenStatus.failed;
-          _errorMessage =
-              (status['errorMessage'] as String?) ?? '视频生成失败';
+          _errorMessage = (status['errorMessage'] as String?) ?? '视频生成失败';
         });
       } else if (newCount >= _maxPollCount) {
         _pollTimer?.cancel();
@@ -388,7 +387,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.softPurple, AppTheme.secondaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -397,7 +396,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
       ),
       child: Column(
         children: [
-          const Icon(Icons.video_library_rounded, color: Colors.white, size: 48),
+          const Icon(Icons.video_library_rounded,
+              color: Colors.white, size: 48),
           const SizedBox(height: 12),
           const Text(
             '一键生成教学视频',
@@ -450,7 +450,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         if (_loadingChildren)
           const Center(child: CircularProgressIndicator())
         else if (_children.isEmpty)
-          const Text(
+          Text(
             '暂无关联孩子',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           )
@@ -469,7 +469,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
                 selectedColor: AppTheme.primaryColor.withValues(alpha: 0.2),
                 backgroundColor: Colors.white,
                 side: BorderSide(
-                  color: selected ? AppTheme.primaryColor : Colors.grey.shade300,
+                  color:
+                      selected ? AppTheme.primaryColor : Colors.grey.shade300,
                 ),
               );
             }).toList(),
@@ -548,7 +549,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
             ),
             Text(
               '${_durationSec.toInt()} 秒',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppTheme.primaryColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -564,11 +565,13 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
           label: '${_durationSec.toInt()} 秒',
           onChanged: (v) => setState(() => _durationSec = v),
         ),
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('10s', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-            Text('180s', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text('10s',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            Text('180s',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ],
         ),
       ],
@@ -618,8 +621,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
   }
 
   Widget _buildActionButton() {
-    final isRetry = _status == VideoGenStatus.failed ||
-        _status == VideoGenStatus.timeout;
+    final isRetry =
+        _status == VideoGenStatus.failed || _status == VideoGenStatus.timeout;
     final label = isRetry ? '重新生成' : '开始生成';
     final icon = isRetry ? Icons.refresh_rounded : Icons.auto_awesome_rounded;
 
@@ -635,7 +638,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         icon: Icon(icon),
         label: Text(label, style: const TextStyle(fontSize: 16)),
         style: ElevatedButton.styleFrom(
-          backgroundColor: isRetry ? AppTheme.accentColor : AppTheme.primaryColor,
+          backgroundColor:
+              isRetry ? AppTheme.accentColor : AppTheme.primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -661,7 +665,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
           Expanded(
             child: Text(
               _errorMessage,
-              style: const TextStyle(color: AppTheme.warningColor, fontSize: 14),
+              style:
+                  const TextStyle(color: AppTheme.warningColor, fontSize: 14),
             ),
           ),
         ],
@@ -693,7 +698,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.softShadow(),
       ),
-      child: const Column(
+      child: Column(
         children: [
           SizedBox(
             width: 48,
@@ -727,7 +732,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
       ),
       child: Column(
         children: [
-          const SizedBox(
+          SizedBox(
             width: 60,
             height: 60,
             child: CircularProgressIndicator(
@@ -744,7 +749,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
           const SizedBox(height: 8),
           Text(
             '已等待 ${_pollCount * 5} 秒',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 12),
           ClipRRect(
@@ -753,7 +758,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
               value: progress,
               minHeight: 6,
               backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
+              valueColor: AlwaysStoppedAnimation(AppTheme.secondaryColor),
             ),
           ),
           const SizedBox(height: 16),
@@ -761,7 +766,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
             onPressed: _reset,
             icon: const Icon(Icons.cancel_outlined, size: 18),
             label: const Text('取消'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
+            style:
+                TextButton.styleFrom(foregroundColor: AppTheme.textSecondary),
           ),
         ],
       ),
@@ -779,13 +785,13 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
       ),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle_rounded,
             color: AppTheme.accentColor,
             size: 56,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '视频生成成功！',
             style: TextStyle(
               fontSize: 18,
@@ -796,7 +802,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
           const SizedBox(height: 8),
           Text(
             '主题：$_currentTopic',
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -854,7 +860,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
 
   Widget _buildHistoryTab() {
     if (_selectedChildId == null) {
-      return const Center(
+      return Center(
         child: Text('请先在「生成」页面选择孩子',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 15)),
       );
@@ -869,7 +875,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 48, color: AppTheme.textSecondary),
+            Icon(Icons.cloud_off_rounded,
+                size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
             Text(_historyError!, style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 16),
@@ -888,14 +895,15 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.video_library_rounded, size: 64, color: AppTheme.textSecondary),
+            Icon(Icons.video_library_rounded,
+                size: 64, color: AppTheme.textSecondary),
             const SizedBox(height: 16),
             const Text(
               '暂无历史记录',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '在「生成」页面创建视频任务后，\n历史记录将显示在这里',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
@@ -929,7 +937,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
               padding: const EdgeInsets.only(bottom: 8, left: 4),
               child: Text(
                 '共 ${_historyTasks.length} 条记录',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 13,
                 ),
@@ -976,7 +984,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
             // 第一行：状态 + 时间
             Row(
               children: [
-                Icon(_statusIcon(status), color: _statusColor(status), size: 20),
+                Icon(_statusIcon(status),
+                    color: _statusColor(status), size: 20),
                 const SizedBox(width: 8),
                 Text(
                   _statusLabel(status),
@@ -989,7 +998,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
                 const Spacer(),
                 Text(
                   timeStr,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 12,
                   ),
@@ -1012,7 +1021,7 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
               const SizedBox(height: 4),
               Text(
                 '进度: $progress%',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 12,
                 ),
@@ -1032,7 +1041,8 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline, size: 16, color: Colors.red),
+                    const Icon(Icons.error_outline,
+                        size: 16, color: Colors.red),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

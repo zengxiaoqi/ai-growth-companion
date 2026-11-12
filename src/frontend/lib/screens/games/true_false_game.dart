@@ -53,7 +53,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentStatement());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _speakCurrentStatement());
   }
 
   @override
@@ -101,7 +102,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
           _selected = null;
           _revealed = false;
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentStatement());
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _speakCurrentStatement());
       }
     });
   }
@@ -165,7 +167,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
             Expanded(
               child: Text(
                 widget.data['title']?.toString() ?? '判断题游戏',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
             const SizedBox(width: 8),
@@ -183,7 +186,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
         const SizedBox(height: 12),
         Text(
           '得分 $_correctCount / ${items.length}',
-          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+          style:
+              theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 14),
@@ -207,7 +211,8 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
               Positioned(
                 top: -8,
                 right: -4,
-                child: buildReplayButton(current['statement']?.toString() ?? ''),
+                child:
+                    buildReplayButton(current['statement']?.toString() ?? ''),
               ),
             ],
           ),
@@ -255,7 +260,9 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              (_selected == answer) ? '判断正确，真棒！' : '这题答案是“${answer ? '对' : '错'}”哦',
+              (_selected == answer)
+                  ? '判断正确，真棒！'
+                  : '这题答案是“${answer ? '对' : '错'}”哦',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -338,7 +345,7 @@ class _TrueFalseEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.sentiment_neutral_rounded,
             size: 48,
             color: AppTheme.textSecondary,

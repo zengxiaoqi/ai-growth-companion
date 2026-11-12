@@ -171,7 +171,8 @@ class _CountryCardState extends State<CountryCard> {
                     width: 56,
                     height: 38,
                     color: Colors.white.withValues(alpha: 0.3),
-                    child: const Icon(Icons.flag, color: Colors.white, size: 20),
+                    child:
+                        const Icon(Icons.flag, color: Colors.white, size: 20),
                   ),
                 )
               : Container(
@@ -334,7 +335,7 @@ class _CountryDetailSheet extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textColor,
@@ -345,7 +346,7 @@ class _CountryDetailSheet extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             official,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               color: AppTheme.textSecondary,
                             ),
@@ -355,7 +356,7 @@ class _CountryDetailSheet extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                  icon: Icon(Icons.close, color: AppTheme.textSecondary),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -414,8 +415,8 @@ class _CountryDetailSheet extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('关闭',
-                    style: TextStyle(color: AppTheme.textSecondary)),
+                child:
+                    Text('关闭', style: TextStyle(color: AppTheme.textSecondary)),
               ),
             ),
           ],
@@ -433,7 +434,7 @@ class _CountryDetailSheet extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             '$label：',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w500,
@@ -442,7 +443,7 @@ class _CountryDetailSheet extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 color: AppTheme.textColor,
                 fontWeight: FontWeight.w500,

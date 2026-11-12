@@ -23,6 +23,7 @@ import '../achievement/achievement_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reward/reward_home_screen.dart';
 import 'child_video_screen.dart';
+
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
 
@@ -36,8 +37,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   static const _navItems = [
     BottomNavItem(key: 'home', label: '首页', icon: Icons.home_rounded),
     BottomNavItem(key: 'learn', label: '学习', icon: Icons.school_rounded),
-    BottomNavItem(key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
-    BottomNavItem(key: 'achieve', label: '成就', icon: Icons.emoji_events_rounded),
+    BottomNavItem(
+        key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
+    BottomNavItem(
+        key: 'achieve', label: '成就', icon: Icons.emoji_events_rounded),
     BottomNavItem(key: 'me', label: '我的', icon: Icons.person_rounded),
   ];
 
@@ -81,9 +84,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '请输入家长登录密码',
-                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -102,7 +106,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderSide:
+                            BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                     autofocus: true,
@@ -112,14 +117,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     const SizedBox(height: 12),
                     Text(
                       errorMsg!,
-                      style: TextStyle(fontSize: 13, color: Colors.red.shade600),
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.red.shade600),
                     ),
                   ],
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                  onPressed:
+                      isSubmitting ? null : () => Navigator.pop(dialogContext),
                   child: const Text('取消'),
                 ),
                 ElevatedButton(
@@ -138,7 +145,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           });
 
                           final userProvider = context.read<UserProvider>();
-                          final error = await userProvider.switchToParentMode(pin);
+                          final error =
+                              await userProvider.switchToParentMode(pin);
 
                           if (!dialogContext.mounted) return;
 
@@ -149,7 +157,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                 SnackBar(
                                   content: const Text('已切换到家长端'),
                                   behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
                                   duration: const Duration(seconds: 1),
                                 ),
                               );
@@ -209,7 +218,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               ),
             ],
           ),
-          Expanded(child: IndexedStack(index: _currentIndex, children: _screens)),
+          Expanded(
+              child: IndexedStack(index: _currentIndex, children: _screens)),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -295,7 +305,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                   Flexible(
                     child: Text(
                       '你好，$userName',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textColor,
@@ -306,7 +316,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                 ],
               ),
               const SizedBox(height: 8),
-              const Row(
+              Row(
                 children: [
                   SizedBox(width: 4),
                   Text(
@@ -321,7 +331,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             ],
           ),
         ),
-        const Column(
+        Column(
           children: [
             StarDecoration(size: 24, color: AppTheme.softYellow),
             SizedBox(height: 8),
@@ -336,7 +346,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
     return AppCard(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -369,7 +379,8 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(AppTheme.smallRadius),
                     ),
-                    child: const Icon(Icons.access_time, color: Colors.white, size: 20),
+                    child: const Icon(Icons.access_time,
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
                   const Text(
@@ -408,7 +419,8 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
@@ -456,7 +468,7 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
       child: AppCard(
         width: double.infinity,
         height: 170,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppTheme.secondaryColor, Color(0xFF9AD0E8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -467,12 +479,14 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
             Positioned(
               right: 30,
               top: 20,
-              child: CloudDecoration(size: 60, color: Colors.white.withValues(alpha: 0.2)),
+              child: CloudDecoration(
+                  size: 60, color: Colors.white.withValues(alpha: 0.2)),
             ),
             Positioned(
               right: 80,
               bottom: 30,
-              child: CloudDecoration(size: 40, color: Colors.white.withValues(alpha: 0.15)),
+              child: CloudDecoration(
+                  size: 40, color: Colors.white.withValues(alpha: 0.15)),
             ),
             Positioned(
               right: 20,
@@ -495,7 +509,8 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.cardRadius),
                         ),
                         child: const Text('🦄', style: TextStyle(fontSize: 32)),
                       ),
@@ -513,7 +528,8 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.chat_bubble_outline, color: Colors.white70, size: 18),
+                      const Icon(Icons.chat_bubble_outline,
+                          color: Colors.white70, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         '点击开始聊天~',
@@ -922,7 +938,8 @@ class _FunctionCard extends StatefulWidget {
   State<_FunctionCard> createState() => _FunctionCardState();
 }
 
-class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderStateMixin {
+class _FunctionCardState extends State<_FunctionCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -996,7 +1013,7 @@ class _FunctionCardState extends State<_FunctionCard> with SingleTickerProviderS
               const SizedBox(height: 14),
               Text(
                 widget.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textColor,

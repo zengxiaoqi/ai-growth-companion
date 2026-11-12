@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -331,8 +333,37 @@ class LingxiApp extends StatelessWidget {
 /// `LoginScreen`), `notifyListeners()` from `UserProvider.login()` reliably
 /// triggers a rebuild that swaps to the appropriate screen — even when
 /// the user navigated directly to the `/login` URL.
-class _HomeScreen extends StatelessWidget {
+class _HomeScreen extends StatefulWidget {
   const _HomeScreen();
+
+  @override
+  State<_HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<_HomeScreen> {
+  /// 启动屏最短展示时长。
+  ///
+  /// `UserProvider._loadUser()` 是同步的，未登录用户在第一帧就能拿到结果，
+  /// 若不兜底，启动动画会「一闪而过」甚至完全不出现。这里保证品牌动画
+  /// 至少播完入场段落（约 1.2s）再切页；切换时用 [AnimatedSwitcher] 交叉淡出。
+  static const Duration _minimumSplash = Duration(milliseconds: 1200);
+
+  bool _splashFinished = false;
+  Timer? _splashTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _splashTimer = Timer(_minimumSplash, () {
+      if (mounted) setState(() => _splashFinished = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _splashTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -347,37 +378,61 @@ class _HomeScreen extends StatelessWidget {
           context.read<ChildThemeController>().setAge(age);
         });
 
-        if (userProvider.isLoading) {
-          return const SplashScreen();
+        final Widget page;
+
+        // 启动屏：状态未就绪，或品牌动画还没播完，都继续展示
+        if (userProvider.isLoading || !_splashFinished) {
+          page = const SplashScreen(key: ValueKey('lingxi_splash'));
+        } else if (!userProvider.isLoggedIn) {
+          page = const LoginScreen(key: ValueKey('lingxi_login'));
+        } else {
+          // 根据 activeRole 决定显示哪个端
+          // activeRole 由登录或双端切换设置
+          final role = userProvider.activeRole ??
+              userProvider.currentUser?['type']?.toString() ??
+              'child';
+
+          // 同步全局静态取色板：`AppTheme.xxx` getter 代理 [AppTheme.active]，
+          // 孩子端跟随当前皮肤，家长端 / 未登录强制 honey（与 lightTheme 一致）。
+          // 在 build 中同步赋值即可：随后的子树 build 读取到的是新值；
+          // 换肤时 ChildThemeController.notifyListeners 会重建整个 MaterialApp，
+          // 本 build 会再次执行并刷新 active，无循环重建风险。
+          AppTheme.active = role == 'parent'
+              ? ChildThemePalette.honey
+              : context.read<ChildThemeController>().palette;
+
+          if (role == 'parent') {
+            // 家长端不参与换肤：强制用原始蜜黄主题覆盖当前孩子皮肤。
+            page = Theme(
+              key: const ValueKey('lingxi_parent'),
+              data: AppTheme.lightTheme,
+              child: const ParentHomeScreen(),
+            );
+          } else {
+            // 孩子端：监听 ChildThemeController，切肤时同步 active 并用
+            // resolvedKey 作 key 强制整棵首页子树重建 —— 历史代码大量直接写
+            // `AppTheme.xxx`（静态 getter，不注册 Theme 依赖），不整树重建
+            // 就读不到新值，换肤瞬间会残留上一套皮肤的颜色。
+            page = Consumer<ChildThemeController>(
+              builder: (context, themeController, _) {
+                AppTheme.active = themeController.palette;
+                return ChildHomeScreen(
+                  key: ValueKey(
+                    'lingxi_child_${themeController.resolvedKey.name}',
+                  ),
+                );
+              },
+            );
+          }
         }
 
-        if (!userProvider.isLoggedIn) {
-          return const LoginScreen();
-        }
-
-        // 根据 activeRole 决定显示哪个端
-        // activeRole 由登录或双端切换设置
-        final role = userProvider.activeRole ??
-            userProvider.currentUser?['type']?.toString() ??
-            'child';
-
-        // 同步全局静态取色板：`AppTheme.xxx` getter 代理 [AppTheme.active]，
-        // 孩子端跟随当前皮肤，家长端 / 未登录强制 honey（与 lightTheme 一致）。
-        // 在 build 中同步赋值即可：随后的子树 build 读取到的是新值；
-        // 换肤时 ChildThemeController.notifyListeners 会重建整个 MaterialApp，
-        // 本 build 会再次执行并刷新 active，无循环重建风险。
-        AppTheme.active = role == 'parent'
-            ? ChildThemePalette.honey
-            : context.read<ChildThemeController>().palette;
-
-        if (role == 'parent') {
-          // 家长端不参与换肤：强制用原始蜜黄主题覆盖当前孩子皮肤。
-          return Theme(
-            data: AppTheme.lightTheme,
-            child: const ParentHomeScreen(),
-          );
-        }
-        return const ChildHomeScreen();
+        // 启动屏 → 首页/登录页交叉淡出，避免「啪」地一下换屏
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 380),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: page,
+        );
       },
     );
   }

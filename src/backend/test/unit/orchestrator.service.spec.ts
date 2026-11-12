@@ -11,7 +11,8 @@ type AgentType =
   | 'parent-advisor'
   | 'course-designer'
   | 'activity-generator'
-  | 'video-generator';
+  | 'video-generator'
+  | 'english-practice';
 
 function createDefinition(type: AgentType, allowedTools: string[]): AgentDefinition {
   return {
@@ -35,6 +36,7 @@ describe('OrchestratorService', () => {
     'course-designer': createDefinition('course-designer', ['generateCoursePack']),
     'activity-generator': createDefinition('activity-generator', ['generateActivity']),
     'video-generator': createDefinition('video-generator', []),
+    'english-practice': createDefinition('english-practice', ['translate', 'updateEnglishLevel']),
   };
 
   const allTools = [
@@ -43,6 +45,8 @@ describe('OrchestratorService', () => {
     'generateCoursePack',
     'generateActivity',
     'listChildren',
+    'translate',
+    'updateEnglishLevel',
   ];
 
   let runLoopQueue: ExecutionResult[];
@@ -281,5 +285,73 @@ describe('OrchestratorService', () => {
     const secondTools = executorService.runLoop.mock.calls[1][2].map((t: any) => t.function.name);
     expect(firstTools).toEqual(['generateActivity']);
     expect(secondTools).toEqual(['getAbilities']);
+  });
+
+  describe('english practice mode (forced single agent)', () => {
+    const englishContext: AgentContext = {
+      ageGroup: '5-6',
+      childId: 1,
+      conversationId: 'conv-en',
+      messages: [],
+      depth: 0,
+      metadata: { chatMode: 'english' },
+    };
+
+    beforeEach(() => {
+      runLoopQueue.push({ response: 'Hello! 你好呀！', toolCalls: [], wasFiltered: false });
+    });
+
+    it('locks routing to english-practice with a single-agent plan', async () => {
+      const result = await service.route('你好', englishContext);
+
+      expect(result.response).toBe('Hello! 你好呀！');
+      expect(executorService.runLoop).toHaveBeenCalledTimes(1);
+      expect(agentRegistry.get).toHaveBeenCalledWith('english-practice');
+      expect(agentRegistry.select).not.toHaveBeenCalled();
+
+      const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
+      expect(systemPrompt).toContain('system:english-practice');
+    });
+
+    it('whitelists only translate + updateEnglishLevel tools', async () => {
+      await service.route('你好', englishContext);
+
+      const toolDefs = executorService.runLoop.mock.calls[0][2];
+      expect(toolDefs.map((t: any) => t.function.name)).toEqual([
+        'translate',
+        'updateEnglishLevel',
+      ]);
+    });
+
+    it('stays single-agent even when the input contains 游戏/课程 signals', async () => {
+      const result = await service.route('我们玩游戏练英语，再做个课程包', englishContext);
+
+      expect(result.response).toBe('Hello! 你好呀！');
+      // A coordinated flow would call runLoop multiple times; english must not.
+      expect(executorService.runLoop).toHaveBeenCalledTimes(1);
+      const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
+      expect(systemPrompt).toContain('system:english-practice');
+    });
+  });
+
+  describe('casual chat mode regression', () => {
+    const casualContext: AgentContext = {
+      ...baseContext,
+      ageGroup: '5-6',
+      metadata: { chatMode: 'casual' },
+    };
+
+    it('bypasses routing entirely (no select/get) and runs the casual agent', async () => {
+      runLoopQueue.push({ response: '嘿嘿，陪你聊聊天～', toolCalls: [], wasFiltered: false });
+
+      const result = await service.route('我今天有点开心', casualContext);
+
+      expect(result.response).toBe('嘿嘿，陪你聊聊天～');
+      expect(executorService.runLoop).toHaveBeenCalledTimes(1);
+      expect(agentRegistry.select).not.toHaveBeenCalled();
+      expect(agentRegistry.get).not.toHaveBeenCalled();
+      const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
+      expect(systemPrompt).not.toContain('system:english-practice');
+    });
   });
 });

@@ -48,6 +48,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     'science': _DomainConfig(label: '科学', color: Color(0xFF705900)),
     'art': _DomainConfig(label: '艺术', color: Color(0xFFB9AE6E)),
     'social': _DomainConfig(label: '社交', color: Color(0xFFB02500)),
+    'english': _DomainConfig(label: '英语', color: Color(0xFF6A4C93)),
   };
 
   static const _periodTabs = [

@@ -43,6 +43,7 @@ import { courseDesignerDefinition } from './agents/definitions/course-designer.a
 import { activityGeneratorDefinition } from './agents/definitions/activity-generator.agent';
 import { videoGeneratorDefinition } from './agents/definitions/video-generator.agent';
 import { rewardAdvisorDefinition } from './agents/definitions/reward-advisor.agent';
+import { englishPracticeDefinition } from './agents/definitions/english-practice.agent';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ export class AgentFrameworkModule implements OnModuleInit {
       activityGeneratorDefinition,
       videoGeneratorDefinition,
       rewardAdvisorDefinition,
+      englishPracticeDefinition,
     ];
 
     for (const definition of agentDefinitions) {

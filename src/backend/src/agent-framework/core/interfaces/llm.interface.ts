@@ -68,6 +68,9 @@ export interface ILlmClient {
   /** Model for the casual (碎碎念) chat mode, when configured via LLM_MODEL_CASUAL */
   readonly casualModel?: string;
 
+  /** Model for the english-practice mode, when configured via LLM_MODEL_ENGLISH */
+  readonly englishModel?: string;
+
   /** Secondary call for structured content generation (quizzes, activities, etc.) */
   generate(prompt: string, systemPrompt?: string): Promise<string>;
 

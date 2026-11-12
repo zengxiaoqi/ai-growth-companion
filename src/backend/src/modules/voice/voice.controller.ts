@@ -14,6 +14,7 @@ export class VoiceController {
   async textToSpeech(
     @Query('text') text: string,
     @Query('voice') voice: string = 'zh-CN-XiaoyiNeural',
+    @Query('rate') rate: string | undefined,
     @Res() res: Response,
   ) {
     if (!text) {
@@ -21,7 +22,7 @@ export class VoiceController {
       return;
     }
 
-    const audioBuffer = await this.voiceService.textToSpeech(text, voice);
+    const audioBuffer = await this.voiceService.textToSpeech(text, voice, rate);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', audioBuffer.length);
     res.setHeader('Cache-Control', 'public, max-age=86400');

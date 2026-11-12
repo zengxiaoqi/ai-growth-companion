@@ -40,7 +40,8 @@ type AgentType =
   | 'parent-advisor'
   | 'course-designer'
   | 'activity-generator'
-  | 'video-generator';
+  | 'video-generator'
+  | 'english-practice';
 
 type RouteMode = 'single' | 'coordinated';
 
@@ -146,6 +147,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
       'course-designer',
       'activity-generator',
       'video-generator',
+      'english-practice',
     ];
 
     for (const type of referencedTypes) {
@@ -173,8 +175,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
       return result;
     }
 
-    const selected = this.agentRegistry.select(input, context);
-    const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
+    const { selected, plan } = this.resolveSelection(input, context);
     this.logPlan(plan, false);
 
     await this.persistMessage(context, 'user', input);
@@ -238,8 +239,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
       return;
     }
 
-    const selected = this.agentRegistry.select(input, context);
-    const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
+    const { selected, plan } = this.resolveSelection(input, context);
     this.logPlan(plan, true);
 
     await this.persistMessage(context, 'user', input);
@@ -324,6 +324,36 @@ export class OrchestratorService implements OnApplicationBootstrap {
   /** 碎碎念闲聊模式开关：由调用方通过 context.metadata.chatMode 传入 */
   private isCasualMode(context: AgentContext): boolean {
     return (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
+  }
+
+  /** 英语陪练模式开关：由调用方通过 context.metadata.chatMode 传入 */
+  private isEnglishMode(context: AgentContext): boolean {
+    return (context.metadata as Record<string, any> | undefined)?.chatMode === 'english';
+  }
+
+  /**
+   * Resolve the agent + route plan for a turn. English practice mode locks
+   * routing to the english-practice coach with a forced single-agent plan
+   * (so "英语练习" cannot trip the activity/course coordinated branches);
+   * every other mode uses keyword selection + intent-signal planning.
+   */
+  private resolveSelection(input: string, context: AgentContext) {
+    if (this.isEnglishMode(context)) {
+      const selected =
+        this.agentRegistry.get('english-practice') ?? this.agentRegistry.select(input, context);
+      const plan: RoutePlan = {
+        mode: 'single',
+        primaryAgent: selected.definition.type as AgentType,
+        collaborators: [],
+        reason: 'english practice mode (locked)',
+        signals: this.computeIntentSignals(input),
+      };
+      return { selected, plan };
+    }
+
+    const selected = this.agentRegistry.select(input, context);
+    const plan = this.buildRoutePlan(input, context, selected.definition.type as AgentType);
+    return { selected, plan };
   }
 
   /**

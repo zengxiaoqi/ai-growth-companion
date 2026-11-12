@@ -23,7 +23,7 @@ describe('VoiceController', () => {
         json: jest.fn(),
       } as any;
 
-      await controller.textToSpeech('', undefined, res);
+      await controller.textToSpeech('', undefined, undefined, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ message: 'text parameter is required' });
@@ -35,9 +35,9 @@ describe('VoiceController', () => {
         send: jest.fn(),
       } as any;
 
-      await controller.textToSpeech('你好', undefined, res);
+      await controller.textToSpeech('你好', undefined, undefined, res);
 
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-XiaoyiNeural');
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-XiaoyiNeural', undefined);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'audio/mpeg');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Length', expect.any(Number));
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=86400');
@@ -50,9 +50,20 @@ describe('VoiceController', () => {
         send: jest.fn(),
       } as any;
 
-      await controller.textToSpeech('你好', 'zh-CN-YunxiNeural', res);
+      await controller.textToSpeech('你好', 'zh-CN-YunxiNeural', undefined, res);
 
-      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-YunxiNeural');
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith('你好', 'zh-CN-YunxiNeural', undefined);
+    });
+
+    it('should pass rate through to the service', async () => {
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      } as any;
+
+      await controller.textToSpeech('Hello', 'en-US-AriaNeural', '-10%', res);
+
+      expect(voiceService.textToSpeech).toHaveBeenCalledWith('Hello', 'en-US-AriaNeural', '-10%');
     });
   });
 

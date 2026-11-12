@@ -46,6 +46,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
     'science': {'label': '科学', 'color': Color(0xFF705900)},
     'art': {'label': '艺术', 'color': Color(0xFFb9ae6e)},
     'social': {'label': '社会', 'color': Color(0xFFb02500)},
+    'english': {'label': '英语', 'color': Color(0xFF6A4C93)},
   };
 
   static const _periodTabs = [

@@ -45,7 +45,7 @@ export class AiController {
       parentId?: number;
       sessionId?: string;
       context?: any;
-      mode?: 'default' | 'casual';
+      mode?: 'default' | 'casual' | 'english';
     },
   ) {
     const viewerId = req.user.sub;
@@ -87,7 +87,7 @@ export class AiController {
       context?: any;
       bookId?: number;
       bookTitle?: string;
-      mode?: 'default' | 'casual';
+      mode?: 'default' | 'casual' | 'english';
     },
     @Res() res: Response,
   ) {
@@ -152,6 +152,7 @@ export class AiController {
               wasFiltered: event.wasFiltered,
               suggestions: event.suggestions,
               toolCalls: event.toolCalls,
+              englishLevel: event.englishLevel,
             })}\n\n`,
           );
           break;
@@ -240,7 +241,7 @@ export class AiController {
         viewerId,
         viewerType,
         targetChildId,
-        mode: mode === 'casual' ? 'casual' : 'default',
+        mode: mode === 'casual' ? 'casual' : mode === 'english' ? 'english' : 'default',
       });
 
       for await (const event of stream) {
@@ -255,6 +256,7 @@ export class AiController {
               sessionId: event.sessionId,
               wasFiltered: event.wasFiltered,
               suggestions: event.suggestions,
+              englishLevel: event.englishLevel,
             })}\n\n`,
           );
           break;

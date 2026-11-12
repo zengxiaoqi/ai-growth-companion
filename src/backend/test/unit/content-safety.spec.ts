@@ -215,3 +215,61 @@ describe('filterContent', () => {
     expect(typeof result.wasFiltered).toBe('boolean');
   });
 });
+
+describe('English prohibited words (word-boundary, case-insensitive)', () => {
+  it('filters a standalone prohibited word', () => {
+    expect(filterProhibitedWords('I will kill it')).toBe('I will *** it');
+  });
+
+  it('is case-insensitive', () => {
+    expect(filterProhibitedWords('KILL')).toBe('***');
+    expect(filterProhibitedWords('Blood')).toBe('***');
+  });
+
+  it('does NOT filter teaching vocabulary that merely contains a prohibited substring', () => {
+    // skill contains "kill", diet contains "die", hello contains "hell"-ish —
+    // word boundaries must keep these intact (the classic s***事故).
+    expect(filterProhibitedWords('skill')).toBe('skill');
+    expect(filterProhibitedWords('I have a skill')).toBe('I have a skill');
+    expect(filterProhibitedWords('diet')).toBe('diet');
+    expect(filterProhibitedWords('hello')).toBe('hello');
+    expect(filterProhibitedWords('classroom')).toBe('classroom');
+  });
+
+  it('filters multiple English prohibited words in one pass', () => {
+    const result = filterProhibitedWords('gun and knife and bomb');
+    expect(result).toBe('*** and *** and ***');
+  });
+
+  it('keeps clean English teaching sentences untouched', () => {
+    const clean = 'The cat is red. I like apples!';
+    expect(filterProhibitedWords(clean)).toBe(clean);
+  });
+
+  it('isContentSafe flags English prohibited words but not teaching words', () => {
+    expect(isContentSafe('kill')).toBe(false);
+    expect(isContentSafe('skill')).toBe(true);
+    expect(isContentSafe('diet')).toBe(true);
+    expect(isContentSafe('The apple is red')).toBe(true);
+  });
+
+  it('isContentSafe stays stateless across repeated calls (shared /g regexes)', () => {
+    expect(isContentSafe('skill')).toBe(true);
+    expect(isContentSafe('kill')).toBe(false);
+    expect(isContentSafe('skill')).toBe(true);
+  });
+});
+
+describe('Email PII redaction', () => {
+  it('redacts an email address', () => {
+    expect(redactPii('mail me at kid@example.com please')).toBe('mail me at [已隐藏] please');
+  });
+
+  it('redacts emails with plus/dot local parts', () => {
+    expect(redactPii('a.b+tag@sub.domain.org')).toBe('[已隐藏]');
+  });
+
+  it('does not treat a bare @handle as an email', () => {
+    expect(redactPii('@coco')).toBe('@coco');
+  });
+});

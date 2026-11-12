@@ -3,6 +3,7 @@
  */
 
 import { AgentRegistryService } from '../../src/agent-framework/agents/agent-registry.service';
+import { englishPracticeDefinition } from '../../src/agent-framework/agents/definitions/english-practice.agent';
 import type { IAgent, AgentDefinition, AgentContext } from '../../src/agent-framework/core';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -217,6 +218,51 @@ describe('AgentRegistryService', () => {
       expect(() => registry.select('anything', ctx)).toThrow(
         'No agents registered in the agent registry',
       );
+    });
+  });
+
+  /* ── english-practice routing (real definition) ───────────────────── */
+
+  describe('select() — english-practice', () => {
+    beforeEach(() => {
+      registry.register(
+        makeDefinition({ type: 'child-companion', name: 'Child', keywords: ['聊天'] }),
+        makeFactory(makeDefinition({ type: 'child-companion', name: 'Child' })),
+      );
+      registry.register(
+        makeDefinition({ type: 'activity-generator', name: 'Activity', keywords: ['活动', '游戏'] }),
+        makeFactory(makeDefinition({ type: 'activity-generator', name: 'Activity' })),
+      );
+      registry.register(englishPracticeDefinition, makeFactory(englishPracticeDefinition));
+    });
+
+    it("selects english-practice for '练英语'", () => {
+      const agent = registry.select('我想练英语', makeContext());
+      expect(agent!.definition.type).toBe('english-practice');
+    });
+
+    it("selects english-practice for '说英语'", () => {
+      const agent = registry.select('陪我说英语吧', makeContext());
+      expect(agent!.definition.type).toBe('english-practice');
+    });
+
+    it("selects english-practice for '学英语'", () => {
+      const agent = registry.select('我想学英语', makeContext());
+      expect(agent!.definition.type).toBe('english-practice');
+    });
+
+    it('falls back to child-companion when nothing scores (no english keyword)', () => {
+      const agent = registry.select('xyz999 完全无关的内容', makeContext());
+      expect(agent!.definition.type).toBe('child-companion');
+    });
+
+    it('does not steal parent direct routing even for english input', () => {
+      registry.register(
+        makeDefinition({ type: 'parent-advisor', name: 'Advisor' }),
+        makeFactory(makeDefinition({ type: 'parent-advisor', name: 'Advisor' })),
+      );
+      const agent = registry.select('我想练英语', makeContext({ ageGroup: 'parent' }));
+      expect(agent!.definition.type).toBe('parent-advisor');
     });
   });
 });

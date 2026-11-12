@@ -21,7 +21,7 @@ export class ParentService {
       id: 0,
       parentId,
       dailyLimitMinutes: 30,
-      allowedDomains: ['language', 'math', 'science', 'art', 'social'],
+      allowedDomains: ['language', 'math', 'science', 'art', 'social', 'english'],
       blockedTopics: [],
       studySchedule: null,
       notifications: null,

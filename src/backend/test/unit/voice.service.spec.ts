@@ -46,6 +46,36 @@ describe('VoiceService', () => {
         expect.any(Object),
       );
     });
+
+    it('defaults rate to +12% when not specified', async () => {
+      await service.textToSpeech('测试');
+      const instance = (EdgeTTS as unknown as jest.Mock).mock.results[0].value;
+      expect(instance.synthesize).toHaveBeenCalledWith(
+        '测试',
+        'zh-CN-XiaoyiNeural',
+        expect.objectContaining({ rate: '+12%' }),
+      );
+    });
+
+    it.each(['-10%', '+0%', '+12%'])('passes a valid rate %s through', async (rate) => {
+      await service.textToSpeech('Hello', 'en-US-AriaNeural', rate);
+      const instance = (EdgeTTS as unknown as jest.Mock).mock.results[0].value;
+      expect(instance.synthesize).toHaveBeenCalledWith(
+        'Hello',
+        'en-US-AriaNeural',
+        expect.objectContaining({ rate }),
+      );
+    });
+
+    it.each(['fast', '12%', '+1234%', '+%', 'abc%'])('falls back to +12% for invalid rate %s', async (rate) => {
+      await service.textToSpeech('Hello', 'en-US-AriaNeural', rate);
+      const instance = (EdgeTTS as unknown as jest.Mock).mock.results[0].value;
+      expect(instance.synthesize).toHaveBeenCalledWith(
+        'Hello',
+        'en-US-AriaNeural',
+        expect.objectContaining({ rate: '+12%' }),
+      );
+    });
   });
 
   describe('speechToText', () => {

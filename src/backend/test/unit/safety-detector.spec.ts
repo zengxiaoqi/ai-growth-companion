@@ -88,4 +88,30 @@ categories:
     // so a loaded CI box does not make this flaky.
     expect(perCallMs).toBeLessThan(5);
   });
+
+  it('flags an English self-harm phrase', () => {
+    const flags = detectorWith().detect('I want to die');
+    expect(flags).toHaveLength(1);
+    expect(flags[0].category).toBe('self_harm');
+  });
+
+  it('matches English phrases case-insensitively (ASR capitalization)', () => {
+    const flags = detectorWith().detect('He hit me at school');
+    expect(flags.map((f) => f.category)).toContain('violence');
+  });
+
+  it('flags an English danger phrase', () => {
+    const flags = detectorWith().detect('help, i am bleeding');
+    expect(flags.map((f) => f.category)).toContain('danger');
+  });
+
+  it('does not fire on teaching words that contain a prohibited substring', () => {
+    // "diet" contains "die" but the rules use multi-word phrases, so no hit.
+    expect(detectorWith().detect('I like my diet')).toHaveLength(0);
+    expect(detectorWith().detect('The apple is red')).toHaveLength(0);
+  });
+
+  it('does not fire on an ordinary learning request', () => {
+    expect(detectorWith().detect('help me say apple')).toHaveLength(0);
+  });
 });

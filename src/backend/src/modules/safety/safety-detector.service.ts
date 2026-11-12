@@ -60,10 +60,13 @@ export class SafetyDetector implements OnModuleInit {
     if (!text) return [];
     const flags: SafetyFlag[] = [];
     const seen = new Set<string>();
+    // Case-insensitive haystack so English phrases match ASR output regardless
+    // of capitalization ("He hit me" vs "he hit me"); Chinese is unaffected.
+    const haystack = text.toLowerCase();
     for (const [category, term] of this.rules.terms as CompiledTerm[]) {
       const key = `${category}\u0000${term}`;
       if (seen.has(key)) continue;
-      if (!text.includes(term)) continue;
+      if (!haystack.includes(term.toLowerCase())) continue;
       seen.add(key);
       flags.push({
         category,
@@ -90,7 +93,7 @@ export class SafetyDetector implements OnModuleInit {
 
 /** A short excerpt around the match, for the audit trail only. */
 function snippet(text: string, term: string): string {
-  const position = text.indexOf(term);
+  const position = text.toLowerCase().indexOf(term.toLowerCase());
   if (position < 0) return '';
   const start = Math.max(position - SNIPPET_CONTEXT, 0);
   const end = Math.min(position + term.length + SNIPPET_CONTEXT, text.length);

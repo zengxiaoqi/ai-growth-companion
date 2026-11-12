@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'api_service.dart';
+import '../utils/tts_sentence_splitter.dart';
 
 /// TTS 语音朗读服务
 /// 通过后端 Edge TTS API 生成 MP3 音频，使用 audioplayers 播放
@@ -19,6 +20,11 @@ class TtsService {
   StreamSubscription<void>? _completionSub;
   bool _isSpeaking = false;
   Completer<void>? _speakCompleter;
+
+  // 顺序播放队列（speakAll 专用）：onPlayerComplete 驱动下一段，排空时 resolve。
+  final List<TtsSegment> _queue = [];
+  int _queueIndex = 0;
+  Completer<void>? _queueCompleter;
 
   /// 是否正在朗读
   bool get isSpeaking => _isSpeaking;
@@ -40,7 +46,13 @@ class TtsService {
   void _listenForCompletion() {
     _completionSub?.cancel();
     _completionSub = _player.onPlayerComplete.listen((_) {
-      _completeCurrent();
+      if (_queueCompleter != null) {
+        // 队列模式：当前段播完，推进下一段
+        _queueIndex++;
+        _playQueueSegment();
+      } else {
+        _completeCurrent();
+      }
     });
   }
 
@@ -54,10 +66,15 @@ class TtsService {
   }
 
   /// 构建 TTS 请求 URL
-  String _buildUrl(String text, {String? voice}) {
+  String _buildUrl(String text, {String? voice, String? rate}) {
     final v = voice ?? 'zh-CN-XiaoyiNeural';
     final clean = _stripEmoji(text);
-    return '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(clean)}&voice=$v';
+    var url =
+        '${ApiService.baseUrl}/voice/tts?text=${Uri.encodeComponent(clean)}&voice=$v';
+    if (rate != null && rate.isNotEmpty) {
+      url += '&rate=${Uri.encodeComponent(rate)}';
+    }
+    return url;
   }
 
   /// 剥离 emoji / 表情符号，避免后端 TTS 把表情读出来（双保险：
@@ -103,12 +120,74 @@ class TtsService {
     }
   }
 
+  /// 顺序朗读多个片段（中英混合按句切分后逐段播放）。
+  ///
+  /// 清空旧队列 → 入队 → 顺序播放；onPlayerComplete 驱动下一段，
+  /// 队列排空时 [onComplete] resolve。单段播放失败则跳过继续下一段。
+  /// 现有 [speak] 语义不变，其余调用方零影响。
+  Future<void> speakAll(List<TtsSegment> segments) async {
+    if (segments.isEmpty) return;
+    await stop();
+
+    _queue
+      ..clear()
+      ..addAll(segments);
+    _queueIndex = 0;
+    _isSpeaking = true;
+    final completer = Completer<void>();
+    _queueCompleter = completer;
+    // 复用 _speakCompleter，使 onComplete 在整段队列播完后 resolve
+    _speakCompleter = completer;
+    await _playQueueSegment();
+  }
+
+  Future<void> _playQueueSegment() async {
+    if (_queueCompleter == null) return; // 已被 stop() 取消
+    if (_queueIndex >= _queue.length) {
+      _finishQueue();
+      return;
+    }
+    final seg = _queue[_queueIndex];
+    final url = _buildUrl(seg.text, voice: seg.voice, rate: seg.rate);
+    try {
+      await _player.play(UrlSource(url)).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      debugPrint('TTS queue play failed: $e');
+      // 本段启动失败：跳过，继续下一段（onPlayerComplete 不会触发）
+      _queueIndex++;
+      await _playQueueSegment();
+    }
+  }
+
+  void _finishQueue() {
+    _isSpeaking = false;
+    _queue.clear();
+    _queueIndex = 0;
+    final completer = _queueCompleter;
+    _queueCompleter = null;
+    if (_speakCompleter == completer) {
+      _speakCompleter = null;
+    }
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
   /// 停止朗读
   Future<void> stop() async {
     _isSpeaking = false;
+    _queue.clear();
+    _queueIndex = 0;
+    final queueCompleter = _queueCompleter;
+    _queueCompleter = null;
     final completer = _speakCompleter;
     _speakCompleter = null;
-    if (completer != null && !completer.isCompleted) {
+    if (queueCompleter != null && !queueCompleter.isCompleted) {
+      queueCompleter.complete();
+    }
+    if (completer != null &&
+        completer != queueCompleter &&
+        !completer.isCompleted) {
       completer.complete();
     }
     try {

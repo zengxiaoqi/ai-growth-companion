@@ -18,10 +18,11 @@ export interface ChatRequest {
   bookTitle?: string;
   /**
    * Chat style selector. 'casual' = 碎碎念闲聊模式：short spoken-style
-   * replies, no routing, no tools. Omitted/any other value = default
-   * agent behaviour.
+   * replies, no routing, no tools. 'english' = 英语陪练模式：locked to the
+   * english-practice coach, level-adaptive bilingual replies. Omitted/any
+   * other value = default agent behaviour.
    */
-  mode?: 'default' | 'casual';
+  mode?: 'default' | 'casual' | 'english';
   context?: {
     age?: number;
     currentPage?: string;
@@ -40,6 +41,8 @@ export interface ChatResponse {
     domain: string;
   };
   musicData?: unknown;
+  /** English practice level (L1/L2/L3) — present on english-mode replies. */
+  englishLevel?: string;
 }
 
 export interface ToolCallInfo {
@@ -85,4 +88,6 @@ export interface StreamEvent {
   gameData?: string;
   // music_data
   musicData?: string;
+  // english practice level (L1/L2/L3), carried on done events
+  englishLevel?: string;
 }

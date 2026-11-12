@@ -126,4 +126,69 @@ describe('AbilitiesService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('updateWithEma', () => {
+    it('keeps the raw score on the first write (no previous assessment)', async () => {
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockImplementation((data) => data);
+      mockRepo.save.mockImplementation(async (data) => data);
+
+      const result = await service.updateWithEma(1, 'english', 70, { source: 'english-practice' });
+
+      expect(result.score).toBe(70);
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: 'english',
+          score: 70,
+          evidence: expect.objectContaining({ source: 'english-practice', previousScore: null, newScore: 70 }),
+        }),
+      );
+    });
+
+    it('smooths subsequent writes with 0.7 previous + 0.3 new', async () => {
+      mockRepo.findOne.mockResolvedValue({ score: 80 });
+      mockRepo.create.mockImplementation((data) => data);
+      mockRepo.save.mockImplementation(async (data) => data);
+
+      // 0.7*80 + 0.3*40 = 56 + 12 = 68
+      const result = await service.updateWithEma(1, 'english', 40);
+
+      expect(result.score).toBe(68);
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          score: 68,
+          evidence: expect.objectContaining({ previousScore: 80, newScore: 68 }),
+        }),
+      );
+    });
+
+    it('rounds the smoothed score to an integer', async () => {
+      mockRepo.findOne.mockResolvedValue({ score: 70 });
+      mockRepo.create.mockImplementation((data) => data);
+      mockRepo.save.mockImplementation(async (data) => data);
+
+      // 0.7*70 + 0.3*71 = 49 + 21.3 = 70.3 → 70
+      const result = await service.updateWithEma(1, 'english', 71);
+      expect(result.score).toBe(70);
+    });
+
+    it('merges caller evidence with previousScore/newScore', async () => {
+      mockRepo.findOne.mockResolvedValue({ score: 50 });
+      mockRepo.create.mockImplementation((data) => data);
+      mockRepo.save.mockImplementation(async (data) => data);
+
+      await service.updateWithEma(1, 'english', 90, { observedWords: ['apple'], suggestion: 'more nouns' });
+
+      expect(mockRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evidence: expect.objectContaining({
+            observedWords: ['apple'],
+            suggestion: 'more nouns',
+            previousScore: 50,
+            newScore: 62, // 0.7*50 + 0.3*90 = 35 + 27
+          }),
+        }),
+      );
+    });
+  });
 });

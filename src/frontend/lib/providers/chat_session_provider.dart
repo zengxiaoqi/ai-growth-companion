@@ -13,6 +13,7 @@ class ChatSessionSummary {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int messageCount;
+  final String chatMode;     // 'default' | 'english'（来自后端会话 metadata）
 
   ChatSessionSummary({
     required this.uuid,
@@ -20,15 +21,18 @@ class ChatSessionSummary {
     required this.createdAt,
     required this.updatedAt,
     this.messageCount = 0,
+    this.chatMode = 'default',
   });
 
   factory ChatSessionSummary.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata'];
     return ChatSessionSummary(
       uuid: json['uuid'] as String? ?? '',
       title: (json['title'] ?? _extractTitleFromFirstMessage(json)).toString().trim(),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? '') ?? DateTime.now(),
       messageCount: json['messageCount'] as int? ?? 0,
+      chatMode: (metadata is Map ? metadata['chatMode']?.toString() : null) ?? 'default',
     );
   }
 
@@ -316,6 +320,12 @@ class ChatSessionProvider extends ChangeNotifier {
   int? _bookId;
   String? _bookTitle;
 
+  /// 当前会话聊天模式：'default' | 'english'（英语陪练专属会话锁定）
+  String _chatMode = 'default';
+
+  /// 英语陪练水平（L1/L2/L3），由后端 done 事件刷新
+  String? _englishLevel;
+
   // Getters
   ChatSessionSummary? get activeSession => _activeSession;
   bool get isCreatingSession => _isCreatingSession;
@@ -328,6 +338,9 @@ class ChatSessionProvider extends ChangeNotifier {
   bool get isParentMode => _isParentMode;
   int? get bookId => _bookId;
   String? get bookTitle => _bookTitle;
+  String get chatMode => _chatMode;
+  bool get isEnglishMode => _chatMode == 'english';
+  String? get englishLevel => _englishLevel;
 
   ChatSessionProvider(this._apiService);
 
@@ -385,8 +398,10 @@ class ChatSessionProvider extends ChangeNotifier {
   }
 
   /// 开始创建新会话（调用后端创建隔离会话，防止历史对话合并）
-  Future<void> createNewSession() async {
+  Future<void> createNewSession({String mode = 'default'}) async {
     _isCreatingSession = true;
+    _chatMode = mode;
+    _englishLevel = null;
     notifyListeners();
 
     _clearLocalMessages();
@@ -398,12 +413,13 @@ class ChatSessionProvider extends ChangeNotifier {
         // Create a local summary so the session list is immediately consistent
         final newSession = ChatSessionSummary(
           uuid: result['sessionId'],
-          title: '新对话',
+          title: mode == 'english' ? '英语陪练' : '新对话',
           createdAt: result['createdAt'] != null
               ? (DateTime.tryParse(result['createdAt']) ?? DateTime.now())
               : DateTime.now(),
           updatedAt: DateTime.now(),
           messageCount: 0,
+          chatMode: mode,
         );
         _activeSession = newSession;
         // Prepend to session list so it shows up immediately
@@ -412,6 +428,14 @@ class ChatSessionProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Failed to create session: $e');
       // Even if the API fails, we keep the local blank state
+    }
+
+    // 英语陪练专属会话：显示 Coco 问候（保留 activeSession，避免首条消息再建新会话）
+    if (mode == 'english') {
+      _localMessages.add(ChatMessageEntry(
+        role: 'assistant',
+        content: 'Hi! 我是 Coco 🦄\n我们一起说英语吧！说中文也可以哦～\nSay hello!',
+      ));
     }
 
     _isCreatingSession = false;
@@ -423,6 +447,8 @@ class ChatSessionProvider extends ChangeNotifier {
     if (_activeSession?.uuid == session.uuid) return;
 
     _activeSession = session;
+    _chatMode = session.chatMode;
+    _englishLevel = null;
     _isLoadingMessages = true;
     _clearLocalMessages();
     notifyListeners();
@@ -560,7 +586,9 @@ class ChatSessionProvider extends ChangeNotifier {
       role: 'assistant',
       content: _isParentMode
           ? '您好！我是灵犀伴学的AI助手，\n我可以帮您了解孩子的学习情况、查看报告、管理学习计划，有什么需要帮助的吗？'
-          : '你好呀！我是小犀，\n有什么想聊的吗？',
+          : _chatMode == 'english'
+              ? 'Hi! 我是 Coco 🦄\n我们一起说英语吧！说中文也可以哦～\nSay hello!'
+              : '你好呀！我是小犀，\n有什么想聊的吗？',
     ));
     notifyListeners();
   }
@@ -632,6 +660,7 @@ class ChatSessionProvider extends ChangeNotifier {
         sessionId: sessionUuid,
         bookId: _bookId,
         bookTitle: _bookTitle,
+        mode: _chatMode == 'english' ? 'english' : null,
       );
 
       String fullReply = '';
@@ -778,6 +807,12 @@ class ChatSessionProvider extends ChangeNotifier {
         } else if (type == 'done') {
           thinkingTimer.cancel();
           newSessionId = event['sessionId'] as String?;
+
+          // 英语陪练：刷新水平展示（L1/L2/L3）
+          final lvl = event['englishLevel'] as String?;
+          if (lvl != null && lvl.isNotEmpty) {
+            _englishLevel = lvl;
+          }
 
           // 清理全量 reply 中可能残留的 thinking 标签（防御性处理）
           if ((aiMsg.thinkingContent?.trim().isEmpty ?? false) == false) {
@@ -1011,7 +1046,7 @@ class ChatSessionProvider extends ChangeNotifier {
         childId: _childId,
         parentId: _isParentMode ? _childId : null,
         sessionId: sessionUuid,
-        mode: 'casual',
+        mode: _chatMode == 'english' ? 'english' : 'casual',
       );
       await for (final event in stream.timeout(
         const Duration(seconds: 60),
@@ -1030,6 +1065,11 @@ class ChatSessionProvider extends ChangeNotifier {
           aiMsg.content = fullReply;
           aiMsg.displayText = fullReply;
           notifyListeners();
+        } else if (type == 'done') {
+          final lvl = event['englishLevel'] as String?;
+          if (lvl != null && lvl.isNotEmpty) {
+            _englishLevel = lvl;
+          }
         }
       }
     } catch (_) {

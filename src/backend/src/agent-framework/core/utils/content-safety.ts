@@ -42,11 +42,22 @@ const PROHIBITED_WORDS: readonly string[] = [
   '监狱',
 ];
 
+/**
+ * English prohibited terms — matched with word boundaries + case-insensitive
+ * so teaching vocabulary is never collateral damage: `skill` must NOT become
+ * `s***`, `diet` must NOT trip `die`, `hello` must NOT trip `hell`.
+ * Substring matching (the Chinese list's approach) is unsafe for English.
+ */
+const ENGLISH_PROHIBITED_PATTERNS: readonly RegExp[] = [
+  /\b(kill|killed|killer|die|died|blood|gun|knife|bomb|sex|porn|drug|drugs|suicide|weapon|poison|murder|shoot|stab)\b/gi,
+];
+
 /** PII patterns to redact */
 const PII_PATTERNS: ReadonlyArray<{ pattern: RegExp; replacement: string }> = [
   { pattern: /1[3-9]\d{9}/g, replacement: '[已隐藏]' }, // Phone numbers
   { pattern: /\d{17}[\dXx]/g, replacement: '[已隐藏]' }, // ID numbers
   { pattern: /密码\s*[:：]\s*\S+/g, replacement: '密码: [已隐藏]' }, // Password patterns
+  { pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, replacement: '[已隐藏]' }, // Email
 ];
 
 /** Encouragement text appended when content is filtered */
@@ -63,6 +74,9 @@ export function filterProhibitedWords(text: string): string {
   for (const word of PROHIBITED_WORDS) {
     result = result.split(word).join('***');
   }
+  for (const pattern of ENGLISH_PROHIBITED_PATTERNS) {
+    result = result.replace(pattern, '***');
+  }
   return result;
 }
 
@@ -77,7 +91,9 @@ export function redactPii(text: string): string {
 
 /** Check if content contains any prohibited words */
 export function isContentSafe(text: string): boolean {
-  return PROHIBITED_WORDS.every((word) => !text.includes(word));
+  if (!PROHIBITED_WORDS.every((word) => !text.includes(word))) return false;
+  // search() ignores lastIndex, so the shared /g regexes stay stateless here
+  return ENGLISH_PROHIBITED_PATTERNS.every((pattern) => text.search(pattern) === -1);
 }
 
 /** Full safety filter: prohibited words + PII redaction + encouragement */

@@ -55,10 +55,12 @@ export class AgentExecutorService {
    * @param onToolCall - Optional callback invoked after each tool call (for persistence)
    * @returns ExecutionResult with final response and tool call log
    */
-  /** Model override for casual (碎碎念) chats: LLM_MODEL_CASUAL, if configured */
-  private casualModelOverride(context: AgentContext): string | undefined {
-    const isCasual = (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
-    return isCasual ? this.llmClient.casualModel : undefined;
+  /** Model override for casual (碎碎念) / english-practice chats, if configured */
+  private chatModelOverride(context: AgentContext): string | undefined {
+    const chatMode = (context.metadata as Record<string, any> | undefined)?.chatMode;
+    if (chatMode === 'casual') return this.llmClient.casualModel;
+    if (chatMode === 'english') return this.llmClient.englishModel;
+    return undefined;
   }
 
   /**
@@ -90,7 +92,7 @@ export class AgentExecutorService {
     maxTokensOverride?: number,
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
-    const modelOverride = this.casualModelOverride(context);
+    const modelOverride = this.chatModelOverride(context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let gameData: unknown = undefined;
@@ -303,7 +305,7 @@ export class AgentExecutorService {
     }) => Promise<void> | void,
   ): AsyncGenerator<StreamEvent> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
-    const modelOverride = this.casualModelOverride(context);
+    const modelOverride = this.chatModelOverride(context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let lastIterationHadToolCall = false;
@@ -340,13 +342,13 @@ export class AgentExecutorService {
         assistantToolCalls = response.toolCalls;
         if (!assistantContent && (!assistantToolCalls || assistantToolCalls.length === 0)) break;
 
-        // Casual fast path: when the probe comes back WITHOUT tool calls, its
-        // content IS the reply. Casual turns are ≤40 chars and the voice call
-        // only speaks the complete text, so emitting the probe result directly
-        // skips a second full request (was doubling every turn's latency).
-        const isCasualTurn =
-          (context.metadata as Record<string, any> | undefined)?.chatMode === 'casual';
-        if (isCasualTurn && (!assistantToolCalls || assistantToolCalls.length === 0)) {
+        // Casual / english fast path: when the probe comes back WITHOUT tool
+        // calls, its content IS the reply. These turns are short and the voice
+        // call only speaks the complete text, so emitting the probe result
+        // directly skips a second full request (was doubling every turn's latency).
+        const chatMode = (context.metadata as Record<string, any> | undefined)?.chatMode;
+        const isFastTurn = chatMode === 'casual' || chatMode === 'english';
+        if (isFastTurn && (!assistantToolCalls || assistantToolCalls.length === 0)) {
           const probeThinking = extractThinking(assistantContent || '');
           const bodyText = stripThinking(assistantContent || '');
           if (probeThinking) {

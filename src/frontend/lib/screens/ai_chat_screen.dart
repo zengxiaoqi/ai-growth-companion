@@ -1398,7 +1398,7 @@ class _AIChatScreenState extends State<AIChatScreen>
           // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
           return Column(children: [
             // 语音通话入口（文字聊天按意图自动路由，不再需要碎碎念开关）
-            _buildVoiceCallEntry(),
+            _buildVoiceCallEntry(provider),
             // 加载历史消息时显示顶部小进度条
             if (provider.isLoadingMessages)
               const LinearProgressIndicator(
@@ -1434,34 +1434,124 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
-  /// 顶部语音通话入口（右对齐）
-  Widget _buildVoiceCallEntry() {
+  /// 顶部入口行：左侧「英语陪练」胶囊 + 右侧语音通话；英语模式下显示水平横幅
+  Widget _buildVoiceCallEntry(ChatSessionProvider provider) {
+    final isEnglish = provider.isEnglishMode;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Row(children: [
+          // 英语陪练入口（进入专属会话，文字+语音锁定英语教练）
+          GestureDetector(
+            onTap: () => _enterEnglishPractice(provider),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isEnglish
+                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                    : AppTheme.primaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.translate_rounded,
+                    size: 18, color: AppTheme.primaryColor),
+                const SizedBox(width: 4),
+                Text('英语陪练',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryColor)),
+              ]),
+            ),
+          ),
+          const Spacer(),
+          // 豆包式语音通话入口
+          GestureDetector(
+            onTap: () => _openVoiceCall(englishMode: isEnglish),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.call_rounded,
+                  size: 20, color: AppTheme.primaryColor),
+            ),
+          ),
+        ]),
+      ),
+      if (isEnglish) _buildEnglishBanner(provider),
+    ]);
+  }
+
+  /// 英语陪练模式横幅：显示当前水平 + 退出按钮
+  Widget _buildEnglishBanner(ChatSessionProvider provider) {
+    final levelLabel = _englishLevelLabel(provider.englishLevel);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(children: [
-        const Spacer(),
-        // 豆包式语音通话入口
-        GestureDetector(
-          onTap: _openVoiceCall,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.call_rounded,
-                size: 20, color: AppTheme.primaryColor),
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [
+            AppTheme.primaryColor.withValues(alpha: 0.12),
+            AppTheme.primaryColor.withValues(alpha: 0.05),
+          ]),
+          borderRadius: BorderRadius.circular(12),
         ),
-      ]),
+        child: Row(children: [
+          const Text('🦄', style: TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text('英语陪练中 · $levelLabel',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor)),
+          ),
+          GestureDetector(
+            onTap: () => _exitEnglishPractice(provider),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('退出',
+                  style: TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary)),
+              const SizedBox(width: 2),
+              Icon(Icons.close_rounded,
+                  size: 16, color: AppTheme.textSecondary),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 
-  /// 打开语音通话界面（连续听-说对话，走碎碎念短回复）
-  void _openVoiceCall() {
+  String _englishLevelLabel(String? level) {
+    switch (level) {
+      case 'L1':
+        return 'L1 启蒙';
+      case 'L3':
+        return 'L3 进阶';
+      default:
+        return 'L2 入门';
+    }
+  }
+
+  Future<void> _enterEnglishPractice(ChatSessionProvider provider) async {
+    if (provider.isEnglishMode) return;
+    await provider.createNewSession(mode: 'english');
+  }
+
+  Future<void> _exitEnglishPractice(ChatSessionProvider provider) async {
+    await provider.createNewSession();
+  }
+
+  /// 打开语音通话界面（连续听-说对话；英语模式走英语教练）
+  void _openVoiceCall({bool englishMode = false}) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const VoiceCallScreen()),
+      MaterialPageRoute(
+          builder: (_) => VoiceCallScreen(englishMode: englishMode)),
     );
   }
 
@@ -2016,9 +2106,12 @@ class _AIChatScreenState extends State<AIChatScreen>
           ),
         ),
         const SizedBox(width: 8),
-        SpeechInputWidget(
-          onResult: _onSpeechResult,
-          onListeningChange: _onListeningChange,
+        Consumer<ChatSessionProvider>(
+          builder: (ctx, provider, _) => SpeechInputWidget(
+            onResult: _onSpeechResult,
+            onListeningChange: _onListeningChange,
+            localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(

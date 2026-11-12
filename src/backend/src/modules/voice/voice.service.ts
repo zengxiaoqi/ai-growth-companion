@@ -49,12 +49,18 @@ export class VoiceService {
    *
    * 默认 XiaoyiNeural（少女活泼音色）+ 语速 +12%，比 XiaoxiaoNeural 更亲和轻快。
    */
-  async textToSpeech(text: string, voice: string = 'zh-CN-XiaoyiNeural'): Promise<Buffer> {
+  async textToSpeech(
+    text: string,
+    voice: string = 'zh-CN-XiaoyiNeural',
+    rate?: string,
+  ): Promise<Buffer> {
     const clean = this.sanitizeForTTS(text);
+    // 语速参数校验：仅接受 ±N% 形式，非法回落默认 +12%（pitch 不变）
+    const safeRate = rate && /^[+-]\d{1,3}%$/.test(rate) ? rate : '+12%';
     const tts = new EdgeTTS();
     await tts.synthesize(clean || '嗯嗯', voice, {
       outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
-      rate: '+12%',
+      rate: safeRate,
       pitch: '+2Hz',
     });
     return tts.toBuffer();

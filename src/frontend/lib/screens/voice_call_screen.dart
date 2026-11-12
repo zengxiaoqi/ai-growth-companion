@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/tts_service.dart';
+import '../utils/tts_sentence_splitter.dart';
 
 enum _CallPhase { connecting, listening, thinking, speaking, muted, error }
 
@@ -44,7 +45,10 @@ class _CallTurn {
 }
 
 class VoiceCallScreen extends StatefulWidget {
-  const VoiceCallScreen({super.key});
+  const VoiceCallScreen({super.key, this.englishMode = false});
+
+  /// 英语陪练模式：en-US 识别 + 中英混合按句 TTS + 更长静默阈值
+  final bool englishMode;
 
   @override
   State<VoiceCallScreen> createState() => _VoiceCallScreenState();
@@ -53,6 +57,11 @@ class VoiceCallScreen extends StatefulWidget {
 class _VoiceCallScreenState extends State<VoiceCallScreen>
     with SingleTickerProviderStateMixin {
   static const _greeting = '喂？我在呢！今天有什么好玩的事呀，快说给我听听～';
+  static const _englishGreeting =
+      "Hi! I'm Coco! 你好呀，我们一起玩英语吧！Say hello!";
+
+  String get _greetingText =>
+      widget.englishMode ? _englishGreeting : _greeting;
 
   _CallPhase _phase = _CallPhase.connecting;
   bool _muted = false;
@@ -80,7 +89,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   void initState() {
     super.initState();
     _tts.init();
-    _turns.add(_CallTurn('assistant', _greeting));
+    _turns.add(_CallTurn('assistant', _greetingText));
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsed++);
     });
@@ -103,20 +112,40 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   Future<void> _connect() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!_active) return;
-    await _speak(_greeting);
+    await _speak(_greetingText);
   }
 
-  /// TTS 播报，播完自动进入聆听
+  /// TTS 播报，播完自动进入聆听。
+  /// 英语模式：按句切分 + CJK 选音色 + 按水平调速，顺序队列播放。
   Future<void> _speak(String text) async {
     if (!_active) return;
     setState(() => _phase = _CallPhase.speaking);
-    await _tts.speak(text);
+    if (widget.englishMode) {
+      final enRate = _englishRateForLevel(
+          context.read<ChatSessionProvider>().englishLevel);
+      final segments = TtsSentenceSplitter.split(text, enRate: enRate);
+      await _tts.speakAll(segments);
+    } else {
+      await _tts.speak(text);
+    }
     // 30s 超时兜底：即使底层播报事件丢失，也绝不卡死在「对方正在说话」
     await _tts.onComplete.timeout(const Duration(seconds: 30),
         onTimeout: () {});
     if (!_active) return;
     setState(() => _phase = _CallPhase.listening);
     await _startListening();
+  }
+
+  /// 英语水平 → 英文句 TTS 语速（L1 慢 / L2 正常 / L3 略快；未知默认 L2）
+  String _englishRateForLevel(String? level) {
+    switch (level) {
+      case 'L1':
+        return '-10%';
+      case 'L3':
+        return '+12%';
+      default:
+        return '+0%';
+    }
   }
 
   Future<void> _startListening() async {
@@ -131,7 +160,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _utteranceBuf = '';
     _suppressResults = false;
     final ok = await _speech!.startListening(
-      localeId: 'zh-CN',
+      localeId: widget.englishMode ? 'en-US' : 'zh-CN',
       onResult: _onSpeechResult,
       onStateChange: (listening) {
         // 设备端引擎可能自动停止（无语音超时），聆听阶段兜底重启
@@ -186,10 +215,13 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       _interim = interimText;
       if (finalText.isNotEmpty) _utteranceBuf = finalText;
     });
-    // 静默判定：有内容后 500ms 无新结果就提交一轮（短延迟换更快响应）
+    // 静默判定：有内容后无新结果就提交一轮。
+    // 英语模式孩子找词慢，用 1800ms 避免截断半句；中文 500ms 换更快响应。
     if (_utteranceBuf.trim().isNotEmpty) {
       _commitTimer?.cancel();
-      _commitTimer = Timer(const Duration(milliseconds: 500), _commitUtterance);
+      _commitTimer = Timer(
+          Duration(milliseconds: widget.englishMode ? 1800 : 500),
+          _commitUtterance);
     }
   }
 
@@ -218,7 +250,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     } catch (e) {
       debugPrint('[voice-call] sendVoiceTurn failed: $e');
       if (!_active || !mounted) return;
-      reply = '哎呀，我这边信号不太好，你再说一遍好吗？';
+      reply = widget.englishMode
+          ? "Oops! 我这边信号不太好，再说一遍好吗？Try again!"
+          : '哎呀，我这边信号不太好，你再说一遍好吗？';
     }
     if (!_active || !mounted) return;
     setState(() => _turns.add(_CallTurn('assistant', reply)));
@@ -270,9 +304,9 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
         child: SafeArea(
           child: Column(children: [
             const SizedBox(height: 16),
-            const Text(
-              'AI 学习伙伴 · 小犀',
-              style: TextStyle(
+            Text(
+              widget.englishMode ? '英语陪练 · Coco' : 'AI 学习伙伴 · 小犀',
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,

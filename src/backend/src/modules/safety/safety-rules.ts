@@ -10,9 +10,20 @@ import { SAFETY_CATEGORIES } from './safety.types';
  * Ported verbatim from 碎碎念 `agent/safety/detector.py`.
  */
 export const DEFAULT_RULES: Record<SafetyCategory, string[]> = {
-  self_harm: ['想死', '不想活', '活着没意思', '伤害自己', '打自己', '自杀'],
-  violence: ['有人打我', '打我了', '别打我', '欺负我', '他碰我', '她碰我', '有人欺负'],
-  danger: ['救命', '着火了', '失火了', '有坏人', '坏人来了', '快跑啊', '救我'],
+  self_harm: [
+    '想死', '不想活', '活着没意思', '伤害自己', '打自己', '自杀',
+    // English: multi-word phrases only — the detector is substring-based,
+    // so a bare "die" would false-positive on "diet".
+    'want to die', 'kill myself', 'hurt myself', 'end my life',
+  ],
+  violence: [
+    '有人打我', '打我了', '别打我', '欺负我', '他碰我', '她碰我', '有人欺负',
+    'someone hit me', 'he hit me', 'she hit me', 'someone hurt me',
+  ],
+  danger: [
+    '救命', '着火了', '失火了', '有坏人', '坏人来了', '快跑啊', '救我',
+    'i am bleeding', 'there is a fire',
+  ],
 };
 
 /** One compiled (category, term) pair. */

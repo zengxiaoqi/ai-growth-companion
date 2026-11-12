@@ -38,6 +38,24 @@ export class AbilitiesService {
     });
   }
 
+  /**
+   * Append an assessment smoothed by an exponential moving average
+   * (0.7 previous + 0.3 new), mirroring LearningTrackerService.updateAbility.
+   * The first write keeps the raw score. Used by the english-practice coach so
+   * a single noisy observation cannot swing the child's level.
+   */
+  async updateWithEma(userId: number, domain: string, score: number, evidence?: any) {
+    const latest = await this.getLatestByDomain(userId, domain);
+    const previousScore = latest?.score ?? null;
+    const newScore =
+      previousScore == null ? score : Math.round(0.7 * previousScore + 0.3 * score);
+    return this.create(userId, domain, newScore, {
+      ...(evidence || {}),
+      previousScore,
+      newScore,
+    });
+  }
+
   private getLevel(score: number): string {
     if (score >= 80) return 'advanced';
     if (score >= 60) return 'intermediate';

@@ -48,6 +48,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   /** Casual-mode model override (LLM_MODEL_CASUAL); undefined when unset */
   readonly casualModel?: string;
 
+  /** English-practice model override (LLM_MODEL_ENGLISH); undefined when unset */
+  readonly englishModel?: string;
+
   constructor(private readonly configService: ConfigService) {
     this.config = {
       baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
@@ -62,6 +65,11 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     // murmur reply take 10-20s. Configured via LLM_MODEL_CASUAL.
     const casual = this.configService.get<string>('LLM_MODEL_CASUAL', '').trim();
     this.casualModel = casual && casual !== this.config.model ? casual : undefined;
+
+    // English practice can use a dedicated fast model for low-latency voice
+    // turns. Falls back to the casual model when LLM_MODEL_ENGLISH is unset.
+    const english = this.configService.get<string>('LLM_MODEL_ENGLISH', '').trim();
+    this.englishModel = english && english !== this.config.model ? english : this.casualModel;
 
     this.retryStrategy = new RetryStrategy({
       maxAttempts: 3,
@@ -192,6 +200,19 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         model: this.casualModel,
         maxTokens: Number(this.configService.get<string>('LLM_CASUAL_MAX_TOKENS', '1024')),
         temperature: Number(this.configService.get<string>('LLM_CASUAL_TEMPERATURE', '0.9')),
+      });
+    }
+
+    // English-practice provider entry. Skip when it reuses the casual model —
+    // selectEntries matches by model id, so the casual entry already covers it.
+    if (this.englishModel && this.englishModel !== this.casualModel) {
+      configs.push({
+        id: `${primaryId}-english`,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        model: this.englishModel,
+        maxTokens: Number(this.configService.get<string>('LLM_ENGLISH_MAX_TOKENS', '1024')),
+        temperature: Number(this.configService.get<string>('LLM_ENGLISH_TEMPERATURE', '0.7')),
       });
     }
 

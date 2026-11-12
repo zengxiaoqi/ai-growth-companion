@@ -25,6 +25,7 @@ class _AbilityTrendScreenState extends State<AbilityTrendScreen> {
     _DomainMeta(key: 'science', label: '科学', color: Color(0xFF705900)),
     _DomainMeta(key: 'art', label: '艺术', color: Color(0xFFB9AE6E)),
     _DomainMeta(key: 'social', label: '社交', color: Color(0xFFB02500)),
+    _DomainMeta(key: 'english', label: '英语', color: Color(0xFF6A4C93)),
   ];
 
   int _rangeDays = 30;

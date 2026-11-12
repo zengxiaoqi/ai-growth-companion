@@ -78,6 +78,7 @@ import { AssignActivityTool as FwAssignActivity } from '../../agent-framework/to
 import { GenerateCoursePackTool as FwGenerateCoursePack } from '../../agent-framework/tools/impl/generate-course-pack';
 import { EnqueueTeachingVideoTool as FwEnqueueTeachingVideo } from '../../agent-framework/tools/impl/enqueue-teaching-video';
 import { TranslateTool as FwTranslate } from '../../agent-framework/tools/impl/translate';
+import { UpdateEnglishLevelTool as FwUpdateEnglishLevel } from '../../agent-framework/tools/impl/update-english-level';
 import { PlayStoryTool as FwPlayStory } from '../../agent-framework/tools/impl/play-story';
 import { PlayMusicTool as FwPlayMusic } from '../../agent-framework/tools/impl/play-music';
 
@@ -171,6 +172,8 @@ import { PlayMusicTool as FwPlayMusic } from '../../agent-framework/tools/impl/p
     FwTranslate,
     FwPlayStory,
     FwPlayMusic,
+    // English-practice coach: level persistence
+    FwUpdateEnglishLevel,
     // Provide legacy course pack tool as the backing implementation
     {
       provide: FwGenerateCoursePack,

@@ -209,7 +209,15 @@ describe('ReportService', () => {
   describe('getSkillProgress', () => {
     it('should return all domains at 0 when no abilities', async () => {
       const result = await (service as any).getSkillProgress(1);
-      expect(result).toEqual({ language: 0, math: 0, science: 0, art: 0, social: 0 });
+      expect(result).toEqual({ language: 0, math: 0, science: 0, art: 0, social: 0, english: 0 });
+    });
+
+    it('should include english domain progress', async () => {
+      mockAbilityRepo.find.mockResolvedValue([
+        { domain: 'english', score: 72, assessedAt: new Date('2026-06-14') },
+      ]);
+      const result = await (service as any).getSkillProgress(1);
+      expect(result.english).toBe(72);
     });
 
     it('should use latest score per domain', async () => {
@@ -281,6 +289,19 @@ describe('ReportService', () => {
       expect(result[0]).toHaveProperty('week');
       expect(result[0]).toHaveProperty('math');
       expect(result[0]).toHaveProperty('language');
+    });
+
+    it('should include english domain in the weekly trend', async () => {
+      const now = new Date();
+      const qb = mockAbilityRepo.createQueryBuilder();
+      qb.getMany.mockResolvedValue([
+        { domain: 'english', score: 65, assessedAt: new Date(now.getTime() - 1 * 86400000) },
+        { domain: 'english', score: 80, assessedAt: new Date(now.getTime() - 2 * 86400000) },
+      ]);
+      const result = await service.getAbilityTrend(1, 4);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]).toHaveProperty('english');
+      expect(typeof result[0].english).toBe('number');
     });
   });
 

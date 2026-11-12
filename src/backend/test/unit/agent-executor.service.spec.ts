@@ -857,4 +857,97 @@ describe('AgentExecutorService runLoopStream', () => {
       expect(result.musicData).toEqual(musicPayload);
     });
   });
+
+  describe('english practice mode', () => {
+    const englishDefs: LlmToolDefinition[] = [
+      {
+        type: 'function',
+        function: {
+          name: 'translate',
+          description: 'Translate between Chinese and English',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'updateEnglishLevel',
+          description: 'Update the child English level',
+          parameters: { type: 'object', properties: {}, required: [] },
+        },
+      },
+    ];
+
+    function englishContext(): AgentContext {
+      return { ...context, metadata: { chatMode: 'english' } };
+    }
+
+    async function runEnglish(messages: LlmMessage[]): Promise<StreamEvent[]> {
+      const events: StreamEvent[] = [];
+      for await (const event of executor.runLoopStream(
+        'You are Coco, an English coach.',
+        messages,
+        englishDefs,
+        4,
+        englishContext(),
+      )) {
+        events.push(event);
+      }
+      return events;
+    }
+
+    it('passes englishModel as the model override on the probe request', async () => {
+      (llmClient as any).englishModel = 'english-fast-model';
+      llmClient.chatCompletion.mockResolvedValueOnce(textOnlyResponse('Hello! Say apple!'));
+
+      await runEnglish([{ role: 'user', content: '你好' }]);
+
+      expect(llmClient.chatCompletion.mock.calls[0][4]).toBe('english-fast-model');
+    });
+
+    it('takes the fast path (single request, no stream) when the probe has no tool calls', async () => {
+      (llmClient as any).englishModel = 'english-fast-model';
+      llmClient.chatCompletion.mockResolvedValueOnce(textOnlyResponse('Hello! 你好呀！Say apple!'));
+
+      const events = await runEnglish([{ role: 'user', content: '你好' }]);
+
+      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(1);
+      expect(llmClient.chatCompletionStream).toHaveBeenCalledTimes(0);
+      const tokenEvents = events.filter((e) => e.type === 'token') as any[];
+      expect(tokenEvents).toHaveLength(1);
+      expect(tokenEvents[0].content).toContain('Hello');
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+      expect(events.some((e) => e.type === 'tool_start')).toBe(false);
+    });
+
+    it('continues the tool loop when the probe requests a tool (no fast path)', async () => {
+      (llmClient as any).englishModel = 'english-fast-model';
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        toolCallResponse('updateEnglishLevel', { score: 70 }),
+      );
+      toolRegistry.execute.mockResolvedValueOnce({ data: { score: 70, englishLevel: 'L2' } });
+      llmClient.chatCompletion.mockResolvedValueOnce(finalResponse('Great job! 你真棒！'));
+
+      const events = await runEnglish([{ role: 'user', content: 'apple' }]);
+
+      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(2);
+      expect(events.some((e) => e.type === 'tool_start')).toBe(true);
+      expect(events.some((e) => e.type === 'tool_result')).toBe(true);
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+      // The override applies to every request in the loop, not just the probe.
+      expect(llmClient.chatCompletion.mock.calls[1][4]).toBe('english-fast-model');
+    });
+
+    it('does not apply an english override in default mode', async () => {
+      (llmClient as any).englishModel = 'english-fast-model';
+      llmClient.chatCompletion.mockResolvedValueOnce(textOnlyResponse('你好呀！'));
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '你好呀！';
+      });
+
+      await collectEvents([{ role: 'user', content: '你好' }]);
+
+      expect(llmClient.chatCompletion.mock.calls[0][4]).toBeUndefined();
+    });
+  });
 });

@@ -246,6 +246,7 @@ export class ReportService {
       science: 0,
       art: 0,
       social: 0,
+      english: 0,
     };
 
     // Take latest score per domain
@@ -284,7 +285,7 @@ export class ReportService {
     }
 
     const now = new Date();
-    const domains = ['language', 'math', 'science', 'art', 'social'] as const;
+    const domains = ['language', 'math', 'science', 'art', 'social', 'english'] as const;
     const weekMap = new Map<number, Map<string, number[]>>();
 
     for (const assessment of assessments) {
@@ -313,6 +314,7 @@ export class ReportService {
       science: number;
       art: number;
       social: number;
+      english: number;
     }[] = [];
     const sortedWeeks = [...weekMap.keys()].sort((a, b) => a - b);
     for (const weekNum of sortedWeeks) {
@@ -330,6 +332,7 @@ export class ReportService {
         science: avg('science'),
         art: avg('art'),
         social: avg('social'),
+        english: avg('english'),
       });
     }
 
@@ -349,6 +352,7 @@ export class ReportService {
       science: '科学探索',
       art: '艺术创造',
       social: '社会交往',
+      english: '英语能力',
     };
 
     return assessments.map((a) => ({
@@ -418,6 +422,7 @@ export class ReportService {
         science: getScore('science', currentByDomain) - getScore('science', previousByDomain),
         art: getScore('art', currentByDomain) - getScore('art', previousByDomain),
         social: getScore('social', currentByDomain) - getScore('social', previousByDomain),
+        english: getScore('english', currentByDomain) - getScore('english', previousByDomain),
       },
     };
   }
@@ -482,6 +487,7 @@ export class ReportService {
       science: '科学探索',
       art: '艺术创造',
       social: '社会交往',
+      english: '英语能力',
     };
 
     const domainSummary =
@@ -537,6 +543,7 @@ export class ReportService {
         science: '科学',
         art: '艺术',
         social: '社会',
+        english: '英语',
       };
       if (maxDomain) {
         insights.push(`喜欢 ${domainNames[maxDomain[0]] || maxDomain[0]} 领域的内容`);
@@ -562,7 +569,8 @@ export class ReportService {
         (change.math || 0) +
         (change.science || 0) +
         (change.art || 0) +
-        (change.social || 0);
+        (change.social || 0) +
+        (change.english || 0);
 
       if (totalChange > 10) {
         return '进步太大了！为你骄傲！🏆';

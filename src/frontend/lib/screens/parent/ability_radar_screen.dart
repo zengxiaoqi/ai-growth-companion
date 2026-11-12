@@ -27,6 +27,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
     _DomainMeta(key: 'science', label: '科学', color: Color(0xFF705900)),
     _DomainMeta(key: 'art', label: '艺术', color: Color(0xFFB9AE6E)),
     _DomainMeta(key: 'social', label: '社交', color: Color(0xFFB02500)),
+    _DomainMeta(key: 'english', label: '英语', color: Color(0xFF6A4C93)),
   ];
 
   bool _isLoadingChildren = true;
@@ -192,7 +193,7 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '从语言、数学、科学、艺术、社交观察孩子的成长变化',
+              '从语言、数学、科学、艺术、社交、英语观察孩子的成长变化',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 14),

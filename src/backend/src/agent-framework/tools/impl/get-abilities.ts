@@ -44,6 +44,7 @@ export class GetAbilitiesTool extends BaseTool<GetAbilitiesInput> {
         science: '科学探索',
         art: '艺术创造',
         social: '社会交往',
+        english: '英语能力',
       };
 
       return this.ok(

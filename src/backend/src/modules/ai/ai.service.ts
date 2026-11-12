@@ -24,6 +24,8 @@ import { CareService } from '../care/care.service';
 import { careCuePrompt } from '../care/care-prompt';
 import { ConfigService } from '@nestjs/config';
 import { ParentService } from '../parent/parent.service';
+import { AbilitiesService } from '../abilities/abilities.service';
+import { resolveEnglishProfile, type EnglishProfile } from '../abilities/english-level';
 import { parseCasualToolsEnv } from '../../common/policy/casual-tools';
 import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
 
@@ -70,6 +72,7 @@ export class AiService {
     @Optional() private readonly careService?: CareService,
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly parentService?: ParentService,
+    @Optional() private readonly abilitiesService?: AbilitiesService,
   ) {
     this.frameworkOrchestrator =
       agentRegistry && frameworkExecutor && skillRegistry
@@ -209,11 +212,13 @@ export class AiService {
       );
 
       // Update session metadata
+      const effectiveMode = this.resolveChatMode(mode, session.metadata);
       await this.conversationService.updateMetadata(session.uuid, {
         ageGroup,
         childName,
         actorType: 'child',
         targetChildId: viewerId,
+        ...(effectiveMode === 'english' ? { chatMode: 'english' } : {}),
       });
 
       const careTopic = await this.openingCareTopic(viewerId, sessionId, session.uuid);
@@ -229,7 +234,7 @@ export class AiService {
         bookId,
         bookTitle,
         careTopic,
-        mode,
+        mode: effectiveMode,
       });
 
       void this.learningArchiveService.recordChatTurnSummary({
@@ -251,6 +256,8 @@ export class AiService {
         wasFiltered: result.wasFiltered,
         gameData: result.gameData as any,
         musicData: result.musicData,
+        englishLevel:
+          effectiveMode === 'english' ? await this.readEnglishLevel(viewerId) : undefined,
       };
     } catch (error) {
       this.logger.error(`Agent chat failed: ${error.message}`);
@@ -269,6 +276,7 @@ export class AiService {
     sessionId?: string;
     wasFiltered?: boolean;
     suggestions?: string[];
+    englishLevel?: string;
     toolCalls?: any[];
     message?: string;
     activityType?: string;
@@ -388,11 +396,13 @@ export class AiService {
         'child',
         sessionId,
       );
+      const effectiveMode = this.resolveChatMode(mode, session.metadata);
       await this.conversationService.updateMetadata(session.uuid, {
         ageGroup,
         childName,
         actorType: 'child',
         targetChildId: viewerId,
+        ...(effectiveMode === 'english' ? { chatMode: 'english' } : {}),
       });
 
       const suggestions = this.generateSuggestions('', ageGroup);
@@ -411,12 +421,13 @@ export class AiService {
         bookId,
         bookTitle,
         careTopic,
-        mode,
+        mode: effectiveMode,
       })) {
         if (event.type === 'token' && event.content) {
           finalReply += event.content;
         }
 
+        let englishLevel: string | undefined;
         if (event.type === 'done') {
           if (finalReply.trim()) {
             void this.learningArchiveService.recordChatTurnSummary({
@@ -427,12 +438,15 @@ export class AiService {
               assistantReply: finalReply,
             });
           }
+          if (effectiveMode === 'english') {
+            englishLevel = await this.readEnglishLevel(viewerId);
+          }
         }
 
         yield {
           ...event,
           sessionId: session.uuid,
-          ...(event.type === 'done' ? { suggestions } : {}),
+          ...(event.type === 'done' ? { suggestions, englishLevel } : {}),
         };
       }
     } catch (error) {
@@ -490,9 +504,12 @@ export class AiService {
     actorType: 'parent' | 'child';
     targetChildId?: number;
     careTopic?: string;
-    mode?: 'default' | 'casual';
+    mode?: 'default' | 'casual' | 'english';
     casualTools?: string[];
+    englishProfile?: EnglishProfile;
   }): AgentContext {
+    const chatMode =
+      params.mode === 'casual' ? 'casual' : params.mode === 'english' ? 'english' : 'default';
     return {
       childId: params.executionContext.childId,
       parentId: params.executionContext.parentId,
@@ -506,8 +523,17 @@ export class AiService {
         source: 'ai-module',
         actorType: params.actorType,
         targetChildId: params.targetChildId,
-        chatMode: params.mode === 'casual' ? 'casual' : 'default',
+        chatMode,
         casualTools: params.casualTools,
+        // English practice level is resolved in the business layer and passed
+        // via metadata so the framework never imports a business module.
+        ...(chatMode === 'english' && params.englishProfile
+          ? {
+              englishLevel: params.englishProfile.level,
+              englishScore: params.englishProfile.score,
+              englishLevelSource: params.englishProfile.source,
+            }
+          : {}),
         // Rendered here so the framework layer never imports a business
         // module just to format a sentence.
         careCueNote: careCuePrompt(params.careTopic),
@@ -536,6 +562,49 @@ export class AiService {
     return parseCasualToolsEnv(raw);
   }
 
+  /**
+   * Resolve the effective chat mode for a turn. An english session is locked:
+   * once a session is marked english, every turn (text or voice) stays english
+   * even if the request omits mode or asks for casual/default. Casual remains
+   * per-request and is never persisted, so normal sessions behave as before.
+   */
+  private resolveChatMode(
+    requestMode: 'default' | 'casual' | 'english' | undefined,
+    sessionMetadata?: Record<string, any>,
+  ): 'default' | 'casual' | 'english' {
+    if (sessionMetadata?.chatMode === 'english') return 'english';
+    if (requestMode === 'english') return 'english';
+    if (requestMode === 'casual') return 'casual';
+    return 'default';
+  }
+
+  /** Read the child's current english level for done-event / response payloads. */
+  private async readEnglishLevel(childId?: number): Promise<string | undefined> {
+    if (childId == null || !this.abilitiesService) return undefined;
+    try {
+      const latest = await this.abilitiesService.getLatestByDomain(childId, 'english');
+      return resolveEnglishProfile(latest, '5-6').level;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Resolve the english profile to inject into AgentContext for english turns. */
+  private async resolveEnglishProfileForChat(params: {
+    mode?: 'default' | 'casual' | 'english';
+    ageGroup: AgeGroupOrParent;
+    executionContext: { childId?: number; parentId?: number };
+  }): Promise<EnglishProfile | undefined> {
+    const childId = params.executionContext.childId;
+    if (params.mode !== 'english' || childId == null || !this.abilitiesService) return undefined;
+    try {
+      const latest = await this.abilitiesService.getLatestByDomain(childId, 'english');
+      return resolveEnglishProfile(latest, params.ageGroup);
+    } catch {
+      return resolveEnglishProfile(null, params.ageGroup);
+    }
+  }
+
   private async executeRoutedChat(params: {
     sessionId: string;
     message: string;
@@ -547,16 +616,18 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
-    mode?: 'default' | 'casual';
+    mode?: 'default' | 'casual' | 'english';
   }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown; musicData?: unknown }> {
     if (this.frameworkOrchestrator) {
       const casualTools =
         params.mode === 'casual'
           ? await this.resolveCasualTools(params.executionContext.childId)
           : undefined;
+      const englishProfile = await this.resolveEnglishProfileForChat(params);
       const context = this.buildAgentContext({
         ...params,
         casualTools,
+        englishProfile,
         actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
       });
       const result = await this.frameworkOrchestrator.route(params.message, context);
@@ -596,7 +667,7 @@ export class AiService {
     bookId?: number;
     bookTitle?: string;
     careTopic?: string;
-    mode?: 'default' | 'casual';
+    mode?: 'default' | 'casual' | 'english';
   }): AsyncGenerator<{
     type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
     content?: string;
@@ -618,9 +689,11 @@ export class AiService {
         params.mode === 'casual'
           ? await this.resolveCasualTools(params.executionContext.childId)
           : undefined;
+      const englishProfile = await this.resolveEnglishProfileForChat(params);
       const context = this.buildAgentContext({
         ...params,
         casualTools,
+        englishProfile,
         actorType: params.actorType || (params.ageGroup === 'parent' ? 'parent' : 'child'),
       });
       for await (const event of this.frameworkOrchestrator.routeStream(params.message, context)) {

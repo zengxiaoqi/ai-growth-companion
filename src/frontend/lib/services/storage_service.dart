@@ -59,9 +59,19 @@ class StorageService {
   static const String keyRememberedPhone = 'remembered_phone';
   static const String keyRememberedPassword = 'remembered_password';
 
+  // 孩子端可切换主题：保存 ChildThemeMode 的字符串名（auto/honey/candy/forest/space）
+  static const String keyChildThemeMode = 'child_theme_mode';
+
   // 孩子端天气卡片城市（默认北京）
   static const String keyWeatherCity = 'weather_city';
   static const String kDefaultWeatherCity = '北京';
+
+  /// 保存孩子端主题模式（存枚举名，读取时由 parseChildThemeMode 容错解析）
+  Future<void> saveChildThemeMode(String mode) =>
+      _prefs.setString(keyChildThemeMode, mode);
+
+  /// 读取孩子端主题模式，未设置返回 null（调用方回退 auto）
+  String? getChildThemeMode() => _prefs.getString(keyChildThemeMode);
 
   /// 保存天气城市
   Future<void> saveWeatherCity(String city) =>

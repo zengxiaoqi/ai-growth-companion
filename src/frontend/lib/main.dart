@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_skill/flutter_skill.dart';
 
 import 'app.dart';
+import 'theme/child_theme.dart';
 import 'services/storage_service.dart';
 import 'services/api_service.dart';
 import 'services/ai_service.dart';
@@ -130,6 +131,10 @@ void main() async {
           ),
           ChangeNotifierProvider(
             create: (_) => VideoDownloadProvider(apiService),
+          ),
+          // 孩子端可切换主题：mode 由 StorageService 持久化，auto 依赖 UserProvider 的年龄
+          ChangeNotifierProvider<ChildThemeController>(
+            create: (_) => ChildThemeController(storageService),
           ),
         ],
         child: const LingxiApp(),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 import '../../providers/user_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/app_update_service.dart';
@@ -100,6 +101,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // 显示与声音
                   _buildDisplaySettings(),
+                  const SizedBox(height: 16),
+
+                  // 孩子端主题
+                  _buildChildThemeSection(),
                   const SizedBox(height: 16),
 
                   // 通知设置
@@ -317,6 +322,132 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 孩子端主题（跟随年龄 / 四套皮肤），点击即时生效
+  Widget _buildChildThemeSection() {
+    return _SettingsCard(
+      title: '孩子端主题',
+      children: [
+        // 选中态随 ChildThemeController 刷新，点击后全局 ThemeData 即时切换
+        Consumer<ChildThemeController>(
+          builder: (context, controller, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < kChildThemeOptions.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _buildThemeOption(context, controller, kChildThemeOptions[i]),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThemeOption(
+    BuildContext context,
+    ChildThemeController controller,
+    ChildThemeMeta option,
+  ) {
+    final selected = controller.mode == option.mode;
+    return GestureDetector(
+      onTap: () => context.read<ChildThemeController>().setMode(option.mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primaryColor.withValues(alpha: 0.08)
+              : AppTheme.backgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? AppTheme.primaryColor : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            // 色板小圆点
+            SizedBox(
+              width: 68,
+              child: Row(
+                children: [
+                  for (final c in option.swatches)
+                    Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    option.desc,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            // 年龄标签
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: option.isDark
+                    ? const Color(0xFF2A1F52)
+                    : AppTheme.primaryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                option.ageLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: option.isDark ? Colors.white : AppTheme.primaryColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 20,
+              color: selected
+                  ? AppTheme.primaryColor
+                  : AppTheme.textSecondary.withValues(alpha: 0.5),
+            ),
+          ],
         ),
       ),
     );

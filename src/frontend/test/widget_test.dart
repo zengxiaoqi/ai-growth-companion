@@ -9,6 +9,7 @@ import 'package:lingxi_companion/services/ai_service.dart';
 import 'package:lingxi_companion/providers/user_provider.dart';
 import 'package:lingxi_companion/providers/learning_provider.dart';
 import 'package:lingxi_companion/providers/content_provider.dart';
+import 'package:lingxi_companion/theme/child_theme.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -33,6 +34,9 @@ void main() {
           ),
           ChangeNotifierProvider(
             create: (_) => ContentProvider(apiService),
+          ),
+          ChangeNotifierProvider<ChildThemeController>(
+            create: (_) => ChildThemeController(storageService),
           ),
         ],
         child: const LingxiApp(),
@@ -73,6 +77,9 @@ void main() {
           ),
           ChangeNotifierProvider(
             create: (_) => ContentProvider(apiService),
+          ),
+          ChangeNotifierProvider<ChildThemeController>(
+            create: (_) => ChildThemeController(storageService),
           ),
         ],
         child: const LingxiApp(),

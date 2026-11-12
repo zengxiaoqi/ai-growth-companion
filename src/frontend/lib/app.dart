@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'theme/app_theme.dart';
+import 'theme/child_theme.dart';
 import 'theme/page_transitions.dart';
 import 'providers/user_provider.dart';
 import 'screens/splash_screen.dart';
@@ -67,11 +68,27 @@ class LingxiApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 用 Consumer 包住 MaterialApp，主题切换时由 ChildThemeController 驱动重建。
+    //
+    // 关于 MaterialApp 的 key：这里刻意保持 const ValueKey('lingxi_app') 不随
+    // 主题变化。MaterialApp 内部通过 AnimatedTheme / Theme(InheritedWidget) 下发
+    // ThemeData，theme 改变会通知所有 Theme.of(context) 依赖方即时重建（并带
+    // 一次平滑过渡），足以完成换肤。若让 key 随主题变化，整个 MaterialApp
+    // Element 连同 Navigator、所有路由及页面状态（滚动位置、表单输入、导航栈）
+    // 都会在每次换肤时被销毁重建，代价大且没有必要。
+    return Consumer<ChildThemeController>(
+      builder: (context, themeController, _) =>
+          _buildMaterialApp(context, themeController.themeData),
+    );
+  }
+
+  /// 构造 MaterialApp；[theme] 由 [ChildThemeController] 提供。
+  Widget _buildMaterialApp(BuildContext context, ThemeData theme) {
     return MaterialApp(
       key: const ValueKey('lingxi_app'),
       navigatorKey: navigatorKey,
       title: '灵犀伴学',
-      theme: AppTheme.lightTheme,
+      theme: theme,
       debugShowCheckedModeBanner: false,
       // 中文本地化：让 DatePicker 等 Material 组件显示中文月份/星期
       locale: const Locale('zh', 'CN'),
@@ -319,6 +336,15 @@ class _HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
+        // 把当前用户年龄同步给主题控制器（auto 模式按年龄推断皮肤）。
+        // 用 post-frame 避免在 build 期间触发 notifyListeners；setAge 对
+        // 未变化的值做了短路，不会引起循环重建。
+        final age = userProvider.currentUser?['age'];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          context.read<ChildThemeController>().setAge(age);
+        });
+
         if (userProvider.isLoading) {
           return const SplashScreen();
         }
@@ -334,7 +360,11 @@ class _HomeScreen extends StatelessWidget {
             'child';
 
         if (role == 'parent') {
-          return const ParentHomeScreen();
+          // 家长端不参与换肤：强制用原始蜜黄主题覆盖当前孩子皮肤。
+          return Theme(
+            data: AppTheme.lightTheme,
+            child: const ParentHomeScreen(),
+          );
         }
         return const ChildHomeScreen();
       },

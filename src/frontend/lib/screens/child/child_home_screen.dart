@@ -3,26 +3,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/animation_utils.dart';
+import '../../theme/child_theme.dart';
+import '../../components/child_home_experience.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/top_bar.dart';
-import '../../components/app_card.dart';
-import '../../components/section_header.dart';
-import '../../components/weather_card.dart';
-import '../../components/country_card.dart';
-import '../../components/number_fact_card.dart';
-import '../../components/joke_card.dart';
-import '../../components/fact_card.dart';
 import '../games/trivia_quiz_game.dart';
 import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
+import '../../providers/content_provider.dart';
 import '../ai_chat_screen.dart';
 import '../learning/learning_home_screen.dart';
 import '../achievement/achievement_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reward/reward_home_screen.dart';
 import 'child_video_screen.dart';
+import 'knowledge_daily_screen.dart';
 
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
@@ -50,7 +46,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      const ChildHomeContent(),
+      ChildHomeContent(onOpenLearning: () => setState(() => _currentIndex = 1)),
       const LearningHomeScreen(),
       const AIChatScreen(),
       const AchievementScreen(),
@@ -235,7 +231,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 }
 
 class ChildHomeContent extends StatefulWidget {
-  const ChildHomeContent({super.key});
+  const ChildHomeContent({super.key, this.onOpenLearning});
+
+  /// 学科大图标点击后切到「学习」Tab（由 [ChildHomeScreen] 提供）。
+  final VoidCallback? onOpenLearning;
 
   @override
   State<ChildHomeContent> createState() => _ChildHomeContentState();
@@ -245,782 +244,235 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
   @override
   void initState() {
     super.initState();
+    // 主任务 / 今日任务依赖内容列表；为空时拉一次。
+    // 失败由 ContentProvider 吞掉，下面的构建逻辑会自动回退内置内容，
+    // 孩子端看不到任何「暂无数据」。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final contentProvider = context.read<ContentProvider>();
+      if (contentProvider.contents.isEmpty && !contentProvider.isLoading) {
+        contentProvider.loadContents();
+      }
+    });
+  }
+
+  int? get _childId {
+    final user = context.read<UserProvider>();
+    final id = user.activeChildId ?? user.currentUser?['id'];
+    if (id is int) return id;
+    return int.tryParse('$id');
+  }
+
+  void _push(Widget page) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _openCompanion() {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const AIChatScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return ScaleTransition(
+            scale: animation,
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+  void _openContent(Map<String, dynamic> content) {
+    final type = content['contentType']?.toString() ?? '';
+    final isStructured = type == 'structured_lesson' || type == 'video_lesson';
+    Navigator.pushNamed(
+      context,
+      isStructured ? '/learning/structuredLesson' : '/learning/contentDetail',
+      arguments: <String, dynamic>{
+        'contentId': content['id'],
+        'childId': _childId,
+      },
+    );
+  }
+
+  /// 首屏唯一主任务：真实内容 → 内置兜底。
+  /// 任何一层为空都不会出现「暂无 / 暂时不可用」，最后一层永远有可行动作。
+  ChildPrimaryTask _buildPrimaryTask(List<Map<String, dynamic>> contents) {
+    if (contents.isNotEmpty) {
+      final content = contents.first;
+      final title = (content['title'] as String?)?.trim() ?? '';
+      final topic = (content['topic'] as String?)?.trim() ?? '';
+      final summary = (content['summary'] as String?)?.trim() ?? '';
+      return ChildPrimaryTask(
+        kicker: '今天先玩这个',
+        title: title.isEmpty ? '认识数字 1–5' : title,
+        meta: topic.isNotEmpty
+            ? '$topic · 六步小课程'
+            : (summary.isNotEmpty ? summary : '看 · 听 · 读 · 写 · 练 · 评'),
+        buttonLabel: '开始学习',
+        onStart: () => _openContent(content),
+      );
+    }
+
+    return ChildPrimaryTask(
+      kicker: '今天先玩这个',
+      title: '认识数字 1–5',
+      meta: '一起数苹果，跟着小犀玩一关 🍎',
+      buttonLabel: '和小犀一起玩',
+      onStart: _openCompanion,
+    );
+  }
+
+  List<ChildTodayTask> _buildTodayTasks(
+    List<Map<String, dynamic>> contents,
+  ) {
+    final items = <ChildTodayTask>[];
+    for (final content in contents.skip(1).take(5)) {
+      final title = (content['title'] as String?)?.trim() ?? '';
+      if (title.isEmpty) continue;
+      final topic = (content['topic'] as String?)?.trim() ?? '';
+      final domain = _domainLabel(content['domain']?.toString());
+      items.add(
+        ChildTodayTask(
+          id: '${content['id']}',
+          title: title,
+          subtitle: topic.isNotEmpty ? '$topic · $domain' : domain,
+          onOpen: () => _openContent(content),
+        ),
+      );
+    }
+    return items;
+  }
+
+  String _domainLabel(String? domain) {
+    switch (domain) {
+      case 'language':
+        return '语言';
+      case 'math':
+        return '数学';
+      case 'science':
+        return '科学';
+      case 'art':
+        return '艺术';
+      case 'social':
+        return '社会';
+      case 'music':
+        return '音乐';
+      default:
+        return '综合';
+    }
+  }
+
+  List<ChildMoreEntry> _buildMoreEntries() {
+    return <ChildMoreEntry>[
+      ChildMoreEntry(
+        emoji: '🧠',
+        label: '知识问答',
+        onTap: () => _push(
+          TriviaQuizGame(onExit: () => Navigator.pop(context)),
+        ),
+      ),
+      ChildMoreEntry(
+        emoji: '🚩',
+        label: '国旗配对',
+        onTap: () => _push(
+          CountryMatchingGame(onExit: () => Navigator.pop(context)),
+        ),
+      ),
+      ChildMoreEntry(
+        emoji: '📜',
+        label: '诗词鉴赏',
+        onTap: () => Navigator.pushNamed(context, '/poetry'),
+      ),
+      ChildMoreEntry(
+        emoji: '🎵',
+        label: '音乐乐园',
+        onTap: () => Navigator.pushNamed(context, '/music'),
+      ),
+      ChildMoreEntry(
+        emoji: '📚',
+        label: '知识书',
+        onTap: () => Navigator.pushNamed(context, '/book-skill/browse'),
+      ),
+      ChildMoreEntry(
+        emoji: '⭐',
+        label: '积分奖惩',
+        onTap: () => _push(const RewardHomeScreen()),
+      ),
+      ChildMoreEntry(
+        emoji: '🎬',
+        label: '视频学习',
+        onTap: () => _push(const ChildVideoScreen()),
+      ),
+      ChildMoreEntry(
+        emoji: '🌤',
+        label: '每日知识',
+        onTap: () => _push(const KnowledgeDailyScreen()),
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final learningProvider = context.watch<LearningProvider>();
-    final userName = userProvider.currentUser?['name'] ?? '小朋友';
-    final todayMinutes = learningProvider.todayMinutes;
+    final contents = context.watch<ContentProvider>().contents;
+
+    final palette = ChildThemePalette.of(context);
+    final density = palette.density;
+    final userName = userProvider.currentUser?['name']?.toString() ?? '小朋友';
+
+    // 星星来自今天完成的内容数（0–3），没有数据时是 0，不造假。
+    final stars = learningProvider.completedContents.length.clamp(0, 3);
+    final todayTasks = _buildTodayTasks(contents);
 
     return BubbleBackground(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            BounceIn(
-              child: _buildWelcomeSection(userName),
+          children: <Widget>[
+            ChildHomeHero(
+              userName: userName,
+              task: _buildPrimaryTask(contents),
+              stars: stars,
+              density: density,
+              onOpenCompanion: _openCompanion,
+              secondaryActions: <ChildSecondaryAction>[
+                ChildSecondaryAction(
+                  label: '听小犀讲故事',
+                  emoji: '🎧',
+                  onSelect: _openCompanion,
+                ),
+                ChildSecondaryAction(
+                  label: '看看我的成就',
+                  emoji: '🏅',
+                  onSelect: () => _push(const AchievementScreen()),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            // 天气知识卡片（Open-Meteo）
-            const WeatherCard(),
-            const SizedBox(height: 24),
-            // 每日一国卡片（REST Countries 数据包）
-            const CountryCard(),
-            const SizedBox(height: 24),
-            // 今日数字卡片（Numbers API 替代源）
-            const NumberFactCard(),
-            const SizedBox(height: 24),
-            // 今日冷知识（Useless Facts + MyMemory 翻译）
-            const FactCard(),
-            const SizedBox(height: 24),
-            // 每日一笑（JokeAPI safe-mode）
-            const JokeCard(),
-            const SizedBox(height: 24),
-            _buildStudyTimeCard(todayMinutes),
-            const SizedBox(height: 24),
-            _buildAICompanionCard(context),
-            const SizedBox(height: 24),
-            _buildFunctionSection(context),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeSection(String userName) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text('🌸', style: TextStyle(fontSize: 28)),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      '你好，$userName',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  SizedBox(width: 4),
-                  Text(
-                    '今天也要努力学习哦~',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 28),
+            ChildDiscoverySection(
+              density: density,
+              onOpenCompanion: _openCompanion,
+            ),
+            const SizedBox(height: 28),
+            ChildSubjectGrid(
+              density: density,
+              onPick: (_) => widget.onOpenLearning?.call(),
+              onMusic: () => Navigator.pushNamed(context, '/music'),
+            ),
+            if (todayTasks.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 28),
+              ChildTodayTaskList(density: density, tasks: todayTasks),
             ],
-          ),
-        ),
-        Column(
-          children: [
-            StarDecoration(size: 24, color: AppTheme.softYellow),
-            SizedBox(height: 8),
-            StarDecoration(size: 16, color: AppTheme.softPink),
+            const SizedBox(height: 28),
+            ChildMoreGrid(entries: _buildMoreEntries()),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStudyTimeCard(int todayMinutes) {
-    return AppCard(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      gradient: LinearGradient(
-        colors: [AppTheme.primaryColor, Color(0xFFFF9EBB)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      boxShadow: AppTheme.glowShadow(AppTheme.primaryColor),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(
-              Icons.auto_awesome,
-              size: 100,
-              color: Colors.white.withValues(alpha: 0.15),
-            ),
-          ),
-          const Positioned(
-            right: 30,
-            bottom: -10,
-            child: Text('📚', style: TextStyle(fontSize: 50)),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(AppTheme.smallRadius),
-                    ),
-                    child: const Icon(Icons.access_time,
-                        color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    '今日学习',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$todayMinutes',
-                    style: const TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12, left: 8),
-                    child: Text(
-                      '分钟',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.buttonRadius),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('🌟', style: TextStyle(fontSize: 14)),
-                    SizedBox(width: 4),
-                    Text(
-                      '棒棒的！',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAICompanionCard(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const AIChatScreen(),
-            transitionsBuilder: (_, animation, __, child) {
-              return ScaleTransition(
-                scale: animation,
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-      },
-      child: AppCard(
-        width: double.infinity,
-        height: 170,
-        gradient: LinearGradient(
-          colors: [AppTheme.secondaryColor, Color(0xFF9AD0E8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: AppTheme.glowShadow(AppTheme.secondaryColor),
-        child: Stack(
-          children: [
-            Positioned(
-              right: 30,
-              top: 20,
-              child: CloudDecoration(
-                  size: 60, color: Colors.white.withValues(alpha: 0.2)),
-            ),
-            Positioned(
-              right: 80,
-              bottom: 30,
-              child: CloudDecoration(
-                  size: 40, color: Colors.white.withValues(alpha: 0.15)),
-            ),
-            Positioned(
-              right: 20,
-              bottom: 20,
-              child: Icon(
-                Icons.auto_awesome,
-                size: 70,
-                color: Colors.white.withValues(alpha: 0.25),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.cardRadius),
-                        ),
-                        child: const Text('🦄', style: TextStyle(fontSize: 32)),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        '小犀',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.chat_bubble_outline,
-                          color: Colors.white70, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        '点击开始聊天~',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFunctionSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader(
-          title: '更多功能',
-          icon: Icons.palette_rounded,
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _FunctionCard(
-                icon: Icons.school_rounded,
-                title: '学习',
-                color: AppTheme.accentColor,
-                onTap: () {},
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _FunctionCard(
-                icon: Icons.quiz_rounded,
-                title: '知识问答',
-                color: const Color(0xFF6FA3C8),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TriviaQuizGame(
-                        onExit: () => Navigator.pop(context),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // 第二行功能卡：国旗配对 + 成就
-        Row(
-          children: [
-            Expanded(
-              child: _FunctionCard(
-                icon: Icons.flag_rounded,
-                title: '国旗配对',
-                color: const Color(0xFF6BC89A),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CountryMatchingGame(
-                        onExit: () => Navigator.pop(context),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _FunctionCard(
-                icon: Icons.emoji_events_rounded,
-                title: '成就',
-                color: const Color(0xFF9A8FB8),
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        // 诗词鉴赏入口
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/poetry');
-          },
-          child: AppCard(
-            padding: const EdgeInsets.all(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF7EB5D6), Color(0xFF5B9BD5)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: AppTheme.softShadow(const Color(0xFF5B9BD5)),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('📜', style: TextStyle(fontSize: 32)),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '诗词鉴赏',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '37万首古诗词，飞花令游戏',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 音乐乐园入口
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/music');
-          },
-          child: AppCard(
-            padding: const EdgeInsets.all(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE89BB4), Color(0xFFD67BA0)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: AppTheme.softShadow(const Color(0xFFD67BA0)),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('🎵', style: TextStyle(fontSize: 32)),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '音乐乐园',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '搜索儿歌，在线听歌',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 知识书入口
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/book-skill/browse');
-          },
-          child: AppCard(
-            padding: const EdgeInsets.all(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF5C6BC0), Color(0xFF7986CB)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: AppTheme.softShadow(const Color(0xFF5C6BC0)),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('📚', style: TextStyle(fontSize: 32)),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '知识书',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '探索书籍中的知识世界',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 积分奖惩入口
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const RewardHomeScreen(),
-              ),
-            );
-          },
-          child: AppCard(
-            padding: const EdgeInsets.all(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE3BC45), Color(0xFFFFB347)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: AppTheme.softShadow(const Color(0xFFE3BC45)),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('⭐', style: TextStyle(fontSize: 32)),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '积分奖惩',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '打卡好习惯，兑换好礼',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // 视频观看入口
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ChildVideoScreen(),
-              ),
-            );
-          },
-          child: AppCard(
-            padding: const EdgeInsets.all(20),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFC26B5A), Color(0xFFD0836F)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: AppTheme.softShadow(const Color(0xFFC26B5A)),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('🎬', style: TextStyle(fontSize: 32)),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '视频学习',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '爸爸妈妈分享的视频在这里',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-}
-
-class _FunctionCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _FunctionCard({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  State<_FunctionCard> createState() => _FunctionCardState();
-}
-
-class _FunctionCardState extends State<_FunctionCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) {
-        _controller.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _controller.reverse(),
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
-        },
-        child: AppCard(
-          padding: const EdgeInsets.all(20),
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      widget.color.withValues(alpha: 0.15),
-                      widget.color.withValues(alpha: 0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(widget.icon, size: 36, color: widget.color),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                widget.title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

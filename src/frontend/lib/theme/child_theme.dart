@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'child_density.dart';
 import '../services/storage_service.dart';
 
 /// 四套孩子端皮肤。
@@ -55,6 +56,15 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
   final double radiusSm; // --r-sm
   final double borderW; // --bw 描边宽度（honey 无描边，为 0）
 
+  /// 年龄密度档（0 / 1 / 2）：决定首页信息密度与按钮尺寸。
+  /// 与 Web 端 `CHILD_DENSITY` 同一份口径，见 [ChildDensity]。
+  final int level;
+
+  /// 本套色板对应的皮肤 key。
+  /// 走 [ThemeExtension.lerp] 插值时中间态不指向任何皮肤，
+  /// 因此装饰层用 `t < 0.5` 取起点/终点，避免切肤动画中途丢装饰。
+  final ChildThemeKey themeKey;
+
   // ── 学科分类色（--s1 ~ --s6） ──
   final List<Color> subjects;
 
@@ -74,8 +84,16 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     required this.radiusMd,
     required this.radiusSm,
     required this.borderW,
+    this.level = 1,
+    this.themeKey = ChildThemeKey.honey,
     required this.subjects,
   });
+
+  /// 当前皮肤对应的年龄密度档。
+  ChildDensity get density => childDensityForLevel(level);
+
+  /// 是否为卡通皮肤（有粗描边 + 实体下阴影）；honey 保持原绘本风。
+  bool get isCartoon => borderW > 0;
 
   // ── 四套静态实例 ──
 
@@ -96,6 +114,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     radiusMd: AppTheme.honeyButtonRadius,
     radiusSm: AppTheme.honeySmallRadius,
     borderW: 0,
+    level: 1,
+    themeKey: ChildThemeKey.honey,
     subjects: AppTheme.honeyChildColors,
   );
 
@@ -116,6 +136,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     radiusMd: 26,
     radiusSm: 18,
     borderW: 3,
+    level: 0,
+    themeKey: ChildThemeKey.candy,
     subjects: <Color>[
       Color(0xFFFF8FAF),
       Color(0xFF7FC5F5),
@@ -143,6 +165,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     radiusMd: 22,
     radiusSm: 16,
     borderW: 3,
+    level: 1,
+    themeKey: ChildThemeKey.forest,
     subjects: <Color>[
       Color(0xFFFF9F5A),
       Color(0xFF6FC5A8),
@@ -170,6 +194,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     radiusMd: 20,
     radiusSm: 14,
     borderW: 2.5,
+    level: 2,
+    themeKey: ChildThemeKey.space,
     subjects: <Color>[
       Color(0xFFFF8FB4),
       Color(0xFF7AA8FF),
@@ -215,6 +241,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     double? radiusMd,
     double? radiusSm,
     double? borderW,
+    int? level,
+    ChildThemeKey? themeKey,
     List<Color>? subjects,
   }) {
     return ChildThemePalette(
@@ -233,6 +261,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
       radiusMd: radiusMd ?? this.radiusMd,
       radiusSm: radiusSm ?? this.radiusSm,
       borderW: borderW ?? this.borderW,
+      level: level ?? this.level,
+      themeKey: themeKey ?? this.themeKey,
       subjects: subjects ?? this.subjects,
     );
   }
@@ -242,6 +272,7 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
     if (other is! ChildThemePalette) return this;
     Color lc(Color a, Color b) => Color.lerp(a, b, t) ?? a;
     double ld(double a, double b) => a + (b - a) * t;
+    int li(int a, int b) => (a + (b - a) * t).round();
     final len = subjects.length < other.subjects.length
         ? subjects.length
         : other.subjects.length;
@@ -261,6 +292,8 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
       radiusMd: ld(radiusMd, other.radiusMd),
       radiusSm: ld(radiusSm, other.radiusSm),
       borderW: ld(borderW, other.borderW),
+      level: li(level, other.level),
+      themeKey: t < 0.5 ? themeKey : other.themeKey,
       subjects:
           List<Color>.generate(len, (i) => lc(subjects[i], other.subjects[i])),
     );

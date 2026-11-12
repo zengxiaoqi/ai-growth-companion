@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
+import '../../components/child_home_experience.dart';
 import '../../components/app_card.dart';
 import '../../components/empty_state.dart';
 import '../../components/section_header.dart';
@@ -439,211 +441,24 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
     );
   }
 
+  /// 学科入口：复用首页的大图标网格（同密度档、同贴纸视觉），
+  /// 不再用六个撑满整屏的大方块。
   Widget _buildSubjectGrid() {
-    final subjects = [
-      {
-        'title': '语言',
-        'domain': 'language',
-        'icon': Icons.chat_bubble_rounded,
-        'emoji': '🗣️',
-        'color': AppTheme.primaryColor,
-        'gradient': [AppTheme.primaryColor, const Color(0xFFFF9EBB)]
-      },
-      {
-        'title': '数学',
-        'domain': 'math',
-        'icon': Icons.calculate_rounded,
-        'emoji': '🔢',
-        'color': AppTheme.secondaryColor,
-        'gradient': [AppTheme.secondaryColor, const Color(0xFF9AD0E8)]
-      },
-      {
-        'title': '科学',
-        'domain': 'science',
-        'icon': Icons.science_rounded,
-        'emoji': '🔬',
-        'color': AppTheme.accentColor,
-        'gradient': [AppTheme.accentColor, const Color(0xFF9AE87A)]
-      },
-      {
-        'title': '艺术',
-        'domain': 'art',
-        'icon': Icons.palette_rounded,
-        'emoji': '🎨',
-        'color': const Color(0xFF9A8FB8),
-        'gradient': [const Color(0xFF9A8FB8), const Color(0xFFB3ABC9)]
-      },
-      {
-        'title': '社会',
-        'domain': 'social',
-        'icon': Icons.people_rounded,
-        'emoji': '🌍',
-        'color': const Color(0xFFE3BC45),
-        'gradient': [const Color(0xFFE3BC45), const Color(0xFFFFE066)]
-      },
-      {
-        'title': '音乐',
-        'domain': 'music',
-        'icon': Icons.music_note_rounded,
-        'emoji': '🎵',
-        'color': const Color(0xFFC26B5A),
-        'gradient': [const Color(0xFFC26B5A), const Color(0xFFD18B7B)]
-      },
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 0.9,
-      ),
-      itemCount: subjects.length,
-      itemBuilder: (context, index) {
-        final subject = subjects[index];
-        return _SubjectCard(
-          title: subject['title'] as String,
-          domain: subject['domain'] as String,
-          icon: subject['icon'] as IconData,
-          color: subject['color'] as Color,
-          gradient: subject['gradient'] as List<Color>,
-          index: index,
-          onTap: () {
-            final childId = context.read<UserProvider>().activeChildId;
-            Navigator.pushNamed(
-              context,
-              '/learning/subjectContentList',
-              arguments: {
-                'subject': subject['domain'] as String,
-                'childId': childId,
-              },
-            );
+    final palette = ChildThemePalette.of(context);
+    final childId = context.read<UserProvider>().activeChildId;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: ChildSubjectGrid(
+        density: palette.density,
+        onPick: (key) => Navigator.pushNamed(
+          context,
+          '/learning/subjectContentList',
+          arguments: <String, dynamic>{
+            'subject': key.name,
+            'childId': childId,
           },
-        );
-      },
-    );
-  }
-}
-
-class _SubjectCard extends StatefulWidget {
-  final String title;
-  final String domain;
-  final IconData icon;
-  final Color color;
-  final List<Color> gradient;
-  final int index;
-  final VoidCallback onTap;
-
-  const _SubjectCard({
-    required this.title,
-    required this.domain,
-    required this.icon,
-    required this.color,
-    required this.gradient,
-    required this.index,
-    required this.onTap,
-  });
-
-  @override
-  State<_SubjectCard> createState() => _SubjectCardState();
-}
-
-class _SubjectCardState extends State<_SubjectCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform(
-            alignment: Alignment.center,
-            transform: _isPressed
-                ? Matrix4.diagonal3Values(0.95, 0.95, 1)
-                : Matrix4.identity(),
-            child: child,
-          );
-        },
-        child: AnimatedBuilder(
-          animation: _scaleAnimation,
-          builder: (context, child) {
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.diagonal3Values(
-                _scaleAnimation.value,
-                _scaleAnimation.value,
-                1,
-              ),
-              child: child,
-            );
-          },
-          child: AppCard(
-            gradient: LinearGradient(
-              colors: [
-                widget.gradient[0].withValues(alpha: 0.15),
-                widget.gradient[1].withValues(alpha: 0.08),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withValues(alpha: 0.12),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  widget.icon,
-                  size: 32,
-                  color: widget.color,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
+        onMusic: () => Navigator.pushNamed(context, '/music'),
       ),
     );
   }

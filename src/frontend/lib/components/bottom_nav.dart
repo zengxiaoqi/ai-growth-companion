@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
 
 /// 底部导航项数据
 class BottomNavItem {
@@ -33,13 +33,17 @@ class BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.card,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: palette.isCartoon
+            ? Border(top: BorderSide(color: palette.line, width: 2))
+            : null,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+            color: palette.pop.withValues(alpha: 0.1),
             blurRadius: 30,
             offset: const Offset(0, -5),
           ),
@@ -83,7 +87,8 @@ class _NavItem extends StatefulWidget {
   State<_NavItem> createState() => _NavItemState();
 }
 
-class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin {
+class _NavItemState extends State<_NavItem>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _bounceAnimation;
 
@@ -118,6 +123,11 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+    final activeColor = palette.pop;
+    final inactiveColor = palette.ink2.withValues(alpha: 0.55);
+    final color = widget.isActive ? activeColor : inactiveColor;
+
     return GestureDetector(
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
@@ -134,9 +144,8 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: widget.isActive
-                ? (widget.item.isAccent
-                    ? AppTheme.accentColor.withValues(alpha: 0.15)
-                    : AppTheme.primaryColor.withValues(alpha: 0.12))
+                ? activeColor.withValues(
+                    alpha: widget.item.isAccent ? 0.22 : 0.14)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
@@ -146,11 +155,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
               Icon(
                 widget.item.icon,
                 size: 24,
-                color: widget.isActive
-                    ? (widget.item.isAccent
-                        ? AppTheme.accentColor
-                        : AppTheme.primaryColor)
-                    : AppTheme.textSecondary.withValues(alpha: 0.5),
+                color: color,
               ),
               const SizedBox(height: 3),
               Text(
@@ -158,11 +163,7 @@ class _NavItemState extends State<_NavItem> with SingleTickerProviderStateMixin 
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: widget.isActive
-                      ? (widget.item.isAccent
-                          ? AppTheme.accentColor
-                          : AppTheme.primaryColor)
-                      : AppTheme.textSecondary.withValues(alpha: 0.5),
+                  color: color,
                 ),
               ),
             ],

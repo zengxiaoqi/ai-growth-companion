@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
 
 /// TopBar 操作按钮
 class TopBarAction {
@@ -39,16 +39,20 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.card,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        border: palette.isCartoon
+            ? Border(bottom: BorderSide(color: palette.line, width: 2))
+            : null,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.06),
+            color: palette.pop.withValues(alpha: 0.08),
             blurRadius: 15,
             offset: const Offset(0, 2),
           ),
@@ -76,7 +80,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textColor,
+                      color: palette.ink,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -87,7 +91,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        color: palette.ink2,
                       ),
                     ),
                 ],
@@ -116,20 +120,20 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return IconButton(
       onPressed: action.onTap,
       tooltip: action.label,
       icon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color:
-              action.isDanger ? Colors.red.shade50 : AppTheme.backgroundColor,
+          color: action.isDanger ? Colors.red.shade50 : palette.soft,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           action.icon,
           size: 20,
-          color: action.isDanger ? Colors.red.shade400 : AppTheme.textSecondary,
+          color: action.isDanger ? Colors.red.shade400 : palette.ink2,
         ),
       ),
     );

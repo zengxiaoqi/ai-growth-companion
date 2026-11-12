@@ -138,10 +138,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 用户信息卡片
   Widget _buildUserCard(String name, String phone, String type) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -382,10 +383,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         child: Row(
           children: [
-            // 色板小圆点
+            // 色板小圆点（4 个 14px 圆点 + 间距 = 72，宽度给够避免 4px 溢出）
             SizedBox(
-              width: 68,
+              width: 74,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   for (final c in option.swatches)
                     Container(
@@ -763,11 +765,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.card,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

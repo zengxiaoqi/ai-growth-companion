@@ -22,6 +22,7 @@ import type {
 import { filterContent, normalizeChatMode } from '../core';
 import { AgentExecutorService } from './agent-executor.service';
 import { SkillRegistryService } from '../skills/skill-registry.service';
+import { IntentClassifierService } from '../intent/intent-classifier.service';
 
 /** Interface for conversation persistence - implemented externally */
 export interface IConversationStore {
@@ -123,6 +124,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
     private readonly executorService: AgentExecutorService,
     private readonly conversationStore: IConversationStore | null,
     private readonly skillRegistry: SkillRegistryService,
+    private readonly intentClassifier: IntentClassifierService,
   ) {}
 
   /**
@@ -188,7 +190,8 @@ export class OrchestratorService implements OnApplicationBootstrap {
       result = coordinated.result;
       executionChain = coordinated.executionChain;
     } else {
-      result = await this.runSingleAgent(selected.definition, context, history);
+      const gate = await this.resolveIntentGate(selected.definition, input, context);
+      result = await this.runSingleAgent(selected.definition, context, history, gate);
       executionChain = [plan.primaryAgent];
     }
 
@@ -281,7 +284,8 @@ export class OrchestratorService implements OnApplicationBootstrap {
     let systemPrompt = selected.definition.buildSystemPrompt(context);
     systemPrompt = this.injectSkills(systemPrompt, selected.definition.allowedSkills);
     systemPrompt = this.injectCareCue(systemPrompt, context);
-    const toolDefinitions = this.getFilteredToolDefinitions(selected.definition);
+    const gate = await this.resolveIntentGate(selected.definition, input, context);
+    const toolDefinitions = gate.defs;
 
     let finalContent = '';
     let finalDone: Extract<StreamEvent, { type: 'done' }> | null = null;
@@ -435,7 +439,7 @@ export class OrchestratorService implements OnApplicationBootstrap {
         '- 讲故事时可以把故事讲完整，这时不受"40 字"限制，但语气依然温柔口语。',
       );
       lines.push(
-        '- 点歌等卡片类工具成功后只用一句话回应，比如"给你放《小星星》啦～"，卡片会自动出现并播放，不要念链接或列表。',
+        '- 点歌等卡片类工具成功后只用一句话回应，比如"给你放《歌名》啦～"，卡片会自动出现并播放，不要念链接或列表。',
       );
       lines.push('');
     }
@@ -974,11 +978,12 @@ export class OrchestratorService implements OnApplicationBootstrap {
     definition: AgentDefinition,
     context: AgentContext,
     history: LlmMessage[],
+    override?: { defs: LlmToolDefinition[] | undefined },
   ): Promise<ExecutionResult> {
     let systemPrompt = definition.buildSystemPrompt(context);
     systemPrompt = this.injectSkills(systemPrompt, definition.allowedSkills);
     systemPrompt = this.injectCareCue(systemPrompt, context);
-    const toolDefinitions = this.getFilteredToolDefinitions(definition);
+    const toolDefinitions = override ? override.defs : this.getFilteredToolDefinitions(definition);
 
     return this.executorService.runLoop(
       systemPrompt,
@@ -1002,6 +1007,64 @@ export class OrchestratorService implements OnApplicationBootstrap {
       if (disallowedTools && disallowedTools.includes(tool.metadata.name)) return false;
       return true;
     }) as LlmToolDefinition[] | undefined;
+  }
+
+  /**
+   * Intent gate for a single-agent turn (child AND parent). Classifies the
+   * user's intent, then narrows the offered tool set to exactly the tools
+   * that intent needs — so a chat turn cannot hallucinate a quiz, and a
+   * "play X" turn cannot drift to the wrong tool/args.
+   *
+   * Opt-in hard gate: sets context.metadata.intentGated only when we have a
+   * confident, non-empty decision. Coordinated/casual/english/fallback turns
+   * stay ungated (legacy soft behaviour), preserving existing flows.
+   */
+  private async resolveIntentGate(
+    definition: AgentDefinition,
+    input: string,
+    context: AgentContext,
+  ): Promise<{ defs: LlmToolDefinition[] | undefined }> {
+    const filtered = this.getFilteredToolDefinitions(definition);
+    const meta = (context.metadata ??= {}) as Record<string, any>;
+
+    // English practice locks its own toolset; do not re-gate it.
+    if (this.isEnglishMode(context)) {
+      meta.intentGated = false;
+      delete meta.intentSlots;
+      return { defs: filtered };
+    }
+
+    const decision = await this.intentClassifier.classify(input, context);
+    meta.intent = decision.intent;
+
+    // open / null → no confident narrowing; keep legacy soft behaviour.
+    if (decision.tools === null) {
+      meta.intentGated = false;
+      delete meta.intentSlots;
+      return { defs: filtered };
+    }
+
+    meta.intentSlots = decision.slots ?? {};
+
+    // plain_chat → hard gate with an EMPTY toolset: reply in words only.
+    if (decision.intent === 'plain_chat') {
+      meta.intentGated = true;
+      return { defs: [] };
+    }
+
+    const allow = new Set(decision.tools);
+    const intersected = (filtered ?? []).filter((t) => allow.has(t.function.name));
+
+    // Empty intersection means the routed agent cannot serve this intent
+    // (misroute). Fall back to the agent's full toolset rather than strip it.
+    if (intersected.length === 0) {
+      meta.intentGated = false;
+      delete meta.intentSlots;
+      return { defs: filtered };
+    }
+
+    meta.intentGated = true;
+    return { defs: intersected };
   }
 
   private injectSkills(systemPrompt: string, allowedSkills?: string[]): string {

@@ -12,6 +12,7 @@
  */
 
 import { Module, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { LlmModule } from './llm/llm.module';
 import { LlmClientService } from './llm/llm-client.service';
 import { ToolRegistryModule } from './tools/tool-registry.module';
@@ -24,6 +25,7 @@ import { ConversationModule } from './conversation/conversation.module';
 import { SafetyModule } from './safety/safety.module';
 import { AgentExecutorService } from './agents/agent-executor.service';
 import { OrchestratorService } from './agents/orchestrator.service';
+import { IntentClassifierService } from './intent/intent-classifier.service';
 import { SubAgentFactory } from './agents/sub-agent-factory';
 import { SkillExecutor } from './skills/skill-executor';
 import { PromptProviderService } from './prompts/prompt-provider.service';
@@ -62,13 +64,27 @@ import { englishPracticeDefinition } from './agents/definitions/english-practice
       inject: [ToolRegistryService, LlmClientService],
     },
     {
+      provide: IntentClassifierService,
+      useFactory: (llmClient: LlmClientService, configService: ConfigService) =>
+        new IntentClassifierService(llmClient, configService),
+      inject: [LlmClientService, ConfigService],
+    },
+    {
       provide: OrchestratorService,
       useFactory: (
         agentRegistry: AgentRegistryService,
         executor: AgentExecutorService,
         skillRegistry: SkillRegistryService,
-      ) => new OrchestratorService(agentRegistry, executor, null as any, skillRegistry),
-      inject: [AgentRegistryService, AgentExecutorService, SkillRegistryService],
+        intentClassifier: IntentClassifierService,
+      ) =>
+        new OrchestratorService(
+          agentRegistry,
+          executor,
+          null as any,
+          skillRegistry,
+          intentClassifier,
+        ),
+      inject: [AgentRegistryService, AgentExecutorService, SkillRegistryService, IntentClassifierService],
     },
     {
       provide: SubAgentFactory,
@@ -90,6 +106,7 @@ import { englishPracticeDefinition } from './agents/definitions/english-practice
   exports: [
     OrchestratorService,
     AgentExecutorService,
+    IntentClassifierService,
     SubAgentFactory,
     SkillRegistryModule,
     SkillExecutor,

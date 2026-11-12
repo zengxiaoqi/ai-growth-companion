@@ -1,5 +1,5 @@
 /**
- * PlayMusicTool — lets the child ask for a song in chat ("我想听小星星").
+ * PlayMusicTool — lets the child ask for a song in chat ("我想听首歌").
  * Reuses MusicService search/aggregation; the client plays via the existing
  * /music/audio/<token> capability URLs.
  *
@@ -24,15 +24,15 @@ export class PlayMusicTool extends BaseTool<PlayMusicInput> {
   readonly metadata: ToolMetadata = {
     name: 'playMusic',
     description:
-      '播放一首歌曲。用户说"播放音乐""我想听歌""放一首小星星""播放全部都给你"时调用。'
-      + 'query 必须逐字填入用户说的歌名或歌手原文（说"播放全部都给你"就传"全部都给你"），'
-      + '不要替换成示例歌曲（如小星星）或泛类（如儿歌）；搜不到时工具会如实返回，由你告诉孩子没找到，不要擅自换一首歌。',
+      '播放一首歌曲。用户想听某首歌、某个歌手或泛指的音乐时调用（如"播放音乐""我想听歌""放一首歌"）。'
+      + 'query 必须逐字填入用户说的歌名或歌手原文，不要改写、翻译、补全，'
+      + '也不要替换成别的歌或泛类（如儿歌）；搜不到时工具会如实返回，由你告诉孩子没找到，不要擅自换一首歌。',
     inputSchema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: '用户说的歌名或歌手原文，逐字传入，不要换成别的歌，如"小星星""两只老虎""全部都给你"',
+          description: '用户说的歌名或歌手原文，逐字传入，不要换成别的歌',
         },
       },
       required: ['query'],

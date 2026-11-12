@@ -23,6 +23,7 @@ import type {
 import { stripThinking, extractThinking, filterContent } from '../core';
 import { isActivityType, normalizeChatMode, type ActivityType } from '../core';
 import { extractJsonObject, contentAgeGroup } from '../core';
+import { INTENT_SLOT_BINDINGS } from '../intent/intent-registry';
 
 /** Fallback reply when max iterations are reached */
 const MAX_ITERATIONS_FALLBACK = '我思考了很久，暂时想不出好的回答。换个问题试试吧~ 🌟';
@@ -64,6 +65,21 @@ export class AgentExecutorService {
   }
 
   /**
+   * Hard tool gate. When the orchestrator marks this turn intent-gated, only the
+   * tools actually offered (toolDefinitions) may execute; an out-of-intent or
+   * hallucinated call is rejected with an error result so the model can correct
+   * itself rather than silently running. Returns null for ungated turns
+   * (coordinated / casual / english / fallback), preserving legacy behaviour.
+   */
+  private offeredToolSet(
+    toolDefinitions: LlmToolDefinition[] | undefined,
+    context: AgentContext,
+  ): Set<string> | null {
+    if (!(context.metadata as Record<string, any> | undefined)?.intentGated) return null;
+    return new Set((toolDefinitions ?? []).map((t) => t.function.name));
+  }
+
+  /**
    * Whether the latest user turn asks for an activity/quiz. The generateActivity
    * nudge is a safety net for activity requests only — gating it on intent keeps
    * casual chat from being hijacked into a forced tool call.
@@ -93,6 +109,7 @@ export class AgentExecutorService {
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
     const modelOverride = this.chatModelOverride(context);
+    const offered = this.offeredToolSet(toolDefinitions, context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let gameData: unknown = undefined;
@@ -150,6 +167,24 @@ export class AgentExecutorService {
               );
               toolArgs = {};
             }
+          }
+
+          // Hard gate: reject any tool not offered this turn (intent gating).
+          if (offered && !offered.has(toolName)) {
+            this.logger.warn(`Tool "${toolName}" rejected by intent gate (not offered this turn)`);
+            const rejection = JSON.stringify({
+              error: `工具 ${toolName} 本轮不可用，请只使用本轮提供的工具，或直接用文字回复。`,
+            });
+            fullMessages.push({ role: 'tool', content: rejection, toolCallId: toolCall.id });
+            toolCallLog.push({
+              tool: toolName,
+              args: toolArgs,
+              resultSummary: rejection.slice(0, 100),
+            });
+            if (onToolCall) {
+              await onToolCall({ toolName, args: toolArgs, result: rejection });
+            }
+            continue;
           }
 
           // Execute tool
@@ -306,6 +341,7 @@ export class AgentExecutorService {
   ): AsyncGenerator<StreamEvent> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
     const modelOverride = this.chatModelOverride(context);
+    const offered = this.offeredToolSet(toolDefinitions, context);
 
     const toolCallLog: ToolCallInfo[] = [];
     let lastIterationHadToolCall = false;
@@ -404,6 +440,27 @@ export class AgentExecutorService {
               );
               toolArgs = {};
             }
+          }
+
+          // Hard gate: reject any tool not offered this turn (intent gating).
+          if (offered && !offered.has(toolName)) {
+            this.logger.warn(
+              `[STREAM] Tool "${toolName}" rejected by intent gate (not offered this turn)`,
+            );
+            const rejection = JSON.stringify({
+              error: `工具 ${toolName} 本轮不可用，请只使用本轮提供的工具，或直接用文字回复。`,
+            });
+            yield { type: 'tool_result', toolName, toolArgs, toolResult: rejection };
+            fullMessages.push({ role: 'tool', content: rejection, toolCallId: toolCall.id });
+            toolCallLog.push({
+              tool: toolName,
+              args: toolArgs,
+              resultSummary: rejection.slice(0, 100),
+            });
+            if (onToolCall) {
+              await onToolCall({ toolName, args: toolArgs, result: rejection });
+            }
+            continue;
           }
 
           // Execute tool
@@ -777,6 +834,20 @@ export class AgentExecutorService {
       // use a school-age style, but the tool argument must not carry a
       // bucket name the content library has never heard of.
       normalized.ageGroup = contentAgeGroup(context.ageGroup);
+    }
+
+    // Verbatim slot binding: fill a card tool's text argument from the user's
+    // own words (captured by the intent classifier) so the generation model
+    // cannot substitute an example song/topic. Only overrides when present.
+    const slots = (context.metadata as Record<string, any> | undefined)?.intentSlots as
+      | Record<string, string>
+      | undefined;
+    const binding = INTENT_SLOT_BINDINGS[toolName];
+    if (slots && binding) {
+      const value = slots[binding.slot];
+      if (typeof value === 'string' && value.trim()) {
+        normalized[binding.arg] = value.trim();
+      }
     }
 
     return normalized;

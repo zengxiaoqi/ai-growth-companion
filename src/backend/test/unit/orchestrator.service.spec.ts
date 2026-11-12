@@ -66,6 +66,9 @@ describe('OrchestratorService', () => {
     select: jest.Mock;
     get: jest.Mock;
   };
+  let intentClassifier: {
+    classify: jest.Mock;
+  };
 
   const baseContext: AgentContext = {
     ageGroup: 'parent',
@@ -125,11 +128,16 @@ describe('OrchestratorService', () => {
       }),
     };
 
+    intentClassifier = {
+      classify: jest.fn().mockResolvedValue({ intent: 'open', tools: null, source: 'fallback' }),
+    };
+
     service = new OrchestratorService(
       agentRegistry as any,
       executorService as any,
       conversationStore as any,
       { getSkillsForAgent: jest.fn().mockReturnValue([]) } as any,
+      intentClassifier as any,
     );
   });
 
@@ -352,6 +360,208 @@ describe('OrchestratorService', () => {
       expect(agentRegistry.get).not.toHaveBeenCalled();
       const systemPrompt = executorService.runLoop.mock.calls[0][0] as string;
       expect(systemPrompt).not.toContain('system:english-practice');
+    });
+  });
+
+  describe('intent gate (single-agent, child AND parent)', () => {
+    const gateTools = [
+      'playMusic',
+      'playStory',
+      'generateActivity',
+      'generateQuiz',
+      'getRecommendations',
+      'searchContent',
+      'loadSkill',
+      'viewReport',
+      'viewAbilities',
+      'listChildren',
+      'getParentControl',
+      'updateParentControl',
+    ];
+
+    const childDef = createDefinition('child-companion', [
+      'playMusic',
+      'playStory',
+      'generateActivity',
+      'generateQuiz',
+      'getRecommendations',
+      'searchContent',
+      'loadSkill',
+    ]);
+    const parentDef = createDefinition('parent-advisor', [
+      'viewReport',
+      'viewAbilities',
+      'listChildren',
+      'getParentControl',
+      'updateParentControl',
+      'playMusic',
+    ]);
+
+    const childContext: AgentContext = {
+      ageGroup: '5-6',
+      childId: 1,
+      conversationId: 'conv-child',
+      messages: [],
+      depth: 0,
+      metadata: {},
+    };
+    const parentContext: AgentContext = {
+      ageGroup: 'parent',
+      conversationId: 'conv-parent',
+      messages: [],
+      depth: 0,
+      metadata: {},
+    };
+
+    beforeEach(() => {
+      runLoopQueue.push({ response: 'ok', toolCalls: [], wasFiltered: false });
+
+      executorService.toolRegistry.getToolDefinitions.mockImplementation(
+        (filter?: (tool: any) => boolean) =>
+          gateTools
+            .map((name) => ({ metadata: { name } }))
+            .filter((tool) => (filter ? filter(tool) : true))
+            .map((tool) => ({
+              type: 'function' as const,
+              function: {
+                name: tool.metadata.name,
+                description: `tool:${tool.metadata.name}`,
+                parameters: { type: 'object', properties: {} },
+              },
+            })),
+      );
+
+      agentRegistry.select.mockImplementation((_: string, ctx: AgentContext) =>
+        ctx.ageGroup === 'parent' ? { definition: parentDef } : { definition: childDef },
+      );
+      agentRegistry.get.mockImplementation((type: AgentType) => {
+        if (type === 'child-companion') return { definition: childDef };
+        if (type === 'parent-advisor') return { definition: parentDef };
+        return undefined;
+      });
+    });
+
+    const offeredNames = () =>
+      (executorService.runLoop.mock.calls[0][2] as any[]).map((t) => t.function.name);
+
+    it('child play_music → only playMusic, gated, verbatim slot bound', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'play_music',
+        tools: ['playMusic'],
+        slots: { song_title: '测试歌名' },
+        source: 'rule',
+      });
+
+      await service.route('播放测试歌名', childContext);
+
+      expect(offeredNames()).toEqual(['playMusic']);
+      expect(childContext.metadata!.intentGated).toBe(true);
+      expect(childContext.metadata!.intent).toBe('play_music');
+      expect((childContext.metadata!.intentSlots as any).song_title).toBe('测试歌名');
+    });
+
+    it('child plain_chat → empty toolset, hard gated', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'plain_chat',
+        tools: [],
+        source: 'rule',
+      });
+
+      await service.route('你好', childContext);
+
+      expect(offeredNames()).toEqual([]);
+      expect(childContext.metadata!.intentGated).toBe(true);
+      expect(childContext.metadata!.intent).toBe('plain_chat');
+    });
+
+    it('child do_activity → activity tools only, no music', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'do_activity',
+        tools: ['generateActivity', 'generateQuiz', 'loadSkill'],
+        source: 'rule',
+      });
+
+      await service.route('出3道数学题', childContext);
+
+      const names = offeredNames();
+      expect(names).toContain('generateActivity');
+      expect(names).not.toContain('playMusic');
+      expect(childContext.metadata!.intentGated).toBe(true);
+    });
+
+    it('child open/null → ungated, full agent toolset preserved', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'open',
+        tools: null,
+        source: 'fallback',
+      });
+
+      await service.route('随便说点什么', childContext);
+
+      expect(offeredNames()).toContain('getRecommendations');
+      expect(childContext.metadata!.intentGated).toBe(false);
+      expect(childContext.metadata!.intentSlots).toBeUndefined();
+    });
+
+    it('child misroute (empty intersection) → ungated fallback, not stripped', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'parent_report',
+        tools: ['viewReport', 'viewAbilities', 'listChildren'],
+        source: 'rule',
+      });
+
+      await service.route('看看报告', childContext);
+
+      // Child agent cannot serve parent_report; keep its full toolset rather than [].
+      expect(offeredNames()).toContain('getRecommendations');
+      expect(childContext.metadata!.intentGated).toBe(false);
+    });
+
+    it('parent report → only report tools, gated', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'parent_report',
+        tools: ['viewReport', 'viewAbilities', 'listChildren'],
+        source: 'rule',
+      });
+
+      await service.route('看看学习报告', parentContext);
+
+      const names = offeredNames();
+      expect(names).toEqual(expect.arrayContaining(['viewReport', 'viewAbilities', 'listChildren']));
+      expect(names).not.toContain('playMusic');
+      expect(parentContext.metadata!.intentGated).toBe(true);
+      expect(parentContext.metadata!.intent).toBe('parent_report');
+    });
+
+    it('parent control → only control tools, gated', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'parent_control',
+        tools: ['getParentControl', 'updateParentControl', 'listChildren'],
+        source: 'rule',
+      });
+
+      await service.route('设置屏幕时间', parentContext);
+
+      const names = offeredNames();
+      expect(names).toEqual(
+        expect.arrayContaining(['getParentControl', 'updateParentControl', 'listChildren']),
+      );
+      expect(parentContext.metadata!.intentGated).toBe(true);
+      expect(parentContext.metadata!.intent).toBe('parent_control');
+    });
+
+    it('parent small talk → empty toolset, hard gated (no report/control)', async () => {
+      intentClassifier.classify.mockResolvedValue({
+        intent: 'plain_chat',
+        tools: [],
+        source: 'rule',
+      });
+
+      await service.route('你好', parentContext);
+
+      expect(offeredNames()).toEqual([]);
+      expect(parentContext.metadata!.intentGated).toBe(true);
+      expect(parentContext.metadata!.intent).toBe('plain_chat');
     });
   });
 });

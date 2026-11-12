@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
 import { OrchestratorService } from '../../agent-framework/agents/orchestrator.service';
+import { IntentClassifierService } from '../../agent-framework/intent/intent-classifier.service';
 import { AgentRegistryService } from '../../agent-framework/agents/agent-registry.service';
 import { AgentExecutorService as FrameworkAgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
 import { SkillRegistryService } from '../../agent-framework/skills/skill-registry.service';
@@ -81,6 +82,7 @@ export class AiService {
             frameworkExecutor,
             this.conversationService as any,
             skillRegistry,
+            new IntentClassifierService(this.llmClient, this.configService),
           )
         : null;
   }

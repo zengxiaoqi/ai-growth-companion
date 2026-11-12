@@ -51,6 +51,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   /** English-practice model override (LLM_MODEL_ENGLISH); undefined when unset */
   readonly englishModel?: string;
 
+  /** Intent-classifier model override (LLM_MODEL_INTENT); falls back to casual */
+  readonly intentModel?: string;
+
   constructor(private readonly configService: ConfigService) {
     this.config = {
       baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
@@ -70,6 +73,11 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     // turns. Falls back to the casual model when LLM_MODEL_ENGLISH is unset.
     const english = this.configService.get<string>('LLM_MODEL_ENGLISH', '').trim();
     this.englishModel = english && english !== this.config.model ? english : this.casualModel;
+
+    // Intent classification wants a fast, cheap model. Defaults to the casual
+    // model so it stays low-latency; LLM_MODEL_INTENT can pin a dedicated one.
+    const intent = this.configService.get<string>('LLM_MODEL_INTENT', '').trim();
+    this.intentModel = intent && intent !== this.config.model ? intent : this.casualModel;
 
     this.retryStrategy = new RetryStrategy({
       maxAttempts: 3,
@@ -213,6 +221,23 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         model: this.englishModel,
         maxTokens: Number(this.configService.get<string>('LLM_ENGLISH_MAX_TOKENS', '1024')),
         temperature: Number(this.configService.get<string>('LLM_ENGLISH_TEMPERATURE', '0.7')),
+      });
+    }
+
+    // Intent-classifier provider entry. Skip when it reuses an already-registered
+    // model id (casual/english) — selectEntries matches by model id.
+    if (
+      this.intentModel &&
+      this.intentModel !== this.casualModel &&
+      this.intentModel !== this.englishModel
+    ) {
+      configs.push({
+        id: `${primaryId}-intent`,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        model: this.intentModel,
+        maxTokens: Number(this.configService.get<string>('INTENT_LLM_MAX_TOKENS', '256')),
+        temperature: 0,
       });
     }
 

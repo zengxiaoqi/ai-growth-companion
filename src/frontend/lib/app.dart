@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -333,37 +331,8 @@ class LingxiApp extends StatelessWidget {
 /// `LoginScreen`), `notifyListeners()` from `UserProvider.login()` reliably
 /// triggers a rebuild that swaps to the appropriate screen — even when
 /// the user navigated directly to the `/login` URL.
-class _HomeScreen extends StatefulWidget {
+class _HomeScreen extends StatelessWidget {
   const _HomeScreen();
-
-  @override
-  State<_HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<_HomeScreen> {
-  /// 启动屏最短展示时长。
-  ///
-  /// `UserProvider._loadUser()` 是同步的，未登录用户在第一帧就能拿到结果，
-  /// 若不兜底，启动动画会「一闪而过」甚至完全不出现。这里保证品牌动画
-  /// 至少播完入场段落（约 1.2s）再切页；切换时用 [AnimatedSwitcher] 交叉淡出。
-  static const Duration _minimumSplash = Duration(milliseconds: 1200);
-
-  bool _splashFinished = false;
-  Timer? _splashTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _splashTimer = Timer(_minimumSplash, () {
-      if (mounted) setState(() => _splashFinished = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _splashTimer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -380,8 +349,10 @@ class _HomeScreenState extends State<_HomeScreen> {
 
         final Widget page;
 
-        // 启动屏：状态未就绪，或品牌动画还没播完，都继续展示
-        if (userProvider.isLoading || !_splashFinished) {
+        // 兜底：`LingxiBootstrap` 已经把完整的品牌动画播完才切到这里，
+        // 正常情况下这一帧 `isLoading` 就是 false，不会再出现启动屏；
+        // 只有用户状态异常（异步校验未回）时才短暂保留启动屏占位。
+        if (userProvider.isLoading) {
           page = const SplashScreen(key: ValueKey('lingxi_splash'));
         } else if (!userProvider.isLoggedIn) {
           page = const LoginScreen(key: ValueKey('lingxi_login'));

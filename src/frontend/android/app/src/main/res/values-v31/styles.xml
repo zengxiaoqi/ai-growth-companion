@@ -13,6 +13,7 @@
     </style>
 
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- 品牌深紫而不是系统默认白底：Flutter 首帧绘制前的空档不会白闪一下 -->
+        <item name="android:windowBackground">@color/splash_bg_deep</item>
     </style>
 </resources>

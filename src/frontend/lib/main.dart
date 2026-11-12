@@ -1,26 +1,10 @@
 import 'dart:async';
-import 'utils/loader_helper.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_skill/flutter_skill.dart';
 
-import 'app.dart';
+import 'bootstrap.dart';
 import 'screens/splash_screen.dart';
-import 'theme/child_theme.dart';
-import 'services/storage_service.dart';
-import 'services/api_service.dart';
-import 'services/ai_service.dart';
-import 'components/app_update_prompt.dart';
-import 'providers/user_provider.dart';
-import 'providers/learning_provider.dart';
-import 'providers/content_provider.dart';
-import 'providers/chat_session_provider.dart';
-import 'providers/reward_provider.dart';
-import 'providers/video_download_provider.dart';
-import 'utils/app_logger.dart';
 
 /// 全局错误日志：确保 release 模式也输出到浏览器控制台
 void _logError(String label, Object error, StackTrace? stack) {
@@ -30,16 +14,7 @@ void _logError(String label, Object error, StackTrace? stack) {
   if (stack != null) print('$label STACK: $stack');
 }
 
-/// 隐藏 HTML 加载指示器（#lingxi-loader）
-void _hideLoader() {
-  try {
-    hideLoader();
-  } catch (_) {
-    // 非 Web 平台忽略
-  }
-}
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── 全局 error 兜底 ──
@@ -55,15 +30,7 @@ void main() async {
   };
 
   // 3) 将整个 runApp 包裹在 Zone 中，捕获所有异步未捕获异常
-  await runZonedGuarded(() async {
-    // 初始化 flutter_skill（仅 debug 模式）
-    if (kDebugMode) {
-      FlutterSkillBinding.ensureInitialized();
-    }
-
-    // 初始化日志系统
-    initLogger();
-
+  runZonedGuarded(() async {
     // 让 release 模式下的 build 异常可见（默认 ErrorWidget 在 release 模式渲染为 0x0 不可见框）
     ErrorWidget.builder = (FlutterErrorDetails details) {
       _logError('🔥 [ErrorWidget]', details.exception, details.stack);
@@ -84,80 +51,17 @@ void main() async {
       );
     };
 
-    // 预热启动图：让 Flutter 启动屏首帧就带着图标，与原生启动屏无缝衔接。
-    // 放在隐藏 HTML 加载层之前，Web 端预热期间仍由加载层兜住，不会白屏。
+    // 只预热启动图（几十 KB，几十毫秒），保证 Flutter 首帧就带着图标，
+    // 与原生启动屏衔接不闪。SharedPreferences / Service 构造等耗时初始化
+    // 全部留给 LingxiBootstrap，在启动动画播放期间并行完成 —— 否则 Android
+    // 会一直停在原生启动屏的纯色底上，用户看到的就是「纯色很久、动画一闪」。
     try {
       await SplashScreen.precacheLogo();
     } catch (_) {
       // 预热失败不影响启动，退化为正常异步加载
     }
 
-    // 隐藏 HTML 加载指示器
-    _hideLoader();
-
-    // 初始化本地存储
-    final prefs = await SharedPreferences.getInstance();
-    final storageService = StorageService(prefs);
-
-    // 初始化 API 服务
-    final apiService = ApiService();
-
-    // 初始化 AI 服务
-    final aiService = AiService(apiService);
-
-    // 设置 401 过期回调
-    ApiService.onAuthExpired = () {
-      debugPrint('[AuthExpired] 401 detected — clearing session');
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null) {
-        Provider.of<UserProvider>(ctx, listen: false).logout();
-      } else {
-        storageService.clearUser();
-      }
-      navigatorKey.currentState?.popUntil((route) => route.isFirst);
-    };
-
-    runApp(
-      MultiProvider(
-        providers: [
-          Provider<StorageService>.value(value: storageService),
-          Provider<ApiService>.value(value: apiService),
-          Provider<AiService>.value(value: aiService),
-          ChangeNotifierProvider(
-            create: (_) => UserProvider(storageService, apiService),
-          ),
-          ChangeNotifierProvider(
-            create: (_) => LearningProvider(storageService),
-          ),
-          ChangeNotifierProvider(
-            create: (_) => ContentProvider(apiService),
-          ),
-          ChangeNotifierProvider(
-            create: (_) => ChatSessionProvider(apiService),
-          ),
-          ChangeNotifierProvider(
-            create: (_) => RewardProvider(apiService),
-          ),
-          ChangeNotifierProvider(
-            create: (_) => VideoDownloadProvider(apiService),
-          ),
-          // 孩子端可切换主题：mode 由 StorageService 持久化，auto 依赖 UserProvider 的年龄
-          ChangeNotifierProvider<ChildThemeController>(
-            create: (_) => ChildThemeController(storageService),
-          ),
-        ],
-        child: const LingxiApp(),
-      ),
-    );
-
-    // 启动后静默检查 App 更新（仅 Android；同一版本一天最多提示一次，
-    // 失败完全静默，不影响任何主流程）
-    Future.delayed(const Duration(seconds: 3), () {
-      final ctx = navigatorKey.currentContext;
-      if (ctx != null && ctx.mounted) {
-        AppUpdatePrompt.autoCheck(ctx);
-      }
-    });
+    runApp(const LingxiBootstrap());
   }, (Object error, StackTrace stack) {
     _logError('💥 [ZoneError]', error, stack);
   });

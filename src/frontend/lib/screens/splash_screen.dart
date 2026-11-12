@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800),
     )..forward();
 
     _ambient = AnimationController(
@@ -131,18 +131,34 @@ class _SplashScreenState extends State<SplashScreen>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // ── 星空背景 ──
+            // ── 背景：拆成「静态底图」与「逐帧星野」两层 ──
+            //
+            // 底色/渐变/光斑/暗角都是大面积的 gradient 填充，若和星野挤在
+            // 同一个 painter 里，就得每帧重画好几次全屏。分开后静态层只在
+            // bloom 变化的那 300ms 重绘，之后由 RepaintBoundary 直接复用，
+            // 每帧只剩几十个星点 —— 中低端机也不会掉帧。
             RepaintBoundary(
               child: AnimatedBuilder(
-                animation: Listenable.merge([_intro, _ambient]),
+                animation: _intro,
+                builder: (context, _) {
+                  // 首帧就带一层柔和的品牌渐变，不再从纯色慢慢「化开」——
+                  // 纯色停留正是「启动像卡住了」的元凶。
+                  final bloom =
+                      0.42 + 0.58 * _phase(0.0, 0.30, Curves.easeOutCubic);
+                  return CustomPaint(painter: _BackdropPainter(bloom: bloom));
+                },
+              ),
+            ),
+            RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _ambient,
                 builder: (context, _) {
                   final t = _ambient.value;
                   // 流星：每 9s 循环里飞一次
                   final raw = (t - 0.5) / 0.14;
                   return CustomPaint(
-                    painter: _SkyPainter(
+                    painter: _StarsPainter(
                       t: t,
-                      bloom: _phase(0.0, 0.42, Curves.easeOutCubic),
                       stars: _stars,
                       meteor: raw >= 0 && raw <= 1 ? raw : -1,
                     ),
@@ -428,8 +444,9 @@ class _LoadingBlock extends StatelessWidget {
             animation: Listenable.merge([intro, ambient]),
             builder: (context, _) {
               final grow = Curves.easeInOutCubic
-                  .transform(Interval(0.1, 0.95).transform(intro.value));
-              final fill = 0.14 + 0.76 * grow;
+                  .transform(Interval(0.05, 1.0).transform(intro.value));
+              // 整个入场期间持续前进，切页前不会「走到 90% 就卡住」
+              final fill = 0.12 + 0.80 * grow;
               final pulse = 0.75 + 0.25 * math.sin(ambient.value * math.pi * 4);
               return SizedBox(
                 width: 118,
@@ -443,6 +460,25 @@ class _LoadingBlock extends StatelessWidget {
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: const SizedBox.expand(),
+                    ),
+                    // 已加载部分：一条渐亮的光带，让「在加载」这件事看得见
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: fill.clamp(0.0, 1.0),
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            gradient: LinearGradient(
+                              colors: [
+                                BrandSplashColors.pink.withValues(alpha: 0.5),
+                                Colors.white.withValues(alpha: 0.9),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     Align(
                       alignment: Alignment(2 * fill - 1, 0),
@@ -498,18 +534,16 @@ class _Star {
   final bool big;
 }
 
-class _SkyPainter extends CustomPainter {
-  _SkyPainter({
-    required this.t,
-    required this.bloom,
-    required this.stars,
-    required this.meteor,
-  });
+/// 静态背景层：底色 + 品牌渐变 + 极光光斑 + 暗角。
+///
+/// 只依赖 [bloom]。bloom 在入场前 300ms 就到 1.0 并保持，之后
+/// [shouldRepaint] 恒为 false，整层被外墙的 RepaintBoundary 直接复用，
+/// 不再参与逐帧绘制 —— 这是中低端机上「启动动画不卡」的关键：
+/// 每帧省掉 4~5 次全屏 gradient 填充。
+class _BackdropPainter extends CustomPainter {
+  _BackdropPainter({required this.bloom});
 
-  final double t;
   final double bloom;
-  final List<_Star> stars;
-  final double meteor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -537,90 +571,30 @@ class _SkyPainter extends CustomPainter {
         ),
     );
 
-    // 3. 极光光斑（缓慢漂移）
-    final drift = math.sin(t * math.pi * 2) * 0.02;
+    // 3. 极光光斑（固定在静态层；大面积 radial 每帧重画非常贵）
     _glow(
       canvas,
-      Offset(size.width * (0.80 + drift), size.height * (0.90 - drift * 0.5)),
+      Offset(size.width * 0.80, size.height * 0.90),
       size.width * 0.92,
       BrandSplashColors.pink,
       0.34 * bloom,
     );
     _glow(
       canvas,
-      Offset(size.width * (0.10 - drift), size.height * 0.04),
+      Offset(size.width * 0.10, size.height * 0.04),
       size.width * 0.78,
       BrandSplashColors.periwinkle,
       0.30 * bloom,
     );
     _glow(
       canvas,
-      Offset(size.width * 0.92, size.height * (0.24 + drift)),
+      Offset(size.width * 0.92, size.height * 0.24),
       size.width * 0.5,
       BrandSplashColors.mint,
       0.12 * bloom,
     );
 
-    // 4. 星野
-    for (final s in stars) {
-      final twinkle =
-          0.45 + 0.55 * (0.5 + 0.5 * math.sin(t * math.pi * 2 * s.speed + s.phase));
-      final alpha = (s.alpha * twinkle * (0.15 + 0.85 * bloom)).clamp(0.0, 1.0);
-      final center = Offset(s.x * size.width, s.y * size.height);
-      final radius = s.r * size.width;
-      if (s.big) {
-        _sparkle(
-          canvas,
-          center,
-          radius * 2.6,
-          Colors.white.withValues(alpha: alpha),
-          glow: true,
-        );
-      } else {
-        canvas.drawCircle(
-          center,
-          radius * 1.25,
-          Paint()..color = Colors.white.withValues(alpha: alpha),
-        );
-      }
-    }
-
-    // 5. 流星
-    if (meteor >= 0 && meteor <= 1) {
-      final start = Offset(size.width * 0.98, size.height * 0.06);
-      final end = Offset(size.width * 0.32, size.height * 0.30);
-      final head = Offset.lerp(start, end, meteor)!;
-      final tail =
-          Offset.lerp(start, end, math.max(0.0, meteor - 0.22))!;
-      final opacity =
-          (math.sin(meteor * math.pi) * 0.9 * bloom).clamp(0.0, 1.0);
-      if (opacity > 0.01) {
-        canvas.drawLine(
-          tail,
-          head,
-          Paint()
-            ..strokeWidth = 1.6
-            ..strokeCap = StrokeCap.round
-            ..shader = ui.Gradient.linear(
-              tail,
-              head,
-              [
-                Colors.white.withValues(alpha: 0),
-                Colors.white.withValues(alpha: opacity),
-              ],
-            ),
-        );
-        canvas.drawCircle(
-          head,
-          1.8,
-          Paint()
-            ..color = Colors.white.withValues(alpha: opacity)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-        );
-      }
-    }
-
-    // 6. 暗角：让中心更聚焦
+    // 4. 暗角：让中心更聚焦
     canvas.drawRect(
       rect,
       Paint()
@@ -653,8 +627,83 @@ class _SkyPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SkyPainter old) =>
-      old.t != t || old.bloom != bloom || old.meteor != meteor;
+  bool shouldRepaint(_BackdropPainter old) => old.bloom != bloom;
+}
+
+/// 逐帧层：星野闪烁 + 流星。只有几十个点/线段，成本很低。
+class _StarsPainter extends CustomPainter {
+  _StarsPainter({
+    required this.t,
+    required this.stars,
+    required this.meteor,
+  });
+
+  final double t;
+  final List<_Star> stars;
+
+  /// < 0 表示当前没有流星；0~1 为流星飞行进度
+  final double meteor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final s in stars) {
+      final twinkle = 0.45 +
+          0.55 * (0.5 + 0.5 * math.sin(t * math.pi * 2 * s.speed + s.phase));
+      final alpha = (s.alpha * twinkle).clamp(0.0, 1.0);
+      final center = Offset(s.x * size.width, s.y * size.height);
+      final radius = s.r * size.width;
+      if (s.big) {
+        _sparkle(
+          canvas,
+          center,
+          radius * 2.6,
+          Colors.white.withValues(alpha: alpha),
+          glow: true,
+        );
+      } else {
+        canvas.drawCircle(
+          center,
+          radius * 1.25,
+          Paint()..color = Colors.white.withValues(alpha: alpha),
+        );
+      }
+    }
+
+    if (meteor >= 0 && meteor <= 1) {
+      final start = Offset(size.width * 0.98, size.height * 0.06);
+      final end = Offset(size.width * 0.32, size.height * 0.30);
+      final head = Offset.lerp(start, end, meteor)!;
+      final tail = Offset.lerp(start, end, math.max(0.0, meteor - 0.22))!;
+      final opacity = (math.sin(meteor * math.pi) * 0.9).clamp(0.0, 1.0);
+      if (opacity > 0.01) {
+        canvas.drawLine(
+          tail,
+          head,
+          Paint()
+            ..strokeWidth = 1.6
+            ..strokeCap = StrokeCap.round
+            ..shader = ui.Gradient.linear(
+              tail,
+              head,
+              [
+                Colors.white.withValues(alpha: 0),
+                Colors.white.withValues(alpha: opacity),
+              ],
+            ),
+        );
+        canvas.drawCircle(
+          head,
+          1.8,
+          Paint()
+            ..color = Colors.white.withValues(alpha: opacity)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StarsPainter old) => old.t != t || old.meteor != meteor;
 }
 
 class _HaloOrbitPainter extends CustomPainter {
@@ -682,14 +731,22 @@ class _HaloOrbitPainter extends CustomPainter {
       final radius = iconSize * (0.62 + 1.05 * p);
       final alpha = (1 - p) * (1 - p) * 0.22;
       if (alpha < 0.004) continue;
+      // 不用 MaskFilter.blur（大面积模糊在中低端 GPU 上很贵）：
+      // 用「宽而淡 + 窄而亮」两层描边模拟柔光边缘，视觉等价、成本低得多。
       canvas.drawCircle(
         center,
         radius,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          // 轻微模糊：让圆环是一道「光波」而不是一条几何线
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4)
+          ..strokeWidth = 6
+          ..color = Colors.white.withValues(alpha: alpha * 0.32),
+      );
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
           ..color = Colors.white.withValues(alpha: alpha),
       );
     }

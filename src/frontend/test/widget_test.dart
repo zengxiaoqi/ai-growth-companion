@@ -43,13 +43,11 @@ void main() {
       ),
     );
 
-    // UserProvider._loadUser() runs synchronously in the constructor, so
-    // isLoading is already false on the first frame — but the splash screen
-    // enforces a minimum brand-animation duration, after which the app
-    // cross-fades to the login screen.
+    // 品牌启动屏的时长由 LingxiBootstrap 负责（本测试直接挂 LingxiApp，
+    // 不经过引导层）。UserProvider 在构造时同步完成 _loadUser，
+    // 所以首帧 isLoading 已是 false，直接落到登录页。
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1300));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Should show login screen since no user is logged in
     expect(find.text('欢迎回来'), findsOneWidget);
@@ -87,9 +85,8 @@ void main() {
 
     await tester.pump();
 
-    // 推进时钟让启动屏计时器与延迟加载 Timer 触发，避免测试结束时存在 pending timer
-    await tester.pump(const Duration(milliseconds: 1300));
-    await tester.pump(const Duration(milliseconds: 400));
+    // 推进时钟让交叉淡出动画结束，避免测试结束时存在 pending animation
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Verify MaterialApp is present
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));

@@ -16,6 +16,7 @@ import {
 import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
+import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -86,7 +87,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         },
         domain: {
           type: 'string',
-          enum: ['language', 'math', 'science', 'art', 'social'],
+          enum: [...LEARNING_DOMAINS],
           description: '学科领域',
         },
         ageGroup: {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lingxi_companion/components/app_card.dart';
+import 'package:lingxi_companion/components/child_home_experience.dart';
 import 'package:lingxi_companion/components/gradient_button.dart';
 import 'package:lingxi_companion/screens/achievement/achievement_data.dart';
 import 'package:lingxi_companion/screens/achievement/achievement_screen.dart';
@@ -122,13 +123,35 @@ void main() {
       expect(find.text(kChildAchievements.first.desc), findsNothing);
     });
 
-    testWidgets('高龄档显示达成条件', (tester) async {
+    testWidgets('高龄档点亮后显示达成条件', (tester) async {
       await tester.pumpWidget(_harness(
         ChildThemeKey.space,
-        const AchievementScreen(),
+        // 完成数拉满，全部徽章点亮 → 卡片显示达成条件而不是「还差 N 个」
+        const AchievementScreen(completedCount: 30, totalContents: 30),
       ));
       await tester.pump(const Duration(seconds: 2));
       expect(find.text(kChildAchievements.first.desc), findsOneWidget);
+    });
+
+    testWidgets('未达成徽章显示还差几个，不假装已获得', (tester) async {
+      await tester.pumpWidget(_harness(
+        ChildThemeKey.space,
+        const AchievementScreen(completedCount: 0, totalContents: 6),
+      ));
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text(kChildAchievements.first.desc), findsNothing);
+      expect(find.text('还差 ${kChildAchievements.first.threshold} 个'),
+          findsOneWidget);
+      expect(find.byIcon(Icons.lock_rounded), findsWidgets);
+    });
+
+    testWidgets('作为 push 页面恒定有返回按钮', (tester) async {
+      await tester.pumpWidget(_harness(
+        ChildThemeKey.honey,
+        const AchievementScreen(),
+      ));
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     });
 
     testWidgets('页面不出现写死白底的大卡片', (tester) async {
@@ -145,6 +168,21 @@ void main() {
         return d is BoxDecoration && d.color == Colors.white;
       });
       expect(whiteCards, isEmpty);
+    });
+  });
+
+  group('首页更多好玩', () {
+    testWidgets('入口用 Material 图标渲染，不依赖系统 emoji 字体', (tester) async {
+      await tester.pumpWidget(_harness(
+        ChildThemeKey.space,
+        ChildMoreGrid(entries: <ChildMoreEntry>[
+          ChildMoreEntry(
+              icon: Icons.psychology_alt_rounded, label: '知识问答', onTap: () {}),
+        ]),
+      ));
+
+      expect(find.text('知识问答'), findsOneWidget);
+      expect(find.byIcon(Icons.psychology_alt_rounded), findsOneWidget);
     });
   });
 }

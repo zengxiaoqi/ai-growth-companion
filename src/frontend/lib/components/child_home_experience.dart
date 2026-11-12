@@ -1581,12 +1581,14 @@ class _ChildTodayTaskListState extends State<ChildTodayTaskList> {
 
 class ChildMoreEntry {
   const ChildMoreEntry({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.onTap,
   });
 
-  final String emoji;
+  /// 用 Material 图标而不是 emoji：emoji 依赖系统字体，
+  /// 部分安卓/模拟器缺字形会渲染成方框（知识问答的 🧠 就是这样）。
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
 }
@@ -1647,9 +1649,11 @@ class ChildMoreGrid extends StatelessWidget {
                                   : null,
                             ),
                             alignment: Alignment.center,
-                            child: Text(
-                              entries[i].emoji,
-                              style: const TextStyle(fontSize: 24),
+                            child: Icon(
+                              entries[i].icon,
+                              size: 26,
+                              color:
+                                  palette.subjects[i % palette.subjects.length],
                             ),
                           ),
                           const SizedBox(height: 6),

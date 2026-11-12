@@ -10,18 +10,29 @@ class ChildAchievement {
   final String icon;
   final String desc;
 
+  /// 解锁门槛：已完成内容数达到该值即点亮。
+  /// 用真实学习数据判断，宁可不点亮也不造假「全部达成」。
+  final int threshold;
+
   const ChildAchievement({
     required this.name,
     required this.icon,
     required this.desc,
+    required this.threshold,
   });
 }
 
 const List<ChildAchievement> kChildAchievements = [
-  ChildAchievement(name: '初次学习', icon: '🎯', desc: '完成第一个课程'),
-  ChildAchievement(name: '每日目标', icon: '⭐', desc: '完成每日学习任务'),
-  ChildAchievement(name: '学习小达人', icon: '🏆', desc: '累计学习 7 天'),
-  ChildAchievement(name: '语言高手', icon: '📚', desc: '完成 10 个语言主题'),
-  ChildAchievement(name: '数学天才', icon: '🔢', desc: '完成 10 个数学主题'),
-  ChildAchievement(name: '探索者', icon: '🌟', desc: '尝试所有学科'),
+  ChildAchievement(
+      name: '初次学习', icon: '🎯', desc: '完成第一个课程', threshold: 1),
+  ChildAchievement(
+      name: '每日目标', icon: '⭐', desc: '完成 3 个学习任务', threshold: 3),
+  ChildAchievement(
+      name: '学习小达人', icon: '🏆', desc: '累计完成 5 个课程', threshold: 5),
+  ChildAchievement(
+      name: '语言高手', icon: '📚', desc: '累计完成 8 个课程', threshold: 8),
+  ChildAchievement(
+      name: '数学天才', icon: '🔢', desc: '累计完成 12 个课程', threshold: 12),
+  ChildAchievement(
+      name: '探索者', icon: '🌟', desc: '累计完成 20 个课程', threshold: 20),
 ];

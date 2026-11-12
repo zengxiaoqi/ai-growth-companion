@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/child_theme.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/learning_provider.dart';
+import '../../providers/content_provider.dart';
 import '../../services/storage_service.dart';
 import '../../services/app_update_service.dart';
 import '../../components/top_bar.dart';
@@ -229,10 +231,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: '徽章、里程碑',
                 color: AppTheme.accentColor,
                 onTap: () {
+                  // 成就数据来自学习/内容 Provider，保持与「我的」页同一口径
+                  final done =
+                      context.read<LearningProvider>().completedContents.length;
+                  final total = context.read<ContentProvider>().contents.length;
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const AchievementScreen(showBack: true)));
+                          builder: (_) => AchievementScreen(
+                                completedCount: done,
+                                totalContents: total,
+                              )));
                 },
               ),
             ),

@@ -6,7 +6,6 @@ import '../../theme/app_theme.dart';
 import '../../theme/child_theme.dart';
 import '../../components/child_home_experience.dart';
 import '../../components/bottom_nav.dart';
-import '../../components/top_bar.dart';
 import '../games/trivia_quiz_game.dart';
 import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
@@ -35,8 +34,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     BottomNavItem(key: 'learn', label: '学习', icon: Icons.school_rounded),
     BottomNavItem(
         key: 'ai', label: 'AI', icon: Icons.smart_toy_rounded, isAccent: true),
-    BottomNavItem(
-        key: 'achieve', label: '成就', icon: Icons.emoji_events_rounded),
     BottomNavItem(key: 'me', label: '我的', icon: Icons.person_rounded),
   ];
 
@@ -49,175 +46,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ChildHomeContent(onOpenLearning: () => setState(() => _currentIndex = 1)),
       const LearningHomeScreen(),
       const AIChatScreen(),
-      const AchievementScreen(),
       const ProfileScreen(),
     ];
-  }
-
-  /// 孩子端 → 家长端切换（需要 PIN 认证）
-  void _showSwitchToParentDialog() {
-    final pinController = TextEditingController();
-    bool isSubmitting = false;
-    String? errorMsg;
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              title: const Row(
-                children: [
-                  Text('🔒 ', style: TextStyle(fontSize: 24)),
-                  Text('切换到家长端'),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '请输入家长登录密码',
-                    style:
-                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: pinController,
-                    keyboardType: TextInputType.visiblePassword,
-                    textAlign: TextAlign.center,
-                    obscureText: true,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '请输入密码',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                            BorderSide(color: AppTheme.primaryColor, width: 2),
-                      ),
-                    ),
-                    autofocus: true,
-                    enabled: !isSubmitting,
-                  ),
-                  if (errorMsg != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      errorMsg!,
-                      style:
-                          TextStyle(fontSize: 13, color: Colors.red.shade600),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed:
-                      isSubmitting ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('取消'),
-                ),
-                ElevatedButton(
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final pin = pinController.text.trim();
-                          if (pin.isEmpty) {
-                            setState(() => errorMsg = '请输入家长登录密码');
-                            return;
-                          }
-
-                          setState(() {
-                            isSubmitting = true;
-                            errorMsg = null;
-                          });
-
-                          final userProvider = context.read<UserProvider>();
-                          final error =
-                              await userProvider.switchToParentMode(pin);
-
-                          if (!dialogContext.mounted) return;
-
-                          if (error.isEmpty) {
-                            Navigator.pop(dialogContext);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('已切换到家长端'),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            }
-                          } else {
-                            setState(() {
-                              isSubmitting = false;
-                              errorMsg = error;
-                            });
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : const Text('确认切换'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          TopBar(
-            title: _navItems[_currentIndex].label,
-            subtitle: '灵犀伴学',
-            actions: [
-              TopBarAction(
-                key: 'switchToParent',
-                label: '家长端',
-                icon: Icons.swap_horiz_rounded,
-                onTap: () => _showSwitchToParentDialog(),
-              ),
-              TopBarAction(
-                key: 'settings',
-                label: '设置',
-                icon: Icons.settings_rounded,
-                onTap: () => Navigator.pushNamed(context, '/settings'),
-              ),
-            ],
-          ),
-          Expanded(
-              child: IndexedStack(index: _currentIndex, children: _screens)),
-        ],
-      ),
+      // 不再挂常驻 TopBar：首页/学习/AI 各自的内容头部就是标题，
+      // 固定栏只在「我的」里以滚动头部出现（见 ProfileScreen）。
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: SafeArea(
         top: false,
         child: BottomNav(
@@ -370,46 +208,46 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
   List<ChildMoreEntry> _buildMoreEntries() {
     return <ChildMoreEntry>[
       ChildMoreEntry(
-        emoji: '🧠',
+        icon: Icons.psychology_alt_rounded,
         label: '知识问答',
         onTap: () => _push(
           TriviaQuizGame(onExit: () => Navigator.pop(context)),
         ),
       ),
       ChildMoreEntry(
-        emoji: '🚩',
+        icon: Icons.flag_rounded,
         label: '国旗配对',
         onTap: () => _push(
           CountryMatchingGame(onExit: () => Navigator.pop(context)),
         ),
       ),
       ChildMoreEntry(
-        emoji: '📜',
+        icon: Icons.auto_stories_rounded,
         label: '诗词鉴赏',
         onTap: () => Navigator.pushNamed(context, '/poetry'),
       ),
       ChildMoreEntry(
-        emoji: '🎵',
+        icon: Icons.music_note_rounded,
         label: '音乐乐园',
         onTap: () => Navigator.pushNamed(context, '/music'),
       ),
       ChildMoreEntry(
-        emoji: '📚',
+        icon: Icons.menu_book_rounded,
         label: '知识书',
         onTap: () => Navigator.pushNamed(context, '/book-skill/browse'),
       ),
       ChildMoreEntry(
-        emoji: '⭐',
+        icon: Icons.workspace_premium_rounded,
         label: '积分奖惩',
         onTap: () => _push(const RewardHomeScreen()),
       ),
       ChildMoreEntry(
-        emoji: '🎬',
+        icon: Icons.movie_rounded,
         label: '视频学习',
         onTap: () => _push(const ChildVideoScreen()),
       ),
       ChildMoreEntry(
-        emoji: '🌤',
+        icon: Icons.wb_sunny_rounded,
         label: '每日知识',
         onTap: () => _push(const KnowledgeDailyScreen()),
       ),
@@ -431,48 +269,56 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
     final todayTasks = _buildTodayTasks(contents);
 
     return BubbleBackground(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            ChildHomeHero(
-              userName: userName,
-              task: _buildPrimaryTask(contents),
-              stars: stars,
-              density: density,
-              onOpenCompanion: _openCompanion,
-              secondaryActions: <ChildSecondaryAction>[
-                ChildSecondaryAction(
-                  label: '听小犀讲故事',
-                  emoji: '🎧',
-                  onSelect: _openCompanion,
-                ),
-                ChildSecondaryAction(
-                  label: '看看我的成就',
-                  emoji: '🏅',
-                  onSelect: () => _push(const AchievementScreen(showBack: true)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            ChildDiscoverySection(
-              density: density,
-              onOpenCompanion: _openCompanion,
-            ),
-            const SizedBox(height: 28),
-            ChildSubjectGrid(
-              density: density,
-              onPick: (_) => widget.onOpenLearning?.call(),
-              onMusic: () => Navigator.pushNamed(context, '/music'),
-            ),
-            if (todayTasks.isNotEmpty) ...<Widget>[
+      // 顶栏移除后由页面自己避让状态栏；底部交给 BottomNav 的 SafeArea
+      child: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          // 顶栏移除后首张问候卡贴着状态栏，留一点呼吸
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ChildHomeHero(
+                userName: userName,
+                task: _buildPrimaryTask(contents),
+                stars: stars,
+                density: density,
+                onOpenCompanion: _openCompanion,
+                secondaryActions: <ChildSecondaryAction>[
+                  ChildSecondaryAction(
+                    label: '听小犀讲故事',
+                    emoji: '🎧',
+                    onSelect: _openCompanion,
+                  ),
+                  ChildSecondaryAction(
+                    label: '看看我的成就',
+                    emoji: '🏅',
+                    onSelect: () => _push(AchievementScreen(
+                      completedCount: learningProvider.completedContents.length,
+                      totalContents: contents.length,
+                    )),
+                  ),
+                ],
+              ),
               const SizedBox(height: 28),
-              ChildTodayTaskList(density: density, tasks: todayTasks),
+              ChildDiscoverySection(
+                density: density,
+                onOpenCompanion: _openCompanion,
+              ),
+              const SizedBox(height: 28),
+              ChildSubjectGrid(
+                density: density,
+                onPick: (_) => widget.onOpenLearning?.call(),
+                onMusic: () => Navigator.pushNamed(context, '/music'),
+              ),
+              if (todayTasks.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 28),
+                ChildTodayTaskList(density: density, tasks: todayTasks),
+              ],
+              const SizedBox(height: 28),
+              ChildMoreGrid(entries: _buildMoreEntries()),
             ],
-            const SizedBox(height: 28),
-            ChildMoreGrid(entries: _buildMoreEntries()),
-          ],
+          ),
         ),
       ),
     );

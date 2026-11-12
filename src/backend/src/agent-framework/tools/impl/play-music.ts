@@ -24,11 +24,16 @@ export class PlayMusicTool extends BaseTool<PlayMusicInput> {
   readonly metadata: ToolMetadata = {
     name: 'playMusic',
     description:
-      '播放一首歌曲。用户说"播放音乐""我想听歌""放一首小星星""播放两只老虎"时调用，传入歌名或歌手关键词。',
+      '播放一首歌曲。用户说"播放音乐""我想听歌""放一首小星星""播放全部都给你"时调用。'
+      + 'query 必须逐字填入用户说的歌名或歌手原文（说"播放全部都给你"就传"全部都给你"），'
+      + '不要替换成示例歌曲（如小星星）或泛类（如儿歌）；搜不到时工具会如实返回，由你告诉孩子没找到，不要擅自换一首歌。',
     inputSchema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: '歌名或歌手关键词，如"小星星""两只老虎"' },
+        query: {
+          type: 'string',
+          description: '用户说的歌名或歌手原文，逐字传入，不要换成别的歌，如"小星星""两只老虎""全部都给你"',
+        },
       },
       required: ['query'],
     },

@@ -335,6 +335,62 @@ describe('AgentExecutorService runLoopStream', () => {
       expect(llmClient.chatCompletion).toHaveBeenCalledTimes(1);
       // No tokens or done because there was nothing to stream
     });
+
+    it('does NOT push nudge when tools exist but generateActivity is not available (parent-advisor casual chat)', async () => {
+      // parent-advisor disallows generateActivity; a text-only iteration-0 reply
+      // must fall through to the final response, not be hijacked into a tool call.
+      const parentDefs: LlmToolDefinition[] = [
+        {
+          type: 'function',
+          function: {
+            name: 'viewReport',
+            description: 'View learning report',
+            parameters: { type: 'object', properties: {}, required: [] },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'listChildren',
+            description: 'List children',
+            parameters: { type: 'object', properties: {}, required: [] },
+          },
+        },
+      ];
+
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        textOnlyResponse('上班辛苦啦，先歇会儿，我陪你聊聊天～'),
+      );
+      llmClient.chatCompletionStream.mockImplementation(async function* () {
+        yield '上班辛苦啦，先歇会儿，我陪你聊聊天～';
+      });
+
+      const events: StreamEvent[] = [];
+      for await (const event of executor.runLoopStream(
+        'system prompt',
+        [],
+        parentDefs,
+        3,
+        context,
+      )) {
+        events.push(event);
+      }
+
+      // Only the iteration-0 probe ran; no nudge retry, no forced tool call.
+      expect(llmClient.chatCompletion).toHaveBeenCalledTimes(1);
+      const probeMessages = llmClient.chatCompletion.mock.calls[0][0] as LlmMessage[];
+      expect(
+        probeMessages.some(
+          (m) => m.role === 'user' && typeof m.content === 'string' && m.content.includes('⚠️'),
+        ),
+      ).toBe(false);
+
+      // The casual reply is streamed straight through as the final response.
+      expect(llmClient.chatCompletionStream).toHaveBeenCalledTimes(1);
+      expect(events.some((e) => e.type === 'token')).toBe(true);
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+      expect(events.some((e) => e.type === 'tool_start')).toBe(false);
+    });
   });
 
   describe('game_data extraction', () => {

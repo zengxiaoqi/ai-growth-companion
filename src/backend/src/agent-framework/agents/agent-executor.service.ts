@@ -200,8 +200,16 @@ export class AgentExecutorService {
       lastIterationHadToolCall = false;
 
       // If tools are available and this is the first iteration, the LLM may have
-      // skipped tool usage. Retry with a stronger prompt nudge.
-      if (toolDefinitions && toolDefinitions.length > 0 && iteration === 0 && response.content) {
+      // skipped tool usage. Retry with a stronger prompt nudge — but only for
+      // agents that can call generateActivity, so casual replies from agents
+      // that disallow it (e.g. parent-advisor) are not hijacked into a tool call.
+      if (
+        toolDefinitions &&
+        toolDefinitions.length > 0 &&
+        iteration === 0 &&
+        response.content &&
+        toolDefinitions.some((t) => t.function.name === 'generateActivity')
+      ) {
         this.logger.log('No tool calls on iteration 1, retrying with stronger prompt');
         fullMessages.push({ role: 'assistant', content: response.content });
         fullMessages.push({
@@ -451,10 +459,18 @@ export class AgentExecutorService {
       }
 
       // --- No tool calls this iteration ---
-      // If tools are available and this is the first iteration, the LLM may have
-      // skipped tool usage despite instructions. Push the assistant message and
-      // retry with a stronger prompt nudge.
-      if (toolDefinitions && toolDefinitions.length > 0 && iteration === 0 && assistantContent) {
+      // The activity-generation nudge only applies to agents that can actually
+      // call generateActivity. Forcing it on every agent (e.g. parent-advisor,
+      // which disallows it) hijacks casual replies into a tool call, so gate it
+      // on the tool being present. Agents without it fall through to a normal
+      // no-tool final response.
+      if (
+        toolDefinitions &&
+        toolDefinitions.length > 0 &&
+        iteration === 0 &&
+        assistantContent &&
+        toolDefinitions.some((t) => t.function.name === 'generateActivity')
+      ) {
         this.logger.log('[STREAM] No tool calls on iteration 1, retrying with stronger prompt');
         fullMessages.push({
           role: 'assistant',

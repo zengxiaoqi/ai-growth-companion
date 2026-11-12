@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动屏品牌底色：与 Flutter 启动动画首帧完全一致，切换时无跳色 -->
+    <color name="splash_bg_deep">#FF241243</color>
+    <color name="splash_bg_mid">#FF4B2A8C</color>
+    <color name="splash_bg_end">#FF7F4FD0</color>
+</resources>

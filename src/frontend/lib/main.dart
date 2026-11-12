@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_skill/flutter_skill.dart';
 
 import 'app.dart';
+import 'screens/splash_screen.dart';
 import 'theme/child_theme.dart';
 import 'services/storage_service.dart';
 import 'services/api_service.dart';
@@ -82,6 +83,14 @@ void main() async {
         ),
       );
     };
+
+    // 预热启动图：让 Flutter 启动屏首帧就带着图标，与原生启动屏无缝衔接。
+    // 放在隐藏 HTML 加载层之前，Web 端预热期间仍由加载层兜住，不会白屏。
+    try {
+      await SplashScreen.precacheLogo();
+    } catch (_) {
+      // 预热失败不影响启动，退化为正常异步加载
+    }
 
     // 隐藏 HTML 加载指示器
     _hideLoader();

@@ -43,17 +43,16 @@ void main() {
       ),
     );
 
-    // UserProvider._loadUser() runs synchronously in the constructor,
-    // so by the time the first frame renders, isLoading is already false.
-    // With no user logged in (empty SharedPreferences), LoginScreen is shown.
+    // UserProvider._loadUser() runs synchronously in the constructor, so
+    // isLoading is already false on the first frame — but the splash screen
+    // enforces a minimum brand-animation duration, after which the app
+    // cross-fades to the login screen.
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pump(const Duration(milliseconds: 400));
 
     // Should show login screen since no user is logged in
     expect(find.text('欢迎回来'), findsOneWidget);
-
-    // Advance clock to settle any pending animations
-    await tester.pump(const Duration(milliseconds: 30));
-    await tester.pump();
   });
 
   testWidgets('App renders MaterialApp with correct title', (WidgetTester tester) async {
@@ -88,9 +87,9 @@ void main() {
 
     await tester.pump();
 
-    // 推进时钟让延迟加载 Timer 触发，避免测试结束时存在 pending timer
-    await tester.pump(const Duration(milliseconds: 30));
-    await tester.pump();
+    // 推进时钟让启动屏计时器与延迟加载 Timer 触发，避免测试结束时存在 pending timer
+    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pump(const Duration(milliseconds: 400));
 
     // Verify MaterialApp is present
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));

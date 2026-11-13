@@ -94,4 +94,20 @@ void main() {
     expect(find.text('昵称'), findsOneWidget);
     expect(find.text('保存'), findsOneWidget);
   });
+
+  for (final key in <ChildThemeKey>[ChildThemeKey.honey, ChildThemeKey.space]) {
+    testWidgets('窄屏 320dp（${key.name} 皮肤）不出现布局溢出', (tester) async {
+      tester.view.physicalSize = const Size(320, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await _pumpProfile(tester, key: key);
+      await tester.pumpAndSettle();
+
+      // RenderFlex overflow 会以 FlutterError 抛出，这里必须为空
+      expect(tester.takeException(), isNull);
+      expect(find.text('外观主题'), findsOneWidget);
+    });
+  }
 }

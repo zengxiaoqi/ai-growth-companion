@@ -51,7 +51,7 @@ if exist "src\backend\lingxi.db" (
 goto :db_done
 :skip_reset
 if exist "src\backend\lingxi.db" (
-    echo [4/6] Keeping existing database (default)
+    echo [4/6] Keeping existing database ^(default^)
 ) else (
     echo [4/6] First run - will auto-seed
 )
@@ -63,8 +63,9 @@ echo.
 
 set "PROJECT_DIR=%~dp0"
 
-:: 后端端口：必须与 src\backend\.env 的 PORT 和
-:: src\frontend\lib\services\api_service.dart 的 _devBackendPort 保持一致
+:: Backend port: must stay in sync with PORT in src\backend\.env and
+:: _devBackendPort in src\frontend\lib\services\api_service.dart
+:: Keep this file ASCII-only: cmd.exe reads .bat as ANSI, so UTF-8 text breaks parsing.
 set "BACKEND_PORT=3001"
 
 start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && set PORT=%BACKEND_PORT% && npx nest start --watch"

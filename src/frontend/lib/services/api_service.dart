@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:path_provider/path_provider.dart';
 
 import '../utils/app_logger.dart';
@@ -19,17 +19,30 @@ const String _overrideApiUrl = bool.hasEnvironment('API_BASE_URL')
     ? String.fromEnvironment('API_BASE_URL')
     : '';
 
-/// 动态获取 API base URL
-/// - Web: 使用当前页面同源 + /api
-/// - 非 Web 且指定了 API_BASE_URL: 走本地联调地址（模拟器 / 真机）
-/// - 其它: 统一走生产域名
-String getApiBaseUrl() {
-  if (kIsWeb) {
-    // Web 环境：从当前页面 URL 自动构建（同源 API）
-    return '/api';
-  }
+/// 本地开发时 NestJS 后端的端口（见 src/backend/.env 的 PORT）
+const int _devBackendPort = 3001;
 
+/// 动态获取 API base URL
+/// - 显式 `--dart-define=API_BASE_URL=...`：优先级最高
+/// - Web + release（`flutter build web`）：使用同源 `/api`，由 nginx 反代
+/// - Web + debug（`flutter run`）：dev server 不代理 `/api`，改用当前页面 host
+///   + 后端端口，否则登录等接口会 404
+/// - 非 Web: 走本地联调地址或生产域名
+String getApiBaseUrl() {
   if (_overrideApiUrl.isNotEmpty) return _overrideApiUrl;
+
+  if (kIsWeb) {
+    // 生产构建：同源反代（nginx 把 /api 转发到后端）
+    if (kReleaseMode) return '/api';
+
+    // 开发构建：flutter run 的 dev server 只服务静态资源，不转发 /api，
+    // 必须直连后端。用当前页面 host 而非写死 localhost，局域网/真机访问也能用。
+    // 0.0.0.0 是服务端绑定地址，映射回 localhost 以规避浏览器对 0.0.0.0 的限制。
+    final base = Uri.base;
+    final rawHost = base.host.isEmpty ? 'localhost' : base.host;
+    final host = (rawHost == '0.0.0.0' || rawHost == '[::]') ? 'localhost' : rawHost;
+    return '${base.scheme}://$host:$_devBackendPort/api';
+  }
 
   // 真机、模拟器默认走生产域名（均可访问外网）
   return _defaultApiUrl;

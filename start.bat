@@ -63,7 +63,11 @@ echo.
 
 set "PROJECT_DIR=%~dp0"
 
-start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && npx nest start --watch"
+:: 后端端口：必须与 src\backend\.env 的 PORT 和
+:: src\frontend\lib\services\api_service.dart 的 _devBackendPort 保持一致
+set "BACKEND_PORT=3001"
+
+start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && set PORT=%BACKEND_PORT% && npx nest start --watch"
 
 echo Waiting for backend to start...
 timeout /t 8 /nobreak >nul
@@ -83,8 +87,11 @@ echo ========================================
 echo.
 echo   Frontend-Web : http://localhost:5173
 echo   Flutter-Web  : http://localhost:8080
-echo   Backend      : http://localhost:3000/api
-echo   API Docs     : http://localhost:3000/api/docs
+echo   Backend      : http://localhost:%BACKEND_PORT%/api
+echo   API Docs     : http://localhost:%BACKEND_PORT%/api/docs
+echo.
+echo   Note: Flutter dev server has no /api proxy; the app calls the
+echo         backend directly at port %BACKEND_PORT%.
 echo.
 echo   Test Account: 13800000001 / password123
 echo   Tip: run start.bat --reset-db to reset database

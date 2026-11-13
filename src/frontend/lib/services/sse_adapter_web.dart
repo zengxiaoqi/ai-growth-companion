@@ -201,9 +201,14 @@ Stream<Map<String, dynamic>> _nonStreamingFallback({
   required Map<String, dynamic> body,
   required Dio dio,
 }) async* {
-  // 修复：url 可能是 '/api/ai/chat/stream'，但 dio baseUrl 已是 '/api'
-  // 所以只需 '/ai/chat'，避免双前缀 '/api/api/ai/chat'
-  final nonStreamUrl = url.replaceAll('/chat/stream', '/chat').replaceFirst('/api', '');
+  // url 有两种形态：
+  //  1. 相对路径 '/api/ai/chat/stream'（生产/release，dio baseUrl 也是 '/api'）
+  //     → 去掉 '/api' 前缀，交给 baseUrl 拼接，避免双前缀 '/api/api/...'
+  //  2. 绝对地址 'http://host:3001/api/ai/chat/stream'（web 开发态直连后端）
+  //     → 保留完整路径，让 dio 直接使用该绝对地址
+  final switched = url.replaceAll('/chat/stream', '/chat');
+  final nonStreamUrl =
+      switched.startsWith('http') ? switched : switched.replaceFirst('/api', '');
   debugPrint('🔍 [SSE] fallback to non-streaming: $nonStreamUrl (original url was: $url)');
 
   try {

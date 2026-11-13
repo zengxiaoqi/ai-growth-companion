@@ -11,9 +11,9 @@ taskkill /FI "WINDOWTITLE eq Backend*" /F >nul 2>nul
 taskkill /FI "WINDOWTITLE eq Frontend-Web*" /F >nul 2>nul
 taskkill /FI "WINDOWTITLE eq Flutter-Web*" /F >nul 2>nul
 
-:: Kill processes listening on ports 3000, 5173, and 8080
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 .*LISTENING"') do (
-    echo Killing PID %%a on port 3000
+:: Kill processes listening on ports 3001, 5173, and 8080
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3001 .*LISTENING"') do (
+    echo Killing PID %%a on port 3001
     taskkill /PID %%a /F >nul 2>nul
 )
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173 .*LISTENING"') do (

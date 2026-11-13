@@ -2,11 +2,14 @@
 # Post-build script for Flutter Web — auto-fixes common issues
 # Run after `flutter build web` to:
 # 1. Enable local CanvasKit (avoid gstatic.com CDN)
-# 2. Switch renderer to "html" (eliminate 7MB WASM download)
-# 3. Cache-bust main.dart.js with versioned filename
-# 4. Add .catch() error handling to load() call
-# 5. Pre-compress .gz files for gzip_static
-# 6. Copy updated index.html to build/web
+# 2. Cache-bust main.dart.js with versioned filename
+# 3. Add .catch() error handling to load() call
+# 4. Pre-compress .gz files for gzip_static
+# 5. Copy updated index.html to build/web
+#
+# NOTE: Flutter 3.47+ removed the HTML renderer; `flutter build web`
+# compiles canvaskit only. Do NOT rewrite renderer to "html" — the loader
+# would skip CanvasKit and the canvaskit-only bundle hangs at boot.
 
 set -euo pipefail
 
@@ -18,11 +21,12 @@ NEXT_V=""
 echo "=== Post-build web: $BUILD_DIR ==="
 echo "Build ID: $BUILD_ID"
 
-# --- Step 1: Enable local CanvasKit + switch to HTML renderer ---
+# --- Step 1: Enable local CanvasKit ---
 echo ""
 echo "[1] Applying flutter_bootstrap.js patches..."
 
-# 1a: useLocalCanvasKit
+# 1a: useLocalCanvasKit — load canvaskit.js/.wasm from local build/web
+# instead of fonts.gstatic.com / www.gstatic.com CDN (blocked in China).
 if grep -q '"useLocalCanvasKit"' "$BOOTSTRAP_JS"; then
     echo "  [1a] useLocalCanvasKit already set — skipping"
 else
@@ -30,11 +34,8 @@ else
     sed -i 's/"engineRevision":"[^"]*"/&,"useLocalCanvasKit":true/' "$BOOTSTRAP_JS"
 fi
 
-# 1b: renderer: switch to html (avoid Google Fonts CDN failure in China)
-# CanvasKit downloads fonts from fonts.gstatic.com which is blocked
-# HTML renderer uses system fonts, no external downloads
-sed -i 's/"renderer":"canvaskit"/"renderer":"html"/' "$BOOTSTRAP_JS"
-echo "  [1b] Switched renderer to html (avoids blocked Google Fonts CDN)"
+# Renderer stays "canvaskit" (Flutter 3.47+ has no HTML renderer).
+echo "  [1b] Renderer kept as canvaskit (local CanvasKit via useLocalCanvasKit)"
 
 # --- Step 2: Cache-bust main.dart.js ---
 echo ""
@@ -101,7 +102,7 @@ echo ""
 echo "[6] Verification..."
 echo "  Bootstrap:"
 grep -q 'useLocalCanvasKit' "$BOOTSTRAP_JS" && echo "    ✓ useLocalCanvasKit"
-grep -qP '"renderer":"html"' "$BOOTSTRAP_JS" && echo "    ✓ renderer: html" || echo "    ✗ renderer NOT html!"
+grep -qP '"renderer":"canvaskit"' "$BOOTSTRAP_JS" && echo "    ✓ renderer: canvaskit" || echo "    ✗ renderer NOT canvaskit!"
 grep -q "main.dart.v${NEXT_V}.js" "$BOOTSTRAP_JS" && echo "    ✓ main.dart.v${NEXT_V}.js referenced"
 echo "  Gzip files:"
 for f in "$BUILD_DIR"/index.html.gz "$BUILD_DIR"/flutter_bootstrap.js.gz "$BUILD_DIR"/main.dart.v*.js.gz; do

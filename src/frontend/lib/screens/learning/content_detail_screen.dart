@@ -338,6 +338,32 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         if (parts.isNotEmpty) return parts.join('\n\n');
       }
 
+      // Case 5: 未识别的嵌套对象（如 {"seasons": {"spring": "温暖花开"}}）
+      // 直接 toString 会把 JSON 语法丢给孩子，这里扁平化成「小标题 + 条目」。
+      if (parsed is Map) {
+        final blocks = <String>[];
+        parsed.forEach((key, value) {
+          if (value is Map) {
+            final parts = <String>[];
+            value.forEach((k, v) {
+              final text = v?.toString().trim() ?? '';
+              if (text.isNotEmpty) parts.add('· $k：$text');
+            });
+            if (parts.isNotEmpty) {
+              blocks.add('【$key】\n${parts.join('\n')}');
+            }
+          } else if (value is List) {
+            if (value.isNotEmpty) {
+              blocks.add('【$key】\n${value.map((e) => '· $e').join('\n')}');
+            }
+          } else {
+            final text = value?.toString().trim() ?? '';
+            if (text.isNotEmpty) blocks.add('$key：$text');
+          }
+        });
+        if (blocks.isNotEmpty) return blocks.join('\n\n');
+      }
+
       return raw.toString();
     } catch (e) {
       return raw.toString();
@@ -361,6 +387,17 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           color: AppTheme.primaryColor,
           backgroundColor: Color(0xFFFFE4EB),
         );
+  }
+
+  /// 内容没超出屏幕时根本滚不动，`_onContentScroll` 永远不会触发，
+  /// 孩子就会被「滑到底部读完」卡死。这里在布局完成后补一次判定：
+  /// 不可滚动 = 已经一眼看完全文。
+  void _markReadIfNotScrollable() {
+    if (!mounted || _hasScrolledThroughContent) return;
+    if (!_contentScrollController.hasClients) return;
+    if (_contentScrollController.position.maxScrollExtent <= 0) {
+      setState(() => _hasScrolledThroughContent = true);
+    }
   }
 
   void _onContentScroll() {
@@ -593,188 +630,310 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Widget _buildBody() {
+    _scheduleReadCheck();
     return BubbleBackground(
-      child: SingleChildScrollView(
-        controller: _isQuizMode ? null : _contentScrollController,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 缩略图
-            if (_content!['thumbnail'] != null) _buildThumbnail(),
-
-            // 内容信息卡片
-            _buildContentInfo(),
-
-            // 学习内容或测验
-            if (_isQuizMode && _hasInteractiveContent)
-              _buildQuizSection()
-            else if (_displayText.isNotEmpty && !_quizCompleted)
-              _buildContentBody(),
-
-            // 媒体资源
-            if (_content!['mediaUrls'] != null &&
-                _content!['mediaUrls'] is List &&
-                (_content!['mediaUrls'] as List).isNotEmpty)
-              _buildMediaSection(),
-
-            // 完成评估
-            if (_showEvaluation) _buildEvaluation(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnail() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        child: Stack(
-          children: [
-            Image.network(
-              _content!['thumbnail'],
-              width: double.infinity,
-              height: 200,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 200,
-                color: AppTheme.softBlue.withValues(alpha: 0.2),
-                child: Center(
-                  child: Icon(Icons.image_rounded,
-                      size: 48, color: AppTheme.textSecondary),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.4),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 12,
-              left: 12,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _domainMeta.backgroundColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_domainMeta.icon, size: 16, color: _domainMeta.color),
-                    const SizedBox(width: 4),
-                    Text(
-                      _domainMeta.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: _domainMeta.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContentInfo() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.active.card,
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: AppTheme.active.isCartoon
-            ? Border.all(color: AppTheme.active.line, width: 2)
-            : null,
-        boxShadow: AppTheme.softShadow(),
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _content!['title']?.toString() ?? '',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
-          ),
-          if (_content!['subtitle'] != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              _content!['subtitle'].toString(),
-              style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
+          // 阅读进度条：只在不处于测验态时显示，让孩子看到「还剩多少」
+          if (!_isQuizMode && !_showEvaluation) _buildReadingProgress(),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _isQuizMode ? null : _contentScrollController,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 封面 + 信息（合并成一张主卡，避免两张白卡叠在一起）
+                  _buildHeroCard(),
+
+                  // 学习内容或测验
+                  if (_isQuizMode && _hasInteractiveContent)
+                    _buildQuizSection()
+                  else if (_displayText.isNotEmpty && !_quizCompleted)
+                    _buildContentBody(),
+
+                  // 媒体资源
+                  if (_content!['mediaUrls'] != null &&
+                      _content!['mediaUrls'] is List &&
+                      (_content!['mediaUrls'] as List).isNotEmpty)
+                    _buildMediaSection(),
+
+                  // 完成评估
+                  if (_showEvaluation) _buildEvaluation(),
+                ],
               ),
             ),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildInfoChip(
-                icon: Icons.schedule_rounded,
-                label: '${_content!['durationMinutes'] ?? 0} 分钟',
-                color: AppTheme.primaryColor,
-              ),
-              const SizedBox(width: 8),
-              _buildInfoChip(
-                icon: Icons.star_rounded,
-                label: '难度 ${_content!['difficulty'] ?? 1}',
-                color: AppTheme.softYellow,
-              ),
-              const SizedBox(width: 8),
-              _buildInfoChip(
-                icon: _domainMeta.icon,
-                label: _domainMeta.label,
-                color: _domainMeta.color,
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoChip({
+  void _scheduleReadCheck() {
+    if (_isLoading || _content == null || _isQuizMode || _showEvaluation) return;
+    if (_hasScrolledThroughContent) return;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _markReadIfNotScrollable(),
+    );
+  }
+
+  /// 顶部细进度条：跟随正文滚动，读完即满格。
+  Widget _buildReadingProgress() {
+    return AnimatedBuilder(
+      animation: _contentScrollController,
+      builder: (context, _) {
+        double progress = 0;
+        if (_contentScrollController.hasClients) {
+          final max = _contentScrollController.position.maxScrollExtent;
+          final pixels = _contentScrollController.position.pixels;
+          progress = max <= 0 ? 1 : (pixels / max).clamp(0.0, 1.0);
+        }
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: progress),
+          duration: const Duration(milliseconds: 180),
+          builder: (context, value, __) => Container(
+            height: 4,
+            margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            decoration: BoxDecoration(
+              color: AppTheme.active.ink2.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: value <= 0.01
+                ? const SizedBox.shrink()
+                : FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 封面 + 标题 + 元信息合并成的一张主卡。
+  ///
+  /// 之前是「封面卡片」+「信息卡片」两张白卡竖排，层级松散、首屏信息密度低；
+  /// 合并后封面成为卡片的视觉主体，标题紧跟其后，滚动时视线不断裂。
+  Widget _buildHeroCard() {
+    final palette = AppTheme.active;
+    final hasThumb = _content!['thumbnail'] != null;
+    final ageRange = _content!['ageRange']?.toString().trim() ?? '';
+    final subtitle = _content!['subtitle']?.toString().trim() ?? '';
+    final minutes = _content!['durationMinutes'];
+    final difficulty = _content!['difficulty'] ?? 1;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: palette.isCartoon
+            ? Border.all(color: palette.line, width: 2)
+            : null,
+        boxShadow: AppTheme.softShadow(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hasThumb)
+            SizedBox(
+              height: 176,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    _content!['thumbnail'].toString(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Color.alphaBlend(
+                        _domainMeta.color.withValues(alpha: 0.14),
+                        palette.card,
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(_domainMeta.icon,
+                          size: 44,
+                          color: _domainMeta.color.withValues(alpha: 0.7)),
+                    ),
+                  ),
+                  // 底部渐隐，让上浮的学科胶囊更清晰
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.34),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    bottom: 12,
+                    child: _domainPill(),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              height: 96,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color.alphaBlend(
+                      _domainMeta.color.withValues(alpha: 0.22),
+                      palette.card,
+                    ),
+                    Color.alphaBlend(
+                      _domainMeta.color.withValues(alpha: 0.06),
+                      palette.card,
+                    ),
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _domainMeta.color.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(_domainMeta.icon,
+                        size: 26, color: _domainMeta.color),
+                  ),
+                  const SizedBox(width: 12),
+                  _domainPill(),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _content!['title']?.toString() ?? '',
+                  style: TextStyle(
+                    fontSize: 21,
+                    height: 1.3,
+                    fontWeight: FontWeight.w800,
+                    color: palette.ink,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: palette.ink2,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _metaChip(
+                      icon: Icons.schedule_rounded,
+                      label: '$minutes 分钟',
+                      color: palette.pop,
+                    ),
+                    _metaChip(
+                      icon: Icons.signal_cellular_alt_rounded,
+                      label: '难度 $difficulty',
+                      color: Color.lerp(palette.pop, palette.ink, 0.35)!,
+                    ),
+                    if (ageRange.isNotEmpty)
+                      _metaChip(
+                        icon: Icons.child_care_rounded,
+                        label: '$ageRange 岁',
+                        color: palette.ink2,
+                      ),
+                    if (_hasInteractiveContent)
+                      _metaChip(
+                        icon: Icons.sports_esports_rounded,
+                        label: '含互动练习',
+                        color: palette.pop,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _domainPill() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          _domainMeta.color.withValues(alpha: 0.18),
+          AppTheme.active.card,
+        ),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_domainMeta.icon, size: 14, color: _domainMeta.color),
+          const SizedBox(width: 4),
+          Text(
+            _domainMeta.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: _domainMeta.color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaChip({
     required IconData icon,
     required String label,
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
               color: color,
             ),
           ),
@@ -784,14 +943,22 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Widget _buildContentBody() {
+    final palette = AppTheme.active;
+    // 按空行切段：原来整篇塞进一个 Text，长文在手机上极难读。
+    final paragraphs = _displayText
+        .split(RegExp(r'\n\s*\n'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
-        color: AppTheme.active.card,
+        color: palette.card,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: AppTheme.active.isCartoon
-            ? Border.all(color: AppTheme.active.line, width: 2)
+        border: palette.isCartoon
+            ? Border.all(color: palette.line, width: 2)
             : null,
         boxShadow: AppTheme.softShadow(),
       ),
@@ -800,56 +967,81 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.menu_book_rounded, color: AppTheme.primaryColor),
+              Icon(Icons.menu_book_rounded,
+                  size: 20, color: palette.pop),
               const SizedBox(width: 8),
               Text(
                 '学习内容',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: palette.ink,
                 ),
               ),
               if (_hasInteractiveContent) ...[
                 const Spacer(),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                    color: palette.pop.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '含互动练习',
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: palette.pop,
                     ),
                   ),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.45,
+          const SizedBox(height: 6),
+          Text(
+            '慢慢读，读完到最下面就可以完成啦',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: palette.ink2,
             ),
-            padding: const EdgeInsets.all(14),
+          ),
+          const SizedBox(height: 14),
+          // 正文不再塞进固定高度的内层滚动框：
+          //   1) 手机上「文中再滚一层」很难操作，孩子容易卡住；
+          //   2) 完成学习需要滚到底（_onContentScroll），内层滚动会让外层
+          //      的 maxScrollExtent 很小甚至为 0，判定永远不成立。
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
+              color: Color.alphaBlend(
+                palette.pop.withValues(alpha: 0.04),
+                palette.soft,
+              ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: SingleChildScrollView(
-              child: Text(
-                _displayText,
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.8,
-                  color: AppTheme.textColor,
-                ),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < paragraphs.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: i == paragraphs.length - 1 ? 0 : 14,
+                    ),
+                    child: Text(
+                      paragraphs[i],
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.85,
+                        letterSpacing: 0.2,
+                        color: palette.ink,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -945,80 +1137,169 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Widget _buildEvaluation() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.secondaryColor.withValues(alpha: 0.15),
-            AppTheme.primaryColor.withValues(alpha: 0.1),
-          ],
+    final palette = AppTheme.active;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 14),
+          child: child,
         ),
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        boxShadow: AppTheme.softShadow(AppTheme.secondaryColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(
+                palette.pop.withValues(alpha: 0.16),
+                palette.card,
+              ),
+              Color.alphaBlend(
+                palette.cta.withValues(alpha: 0.14),
+                palette.card,
+              ),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          border: palette.isCartoon
+              ? Border.all(color: palette.line, width: 2)
+              : null,
+          boxShadow: AppTheme.softShadow(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(Icons.auto_awesome_rounded,
-                    size: 16, color: AppTheme.primaryColor),
-                SizedBox(width: 4),
-                Text(
-                  'AI 评估',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                // 分数环
+                SizedBox(
+                  width: 66,
+                  height: 66,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 66,
+                        height: 66,
+                        child: CircularProgressIndicator(
+                          value: (_score.clamp(0, 100)) / 100,
+                          strokeWidth: 6,
+                          backgroundColor:
+                              palette.pop.withValues(alpha: 0.14),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            palette.pop,
+                          ),
+                          strokeCap: StrokeCap.round,
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$_score',
+                            style: TextStyle(
+                              fontSize: 20,
+                              height: 1.0,
+                              fontWeight: FontWeight.w800,
+                              color: palette.ink,
+                            ),
+                          ),
+                          Text(
+                            '分',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: palette.ink2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: palette.pop.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome_rounded,
+                                    size: 12, color: palette.pop),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'AI 评估',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: palette.pop,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '太棒了！🎉',
+                        style: TextStyle(
+                          fontSize: 22,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          color: palette.ink,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '太棒了！🎉',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '你已经完成《${_content!['title']}》学习，获得 $_score 分。继续保持，下一次会更出色！',
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.6,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            children: [
-              _buildRewardChip(
-                icon: Icons.check_circle_rounded,
-                label: '+$_score 积分',
-                color: AppTheme.accentColor,
+            const SizedBox(height: 12),
+            Text(
+              '你已经完成《${_content!['title']}》学习，获得 $_score 分。继续保持，下一次会更出色！',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.65,
+                color: palette.ink2,
               ),
-              _buildRewardChip(
-                icon: Icons.star_rounded,
-                label: '+1 星星',
-                color: AppTheme.softYellow,
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                _buildRewardChip(
+                  icon: Icons.check_circle_rounded,
+                  label: '+$_score 积分',
+                  color: palette.pop,
+                ),
+                _buildRewardChip(
+                  icon: Icons.star_rounded,
+                  label: '+1 星星',
+                  color: Color.lerp(palette.cta, palette.ink, 0.25)!,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1053,6 +1334,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Widget _buildBottomBar() {
+    final palette = AppTheme.active;
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -1061,12 +1343,15 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         12 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.active.card.withValues(alpha: 0.95),
+        color: palette.card.withValues(alpha: 0.97),
+        border: Border(
+          top: BorderSide(color: palette.line.withValues(alpha: 0.8)),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
@@ -1075,14 +1360,17 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   }
 
   Widget _buildBottomContent() {
+    final palette = AppTheme.active;
+
     // 未开始学习
     if (_learningRecord == null) {
+      final blocked = widget.childId == null;
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_startError != null || widget.childId == null)
+          if (_startError != null || blocked) ...[
             Container(
-              margin: const EdgeInsets.only(bottom: 8),
+              margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.warningColor.withValues(alpha: 0.1),
@@ -1092,43 +1380,52 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.info_outline_rounded,
-                      size: 16, color: AppTheme.warningColor),
+                      size: 15, color: AppTheme.warningColor),
                   const SizedBox(width: 6),
-                  Text(
-                    _startError ?? '请使用孩子账号开始学习。',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.warningColor,
+                  Flexible(
+                    child: Text(
+                      _startError ?? '请使用孩子账号开始学习。',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.warningColor,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+          ],
           SizedBox(
             width: double.infinity,
+            height: 54,
             child: FilledButton.icon(
-              onPressed: (_isStarting || widget.childId == null)
-                  ? null
-                  : _handleStartLearning,
+              onPressed: (_isStarting || blocked) ? null : _handleStartLearning,
               icon: _isStarting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: palette.ctaInk,
                       ),
                     )
-                  : const Icon(Icons.play_arrow_rounded),
-              label: Text(_isStarting
-                  ? '正在开始...'
-                  : (_hasInteractiveContent ? '开始学习与练习' : '开始学习')),
+                  : Icon(Icons.play_arrow_rounded, color: palette.ctaInk),
+              label: Text(
+                _isStarting
+                    ? '正在开始...'
+                    : (_hasInteractiveContent ? '开始学习与练习' : '开始学习'),
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w800),
+              ),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: palette.cta,
+                foregroundColor: palette.ctaInk,
+                disabledBackgroundColor: palette.cta.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(palette.radiusMd),
                 ),
+                elevation: 0,
               ),
             ),
           ),
@@ -1145,53 +1442,72 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
     if (_showEvaluation) {
       return SizedBox(
         width: double.infinity,
+        height: 54,
         child: FilledButton.icon(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-          label: const Text('返回主页'),
+          icon: Icon(Icons.arrow_back_rounded, color: palette.ctaInk),
+          label: Text(
+            '返回主页',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            backgroundColor: palette.cta,
+            foregroundColor: palette.ctaInk,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(palette.radiusMd),
             ),
+            elevation: 0,
           ),
         ),
       );
     }
 
-    // 学习中（无互动内容）
+    // 学习中（无互动内容）：给自己打个分 → 完成学习
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 评分滑块
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
-            borderRadius: BorderRadius.circular(16),
+            color: Color.alphaBlend(
+              palette.pop.withValues(alpha: 0.05),
+              palette.soft,
+            ),
+            borderRadius: BorderRadius.circular(palette.radiusMd),
           ),
           child: Row(
             children: [
               Text(
-                '学习评分',
+                _score >= 90
+                    ? '😄'
+                    : _score >= 75
+                        ? '🙂'
+                        : _score >= 60
+                            ? '😐'
+                            : '🙁',
+                style: const TextStyle(fontSize: 17),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '打个分',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: palette.ink,
                 ),
               ),
-              const SizedBox(width: 12),
               Expanded(
                 child: SliderTheme(
                   data: SliderThemeData(
-                    activeTrackColor: AppTheme.primaryColor,
-                    inactiveTrackColor:
-                        AppTheme.primaryColor.withValues(alpha: 0.2),
-                    thumbColor: AppTheme.primaryColor,
-                    overlayColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    trackHeight: 6,
+                    activeTrackColor: palette.pop,
+                    inactiveTrackColor: palette.pop.withValues(alpha: 0.18),
+                    thumbColor: palette.pop,
+                    overlayColor: palette.pop.withValues(alpha: 0.16),
+                    trackHeight: 5,
                     thumbShape:
-                        const RoundSliderThumbShape(enabledThumbRadius: 10),
+                        const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 14),
                   ),
                   child: Slider(
                     value: _score.toDouble(),
@@ -1203,58 +1519,62 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 40,
-                alignment: Alignment.center,
+              SizedBox(
+                width: 42,
                 child: Text(
-                  '$_score',
+                  '$_score 分',
+                  textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: palette.pop,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
+          height: 54,
           child: FilledButton.icon(
-            onPressed: (_isCompleting || !_canCompleteReading)
-                ? null
-                : _handleCompleteReading,
+            onPressed:
+                (_isCompleting || !_canCompleteReading) ? null : _handleCompleteReading,
             icon: _isCompleting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: palette.ctaInk,
                     ),
                   )
-                : const Icon(Icons.check_circle_rounded),
-            label: Text(_isCompleting ? '提交中...' : '完成学习'),
+                : Icon(Icons.check_circle_rounded, color: palette.ctaInk),
+            label: Text(
+              _isCompleting ? '提交中...' : '完成学习',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
             style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.secondaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: palette.cta,
+              foregroundColor: palette.ctaInk,
+              disabledBackgroundColor: palette.cta.withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(palette.radiusMd),
               ),
+              elevation: 0,
             ),
           ),
         ),
         if (!_canCompleteReading) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             _learningElapsedSeconds < kMinReadingSeconds
-                ? '请先学习 ${kMinReadingSeconds - _learningElapsedSeconds} 秒'
-                : '请先滑动阅读学习内容，或使用语音朗读后再完成学习',
+                ? '再读 ${kMinReadingSeconds - _learningElapsedSeconds} 秒就可以完成啦'
+                : '滑到底部读完，就能完成学习啦',
             style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
+              fontSize: 11,
+              color: palette.ink2,
             ),
             textAlign: TextAlign.center,
           ),

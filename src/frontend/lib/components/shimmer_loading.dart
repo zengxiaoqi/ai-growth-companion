@@ -65,7 +65,8 @@ class ShimmerCard extends StatelessWidget {
           height: height,
           width: width ?? double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            // 跟随皮肤卡片底色：深色皮肤（space）下不会突然蹦出一块白板
+            color: AppTheme.active.card,
             borderRadius: borderRadius,
           ),
         ),

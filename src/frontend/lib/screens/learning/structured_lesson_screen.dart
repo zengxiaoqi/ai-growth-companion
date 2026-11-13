@@ -810,10 +810,10 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildTopBar(int completedCount, int totalCount) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 2),
           ),
@@ -857,7 +857,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                     ? AppTheme.primaryColor
                     : isCurrent
                         ? AppTheme.primaryColor.withValues(alpha: 0.4)
-                        : AppTheme.backgroundColor.withValues(alpha: 0.8),
+                        : AppTheme.active.line.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: isCurrent
@@ -903,12 +903,12 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       ? AppTheme.primaryColor
                       : isCompleted
                           ? AppTheme.primaryColor.withValues(alpha: 0.12)
-                          : Colors.white,
+                          : AppTheme.active.card,
                   borderRadius: BorderRadius.circular(999),
                   boxShadow: isCurrent
                       ? [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                            color: AppTheme.primaryColor.withValues(alpha: 0.28),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -919,7 +919,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                         ? Colors.transparent
                         : isCompleted
                             ? AppTheme.primaryColor.withValues(alpha: 0.3)
-                            : Colors.grey.shade200,
+                            : AppTheme.active.line,
                     width: 1.5,
                   ),
                 ),
@@ -937,7 +937,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: isCurrent
-                            ? Colors.white
+                            ? AppTheme.active.onPrimary
                             : isCompleted
                                 ? AppTheme.primaryColor
                                 : AppTheme.textSecondary,
@@ -948,7 +948,9 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                       Icon(
                         Icons.check_rounded,
                         size: 14,
-                        color: isCurrent ? Colors.white : AppTheme.primaryColor,
+                        color: isCurrent
+                            ? AppTheme.active.onPrimary
+                            : AppTheme.primaryColor,
                       ),
                     ],
                   ],
@@ -1929,143 +1931,189 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   // ─── 完成屏幕 ─────────────────────────────────────────────────────────
 
   Widget _buildCompleteScreen() {
+    final palette = AppTheme.active;
+    final score = _progress.overallScore;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // 顶部
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  Text(
-                    '课程完成',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 内容
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+            // 背景：与其它页面同一套静态纸面元素
+            BubbleBackground(child: const SizedBox.expand()),
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                  child: Row(
                     children: [
-                      // 庆祝动画
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.elasticOut,
-                        builder: (context, value, child) {
-                          return Transform.scale(
-                            scale: value,
-                            child: const Text(
-                              '🎉',
-                              style: TextStyle(fontSize: 72),
-                            ),
-                          );
-                        },
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
-                      const SizedBox(height: 16),
                       Text(
-                        '太棒了！',
+                        '课程完成',
                         style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: palette.ink,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '你已经完成了「$_lessonTitle」的全部学习步骤',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: AppTheme.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (_progress.overallScore > 0) ...[
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.star_rounded,
-                                size: 22,
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '总分: ${_progress.overallScore} 分',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 32),
-                      // 按钮
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _currentStepIndex = 0;
-                                _showCompleteScreen = false;
-                                _progress = const _LessonProgress(
-                                  completedSteps: {},
-                                  overallScore: 0,
-                                );
-                              });
-                            },
-                            icon: const Icon(Icons.replay_rounded),
-                            label: const Text('重新学习'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: BorderSide(color: AppTheme.primaryColor),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton.icon(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.home_rounded),
-                            label: const Text('返回课程'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+                        decoration: BoxDecoration(
+                          color: palette.card,
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.cardRadius),
+                          border: palette.isCartoon
+                              ? Border.all(color: palette.line, width: 2)
+                              : null,
+                          boxShadow: AppTheme.softShadow(),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              duration: const Duration(milliseconds: 640),
+                              curve: Curves.elasticOut,
+                              builder: (context, value, child) =>
+                                  Transform.scale(scale: value, child: child),
+                              child: const Text(
+                                '🎉',
+                                style: TextStyle(fontSize: 64),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              '太棒了！',
+                              style: TextStyle(
+                                fontSize: 26,
+                                height: 1.2,
+                                fontWeight: FontWeight.w800,
+                                color: palette.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '你已经完成了「$_lessonTitle」的全部学习步骤',
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.6,
+                                color: palette.ink2,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (score > 0) ...[
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: 84,
+                                height: 84,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 84,
+                                      height: 84,
+                                      child: CircularProgressIndicator(
+                                        value: (score.clamp(0, 100)) / 100,
+                                        strokeWidth: 7,
+                                        backgroundColor:
+                                            palette.pop.withValues(alpha: 0.14),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                                palette.pop),
+                                        strokeCap: StrokeCap.round,
+                                      ),
+                                    ),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '$score',
+                                          style: TextStyle(
+                                            fontSize: 24,
+                                            height: 1.0,
+                                            fontWeight: FontWeight.w800,
+                                            color: palette.ink,
+                                          ),
+                                        ),
+                                        Text(
+                                          '总分',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: palette.ink2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: FilledButton.icon(
+                                onPressed: () => Navigator.of(context).pop(),
+                                icon: Icon(Icons.home_rounded,
+                                    size: 20, color: palette.ctaInk),
+                                label: Text(
+                                  '返回课程',
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: palette.cta,
+                                  foregroundColor: palette.ctaInk,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        palette.radiusMd),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _currentStepIndex = 0;
+                                  _showCompleteScreen = false;
+                                  _progress = const _LessonProgress(
+                                    completedSteps: {},
+                                    overallScore: 0,
+                                  );
+                                });
+                              },
+                              icon: Icon(Icons.replay_rounded,
+                                  size: 18, color: palette.ink2),
+                              label: Text(
+                                '重新学一遍',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: palette.ink2,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

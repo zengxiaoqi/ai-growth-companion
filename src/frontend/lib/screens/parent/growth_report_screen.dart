@@ -3,9 +3,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 
 import '../../components/activity_process_details.dart';
+import '../../components/child_fun_page.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 import '../../utils/domain_registry.dart';
 import 'bento_report_screen.dart';
 import 'child_selector.dart';
@@ -206,39 +208,41 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = ChildThemePalette.of(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: palette.paper,
       body: SafeArea(
         child: Column(
           children: [
-            // 顶部标题栏
+            // 顶部标题栏：从「我的」进入的独立子页面，头部与孩子端
+            // ChildFunPage 同一套圆形按钮 + 大标题造型。
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded, size: 20),
-                    ),
+                  ChildFunIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: '返回',
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    '成长报告',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Text(
+                      '成长报告',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: palette.ink,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _isLoading ? null : _loadData,
-                    icon: const Icon(Icons.refresh_rounded),
+                  ChildFunIconButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: '刷新报告',
+                    onPressed: _isLoading ? () {} : _loadData,
                   ),
                 ],
               ),
@@ -287,9 +291,10 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
   }
 
   Widget _buildPeriodSelector(ThemeData theme) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: palette.soft,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -304,12 +309,12 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : Colors.transparent,
+                  color: isSelected ? palette.card : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: palette.pop.withValues(alpha: 0.12),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -321,9 +326,7 @@ class _GrowthReportScreenState extends State<GrowthReportScreen> {
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected
-                        ? AppTheme.primaryColor
-                        : AppTheme.textSecondary,
+                    color: isSelected ? palette.pop : palette.ink2,
                   ),
                 ),
               ),

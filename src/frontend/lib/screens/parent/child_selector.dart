@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 
 enum ChildSelectorMode { dropdown, bottomSheet }
 
-/// 孩子选择器组件
-/// 支持下拉模式和底部弹窗模式
+/// 孩子选择器组件（家长首页 / 成长报告页共用）。
+///
+/// 颜色统一走 [ChildThemePalette]：家长端拿到 honey，孩子端跟随当前皮肤，
+/// 不再写死 Colors.white —— 深色皮肤下白底白字会直接读不了。
 class ChildSelector extends StatelessWidget {
   final List<Map<String, dynamic>> children;
   final int? selectedChildId;
@@ -33,40 +35,53 @@ class ChildSelector extends StatelessWidget {
     return _buildBottomSheetSelector(context, selectedChild);
   }
 
+  BoxDecoration _selectorDecoration(ChildThemePalette palette) {
+    return BoxDecoration(
+      color: palette.card,
+      borderRadius: BorderRadius.circular(16),
+      border: palette.isCartoon
+          ? Border.all(color: palette.line, width: palette.borderW)
+          : Border.all(color: palette.line, width: 1),
+      boxShadow: [
+        BoxShadow(
+          color: palette.pop.withValues(alpha: 0.08),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDropdown(
     BuildContext context,
     Map<String, dynamic>? selectedChild,
   ) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _selectorDecoration(palette),
       child: Row(
         children: [
-          _buildAvatar(selectedChild),
+          _buildAvatar(selectedChild, palette),
           const SizedBox(width: 12),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 isExpanded: true,
                 value: selectedChildId,
-                hint: const Text('请选择孩子'),
+                hint: Text('请选择孩子',
+                    style: TextStyle(fontSize: 13, color: palette.ink2)),
                 items: children
                     .map((child) {
                       final id = _toInt(child['id']);
                       if (id == null) return null;
                       return DropdownMenuItem<int>(
                         value: id,
-                        child: Text(_childLabel(child)),
+                        child: Text(_childLabel(child),
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: palette.ink)),
                       );
                     })
                     .whereType<DropdownMenuItem<int>>()
@@ -91,25 +106,16 @@ class ChildSelector extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic>? selectedChild,
   ) {
+    final palette = ChildThemePalette.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: children.isEmpty ? null : () => _showChildPicker(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: _selectorDecoration(palette),
         child: Row(
           children: [
-            _buildAvatar(selectedChild),
+            _buildAvatar(selectedChild, palette),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -117,10 +123,7 @@ class ChildSelector extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 12, color: palette.ink2),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -130,7 +133,7 @@ class ChildSelector extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textColor,
+                      color: palette.ink,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -141,8 +144,8 @@ class ChildSelector extends StatelessWidget {
             Icon(
               Icons.keyboard_arrow_down_rounded,
               color: children.isEmpty
-                  ? Colors.grey.shade400
-                  : AppTheme.textSecondary,
+                  ? palette.ink2.withValues(alpha: 0.5)
+                  : palette.ink2,
             ),
           ],
         ),
@@ -150,34 +153,34 @@ class ChildSelector extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(Map<String, dynamic>? child) {
+  Widget _buildAvatar(Map<String, dynamic>? child, ChildThemePalette palette) {
     final name = child?['name']?.toString() ?? '';
     final display = name.isNotEmpty ? name.substring(0, 1) : '宝';
 
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppTheme.secondaryColor.withValues(alpha: 0.18),
+      backgroundColor:
+          Color.alphaBlend(palette.pop.withValues(alpha: 0.16), palette.card),
       child: Text(
         display,
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: AppTheme.secondaryColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold, color: palette.pop),
       ),
     );
   }
 
   Future<void> _showChildPicker(BuildContext context) async {
+    final palette = ChildThemePalette.of(context);
     await showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: palette.card,
       builder: (context) {
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
           itemCount: children.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          separatorBuilder: (_, __) =>
+              Divider(height: 1, color: palette.line),
           itemBuilder: (context, index) {
             final child = children[index];
             final id = _toInt(child['id']);
@@ -185,15 +188,16 @@ class ChildSelector extends StatelessWidget {
 
             return ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              leading: _buildAvatar(child),
+              leading: _buildAvatar(child, palette),
               title: Text(
                 child['name']?.toString() ?? '未命名孩子',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    fontWeight: FontWeight.w700, color: palette.ink),
               ),
-              subtitle: Text(_buildChildSubtitle(child)),
+              subtitle: Text(_buildChildSubtitle(child),
+                  style: TextStyle(color: palette.ink2)),
               trailing: selected
-                  ? Icon(Icons.check_circle_rounded,
-                      color: AppTheme.primaryColor)
+                  ? Icon(Icons.check_circle_rounded, color: palette.pop)
                   : null,
               onTap: () {
                 Navigator.of(context).pop();

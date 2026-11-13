@@ -11,10 +11,54 @@ import '../achievement/achievement_screen.dart';
 import '../child/child_account_dialogs.dart';
 import 'profile_menus.dart';
 
-/// 孩子端「我的」页 —— 与 v2 主题（四皮肤 + 年龄密度）对齐。
+/// 家长端 → 学生端切换（首页头部与「我的」页头共用）。
 ///
-/// 信息层级：页头（家长端 / 家长模式下仅标题）→ 身份贴纸卡（点击编辑资料）
-/// → 徽章预览（看全部跳成就页）→ 外观主题（即时换肤）→ 设置分组 → 退出登录。
+/// 原实现只挂在家长首页的常驻 TopBar 上；TopBar 移除后抽成顶层函数，
+/// 两个入口行为一致：有缓存的孩子会话直接切，没有则先走 API 并显示一次
+/// loading，结束时按结果给 Toast。
+Future<void> switchToChildFromParent(BuildContext context) async {
+  final userProvider = context.read<UserProvider>();
+  final hadCachedChild = userProvider.hasCachedChildSession;
+
+  if (!hadCachedChild) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5)),
+            SizedBox(width: 16),
+            Text('正在切换...'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  final error = await userProvider.switchToChildMode();
+  if (!context.mounted) return;
+  if (!hadCachedChild) {
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(error.isEmpty ? '已切换到学生端' : error),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 1),
+    ),
+  );
+}
+
+/// 「我的」页 —— 孩子端与家长端共用同一份 v2 外壳，按角色切换内容。
+///
+/// 孩子端：身份贴纸卡 → 徽章预览 → 外观主题（即时换肤）→ 设置分组 → 退出。
+/// 家长端：家长身份卡 → 成长与报告（报告作为独立子页面进入）→ 设置 → 退出。
+/// 家长端不显示孩子的徽章/年龄/换肤，避免出现「家长看到孩子成就」的错位。
 ///
 /// 顶部「设置」齿轮已移除：原设置页里真正有用的东西全部并入这里
 /// （主题皮肤、清除缓存、版本与检查更新、开源许可、通知、资料），
@@ -32,7 +76,9 @@ class ProfileScreen extends StatelessWidget {
     final age = user['age'] is int ? user['age'] as int : 5;
     final palette = ChildThemePalette.of(context);
     final completed = learningProvider.completedContents.length;
-    final isParent = userProvider.activeRole == 'parent';
+    // 与 app.dart 的 Selector / _HomeScreen 保持同一口径：activeRole 为空时
+    // 回退 currentUser['type']，避免「主壳按家长端、我的页按孩子端」的错位。
+    final isParent = userProvider.activeUserType == 'parent';
 
     void openAchievements() {
       Navigator.of(context).push(
@@ -58,19 +104,27 @@ class ProfileScreen extends StatelessWidget {
             children: [
               _buildPageHeader(context, palette, isParent),
               const SizedBox(height: 14),
-              _buildProfileHeader(context, palette, userProvider, name, age,
-                  completed),
+              if (isParent)
+                _buildParentProfileHeader(
+                    context, palette, userProvider, name, user)
+              else
+                _buildProfileHeader(context, palette, userProvider, name, age,
+                    completed),
               const SizedBox(height: 22),
-              ChildSectionTitle(
-                title: '我的徽章',
-                icon: Icons.workspace_premium_rounded,
-                trailing: _allBadgesButton(palette, openAchievements),
-              ),
-              const SizedBox(height: 12),
-              _buildBadgeStrip(context, palette, completed, openAchievements),
-              // 家长端不走孩子皮肤（app.dart 里强制 honey），
-              // 皮肤选择器放在家长页只会点了没反应，因此只对孩子展示。
-              if (!isParent) ...[
+              // 家长端：原「报告」底部 tab 收进这里，与能力类页面一起组成
+              // 「成长与报告」，每一项都是可返回的独立子页面。
+              if (isParent) ...[
+                _buildReportSection(context, palette),
+                const SizedBox(height: 24),
+              ] else ...[
+                ChildSectionTitle(
+                  title: '我的徽章',
+                  icon: Icons.workspace_premium_rounded,
+                  trailing: _allBadgesButton(palette, openAchievements),
+                ),
+                const SizedBox(height: 12),
+                _buildBadgeStrip(context, palette, completed, openAchievements),
+                // 家长端固定 honey，皮肤选择器点了不会生效，因此只给孩子展示。
                 const SizedBox(height: 24),
                 ChildSectionTitle(
                   title: '外观主题',
@@ -80,8 +134,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _buildThemeStrip(context, palette),
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 24),
               ChildSectionTitle(
                 title: '设置',
                 icon: Icons.tune_rounded,
@@ -90,7 +144,7 @@ class ProfileScreen extends StatelessWidget {
               _buildSettingsSection(context, userProvider, palette, isParent),
               const SizedBox(height: 22),
               _buildLogoutButton(context, userProvider, palette),
-              if (earned > 0)
+              if (!isParent && earned > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 14),
                   child: Center(
@@ -107,10 +161,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  /// 页头：标题 + 家长端切换。
+  /// 页头：标题 + 另一端切换。
   ///
-  /// 原来的「设置」齿轮已删除 —— 设置项全部并入下方分组，
-  /// 不再需要一个单独的设置页和一次跳转。
+  /// 原来的「设置」齿轮已删除 —— 设置项全部并入下方分组。
+  /// 家长首页的常驻 TopBar 移除后，「我的」成为双端切换的稳定落点，
+  /// 与孩子端页头完全对称。
   Widget _buildPageHeader(
       BuildContext context, ChildThemePalette palette, bool isParent) {
     return Row(
@@ -122,13 +177,171 @@ class ProfileScreen extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: palette.ink)),
         ),
-        if (!isParent)
-          _HeaderIconButton(
-            icon: Icons.swap_horiz_rounded,
-            tooltip: '切换到家长端',
-            onTap: () => showSwitchToParentDialog(context),
-            palette: palette,
+        _HeaderIconButton(
+          icon: Icons.swap_horiz_rounded,
+          tooltip: isParent ? '切换到学生端' : '切换到家长端',
+          onTap: isParent
+              ? () => switchToChildFromParent(context)
+              : () => showSwitchToParentDialog(context),
+          palette: palette,
+        ),
+      ],
+    );
+  }
+
+  /// 家长身份卡：昵称 + 脱敏手机号，整卡可点进资料编辑。
+  /// 不显示年龄 / 孩子徽章 —— 那是孩子端「我的」的内容。
+  Widget _buildParentProfileHeader(
+    BuildContext context,
+    ChildThemePalette palette,
+    UserProvider userProvider,
+    String name,
+    Map<String, dynamic> user,
+  ) {
+    final phone = user['phone']?.toString() ?? '';
+    final masked = phone.length >= 7
+        ? '${phone.substring(0, 3)}****${phone.substring(phone.length - 4)}'
+        : (phone.isEmpty ? '家长账号' : phone);
+
+    return ChildJelly(
+      onTap: () => showProfileEditSheet(context, userProvider),
+      child: ChildSticker(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        strong: true,
+        child: Row(children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                  palette.pop.withValues(alpha: 0.14), palette.card),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.family_restroom_rounded,
+                size: 36, color: palette.pop),
           ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: palette.ink)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: palette.soft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text('家长',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink2)),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(masked,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12.5, color: palette.ink2)),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Icon(Icons.edit_rounded, size: 15, color: palette.ink2),
+              const SizedBox(height: 2),
+              Text('编辑',
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: palette.ink2)),
+            ],
+          ),
+        ]),
+      ),
+    );
+  }
+
+  /// 成长与报告：底部「报告」tab 移除后的落点。
+  /// 每一项都 push 成独立子页面（带回退按钮），不再是常驻 tab。
+  Widget _buildReportSection(
+      BuildContext context, ChildThemePalette palette) {
+    final entries = <({IconData icon, String title, String subtitle, String route})>[
+      (
+        icon: Icons.assessment_rounded,
+        title: '成长报告',
+        subtitle: '日 / 周 / 月报告 · 学习统计与 AI 建议',
+        route: '/parent/growthReport',
+      ),
+      (
+        icon: Icons.psychology_rounded,
+        title: 'AI 能力洞察',
+        subtitle: '孩子能力发展与趋势解读',
+        route: '/parent/aiInsights',
+      ),
+      (
+        icon: Icons.radar_rounded,
+        title: '能力雷达',
+        subtitle: '多维能力分布',
+        route: '/parent/abilityRadar',
+      ),
+      (
+        icon: Icons.trending_up_rounded,
+        title: '能力趋势',
+        subtitle: '能力成长曲线',
+        route: '/parent/abilityTrend',
+      ),
+      (
+        icon: Icons.family_restroom_rounded,
+        title: '孩子管理',
+        subtitle: '添加、编辑或解绑孩子账号',
+        route: '/parent/childManager',
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ChildSectionTitle(
+          title: '成长与报告',
+          icon: Icons.insights_rounded,
+          trailing: Text('独立页面',
+              style: TextStyle(fontSize: 12, color: palette.ink2)),
+        ),
+        const SizedBox(height: 12),
+        ChildSticker(
+          width: double.infinity,
+          padding: EdgeInsets.zero,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(palette.radiusLg),
+            child: Column(
+              children: entries.asMap().entries.map((entry) {
+                final item = entry.value;
+                return _SettingItem(
+                  icon: item.icon,
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  color: palette.subjects[entry.key % palette.subjects.length],
+                  isLast: entry.key == entries.length - 1,
+                  onTap: () => Navigator.pushNamed(context, item.route),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -19,7 +19,6 @@ import 'screens/parent/assignment_manager_screen.dart';
 import 'screens/parent/course_pack_manager_screen.dart';
 import 'screens/parent/growth_report_screen.dart';
 import 'screens/parent/ai_insights_panel.dart';
-import 'screens/parent/report_detail_screen.dart';
 import 'screens/parent/lesson_generator_screen.dart';
 import 'screens/parent/draft_manager_screen.dart';
 import 'screens/parent/quick_video_generator_screen.dart';
@@ -93,8 +92,9 @@ class LingxiApp extends StatelessWidget {
     return Selector<UserProvider, ({bool loggedIn, bool isParent})>(
       selector: (_, u) => (
         loggedIn: u.isLoggedIn,
-        isParent: (u.activeRole ?? u.currentUser?['type']?.toString()) ==
-            'parent',
+        // 与 ProfileScreen / _HomeScreen 共用同一个角色口径，避免三处各自
+        // 兜底规则漂移（activeRole 为空时回退 currentUser['type']）。
+        isParent: u.activeUserType == 'parent',
       ),
       builder: (context, state, _) {
         return Consumer<ChildThemeController>(
@@ -217,8 +217,10 @@ class LingxiApp extends StatelessWidget {
           case '/parent/aiInsights':
             return page((_) => const AIInsightsPanel(), slideFromRight);
           case '/parent/reportDetail':
+            // 旧深链保留兼容：报告详情已并入成长报告页，不再维护第二份实现
+            // （原 report_detail_screen.dart 与成长报告重复且全仓无调用方）。
             return page(
-              (_) => const ReportDetailScreen(),
+              (_) => const GrowthReportScreen(),
               slideFromRight,
             );
           case '/parent/lessonGenerator':

@@ -2,3 +2,6 @@
 # 同时这些文件应保持纯 ASCII：cmd 按 ANSI(GBK) 读取，UTF-8 中文注释会吞掉行尾 CR。
 *.bat  text eol=crlf
 *.cmd  text eol=crlf
+
+# core.autocrlf=true 会在检出时把 .sh 转成 CRLF，bash 执行会报 \r 错误。
+*.sh   text eol=lf

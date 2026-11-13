@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
+import 'child_home_experience.dart';
 import '../utils/app_logger.dart';
 import '../services/public_api_service.dart';
 import '../services/tts_service.dart';
@@ -112,31 +114,23 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text('🔭', style: TextStyle(fontSize: 22)),
-              SizedBox(width: 8),
-              Text(
-                '科学探索',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textColor,
-                ),
-              ),
-            ],
-          ),
+          ChildSectionTitle(title: '科学探索', icon: Icons.explore_rounded),
           const SizedBox(height: 4),
-          Text(
-            '看看世界正在发生什么',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondary,
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              '看看世界正在发生什么',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: palette.ink2,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -453,6 +447,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
   }
 
   void _showEarthquakeDetail(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -461,11 +456,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFF8E8), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: palette.card,
           borderRadius: BorderRadius.circular(28),
         ),
         child: SingleChildScrollView(
@@ -507,7 +498,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: palette.soft,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -585,12 +576,33 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
 
   // ============== 水果百科 ==============
   Widget _buildFruitsGrid(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppTheme.softShadow(const Color(0xFF6F9E7F)),
+        color: palette.card,
+        borderRadius: BorderRadius.circular(palette.radiusLg),
+        border: Border.all(
+          color: palette.isCartoon
+              ? Color.lerp(palette.line, palette.ink, 0.22)!
+              : palette.line.withValues(alpha: 0.7),
+          width: palette.isCartoon ? palette.borderW : 1,
+        ),
+        boxShadow: palette.isCartoon
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: palette.line,
+                  offset: const Offset(0, 4),
+                  blurRadius: 0,
+                ),
+              ]
+            : <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  offset: const Offset(0, 8),
+                  blurRadius: 20,
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -651,6 +663,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
   }
 
   void _showFruitDetail(BuildContext context, Map<String, dynamic> fruit) {
+    final palette = ChildThemePalette.of(context);
     final name = fruit['name'] ?? '未知';
     final nameZh = fruit['nameZh'] ?? name;
     final family = fruit['family'] ?? '未知';
@@ -669,7 +682,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
         margin: const EdgeInsets.all(8),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF8E8),
+          color: palette.card,
           borderRadius: BorderRadius.circular(28),
         ),
         child: Column(
@@ -736,7 +749,7 @@ class _ScienceExploreSectionState extends State<ScienceExploreSection> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
+                color: palette.soft,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -917,6 +930,7 @@ class _FruitTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     final name = fruit['name'] ?? '未知';
     final nameZh = fruit['nameZh'] ?? name;
     final tts = TtsService();
@@ -925,8 +939,11 @@ class _FruitTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.softMint.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(14),
+          color: Color.alphaBlend(
+            palette.pop.withValues(alpha: 0.10),
+            palette.card,
+          ),
+          borderRadius: BorderRadius.circular(palette.radiusSm),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

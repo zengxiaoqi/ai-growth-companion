@@ -1568,7 +1568,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.active.card,
             borderRadius: BorderRadius.circular(AppTheme.cardRadius),
             boxShadow: AppTheme.softShadow(),
           ),
@@ -1620,7 +1620,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.active.card,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
               boxShadow: AppTheme.softShadow(),
             ),
@@ -1777,7 +1777,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.active.card,
             borderRadius: BorderRadius.circular(AppTheme.cardRadius),
             boxShadow: AppTheme.softShadow(),
           ),
@@ -1825,19 +1825,19 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         onPressed:
             _isCompleting ? null : () => _completeStep(score: defaultScore),
         icon: _isCompleting
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: AppTheme.active.onPrimary,
                 ),
               )
             : const Icon(Icons.check_rounded),
         label: Text(_isCompleting ? '记录中...' : '完成了，进入下一步'),
         style: FilledButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.active.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -1881,7 +1881,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.card,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -2270,7 +2270,7 @@ class _WatchFallbackCardsState extends State<_WatchFallbackCards> {
         label: const Text('看完了，进入下一步'),
         style: FilledButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
+          foregroundColor: AppTheme.active.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -2366,7 +2366,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.active.card,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
               boxShadow: AppTheme.softShadow(),
             ),
@@ -2404,7 +2404,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.active.card,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
               boxShadow: AppTheme.softShadow(),
             ),
@@ -2452,10 +2452,10 @@ class _WriteStepContentState extends State<_WriteStepContent> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: isChecked
-                                ? const Icon(
+                                ? Icon(
                                     Icons.check,
                                     size: 16,
-                                    color: Colors.white,
+                                    color: AppTheme.active.onPrimary,
                                   )
                                 : null,
                           ),
@@ -2658,7 +2658,9 @@ class _WriteStepContentState extends State<_WriteStepContent> {
               backgroundColor:
                   canComplete ? AppTheme.primaryColor : Colors.grey.shade300,
               foregroundColor:
-                  canComplete ? Colors.white : AppTheme.textSecondary,
+                  canComplete
+                      ? AppTheme.active.onPrimary
+                      : AppTheme.textSecondary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -2688,7 +2690,7 @@ Widget _buildEmptyCard(String message) {
     width: double.infinity,
     padding: const EdgeInsets.all(32),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppTheme.active.card,
       borderRadius: BorderRadius.circular(AppTheme.cardRadius),
       boxShadow: AppTheme.softShadow(),
     ),
@@ -2957,7 +2959,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
               child: IconButton(
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: Colors.white,
+                  color: AppTheme.active.onPrimary,
                   size: 28,
                 ),
                 onPressed: () {
@@ -2999,7 +3001,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             label: Text(_hasCompleted ? '看完了，进入下一步' : '看好了，进入下一步'),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.active.onPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -3032,7 +3034,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             label: Text(_hasCompleted ? '看完了，进入下一步' : '看好了，进入下一步'),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.active.onPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),

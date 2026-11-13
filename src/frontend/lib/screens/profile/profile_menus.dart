@@ -1,15 +1,20 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../components/app_update_prompt.dart';
 import '../../providers/user_provider.dart';
 import '../../services/app_update_service.dart';
+import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 
 /// 「我的」页面各菜单项的功能弹层集合：
-/// 关于我们（含版本信息 + 检查更新）、个人资料、通知设置、隐私设置、帮助与反馈。
+/// 关于我们（含版本信息 + 检查更新）、个人资料、通知设置、隐私设置、
+/// 帮助与反馈、开源数据与许可。
 
 // ─────────────────────────────────────────────────────────────
 // 通用外壳：底部圆角弹层
@@ -700,6 +705,9 @@ class _PrivacySheet extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
+              // 统一走 StorageService：学习进度 / 今日时长 / 学习限制一起清，
+              // 但保留登录态与主题偏好（那两项不属于「缓存」）。
+              await context.read<StorageService>().clearCache();
               final prefs = await SharedPreferences.getInstance();
               await prefs.remove('completed_contents');
               await prefs.remove('today_minutes');
@@ -913,6 +921,108 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                         ),
                       ],
                     ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. 开源数据与许可（原设置页底部入口，迁到「我的」）
+// ─────────────────────────────────────────────────────────────
+
+Future<void> showAttributionSheet(BuildContext context) {
+  return _showSheet(
+    context,
+    const _AttributionSheet(),
+    heightFactor: 0.8,
+  );
+}
+
+class _AttributionSheet extends StatefulWidget {
+  const _AttributionSheet();
+
+  @override
+  State<_AttributionSheet> createState() => _AttributionSheetState();
+}
+
+class _AttributionSheetState extends State<_AttributionSheet> {
+  String _markdown = '';
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    String markdown;
+    try {
+      markdown = await rootBundle.loadString('assets/licenses/ATTRIBUTION.md');
+    } catch (_) {
+      markdown = '署名文件加载失败，请稍后重试。';
+    }
+    if (mounted) {
+      setState(() {
+        _markdown = markdown;
+        _loaded = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          _sheetHandle(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _sheetTitle('📚', '开源数据与许可'),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.active.card,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: _loaded
+                        ? MarkdownBody(
+                            data: _markdown,
+                            selectable: true,
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.7,
+                                  color: AppTheme.textColor),
+                              h1: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textColor),
+                              h2: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textColor),
+                              listBullet: const TextStyle(fontSize: 13),
+                            ),
+                          )
+                        : const SizedBox(
+                            height: 80,
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
                   ),
                 ],
               ),

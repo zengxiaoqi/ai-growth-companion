@@ -13,10 +13,12 @@ import 'profile_menus.dart';
 
 /// 孩子端「我的」页 —— 与 v2 主题（四皮肤 + 年龄密度）对齐。
 ///
-/// 信息层级：页头（设置 / 家长端）→ 身份贴纸卡 → 徽章预览（看全部跳成就页）
-/// → 设置分组 → 退出登录。
+/// 信息层级：页头（家长端 / 家长模式下仅标题）→ 身份贴纸卡（点击编辑资料）
+/// → 徽章预览（看全部跳成就页）→ 外观主题（即时换肤）→ 设置分组 → 退出登录。
 ///
-/// 成就从底部导航撤掉后，这里成为唯一入口：徽章预览本身就是「成就摘要」。
+/// 顶部「设置」齿轮已移除：原设置页里真正有用的东西全部并入这里
+/// （主题皮肤、清除缓存、版本与检查更新、开源许可、通知、资料），
+/// 只留一个「我的」作为唯一入口，少一层跳转。
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -30,6 +32,7 @@ class ProfileScreen extends StatelessWidget {
     final age = user['age'] is int ? user['age'] as int : 5;
     final palette = ChildThemePalette.of(context);
     final completed = learningProvider.completedContents.length;
+    final isParent = userProvider.activeRole == 'parent';
 
     void openAchievements() {
       Navigator.of(context).push(
@@ -53,9 +56,10 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPageHeader(context, palette),
+              _buildPageHeader(context, palette, isParent),
               const SizedBox(height: 14),
-              _buildProfileHeader(palette, name, age, completed),
+              _buildProfileHeader(context, palette, userProvider, name, age,
+                  completed),
               const SizedBox(height: 22),
               ChildSectionTitle(
                 title: '我的徽章',
@@ -64,13 +68,26 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _buildBadgeStrip(context, palette, completed, openAchievements),
+              // 家长端不走孩子皮肤（app.dart 里强制 honey），
+              // 皮肤选择器放在家长页只会点了没反应，因此只对孩子展示。
+              if (!isParent) ...[
+                const SizedBox(height: 24),
+                ChildSectionTitle(
+                  title: '外观主题',
+                  icon: Icons.palette_rounded,
+                  trailing: Text('点一下即时换肤',
+                      style: TextStyle(fontSize: 12, color: palette.ink2)),
+                ),
+                const SizedBox(height: 12),
+                _buildThemeStrip(context, palette),
+              ],
               const SizedBox(height: 24),
               ChildSectionTitle(
                 title: '设置',
                 icon: Icons.tune_rounded,
               ),
               const SizedBox(height: 12),
-              _buildSettingsSection(context, userProvider, palette),
+              _buildSettingsSection(context, userProvider, palette, isParent),
               const SizedBox(height: 22),
               _buildLogoutButton(context, userProvider, palette),
               if (earned > 0)
@@ -81,6 +98,8 @@ class ProfileScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: palette.ink2)),
                   ),
                 ),
+              const SizedBox(height: 10),
+              _buildSafetyFooter(palette),
             ],
           ),
         ),
@@ -88,11 +107,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  /// 页头：标题 + 设置 / 家长端两个圆形按钮。
+  /// 页头：标题 + 家长端切换。
   ///
-  /// 顶部固定 TopBar 已移除（只有这一页需要这两个入口），
-  /// 于是把按钮收进页面自身头部，随内容滚动，不再长期占用 56px。
-  Widget _buildPageHeader(BuildContext context, ChildThemePalette palette) {
+  /// 原来的「设置」齿轮已删除 —— 设置项全部并入下方分组，
+  /// 不再需要一个单独的设置页和一次跳转。
+  Widget _buildPageHeader(
+      BuildContext context, ChildThemePalette palette, bool isParent) {
     return Row(
       children: [
         Expanded(
@@ -102,19 +122,13 @@ class ProfileScreen extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: palette.ink)),
         ),
-        _HeaderIconButton(
-          icon: Icons.swap_horiz_rounded,
-          tooltip: '切换到家长端',
-          onTap: () => showSwitchToParentDialog(context),
-          palette: palette,
-        ),
-        const SizedBox(width: 8),
-        _HeaderIconButton(
-          icon: Icons.settings_rounded,
-          tooltip: '设置',
-          onTap: () => Navigator.pushNamed(context, '/settings'),
-          palette: palette,
-        ),
+        if (!isParent)
+          _HeaderIconButton(
+            icon: Icons.swap_horiz_rounded,
+            tooltip: '切换到家长端',
+            onTap: () => showSwitchToParentDialog(context),
+            palette: palette,
+          ),
       ],
     );
   }
@@ -139,70 +153,84 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  /// 身份贴纸卡：头像 + 名字 + 年龄 + 今日完成数（真实数据，不造数字）
-  Widget _buildProfileHeader(
-      ChildThemePalette palette, String name, int age, int completedCount) {
-    return ChildSticker(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      strong: true,
-      child: Row(children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: palette.soft,
-            shape: BoxShape.circle,
-            border: palette.isCartoon
-                ? Border.all(color: palette.edge, width: 3)
-                : null,
+  /// 身份贴纸卡：头像 + 名字 + 年龄 + 今日完成数（真实数据，不造数字）。
+  /// 整卡可点 → 直接编辑资料，省掉「设置里再找个人资料」这一步。
+  Widget _buildProfileHeader(BuildContext context, ChildThemePalette palette,
+      UserProvider userProvider, String name, int age, int completedCount) {
+    return ChildJelly(
+      onTap: () => showProfileEditSheet(context, userProvider),
+      child: ChildSticker(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        strong: true,
+        child: Row(children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: palette.soft,
+              shape: BoxShape.circle,
+              border: palette.isCartoon
+                  ? Border.all(color: palette.edge, width: 3)
+                  : null,
+            ),
+            child: const Center(
+              child: Text('👧', style: TextStyle(fontSize: 38)),
+            ),
           ),
-          child: const Center(
-            child: Text('👧', style: TextStyle(fontSize: 38)),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: palette.ink)),
-              const SizedBox(height: 6),
-              Row(children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: palette.soft,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text('$age 岁',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: palette.ink2)),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    completedCount > 0 ? '今天完成 $completedCount 个' : '今天还没开始',
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12.5, color: palette.ink2),
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: palette.ink)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: palette.soft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text('$age 岁',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink2)),
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      completedCount > 0 ? '今天完成 $completedCount 个' : '今天还没开始',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, color: palette.ink2),
+                    ),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Icon(Icons.edit_rounded, size: 15, color: palette.ink2),
+              const SizedBox(height: 2),
+              Text('编辑',
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: palette.ink2)),
             ],
           ),
-        ),
-        const Text('🦄', style: TextStyle(fontSize: 28)),
-      ]),
+        ]),
+      ),
     );
   }
 
@@ -263,52 +291,165 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  /// 外观主题：五套皮肤横滑选择，点一下 [ChildThemeController] 即时换肤。
+  ///
+  /// 这块原先藏在设置页最深处（要滚两屏才看到），但它是「我的」页里
+  /// 最值得被孩子自己玩的功能，所以直接铺到首页面上。
+  Widget _buildThemeStrip(BuildContext context, ChildThemePalette palette) {
+    final controller = context.watch<ChildThemeController>();
+
+    return SizedBox(
+      height: 92,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        physics: const BouncingScrollPhysics(),
+        itemCount: kChildThemeOptions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final option = kChildThemeOptions[index];
+          final selected = controller.mode == option.mode;
+          final swatches = option.swatches;
+
+          return ChildJelly(
+            onTap: () =>
+                context.read<ChildThemeController>().setMode(option.mode),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 92,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                    swatches.first.withValues(alpha: selected ? 0.20 : 0.08),
+                    palette.card),
+                borderRadius: BorderRadius.circular(palette.radiusMd),
+                border: Border.all(
+                  color: selected
+                      ? palette.pop
+                      : (palette.isCartoon
+                          ? palette.line
+                          : palette.line.withValues(alpha: 0.85)),
+                  width: selected ? 2.5 : (palette.isCartoon ? 2 : 1),
+                ),
+                boxShadow: selected
+                    ? <BoxShadow>[
+                        BoxShadow(
+                          color: palette.pop.withValues(alpha: 0.28),
+                          offset: const Offset(0, 3),
+                          blurRadius: 0,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      for (final c in swatches.take(3))
+                        Container(
+                          width: 11,
+                          height: 11,
+                          margin: const EdgeInsets.only(right: 3),
+                          decoration: BoxDecoration(
+                            color: c,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: palette.card, width: 1.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Text(
+                    option.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: palette.ink,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          option.ageLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: palette.ink2,
+                          ),
+                        ),
+                      ),
+                      if (selected)
+                        Icon(Icons.check_circle_rounded,
+                            size: 14, color: palette.pop),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 设置分组：原设置页里仍有用的入口全部收进这一份列表。
+  ///
+  /// 「字体大小 / 深色模式 / 音量 / 保存设置」这几个开关在原设置页里
+  /// 只改本地 state，不影响任何实际表现（字号没接 MediaQuery、
+  /// 深色由「星际小队」皮肤提供、音量没有音频通道），因此没有搬过来；
+  /// 换成能真正生效的「主题 + 清除缓存 + 版本/更新 + 许可」。
   Widget _buildSettingsSection(BuildContext context, UserProvider userProvider,
-      ChildThemePalette palette) {
-    final settings = <({IconData icon, String title, Color color})>[
-      (icon: Icons.person_rounded, title: '个人资料', color: palette.subjects[0]),
+      ChildThemePalette palette, bool isParent) {
+    final settings = <({IconData icon, String title, String subtitle, Color color, VoidCallback onTap})>[
+      (
+        icon: Icons.person_rounded,
+        title: '个人资料',
+        subtitle: isParent ? '昵称 · 手机号' : '昵称 · 年龄 · 头像',
+        color: palette.subjects[0],
+        onTap: () => showProfileEditSheet(context, userProvider),
+      ),
       (
         icon: Icons.notifications_rounded,
         title: '通知设置',
-        color: palette.subjects[1]
+        subtitle: '学习提醒时间与提醒声音',
+        color: palette.subjects[1],
+        onTap: () => showNotificationSettingsSheet(context),
       ),
-      (icon: Icons.lock_rounded, title: '隐私设置', color: palette.subjects[3]),
+      (
+        icon: Icons.lock_rounded,
+        title: '隐私设置',
+        subtitle: '数据说明 · 清除本机学习缓存',
+        color: palette.subjects[3],
+        onTap: () => showPrivacySheet(context),
+      ),
       (
         icon: Icons.chat_bubble_rounded,
         title: '帮助与反馈',
-        color: palette.subjects[4]
+        subtitle: '常见问题 · 意见反馈',
+        color: palette.subjects[4],
+        onTap: () => showHelpFeedbackSheet(context),
       ),
-      (icon: Icons.info_rounded, title: '关于我们', color: palette.subjects[5]),
+      (
+        icon: Icons.info_rounded,
+        title: '关于我们',
+        subtitle: '版本信息 · 检查更新',
+        color: palette.subjects[5],
+        onTap: () => showAboutSheet(context),
+      ),
+      (
+        icon: Icons.menu_book_rounded,
+        title: '开源数据与许可',
+        subtitle: '汉字笔顺 · 插图 · 拼音数据来源',
+        color: palette.subjects[2],
+        onTap: () => showAttributionSheet(context),
+      ),
     ];
-
-    void onSettingTap(String title) {
-      switch (title) {
-        case '个人资料':
-          showProfileEditSheet(context, userProvider);
-          return;
-        case '通知设置':
-          showNotificationSettingsSheet(context);
-          return;
-        case '隐私设置':
-          showPrivacySheet(context);
-          return;
-        case '帮助与反馈':
-          showHelpFeedbackSheet(context);
-          return;
-        case '关于我们':
-          showAboutSheet(context);
-          return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$title — 功能开发中，敬请期待 ✨'),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
 
     return ChildSticker(
       width: double.infinity,
@@ -317,17 +458,34 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(palette.radiusLg),
         child: Column(
           children: settings.asMap().entries.map((entry) {
-            final index = entry.key;
             final item = entry.value;
             return _SettingItem(
               icon: item.icon,
               title: item.title,
+              subtitle: item.subtitle,
               color: item.color,
-              isLast: index == settings.length - 1,
-              onTap: () => onSettingTap(item.title),
+              isLast: entry.key == settings.length - 1,
+              onTap: item.onTap,
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+
+  /// 页尾安全承诺：原设置页「内容安全 · 已启用」那一行的轻量化落点。
+  Widget _buildSafetyFooter(ChildThemePalette palette) {
+    return Center(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.verified_user_rounded, size: 13, color: palette.ink2),
+          const SizedBox(width: 5),
+          Text(
+            '内容安全实时过滤 · 无广告无追踪',
+            style: TextStyle(fontSize: 11.5, color: palette.ink2),
+          ),
+        ],
       ),
     );
   }
@@ -417,7 +575,7 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// 页头右侧的圆形图标按钮（设置 / 家长端）。
+/// 页头右侧的圆形图标按钮（家长端切换）。
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
@@ -528,6 +686,7 @@ class _MiniBadge extends StatelessWidget {
 class _SettingItem extends StatefulWidget {
   final IconData icon;
   final String title;
+  final String subtitle;
   final Color color;
   final bool isLast;
   final VoidCallback onTap;
@@ -535,6 +694,7 @@ class _SettingItem extends StatefulWidget {
   const _SettingItem({
     required this.icon,
     required this.title,
+    required this.subtitle,
     required this.color,
     required this.isLast,
     required this.onTap,
@@ -551,6 +711,7 @@ class _SettingItemState extends State<_SettingItem> {
   Widget build(BuildContext context) {
     final palette = ChildThemePalette.of(context);
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
@@ -571,7 +732,7 @@ class _SettingItemState extends State<_SettingItem> {
                       color: palette.line, width: palette.isCartoon ? 1.5 : 1)),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
               Container(
@@ -585,13 +746,25 @@ class _SettingItemState extends State<_SettingItem> {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  widget.title,
-                  style: TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w600,
-                    color: palette.ink,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: palette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      widget.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: palette.ink2),
+                    ),
+                  ],
                 ),
               ),
               Icon(

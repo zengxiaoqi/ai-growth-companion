@@ -10,7 +10,6 @@ import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/auth/mode_selection_screen.dart';
-import 'screens/settings/settings_screen.dart';
 import 'screens/child/child_home_screen.dart';
 import 'screens/parent/parent_home_screen.dart';
 import 'screens/parent/ability_radar_screen.dart';
@@ -135,9 +134,9 @@ class LingxiApp extends StatelessWidget {
           case '/modeSelection':
             return page((_) => const ModeSelectionScreen(), fadeThrough);
 
-          // ── Settings → slideFromRight ──
+          // ── Settings 已并入「我的」页，不再单独成页 ──
           case '/settings':
-            return page((_) => const SettingsScreen(), slideFromRight);
+            return page((_) => const ChildHomeScreen(), slideFromRight);
 
           // ── Child shell → slideFromRight ──
           case '/child':

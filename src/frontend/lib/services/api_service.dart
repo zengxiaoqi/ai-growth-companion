@@ -385,7 +385,7 @@ class ApiService {
   }) async {
     try {
       final response = await _dio.get('/contents', queryParameters: {
-        if (ageRange != null) 'age_range': ageRange,
+        if (ageRange != null) 'ageRange': ageRange,
         if (domain != null) 'domain': domain,
         if (childId != null) 'childId': childId,
         'page': page,
@@ -1475,6 +1475,7 @@ class ApiService {
     int? bookId,
     String? bookTitle,
     String? mode,
+    bool regenerate = false,
   }) {
     // Web: 需要完整路径给 fetch()（Dio 不参与 Web SSE）
     // 非 Web: 只给相对路径，Dio 的 baseUrl 会自动拼接
@@ -1497,6 +1498,7 @@ class ApiService {
       if (bookId != null) 'bookId': bookId,
       if (bookTitle != null) 'bookTitle': bookTitle,
       if (mode != null) 'mode': mode,
+      if (regenerate) 'regenerate': true,
     };
 
     return fetchSseStream(

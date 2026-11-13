@@ -32,6 +32,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   cached_network_image: ^3.3.0
   flutter_svg: ^2.0.9
+  stroke_order_animator: ^3.3.1
   image_picker: ^1.0.7
   lottie: ^3.0.0
   fl_chart: ^1.2.0
@@ -83,6 +84,9 @@ flutter:
     - assets/images/
     - assets/audios/
     - assets/animations/
+    - assets/hanzi/
+    - assets/twemoji/
+    - assets/licenses/
   # 不使用 assets/fonts/（38MB 字体文件，改用系统字体避免 Web 加载超时）
 
   # fonts: 使用系统字体（避免打包 38MB TTC 文件导致 Web 加载超时）

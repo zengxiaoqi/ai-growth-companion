@@ -26,6 +26,7 @@ class _CapturingApiService extends ApiService {
     int? bookId,
     String? bookTitle,
     String? mode,
+    bool regenerate = false,
   }) {
     capturedModes.add(mode);
     return Stream<Map<String, dynamic>>.fromIterable([

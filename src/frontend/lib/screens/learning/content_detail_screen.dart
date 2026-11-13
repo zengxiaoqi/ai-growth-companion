@@ -10,6 +10,7 @@ import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../utils/app_logger.dart';
 import '../games/quiz_game.dart';
+import 'widgets/lesson_section_renderer.dart';
 
 final _log = AppLogger('ContentDetailScreen');
 
@@ -96,6 +97,9 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
   bool _quizCompleted = false;
   List<Map<String, dynamic>> _quizSections = [];
 
+  // lesson_pack 结构化 sections（按类型渲染）
+  List<Map<String, dynamic>> _sections = [];
+
   // 评分和完成
   int _score = 85;
   bool _showEvaluation = false;
@@ -136,6 +140,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           _content = data;
           _isLoading = false;
           _parseQuizSections();
+          _parseSections();
         });
       } else {
         setState(() {
@@ -173,13 +178,49 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
 
       if (parsed is List) {
         _quizSections = parsed
-            .where((item) => item is Map && item['questions'] is List)
+            .where((item) =>
+                item is Map &&
+                item['questions'] is List &&
+                (item['questions'] as List).whereType<Map>().any((q) =>
+                    (q['q'] ?? q['question'])?.toString().isNotEmpty ?? false))
             .map((item) => Map<String, dynamic>.from(item as Map))
             .toList();
       }
     } catch (e) {
       _log.warning('Parse quiz sections error: $e');
       _quizSections = [];
+    }
+  }
+
+  /// 解析 lesson_pack 的 sections 列表，供按类型渲染。
+  void _parseSections() {
+    _sections = [];
+    if (_content == null) return;
+
+    final raw = _content!['content'];
+    if (raw == null) return;
+
+    try {
+      dynamic parsed;
+      if (raw is String) {
+        parsed = jsonDecode(raw);
+      } else {
+        parsed = raw;
+      }
+
+      if (parsed is Map && parsed['content'] is List) {
+        parsed = parsed['content'];
+      }
+
+      if (parsed is List) {
+        _sections = parsed
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+    } catch (e) {
+      _log.warning('Parse sections error: $e');
+      _sections = [];
     }
   }
 
@@ -364,9 +405,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         if (blocks.isNotEmpty) return blocks.join('\n\n');
       }
 
-      return raw.toString();
+      // 未识别的结构不再 toString 上屏（会把 JSON 语法丢给孩子），
+      // 返回空串走友好空态。
+      return '';
     } catch (e) {
-      return raw.toString();
+      return '';
     }
   }
 
@@ -649,8 +692,19 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   // 学习内容或测验
                   if (_isQuizMode && _hasInteractiveContent)
                     _buildQuizSection()
-                  else if (_displayText.isNotEmpty && !_quizCompleted)
-                    _buildContentBody(),
+                  else if (!_quizCompleted) ...[
+                    if (_sections.isNotEmpty)
+                      LessonSectionRenderer(
+                        sections: _sections,
+                        onQuizFinished: _learningRecord != null
+                            ? _handleQuizComplete
+                            : null,
+                      )
+                    else if (_displayText.isNotEmpty)
+                      _buildContentBody()
+                    else
+                      _buildEmptyContent(),
+                  ],
 
                   // 媒体资源
                   if (_content!['mediaUrls'] != null &&
@@ -1043,6 +1097,44 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 内容既无 sections 也无文本时的友好空态（不暴露原始 JSON）。
+  Widget _buildEmptyContent() {
+    final palette = AppTheme.active;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: palette.isCartoon
+            ? Border.all(color: palette.line, width: 2)
+            : null,
+        boxShadow: AppTheme.softShadow(),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.hourglass_top_rounded,
+              size: 40, color: palette.pop.withValues(alpha: 0.7)),
+          const SizedBox(height: 10),
+          Text(
+            '内容准备中',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: palette.ink,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '这门课的学习材料正在路上，先去别的课程看看吧',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: palette.ink2),
           ),
         ],
       ),

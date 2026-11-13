@@ -42,15 +42,18 @@
       "items": [
         {
           "animal": "🐶",
-          "sound": "汪汪"
+          "sound": "汪汪",
+          "emoji": "🐶"
         },
         {
           "animal": "🐱",
-          "sound": "喵喵"
+          "sound": "喵喵",
+          "emoji": "🐱"
         },
         {
           "animal": "🐮",
-          "sound": "哞哞"
+          "sound": "哞哞",
+          "emoji": "🐮"
         }
       ]
     }

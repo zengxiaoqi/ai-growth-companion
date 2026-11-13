@@ -76,6 +76,6 @@ class ContentProvider extends ChangeNotifier {
   }
   
   List<Map<String, dynamic>> filterByAgeRange(String ageRange) {
-    return _contents.where((c) => c['age_range'] == ageRange).toList();
+    return _contents.where((c) => c['ageRange'] == ageRange).toList();
   }
 }

@@ -33,23 +33,28 @@
       "tasks": [
         {
           "item": "🐱",
-          "count": 1
+          "count": 1,
+          "emoji": "🐱"
         },
         {
           "item": "🐶",
-          "count": 2
+          "count": 2,
+          "emoji": "🐶"
         },
         {
           "item": "🐰",
-          "count": 3
+          "count": 3,
+          "emoji": "🐰"
         },
         {
           "item": "🐸",
-          "count": 4
+          "count": 4,
+          "emoji": "🐸"
         },
         {
           "item": "🦋",
-          "count": 5
+          "count": 5,
+          "emoji": "🦋"
         }
       ]
     },

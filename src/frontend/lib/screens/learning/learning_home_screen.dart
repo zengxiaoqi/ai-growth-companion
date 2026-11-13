@@ -101,10 +101,12 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
     _lastLoadedChildId = childId;
     final apiService = context.read<ApiService>();
 
+    final ageRange = await _resolveAgeRange(childId);
+
     // 两个请求互相独立：作业接口挂了不应该让课程一起变空
     List<dynamic> courses = <dynamic>[];
     try {
-      courses = await apiService.getContents(childId: childId);
+      courses = await apiService.getContents(childId: childId, ageRange: ageRange);
     } catch (_) {
       courses = <dynamic>[];
     }
@@ -126,6 +128,27 @@ class _LearningHomeScreenState extends State<LearningHomeScreen> {
       _assignments = assignments;
       _loadingCourses = false;
     });
+  }
+
+  Future<String?> _resolveAgeRange(int childId) async {
+    final userProvider = context.read<UserProvider>();
+    final user = userProvider.currentUser;
+    dynamic age;
+    if (user != null && user['type']?.toString() == 'child' && user['id'] == childId) {
+      age = user['age'];
+    } else {
+      final children = await context.read<ApiService>().getChildren();
+      final child = children.whereType<Map>().firstWhere(
+            (c) => c['id'] == childId,
+            orElse: () => const {},
+          );
+      age = child['age'];
+    }
+    final n = age is int ? age : int.tryParse('$age');
+    if (n == null) return null;
+    if (n >= 3 && n <= 4) return '3-4';
+    if (n >= 5 && n <= 6) return '5-6';
+    return null;
   }
 
   // ─── 导航 ──────────────────────────────────────────────────────────────

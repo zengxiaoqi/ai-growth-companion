@@ -1,9 +1,24 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
 import { User } from '../entities/user.entity';
 import { Content } from '../entities/content.entity';
+
+const DOMAIN_LABELS: Record<string, string> = {
+  language: '语言',
+  math: '数学',
+  science: '科学',
+  art: '艺术',
+  social: '社会情感',
+};
+
+const LEGACY_PLACEHOLDER_UUIDS = [
+  'c101', 'c102', 'c103', 'c104', 'c105', 'c106',
+  'c201', 'c202', 'c203', 'c204', 'c205', 'c206',
+];
 
 @Injectable()
 export class DatabaseSeederService implements OnModuleInit {
@@ -21,13 +36,17 @@ export class DatabaseSeederService implements OnModuleInit {
   async seed() {
     const userCount = await this.userRepository.count();
     if (userCount > 0) {
-      console.log('Database already has data, skipping seed...');
-      return;
+      console.log('Database already has data, skipping user seed...');
+    } else if (process.env.NODE_ENV === 'production') {
+      // The demo accounts below use the well-known password `password123`, which
+      // is documented in this (public) repository. Never create them on a
+      // production database — that would hand anyone a working parent account.
+      console.log('Production detected: skipping demo user seeding.');
+    } else {
+      await this.seedUsers();
     }
 
-    console.log('Starting database seed...');
-    await this.seedUsers();
-    await this.seedContents();
+    await this.syncContents();
     console.log('✅ Database seed completed!');
   }
 
@@ -55,220 +74,95 @@ export class DatabaseSeederService implements OnModuleInit {
     console.log(`Created 2 test users (parent id=${parent.id})`);
   }
 
-  private async seedContents() {
-    const contents = [
-      // === 3-4 岁内容 (6个) ===
-      {
-        uuid: 'c101',
-        title: '小熊找蜂蜜',
-        subtitle: '关于友谊的故事',
-        ageRange: '3-4',
-        domain: 'language',
-        topic: 'stories',
-        difficulty: 1,
-        durationMinutes: 10,
-        contentType: 'story',
-        content: JSON.stringify({
-          text: '从前有一只小熊，他很想去旅行...',
-          pages: [],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c102',
-        title: '认识数字 1-10',
-        subtitle: '基础数学启蒙',
-        ageRange: '3-4',
-        domain: 'math',
-        topic: 'numbers',
-        difficulty: 1,
-        durationMinutes: 15,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          exercises: [],
-          intro: '让我们一起认识数字吧！',
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c103',
-        title: '动物叫声配对',
-        subtitle: '认识动物',
-        ageRange: '3-4',
-        domain: 'science',
-        topic: 'animals',
-        difficulty: 1,
-        durationMinutes: 8,
-        contentType: 'game',
-        content: JSON.stringify({
-          pairs: [],
-          description: '把动物和它们的叫声连起来',
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c104',
-        title: '彩色的世界',
-        subtitle: '认识基础颜色',
-        ageRange: '3-4',
-        domain: 'art',
-        topic: 'colors',
-        difficulty: 1,
-        durationMinutes: 12,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          colors: ['红色', '蓝色', '黄色', '绿色'],
-          activities: [],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c105',
-        title: '我会分享',
-        subtitle: '学习分享玩具',
-        ageRange: '3-4',
-        domain: 'social',
-        topic: 'sharing',
-        difficulty: 1,
-        durationMinutes: 10,
-        contentType: 'story',
-        content: JSON.stringify({
-          text: '小兔子学会和朋友分享玩具了...',
-          moral: '分享让我们更快乐',
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c106',
-        title: '比大小游戏',
-        subtitle: '谁更大谁更小',
-        ageRange: '3-4',
-        domain: 'math',
-        topic: 'comparison',
-        difficulty: 1,
-        durationMinutes: 8,
-        contentType: 'game',
-        content: JSON.stringify({ comparisons: [], levels: 3 }),
-        mediaUrls: [],
-        status: 'published',
-      },
+  private resolveContentDir(): string | null {
+    const candidates = [
+      process.env.CONTENT_DIR,
+      path.resolve(__dirname, '../../../../content'),
+      path.resolve(process.cwd(), '../content'),
+      path.resolve(process.cwd(), 'src/content'),
+    ].filter(Boolean) as string[];
+    for (const dir of candidates) {
+      if (fs.existsSync(path.join(dir, '3-4-years'))) return dir;
+    }
+    return null;
+  }
 
-      // === 5-6 岁内容 (6个) ===
-      {
-        uuid: 'c201',
-        title: '小蝌蚪找妈妈',
-        subtitle: '了解青蛙的生长过程',
-        ageRange: '5-6',
-        domain: 'science',
-        topic: 'animal-growth',
-        difficulty: 2,
-        durationMinutes: 15,
-        contentType: 'story',
-        content: JSON.stringify({
-          text: '小蝌蚪游啊游，开始找妈妈...',
-          stages: ['卵', '蝌蚪', '长腿', '青蛙'],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c202',
-        title: '认识汉字',
-        subtitle: '学习简单的汉字',
-        ageRange: '5-6',
-        domain: 'language',
-        topic: 'chinese-characters',
-        difficulty: 2,
-        durationMinutes: 20,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          characters: ['日', '月', '水', '火', '山'],
-          strokes: [],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c203',
-        title: '10以内加减法',
-        subtitle: '数学运算入门',
-        ageRange: '5-6',
-        domain: 'math',
-        topic: 'addition-subtraction',
-        difficulty: 2,
-        durationMinutes: 18,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          operations: ['+', '-'],
-          range: 10,
-          examples: [],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c204',
-        title: '画小猫',
-        subtitle: '简单绘画入门',
-        ageRange: '5-6',
-        domain: 'art',
-        topic: 'drawing',
-        difficulty: 2,
-        durationMinutes: 15,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          steps: ['画圆头', '画耳朵', '画眼睛', '画胡须'],
-          materials: ['纸', '笔'],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c205',
-        title: '情绪小管家',
-        subtitle: '认识和控制情绪',
-        ageRange: '5-6',
-        domain: 'social',
-        topic: 'emotions',
-        difficulty: 2,
-        durationMinutes: 12,
-        contentType: 'story',
-        content: JSON.stringify({
-          emotions: ['开心', '生气', '害怕', '难过'],
-          strategies: ['深呼吸', '说出来', '找帮助'],
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-      {
-        uuid: 'c206',
-        title: '四季变化',
-        subtitle: '认识春夏秋冬',
-        ageRange: '5-6',
-        domain: 'science',
-        topic: 'seasons',
-        difficulty: 2,
-        durationMinutes: 15,
-        contentType: 'lesson',
-        content: JSON.stringify({
-          seasons: {
-            spring: '温暖花开',
-            summer: '炎热游泳',
-            autumn: '凉爽落叶',
-            winter: '寒冷下雪',
+  private async syncContents() {
+    const dir = this.resolveContentDir();
+    if (!dir) {
+      console.warn('src/content directory not found, skipping course sync.');
+      return;
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    const seen = new Set<string>();
+
+    for (const [sub, ageRange] of [
+      ['3-4-years', '3-4'],
+      ['5-6-years', '5-6'],
+    ] as const) {
+      const folder = path.join(dir, sub);
+      if (!fs.existsSync(folder)) continue;
+
+      for (const file of fs.readdirSync(folder).filter((f) => f.endsWith('.json')).sort()) {
+        let data: any;
+        try {
+          data = JSON.parse(fs.readFileSync(path.join(folder, file), 'utf-8'));
+        } catch (e) {
+          console.warn(`Skip ${file}: invalid JSON (${e})`);
+          continue;
+        }
+
+        const uuid = String(data.id ?? '');
+        if (!uuid || uuid.length > 36 || seen.has(uuid)) {
+          console.warn(`Skip ${file}: missing or duplicate id "${uuid}"`);
+          continue;
+        }
+        seen.add(uuid);
+
+        const domain = data.domain ?? 'language';
+        const payload = {
+          uuid,
+          title: data.name ?? file.replace(/\.json$/, ''),
+          subtitle: `${DOMAIN_LABELS[domain] ?? domain} · ${ageRange}岁`,
+          ageRange,
+          domain,
+          topic: file.replace(/^\d+-/, '').replace(/\.json$/, ''),
+          difficulty: data.difficulty ?? 1,
+          durationMinutes: data.duration ?? 5,
+          contentType: 'lesson_pack',
+          // simple-json column serializes once; pass the object, never a string
+          content: {
+            type: 'lesson_pack',
+            version: 1,
+            objectives: data.objectives ?? [],
+            content: data.content ?? [],
+            ...(data.visualStory ? { visualStory: data.visualStory } : {}),
+            ...(data.videoLesson ? { videoLesson: data.videoLesson } : {}),
           },
-        }),
-        mediaUrls: [],
-        status: 'published',
-      },
-    ];
+          mediaUrls: [],
+          status: 'published',
+        };
 
-    await this.contentRepository.save(contents);
-    console.log(`Created ${contents.length} learning contents`);
+        const existing = await this.contentRepository.findOne({ where: { uuid } });
+        if (existing) {
+          await this.contentRepository.save({ ...existing, ...payload, id: existing.id });
+          updated++;
+        } else {
+          await this.contentRepository.save(payload);
+          inserted++;
+        }
+      }
+    }
+
+    await this.contentRepository.update(
+      { uuid: In(LEGACY_PLACEHOLDER_UUIDS), status: 'published' },
+      { status: 'draft' },
+    );
+
+    console.log(
+      `Synced lesson packs from src/content (inserted ${inserted}, updated ${updated}); legacy placeholders drafted.`,
+    );
   }
 }

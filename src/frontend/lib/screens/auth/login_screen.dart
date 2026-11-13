@@ -162,33 +162,39 @@ class _LoginScreenState extends State<LoginScreen>
           opacity: _fadeAnimation,
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Form(
-                key: _formKey,
-                child: AppCard(
-                  color: Colors.white,
-                  boxShadow: AppTheme.softShadow(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 40),
-                      _buildPhoneField(),
-                      const SizedBox(height: 20),
-                      _buildPasswordField(),
-                      const SizedBox(height: 16),
-                      _buildRememberAndForgot(),
-                      const SizedBox(height: 24),
-                      if (_error != null) ...[
-                        _buildErrorBanner(),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildLoginButton(),
-                      const SizedBox(height: 16),
-                      _buildChildQuickLoginButton(),
-                      const SizedBox(height: 24),
-                      _buildRegisterLink(),
-                    ],
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              // 桌面浏览器下限制卡片宽度，否则整张白卡会被拉成整屏宽
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Form(
+                    key: _formKey,
+                    child: AppCard(
+                      color: Colors.white,
+                      boxShadow: AppTheme.softShadow(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 40),
+                          _buildPhoneField(),
+                          const SizedBox(height: 20),
+                          _buildPasswordField(),
+                          const SizedBox(height: 16),
+                          _buildRememberAndForgot(),
+                          const SizedBox(height: 24),
+                          if (_error != null) ...[
+                            _buildErrorBanner(),
+                            const SizedBox(height: 16),
+                          ],
+                          _buildLoginButton(),
+                          const SizedBox(height: 16),
+                          _buildChildQuickLoginButton(),
+                          const SizedBox(height: 24),
+                          _buildRegisterLink(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),

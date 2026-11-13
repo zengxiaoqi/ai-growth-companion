@@ -291,14 +291,15 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        // 略深于白色卡片，否则白卡上的输入框只剩一圈极淡的描边，看不出可点。
+        fillColor: const Color(0xFFF8F6EE),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: const Color(0xFFE6E1D4)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),

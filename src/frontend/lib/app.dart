@@ -48,6 +48,17 @@ import 'screens/book_skill_browse_screen.dart';
 /// 全局 Navigator Key，供 ApiService 在 401 时跳转登录页
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// 家长端统一主题。
+///
+/// 与 [AppTheme.lightTheme] 逐字段一致（colorScheme / cardTheme / textTheme
+/// 全是原蜜黄配置，零视觉回归），只额外挂上 honey 色板 extension，让家长端
+/// 复用孩子端 v2 组件时 `ChildThemePalette.of(context)` 能明确取到蜜黄。
+/// 不用 `buildChildTheme(honey)`：那套色板的 `colorScheme.surface` 是白色，
+/// 会把家长端原有的奶油黄 surface 换掉，Dialog / Material 卡片会偏白。
+ThemeData get parentTheme => AppTheme.lightTheme.copyWith(
+      extensions: <ThemeExtension<dynamic>>[ChildThemePalette.honey],
+    );
+
 class LingxiApp extends StatelessWidget {
   const LingxiApp({super.key});
 
@@ -76,9 +87,36 @@ class LingxiApp extends StatelessWidget {
     // 一次平滑过渡），足以完成换肤。若让 key 随主题变化，整个 MaterialApp
     // Element 连同 Navigator、所有路由及页面状态（滚动位置、表单输入、导航栈）
     // 都会在每次换肤时被销毁重建，代价大且没有必要。
-    return Consumer<ChildThemeController>(
-      builder: (context, themeController, _) =>
-          _buildMaterialApp(context, themeController.themeData),
+    // 只关心「是否已登录」与「是否家长端」两个布尔值：登录/登出/切端时
+    // 才需要换主题，UserProvider 的其它变动（切换孩子、刷新资料）不应重建
+    // 整个 MaterialApp。
+    return Selector<UserProvider, ({bool loggedIn, bool isParent})>(
+      selector: (_, u) => (
+        loggedIn: u.isLoggedIn,
+        isParent: (u.activeRole ?? u.currentUser?['type']?.toString()) ==
+            'parent',
+      ),
+      builder: (context, state, _) {
+        return Consumer<ChildThemeController>(
+          builder: (context, themeController, _) {
+            // 未登录（含启动校验阶段）与家长端都固定品牌蜜黄浅色：
+            // 皮肤是孩子端的体验，登录页不该跟随上一次残留的孩子皮肤；
+            // 家长端则不能只在主壳上套 Theme —— Navigator.push 出去的
+            // 报告 / 设置 / 能力页不在主壳子树里，若孩子当前选了 space，
+            // 这些二级页会变成深紫，与蜜黄主壳割裂。
+            // 因此整棵 MaterialApp 在家长端直接用 parentTheme。
+            final ThemeData theme;
+            if (!state.loggedIn) {
+              theme = AppTheme.lightTheme;
+            } else if (state.isParent) {
+              theme = parentTheme;
+            } else {
+              theme = themeController.themeData;
+            }
+            return _buildMaterialApp(context, theme);
+          },
+        );
+      },
     );
   }
 
@@ -354,6 +392,13 @@ class _HomeScreen extends StatelessWidget {
         if (userProvider.isLoading) {
           page = const SplashScreen(key: ValueKey('lingxi_splash'));
         } else if (!userProvider.isLoggedIn) {
+          // 未登录：强制回到品牌蜜黄浅色。
+          // `AppTheme.active` 是全局静态，退出登录后若不清回 honey，登录页会
+          // 沿用上一次孩子皮肤的取色板（例如 space 的深紫 + 薄荷绿），出现
+          // 白卡片里嵌深紫输入框、浮动 label 横跨深浅背景的情况。
+          // MaterialApp 层的 theme 也已切到 lightTheme（见 LingxiApp.build），
+          // 保证输入框等组件的 InputDecoration 同样是浅色。
+          AppTheme.active = ChildThemePalette.honey;
           page = const LoginScreen(key: ValueKey('lingxi_login'));
         } else {
           // 根据 activeRole 决定显示哪个端
@@ -372,10 +417,12 @@ class _HomeScreen extends StatelessWidget {
               : context.read<ChildThemeController>().palette;
 
           if (role == 'parent') {
-            // 家长端不参与换肤：强制用原始蜜黄主题覆盖当前孩子皮肤。
+            // 主壳内再挂一层 parentTheme 作为显式保障：MaterialApp 层已经
+            // 统一（见 LingxiApp.build），这里保证即使以后有人调整上层逻辑，
+            // 首页 / 学习 / AI / 我的 四个 tab 也不会串到孩子皮肤。
             page = Theme(
               key: const ValueKey('lingxi_parent'),
-              data: AppTheme.lightTheme,
+              data: parentTheme,
               child: const ParentHomeScreen(),
             );
           } else {

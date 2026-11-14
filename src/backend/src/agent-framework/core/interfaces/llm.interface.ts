@@ -38,6 +38,12 @@ export interface LlmResponse {
   finishReason?: string;
 }
 
+/** Per-call overrides; undefined fields fall back to provider config */
+export interface LlmCallOptions {
+  temperature?: number;
+  maxTokens?: number;
+}
+
 /** Configuration for the LLM client */
 export interface LlmConfig {
   baseUrl: string;
@@ -56,6 +62,7 @@ export interface ILlmClient {
     maxTokensOverride?: number,
     forceToolChoice?: boolean,
     modelOverride?: string,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse>;
 
   /** Streaming chat completion — yields content chunks */
@@ -73,6 +80,13 @@ export interface ILlmClient {
 
   /** Secondary call for structured content generation (quizzes, activities, etc.) */
   generate(prompt: string, systemPrompt?: string): Promise<string>;
+
+  /** Structured JSON generation: low temperature + large token budget by default */
+  generateJson(
+    prompt: string,
+    systemPrompt?: string,
+    options?: LlmCallOptions,
+  ): Promise<string>;
 
   /** Estimate token count for a text string */
   estimateTokenCount(text: string): number;

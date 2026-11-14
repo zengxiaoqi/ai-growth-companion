@@ -140,18 +140,14 @@ export class GenerateCoursePackTool {
   }
 
   private async generateCoursePackJson(prompt: string): Promise<string> {
-    const client = this.llmClient as any;
-    if (typeof client.generateJson === 'function') {
-      return client.generateJson(
-        prompt,
-        'You output strict JSON only. Do not include markdown, comments, explanations, or thinking blocks.',
-        {
-          temperature: 0.2,
-          maxTokens: Number(process.env.LLM_COURSE_PACK_MAX_TOKENS) || 12000,
-        },
-      );
-    }
-    return this.llmClient.generate(prompt);
+    return this.llmClient.generateJson(
+      prompt,
+      'You output strict JSON only. Do not include markdown, comments, explanations, or thinking blocks.',
+      {
+        temperature: 0.2,
+        maxTokens: Number(process.env.LLM_COURSE_PACK_MAX_TOKENS) || 12000,
+      },
+    );
   }
 
   ensureTeachingMediaPack(pack: Record<string, any>): Record<string, any> {

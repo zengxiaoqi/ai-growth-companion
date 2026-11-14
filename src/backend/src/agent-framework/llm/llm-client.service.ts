@@ -13,7 +13,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai/index';
 import type { ChatCompletion } from 'openai/resources/chat/completions';
-import type { ILlmClient, LlmMessage, LlmResponse, LlmToolDefinition, LlmConfig } from '../core';
+import type { ILlmClient, LlmMessage, LlmResponse, LlmToolDefinition, LlmConfig, LlmCallOptions } from '../core';
 import { stripThinking } from '../core';
 import { RetryStrategy } from './retry.strategy';
 
@@ -258,11 +258,12 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
     modelOverride?: string,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse> {
     this.logger.debug(`chatCompletion model=${modelOverride ?? this.config.model}`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
-      return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride, modelOverride);
+      return this.piAiChatCompletion(safeMessages, tools, maxTokensOverride, modelOverride, options);
     }
     return this.legacyChatCompletion(
       safeMessages,
@@ -270,6 +271,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       maxTokensOverride,
       _forceToolChoice,
       modelOverride,
+      options,
     );
   }
 
@@ -388,21 +390,45 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   }
 
   async generate(prompt: string, systemPrompt?: string): Promise<string> {
+    return this.generateWithOptions(prompt, systemPrompt);
+  }
+
+  async generateJson(
+    prompt: string,
+    systemPrompt = 'You output strict JSON only. No markdown, no explanations.',
+    options: LlmCallOptions = {},
+  ): Promise<string> {
+    return this.generateWithOptions(prompt, systemPrompt, {
+      temperature: options.temperature ?? 0.2,
+      maxTokens: options.maxTokens ?? 12000,
+    });
+  }
+
+  private async generateWithOptions(
+    prompt: string,
+    systemPrompt?: string,
+    options?: LlmCallOptions,
+  ): Promise<string> {
     const messages: LlmMessage[] = [];
     if (systemPrompt) {
       messages.push({ role: 'system', content: systemPrompt });
     }
     messages.push({ role: 'user', content: prompt });
 
+    // Start at the requested budget (if any), then escalate on truncation
+    const tokenLimits = options?.maxTokens
+      ? [options.maxTokens, ...this.ESCALATING_TOKEN_LIMITS.filter((l) => l > options.maxTokens!)]
+      : this.ESCALATING_TOKEN_LIMITS;
+
     // Try with escalating max_tokens when finish_reason === 'length' (Claude Code pattern)
-    for (const tokenLimit of this.ESCALATING_TOKEN_LIMITS) {
-      const response = await this.chatCompletionWithTokenLimit(messages, tokenLimit);
+    for (const tokenLimit of tokenLimits) {
+      const response = await this.chatCompletionWithTokenLimit(messages, tokenLimit, options);
       const raw = response.content ?? '';
       const result = stripThinking(raw);
 
       if (
         response.finishReason === 'length' &&
-        tokenLimit < this.ESCALATING_TOKEN_LIMITS[this.ESCALATING_TOKEN_LIMITS.length - 1]
+        tokenLimit < tokenLimits[tokenLimits.length - 1]
       ) {
         this.logger.debug(`generate() hit token limit (${tokenLimit}), escalating to next tier...`);
         continue;
@@ -432,7 +458,14 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
                 'Your previous response contained only internal reasoning with no visible output. Please respond again with the JSON output directly. Do NOT use <think</think*> blocks. Output ONLY the raw JSON object, nothing else.',
             },
           ];
-          const retry = await this.chatCompletion(retryMessages);
+          const retry = await this.chatCompletion(
+            retryMessages,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            options,
+          );
           const retryResult = stripThinking(retry.content ?? '');
           return retryResult;
         } catch (err: any) {
@@ -443,7 +476,14 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       return result;
     }
 
-    const finalResponse = await this.chatCompletion(messages);
+    const finalResponse = await this.chatCompletion(
+      messages,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      options,
+    );
     return stripThinking(finalResponse.content ?? '');
   }
 
@@ -464,13 +504,14 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
     modelOverride?: string,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse> {
     let lastError: Error | null = null;
 
     const candidates = this.selectEntries(modelOverride);
     for (const entry of candidates) {
       try {
-        const result = await this.callProvider(entry, messages, tools, maxTokensOverride);
+        const result = await this.callProvider(entry, messages, tools, maxTokensOverride, options);
         return result;
       } catch (err: any) {
         lastError = err;
@@ -530,6 +571,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     messages: LlmMessage[],
     tools?: LlmToolDefinition[],
     maxTokensOverride?: number,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse> {
     if (!this.models) throw new Error('pi-ai not initialized');
 
@@ -545,7 +587,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     const result = await Promise.race([
       this.models.complete(entry.model, context, {
         maxTokens: maxTokensOverride ?? entry.config.maxTokens,
-        temperature: entry.config.temperature,
+        temperature: options?.temperature ?? entry.config.temperature,
         timeoutMs: TIMEOUT_MS,
         signal: AbortSignal.timeout(TIMEOUT_MS),
       }),
@@ -776,6 +818,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     maxTokensOverride?: number,
     _forceToolChoice?: boolean,
     modelOverride?: string,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse> {
     // Debug aid: dump the message shape actually being sent, one line per
     // message, to diagnose strict-provider validation errors (MiniMax 2013).
@@ -807,7 +850,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             tool_choice: tools ? 'auto' : undefined,
             parallel_tool_calls: false,
             max_tokens: effectiveMaxTokens,
-            temperature: this.config.temperature,
+            temperature: options?.temperature ?? this.config.temperature,
           },
           { timeout: TIMEOUT_MS },
         ),
@@ -888,10 +931,11 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private async chatCompletionWithTokenLimit(
     messages: LlmMessage[],
     maxTokens: number,
+    options?: LlmCallOptions,
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
       if (this.piAiEnabled) {
-        return this.piAiChatCompletion(messages, undefined, maxTokens);
+        return this.piAiChatCompletion(messages, undefined, maxTokens, undefined, options);
       }
       const TIMEOUT_MS = 300_000;
       const response = (await Promise.race([
@@ -900,7 +944,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             model: this.config.model,
             messages: this.toOpenAIMessages(messages),
             max_tokens: maxTokens,
-            temperature: this.config.temperature,
+            temperature: options?.temperature ?? this.config.temperature,
           },
           { timeout: TIMEOUT_MS },
         ),

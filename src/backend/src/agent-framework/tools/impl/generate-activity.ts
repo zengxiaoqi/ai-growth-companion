@@ -41,6 +41,12 @@ import {
   validateTapTargetParams,
   collectTapTargetBodyText,
 } from '../../../common/activity/tap-target';
+import {
+  validateAnswersL1,
+  judgeActivityAnswers,
+  isJudgeableType,
+  type AnswerCheckResult,
+} from '../../../common/activity/answer-validation';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -310,10 +316,24 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           continue;
         }
 
+        const answerCheck = await this.checkAnswers(normalizedArgs, sanitized);
+        if (!answerCheck.ok) {
+          const reason = `answer validation failed: ${answerCheck.issues.join('; ')}`;
+          failures.push(`attempt ${attempt}: ${reason}`);
+          reflections.push(
+            `Your previous questions had answer problems: ${answerCheck.issues.join('; ')}. Regenerate with factually correct, unambiguous answers.`,
+          );
+          this.logger.warn(
+            `[generateActivity] attempt_failed ${JSON.stringify({ runId, attempt, reason, issues: answerCheck.issues })}`,
+          );
+          continue;
+        }
+        const finalActivity = answerCheck.activity;
+
         this.logger.log(
           `[generateActivity] success ${JSON.stringify({ runId, attempt, topic: normalizedArgs.topic, type: normalizedArgs.type })}`,
         );
-        return this.ok(sanitized, sanitized);
+        return this.ok(finalActivity, finalActivity);
       } catch (error: any) {
         const reason = error?.message || 'unknown error';
         failures.push(`attempt ${attempt}: ${reason}`);
@@ -329,6 +349,31 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       `[generateActivity] failed_after_retries ${JSON.stringify({ runId, topic: normalizedArgs.topic, type: normalizedArgs.type, failures })}`,
     );
     return this.fail(`Unable to generate a topic-aligned activity. details=${detail}`);
+  }
+
+  private async checkAnswers(
+    args: GenerateActivityArgs,
+    activity: any,
+  ): Promise<AnswerCheckResult> {
+    const ctx = { topic: args.topic, ageGroup: args.ageGroup, difficulty: args.difficulty };
+    const l1 = validateAnswersL1(activity, ctx);
+    if (!l1.ok) return l1;
+    if (l1.fixes.length > 0) {
+      this.logger.log(`[generateActivity] answer_l1_fixes ${JSON.stringify(l1.fixes)}`);
+    }
+    if (!isJudgeableType(args.type)) return l1;
+    try {
+      const l2 = await judgeActivityAnswers(this.llmClient, l1.activity, ctx);
+      if (l2.fixes.length > 0) {
+        this.logger.log(`[generateActivity] answer_judge_fixes ${JSON.stringify(l2.fixes)}`);
+      }
+      return l2;
+    } catch (error: any) {
+      this.logger.warn(
+        `[generateActivity] answer judge unavailable, degrading to L1-only: ${error?.message}`,
+      );
+      return l1;
+    }
   }
 
   private normalizeArgs(args: GenerateActivityArgs): GenerateActivityArgs {
@@ -603,16 +648,21 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     const questions = (Array.isArray(raw?.questions) ? raw.questions : [])
       .map((q: any) => {
         const question = this.toText(q?.question);
-        const options = Array.isArray(q?.options)
-          ? q.options.map((opt: any) => this.toText(opt)).filter(Boolean)
-          : [];
+        const options = (
+          Array.isArray(q?.options)
+            ? q.options.map((opt: any) => this.toText(opt)).filter(Boolean)
+            : []
+        ).slice(0, 6);
         if (!question || options.length < 3) return null;
         const correctIndex = this.resolveCorrectIndex(q, options);
         return {
           question,
-          options: options.slice(0, 6),
+          options,
           correctIndex,
-          explanation: this.toText(q?.explanation, `Correct answer: ${options[correctIndex]}`),
+          explanation: this.toText(
+            q?.explanation,
+            correctIndex >= 0 ? `正确答案是：${options[correctIndex]}` : '',
+          ),
         };
       })
       .filter(Boolean);
@@ -1025,7 +1075,8 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       if (!Number.isNaN(idx) && idx >= 0 && idx < len) return idx;
       if (!Number.isNaN(idx) && idx >= 1 && idx <= len) return idx - 1;
     }
-    return 0;
+    // Unresolvable answer: -1 is rejected by answer-validation L1 (no silent 0)
+    return -1;
   }
 
   private isAnimalTopic(topic: string): boolean {

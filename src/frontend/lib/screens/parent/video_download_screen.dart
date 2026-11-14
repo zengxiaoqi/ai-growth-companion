@@ -9,6 +9,8 @@ import '../../providers/video_download_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
+import '../../components/child_fun_page.dart';
 import '../../utils/app_logger.dart';
 
 final _log = AppLogger('VideoDownloadScreen');
@@ -527,74 +529,83 @@ class _VideoDownloadScreenState extends State<VideoDownloadScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('视频下载'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          Consumer<VideoDownloadProvider>(
-            builder: (context, provider, _) {
-              if (provider.batchMode) {
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${provider.selectedIds.length}',
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14)),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.select_all, size: 20),
-                      tooltip: '全选/取消',
-                      onPressed: provider.allSelected
-                          ? provider.deselectAll
-                          : provider.selectAll,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      tooltip: '退出批量模式',
-                      onPressed: _exitBatchMode,
-                    ),
-                  ],
-                );
-              }
-              final totalCount =
-                  provider.completed.length + provider.failed.length;
-              if (totalCount == 0) return const SizedBox.shrink();
-              return Stack(
+    final palette = ChildThemePalette.of(context);
+
+    return ChildFunPage(
+      title: '视频下载',
+      subtitle: '离线缓存课程视频，随时给孩子看',
+      icon: Icons.download_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      actions: <Widget>[
+        Consumer<VideoDownloadProvider>(
+          builder: (context, provider, _) {
+            if (provider.batchMode) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.checklist, size: 22),
-                    tooltip: '批量操作',
-                    onPressed: _enterBatchMode,
-                  ),
-                  if (totalCount > 0)
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 1),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '$totalCount',
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                  Text(
+                    '${provider.selectedIds.length}',
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  ChildFunIconButton(
+                    icon: Icons.select_all_rounded,
+                    tooltip: '全选/取消',
+                    onPressed: provider.allSelected
+                        ? provider.deselectAll
+                        : provider.selectAll,
+                  ),
+                  const SizedBox(width: 8),
+                  ChildFunIconButton(
+                    icon: Icons.close_rounded,
+                    tooltip: '退出批量模式',
+                    onPressed: _exitBatchMode,
+                  ),
                 ],
               );
-            },
-          ),
-        ],
-      ),
-      body: Consumer<VideoDownloadProvider>(
+            }
+            final totalCount =
+                provider.completed.length + provider.failed.length;
+            if (totalCount == 0) return const SizedBox.shrink();
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ChildFunIconButton(
+                  icon: Icons.checklist_rounded,
+                  tooltip: '批量操作',
+                  onPressed: _enterBatchMode,
+                ),
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: palette.pop,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$totalCount',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: palette.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+      child: Consumer<VideoDownloadProvider>(
         builder: (context, provider, _) {
           return Stack(
             children: [
@@ -1791,13 +1802,13 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
+    return ChildFunPage(
+      title: widget.title,
+      subtitle: '在线播放',
+      icon: Icons.play_circle_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: Center(
         child: _hasError
             ? Column(
                 mainAxisSize: MainAxisSize.min,

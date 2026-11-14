@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../utils/bento_url_launcher.dart';
 import '../../services/api_service.dart';
+import '../../components/child_fun_page.dart';
 import '../../theme/app_theme.dart';
 
 /// Bento 报告幻灯片页面
@@ -135,51 +136,20 @@ class _BentoReportScreenState extends State<BentoReportScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 顶部标题栏
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '幻灯片 $_periodLabel',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _isLoading ? null : _generateAndOpen,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                ],
-              ),
-            ),
-
-            // 内容区域
-            Expanded(
-              child: _buildBody(theme),
-            ),
-          ],
+    return ChildFunPage(
+      title: '幻灯片 · $_periodLabel',
+      subtitle: '把孩子这一阶段的学习做成可分享的幻灯片',
+      icon: Icons.slideshow_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      actions: <Widget>[
+        ChildFunIconButton(
+          icon: Icons.refresh_rounded,
+          tooltip: '重新生成',
+          onPressed: _isLoading ? () {} : _generateAndOpen,
         ),
-      ),
+      ],
+      child: _buildBody(theme),
     );
   }
 

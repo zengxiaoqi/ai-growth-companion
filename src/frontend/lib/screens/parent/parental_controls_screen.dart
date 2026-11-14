@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/child_fun_page.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -254,101 +255,76 @@ class _ParentalControlsScreenState extends State<ParentalControlsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 顶部标题栏
+    return ChildFunPage(
+      title: '家长控制',
+      subtitle: '学习时长、内容与作息限制',
+      icon: Icons.shield_moon_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: Column(
+        children: [
+          // 孩子选择器
+          if (_children.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded, size: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ChildSelector(
+                children: _children,
+                selectedChildId: _selectedChildId,
+                onChildChanged: (child) {
+                  setState(() => _selectedChildId = _toInt(child['id']));
+                  _loadData();
+                },
+              ),
+            ),
+
+          const SizedBox(height: 8),
+
+          // 内容区域
+          Expanded(
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primaryColor,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '家长控制',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  )
+                : _error != null
+                    ? _buildErrorState()
+                    : _buildControls(theme),
+          ),
+
+          // 底部保存按钮
+          if (!_isLoading && _error == null)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, -3),
                   ),
                 ],
               ),
-            ),
-
-            // 孩子选择器
-            if (_children.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ChildSelector(
-                  children: _children,
-                  selectedChildId: _selectedChildId,
-                  onChildChanged: (child) {
-                    setState(() => _selectedChildId = _toInt(child['id']));
-                    _loadData();
-                  },
+              child: SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: _isSaving ? null : _save,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: Text(_isSaving ? '保存中...' : '保存设置'),
                 ),
               ),
-
-            const SizedBox(height: 8),
-
-            // 内容区域
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryColor,
-                      ),
-                    )
-                  : _error != null
-                      ? _buildErrorState()
-                      : _buildControls(theme),
             ),
-
-            // 底部保存按钮
-            if (!_isLoading && _error == null)
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, -3),
-                    ),
-                  ],
-                ),
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton.icon(
-                    onPressed: _isSaving ? null : _save,
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check_rounded),
-                    label: Text(_isSaving ? '保存中...' : '保存设置'),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }

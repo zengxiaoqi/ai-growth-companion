@@ -11,6 +11,7 @@ import '../../providers/user_provider.dart';
 import '../../services/app_update_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 
 /// 「我的」页面各菜单项的功能弹层集合：
 /// 关于我们（含版本信息 + 检查更新）、个人资料、通知设置、隐私设置、
@@ -20,52 +21,69 @@ import '../../theme/app_theme.dart';
 // 通用外壳：底部圆角弹层
 // ─────────────────────────────────────────────────────────────
 
+/// 底部弹层外壳。
+///
+/// 底色取 [ChildThemePalette.of] 的值，在 builder 自己的 context 上取 ——
+/// 弹层挂在根 Navigator 下：家长端是 parentTheme（蜜黄），孩子端跟随当前皮肤。
+/// 以前这里读 `AppTheme` 静态 getter（依赖全局 active，不注册 Theme 依赖），
+/// 切肤后弹层不会重建，是最后一块没跟上 v2 取色的 UI。
 Future<T?> _showSheet<T>(BuildContext context, Widget child,
     {double heightFactor = 0.62}) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => Container(
-      height: MediaQuery.of(context).size.height * heightFactor,
+    builder: (sheetContext) {
+      final palette = ChildThemePalette.of(sheetContext);
+      return Container(
+        height: MediaQuery.of(context).size.height * heightFactor,
+        decoration: BoxDecoration(
+          color: palette.paper,
+          // honey 保持原来的 28；卡通皮肤用皮肤自己的大圆角。
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(palette.isCartoon ? palette.radiusLg : 28)),
+        ),
+        child: child,
+      );
+    },
+  );
+}
+
+Widget _sheetHandle(BuildContext context) {
+  final palette = ChildThemePalette.of(context);
+  return Center(
+    child: Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      width: 44,
+      height: 5,
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        color: palette.ink2.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(3),
       ),
-      child: child,
     ),
   );
 }
 
-Widget _sheetHandle() => Center(
-      child: Container(
-        margin: const EdgeInsets.only(top: 12, bottom: 4),
-        width: 44,
-        height: 5,
-        decoration: BoxDecoration(
-          color: AppTheme.textSecondary.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(3),
-        ),
-      ),
-    );
-
-Widget _sheetTitle(String emoji, String title) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
+Widget _sheetTitle(BuildContext context, String emoji, String title) {
+  final palette = ChildThemePalette.of(context);
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+    child: Row(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: palette.ink,
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
+}
 
 void _toast(BuildContext context, String message,
     {Color color = AppTheme.successColor}) {
@@ -126,22 +144,23 @@ class _AboutSheetState extends State<_AboutSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 children: [
-                  _sheetTitle('ℹ️', '关于我们'),
+                  _sheetTitle(context, 'ℹ️', '关于我们'),
                   const SizedBox(height: 8),
                   // App 标识
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -152,13 +171,13 @@ class _AboutSheetState extends State<_AboutSheet> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                AppTheme.primaryColor,
+                                palette.pop,
                                 Color(0xFFFF9EBB)
                               ],
                             ),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow:
-                                AppTheme.glowShadow(AppTheme.primaryColor),
+                                AppTheme.glowShadow(palette.pop),
                           ),
                           child: const Center(
                             child: Text('🦊', style: TextStyle(fontSize: 40)),
@@ -170,7 +189,7 @@ class _AboutSheetState extends State<_AboutSheet> {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor,
+                            color: palette.ink,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -178,7 +197,7 @@ class _AboutSheetState extends State<_AboutSheet> {
                           'AI 成长伙伴，让学习更有温度',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppTheme.textSecondary,
+                            color: palette.ink2,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -187,21 +206,21 @@ class _AboutSheetState extends State<_AboutSheet> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppTheme.softYellow.withValues(alpha: 0.35),
+                            color: palette.soft.withValues(alpha: 0.35),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.verified_rounded,
-                                  size: 16, color: AppTheme.secondaryColor),
+                                  size: 16, color: palette.popSecondary),
                               const SizedBox(width: 6),
                               Text(
                                 '当前版本 $_versionText $_buildText',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppTheme.secondaryColor,
+                                  color: palette.popSecondary,
                                 ),
                               ),
                             ],
@@ -226,7 +245,7 @@ class _AboutSheetState extends State<_AboutSheet> {
                   ),
                   const SizedBox(height: 12),
                   _SheetCard(
-                    color: AppTheme.softPurple,
+                    color: palette.softPurple,
                     icon: Icons.favorite_rounded,
                     title: '关于团队',
                     subtitle: '由灵犀伴学团队用心打造，陪伴每一位小朋友快乐成长。',
@@ -305,23 +324,24 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetTitle(_isParent ? '👨‍👩‍👧' : '👤',
+                  _sheetTitle(context, _isParent ? '👨‍👩‍👧' : '👤',
                       _isParent ? '家长资料' : '个人资料'),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -331,7 +351,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                             style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary)),
+                                color: palette.ink2)),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _nameController,
@@ -342,7 +362,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                             prefixIcon:
                                 const Icon(Icons.badge_rounded, size: 20),
                             filled: true,
-                            fillColor: AppTheme.backgroundColor,
+                            fillColor: palette.paper,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 12),
                             border: OutlineInputBorder(
@@ -357,12 +377,12 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary)),
+                                  color: palette.ink2)),
                           const SizedBox(height: 6),
                           Text(
                             _phone.isEmpty ? '未绑定' : _phone,
                             style: TextStyle(
-                                fontSize: 16, color: AppTheme.textColor),
+                                fontSize: 16, color: palette.ink),
                           ),
                         ] else ...[
                           Row(
@@ -372,12 +392,12 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                                   style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: AppTheme.textSecondary)),
+                                      color: palette.ink2)),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.secondaryColor
+                                  color: palette.popSecondary
                                       .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -386,7 +406,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                                   style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.secondaryColor),
+                                      color: palette.popSecondary),
                                 ),
                               ),
                             ],
@@ -396,7 +416,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                             min: 3,
                             max: 18,
                             divisions: 15,
-                            activeColor: AppTheme.secondaryColor,
+                            activeColor: palette.popSecondary,
                             label: '${_age.round()} 岁',
                             onChanged: (v) => setState(() => _age = v),
                           ),
@@ -410,7 +430,7 @@ class _ProfileEditSheetState extends State<_ProfileEditSheet> {
                     child: ElevatedButton(
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: palette.pop,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -512,21 +532,22 @@ class _NotificationSheetState extends State<_NotificationSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 children: [
-                  _sheetTitle('🔔', '通知设置'),
+                  _sheetTitle(context, '🔔', '通知设置'),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -551,10 +572,10 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                               style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: AppTheme.textColor)),
+                                  color: palette.ink)),
                           subtitle: Text(_hourText,
                               style: TextStyle(
-                                  fontSize: 12, color: AppTheme.textSecondary)),
+                                  fontSize: 12, color: palette.ink2)),
                           trailing:
                               const Icon(Icons.chevron_right_rounded, size: 22),
                           onTap: _enabled
@@ -566,7 +587,7 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                                     builder: (context, child) => Theme(
                                       data: Theme.of(context).copyWith(
                                           colorScheme: ColorScheme.light(
-                                        primary: AppTheme.secondaryColor,
+                                        primary: palette.popSecondary,
                                       )),
                                       child: child!,
                                     ),
@@ -600,10 +621,10 @@ class _NotificationSheetState extends State<_NotificationSheet> {
                     child: ElevatedButton(
                       onPressed: _dirty ? _save : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
+                        backgroundColor: palette.pop,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            AppTheme.textSecondary.withValues(alpha: 0.2),
+                            palette.ink2.withValues(alpha: 0.2),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16)),
@@ -647,22 +668,23 @@ class _PrivacySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetTitle('🔒', '隐私设置'),
+                  _sheetTitle(context, '🔒', '隐私设置'),
                   const SizedBox(height: 8),
                   ..._policies.map((p) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _SheetCard(
-                          color: AppTheme.softMint,
+                          color: palette.softMint,
                           icon: null,
                           emoji: p.$1,
                           title: p.$2,
@@ -790,28 +812,29 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetTitle('💬', '帮助与反馈'),
+                  _sheetTitle(context, '💬', '帮助与反馈'),
                   const SizedBox(height: 8),
                   Text('常见问题',
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondary)),
+                          color: palette.ink2)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Column(
@@ -836,7 +859,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                                         style: TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
-                                            color: AppTheme.textColor),
+                                            color: palette.ink),
                                       ),
                                     ),
                                     AnimatedRotation(
@@ -845,7 +868,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                                           const Duration(milliseconds: 150),
                                       child: Icon(Icons.expand_more_rounded,
                                           size: 22,
-                                          color: AppTheme.textSecondary),
+                                          color: palette.ink2),
                                     ),
                                   ],
                                 ),
@@ -866,7 +889,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                                   style: TextStyle(
                                       fontSize: 14,
                                       height: 1.5,
-                                      color: AppTheme.textSecondary),
+                                      color: palette.ink2),
                                 ),
                               ),
                             ),
@@ -880,12 +903,12 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondary)),
+                          color: palette.ink2)),
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
@@ -900,7 +923,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                             border: InputBorder.none,
                           ),
                           style: TextStyle(
-                              fontSize: 14, color: AppTheme.textColor),
+                              fontSize: 14, color: palette.ink),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
@@ -908,7 +931,7 @@ class _HelpFeedbackSheetState extends State<_HelpFeedbackSheet> {
                           child: ElevatedButton(
                             onPressed: _sending ? null : _submit,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.secondaryColor,
+                              backgroundColor: palette.popSecondary,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -978,23 +1001,24 @@ class _AttributionSheetState extends State<_AttributionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return SafeArea(
       child: Column(
         children: [
-          _sheetHandle(),
+          _sheetHandle(context),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sheetTitle('📚', '开源数据与许可'),
+                  _sheetTitle(context, '📚', '开源数据与许可'),
                   const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.active.card,
+                      color: palette.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: _loaded
@@ -1005,15 +1029,15 @@ class _AttributionSheetState extends State<_AttributionSheet> {
                               p: TextStyle(
                                   fontSize: 13,
                                   height: 1.7,
-                                  color: AppTheme.textColor),
+                                  color: palette.ink),
                               h1: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
-                                  color: AppTheme.textColor),
+                                  color: palette.ink),
                               h2: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
-                                  color: AppTheme.textColor),
+                                  color: palette.ink),
                               listBullet: const TextStyle(fontSize: 13),
                             ),
                           )
@@ -1059,12 +1083,13 @@ class _SheetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.active.card,
+          color: palette.card,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -1088,13 +1113,13 @@ class _SheetCard extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textColor)),
+                          color: palette.ink)),
                   const SizedBox(height: 2),
                   Text(subtitle,
                       style: TextStyle(
                           fontSize: 12.5,
                           height: 1.4,
-                          color: AppTheme.textSecondary)),
+                          color: palette.ink2)),
                 ],
               ),
             ),
@@ -1123,6 +1148,7 @@ class _SwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1137,16 +1163,16 @@ class _SwitchRow extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textColor)),
+                        color: palette.ink)),
                 Text(subtitle,
                     style:
-                        TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                        TextStyle(fontSize: 12, color: palette.ink2)),
               ],
             ),
           ),
           Switch(
             value: value,
-            activeThumbColor: AppTheme.secondaryColor,
+            activeThumbColor: palette.popSecondary,
             onChanged: onChanged,
           ),
         ],

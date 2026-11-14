@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/user_provider.dart';
+import '../../components/child_fun_page.dart';
 import '../../components/empty_state.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -159,6 +160,19 @@ class _AIInsightsPanelState extends State<AIInsightsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    // 它挂在 '/parent/aiInsights' 独立路由上，原本没有 Scaffold —— 作为子页面
+    // 打开时既没有背景色也没有返回键。统一走 ChildFunPage 外壳后就自洽了。
+    return ChildFunPage(
+      title: 'AI 洞察',
+      subtitle: '基于学习数据生成的个性化建议',
+      icon: Icons.auto_awesome_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
     if (_isLoadingChildren) {
       return Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor));

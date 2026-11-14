@@ -2,8 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/child_fun_page.dart';
 import '../../components/empty_state.dart';
-import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -102,29 +102,13 @@ class _AbilityRadarScreenState extends State<AbilityRadarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Column(
-        children: [
-          TopBar(
-            title: '能力雷达',
-            subtitle: '当前 vs 上月',
-            leftSlot: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.arrow_back_rounded,
-                    size: 20, color: AppTheme.textColor),
-              ),
-            ),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+    return ChildFunPage(
+      title: '能力雷达',
+      subtitle: '当前 vs 上月',
+      icon: Icons.radar_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: _buildBody(),
     );
   }
 

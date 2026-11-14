@@ -95,6 +95,26 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
   /// 是否为卡通皮肤（有粗描边 + 实体下阴影）；honey 保持原绘本风。
   bool get isCartoon => borderW > 0;
 
+  // ── 柔和辅助色的派生（替代历史 `AppTheme.softXxx` 静态取色） ──
+  // 口径与 [AppTheme] 的同名 getter 完全一致：honey 用基准 const，
+  // 其它皮肤把卡片底色向对应学科色轻轻混合，保证换肤后不残留蜜黄浅色。
+
+  bool get _isHoney => themeKey == ChildThemeKey.honey;
+
+  Color _soft(int subjectIndex) =>
+      Color.lerp(card, subjects[subjectIndex], 0.3)!;
+
+  Color get softPink => _isHoney ? AppTheme.honeySoftPink : _soft(0);
+  Color get softBlue => _isHoney ? AppTheme.honeySoftBlue : _soft(1);
+  Color get softMint => _isHoney ? AppTheme.honeySoftMint : _soft(2);
+  Color get softOrange => _isHoney ? AppTheme.honeySoftOrange : _soft(3);
+  Color get softPurple => _isHoney ? AppTheme.honeySoftPurple : _soft(4);
+
+  /// 次级强调色：honey 用深天蓝，其它皮肤取学科色压暗后保证对比度。
+  Color get popSecondary => _isHoney
+      ? AppTheme.honeySecondary
+      : Color.lerp(subjects[1], Colors.black, 0.35)!;
+
   // ── 四套静态实例 ──
 
   /// 蜜黄绘本：直接复用 [AppTheme] 蜜黄基准 const 值，保证默认皮肤零视觉回归。

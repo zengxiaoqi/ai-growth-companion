@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../components/child_fun_page.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 
@@ -331,29 +333,54 @@ class _QuickVideoGeneratorScreenState extends State<QuickVideoGeneratorScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('快速视频生成', style: TextStyle(color: Colors.white)),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.auto_awesome_rounded), text: '生成'),
-            Tab(icon: Icon(Icons.history_rounded), text: '历史记录'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
+    final palette = ChildThemePalette.of(context);
+
+    return ChildFunPage(
+      title: '快速视频生成',
+      subtitle: '一句话生成给孩子看的短视频',
+      icon: Icons.movie_creation_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: Column(
         children: [
-          _buildGenerateTab(),
-          _buildHistoryTab(),
+          // 分段切换：换成皮肤内的胶囊 TabBar，不再用整条品牌色 AppBar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: palette.card,
+                borderRadius: BorderRadius.circular(palette.radiusMd),
+                border: palette.isCartoon
+                    ? Border.all(color: palette.line, width: 2)
+                    : null,
+              ),
+              child: TabBar(
+                controller: _tabController,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: palette.pop,
+                  borderRadius: BorderRadius.circular(palette.radiusSm),
+                ),
+                labelColor: palette.onPrimary,
+                unselectedLabelColor: palette.ink2,
+                tabs: const [
+                  Tab(icon: Icon(Icons.auto_awesome_rounded), text: '生成'),
+                  Tab(icon: Icon(Icons.history_rounded), text: '历史记录'),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildGenerateTab(),
+                _buildHistoryTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );

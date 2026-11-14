@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../components/child_fun_page.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -211,28 +212,30 @@ class _BookSkillUploadScreenState extends State<BookSkillUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('知识书'),
-        actions: [
-          if (_uploading)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: '上传书籍',
-              onPressed: _uploading ? null : _pickAndUpload,
+    return ChildFunPage(
+      title: '知识书',
+      subtitle: '上传 PDF / EPUB / DOCX，孩子就能读了',
+      icon: Icons.menu_book_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      actions: <Widget>[
+        if (_uploading)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-        ],
-      ),
-      body: _loading
+          )
+        else
+          ChildFunIconButton(
+            icon: Icons.add_rounded,
+            tooltip: '上传书籍',
+            onPressed: _pickAndUpload,
+          ),
+      ],
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _books.isEmpty
               ? Center(

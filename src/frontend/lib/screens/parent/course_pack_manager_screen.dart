@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../components/child_fun_page.dart';
 import '../../components/empty_state.dart';
 import '../../components/shimmer_loading.dart';
-import '../../components/top_bar.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
@@ -258,29 +258,13 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Column(
-        children: [
-          TopBar(
-            title: '课程包管理',
-            subtitle: 'AI 一键生成课程',
-            leftSlot: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.arrow_back_rounded,
-                    size: 20, color: AppTheme.textColor),
-              ),
-            ),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+    return ChildFunPage(
+      title: '课程包管理',
+      subtitle: 'AI 一键生成课程',
+      icon: Icons.inventory_2_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: _buildBody(),
     );
   }
 

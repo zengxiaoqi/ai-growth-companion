@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../components/child_fun_page.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -473,23 +474,26 @@ class _ChildManagerScreenState extends State<ChildManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('孩子管理'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.link),
-            onPressed: _showLinkChildDialog,
-            tooltip: '绑定已有孩子',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddChildDialog,
-            tooltip: '添加孩子',
-          ),
-        ],
-      ),
-      body: _buildBody(),
+    return ChildFunPage(
+      title: '孩子管理',
+      subtitle: '查看学习情况、管理绑定关系',
+      icon: Icons.family_restroom_rounded,
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      actions: <Widget>[
+        ChildFunIconButton(
+          icon: Icons.link_rounded,
+          tooltip: '绑定已有孩子',
+          onPressed: _showLinkChildDialog,
+        ),
+        const SizedBox(width: 8),
+        ChildFunIconButton(
+          icon: Icons.add_rounded,
+          tooltip: '添加孩子',
+          onPressed: _showAddChildDialog,
+        ),
+      ],
+      child: _buildBody(),
     );
   }
 

@@ -54,26 +54,21 @@ class AppTheme {
   // ── 动态取色（原 static const 的同名代理） ──
   // 品牌色彩
   static Color get primaryColor => active.pop;
-  static Color get secondaryColor =>
-      _isHoney ? honeySecondary : _mix(active.subjects[1], Colors.black, 0.35);
+  static Color get secondaryColor => active.popSecondary;
   static Color get accentColor =>
       _isHoney ? honeyAccent : _mix(active.subjects[2], Colors.black, 0.25);
   static Color get backgroundColor => active.paper;
   static Color get textColor => active.ink;
   static Color get textSecondary => active.ink2;
 
-  // 柔和辅助色：honey 保持原值零回归；其他皮肤从卡片底色向学科色轻柔混合
-  static Color get softPink =>
-      _isHoney ? honeySoftPink : _mix(active.card, active.subjects[0], 0.3);
-  static Color get softBlue =>
-      _isHoney ? honeySoftBlue : _mix(active.card, active.subjects[1], 0.3);
-  static Color get softMint =>
-      _isHoney ? honeySoftMint : _mix(active.card, active.subjects[2], 0.3);
-  static Color get softOrange =>
-      _isHoney ? honeySoftOrange : _mix(active.card, active.subjects[3], 0.3);
-  static Color get softPurple =>
-      _isHoney ? honeySoftPurple : _mix(active.card, active.subjects[4], 0.3);
-  static Color get softYellow => _isHoney ? honeySoftYellow : active.soft;
+  // 柔和辅助色：honey 保持原值零回归；其他皮肤从卡片底色向学科色轻柔混合。
+  // 派生逻辑收敛在 [ChildThemePalette]，这里只做代理，避免两套口径漂移。
+  static Color get softPink => active.softPink;
+  static Color get softBlue => active.softBlue;
+  static Color get softMint => active.softMint;
+  static Color get softOrange => active.softOrange;
+  static Color get softPurple => active.softPurple;
+  static Color get softYellow => active.soft;
 
   // 儿童分类色
   static List<Color> get childColors => active.subjects;

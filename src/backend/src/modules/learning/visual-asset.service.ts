@@ -23,7 +23,7 @@ export type VisualAsset = VisualAssetLicense & {
   kind: VisualAssetKind;
   role: string;
   staticPath: string;
-  provider: 'local' | 'openverse' | 'wikimedia' | 'kenney' | 'svgFallback';
+  provider: 'local' | 'vector' | 'openverse' | 'wikimedia' | 'kenney' | 'svgFallback';
   width?: number;
   height?: number;
   qualityScore: number;
@@ -61,6 +61,32 @@ type AssetRequest = {
   tags: string[];
   minWidth: number;
   minHeight: number;
+  /** 用于在素材库里做语义检索的原始文本（中文主题句），不参与网络查询 */
+  searchText?: string;
+};
+
+type VectorManifestAsset = {
+  id: string;
+  kind: VisualAssetKind;
+  role: string;
+  category?: string;
+  staticPath: string;
+  provider?: string;
+  license?: string;
+  licenseUrl?: string;
+  creator?: string;
+  sourceUrl?: string;
+  aliases?: string[];
+  tags?: string[];
+  width?: number;
+  height?: number;
+  qualityScore?: number;
+};
+
+type VectorManifest = {
+  version?: number;
+  license?: VisualAssetLicense;
+  assets?: VectorManifestAsset[];
 };
 
 type AnimalSubject = string;
@@ -76,7 +102,9 @@ export class VisualAssetService {
     'manifest.json',
   );
   private readonly generatedAssetDir = path.join(this.publicDir, '.generated', 'assets');
+  private readonly vectorManifestPath = path.join(this.publicDir, 'assets', 'vector', 'manifest.json');
   private localManifestCache: LocalManifest | null | undefined;
+  private vectorManifestCache: VectorManifest | null | undefined;
 
   async resolveSceneVisualAssets(
     scene: ResolveSceneInput,
@@ -88,7 +116,9 @@ export class VisualAssetService {
     const mainCharacter = assets.find((asset) => asset.kind === 'character');
     const background = assets.find((asset) => asset.kind === 'background');
     const overlays = assets.filter((asset) => asset.kind === 'overlay');
-    const requiresCharacter = requests.some((request) => request.kind === 'character');
+    const requiresCharacter = requests.some(
+      (request) => request.kind === 'character' && request.role !== 'vector-subject',
+    );
     const primary = mainCharacter || (!requiresCharacter ? background : undefined) || overlays[0];
     const provider = primary?.provider || 'svgFallback';
     const resolvedQualityScore = Math.max(
@@ -130,7 +160,21 @@ export class VisualAssetService {
         kind: 'character',
         role,
         query: this.queryForRole(role),
+        searchText: source,
         tags: [animal, role, action, 'animal'],
+        minWidth: 256,
+        minHeight: 200,
+      });
+    } else {
+      // 非动物主题（水果、器物、交通工具、植物…）也从矢量库取一个具体主体，
+      // 让画面讲的是「那个东西」而不是几何图形；抽象主题匹配不到时会返回 null，
+      // 仍然回落到代码绘制的示意图，因此不会把「水循环」硬贴成一张表情图。
+      requests.push({
+        kind: 'character',
+        role: 'vector-subject',
+        query: source,
+        searchText: source,
+        tags: [scene.assetKey || 'topic', ...(scene.assetTags || [])],
         minWidth: 256,
         minHeight: 200,
       });
@@ -168,12 +212,28 @@ export class VisualAssetService {
   }
 
   private async resolveAsset(request: AssetRequest): Promise<VisualAsset | null> {
+    // 主体优先走统一矢量库：同一套作者、同一套配色，跨场景形象天然一致。
+    // 背景仍走带版式的本地场景图，网络素材只作为最后的补充。
+    if (request.kind === 'character') {
+      const vector = await this.resolveVectorAsset(request);
+      if (vector) return vector;
+      // 非动物主题是「先在矢量库里找具体主体」，找不到就交给代码示意图。
+      // 这里不再去 Openverse/Wikimedia 拿实拍照片：一次中文长句检索既不可控，
+      // 也会让每个抽象场景白等两次网络超时。
+      if (request.role === 'vector-subject') return null;
+    }
+
     const local = await this.findLocalAsset(request);
     if (local) {
       this.logger.log(
         `[resolveAsset] role="${request.role}" resolved via local: ${local.staticPath}`,
       );
       return local;
+    }
+
+    if (request.kind !== 'character') {
+      const vector = await this.resolveVectorAsset(request);
+      if (vector) return vector;
     }
 
     this.logger.debug(`[resolveAsset] role="${request.role}" not found locally, trying Openverse`);
@@ -251,8 +311,84 @@ export class VisualAssetService {
     };
   }
 
-  private async loadLocalManifest(): Promise<LocalManifest | null> {
-    if (this.localManifestCache !== undefined) return this.localManifestCache;
+  /**
+   * 在本地矢量库里按语义找主体。
+   *
+   * 只接受长度 >= 2 的别名，避免「一」「心」这类单字在任意句子里误命中；
+   * 打分用别名长度加权，长别名更具体，因此「大老虎」会赢过「老虎」。
+   * 匹配不到返回 null，由调用方决定回落策略，不做「最相近」的强行兜底。
+   */
+  private async resolveVectorAsset(request: AssetRequest): Promise<VisualAsset | null> {
+    const manifest = await this.loadVectorManifest();
+    const assets = (manifest?.assets || []).filter((asset) => asset.kind === request.kind);
+    if (assets.length === 0) return null;
+
+    const haystack = [request.searchText || '', request.query, ...request.tags]
+      .join(' ')
+      .toLowerCase();
+    if (!haystack.trim()) return null;
+
+    let best: VectorManifestAsset | null = null;
+    let bestScore = 0;
+    let bestAlias = '';
+
+    for (const asset of assets) {
+      const aliases = asset.aliases || asset.tags || [];
+      let score = 0;
+      let hitAlias = '';
+      for (const alias of aliases) {
+        const needle = String(alias).toLowerCase().trim();
+        if (needle.length < 2) continue;
+        if (!haystack.includes(needle)) continue;
+        const weighted = needle.length;
+        if (weighted > score) {
+          score = weighted;
+          hitAlias = needle;
+        }
+      }
+      if (score > bestScore) {
+        best = asset;
+        bestScore = score;
+        bestAlias = hitAlias;
+      }
+    }
+
+    if (!best) return null;
+
+    this.logger.log(
+      `[resolveVectorAsset] role="${request.role}" matched "${best.role}" via alias "${bestAlias}" (${best.staticPath})`,
+    );
+
+    return {
+      id: best.id,
+      kind: best.kind,
+      role: best.role,
+      staticPath: best.staticPath,
+      provider: 'vector',
+      license: best.license || manifest?.license?.license || 'mit',
+      licenseUrl: best.licenseUrl || manifest?.license?.licenseUrl,
+      creator: best.creator || manifest?.license?.creator,
+      sourceUrl: best.sourceUrl || manifest?.license?.sourceUrl,
+      width: best.width || 1024,
+      height: best.height || 1024,
+      qualityScore: best.qualityScore || 90,
+    };
+  }
+
+  private async loadVectorManifest(): Promise<VectorManifest | null> {
+    if (this.vectorManifestCache !== undefined) return this.vectorManifestCache;
+    try {
+      const raw = await fs.readFile(this.vectorManifestPath, 'utf-8');
+      const parsed = JSON.parse(raw) as VectorManifest;
+      this.vectorManifestCache = parsed;
+      return parsed;
+    } catch {
+      this.vectorManifestCache = null;
+      return null;
+    }
+  }
+
+  private async loadLocalManifest(): Promise<LocalManifest | null> {    if (this.localManifestCache !== undefined) return this.localManifestCache;
     try {
       const raw = await fs.readFile(this.localManifestPath, 'utf-8');
       const parsed = JSON.parse(raw) as LocalManifest;

@@ -56,7 +56,8 @@ const mustHave = [
   'const splitNarration',
   'spring({ frame, fps',
   'stageScale * breath * 1.4',
-  'const usesAgentTsx',
+  'assetProvider === "vector"',
+  'built-in template is authoritative',
 ];
 const missing = mustHave.filter((token) => !template.includes(token) && !source.includes(token));
 console.log('missing_tokens=' + (missing.length ? missing.join(',') : 'none'));

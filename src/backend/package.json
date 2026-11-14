@@ -7,6 +7,8 @@
   "license": "MIT",
   "scripts": {
     "build": "nest build",
+    "assets:vector": "node scripts/fetch-vector-assets.js",
+    "check:lesson-template": "node scripts/check-generated-lesson-tsx.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

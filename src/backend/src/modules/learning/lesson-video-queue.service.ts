@@ -877,55 +877,32 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       await this.remotionRender.renderGeneratedComposition(task, manifest, outputPath, onProgress);
     } catch (error: any) {
       const failureKind = this.classifyRemotionFailure(error);
-      const canRepair = failureKind === 'generated-code' && agentFiles.has('GeneratedLesson.tsx');
       this.logger.warn(
-        `[generateByDynamicRemotion] taskId=${task.id} render failed kind=${failureKind}, canRepair=${canRepair}: ${error?.message || 'unknown'}`,
+        `[generateByDynamicRemotion] taskId=${task.id} render failed kind=${failureKind}: ${error?.message || 'unknown'}`,
       );
 
-      if (!canRepair) {
+      // 内置模板是唯一渲染路径，画面代码不由 LLM 产出，因此「让 AI 重写 TSX」
+      // 既不会改变产物、又会多花一轮模型调用。这里改为用同一模板重建一次清单
+      // 再渲染，用来吸收 bundle/缓存类的偶发失败。
+      const canRetry = failureKind !== 'environment';
+      if (!canRetry) {
         throw error;
       }
 
-      try {
-        this.logger.log(
-          `[generateByDynamicRemotion] taskId=${task.id} requesting AI repair for generated Remotion files`,
-        );
-        manifest = await this.videoGenerationAgent.repairGeneratedRemotionComposition(
-          storyboard,
-          payload,
-          agentFiles,
-          error?.message || String(error),
-        );
-        await this.remotionRender.renderGeneratedComposition(
-          task,
-          manifest,
-          outputPath,
-          onProgress,
-        );
-        this.logger.log(`[generateByDynamicRemotion] taskId=${task.id} AI repair retry succeeded`);
-      } catch (repairError: any) {
-        this.logger.warn(
-          `[generateByDynamicRemotion] taskId=${task.id} AI repair retry failed: original=${error?.message || 'unknown'} repair=${repairError?.message || 'unknown'}`,
-        );
-        // Fall back to built-in template instead of throwing — the built-in
-        // template is known-good TSX that always compiles.
-        this.logger.log(
-          `[generateByDynamicRemotion] taskId=${task.id} falling back to built-in GeneratedLesson template`,
-        );
-        const fallbackManifest = await this.videoGenerationAgent.generateRemotionComposition(
-          storyboard,
-          payload,
-        );
-        await this.remotionRender.renderGeneratedComposition(
-          task,
-          fallbackManifest,
-          outputPath,
-          onProgress,
-        );
-        this.logger.log(
-          `[generateByDynamicRemotion] taskId=${task.id} built-in template fallback succeeded`,
-        );
-      }
+      this.logger.log(
+        `[generateByDynamicRemotion] taskId=${task.id} retrying with rebuilt manifest`,
+      );
+      const rebuiltManifest = await this.videoGenerationAgent.generateRemotionComposition(
+        storyboard,
+        payload,
+      );
+      await this.remotionRender.renderGeneratedComposition(
+        task,
+        rebuiltManifest,
+        outputPath,
+        onProgress,
+      );
+      this.logger.log(`[generateByDynamicRemotion] taskId=${task.id} rebuild retry succeeded`);
     }
 
     // Render finished — bump progress to 98 to reduce the window where frontend sees 95%

@@ -188,48 +188,35 @@ export class VideoGenerationAgentService {
     };
 
     const agentLessonTsx = agentFiles?.get('GeneratedLesson.tsx');
-    const agentRootTsx = agentFiles?.get('Root.tsx');
-    const agentIndexTs = agentFiles?.get('index.ts');
 
-    // 默认使用内置模板：模板是确定性组件，分层动画、字幕分页、舞台光都由帧驱动，
-    // 同一主题每次产出稳定。agent 现写 TSX 仅作为实验路径保留，需显式开启，
-    // 因为自由生成的画面在跨场景一致性和编译成功率上都不可控。
-    const agentTsxEnabled =
-      String(process.env.REMOTION_USE_AGENT_TSX || '').toLowerCase() === 'true';
-    const usesAgentTsx = agentTsxEnabled && !!agentLessonTsx;
-
-    if (agentLessonTsx && !usesAgentTsx) {
+    // 只走内置模板。模板是确定性组件：分层动画、字幕分页、舞台光都由帧驱动，
+    // 同一主题每次产出稳定；画面风格由矢量素材库保证一致。
+    // agent 现写 TSX 的路径已移除——两条并行代码路径会让校验、素材注入、
+    // 版式修复都只能覆盖其中一条（此前 science 场景落到 emoji 兜底分支就是这么漏掉的）。
+    if (agentLessonTsx) {
       this.logger.log(
-        `[generateRemotionComposition] ignoring agent-generated TSX (${agentLessonTsx.length} chars), using built-in layered template`,
-      );
-    } else if (usesAgentTsx) {
-      this.logger.log(
-        `[generateRemotionComposition] using agent-generated TSX (${agentLessonTsx.length} chars)`,
+        `[generateRemotionComposition] discarding agent-generated TSX (${agentLessonTsx.length} chars), built-in template is authoritative`,
       );
     }
 
     const files: DynamicRemotionFile[] = [
       {
         path: 'index.ts',
-        content:
-          (usesAgentTsx ? agentIndexTs : null) ||
-          [
-            'import { registerRoot } from "remotion";',
-            'import { RemotionRoot } from "./Root";',
-            '',
-            'registerRoot(RemotionRoot);',
-            '',
-          ].join('\n'),
+        content: [
+          'import { registerRoot } from "remotion";',
+          'import { RemotionRoot } from "./Root";',
+          '',
+          'registerRoot(RemotionRoot);',
+          '',
+        ].join('\n'),
       },
       {
         path: 'Root.tsx',
-        content:
-          (usesAgentTsx ? agentRootTsx : null) ||
-          this.buildGeneratedRootTsx(compositionId, durationFrames),
+        content: this.buildGeneratedRootTsx(compositionId, durationFrames),
       },
       {
         path: 'GeneratedLesson.tsx',
-        content: (usesAgentTsx ? agentLessonTsx : null) || this.buildGeneratedLessonTsx(),
+        content: this.buildGeneratedLessonTsx(),
       },
     ];
 
@@ -254,7 +241,7 @@ export class VideoGenerationAgentService {
       sceneAssetSummary,
     };
 
-    this.validateGeneratedManifest(manifest, storyboard, usesAgentTsx);
+    this.validateGeneratedManifest(manifest, storyboard);
     this.logger.log(
       `[generateRemotionComposition] dynamic Remotion manifest ready: compositionId=${compositionId}, scenes=${scenes.length}, durationFrames=${durationFrames}, remotionSkillGuidance=${this.hasRemotionSkillGuidance() ? 'enabled' : 'missing'}, visuals=${sceneAssetSummary
         .map(
@@ -266,63 +253,6 @@ export class VideoGenerationAgentService {
     return manifest;
   }
 
-  async repairGeneratedRemotionComposition(
-    storyboard: VideoStoryboard,
-    payload: Record<string, any> = {},
-    currentFiles: Map<string, string>,
-    renderError: string,
-  ): Promise<DynamicRemotionManifest> {
-    const topic = this.toText(storyboard.topic || payload?.topic, 'lesson');
-    this.logger.log(
-      `[repairGeneratedRemotionComposition] repairing generated Remotion files for topic="${topic}"`,
-    );
-
-    const context = this.buildAgentContext(
-      Number(payload?.contentId || 0),
-      payload?.childId,
-      payload?.ageGroup,
-    );
-    const definition = videoGeneratorDefinition;
-    const toolDefs = this.getFilteredToolDefinitions(definition);
-    const messages: LlmMessage[] = [
-      {
-        role: 'user',
-        content: this.buildRepairUserMessage(storyboard, payload, currentFiles, renderError),
-      },
-    ];
-    const toolCalls: AgentVideoResult['toolCalls'] = [];
-
-    await this.executorService.runLoop(
-      this.buildSystemPrompt(definition, context),
-      messages,
-      toolDefs,
-      Math.min(definition.maxIterations, 6),
-      context,
-      (event) => {
-        toolCalls.push({
-          tool: event.toolName,
-          args: event.args,
-          result: event.result,
-        });
-        this.logger.log(
-          `[repairGeneratedRemotionComposition] Tool call: ${event.toolName} -> ${event.result}`,
-        );
-      },
-      16384,
-    );
-
-    const repairedFiles = this.extractAgentFiles(toolCalls);
-    if (!repairedFiles.has('GeneratedLesson.tsx')) {
-      throw new Error('DYNAMIC_REMOTION_REPAIR_MISSING_GENERATED_LESSON');
-    }
-
-    const mergedFiles = new Map(currentFiles);
-    for (const [name, content] of repairedFiles.entries()) {
-      mergedFiles.set(name, content);
-    }
-
-    return this.generateRemotionComposition(storyboard, payload, mergedFiles);
-  }
 
   /**
    * Step 1 only: Generate storyboard via LLM tool without running the full agent loop.
@@ -527,65 +457,19 @@ export class VideoGenerationAgentService {
 
     parts.push(
       '',
-      '请严格按以下步骤执行（必须全部完成后才能停止）：',
-      '1. 调用 loadSkill("remotion-video-creation") 获取 Remotion 技能指导',
-      '2. 调用 generateVideoContent 生成分镜脚本',
-      '3. 根据分镜和技能指导，通过 writeFile("GeneratedLesson.tsx", ...) 生成自定义 React 组件（内容通过内存传递，不写入磁盘源码目录）',
-      '4. 调用 reviewVideoQuality 检查质量',
-      '5. 如果质量不达标（score < 70），修改 TSX 后重试',
-      '6. 只有当 writeFile 和 reviewVideoQuality 都完成后才能结束',
-      '',
-      '⚠️ 你必须调用 writeFile 生成 GeneratedLesson.tsx。不生成 TSX 组件就停止是不允许的。',
-      '',
-      '⚠️ 音频要求（关键）：每个 scene 的 props 中包含 audioSrc 字段（TTS 音频路径）。',
-      '你必须在每个 <Sequence> 中添加 <Audio> 组件来播放旁白音频。',
-      '导入方式：import { Audio } from "@remotion/media";',
-      '使用方式：{scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}',
-      '',
-      '⚠️ SVG 语法：path d 属性中所有 JS 表达式必须在 ${} 内，禁止出现裸运算如 340 + headBob。',
-      '⚠️ Hooks 规范：useCurrentFrame() 必须在组件顶部调用存为变量，禁止在 JSX 属性中直接调用。',
-      '⚠️ 图片素材：如果 scene.visualAssets.characterAssetSrc 存在，优先用 <Img> 显示，不要手绘 SVG。',
+      '请按以下步骤执行：',
+      '1. 调用 generateVideoContent 生成分镜脚本（场景、旁白、屏幕文字、画面主体）',
+      '2. 调用 reviewVideoQuality 检查分镜质量',
+      '3. 质量分低于 70 时，修改分镜文字后重新生成；不需要写任何代码',
+
+      // 画面由内置模板 + 本地矢量素材库确定性渲染，模型只负责文字与结构。
+      '画面由系统渲染，你不需要编写 React/TSX/SVG 代码，也没有相应工具。',
+
+      '⚠️ 旁白里必须出现具体主体名词（老虎、苹果、小汽车、月亮……），素材库靠名词检索主体；',
+      '只写「小动物」「这个东西」会导致检索落空，画面退回几何示意图。',
     );
 
     return parts.join('\n');
-  }
-
-  private buildRepairUserMessage(
-    storyboard: VideoStoryboard,
-    payload: Record<string, any>,
-    currentFiles: Map<string, string>,
-    renderError: string,
-  ): string {
-    const files = Array.from(currentFiles.entries())
-      .map(
-        ([name, content]) =>
-          `## ${name}\n\`\`\`tsx\n${this.truncateForPrompt(content, 12000)}\n\`\`\``,
-      )
-      .join('\n\n');
-
-    return [
-      'Repair the generated Remotion lesson component. The previous render failed.',
-      '',
-      'Rules:',
-      '- Do not change the lesson topic, storyboard, narration, or educational intent.',
-      '- Fix only generated React/Remotion code problems.',
-      '- Call loadSkill("remotion-video-creation") before writing code.',
-      '- Call writeFile("GeneratedLesson.tsx", ...) with the full repaired file content.',
-      '- If Root.tsx or index.ts must change, also write the complete replacement file.',
-      '- Do not use fs, child_process, network APIs, eval, CSS animations, or external URLs.',
-      '',
-      `Topic: ${this.toText(storyboard.topic || payload?.topic, 'lesson')}`,
-      `Age group: ${this.toText(payload?.ageGroup, '5-6')}`,
-      '',
-      'Render error:',
-      this.truncateForPrompt(renderError, 4000),
-      '',
-      'Storyboard JSON:',
-      this.truncateForPrompt(JSON.stringify(storyboard, null, 2), 6000),
-      '',
-      'Current generated files:',
-      files || '(none)',
-    ].join('\n');
   }
 
   private truncateForPrompt(value: string, maxChars: number): string {
@@ -1109,23 +993,87 @@ const MonkeySvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 
 const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   const domain = scene.domain || "science";
   const text = scene.onScreenText || scene.title;
   const bob = interpolate(Math.sin(frame / 14), [-1, 1], [-6, 6]);
   const scale = interpolate(Math.sin(frame / 18), [-1, 1], [0.96, 1.04]);
 
   if (domain === "math") {
-    const count = Math.min(10, Math.max(1, Math.floor((frame % 180) / 18)));
+    // 数数场景必须有「可以数的东西」。之前把整句标题当成大字号文本渲染，
+    // 屏幕上只有一行字，孩子无从数起；这里改成逐个弹入的实物圆点 + 同步计数。
+    const words: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+    const source = String(scene.onScreenText || "") + " " + String(scene.narration || "");
+    let count = 0;
+    const numHit = source.match(/[0-9]+/);
+    if (numHit) count = Math.min(10, Number(numHit[0]) || 0);
+    if (!count) {
+      // 只认「N 个/只/颗…」这种量词结构，且 N >= 2；否则「一个一个数」会被当成 1 个
+      const cnHit = source.match(/([一二两三四五六七八九十])\s*[个只颗朵条本张]/);
+      if (cnHit) count = words[cnHit[1]] || 0;
+    }
+    if (count < 2) count = 5;
+
+    const cols = count <= 5 ? count : Math.ceil(count / 2);
+    const dot = 96;
+    const shown = Math.min(count, Math.floor(frame / 7) + 1);
+
     return (
-      <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
-        {Array.from({ length: count }).map((_, i) => {
-          const angle = (i / Math.max(count, 1)) * Math.PI * 2;
-          const r = 80 + interpolate(Math.sin(frame / 10 + i), [-1, 1], [-5, 5]);
-          return <circle key={i} cx={240 + Math.cos(angle) * r} cy={140 + Math.sin(angle) * r} r="18" fill={scene.accentColor} opacity={0.5 + (i % 3) * 0.15} />;
-        })}
-        <text x="240" y="148" textAnchor="middle" fontSize="72" fontWeight="900" fill={scene.accentColor}>{text}</text>
-        <text x="240" y="260" textAnchor="middle" fontSize="28" fontWeight="700" fill="rgba(0,0,0,0.5)">{"= " + count}</text>
-      </svg>
+      <div style={{ position: "relative", width: 760, height: 430 }}>
+        <div style={{ position: "absolute", left: 0, right: 0, top: 30, display: "flex", justifyContent: "center" }}>
+          <div
+            style={{
+              borderRadius: 40,
+              background: "rgba(255, 255, 255, 0.93)",
+              padding: "30px 38px 18px",
+              boxShadow: "0 20px 48px rgba(16, 42, 24, 0.18)",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(" + cols + ", " + dot + "px)",
+                gap: 20,
+                justifyContent: "center",
+              }}
+            >
+              {Array.from({ length: count }).map((_, i) => {
+                const appear = spring({
+                  frame: frame - i * 7,
+                  fps,
+                  config: { damping: 12, stiffness: 140 },
+                });
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      width: dot,
+                      height: dot,
+                      borderRadius: "50%",
+                      background: scene.accentColor,
+                      opacity: appear,
+                      transform: "scale(" + appear + ")",
+                      boxShadow: "0 10px 16px rgba(16, 42, 24, 0.2)",
+                    }}
+                  />
+                );
+              })}
+            </div>
+            <div
+              style={{
+                marginTop: 18,
+                textAlign: "center",
+                fontSize: 44,
+                fontWeight: 900,
+                color: scene.accentColor,
+                letterSpacing: 2,
+              }}
+            >
+              {shown + " 个"}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1192,31 +1140,29 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const bob = interpolate(Math.sin(frame / (scene.action === "run" ? 5 : 14)), [-1, 1], [-8, 8]);
   const roarScale = scene.action === "roar" ? interpolate(Math.sin(frame / 6), [-1, 1], [1.0, 1.045]) : 1;
   if (scene.visualAssets?.characterAssetSrc) {
+    const isVector = scene.visualAssets.assetProvider === "vector";
+    const boxW = isVector ? 620 : 660;
+    const boxH = isVector ? 470 : 420;
+    const imgW = isVector ? 460 : 640;
+    const imgH = isVector ? 470 : 400;
     return (
-      <div style={{ position: "relative", width: 560, height: 370 }}>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: 36,
-            background: "rgba(255, 255, 255, 0.16)",
-            filter: "blur(0.2px)",
-          }}
-        />
+      <div style={{ position: "relative", width: boxW, height: boxH }}>
         <Img
           src={staticFile(scene.visualAssets.characterAssetSrc)}
           style={{
             position: "absolute",
-            left: 14 + drift,
-            top: scene.action === "swim" ? 42 + bob : 6 + bob,
-            width: 530,
-            height: 330,
+            left: (boxW - imgW) / 2 + drift,
+            bottom: scene.action === "swim" ? 26 + bob : bob,
+            width: imgW,
+            height: imgH,
             objectFit: "contain",
             transform: "scale(" + roarScale + ")",
-            filter: "drop-shadow(0 22px 24px rgba(23, 50, 20, 0.28))",
+            filter: isVector
+              ? "drop-shadow(0 26px 32px rgba(18, 52, 22, 0.28))"
+              : "drop-shadow(0 22px 24px rgba(23, 50, 20, 0.28))",
           }}
         />
-        {scene.visualAssets.overlayAssetSrc?.map((src, index) => (
+        {!isVector && scene.visualAssets.overlayAssetSrc?.map((src, index) => (
           <Img
             key={src + index}
             src={staticFile(src)}
@@ -1461,7 +1407,6 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private validateGeneratedManifest(
     manifest: DynamicRemotionManifest,
     storyboard: VideoStoryboard,
-    usesAgentTsx = false,
   ): void {
     if (!/^[A-Za-z][A-Za-z0-9-]{0,80}$/.test(manifest.compositionId)) {
       throw new Error('DYNAMIC_REMOTION_INVALID_COMPOSITION_ID');
@@ -1477,28 +1422,6 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       throw new Error('DYNAMIC_REMOTION_FORBIDDEN_CODE');
     }
 
-    // SVG template literal sanity check for agent-generated TSX
-    if (usesAgentTsx) {
-      const lessonFile = manifest.files.find((file) => file.path === 'GeneratedLesson.tsx');
-      if (lessonFile) {
-        const tsxContent = lessonFile.content;
-        const hasBareArithmeticInD =
-          /d=\{`[^}]*\b\d+\s*[+\-]\s*[a-zA-Z_]\w*\b/.test(tsxContent) && !tsxContent.includes('${');
-        const hasMissingAudioImport =
-          !tsxContent.includes('@remotion/media') && tsxContent.includes('audioSrc');
-        if (hasBareArithmeticInD) {
-          this.logger.warn(
-            '[validateGeneratedManifest] detected bare arithmetic in SVG d attribute — video may render incorrectly',
-          );
-        }
-        if (hasMissingAudioImport) {
-          this.logger.warn(
-            '[validateGeneratedManifest] audioSrc referenced but @remotion/media not imported — video will have no sound',
-          );
-        }
-      }
-    }
-
     const source = `${storyboard.topic || ''} ${storyboard.title || ''} ${JSON.stringify(
       storyboard.scenes || [],
     )}`;
@@ -1511,10 +1434,7 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
       throw new Error(`DYNAMIC_REMOTION_MISSING_VISUAL_TERMS:${missing.join(',')}`);
     }
 
-    // When the agent generated custom TSX, it handles its own visuals — skip the
-    // character-asset check that applies only to the hardcoded template fallback.
-    if (usesAgentTsx) return;
-
+    // 模板是唯一渲染路径，因此角色素材检查对每个场景都成立，不再有豁免分支。
     const inlineSvgKeys = getInlineSvgAssetKeys();
     const animalScenes = ((manifest.props as any)?.scenes || []).filter(
       (scene: any) => String(scene?.assetKey || '') !== 'topic',

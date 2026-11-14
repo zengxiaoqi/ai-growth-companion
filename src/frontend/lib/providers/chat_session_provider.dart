@@ -308,6 +308,12 @@ class ChatSessionProvider extends ChangeNotifier {
   /// 是否正在加载消息
   bool _isLoadingMessages = false;
 
+  /// 是否正在重答（重答期间动作条按钮需禁用，避免并发回退同一轮）
+  bool _isRegenerating = false;
+
+  /// 当前正在流式填充的 AI 消息在 [_localMessages] 中的位置
+  int _assistantSlot = -1;
+
   /// 本地缓存的消息（供 UI 快速渲染）
   final List<ChatMessageEntry> _localMessages = [];
 
@@ -334,6 +340,7 @@ class ChatSessionProvider extends ChangeNotifier {
   bool get loadingSessions => _loadingSessions;
   bool get hasMoreSessions => _hasMoreSessions;
   bool get isLoadingMessages => _isLoadingMessages;
+  bool get isRegenerating => _isRegenerating;
   List<ChatMessageEntry> get localMessages => _localMessages;
   int? get childId => _childId;
   bool get isParentMode => _isParentMode;
@@ -632,15 +639,72 @@ class ChatSessionProvider extends ChangeNotifier {
     debugPrint('🔍 [ChatProvider] user message added, localMessages=${_localMessages.length}');
 
     // 添加一个空的 AI 消息，用于流式更新
-    final aiMsg = ChatMessageEntry(
+    _localMessages.add(ChatMessageEntry(
+      role: 'assistant',
+      content: '',
+      displayText: '',
+      isStreaming: true,
+    ));
+    _assistantSlot = _localMessages.length - 1;
+    notifyListeners();
+    debugPrint('🔍 [ChatProvider] AI placeholder added, localMessages=${_localMessages.length}');
+
+    return _streamAssistantTurn(trimmed, regenerate: false);
+  }
+
+  /// 重答：把最后一条 AI 回复原地换成新的流式占位，重新回答同一个问题。
+  ///
+  /// 不新增用户气泡——原问题还在列表里，多一条同样的气泡只会让人以为问了两遍。
+  /// 后端收到 `regenerate` 后会先把这一轮（问题 + 回答 + 工具消息）回退再重跑，
+  /// 所以历史里始终只留一份提问。
+  Future<int> regenerateLast() async {
+    if (_isRegenerating) return -1;
+
+    final slot = _lastAnswerIndex();
+    if (slot < 0) return -1;
+    final question = _questionBefore(slot);
+    if (question == null || question.trim().isEmpty) return -1;
+
+    _isRegenerating = true;
+    _assistantSlot = slot;
+    _localMessages[slot] = ChatMessageEntry(
       role: 'assistant',
       content: '',
       displayText: '',
       isStreaming: true,
     );
-    _localMessages.add(aiMsg);
     notifyListeners();
-    debugPrint('🔍 [ChatProvider] AI placeholder added, localMessages=${_localMessages.length}');
+    debugPrint('🔍 [ChatProvider] regenerate turn, slot=$slot');
+
+    try {
+      return await _streamAssistantTurn(question.trim(), regenerate: true);
+    } finally {
+      _isRegenerating = false;
+      notifyListeners();
+    }
+  }
+
+  /// 最后一条 AI 回复的索引；流式中或没有 AI 消息时返回 -1。
+  int _lastAnswerIndex() {
+    for (var i = _localMessages.length - 1; i >= 0; i--) {
+      final m = _localMessages[i];
+      if (m.role != 'assistant') continue;
+      return m.isStreaming ? -1 : i;
+    }
+    return -1;
+  }
+
+  /// [slot] 之前最近的一条用户消息内容。
+  String? _questionBefore(int slot) {
+    for (var i = slot - 1; i >= 0; i--) {
+      if (_localMessages[i].role == 'user') return _localMessages[i].content;
+    }
+    return null;
+  }
+
+  /// 流式请求 + 事件消费。调用前必须已把占位消息放进 [_assistantSlot]。
+  Future<int> _streamAssistantTurn(String trimmed, {required bool regenerate}) async {
+    final aiMsg = _localMessages[_assistantSlot];
 
     // 等待 UI 渲染（paint）用户消息后再开始网络请求
     // 使用 addPostFrameCallback 确保帧不仅被构建(build)还被绘制(paint)到屏幕
@@ -662,6 +726,7 @@ class ChatSessionProvider extends ChangeNotifier {
         bookId: _bookId,
         bookTitle: _bookTitle,
         mode: _chatMode.isEnglish ? ChatMode.english.wire : null,
+        regenerate: regenerate,
       );
 
       String fullReply = '';
@@ -857,7 +922,7 @@ class ChatSessionProvider extends ChangeNotifier {
             }
           }
           notifyListeners();
-          return _localMessages.length - 1;
+          return _assistantSlot;
         }
       }
       } finally {
@@ -885,7 +950,7 @@ class ChatSessionProvider extends ChangeNotifier {
         drafts: List.from(pendingDrafts),
         musicTracks: List.from(pendingMusicTracks),
       );
-      _localMessages[_localMessages.length - 1] = finalizedMsg;
+      _localMessages[_assistantSlot] = finalizedMsg;
 
       // 更新会话信息
       if (newSessionId != null && newSessionId.isNotEmpty) {
@@ -913,7 +978,7 @@ class ChatSessionProvider extends ChangeNotifier {
       }
 
       notifyListeners();
-      return _localMessages.length - 1;
+      return _assistantSlot;
     } catch (e) {
       // 回退到非流式
       try {
@@ -965,7 +1030,7 @@ class ChatSessionProvider extends ChangeNotifier {
               thinkingContent: _stripThinkingFromText(reply),
               isThinkingExpanded: false,
             );
-            _localMessages[_localMessages.length - 1] = finalizedMsg;
+            _localMessages[_assistantSlot] = finalizedMsg;
             final sessionId = response?['sessionId'] as String?;
             if (sessionId != null && targetSession == null) {
               _activeSession = ChatSessionSummary(
@@ -977,7 +1042,7 @@ class ChatSessionProvider extends ChangeNotifier {
               _sessions.insert(0, _activeSession!);
             }
             notifyListeners();
-            return _localMessages.length - 1;
+            return _assistantSlot;
           }
         }
 
@@ -993,7 +1058,7 @@ class ChatSessionProvider extends ChangeNotifier {
           gameDatas: List.from(pendingGameDatas),
           musicTracks: _parseMusicTracks(response?['musicData']),
         );
-        _localMessages[_localMessages.length - 1] = finalizedMsg;
+        _localMessages[_assistantSlot] = finalizedMsg;
 
         final sessionId = response?['sessionId'] as String?;
         if (sessionId != null && targetSession == null) {
@@ -1007,15 +1072,15 @@ class ChatSessionProvider extends ChangeNotifier {
         }
 
         notifyListeners();
-        return _localMessages.length - 1;
+        return _assistantSlot;
       } catch (e2) {
-        _localMessages[_localMessages.length - 1] = ChatMessageEntry(
+        _localMessages[_assistantSlot] = ChatMessageEntry(
           role: 'assistant',
           content: '哎呀，网络不太好，再试一次吧 🌐',
           isStreaming: false,
         );
         notifyListeners();
-        return _localMessages.length - 1;
+        return _assistantSlot;
       }
     }
   }
@@ -1034,6 +1099,7 @@ class ChatSessionProvider extends ChangeNotifier {
       isStreaming: true,
     );
     _localMessages.add(aiMsg);
+    _assistantSlot = _localMessages.length - 1;
     notifyListeners();
 
     final targetSession = _activeSession;
@@ -1081,7 +1147,7 @@ class ChatSessionProvider extends ChangeNotifier {
       fullReply = '嗯嗯，我在听呢～';
     }
 
-    _localMessages[_localMessages.length - 1] = ChatMessageEntry(
+    _localMessages[_assistantSlot] = ChatMessageEntry(
       role: 'assistant',
       content: fullReply,
       displayText: fullReply,

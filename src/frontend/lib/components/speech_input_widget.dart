@@ -38,12 +38,41 @@ class SpeechInputWidget extends StatefulWidget {
   final double size;
   final SpeechListeningCallback? onListeningChange;
 
+  // ── 外观（对话页输入胶囊里用紧凑样式，其余场景保持旧观感）──
+  /// 常态底色；为空时沿用旧的淡蓝底。
+  final Color? idleBg;
+
+  /// 常态图标色；为空时沿用 secondaryColor。
+  final Color? idleFg;
+
+  /// 常态描边色；为空时沿用 secondaryColor 40%。
+  final Color? idleBorder;
+
+  /// 聆听态底色（实心圆）；为空时沿用旧的橙红渐变。
+  final Color? activeBg;
+
+  /// 聆听态图标色。
+  final Color? activeFg;
+
+  /// 紧凑模式：不渲染声波与「正在听」文字，只留一个圆钮。
+  final bool compact;
+
+  /// 静音判定时长：连续这么久没有新识别结果就自动结束并发送。
+  final Duration silenceTimeout;
+
   const SpeechInputWidget({
     super.key,
     required this.onResult,
     this.localeId = 'zh_CN',
     this.size = 48,
     this.onListeningChange,
+    this.idleBg,
+    this.idleFg,
+    this.idleBorder,
+    this.activeBg,
+    this.activeFg,
+    this.compact = false,
+    this.silenceTimeout = const Duration(seconds: 8),
   });
 
   @override
@@ -281,7 +310,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
   void _resetSilenceTimer() {
     _silenceTimer?.cancel();
-    _silenceTimer = Timer(const Duration(seconds: 8), () {
+    _silenceTimer = Timer(widget.silenceTimeout, () {
       if (_state == SpeechInputState.listening) {
         debugPrint('Silence timeout — auto-stopping');
         _stopListening();
@@ -329,21 +358,22 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
   }
 
   Widget _buildIdleButton() {
+    final bg = widget.idleBg ?? AppTheme.softBlue.withValues(alpha: 0.25);
+    final fg = widget.idleFg ?? AppTheme.secondaryColor;
+    final border = widget.idleBorder ??
+        AppTheme.secondaryColor.withValues(alpha: 0.4);
     return GestureDetector(
       onTap: _onTap,
       child: Container(
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: AppTheme.softBlue.withValues(alpha: 0.25),
+          color: bg,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: AppTheme.secondaryColor.withValues(alpha: 0.4),
-            width: 2,
-          ),
+          border: Border.all(color: border, width: 2),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+              color: fg.withValues(alpha: 0.12),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -351,8 +381,8 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
         ),
         child: Icon(
           Icons.mic_rounded,
-          color: AppTheme.secondaryColor,
-          size: 24,
+          color: fg,
+          size: widget.size * 0.5,
         ),
       ),
     );
@@ -360,53 +390,75 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
 
   Widget _buildListeningButton() {
     final size = widget.size;
+    final activeBg = widget.activeBg ?? AppTheme.warningColor;
+    final activeFg = widget.activeFg ?? Colors.white;
+
+    final circle = GestureDetector(
+      onTap: _onTap,
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: widget.compact ? 1.0 : _pulseScale.value,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: widget.activeBg == null ? null : activeBg,
+                gradient: widget.activeBg != null
+                    ? null
+                    : const LinearGradient(
+                        colors: [
+                          AppTheme.warningColor,
+                          Color(0xFFC26B5A),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                shape: BoxShape.circle,
+                border: widget.idleBorder == null
+                    ? null
+                    : Border.all(color: widget.idleBorder!, width: 2),
+                boxShadow: [
+                  if (widget.compact) ...[
+                    // 低龄档双光环：告诉孩子「正在听」
+                    BoxShadow(
+                      color: activeBg.withValues(alpha: 0.18),
+                      spreadRadius: 8,
+                    ),
+                    BoxShadow(
+                      color: activeBg.withValues(alpha: 0.10),
+                      spreadRadius: 16,
+                    ),
+                  ],
+                  BoxShadow(
+                    color: activeBg.withValues(
+                        alpha: widget.compact ? 0.0 : 0.4 * _pulseOpacity.value),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.mic_rounded,
+                color: activeFg,
+                size: size * 0.5,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (widget.compact) return circle;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildWaveformBars(),
         const SizedBox(height: 4),
-        GestureDetector(
-          onTap: _onTap,
-          child: AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseScale.value,
-                child: Container(
-                  width: size,
-                  height: size,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppTheme.warningColor,
-                        Color(0xFFC26B5A),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.warningColor.withValues(
-                          alpha: 0.4 * _pulseOpacity.value,
-                        ),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.mic_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        circle,
         const SizedBox(height: 4),
         Text(
           (_recognizedText + _interimText).isEmpty
@@ -415,7 +467,7 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: AppTheme.warningColor.withValues(alpha: 0.8),
+            color: activeBg.withValues(alpha: 0.8),
           ),
         ),
       ],
@@ -448,21 +500,22 @@ class _SpeechInputWidgetState extends State<SpeechInputWidget>
   }
 
   Widget _buildProcessingButton() {
+    final accent = widget.activeBg ?? AppTheme.softPurple;
     return Container(
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
-        color: AppTheme.softPurple.withValues(alpha: 0.25),
+        color: accent.withValues(alpha: 0.25),
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppTheme.softPurple.withValues(alpha: 0.5),
+          color: (widget.idleBorder ?? accent).withValues(alpha: 0.5),
           width: 2,
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(10),
+        padding: EdgeInsets.all(widget.size * 0.22),
         child: CircularProgressIndicator(
-          color: AppTheme.softPurple,
+          color: accent,
           strokeWidth: 3,
         ),
       ),

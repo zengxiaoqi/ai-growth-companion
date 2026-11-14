@@ -17,6 +17,7 @@ import '../providers/user_provider.dart';
 import '../providers/chat_session_provider.dart';
 import '../utils/chat_mode.dart';
 import '../components/speech_input_widget.dart';
+import '../components/chat_composer.dart';
 import '../components/dictionary_sheet.dart';
 import 'games/game_renderer.dart';
 import 'voice_call_screen.dart';
@@ -1040,6 +1041,9 @@ class _AIChatScreenState extends State<AIChatScreen>
   /// 低龄档是否已手动展开文字输入（默认只给语音，避免不识字的孩子卡住）。
   bool _forceTextInput = false;
 
+  /// 输入框上方的工具面板是否展开（＋ / 相机钮切换）。
+  bool _toolsOpen = false;
+
   /// 当前年龄密度档；家长端固定中档，不受孩子端换肤影响。
   ChildDensity get _density => widget.isParentMode
       ? childDensityForLevel(1)
@@ -1070,10 +1074,10 @@ class _AIChatScreenState extends State<AIChatScreen>
       final provider = context.read<ChatSessionProvider>();
       final userProvider = context.read<UserProvider>();
 
-      // 设置家长模式
-      if (widget.isParentMode) {
-        provider.setParentMode(true);
-      }
+      // 设置家长模式。ChatSessionProvider 是全局单例（在 bootstrap 中创建，
+      // 位于 LingxiApp 之上），双端切换不会重建它：孩子端必须显式复位 false，
+      // 否则从家长端切回后开场白与 parentId 参数会残留家长模式。
+      provider.setParentMode(widget.isParentMode);
 
       final childId = userProvider.activeChildId;
       if (childId != null) {
@@ -1221,6 +1225,37 @@ class _AIChatScreenState extends State<AIChatScreen>
     });
   }
 
+  /// 重答最后一条回复：原地替换成新回答，不新增用户气泡。
+  ///
+  /// 后端会把这一轮先回退再重跑，所以历史里始终只有一份提问。
+  Future<void> _regenerateLast() async {
+    if (_isLoading) return;
+    final provider = context.read<ChatSessionProvider>();
+    if (provider.isRegenerating) return;
+
+    setState(() => _isLoading = true);
+    _scrollToBottom();
+
+    provider.regenerateLast().then((msgIndex) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (msgIndex < 0) {
+        _showSnack('这条还没法重答，再问一次试试');
+        return;
+      }
+      _scrollToBottom();
+      final messages = context.read<ChatSessionProvider>().localMessages;
+      final msg = msgIndex < messages.length ? messages[msgIndex] : null;
+      if (msg != null && msg.musicTracks.isNotEmpty) {
+        _playMusicTrack(msgIndex, 0, msg.musicTracks.first);
+      } else if (_autoPlay) {
+        _autoSpeakMessage(msgIndex);
+      }
+    }).catchError((e) {
+      if (mounted) setState(() => _isLoading = false);
+    });
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -1319,10 +1354,14 @@ class _AIChatScreenState extends State<AIChatScreen>
   }
 
   /// 选择并上传聊天文件（PDF/图片等），然后以消息形式发送
-  Future<void> _pickChatFile() async {
+  ///
+  /// [imagesOnly] 只允许图片（相册 / 拍照）；[camera] 走系统相机（移动端）。
+  Future<void> _pickChatFile(
+      {bool imagesOnly = false, bool camera = false}) async {
+    setState(() => _toolsOpen = false);
     try {
       // Use platform file picker
-      final result = await _pickFile();
+      final result = await _pickFile(imagesOnly: imagesOnly, camera: camera);
       if (result == null) return;
 
       // Upload to server
@@ -1354,12 +1393,16 @@ class _AIChatScreenState extends State<AIChatScreen>
     }
   }
 
+  static const _kImageAccept = '.png,.jpg,.jpeg,.gif,.webp';
+
   /// Simple file picker abstraction
-  Future<({String path, String name})?> _pickFile() async {
+  Future<({String path, String name})?> _pickFile(
+      {bool imagesOnly = false, bool camera = false}) async {
     try {
       // Dynamic import to avoid hard dependency
       // For Flutter Web, we use a file input element
-      final comp = await _pickFileWeb();
+      final comp =
+          await _pickFileWeb(imagesOnly: imagesOnly, camera: camera);
       return comp;
     } catch (e) {
       debugPrint('_pickFile fallback: $e');
@@ -1368,13 +1411,18 @@ class _AIChatScreenState extends State<AIChatScreen>
   }
 
   /// Web file picker using JS interop
-  Future<({String path, String name})?> _pickFileWeb() async {
+  Future<({String path, String name})?> _pickFileWeb(
+      {bool imagesOnly = false, bool camera = false}) async {
     final completer = Completer<({String path, String name})?>();
     // Use dart:html FileReader on web
     try {
       // Create a hidden file input
       final input = html.FileUploadInputElement()
-        ..accept = '.pdf,.epub,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp';
+        ..accept = imagesOnly
+            ? _kImageAccept
+            : '$_kImageAccept,.pdf,.epub,.docx,.txt';
+      // 拍照：让移动端浏览器直接开相机而不是相册
+      if (camera) input.attributes['capture'] = 'environment';
       input.click();
       input.onChange.listen((_) {
         final files = input.files;
@@ -1405,13 +1453,15 @@ class _AIChatScreenState extends State<AIChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return Scaffold(
+      backgroundColor: palette.paper,
       body: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
-        ),
+        decoration: BoxDecoration(color: palette.paper),
         child: SafeArea(
           child: Column(children: [
+            // 顶栏：会话级动作（新建 / 通话 / 历史）
+            _buildTopBar(palette),
             // 主消息列表
             Expanded(child: _buildMessageList()),
             // 输入区域
@@ -1422,8 +1472,140 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
+  /// 顶栏：头像 + 名字 + 三个会话级按钮。
+  ///
+  /// 这三件事都属于「换一个对话」而不是「往对话里加东西」，
+  /// 所以从输入区上移到顶部，输入区只留真正影响这条消息的动作。
+  Widget _buildTopBar(ChildThemePalette palette) {
+    return Consumer<ChatSessionProvider>(
+      builder: (ctx, provider, _) {
+        final isEnglish = provider.isEnglishMode;
+        final isKid = !widget.isParentMode && _density.level == 0;
+        final sub = widget.isParentMode
+            ? '家长模式'
+            : isEnglish
+                ? '英语陪练 · ${_englishLevelLabel(provider.englishLevel)}'
+                : isKid
+                    ? '陪你说话'
+                    : '成长伙伴 · 在线';
+        final canPop = Navigator.of(context).canPop();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+          child: Row(
+            children: [
+              if (canPop) ...[
+                GestureDetector(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: palette.card,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: palette.edge.withValues(alpha: 0.55),
+                          width: 1.6),
+                    ),
+                    child: Icon(Icons.arrow_back_rounded,
+                        size: 19, color: palette.ink),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              // 头像
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      palette.cta.withValues(alpha: 0.9),
+                      palette.pop,
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: palette.edge.withValues(alpha: 0.9),
+                      width: palette.isCartoon ? 2 : 1.4),
+                ),
+                alignment: Alignment.center,
+                child: const Text('🦄', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(widget.isParentMode ? '小犀 · 家长端' : '小犀',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                            color: palette.ink)),
+                    const SizedBox(height: 1),
+                    Text(sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 10.5,
+                            height: 1.2,
+                            color: palette.ink2.withValues(alpha: 0.85))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _TopIcon(
+                palette: palette,
+                tooltip: '新建会话',
+                filled: true,
+                onTap: () => _newSession(provider),
+                icon: Icons.add_rounded,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 6),
+              _TopIcon(
+                palette: palette,
+                tooltip: '语音通话',
+                onTap: () => _openVoiceCall(englishMode: isEnglish),
+                icon: Icons.call_rounded,
+              ),
+              const SizedBox(width: 6),
+              _TopIcon(
+                palette: palette,
+                tooltip: '历史会话',
+                onTap: _openSessionDrawer,
+                icon: Icons.format_list_bulleted_rounded,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 新建会话：清空当前上下文，回到首轮引导。
+  Future<void> _newSession(ChatSessionProvider provider) async {
+    // 不带 mode 参数，英语模式下也回到普通会话，避免一直锁在英语教练里
+    await provider.createNewSession();
+    if (!mounted) return;
+    setState(() {
+      _toolsOpen = false;
+      _forceTextInput = false;
+    });
+    _scrollToBottomImmediate();
+  }
+
   /// 打开会话抽屉（用 OverlayEntry 替代 Stack，避免 Web 端渲染问题）
   void _openSessionDrawer() {
+    // 每次打开都刷新：进页面时只加载一次，若那次网络抖动失败，
+    // 抽屉会一直显示空状态，没有任何重试入口。
+    context.read<ChatSessionProvider>().loadSessions();
     final overlay = Overlay.of(context);
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -1442,8 +1624,6 @@ class _AIChatScreenState extends State<AIChatScreen>
           // 始终显示 ListView，不因 isLoadingMessages 替换为骨架屏
           // 这样用户消息和已有消息始终可见，加载状态用顶部小指示器表示
           return Column(children: [
-            // 语音通话入口（文字聊天按意图自动路由，不再需要碎碎念开关）
-            _buildVoiceCallEntry(provider),
             // 加载历史消息时显示顶部小进度条
             if (provider.isLoadingMessages)
               const LinearProgressIndicator(
@@ -1463,7 +1643,20 @@ class _AIChatScreenState extends State<AIChatScreen>
                     }
                     final message = messages[index];
                     final isUser = message.role == 'user';
-                    return _buildMessageBubble(message, isUser, index);
+                    // 只有末尾这条 AI 回复能重答：前面几轮早就被后续提问
+                    // 覆盖了，重答它们会和历史打架。开场白没有对应的提问，
+                    // 也就没有可重答的东西。
+                    final hasQuestion =
+                        message.role != 'user' &&
+                        messages.take(index).any((m) => m.role == 'user');
+                    final canRegenerate = !isUser &&
+                        hasQuestion &&
+                        index == messages.length - 1 &&
+                        !message.isStreaming &&
+                        !provider.isRegenerating;
+                    return _buildMessageBubble(message, isUser, index,
+                        canRegenerate: canRegenerate,
+                        regenerating: provider.isRegenerating);
                   },
                 );
               }(),
@@ -1609,97 +1802,15 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
-  /// 顶部入口行：左侧「英语陪练」胶囊 + 右侧语音通话；英语模式下显示水平横幅
-  Widget _buildVoiceCallEntry(ChatSessionProvider provider) {
-    final isEnglish = provider.isEnglishMode;
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: Row(children: [
-          // 英语陪练入口（进入专属会话，文字+语音锁定英语教练）
-          GestureDetector(
-            onTap: () => _enterEnglishPractice(provider),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isEnglish
-                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                    : AppTheme.primaryColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.translate_rounded,
-                    size: 18, color: AppTheme.primaryColor),
-                const SizedBox(width: 4),
-                Text('英语陪练',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.primaryColor)),
-              ]),
-            ),
-          ),
-          const Spacer(),
-          // 豆包式语音通话入口
-          GestureDetector(
-            onTap: () => _openVoiceCall(englishMode: isEnglish),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.call_rounded,
-                  size: 20, color: AppTheme.primaryColor),
-            ),
-          ),
-        ]),
-      ),
-      if (isEnglish) _buildEnglishBanner(provider),
-    ]);
-  }
-
-  /// 英语陪练模式横幅：显示当前水平 + 退出按钮
-  Widget _buildEnglishBanner(ChatSessionProvider provider) {
-    final levelLabel = _englishLevelLabel(provider.englishLevel);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [
-            AppTheme.primaryColor.withValues(alpha: 0.12),
-            AppTheme.primaryColor.withValues(alpha: 0.05),
-          ]),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(children: [
-          const Text('🦄', style: TextStyle(fontSize: 16)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text('英语陪练中 · $levelLabel',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor)),
-          ),
-          GestureDetector(
-            onTap: () => _exitEnglishPractice(provider),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text('退出',
-                  style:
-                      TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-              const SizedBox(width: 2),
-              Icon(Icons.close_rounded,
-                  size: 16, color: AppTheme.textSecondary),
-            ]),
-          ),
-        ]),
-      ),
-    );
+  /// 英语陪练 chip：开 / 关当前模式。
+  /// 开启时新建一个英语会话（后端锁定英语教练），关闭时回到普通会话。
+  Future<void> _toggleEnglishMode(ChatSessionProvider provider) async {
+    if (provider.isEnglishMode) {
+      await _exitEnglishPractice(provider);
+    } else {
+      await _enterEnglishPractice(provider);
+    }
+    if (mounted) setState(() => _toolsOpen = false);
   }
 
   String _englishLevelLabel(String? level) {
@@ -1730,7 +1841,8 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
-  Widget _buildMessageBubble(ChatMessageEntry message, bool isUser, int index) {
+  Widget _buildMessageBubble(ChatMessageEntry message, bool isUser, int index,
+      {bool canRegenerate = false, bool regenerating = false}) {
     final isSpeaking = _speakingMessageIndex == index;
     final quizQuestions = message.quizQuestions;
     final displayText = message.displayText ?? message.content;
@@ -1758,7 +1870,9 @@ class _AIChatScreenState extends State<AIChatScreen>
           isEmpty,
           thinkingContent,
           showThinking,
-          expanded);
+          expanded,
+          canRegenerate,
+          regenerating);
     } catch (e, s) {
       debugPrint('🔥 [UI] EXCEPTION in buildBubble idx=$index: $e');
       debugPrint('🔥 [UI] STACK: $s');
@@ -1791,118 +1905,180 @@ class _AIChatScreenState extends State<AIChatScreen>
       bool isEmpty,
       String? thinkingContent,
       bool showThinking,
-      bool expanded) {
-    debugPrint('🔍 [UI] buildInner START idx=$index');
-
-    // Build children list with debug logging
-    final List<Widget> columnChildren = [];
+      bool expanded,
+      bool canRegenerate,
+      bool regenerating) {
     final palette = ChildThemePalette.of(context);
+
     // 低龄档把正文字号放大、行距放松，减少阅读压力；高龄档略收紧以多容纳信息。
     final bodySize = _density.level == 0
         ? 18.0
         : _density.level == 2
             ? 15.0
-            : 16.0;
-    final bodyHeight = _density.level == 0 ? 1.55 : 1.4;
+            : 15.5;
+    final bodyHeight = _density.level == 0 ? 1.72 : 1.62;
 
-    // ── AI 消息：思考内容区域（可折叠）──
-    if (!isUser && showThinking) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding thinking section');
-      columnChildren.addAll(
-          _buildThinkingSection(thinkingContent, expanded, isStreaming, index));
-    }
+    if (isUser) return _buildUserBubble(displayText, bodySize, bodyHeight);
 
-    // ── 消息主体文本 ──
-    if (!isUser) {
-      debugPrint(
-          '🔍 [UI] buildInner idx=$index: adding AI message body (isEmpty=$isEmpty, isStreaming=$isStreaming)');
-      columnChildren.add(Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
-      ));
-      columnChildren.add(const SizedBox(height: 4));
-      if (isEmpty && isStreaming) {
-        debugPrint('🔍 [UI] buildInner idx=$index: adding typing indicator');
-        columnChildren.add(_buildTypingIndicator());
-      } else {
-        // 使用 SelectionArea + MarkdownBody 渲染 AI 回复，支持文本选中复制
-        columnChildren.add(SelectionArea(
-          child: MarkdownBody(
-            data: displayText,
-            styleSheet: MarkdownStyleSheet(
-              p: TextStyle(
-                  fontSize: bodySize, height: bodyHeight, color: palette.ink),
-              strong: TextStyle(
-                  fontSize: bodySize,
-                  height: bodyHeight,
-                  fontWeight: FontWeight.bold,
-                  color: palette.ink),
-              horizontalRuleDecoration: BoxDecoration(
-                border: Border(
-                    top: BorderSide(
-                        color: palette.ink2.withValues(alpha: 0.2), width: 1)),
+    return _buildAiMessage(
+      message: message,
+      index: index,
+      isSpeaking: isSpeaking,
+      displayText: displayText,
+      isStreaming: isStreaming,
+      isEmpty: isEmpty,
+      thinkingContent: thinkingContent,
+      showThinking: showThinking,
+      expanded: expanded,
+      hasQuiz: hasQuiz,
+      quizQuestions: quizQuestions,
+      hasGame: hasGame,
+      bodySize: bodySize,
+      bodyHeight: bodyHeight,
+      palette: palette,
+      canRegenerate: canRegenerate,
+      regenerating: regenerating,
+    );
+  }
+
+  /// 用户消息：橙色气泡，右下角收 6px 形成指向。
+  Widget _buildUserBubble(String text, double bodySize, double bodyHeight) {
+    final palette = ChildThemePalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16, top: 2),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.76),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
+            decoration: BoxDecoration(
+              color: palette.pop,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(6),
               ),
-              code: TextStyle(
-                  fontSize: bodySize - 2,
-                  fontFamily: 'monospace',
-                  color: palette.pop),
-              codeblockDecoration: BoxDecoration(
-                color: palette.soft,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              blockquoteDecoration: BoxDecoration(
-                color: palette.ink2.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                    color: palette.pop.withValues(alpha: 0.22),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4)),
+              ],
+            ),
+            child: SelectableText(
+              text,
+              style: TextStyle(
+                color: palette.onPrimary,
+                fontSize: bodySize,
+                height: bodyHeight > 1.6 ? 1.5 : bodyHeight,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-        ));
-        if (isStreaming && !isEmpty) {
-          columnChildren.add(const SizedBox(height: 4));
-          columnChildren.add(_buildStreamingDots());
-        }
-      }
+        ),
+      ),
+    );
+  }
+
+  /// AI 消息：不套白卡，正文直接排在纸面上，靠头像与留白区分。
+  Widget _buildAiMessage({
+    required ChatMessageEntry message,
+    required int index,
+    required bool isSpeaking,
+    required String displayText,
+    required bool isStreaming,
+    required bool isEmpty,
+    required String? thinkingContent,
+    required bool showThinking,
+    required bool expanded,
+    required bool hasQuiz,
+    required dynamic quizQuestions,
+    required bool hasGame,
+    required double bodySize,
+    required double bodyHeight,
+    required ChildThemePalette palette,
+    bool canRegenerate = false,
+    bool regenerating = false,
+  }) {
+    final children = <Widget>[];
+    final isKid = !widget.isParentMode && _density.level == 0;
+
+    // 思考过程：压成 28px 胶囊，默认收起。3–4 岁看不到这一层。
+    if (showThinking && !isKid) {
+      children.addAll(_buildThinkingSection(
+          thinkingContent, expanded, isStreaming, index));
+    }
+
+    // 正文
+    if (isEmpty && isStreaming) {
+      children.add(const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: _ThinkingDots(),
+      ));
     } else {
-      // 用户消息使用 SelectableText 支持选中复制
-      columnChildren.add(SelectableText(displayText,
-          style: TextStyle(
-              color: palette.ctaInk, fontSize: bodySize, height: bodyHeight)));
-      columnChildren.add(const SizedBox(width: 4));
+      children.add(SelectionArea(
+        child: MarkdownBody(
+          data: displayText,
+          styleSheet: MarkdownStyleSheet(
+            p: TextStyle(
+                fontSize: bodySize, height: bodyHeight, color: palette.ink),
+            strong: TextStyle(
+                fontSize: bodySize,
+                height: bodyHeight,
+                fontWeight: FontWeight.w700,
+                color: palette.ink),
+            horizontalRuleDecoration: BoxDecoration(
+              border: Border(
+                  top: BorderSide(
+                      color: palette.ink2.withValues(alpha: 0.2), width: 1)),
+            ),
+            code: TextStyle(
+                fontSize: bodySize - 2,
+                fontFamily: 'monospace',
+                color: palette.pop),
+            codeblockDecoration: BoxDecoration(
+              color: palette.soft,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            blockquoteDecoration: BoxDecoration(
+              color: palette.ink2.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ));
+      if (isStreaming) {
+        children.add(const SizedBox(height: 6));
+        children.add(_buildStreamingDots());
+      }
     }
 
     // ── Quiz card ──
-    if (!isUser && hasQuiz) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding quiz card');
-      columnChildren.add(const SizedBox(height: 12));
-      columnChildren.add(_InlineQuizCard(
+    if (hasQuiz) {
+      children.add(const SizedBox(height: 12));
+      children.add(_InlineQuizCard(
         questions: quizQuestions,
         messageIndex: index,
         onAnswered: (qIdx, selected) {},
       ));
     }
 
-    // ── Game cards (支持多个游戏) ──
-    if (!isUser && message.gameDatas.isNotEmpty) {
-      debugPrint(
-          '🔍 [UI] buildInner idx=$index: adding ${message.gameDatas.length} game card(s)');
-      for (var i = 0; i < message.gameDatas.length; i++) {
-        columnChildren.add(const SizedBox(height: 12));
-        columnChildren.add(_InlineGameCard(
-          gameType: message.gameTypes[i],
-          gameData: message.gameDatas[i],
-        ));
-      }
+    // ── 游戏卡：首个完整，其余折叠成一行 mini ──
+    if (hasGame) {
+      children.add(const SizedBox(height: 12));
+      children.add(_InlineGameGroup(
+        types: message.gameTypes,
+        datas: message.gameDatas,
+      ));
     }
 
     // ── AI 点歌卡片 ──
-    if (!isUser && message.musicTracks.isNotEmpty) {
-      columnChildren.add(const SizedBox(height: 12));
-      columnChildren.add(_InlineMusicCard(
+    if (message.musicTracks.isNotEmpty) {
+      children.add(const SizedBox(height: 12));
+      children.add(_InlineMusicCard(
         tracks: message.musicTracks,
         activeTrackIndex: _musicMessageIndex == index ? _musicTrackIndex : -1,
         isPlaying: _musicPlaying,
@@ -1911,11 +2087,9 @@ class _AIChatScreenState extends State<AIChatScreen>
     }
 
     // ── 作业草稿预览卡片（含发布按钮）──
-    if (!isUser && message.drafts.isNotEmpty) {
-      debugPrint(
-          '🔍 [UI] buildInner idx=$index: adding ${message.drafts.length} draft preview card(s)');
-      columnChildren.add(const SizedBox(height: 12));
-      columnChildren.add(_DraftPreviewCard(
+    if (message.drafts.isNotEmpty) {
+      children.add(const SizedBox(height: 12));
+      children.add(_DraftPreviewCard(
         drafts: message.drafts,
         onPublish: () {
           context.read<ChatSessionProvider>().sendMessage('确认发布');
@@ -1923,59 +2097,92 @@ class _AIChatScreenState extends State<AIChatScreen>
       ));
     }
 
-    // ── Speak button ──
-    if (!isUser && !isStreaming) {
-      debugPrint('🔍 [UI] buildInner idx=$index: adding speak button');
-      columnChildren.add(const SizedBox(height: 6));
-      columnChildren.add(Align(
-          alignment: Alignment.centerRight,
-          child: _buildSpeakButton(isSpeaking, index)));
+    // ── 底部动作：低龄档只留一个大喇叭，其余收进家长端 ──
+    if (!isStreaming) {
+      children.add(const SizedBox(height: 8));
+      children.add(isKid
+          ? _KidSpeakButton(
+              palette: palette,
+              isSpeaking: isSpeaking,
+              onTap: () => _speakMessage(index),
+            )
+          : _MessageActionRow(
+              palette: palette,
+              isSpeaking: isSpeaking,
+              onCopy: () {
+                Clipboard.setData(ClipboardData(text: displayText));
+                _showSnack('已复制到剪贴板');
+              },
+              onSpeak: () => _speakMessage(index),
+              onMore: () => _showAiMessageActions(index, displayText),
+              onRegenerate: canRegenerate ? _regenerateLast : null,
+              regenerating: regenerating,
+            ));
     }
 
-    debugPrint(
-        '🔍 [UI] buildInner idx=$index: assembling widget tree (${columnChildren.length} children)');
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Align(
-        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: GestureDetector(
-          onLongPress:
-              isUser ? null : () => _showAiMessageActions(index, displayText),
-          child: Container(
-            constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.85),
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 小犀头像
+          Container(
+            width: 26,
+            height: 26,
+            margin: const EdgeInsets.only(top: 2, right: 9),
             decoration: BoxDecoration(
-              color: isUser
-                  ? AppTheme.primaryColor
-                  : ChildThemePalette.of(context).card,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(AppTheme.buttonRadius),
-                topRight: Radius.circular(AppTheme.buttonRadius),
-                bottomLeft: Radius.circular(isUser ? AppTheme.buttonRadius : 6),
-                bottomRight:
-                    Radius.circular(isUser ? 6 : AppTheme.buttonRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [palette.cta.withValues(alpha: 0.9), palette.pop],
               ),
-              boxShadow: [
-                BoxShadow(
-                    color: (isUser
-                            ? AppTheme.primaryColor
-                            : ChildThemePalette.of(context).ink2)
-                        .withValues(alpha: 0.15),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5)),
-              ],
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: palette.edge.withValues(alpha: 0.85),
+                  width: palette.isCartoon ? 2 : 1.2),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+            alignment: Alignment.center,
+            child: const Text('🦄', style: TextStyle(fontSize: 12)),
+          ),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: columnChildren,
+              children: [
+                if (!isKid) ...[
+                  _buildAiMeta(palette, isStreaming),
+                  const SizedBox(height: 6),
+                ],
+                GestureDetector(
+                  onLongPress: () => _showAiMessageActions(index, displayText),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: children,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  /// 消息头：名字 + 状态。消息模型没有时间戳，状态位比假时间更有信息量。
+  Widget _buildAiMeta(ChildThemePalette palette, bool isStreaming) {
+    return Row(children: [
+      Text('小犀',
+          style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: palette.ink2)),
+      const SizedBox(width: 6),
+      Text(isStreaming ? '正在想…' : '成长伙伴',
+          style: TextStyle(
+              fontSize: 10.5,
+              color: palette.ink2.withValues(alpha: 0.6))),
+    ]);
   }
 
   /// AI 消息长按操作菜单：查词、复制、TTS
@@ -2118,97 +2325,89 @@ class _AIChatScreenState extends State<AIChatScreen>
     });
   }
 
+  /// 思考过程：28px 高的胶囊，默认收起，点开才展开正文。
+  /// 不再占一整块 40px 灰框 —— 孩子关心的是答案，不是思考链路。
   List<Widget> _buildThinkingSection(
       String? thinkingContent, bool expanded, bool isStreaming, int index) {
+    final palette = ChildThemePalette.of(context);
+    final count = (thinkingContent ?? '').replaceAll(RegExp(r'\s+'), '').length;
     return [
       GestureDetector(
         onTap: () => _toggleThinking(index),
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 11),
           decoration: BoxDecoration(
-            color: AppTheme.textSecondary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: AppTheme.textSecondary.withValues(alpha: 0.15)),
+            color: palette.ink2.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(999),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(
-                expanded
-                    ? Icons.keyboard_arrow_down_rounded
-                    : Icons.keyboard_arrow_up_rounded,
-                size: 18,
-                color: AppTheme.textSecondary),
-            const SizedBox(width: 6),
-            Text('💭 思考过程',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary)),
-            const Spacer(),
-            if (!isStreaming) ...[
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 11)),
+              const SizedBox(width: 5),
               Text(
-                  '${(thinkingContent ?? '').replaceAll(RegExp(r'\\s+'), ' ').split('').length} 字',
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary.withValues(alpha: 0.5))),
+                isStreaming ? '思考中…' : '思考过程',
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: palette.ink2),
+              ),
+              if (!isStreaming && count > 0) ...[
+                Text(' · $count 字',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: palette.ink2.withValues(alpha: 0.55))),
+              ],
+              const SizedBox(width: 2),
+              AnimatedRotation(
+                turns: expanded ? 0.5 : 0,
+                duration: const Duration(milliseconds: 160),
+                child: Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 15, color: palette.ink2.withValues(alpha: 0.7)),
+              ),
             ],
-          ]),
+          ),
         ),
       ),
       if (expanded) ...[
         const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            color: AppTheme.textSecondary.withValues(alpha: 0.05),
-            child: MarkdownBody(
-              data: thinkingContent ?? '',
-              styleSheet: Theme.of(context).useMaterial3
-                  ? MarkdownStyleSheet.fromTheme(Theme.of(context))
-                  : MarkdownStyleSheet(
-                      p: TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color:
-                              AppTheme.textSecondary.withValues(alpha: 0.75)),
-                      code: TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: AppTheme.textSecondary),
-                      codeblockDecoration: BoxDecoration(
-                        color: AppTheme.textSecondary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        color: AppTheme.textSecondary.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      blockquote: TextStyle(
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          color:
-                              AppTheme.textSecondary.withValues(alpha: 0.65)),
-                    ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
+          decoration: BoxDecoration(
+            color: palette.ink2.withValues(alpha: 0.045),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: MarkdownBody(
+            data: thinkingContent ?? '',
+            styleSheet: MarkdownStyleSheet(
+              p: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.55,
+                  color: palette.ink2.withValues(alpha: 0.8)),
+              code: TextStyle(
+                  fontSize: 11.5,
+                  fontFamily: 'monospace',
+                  color: palette.ink2),
+              codeblockDecoration: BoxDecoration(
+                color: palette.ink2.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: palette.ink2.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              blockquote: TextStyle(
+                  fontSize: 12.5,
+                  fontStyle: FontStyle.italic,
+                  color: palette.ink2.withValues(alpha: 0.65)),
             ),
           ),
         ),
       ],
-      const SizedBox(height: 8),
+      const SizedBox(height: 10),
     ];
-  }
-
-  /// 三个跳动圆点的打字指示器（临时用静态组件替代_DotAnimation排查）
-  Widget _buildTypingIndicator() {
-    debugPrint('🔍 [UI] _buildTypingIndicator CALLED');
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      _SimpleDot(),
-      const SizedBox(width: 4),
-      _SimpleDot(),
-      const SizedBox(width: 4),
-      _SimpleDot(),
-    ]);
   }
 
   /// 流式输出时文末的小跳动点
@@ -2224,208 +2423,535 @@ class _AIChatScreenState extends State<AIChatScreen>
     );
   }
 
-  Widget _buildSpeakButton(bool isSpeaking, int index) {
-    return GestureDetector(
-      onTap: () => _speakMessage(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: isSpeaking
-              ? AppTheme.primaryColor.withValues(alpha: 0.15)
-              : AppTheme.primaryColor.withValues(alpha: 0.08),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-            isSpeaking ? Icons.volume_up_rounded : Icons.volume_mute_rounded,
-            size: 20,
-            color: isSpeaking ? AppTheme.primaryColor : AppTheme.textSecondary),
-      ),
-    );
-  }
+  // ─── 输入区 ────────────────────────────────────────────────────────
 
   Widget _buildInputArea() {
     final palette = ChildThemePalette.of(context);
     final density = _density;
-    // 低龄档（level 0）：默认只给一个大语音按钮，不识字也不会卡住；
+    // 低龄档（level 0）：默认只给一个大话筒，不识字也不会卡住；
     // 点右侧键盘可展开文字输入，保证语音不可用时仍有出路。
-    final voiceOnly =
-        !widget.isParentMode && density.level == 0 && !_forceTextInput;
+    final isKid = !widget.isParentMode && density.level == 0;
+    final voiceOnly = isKid && !_forceTextInput;
+    final isLowAge = !widget.isParentMode && density.level == 0;
 
     return Container(
-      padding:
-          EdgeInsets.fromLTRB(16, voiceOnly ? 10 : 16, 16, voiceOnly ? 12 : 16),
+      // 底部渐变到纸面，让胶囊像是浮在对话流上，而不是压一条白底横栏
       decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(palette.radiusLg)),
-        border: palette.isCartoon
-            ? Border(top: BorderSide(color: palette.line, width: 2))
-            : null,
-        boxShadow: [
-          BoxShadow(
-              color: palette.pop.withValues(alpha: 0.10),
-              blurRadius: 20,
-              offset: const Offset(0, -5)),
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            palette.paper,
+            palette.paper.withValues(alpha: 0),
+          ],
+          stops: const [0.62, 1.0],
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(14, 8, 14, isKid ? 12 : 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 工具面板：从输入胶囊上方弹出
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.bottomCenter,
+            child: _toolsOpen
+                ? ChatToolPanel(
+                    palette: palette,
+                    title: isKid ? '给小犀看看' : '添加到对话',
+                    style: isKid ? ChatToolStyle.rows : ChatToolStyle.grid,
+                    items: _buildToolItems(palette, isKid: isKid),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+          if (voiceOnly)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                _isListening ? '我在听… 说完等一下就好' : '点一下话筒，说给我听',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _isListening ? palette.pop : palette.ink2),
+              ),
+            ),
+          isKid
+              ? KidChatComposer(
+                  controller: _controller,
+                  palette: palette,
+                  mic: _buildMic(palette,
+                      size: 64,
+                      bright: true,
+                      silence: const Duration(seconds: 2)),
+                  onSend: () => _sendMessage(),
+                  onToggleTools: _toggleTools,
+                  onSwitchToText: () => setState(() => _forceTextInput = true),
+                  onSwitchToVoice: () =>
+                      setState(() => _forceTextInput = false),
+                  onPickAlbum: () => _pickChatFile(imagesOnly: true),
+                  toolsOpen: _toolsOpen,
+                  textMode: !voiceOnly,
+                  listening: _isListening,
+                  isLoading: _isLoading,
+                )
+              : ChatComposer(
+                  controller: _controller,
+                  palette: palette,
+                  hint: widget.isParentMode
+                      ? '问问小犀孩子的学习情况~'
+                      : (isLowAge ? '和小犀聊天吧~' : '和小犀聊点什么…'),
+                  mic: _buildMic(palette, size: 32),
+                  onSend: () => _sendMessage(),
+                  onToggleTools: _toggleTools,
+                  onToggleEnglish: _toggleEnglish,
+                  toolsOpen: _toolsOpen,
+                  isEnglishMode: _englishMode,
+                  isLoading: _isLoading,
+                  fontSize: isLowAge ? 17 : 14.5,
+                ),
+          if (!isKid)
+            Padding(
+              padding: const EdgeInsets.only(top: 7),
+              child: Text(
+                _isListening ? '正在听你说话…说完会自动发送' : '「＋」里有拍照、相册、文件',
+                style: TextStyle(
+                    fontSize: 9.5,
+                    color: palette.ink2.withValues(alpha: 0.6)),
+              ),
+            ),
         ],
       ),
-      child: voiceOnly
-          ? _buildVoiceOnlyInput(palette)
-          : _buildTextInputRow(palette, density),
     );
   }
 
-  /// 低龄档输入栏：左侧历史、中间 72px 大话筒、右侧切键盘。
-  Widget _buildVoiceOnlyInput(ChildThemePalette palette) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(
-        _isListening ? '我在听，说完等一下…' : '点一下话筒，说给我听',
-        style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w600, color: palette.ink2),
+  /// 工具面板内容：标准版 4 格（拍照 / 相册 / 文件 / 英语陪练），
+  /// 低龄版 2 格（拍照 / 相册）—— 孩子用不到文件，误触代价却很高。
+  List<ChatToolItem> _buildToolItems(ChildThemePalette palette,
+      {required bool isKid}) {
+    final items = <ChatToolItem>[
+      ChatToolItem(
+        icon: Icons.photo_camera_rounded,
+        label: '拍照',
+        accent: _toolsOpen,
+        onTap: () => _pickChatFile(camera: true, imagesOnly: true),
       ),
-      const SizedBox(height: 6),
-      Row(children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _circleAction(
-              icon: Icons.chat_rounded,
-              palette: palette,
-              onTap: _openSessionDrawer,
-            ),
-          ),
-        ),
-        Consumer<ChatSessionProvider>(
-          builder: (ctx, provider, _) => SpeechInputWidget(
-            onResult: _onSpeechResult,
-            onListeningChange: _onListeningChange,
-            localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
-            size: 72,
-          ),
-        ),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: _circleAction(
-              icon: Icons.keyboard_alt_rounded,
-              palette: palette,
-              onTap: () => setState(() => _forceTextInput = true),
-            ),
-          ),
-        ),
-      ]),
-    ]);
+      ChatToolItem(
+        icon: Icons.photo_library_rounded,
+        label: '相册',
+        onTap: () => _pickChatFile(imagesOnly: true),
+      ),
+    ];
+    if (!isKid) {
+      items
+        ..add(ChatToolItem(
+          icon: Icons.description_rounded,
+          label: '文件',
+          onTap: _pickChatFile,
+        ))
+        ..add(ChatToolItem(
+          icon: Icons.translate_rounded,
+          label: '英语陪练',
+          accent: _englishMode,
+          onTap: _toggleEnglish,
+        ));
+    }
+    return items;
   }
 
-  Widget _circleAction({
-    required IconData icon,
-    required ChildThemePalette palette,
-    required VoidCallback onTap,
-  }) {
+  bool get _englishMode => context.read<ChatSessionProvider>().isEnglishMode;
+
+  void _toggleTools() => setState(() => _toolsOpen = !_toolsOpen);
+
+  Future<void> _toggleEnglish() async {
+    final provider = context.read<ChatSessionProvider>();
+    await _toggleEnglishMode(provider);
+  }
+
+  /// 统一话筒：紧凑圆钮，颜色跟皮肤走。
+  Widget _buildMic(ChildThemePalette palette,
+      {required double size,
+      bool bright = false,
+      Duration silence = const Duration(seconds: 8)}) {
+    return Consumer<ChatSessionProvider>(
+      builder: (ctx, provider, _) => SpeechInputWidget(
+        onResult: _onSpeechResult,
+        onListeningChange: _onListeningChange,
+        localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
+        size: size,
+        compact: true,
+        silenceTimeout: silence,
+        idleBg: bright ? palette.pop : palette.soft,
+        idleFg: bright ? palette.onPrimary : palette.ink,
+        idleBorder:
+            bright ? palette.edge : palette.edge.withValues(alpha: 0.9),
+        activeBg: palette.pop,
+        activeFg: palette.onPrimary,
+      ),
+    );
+  }
+}
+
+/// 低龄档的大喇叭：44px，不识字也能认出「再听一遍」。
+class _KidSpeakButton extends StatelessWidget {
+  const _KidSpeakButton({
+    required this.palette,
+    required this.isSpeaking,
+    required this.onTap,
+  });
+
+  final ChildThemePalette palette;
+  final bool isSpeaking;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: palette.soft,
+          color: isSpeaking ? palette.pop : palette.soft,
           shape: BoxShape.circle,
-          border: palette.isCartoon
-              ? Border.all(color: palette.line, width: 2)
-              : null,
+          border: Border.all(color: palette.edge, width: 2.2),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x224A2A46), blurRadius: 0, offset: Offset(0, 3)),
+          ],
         ),
-        child: Icon(icon, size: 20, color: palette.ink2),
+        child: Icon(
+          isSpeaking ? Icons.volume_up_rounded : Icons.volume_up_outlined,
+          size: 22,
+          color: isSpeaking ? palette.onPrimary : palette.ink,
+        ),
       ),
     );
   }
+}
 
-  Widget _buildTextInputRow(ChildThemePalette palette, ChildDensity density) {
-    final isLowAge = !widget.isParentMode && density.level == 0;
-    return Row(children: [
-      // 低龄档：这里是「换回语音」；其余档位是会话历史
-      _circleAction(
-        icon: isLowAge ? Icons.mic_rounded : Icons.chat_rounded,
-        palette: palette,
-        onTap: isLowAge
-            ? () => setState(() => _forceTextInput = false)
-            : _openSessionDrawer,
+// ═══════════════════════════════════════════════════════════════════════════
+// 顶栏按钮 / 消息动作条 / 思考中的点 / 游戏分组
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// 顶栏圆钮：新建会话用填充色，其余描边；尺寸统一 31px。
+class _TopIcon extends StatelessWidget {
+  const _TopIcon({
+    required this.palette,
+    required this.icon,
+    required this.onTap,
+    this.filled = false,
+    this.iconSize = 17,
+    this.tooltip,
+  });
+
+  final ChildThemePalette palette;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool filled;
+  final double iconSize;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 31,
+        height: 31,
+        decoration: BoxDecoration(
+          color: filled ? palette.pop : palette.card,
+          shape: BoxShape.circle,
+          border: filled
+              ? null
+              : Border.all(
+                  color: palette.edge.withValues(alpha: 0.55), width: 1.6),
+        ),
+        child: Icon(icon,
+            size: iconSize,
+            color: filled ? palette.onPrimary : palette.ink),
       ),
-      const SizedBox(width: 8),
-      // 文件上传按钮
-      GestureDetector(
-        onTap: _isLoading ? null : _pickChatFile,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: palette.card,
-            shape: BoxShape.circle,
-            border: Border.all(color: palette.line),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// 消息底部动作条：复制 / 朗读 / 重答（非末条时退化为「更多」）。
+class _MessageActionRow extends StatelessWidget {
+  const _MessageActionRow({
+    required this.palette,
+    required this.isSpeaking,
+    required this.onCopy,
+    required this.onSpeak,
+    required this.onMore,
+    this.onRegenerate,
+    this.regenerating = false,
+  });
+
+  final ChildThemePalette palette;
+  final bool isSpeaking;
+  final VoidCallback onCopy;
+  final VoidCallback onSpeak;
+  final VoidCallback onMore;
+
+  /// 非空表示这条回复可以重答（仅最后一条）。
+  final VoidCallback? onRegenerate;
+  final bool regenerating;
+
+  @override
+  Widget build(BuildContext context) {
+    final canRegenerate = onRegenerate != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ActionPill(
+          palette: palette,
+          icon: Icons.content_copy_rounded,
+          label: '复制',
+          onTap: onCopy,
+        ),
+        const SizedBox(width: 6),
+        _ActionPill(
+          palette: palette,
+          icon: isSpeaking ? Icons.volume_up_rounded : Icons.volume_mute_rounded,
+          label: isSpeaking ? '停止' : '朗读',
+          active: isSpeaking,
+          onTap: onSpeak,
+        ),
+        const SizedBox(width: 6),
+        if (canRegenerate)
+          _ActionPill(
+            palette: palette,
+            icon: Icons.refresh_rounded,
+            label: regenerating ? '重答中' : '重答',
+            active: regenerating,
+            onTap: regenerating ? null : onRegenerate!,
+          )
+        else
+          _ActionPill(
+            palette: palette,
+            icon: Icons.more_horiz_rounded,
+            label: '更多',
+            onTap: onMore,
           ),
-          child: Icon(Icons.attach_file_rounded, size: 20, color: palette.ink2),
+      ],
+    );
+  }
+}
+
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({
+    required this.palette,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
+
+  final ChildThemePalette palette;
+  final IconData icon;
+  final String label;
+
+  /// 为 null 时按钮只是展示（比如重答进行中），不响应点击。
+  final VoidCallback? onTap;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 26,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        decoration: BoxDecoration(
+          color: active
+              ? palette.pop.withValues(alpha: 0.14)
+              : palette.ink2.withValues(alpha: 0.045),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 13,
+                color: active ? palette.pop : palette.ink2),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: active ? palette.pop : palette.ink2)),
+          ],
         ),
       ),
-      const SizedBox(width: 8),
-      Consumer<ChatSessionProvider>(
-        builder: (ctx, provider, _) => SpeechInputWidget(
-          onResult: _onSpeechResult,
-          onListeningChange: _onListeningChange,
-          localeId: provider.isEnglishMode ? 'en_US' : 'zh_CN',
-        ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Container(
-          decoration: BoxDecoration(
-              color: palette.soft,
-              borderRadius: BorderRadius.circular(palette.radiusMd + 1)),
-          child: TextField(
-            controller: _controller,
-            maxLines: 3,
-            minLines: 1,
-            style: TextStyle(fontSize: isLowAge ? 17 : 15, color: palette.ink),
-            decoration: InputDecoration(
-              hintText: _isListening ? '正在听你说话…' : '和小犀聊天吧~',
-              hintStyle: TextStyle(color: palette.ink2.withValues(alpha: 0.6)),
-              border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    );
+  }
+}
+
+/// 「小犀正在想」：三个呼吸的圆点，替代原来一排静止点。
+class _ThinkingDots extends StatefulWidget {
+  const _ThinkingDots();
+
+  @override
+  State<_ThinkingDots> createState() => _ThinkingDotsState();
+}
+
+class _ThinkingDotsState extends State<_ThinkingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            // 每个点错开 0.18 个周期，形成依次起伏
+            final t = (_controller.value + i * 0.18) % 1.0;
+            final wave = (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
+            return Container(
+              width: 6,
+              height: 6,
+              margin: EdgeInsets.only(right: i == 2 ? 0 : 4),
+              decoration: BoxDecoration(
+                color: palette.ink2.withValues(alpha: 0.25 + 0.5 * wave),
+                shape: BoxShape.circle,
+              ),
+            );
+          },
+        );
+      }),
+    );
+  }
+}
+
+/// 同批游戏：第一个给完整卡片，其余收成一行「还有 N 个」，点开后替换。
+/// 避免一条回复里叠四五个「开始游戏」把对话顶出屏幕。
+class _InlineGameGroup extends StatefulWidget {
+  const _InlineGameGroup({required this.types, required this.datas});
+
+  final List<String> types;
+  final List<Map<String, dynamic>> datas;
+
+  @override
+  State<_InlineGameGroup> createState() => _InlineGameGroupState();
+}
+
+class _InlineGameGroupState extends State<_InlineGameGroup> {
+  int? _picked;
+
+  static const _labels = {
+    'quiz': '选择题',
+    'true_false': '判断题',
+    'matching': '配对游戏',
+    'fill_blank': '填空游戏',
+    'sequencing': '排序游戏',
+    'connection': '连线游戏',
+    'puzzle': '拼图游戏',
+    'drag_sort': '分类游戏',
+    'memory_flip': '记忆翻牌',
+    'pattern_next': '规律接龙',
+    'trace_path': '描红游戏',
+    'color_fill': '涂色游戏',
+    'tap_target': '听指令点一点',
+  };
+
+  String _label(int i) => _labels[widget.types[i]] ?? '互动游戏';
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
+    final n = widget.datas.length;
+    if (n == 1) {
+      return _InlineGameCard(
+        gameType: widget.types[0],
+        gameData: widget.datas[0],
+      );
+    }
+
+    final picked = _picked;
+    if (picked != null && picked < n) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _InlineGameCard(
+              gameType: widget.types[picked], gameData: widget.datas[picked]),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => setState(() => _picked = null),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('收起，还有 ${n - 1} 个游戏',
+                  style: TextStyle(
+                      fontSize: 11, color: palette.ink2)),
             ),
-            onSubmitted: (_) => _sendMessage(),
           ),
-        ),
-      ),
-      const SizedBox(width: 12),
-      // 发送按钮
-      GestureDetector(
-        onTap: _isLoading ? null : () => _sendMessage(),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 48,
-          height: 48,
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _InlineGameCard(
+            gameType: widget.types[0], gameData: widget.datas[0]),
+        const SizedBox(height: 8),
+        Container(
           decoration: BoxDecoration(
-            color: _isLoading ? Colors.grey.shade400 : palette.cta,
-            shape: BoxShape.circle,
-            boxShadow: _isLoading
-                ? null
-                : [
-                    BoxShadow(
-                        color: palette.cta.withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5)),
-                  ],
+            color: palette.ink2.withValues(alpha: 0.045),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: _isLoading
-              ? SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                      color: palette.ctaInk, strokeWidth: 2.5))
-              : Icon(Icons.send_rounded, color: palette.ctaInk, size: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 1; i < n; i++)
+                InkWell(
+                  onTap: () => setState(() => _picked = i),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    child: Row(children: [
+                      Icon(Icons.sports_esports_rounded,
+                          size: 15, color: palette.pop),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(_label(i),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: palette.ink)),
+                      ),
+                      Text('开始',
+                          style: TextStyle(
+                              fontSize: 11, color: palette.ink2)),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 16,
+                          color: palette.ink2.withValues(alpha: 0.7)),
+                    ]),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -2458,22 +2984,27 @@ class _SessionDrawerOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // 半透明背景
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: onClose,
-            child: Container(color: Colors.black26),
+    // OverlayEntry 挂在根 Overlay 上，不在 Navigator/页面的 Material 树里，
+    // 而 IconButton / RefreshIndicator / InkWell 都需要 Material 祖先渲染墨水
+    // 效果，缺了会抛 "No Material widget found"。
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          // 半透明背景
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onClose,
+              child: Container(color: Colors.black26),
+            ),
           ),
-        ),
-        // 抽屉面板
-        Positioned(
-          top: 0,
-          bottom: 0,
-          left: 0,
-          child: Consumer<ChatSessionProvider>(
-            builder: (ctx, provider, _) => _SessionDrawer(
+          // 抽屉面板
+          Positioned(
+            top: 0,
+            bottom: 0,
+            left: 0,
+            child: Consumer<ChatSessionProvider>(
+              builder: (ctx, provider, _) => _SessionDrawer(
               activeSession: provider.activeSession,
               sessions: provider.sessions,
               loadingSessions: provider.loadingSessions,
@@ -2488,7 +3019,8 @@ class _SessionDrawerOverlay extends StatelessWidget {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }

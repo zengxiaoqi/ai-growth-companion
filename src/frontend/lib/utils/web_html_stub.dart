@@ -19,6 +19,9 @@ class FileUploadInputElement {
   String accept = '';
   bool multiple = false;
   List<File>? files;
+
+  /// 对应 dart:html `Element.attributes`，用于写 `capture` 等布尔属性。
+  final Map<String, String> attributes = {};
   void click() {}
   Stream<dynamic> get onChange => const Stream.empty();
 }

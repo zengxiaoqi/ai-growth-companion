@@ -452,6 +452,9 @@ export function inferWatchTemplateHint(
     .filter(Boolean)
     .join(' ');
 
+  const isScience = domain === 'science';
+  const isLanguage = domain === 'language';
+
   // 1. Explicit template from LLM output
   if (scene?.animationTemplate) {
     return {
@@ -463,42 +466,66 @@ export function inferWatchTemplateHint(
     };
   }
 
-  // 2. Quoted teaching word: 1 char → stroke order, 2 chars → word cards
-  const quoted =
-    headline.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1] ||
-    source.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1];
-  if (quoted) {
-    return quoted.length === 1
-      ? {
-          templateId: 'language.character-stroke',
-          templateParams: { character: quoted, showGrid: true },
-        }
-      : { templateId: 'language.word-reveal', templateParams: { words: [quoted] } };
-  }
-
-  // 3. Character stroke detection (single Chinese character)
-  const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
-  if (character) {
-    return {
-      templateId: 'language.character-stroke',
-      templateParams: { character, showGrid: true },
-    };
-  }
-
-  // 4. Review scene: reveal the keywords listed in the headline
-  if (/(复习|总结|回顾)/.test(headline)) {
-    const words = extractRevealWords(headline);
-    if (words.length > 0) {
-      return { templateId: 'language.word-reveal', templateParams: { words } };
+  // 1.5 Science visuals that illustrate the narration (rainbow / refraction).
+  // Skipped for explicit language domain so literacy lessons keep word cards.
+  if (!isLanguage) {
+    if (/彩虹/.test(source)) {
+      const ring = /外圈/.test(headline)
+        ? 'outer'
+        : /内圈/.test(headline)
+          ? 'inner'
+          : 'none';
+      return {
+        templateId: 'science.rainbow',
+        templateParams: { highlightRing: ring, showLabels: true },
+      };
+    }
+    if (/(阳光|光)/.test(source) && /(水珠|折射|弯折|七色|分成)/.test(source)) {
+      return {
+        templateId: 'science.light-refraction',
+        templateParams: { speed: 1, showLabels: true },
+      };
     }
   }
 
-  // 5. Color recognition: reveal the seven rainbow color characters
-  if (/(颜色|七彩|七色)/.test(source)) {
-    return {
-      templateId: 'language.word-reveal',
-      templateParams: { words: ['红', '橙', '黄', '绿', '青', '蓝', '紫'] },
-    };
+  if (!isScience) {
+    // 2. Quoted teaching word: 1 char → stroke order, 2 chars → word cards
+    const quoted =
+      headline.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1] ||
+      source.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1];
+    if (quoted) {
+      return quoted.length === 1
+        ? {
+            templateId: 'language.character-stroke',
+            templateParams: { character: quoted, showGrid: true },
+          }
+        : { templateId: 'language.word-reveal', templateParams: { words: [quoted] } };
+    }
+
+    // 3. Character stroke detection (single Chinese character)
+    const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
+    if (character) {
+      return {
+        templateId: 'language.character-stroke',
+        templateParams: { character, showGrid: true },
+      };
+    }
+
+    // 4. Review scene: reveal the keywords listed in the headline
+    if (/(复习|总结|回顾)/.test(headline)) {
+      const words = extractRevealWords(headline);
+      if (words.length > 0) {
+        return { templateId: 'language.word-reveal', templateParams: { words } };
+      }
+    }
+
+    // 5. Color recognition: reveal the seven rainbow color characters
+    if (/(颜色|七彩|七色)/.test(source)) {
+      return {
+        templateId: 'language.word-reveal',
+        templateParams: { words: ['红', '橙', '黄', '绿', '青', '蓝', '紫'] },
+      };
+    }
   }
 
   // 6. Science domain patterns
@@ -520,7 +547,7 @@ export function inferWatchTemplateHint(
     };
   }
 
-  if (/(水循环|蒸发|云|下雨|冰|雪|彩虹|降水|声音|光|磁铁|溶解|水珠|折射|弯折)/.test(source)) {
+  if (/(水循环|蒸发|云|下雨|冰|雪|降水|声音|磁铁|溶解)/.test(source)) {
     return {
       templateId: 'science.water-cycle',
       templateParams: { speed: 1, showLabels: true },

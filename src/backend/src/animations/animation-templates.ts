@@ -275,6 +275,43 @@ export const ANIMATION_TEMPLATES: AnimationTemplateSummary[] = [
     ],
   },
   {
+    id: 'science.rainbow',
+    domain: 'science',
+    description: '彩虹动画，七色弧逐色展开，可高亮外圈/内圈并标注颜色顺序',
+    engine: 'p5',
+    ageGroups: ['3-4', '5-6'],
+    params: [
+      {
+        name: 'highlightRing',
+        type: 'string',
+        required: false,
+        label: '高亮圈层(outer/inner/none)',
+      },
+      {
+        name: 'showLabels',
+        type: 'boolean',
+        required: false,
+        label: '显示颜色标签',
+      },
+    ],
+  },
+  {
+    id: 'science.light-refraction',
+    domain: 'science',
+    description: '光的折射动画，阳光穿过小水珠分散成七色光',
+    engine: 'p5',
+    ageGroups: ['5-6'],
+    params: [
+      { name: 'speed', type: 'number', required: false, label: '动画速度' },
+      {
+        name: 'showLabels',
+        type: 'boolean',
+        required: false,
+        label: '显示标签',
+      },
+    ],
+  },
+  {
     id: 'art.color-mixing',
     domain: 'art',
     description: '颜色混合动画，两种颜色混合展示结果',
@@ -403,7 +440,9 @@ export function suggestTemplateByDomain(domain: string, topic: string): string |
 
   if (domain === 'science') {
     if (/(四季|季节|春夏秋冬)/.test(normalizedTopic)) return 'science.seasons-cycle';
-    if (/(水循环|下雨|蒸发|降水|云|雨|雪|冰|彩虹)/.test(normalizedTopic))
+    if (/(彩虹|七色|七彩)/.test(normalizedTopic)) return 'science.rainbow';
+    if (/(折射|弯折|分光|阳光|光)/.test(normalizedTopic)) return 'science.light-refraction';
+    if (/(水循环|下雨|蒸发|降水|云|雨|雪|冰)/.test(normalizedTopic))
       return 'science.water-cycle';
     if (/(白天|黑夜|昼夜|地球|太阳|月亮|星空|影子)/.test(normalizedTopic))
       return 'science.day-night-cycle';

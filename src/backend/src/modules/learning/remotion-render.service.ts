@@ -133,6 +133,22 @@ const DOMAIN_THEMES: Record<
   },
 };
 
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  quiz: '知识问答',
+  true_false: '判断对错',
+  fill_blank: '填空练习',
+  matching: '配对练习',
+  connection: '连一连',
+  sequencing: '排顺序',
+  puzzle: '拼图游戏',
+  drag_sort: '拖拽分类',
+  memory_flip: '翻翻记忆',
+  pattern_next: '找规律',
+  trace_path: '描线路径',
+  color_fill: '涂色游戏',
+  tap_target: '点一点',
+};
+
 @Injectable()
 export class RemotionRenderService implements OnModuleInit {
   private readonly logger = new Logger(RemotionRenderService.name);
@@ -749,11 +765,13 @@ export class RemotionRenderService implements OnModuleInit {
   ): TeachingSlide | null {
     if (!game || Object.keys(game).length === 0) return null;
     const activityData = this.asRecord(game.activityData);
+    const activityLabel =
+      ACTIVITY_TYPE_LABELS[this.toText(game.activityType)] || '互动练习';
     const questionCount = Array.isArray(activityData.questions) ? activityData.questions.length : 0;
     const pairCount = Array.isArray(activityData.pairs) ? activityData.pairs.length : 0;
     const items = this.createItems(
       [
-        this.toText(game.activityType),
+        activityLabel,
         questionCount > 0 ? `${questionCount}道题` : '',
         pairCount > 0 ? `${pairCount}组配对` : '',
         this.toText(activityData.title),
@@ -766,7 +784,7 @@ export class RemotionRenderService implements OnModuleInit {
     return {
       title: this.toText(activityData.title, '练一练').slice(0, 24),
       emoji: '🎮',
-      subtitle: this.toText(game.activityType, '互动练习').slice(0, 60) || undefined,
+      subtitle: activityLabel,
       bgColor: '#FFF0F6',
       accentColor: '#FF6B9D',
       layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',

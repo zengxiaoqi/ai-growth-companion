@@ -486,6 +486,7 @@ export class LessonContentService implements OnModuleInit {
       await this.contentRepo.update(contentId, {
         title,
         subtitle,
+        domain: (finalCoursePack.domain as LessonDomain) || domain,
         content: lessonContent as any,
         status: 'draft',
       });
@@ -1095,7 +1096,11 @@ export class LessonContentService implements OnModuleInit {
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
     const parentGuide = coursePack.parentGuide || {};
-    const watchScene = this.resolveWatchScene(coursePack, meta.topic, coursePack.domain as string);
+    const watchScene = this.resolveWatchScene(
+      coursePack,
+      meta.topic,
+      (coursePack.domain as string) || meta.domain,
+    );
     const writeScene = this.resolveWriteScene(coursePack, meta.topic);
     // 外层 activityType 必须跟随实际题型数据，否则渲染端按外层类型取题会拿到空题
     const dataType = practiceData?.type;

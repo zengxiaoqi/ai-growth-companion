@@ -10,6 +10,8 @@ import { WordRevealScene } from "../animated/language/WordRevealScene";
 import { StorySceneScene } from "../animated/language/StorySceneScene";
 import { SeasonsCycleScene } from "../animated/science/SeasonsCycleScene";
 import { WaterCycleScene } from "../animated/science/WaterCycleScene";
+import { RainbowScene } from "../animated/science/RainbowScene";
+import { LightRefractionScene } from "../animated/science/LightRefractionScene";
 import { PlantGrowthScene } from "../animated/science/PlantGrowthScene";
 import { DayNightCycleScene } from "../animated/science/DayNightCycleScene";
 import { ColorMixingScene } from "../animated/art/ColorMixingScene";
@@ -34,6 +36,8 @@ const SCENE_MAP: Record<AnimationTemplateId, React.FC<{ data: TeachingSlide; wid
   "science.day-night-cycle": DayNightCycleScene,
   "science.plant-growth": PlantGrowthScene,
   "science.seasons-cycle": SeasonsCycleScene,
+  "science.rainbow": RainbowScene,
+  "science.light-refraction": LightRefractionScene,
   "art.color-mixing": ColorMixingScene,
   "art.drawing-steps": DrawingStepsScene,
   "social.emotion-faces": EmotionFacesScene,

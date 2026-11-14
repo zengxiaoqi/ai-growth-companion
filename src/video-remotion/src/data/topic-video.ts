@@ -10,6 +10,8 @@ export type AnimationTemplateId =
   | 'science.day-night-cycle'
   | 'science.plant-growth'
   | 'science.seasons-cycle'
+  | 'science.rainbow'
+  | 'science.light-refraction'
   | 'art.color-mixing'
   | 'art.drawing-steps'
   | 'social.emotion-faces'

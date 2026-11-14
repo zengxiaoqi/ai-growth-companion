@@ -376,6 +376,8 @@ export class GenerateCoursePackTool {
       '  - durationSec: 8-18 seconds',
       '  - animationTemplate: chosen from template list below',
       '  - animationParams: appropriate parameters for the chosen template',
+      '- The animationTemplate MUST visually illustrate what the narration teaches (same objects, colors, process). For science/math domains NEVER use language.* word-card or stroke templates.',
+      '- Narration must be natural, complete sentences. Never repeat the subject twice (e.g. "X是X…") and never end with doubled punctuation.',
       '',
       '## Few-shot Example of a HIGH-QUALITY scene:',
       '```json',
@@ -519,6 +521,7 @@ export class GenerateCoursePackTool {
       topic: args.topic,
       ageGroup: args.ageGroup,
       focus: args.focus,
+      domain: args.domain,
       durationMinutes: args.durationMinutes,
       summary: this.toText(
         raw?.summary,
@@ -931,7 +934,7 @@ export class GenerateCoursePackTool {
       const summaryScene = {
         scene: '总结回顾',
         imagePrompt: `课堂结尾回顾${units.join('、')}的区别和联系，孩子开心回答问题`,
-        narration: `${this.buildReviewPrompt(args, units)}。`,
+        narration: this.buildReviewPrompt(args, units),
         onScreenText: `复习${units.join('、')}`,
         durationSec: 10,
       };
@@ -968,7 +971,7 @@ export class GenerateCoursePackTool {
       {
         scene: '总结鼓励',
         imagePrompt: `孩子完成${args.topic}学习后获得贴纸奖励，课堂氛围轻松愉快`,
-        narration: `${reviewPrompt}。`,
+        narration: reviewPrompt,
         onScreenText: '学会啦',
         durationSec: 10,
       },
@@ -1241,6 +1244,9 @@ export class GenerateCoursePackTool {
     if (args.focus === 'math' && /^\d+$/.test(unit)) {
       return `老师展示数字${unit}的卡片和对应数量的物体，帮助孩子建立数字概念`;
     }
+    if (args.focus === 'science') {
+      return `用动画演示${unit}的现象与变化过程，画面清晰标注关键部分，配合老师讲解`;
+    }
     return `老师围绕${unit}进行重点讲解，画面中有清晰的教学卡片和互动提示`;
   }
 
@@ -1260,10 +1266,17 @@ export class GenerateCoursePackTool {
     const curriculumSeed = this.getCurriculumSeed(args);
     const fact = curriculumSeed?.unitFacts?.[unit];
     if (fact) {
-      return `现在我们来学习${unit}。${unit}是${fact}。请你仔细看，跟老师一起说一说。`;
+      const verb = args.focus === 'science' ? '观察' : '学习';
+      return `现在我们来${verb}${unit}。${this.unitFactBody(unit, fact)}。请你仔细看，跟老师一起说一说。`;
     }
 
     return `现在我们来学习${unit}。请你先观察，再跟着老师说一说这个知识点的特点。`;
+  }
+
+  /** Join a unit with its fact without duplicating the unit when the fact already starts with it. */
+  private unitFactBody(unit: string, fact: string): string {
+    const clean = this.toText(fact).replace(/[。；;]+$/, '');
+    return clean.startsWith(unit) ? clean : `${unit}是${clean}`;
   }
 
   private buildReviewPrompt(args: NormalizedArgs, units: string[]): string {
@@ -1272,7 +1285,7 @@ export class GenerateCoursePackTool {
       const unitSummary = units
         .map((unit) => {
           const fact = curriculumSeed?.unitFacts?.[unit];
-          return fact ? `${unit}是${fact}` : unit;
+          return fact ? this.unitFactBody(unit, fact) : unit;
         })
         .join('；');
       return `真棒，今天我们学习了${units.join('、')}。${unitSummary}。请你再说一遍今天记住的重点。`;
@@ -1372,11 +1385,15 @@ export class GenerateCoursePackTool {
       science: 'connection',
       mixed: 'matching',
     };
-    const domain =
+    let domain =
       explicitDomain ??
       (safeFocus === 'mixed'
         ? this.inferDomainFromText(`${topic} ${parentPrompt}`)
         : domainMap[safeFocus]);
+    // 'language' is the UI default; an explicit science/math focus must win over it.
+    if (domain === 'language' && (safeFocus === 'science' || safeFocus === 'math')) {
+      domain = domainMap[safeFocus];
+    }
     const gameType = this.resolveGameType(safeFocus, domain);
 
     return {

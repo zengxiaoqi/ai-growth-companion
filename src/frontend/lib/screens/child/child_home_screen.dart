@@ -7,7 +7,6 @@ import '../../theme/child_theme.dart';
 import '../../components/child_home_experience.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/lazy_tab_stack.dart';
-import '../games/trivia_quiz_game.dart';
 import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/learning_provider.dart';
@@ -210,13 +209,6 @@ class _ChildHomeContentState extends State<ChildHomeContent> {
 
   List<ChildMoreEntry> _buildMoreEntries() {
     return <ChildMoreEntry>[
-      ChildMoreEntry(
-        icon: Icons.psychology_alt_rounded,
-        label: '知识问答',
-        onTap: () => _push(
-          TriviaQuizGame(onExit: () => Navigator.pop(context)),
-        ),
-      ),
       ChildMoreEntry(
         icon: Icons.flag_rounded,
         label: '国旗配对',

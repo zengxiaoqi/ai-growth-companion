@@ -14,6 +14,7 @@ import { SkillExecutor } from '../../agent-framework/skills/skill-executor';
 import type { AgentContext, AgeGroupOrParent, ChatMode } from '../../agent-framework/core';
 import { contentAgeGroup, normalizeChatMode } from '../../agent-framework/core';
 import { GenerateCoursePackTool } from './agent/tools/generate-course-pack';
+import { GenerateActivityTool } from './agent/tools/generate-activity';
 import JSZip from 'jszip';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
@@ -74,6 +75,7 @@ export class AiService {
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly parentService?: ParentService,
     @Optional() private readonly abilitiesService?: AbilitiesService,
+    @Optional() private readonly generateActivityTool?: GenerateActivityTool,
   ) {
     this.frameworkOrchestrator =
       agentRegistry && frameworkExecutor && skillRegistry
@@ -1415,7 +1417,7 @@ export class AiService {
     };
   }
 
-  /** Generate a quiz on demand */
+  /** Generate a quiz on demand — delegates to the unified activity engine */
   async generateQuiz(params: QuizRequest): Promise<QuizResponse> {
     const { childId, topic, count = 3 } = params;
 
@@ -1426,46 +1428,25 @@ export class AiService {
 
     const age = user.age;
     const ageGroup: AgeGroup = age >= 3 && age <= 4 ? '3-4' : '5-6';
-    const _difficulty = ageGroup === '3-4' ? 1 : 2;
+    const difficulty = ageGroup === '3-4' ? 1 : 2;
 
-    const prompt = `请为${ageGroup}岁的孩子生成${count}道关于"${topic}"的选择题。
-
-要求：
-- 难度适中
-- 每道题3个选项
-- 内容适合${ageGroup}岁儿童
-- 用简单有趣的语言
-
-请严格按以下JSON格式返回，不要加任何其他文字：
-[
-  {
-    "question": "题目",
-    "options": ["选项A", "选项B", "选项C"],
-    "correctIndex": 0,
-    "explanation": "答案解析"
-  }
-]`;
-
-    const response = await this.llmClient.generate(prompt);
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-
-    if (!jsonMatch) {
-      // Fallback quiz
-      return {
-        questions: [
-          {
-            question: `关于${topic}，下面哪个是对的？`,
-            options: ['选项A', '选项B', '选项C'],
-            correctIndex: 0,
-            explanation: '这是正确答案的解释~',
-          },
-        ],
-        topic,
-        ageGroup,
-      };
+    if (!this.generateActivityTool) {
+      throw new Error('测验生成器不可用');
     }
-
-    const questions = JSON.parse(jsonMatch[0]);
+    const activityJson = await this.generateActivityTool.execute({
+      type: 'quiz',
+      topic,
+      difficulty,
+      ageGroup,
+    });
+    const activity = JSON.parse(activityJson);
+    const questions = (Array.isArray(activity?.questions) ? activity.questions : []).slice(
+      0,
+      count,
+    );
+    if (questions.length === 0) {
+      throw new Error('生成测验失败：题目为空');
+    }
     // Safety filter on quiz content
     for (const q of questions) {
       const safe = this.contentSafetyService.filterContent(q.question);

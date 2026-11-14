@@ -286,9 +286,17 @@ export class GameService {
       const count = Math.floor(Math.random() * maxCount) + 1;
       const emoji = '🍎'.repeat(count);
 
-      const options = [count, count + 1, count - 1 > 0 ? count - 1 : count + 2].sort(
-        () => Math.random() - 0.5,
-      );
+      // Distractors spread over -2..+3 (not always ±1, which is guessable)
+      const distractors = new Set<number>();
+      let guard = 0;
+      while (distractors.size < 2 && guard < 50) {
+        const delta = Math.floor(Math.random() * 5) - 2;
+        const wrong = count + (delta === 0 ? 3 : delta);
+        if (wrong > 0 && wrong !== count) distractors.add(wrong);
+        guard++;
+      }
+      for (let d = 1; distractors.size < 2; d++) distractors.add(count + d);
+      const options = [count, ...distractors].sort(() => Math.random() - 0.5);
 
       questions.push({
         question: `数一数有多少个苹果：${emoji}`,
@@ -342,9 +350,11 @@ export class GameService {
     const maxNum = 5 + difficulty * 5;
 
     for (let i = 0; i < 5; i++) {
-      const a = Math.floor(Math.random() * maxNum) + 1;
-      const b = Math.floor(Math.random() * maxNum) + 1;
+      let a = Math.floor(Math.random() * maxNum) + 1;
+      let b = Math.floor(Math.random() * maxNum) + 1;
       const isAdd = Math.random() > 0.5;
+      // Preschoolers don't know negative numbers: keep subtraction non-negative
+      if (!isAdd && b > a) [a, b] = [b, a];
 
       const correct = isAdd ? a + b : a - b;
       const operator = isAdd ? '+' : '-';
@@ -425,17 +435,17 @@ export class GameService {
         options: ['小狗', '小猫', '小牛'],
       },
       {
-        question: '什么花向日葵？',
+        question: '什么花总是朝着太阳？',
         answer: '向日葵',
         options: ['玫瑰', '向日葵', '菊花'],
       },
       {
-        question: '什么水果红又红？',
+        question: '哪种水果通常是红色的？',
         answer: '苹果',
         options: ['苹果', '香蕉', '葡萄'],
       },
       {
-        question: '什么球是圆的？',
+        question: '什么球是用脚踢的？',
         answer: '足球',
         options: ['篮球', '足球', '排球'],
       },

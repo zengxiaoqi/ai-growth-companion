@@ -1,6 +1,6 @@
 import { AiService } from '../../src/modules/ai/ai.service';
 
-describe('AiService generateQuiz', () => {
+describe('AiService generateQuiz (delegates to GenerateActivityTool)', () => {
   const agentExecutor = {
     classifyAge: jest.fn(),
     execute: jest.fn(),
@@ -22,8 +22,19 @@ describe('AiService generateQuiz', () => {
     isConfigured: true,
     generate: jest.fn(),
   };
+  const generateActivityTool = { execute: jest.fn() };
 
   let service: AiService;
+
+  const activityWith = (questions: any[]) =>
+    JSON.stringify({ type: 'quiz', topic: 't', ageGroup: '5-6', questions });
+
+  const question = (text: string, correctIndex = 0) => ({
+    question: text,
+    options: ['A', 'B', 'C'],
+    correctIndex,
+    explanation: 'E',
+  });
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -42,115 +53,73 @@ describe('AiService generateQuiz', () => {
       llmClient as any,
       {} as any,
     );
+    (service as any).generateActivityTool = generateActivityTool;
   });
 
-  describe('generateQuiz', () => {
-    it('should generate quiz from LLM JSON response', async () => {
-      llmClient.generate.mockResolvedValue(
-        JSON.stringify([
-          {
-            question: '天空是什么颜色的？',
-            options: ['红色', '蓝色', '绿色'],
-            correctIndex: 1,
-            explanation: '白天天空是蓝色的哦~',
-          },
-          {
-            question: '太阳从哪里升起？',
-            options: ['东方', '西方', '南方'],
-            correctIndex: 0,
-            explanation: '太阳从东方升起！',
-          },
-        ]),
-      );
+  it('generates quiz via the activity engine', async () => {
+    generateActivityTool.execute.mockResolvedValue(
+      activityWith([question('天空是什么颜色的？', 1), question('太阳从哪里升起？')]),
+    );
 
-      const result = await service.generateQuiz({
-        childId: 1,
-        topic: '自然',
-        count: 2,
-      });
+    const result = await service.generateQuiz({ childId: 1, topic: '自然', count: 2 });
 
-      expect(result.questions).toHaveLength(2);
-      expect(result.topic).toBe('自然');
-      expect(result.ageGroup).toBe('5-6');
-      expect(result.questions[0].question).toContain('天空');
-      expect(result.questions[0].correctIndex).toBe(1);
+    expect(generateActivityTool.execute).toHaveBeenCalledWith({
+      type: 'quiz',
+      topic: '自然',
+      difficulty: 2,
+      ageGroup: '5-6',
     });
+    expect(result.questions).toHaveLength(2);
+    expect(result.topic).toBe('自然');
+    expect(result.ageGroup).toBe('5-6');
+    expect(result.questions[0].correctIndex).toBe(1);
+  });
 
-    it('should throw when user does not exist', async () => {
-      usersService.findById.mockResolvedValue(null);
+  it('throws when user does not exist', async () => {
+    usersService.findById.mockResolvedValue(null);
 
-      await expect(service.generateQuiz({ childId: 999, topic: '数学' })).rejects.toThrow(
-        '用户不存在',
-      );
-    });
+    await expect(service.generateQuiz({ childId: 999, topic: '数学' })).rejects.toThrow(
+      '用户不存在',
+    );
+  });
 
-    it('should use fallback quiz when LLM returns invalid JSON', async () => {
-      llmClient.generate.mockResolvedValue('Sorry, I cannot generate that right now.');
+  it('propagates engine failure instead of returning a placeholder quiz', async () => {
+    generateActivityTool.execute.mockRejectedValue(
+      new Error('Unable to generate a topic-aligned activity'),
+    );
 
-      const result = await service.generateQuiz({
-        childId: 1,
-        topic: '数学',
-        count: 3,
-      });
+    await expect(service.generateQuiz({ childId: 1, topic: '数学', count: 3 })).rejects.toThrow(
+      'Unable to generate',
+    );
+  });
 
-      expect(result.questions).toHaveLength(1);
-      expect(result.questions[0].question).toContain('数学');
-      expect(result.topic).toBe('数学');
-    });
+  it('assigns ageGroup 3-4 and difficulty 1 for children age 3', async () => {
+    usersService.findById.mockResolvedValue({ id: 2, age: 3, name: '小华' });
+    generateActivityTool.execute.mockResolvedValue(activityWith([question('1+1=？', 1)]));
 
-    it('should assign ageGroup 3-4 for children age 3', async () => {
-      usersService.findById.mockResolvedValue({ id: 2, age: 3, name: '小华' });
-      llmClient.generate.mockResolvedValue(
-        JSON.stringify([
-          {
-            question: '1+1=？',
-            options: ['1', '2', '3'],
-            correctIndex: 1,
-            explanation: '一个加一个就是两个',
-          },
-        ]),
-      );
+    const result = await service.generateQuiz({ childId: 2, topic: '数学', count: 1 });
 
-      const result = await service.generateQuiz({
-        childId: 2,
-        topic: '数学',
-        count: 1,
-      });
+    expect(result.ageGroup).toBe('3-4');
+    expect(generateActivityTool.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ difficulty: 1, ageGroup: '3-4' }),
+    );
+  });
 
-      expect(result.ageGroup).toBe('3-4');
-    });
+  it('filters questions through content safety', async () => {
+    generateActivityTool.execute.mockResolvedValue(activityWith([question('正常问题')]));
 
-    it('should filter questions through content safety', async () => {
-      llmClient.generate.mockResolvedValue(
-        JSON.stringify([
-          {
-            question: '正常问题',
-            options: ['A', 'B', 'C'],
-            correctIndex: 0,
-            explanation: '解释',
-          },
-        ]),
-      );
+    await service.generateQuiz({ childId: 1, topic: '测试', count: 1 });
 
-      await service.generateQuiz({ childId: 1, topic: '测试', count: 1 });
+    expect(contentSafetyService.filterContent).toHaveBeenCalledWith('正常问题');
+  });
 
-      expect(contentSafetyService.filterContent).toHaveBeenCalledWith('正常问题');
-    });
+  it('caps questions at count (default 3)', async () => {
+    generateActivityTool.execute.mockResolvedValue(
+      activityWith([question('Q1'), question('Q2'), question('Q3'), question('Q4'), question('Q5')]),
+    );
 
-    it('should default to count=3 when not specified', async () => {
-      const promptSpy = jest.fn();
-      llmClient.generate.mockImplementation((prompt: string) => {
-        promptSpy(prompt);
-        return JSON.stringify([
-          { question: 'Q1', options: ['A', 'B', 'C'], correctIndex: 0, explanation: 'E1' },
-          { question: 'Q2', options: ['A', 'B', 'C'], correctIndex: 0, explanation: 'E2' },
-          { question: 'Q3', options: ['A', 'B', 'C'], correctIndex: 0, explanation: 'E3' },
-        ]);
-      });
+    const result = await service.generateQuiz({ childId: 1, topic: '科学' });
 
-      await service.generateQuiz({ childId: 1, topic: '科学' });
-
-      expect(promptSpy).toHaveBeenCalledWith(expect.stringContaining('3道'));
-    });
+    expect(result.questions).toHaveLength(3);
   });
 });

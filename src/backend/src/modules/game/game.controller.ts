@@ -6,11 +6,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
+  /** @deprecated 前端已无调用方；出题统一走 generateActivity 引擎。保留仅为兼容旧客户端。 */
   @Get('list')
   getGameList(@Query('ageRange') ageRange: string) {
     return this.gameService.getGameList(ageRange || '3-4');
   }
 
+  /** @deprecated 硬编码静态池，仅作静态课程 game block 的兜底；新内容走 generateActivity。 */
   @Get(':gameId')
   generateGame(@Param('gameId') gameId: string, @Query('difficulty') difficulty: string) {
     return this.gameService.generateGame(gameId, +(difficulty || 1));

@@ -292,22 +292,6 @@ export const GenericIntroScene: React.FC<GenericIntroProps> = ({
           {title}
         </text>
 
-        {/* Subtitle */}
-        <text
-          x={width / 2}
-          y={height / 2 + 40}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontFamily={FONT_FAMILY}
-          fontSize={FONT_SIZES.subtitle}
-          fontWeight={700}
-          fill={PALETTE.white}
-          opacity={subtitleOpacity * 0.8}
-          transform={`translate(0, ${subtitleY})`}
-        >
-          {subtitle}
-        </text>
-
         {/* Small decorative dots along bottom */}
         {Array.from({ length: 9 }).map((_, i) => (
           <circle
@@ -320,6 +304,30 @@ export const GenericIntroScene: React.FC<GenericIntroProps> = ({
           />
         ))}
       </svg>
+
+      {/* Subtitle as wrapping HTML (SVG <text> cannot wrap and overflows) */}
+      {subtitle && (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: height / 2 + 24,
+            padding: "0 80px",
+            boxSizing: "border-box",
+            textAlign: "center",
+            fontFamily: FONT_FAMILY,
+            fontSize: subtitle.length > 40 ? 28 : subtitle.length > 24 ? 32 : FONT_SIZES.subtitle,
+            fontWeight: 700,
+            lineHeight: 1.5,
+            color: PALETTE.white,
+            opacity: subtitleOpacity * 0.8,
+            transform: `translateY(${subtitleY}px)`,
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
     </AbsoluteFill>
   );
 };

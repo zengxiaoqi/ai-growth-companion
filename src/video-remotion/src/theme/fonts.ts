@@ -1,11 +1,6 @@
-import { loadFont } from "@remotion/google-fonts/NotoSansSC";
-
-const { fontFamily } = loadFont("normal", {
-  weights: ["400", "700", "900"],
-  ignoreTooManyRequestsWarning: true,
-});
-
-export const FONT_FAMILY = fontFamily;
+// 使用系统自带中文字体，避免渲染时拉取在线字体（离线/受限网络会挂起无头浏览器）
+export const FONT_FAMILY =
+  '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", sans-serif';
 
 export const FONT_SIZES = {
   heroNumber: 260,

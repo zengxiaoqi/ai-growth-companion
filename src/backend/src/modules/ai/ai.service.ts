@@ -1814,15 +1814,15 @@ export class AiService {
 
         const titleText = this.wrapSubtitleText(
           String(shot.headline || `镜头 ${index + 1}`).trim() || `镜头 ${index + 1}`,
-          16,
-          1,
+          14,
+          2,
         );
         const subtitleText = this.wrapSubtitleText(
           String(shot.subtitle || shot.headline || '').trim() || '学习进行中',
           18,
           2,
         );
-        const visualText = this.wrapSubtitleText(String(shot.visualHint || '').trim(), 20, 1);
+        const visualText = this.wrapSubtitleText(String(shot.visualHint || '').trim(), 18, 2);
 
         await fs.writeFile(path.join(tempRoot, titleFile), titleText, 'utf8');
         await fs.writeFile(path.join(tempRoot, subtitleFile), subtitleText, 'utf8');
@@ -1830,50 +1830,17 @@ export class AiService {
           await fs.writeFile(path.join(tempRoot, visualFile), visualText, 'utf8');
         }
 
-        const tokenFiles: string[] = [];
-        for (
-          let tokenIndex = 0;
-          tokenIndex < Math.min(5, themeStyle.motionTokens.length);
-          tokenIndex += 1
-        ) {
-          const token = this.wrapSubtitleText(
-            String(themeStyle.motionTokens[tokenIndex] || '').trim(),
-            8,
-            1,
-          );
-          if (!token) continue;
-          const tokenFile = `shot-${index + 1}-token-${tokenIndex + 1}.txt`;
-          await fs.writeFile(path.join(tempRoot, tokenFile), token, 'utf8');
-          tokenFiles.push(tokenFile);
-        }
-
         const fontPrefix = hasLocalFont ? `fontfile='${fontLocalName}':` : '';
         const filterParts = [
-          ...this.buildThemeMotionFilters(themeStyle, index),
-          ...this.buildCharacterRoleFilters(themeStyle, index),
-          `drawbox=x=(iw*0.14)+110*sin(t*0.68):y=136:w=280:h=34:color=${themeStyle.ribbonColorA}@0.22:t=fill`,
-          `drawbox=x=(iw*0.66)+95*cos(t*0.72):y=208:w=250:h=30:color=${themeStyle.ribbonColorB}@0.18:t=fill`,
-          `drawbox=x=(iw*0.11)+18*sin(t*1.2):y=(ih*0.26)+9*cos(t*0.9):w=iw*0.78:h=ih*0.34:color=${themeStyle.cardColor}@0.22:t=fill`,
+          `drawbox=x=iw*0.30:y=ih*0.30:w=iw*0.40:h=ih*0.30:color=${themeStyle.cardColor}@0.30:t=fill`,
           'drawbox=x=0:y=0:w=iw:h=118:color=black@0.28:t=fill',
           'drawbox=x=0:y=ih-198:w=iw:h=198:color=black@0.45:t=fill',
           `drawtext=${fontPrefix}textfile='${titleFile}':fontcolor=white:fontsize=36:line_spacing=8:x=(w-text_w)/2:y=28`,
           `drawtext=${fontPrefix}textfile='${subtitleFile}':fontcolor=white:fontsize=44:line_spacing=10:x=(w-text_w)/2:y=h-160`,
         ];
-        tokenFiles.forEach((tokenFile, tokenIndex) => {
-          const size = Math.max(28, 42 - tokenIndex * 4);
-          const ampX = 28 + tokenIndex * 9;
-          const ampY = 12 + tokenIndex * 4;
-          const baseX = 96 + tokenIndex * 208;
-          const baseY = 206 + (tokenIndex % 3) * 102;
-          const speed = (0.68 + tokenIndex * 0.14).toFixed(2);
-          const swing = (0.58 + tokenIndex * 0.12).toFixed(2);
-          filterParts.push(
-            `drawtext=${fontPrefix}textfile='${tokenFile}':fontcolor=white@0.24:fontsize=${size}:x=${baseX}+${ampX}*sin(t*${speed}):y=${baseY}+${ampY}*cos(t*${swing})`,
-          );
-        });
         if (visualText) {
           filterParts.push(
-            `drawtext=${fontPrefix}textfile='${visualFile}':fontcolor=white@0.34:fontsize=26:line_spacing=6:x=(w-text_w)/2:y=(h-text_h)/2+96`,
+            `drawtext=${fontPrefix}textfile='${visualFile}':fontcolor=white@0.85:fontsize=26:line_spacing=6:x=(w-text_w)/2:y=ih*0.40`,
           );
         }
         filterParts.push('fade=t=in:st=0:d=0.22');
@@ -2232,7 +2199,6 @@ export class AiService {
     const sourceTextRaw = [
       String(pack?.topic || ''),
       String(pack?.title || ''),
-      String(pack?.focus || ''),
       String(shot?.headline || ''),
       String(shot?.subtitle || ''),
       String(shot?.visualHint || ''),
@@ -2297,12 +2263,12 @@ export class AiService {
         ribbonColorA: '0x38bdf8',
         ribbonColorB: '0xfacc15',
         cardColor: '0x1e293b',
-        motifSeed: ['A', 'B', 'C', 'D', 'word', 'phonics'],
+        motifSeed: ['A', 'B', 'C', 'D', 'E', 'F'],
       };
     }
 
-    const keywords = this.extractThemeKeywords(sourceTextRaw, 5);
-    const motionTokens = keywords.length > 0 ? keywords : palette.motifSeed;
+    // mascot 标签只用 curated 主题词，避免对标题硬切产生「彩虹的颜」式截断
+    const motionTokens = palette.motifSeed;
 
     return {
       themeKind: palette.themeKind,
@@ -2312,167 +2278,6 @@ export class AiService {
       cardColor: palette.cardColor,
       motionTokens,
     };
-  }
-
-  private extractThemeKeywords(text: string, max: number): string[] {
-    const chunks = String(text || '').match(/[A-Za-z]{2,}|[0-9]+|[\u4e00-\u9fa5]{1,4}/g) || [];
-    const stopwords = new Set([
-      '课程',
-      '学习',
-      '视频',
-      '讲解',
-      '镜头',
-      '场景',
-      '内容',
-      'lesson',
-      'course',
-      'video',
-      'learn',
-      'study',
-      'shot',
-      'scene',
-      'title',
-      'topic',
-    ]);
-    const result: string[] = [];
-    for (const chunk of chunks) {
-      const token = String(chunk || '').trim();
-      const tokenLower = token.toLowerCase();
-      if (!token) continue;
-      if (stopwords.has(token) || stopwords.has(tokenLower)) continue;
-      if (result.includes(token)) continue;
-      result.push(token);
-      if (result.length >= Math.max(1, max)) break;
-    }
-    return result;
-  }
-
-  private buildThemeMotionFilters(
-    themeStyle: {
-      themeKind: 'nature' | 'math' | 'literacy' | 'science' | 'english' | 'general';
-      ribbonColorA: string;
-      ribbonColorB: string;
-      cardColor: string;
-    },
-    _index: number,
-  ): string[] {
-    if (themeStyle.themeKind === 'nature') {
-      return [
-        'drawbox=x=(iw*0.08)+120*sin(t*0.52):y=106:w=340:h=30:color=white@0.14:t=fill',
-        'drawbox=x=(iw*0.58)+110*cos(t*0.46):y=156:w=240:h=26:color=white@0.12:t=fill',
-        'drawbox=x=0:y=ih-188+9*sin(t*0.86):w=iw:h=84:color=0x22d3ee@0.17:t=fill',
-        'drawbox=x=0:y=ih-132+11*cos(t*0.78):w=iw:h=104:color=0x0ea5e9@0.15:t=fill',
-        `drawbox=x=(iw*0.74)+54*sin(t*0.72):y=94+24*cos(t*0.64):w=72:h=72:color=${themeStyle.ribbonColorB}@0.26:t=fill`,
-      ];
-    }
-    if (themeStyle.themeKind === 'math') {
-      return [
-        'drawbox=x=96+30*sin(t*0.7):y=0:w=2:h=ih:color=white@0.10:t=fill',
-        'drawbox=x=312+26*cos(t*0.63):y=0:w=2:h=ih:color=white@0.09:t=fill',
-        'drawbox=x=0:y=188+14*sin(t*0.74):w=iw:h=2:color=white@0.09:t=fill',
-        'drawbox=x=0:y=332+16*cos(t*0.66):w=iw:h=2:color=white@0.09:t=fill',
-        `drawbox=x=(iw*0.24)+84*sin(t*0.82):y=(ih*0.48)+32*cos(t*0.92):w=54:h=54:color=${themeStyle.ribbonColorA}@0.22:t=fill`,
-      ];
-    }
-    if (themeStyle.themeKind === 'literacy') {
-      return [
-        'drawbox=x=0:y=124+6*sin(t*0.5):w=iw:h=2:color=white@0.08:t=fill',
-        'drawbox=x=0:y=192+7*cos(t*0.56):w=iw:h=2:color=white@0.08:t=fill',
-        'drawbox=x=0:y=260+6*sin(t*0.61):w=iw:h=2:color=white@0.08:t=fill',
-        'drawbox=x=0:y=328+7*cos(t*0.58):w=iw:h=2:color=white@0.08:t=fill',
-        `drawbox=x=(iw*0.18)+46*sin(t*0.8):y=(ih*0.36)+22*cos(t*0.72):w=460:h=90:color=${themeStyle.cardColor}@0.18:t=fill`,
-      ];
-    }
-    if (themeStyle.themeKind === 'science') {
-      return [
-        `drawbox=x=(iw/2)+184*sin(t*0.94)-10:y=(ih/2)+118*cos(t*0.94)-10:w=20:h=20:color=${themeStyle.ribbonColorA}@0.32:t=fill`,
-        `drawbox=x=(iw/2)+132*sin(t*1.32+1.4)-8:y=(ih/2)+84*cos(t*1.32+1.4)-8:w=16:h=16:color=${themeStyle.ribbonColorB}@0.28:t=fill`,
-        `drawbox=x=(iw/2)+96*sin(t*1.68+2.2)-7:y=(ih/2)+62*cos(t*1.68+2.2)-7:w=14:h=14:color=${themeStyle.cardColor}@0.34:t=fill`,
-        'drawbox=x=0:y=0:w=iw:h=2:color=white@0.06:t=fill',
-        'drawbox=x=0:y=ih-2:w=iw:h=2:color=white@0.06:t=fill',
-      ];
-    }
-    if (themeStyle.themeKind === 'english') {
-      return [
-        'drawbox=x=(iw*0.12)+130*sin(t*0.62):y=122:w=260:h=24:color=white@0.11:t=fill',
-        'drawbox=x=(iw*0.64)+96*cos(t*0.57):y=178:w=220:h=20:color=white@0.10:t=fill',
-        `drawbox=x=(iw*0.66)+52*sin(t*0.76):y=(ih*0.35)+26*cos(t*0.88):w=110:h=54:color=${themeStyle.ribbonColorA}@0.20:t=fill`,
-        `drawbox=x=(iw*0.19)+48*cos(t*0.74):y=(ih*0.44)+22*sin(t*0.83):w=124:h=58:color=${themeStyle.ribbonColorB}@0.18:t=fill`,
-      ];
-    }
-    return [
-      'drawbox=x=(iw*0.1)+140*sin(t*0.54):y=128:w=300:h=28:color=white@0.10:t=fill',
-      'drawbox=x=(iw*0.62)+120*cos(t*0.49):y=192:w=220:h=24:color=white@0.08:t=fill',
-      `drawbox=x=(iw*0.2)+36*sin(t*0.74):y=(ih*0.32)+18*cos(t*0.82):w=iw*0.58:h=ih*0.22:color=${themeStyle.cardColor}@0.16:t=fill`,
-    ];
-  }
-
-  private buildCharacterRoleFilters(
-    themeStyle: {
-      themeKind: 'nature' | 'math' | 'literacy' | 'science' | 'english' | 'general';
-      ribbonColorA: string;
-      ribbonColorB: string;
-      cardColor: string;
-    },
-    index: number,
-  ): string[] {
-    const phase = (Math.abs(index) % 7) * 0.37;
-    const phase2 = (Math.abs(index) % 5) * 0.51;
-    const p1 = phase.toFixed(2);
-    const p2 = phase2.toFixed(2);
-
-    if (themeStyle.themeKind === 'nature') {
-      return [
-        `drawbox=x=(iw*0.74)+38*cos(t*0.32+${p1}):y=84+18*sin(t*0.44+${p2}):w=72:h=72:color=0xfacc15@0.28:t=fill`,
-        `drawbox=x=(iw*0.76)+46*cos(t*0.32+${p1}):y=92+18*sin(t*0.44+${p2}):w=56:h=56:color=0xfbbf24@0.42:t=fill`,
-        `drawbox=x=(iw*0.18)+154*sin(t*0.38+${p1}):y=ih-214+8*sin(t*1.06+${p2}):w=132:h=20:color=0x1f2937@0.36:t=fill`,
-        `drawbox=x=(iw*0.18)+180*sin(t*0.38+${p1}):y=ih-234+8*sin(t*1.06+${p2}):w=72:h=20:color=0x60a5fa@0.34:t=fill`,
-        `drawbox=x=(iw*0.18)+214*sin(t*0.38+${p1}):y=ih-258+8*sin(t*1.06+${p2}):w=5:h=24:color=0xe5e7eb@0.40:t=fill`,
-      ];
-    }
-
-    if (themeStyle.themeKind === 'math') {
-      return [
-        `drawbox=x=(iw*0.16)+130*sin(t*0.82+${p1}):y=(ih*0.36)+20*cos(t*0.94+${p2}):w=84:h=106:color=0x2563eb@0.28:t=fill`,
-        `drawbox=x=(iw*0.30)+120*cos(t*0.76+${p2}):y=(ih*0.40)+18*sin(t*0.88+${p1}):w=84:h=106:color=0xf59e0b@0.24:t=fill`,
-        `drawbox=x=(iw*0.76)+26*sin(t*1.10+${p1}):y=184+38*sin(t*0.90+${p2}):w=20:h=20:color=0xe5e7eb@0.34:t=fill`,
-        `drawbox=x=(iw*0.80)+28*cos(t*1.18+${p2}):y=264+34*cos(t*0.84+${p1}):w=20:h=20:color=0xe5e7eb@0.34:t=fill`,
-      ];
-    }
-
-    if (themeStyle.themeKind === 'literacy') {
-      return [
-        `drawbox=x=(iw*0.25)+40*sin(t*0.52+${p1}):y=(ih*0.46)+10*cos(t*0.72+${p2}):w=260:h=120:color=0xf8fafc@0.20:t=fill`,
-        `drawbox=x=(iw*0.25)+166+40*sin(t*0.52+${p1}):y=(ih*0.46)+10*cos(t*0.72+${p2}):w=3:h=120:color=0xcbd5e1@0.36:t=fill`,
-        `drawbox=x=(iw*0.58)+56*cos(t*0.66+${p2}):y=(ih*0.42)+30*sin(t*0.88+${p1}):w=16:h=138:color=0xf59e0b@0.26:t=fill`,
-        `drawbox=x=(iw*0.58)+52*cos(t*0.66+${p2}):y=(ih*0.39)+30*sin(t*0.88+${p1}):w=24:h=24:color=0xfef3c7@0.34:t=fill`,
-      ];
-    }
-
-    if (themeStyle.themeKind === 'science') {
-      return [
-        `drawbox=x=(iw/2)+178*sin(t*0.82+${p1}):y=(ih/2)+112*cos(t*0.82+${p1}):w=42:h=42:color=0x22d3ee@0.24:t=fill`,
-        `drawbox=x=(iw/2)+236*sin(t*1.34+${p2}):y=(ih/2)+146*cos(t*1.34+${p2}):w=18:h=18:color=0xa3e635@0.28:t=fill`,
-        `drawbox=x=(iw/2)+246*sin(t*1.34+${p2}):y=(ih/2)+154*cos(t*1.34+${p2}):w=32:h=4:color=0xe2e8f0@0.30:t=fill`,
-        'drawbox=x=(iw/2)-32:y=(ih/2)-32:w=64:h=64:color=0x0ea5e9@0.20:t=fill',
-      ];
-    }
-
-    if (themeStyle.themeKind === 'english') {
-      return [
-        `drawbox=x=(iw*0.18)+130*sin(t*0.66+${p1}):y=(ih*0.34)+18*cos(t*0.72+${p2}):w=94:h=94:color=0x38bdf8@0.22:t=fill`,
-        `drawbox=x=(iw*0.62)+90*cos(t*0.58+${p2}):y=(ih*0.38)+24*sin(t*0.82+${p1}):w=100:h=100:color=0xfacc15@0.24:t=fill`,
-        `drawbox=x=(iw*0.44)+44*sin(t*0.61+${p1}):y=(ih*0.26)+16*cos(t*0.57+${p2}):w=190:h=72:color=0xffffff@0.10:t=fill`,
-        `drawbox=x=(iw*0.52)+44*sin(t*0.61+${p1}):y=(ih*0.35)+16*cos(t*0.57+${p2}):w=30:h=20:color=0xffffff@0.08:t=fill`,
-      ];
-    }
-
-    return [
-      `drawbox=x=(iw*0.46)+48*sin(t*0.72+${p1}):y=(ih*0.33)+20*cos(t*0.82+${p2}):w=88:h=88:color=${themeStyle.ribbonColorA}@0.26:t=fill`,
-      `drawbox=x=(iw*0.45)+48*sin(t*0.72+${p1}):y=(ih*0.44)+20*cos(t*0.82+${p2}):w=106:h=130:color=${themeStyle.ribbonColorB}@0.20:t=fill`,
-      `drawbox=x=(iw*0.46)+48*sin(t*0.72+${p1}):y=(ih*0.60)+20*cos(t*0.82+${p2}):w=20:h=52:color=${themeStyle.cardColor}@0.26:t=fill`,
-      `drawbox=x=(iw*0.53)+48*sin(t*0.72+${p1}):y=(ih*0.60)+20*cos(t*0.82+${p2}):w=20:h=52:color=${themeStyle.cardColor}@0.26:t=fill`,
-    ];
   }
 
   private async buildShotSpriteAssets(
@@ -2502,20 +2307,11 @@ export class AiService {
 
   private pickSpriteLabel(
     themeStyle: { motionTokens: string[] },
-    shot: { headline?: string; subtitle?: string; visualHint?: string },
+    _shot: { headline?: string; subtitle?: string; visualHint?: string },
     rank: number,
   ): string {
-    const token = String(themeStyle.motionTokens?.[rank] || '').trim();
-    if (token) return token;
-    const source = [
-      String(shot.headline || ''),
-      String(shot.subtitle || ''),
-      String(shot.visualHint || ''),
-    ]
-      .join(' ')
-      .trim();
-    const parts = this.extractThemeKeywords(source, 2);
-    return String(parts?.[rank] || parts?.[0] || '学习').trim() || '学习';
+    const tokens = themeStyle.motionTokens || [];
+    return String(tokens[rank] || tokens[0] || '学习').trim() || '学习';
   }
 
   private async renderSvgSpriteToPng(svg: string, outputPath: string): Promise<boolean> {
@@ -2671,39 +2467,15 @@ export class AiService {
   }
 
   private buildSpriteOverlayExpression(
-    themeStyle: {
+    _themeStyle: {
       themeKind: 'nature' | 'math' | 'literacy' | 'science' | 'english' | 'general';
     },
-    index: number,
+    _index: number,
     slot: 'main' | 'aux',
   ): string {
-    const phase = (Math.abs(index) % 9) * 0.39;
-    const p = phase.toFixed(2);
-    if (slot === 'main') {
-      if (themeStyle.themeKind === 'nature')
-        return `x=(main_w*0.04)+34*sin(t*0.42+${p}):y=(main_h*0.42)+18*cos(t*0.76+${p})`;
-      if (themeStyle.themeKind === 'math')
-        return `x=(main_w*0.10)+26*sin(t*0.82+${p}):y=(main_h*0.38)+16*cos(t*0.94+${p})`;
-      if (themeStyle.themeKind === 'literacy')
-        return `x=(main_w*0.08)+20*sin(t*0.56+${p}):y=(main_h*0.40)+12*cos(t*0.66+${p})`;
-      if (themeStyle.themeKind === 'science')
-        return `x=(main_w*0.60)+26*sin(t*0.72+${p}):y=(main_h*0.26)+22*cos(t*0.84+${p})`;
-      if (themeStyle.themeKind === 'english')
-        return `x=(main_w*0.11)+22*sin(t*0.62+${p}):y=(main_h*0.34)+14*cos(t*0.70+${p})`;
-      return `x=(main_w*0.12)+24*sin(t*0.62+${p}):y=(main_h*0.38)+14*cos(t*0.72+${p})`;
-    }
-
-    if (themeStyle.themeKind === 'nature')
-      return `x=(main_w*0.70)+28*cos(t*0.54+${p}):y=(main_h*0.56)+12*sin(t*0.78+${p})`;
-    if (themeStyle.themeKind === 'math')
-      return `x=(main_w*0.66)+18*sin(t*0.80+${p}):y=(main_h*0.58)+10*cos(t*0.90+${p})`;
-    if (themeStyle.themeKind === 'literacy')
-      return `x=(main_w*0.68)+14*sin(t*0.48+${p}):y=(main_h*0.52)+10*cos(t*0.62+${p})`;
-    if (themeStyle.themeKind === 'science')
-      return `x=(main_w*0.14)+30*sin(t*0.92+${p}):y=(main_h*0.54)+14*cos(t*0.88+${p})`;
-    if (themeStyle.themeKind === 'english')
-      return `x=(main_w*0.68)+20*sin(t*0.74+${p}):y=(main_h*0.54)+10*cos(t*0.68+${p})`;
-    return `x=(main_w*0.64)+16*sin(t*0.68+${p}):y=(main_h*0.54)+10*cos(t*0.70+${p})`;
+    // 静态侧边站位，避免漂移到中央文字区造成重叠
+    if (slot === 'main') return 'x=main_w*0.05:y=main_h*0.34';
+    return 'x=main_w*0.78:y=main_h*0.40';
   }
 
   private async mergeSegmentsWithTransitions(

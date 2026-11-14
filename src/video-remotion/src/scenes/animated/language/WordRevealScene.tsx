@@ -40,7 +40,11 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
   const { fps } = useVideoConfig();
 
   const params: WordRevealParams = data.animationTemplate?.params ?? {};
-  const words = params.words?.length ? params.words : DEFAULT_WORDS;
+  // 每张卡片只放一个字符，避免多字词在 120px 卡片内竖排溢出
+  const words = (params.words?.length ? params.words : DEFAULT_WORDS)
+    .flatMap((word) => String(word).split(''))
+    .filter(Boolean)
+    .slice(0, 8);
   const revealSpeed = params.revealSpeed ?? 1;
   const highlightColor =
     params.highlightColor || data.accentColor || PALETTE.accent;
@@ -249,30 +253,6 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
           </React.Fragment>
         );
       })}
-
-      {/* Subtitle */}
-      {data.subtitle && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: height * 0.08,
-            width: "100%",
-            textAlign: "center",
-            fontFamily: FONT_FAMILY,
-            fontSize: FONT_SIZES.label,
-            fontWeight: 700,
-            color: PALETTE.dark,
-            opacity: interpolate(
-              spring({ frame, fps, config: SPRING_CONFIGS.smooth, delay: 30 }),
-              [0, 1],
-              [0, 0.7],
-            ),
-            zIndex: 2,
-          }}
-        >
-          {data.subtitle}
-        </div>
-      )}
     </AbsoluteFill>
   );
 };

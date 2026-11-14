@@ -1749,16 +1749,20 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     final difficulty =
         game['difficulty'] is num ? (game['difficulty'] as num).toInt() : 1;
 
-    return GameRenderer(
-      activityType: activityType,
-      initialData: activityData,
-      gameId: gameId,
-      difficulty: difficulty,
-      onExit: () {},
-      onCompleted: (result) {
-        final score = result['score'] as int? ?? 85;
-        _completeStep(score: score, interactionData: {'gameResult': result});
-      },
+    // 游戏组件内部用 Expanded 布局，需要有限高度；课程步骤外层是无界滚动容器
+    return SizedBox(
+      height: 430,
+      child: GameRenderer(
+        activityType: activityType,
+        initialData: activityData,
+        gameId: gameId,
+        difficulty: difficulty,
+        onExit: () {},
+        onCompleted: (result) {
+          final score = result['score'] as int? ?? 85;
+          _completeStep(score: score, interactionData: {'gameResult': result});
+        },
+      ),
     );
   }
 

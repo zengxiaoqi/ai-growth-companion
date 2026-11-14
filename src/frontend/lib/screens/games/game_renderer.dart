@@ -112,6 +112,10 @@ class _GameRendererState extends State<GameRenderer> {
       'tap_target',
     };
 
+    // 题型以数据自身声明为准：存量课程外层 activityType 可能与实际题型不符
+    final dataType = rawData['type']?.toString().trim();
+    if (dataType != null && types.contains(dataType)) return dataType;
+
     final candidate = activityType?.trim();
     if (candidate != null && types.contains(candidate)) return candidate;
 

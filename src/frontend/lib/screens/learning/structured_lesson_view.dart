@@ -856,22 +856,32 @@ class _LessonStepStatusUI {
 }
 
 _LessonStepStatusUI _statusUI(_LessonStepStatus status, ColorScheme scheme) {
+  // 深色皮肤（space）下浅色徽章底与深色文字对比不足，改用 alpha 派生。
+  final dark = AppTheme.active.isDarkSurface;
   switch (status) {
     case _LessonStepStatus.completed:
-      return const _LessonStepStatusUI(
+      final Color text =
+          dark ? AppTheme.accentColor : const Color(0xFF2E7D32);
+      return _LessonStepStatusUI(
         label: '已完成',
         icon: Icons.check_circle_rounded,
-        text: Color(0xFF2E7D32),
-        badgeBg: Color(0xFFE8F5E9),
-        badgeText: Color(0xFF2E7D32),
+        text: text,
+        badgeBg: dark
+            ? text.withValues(alpha: 0.20)
+            : const Color(0xFFE8F5E9),
+        badgeText: text,
       );
     case _LessonStepStatus.inProgress:
-      return const _LessonStepStatusUI(
+      final Color text =
+          dark ? const Color(0xFFFFB74D) : const Color(0xFFEF6C00);
+      return _LessonStepStatusUI(
         label: '进行中',
         icon: Icons.play_circle_rounded,
-        text: Color(0xFFEF6C00),
-        badgeBg: Color(0xFFFFF3E0),
-        badgeText: Color(0xFFEF6C00),
+        text: text,
+        badgeBg: dark
+            ? text.withValues(alpha: 0.22)
+            : const Color(0xFFFFF3E0),
+        badgeText: text,
       );
     case _LessonStepStatus.notStarted:
       return _LessonStepStatusUI(

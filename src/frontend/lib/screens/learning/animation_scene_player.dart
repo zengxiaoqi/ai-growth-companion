@@ -509,7 +509,9 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.active.isDarkSurface
+            ? AppTheme.active.card.withValues(alpha: 0.96)
+            : Colors.white.withValues(alpha: 0.92),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -604,7 +606,11 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: isPrimary ? AppTheme.primaryColor : Colors.grey.shade100,
+          color: isPrimary
+              ? AppTheme.primaryColor
+              : (AppTheme.active.isDarkSurface
+                  ? AppTheme.active.soft
+                  : Colors.grey.shade100),
           shape: BoxShape.circle,
           boxShadow: isPrimary
               ? [
@@ -619,7 +625,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
         child: Icon(
           icon,
           color: isPrimary
-              ? Colors.white
+              ? AppTheme.active.onPrimary
               : enabled
                   ? AppTheme.textColor
                   : AppTheme.textSecondary.withValues(alpha: 0.4),
@@ -648,7 +654,9 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
                 ? AppTheme.primaryColor
                 : isPast
                     ? AppTheme.primaryColor.withValues(alpha: 0.4)
-                    : Colors.grey.shade200,
+                    : (AppTheme.active.isDarkSurface
+                        ? AppTheme.active.line
+                        : Colors.grey.shade200),
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -692,7 +700,7 @@ class _AnimationScenePlayerState extends State<AnimationScenePlayer>
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
+            foregroundColor: AppTheme.active.onPrimary,
             elevation: 2,
             shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(

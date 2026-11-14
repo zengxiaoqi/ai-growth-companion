@@ -665,15 +665,15 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
             Icon(
               _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               size: 16,
-              color: Colors.white,
+              color: AppTheme.active.onPrimary,
             ),
             const SizedBox(width: 4),
             Text(
               _isPlaying ? '暂停' : '播放',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppTheme.active.onPrimary,
               ),
             ),
           ],
@@ -693,7 +693,9 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: AppTheme.active.isDarkSurface
+              ? AppTheme.active.soft
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -766,7 +768,11 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
           width: isCurrent ? 24 : 6,
           height: 6,
           decoration: BoxDecoration(
-            color: isCurrent ? AppTheme.primaryColor : Colors.grey.shade200,
+            color: isCurrent
+                ? AppTheme.primaryColor
+                : (AppTheme.active.isDarkSurface
+                    ? AppTheme.active.line
+                    : Colors.grey.shade200),
             borderRadius: BorderRadius.circular(3),
           ),
         );
@@ -809,7 +815,7 @@ class _LessonScenePlayerState extends State<LessonScenePlayer> {
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
+            foregroundColor: AppTheme.active.onPrimary,
             elevation: 2,
             shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
             shape: RoundedRectangleBorder(

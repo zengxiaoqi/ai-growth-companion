@@ -332,7 +332,9 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: AppTheme.active.isDarkSurface
+                          ? AppTheme.active.soft
+                          : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -440,7 +442,9 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
           child: LinearProgressIndicator(
             value: _coverage,
             minHeight: 8,
-            backgroundColor: Colors.grey.shade200,
+            backgroundColor: AppTheme.active.isDarkSurface
+                ? AppTheme.active.line
+                : Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation(
               _coverage >= widget.minCoverage
                   ? AppTheme.accentColor
@@ -495,7 +499,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                 onPressed: _submitSolution,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.active.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -514,7 +518,11 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textSecondary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: BorderSide(
+                    color: AppTheme.active.isDarkSurface
+                        ? AppTheme.active.line
+                        : Colors.grey.shade300,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

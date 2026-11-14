@@ -19,12 +19,17 @@ class DomainMeta {
   final String label;
   final IconData icon;
   final Color color;
+
+  /// 深色皮肤下取 `AppTheme.childColors[subjectIndex]`（亮学科色），
+  /// 浅色皮肤仍用 [color]，保证默认蜜黄零回归。
+  final int subjectIndex;
   final Color backgroundColor;
 
   const DomainMeta({
     required this.label,
     required this.icon,
     required this.color,
+    required this.subjectIndex,
     required this.backgroundColor,
   });
 }
@@ -34,30 +39,35 @@ Map<String, DomainMeta> kDomainMeta = {
     label: '语言',
     icon: Icons.chat_bubble_rounded,
     color: AppTheme.primaryColor,
+    subjectIndex: 0,
     backgroundColor: Color(0xFFFFE4EB),
   ),
   'math': DomainMeta(
     label: '数学',
     icon: Icons.calculate_rounded,
     color: AppTheme.secondaryColor,
+    subjectIndex: 1,
     backgroundColor: Color(0xFFE4F3FB),
   ),
   'science': DomainMeta(
     label: '科学',
     icon: Icons.science_rounded,
     color: AppTheme.accentColor,
+    subjectIndex: 2,
     backgroundColor: Color(0xFFE4F8E0),
   ),
   'art': DomainMeta(
     label: '艺术',
     icon: Icons.palette_rounded,
     color: AppTheme.softPurple,
+    subjectIndex: 4,
     backgroundColor: Color(0xFFF3E4F8),
   ),
   'social': DomainMeta(
     label: '社会',
     icon: Icons.people_rounded,
     color: Color(0xFFE3BC45),
+    subjectIndex: 3,
     backgroundColor: Color(0xFFFFF5E0),
   ),
 };
@@ -419,6 +429,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
         label: '学习',
         icon: Icons.auto_awesome_rounded,
         color: AppTheme.primaryColor,
+        subjectIndex: 0,
         backgroundColor: Color(0xFFFFE4EB),
       );
     }
@@ -428,9 +439,16 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
           label: '学习',
           icon: Icons.auto_awesome_rounded,
           color: AppTheme.primaryColor,
+          subjectIndex: 0,
           backgroundColor: Color(0xFFFFE4EB),
         );
   }
+
+  /// 学科主色：深色皮肤下 secondary / softPurple 等基色偏暗，
+  /// 改用亮学科色保证图标与文字在深色卡片上可读。
+  Color get _domainColor => AppTheme.active.isDarkSurface
+      ? AppTheme.childColors[_domainMeta.subjectIndex]
+      : _domainMeta.color;
 
   /// 内容没超出屏幕时根本滚不动，`_onContentScroll` 永远不会触发，
   /// 孩子就会被「滑到底部读完」卡死。这里在布局完成后补一次判定：
@@ -807,13 +825,13 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       color: Color.alphaBlend(
-                        _domainMeta.color.withValues(alpha: 0.14),
+                        _domainColor.withValues(alpha: 0.14),
                         palette.card,
                       ),
                       alignment: Alignment.center,
                       child: Icon(_domainMeta.icon,
                           size: 44,
-                          color: _domainMeta.color.withValues(alpha: 0.7)),
+                          color: _domainColor.withValues(alpha: 0.7)),
                     ),
                   ),
                   // 底部渐隐，让上浮的学科胶囊更清晰
@@ -848,11 +866,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                   end: Alignment.bottomRight,
                   colors: [
                     Color.alphaBlend(
-                      _domainMeta.color.withValues(alpha: 0.22),
+                      _domainColor.withValues(alpha: 0.22),
                       palette.card,
                     ),
                     Color.alphaBlend(
-                      _domainMeta.color.withValues(alpha: 0.06),
+                      _domainColor.withValues(alpha: 0.06),
                       palette.card,
                     ),
                   ],
@@ -865,11 +883,11 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: _domainMeta.color.withValues(alpha: 0.16),
+                      color: _domainColor.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(_domainMeta.icon,
-                        size: 26, color: _domainMeta.color),
+                        size: 26, color: _domainColor),
                   ),
                   const SizedBox(width: 12),
                   _domainPill(),
@@ -944,7 +962,7 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          _domainMeta.color.withValues(alpha: 0.18),
+          _domainColor.withValues(alpha: 0.18),
           AppTheme.active.card,
         ),
         borderRadius: BorderRadius.circular(999),
@@ -952,14 +970,14 @@ class _ContentDetailScreenState extends State<ContentDetailScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(_domainMeta.icon, size: 14, color: _domainMeta.color),
+          Icon(_domainMeta.icon, size: 14, color: _domainColor),
           const SizedBox(width: 4),
           Text(
             _domainMeta.label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: _domainMeta.color,
+              color: _domainColor,
             ),
           ),
         ],

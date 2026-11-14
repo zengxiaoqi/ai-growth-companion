@@ -2446,7 +2446,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
                               border: Border.all(
                                 color: isChecked
                                     ? AppTheme.primaryColor
-                                    : Colors.grey.shade400,
+                                    : AppTheme.active.gameCardLineStrong,
                                 width: 2,
                               ),
                               borderRadius: BorderRadius.circular(6),
@@ -2655,8 +2655,11 @@ class _WriteStepContentState extends State<_WriteStepContent> {
             icon: const Icon(Icons.check_rounded),
             label: Text(buttonLabel),
             style: FilledButton.styleFrom(
-              backgroundColor:
-                  canComplete ? AppTheme.primaryColor : Colors.grey.shade300,
+              backgroundColor: canComplete
+                  ? AppTheme.primaryColor
+                  : (AppTheme.active.isDarkSurface
+                      ? AppTheme.active.soft
+                      : Colors.grey.shade300),
               foregroundColor:
                   canComplete
                       ? AppTheme.active.onPrimary
@@ -2913,7 +2916,9 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
                   thumbShape:
                       const RoundSliderThumbShape(enabledThumbRadius: 6),
                   activeTrackColor: AppTheme.primaryColor,
-                  inactiveTrackColor: Colors.grey.shade200,
+                  inactiveTrackColor: AppTheme.active.isDarkSurface
+                      ? AppTheme.active.line
+                      : Colors.grey.shade200,
                   thumbColor: AppTheme.primaryColor,
                 ),
                 child: Slider(

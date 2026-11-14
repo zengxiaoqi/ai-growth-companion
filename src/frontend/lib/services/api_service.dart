@@ -411,6 +411,46 @@ class ApiService {
     }
   }
 
+  /// 分页拉取课程：返回当前页条目 + 总数，供列表做「滚到底再翻页」。
+  ///
+  /// 与 [getContents] 的区别：那个吞掉异常只返回空列表，分页列表需要区分
+  /// 「真的没有内容」和「这次没拉到」，所以这里异常照常抛出，由页面兜住。
+  Future<ContentPageResult> getContentPage({
+    String? ageRange,
+    String? domain,
+    int? childId,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _dio.get('/contents', queryParameters: {
+      if (ageRange != null) 'ageRange': ageRange,
+      if (domain != null) 'domain': domain,
+      if (childId != null) 'childId': childId,
+      'page': page,
+      'limit': limit,
+    });
+
+    final data = response.data;
+    final map = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+    final rawList = map['list'];
+    final items = rawList is List ? rawList : const <dynamic>[];
+
+    // 后端把 page/limit 当字符串回（`"page": "1"`），不能直接 as num
+    return ContentPageResult(
+      items: items,
+      total: _asInt(map['total'], items.length),
+      page: _asInt(map['page'], page),
+      limit: _asInt(map['limit'], limit),
+    );
+  }
+
+  /// 宽松取整：兼容 `1` / `"1"` / `null`。
+  static int _asInt(dynamic value, int fallback) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
   Future<ApiResult<Map<String, dynamic>>> getContentDetailResult(int contentId) {
     return _wrapRequest(() async {
       final response = await _dio.get('/contents/$contentId');
@@ -1707,5 +1747,28 @@ class _AuthInterceptor extends Interceptor {
       _log.warning('Auth token expired or invalid (interceptor)');
     }
     handler.next(err);
+  }
+}
+// ─── 分页结果 ─────────────────────────────────────────────────────────────
+
+/// 一页课程数据（列表页做「滚到底再翻页」用）。
+class ContentPageResult {
+  const ContentPageResult({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+  });
+
+  final List<dynamic> items;
+  final int total;
+  final int page;
+  final int limit;
+
+  /// 已取到的条数是否还没到总数。
+  bool get hasMore {
+    if (items.isEmpty) return false;
+    final fetched = (page - 1) * limit + items.length;
+    return fetched < total;
   }
 }

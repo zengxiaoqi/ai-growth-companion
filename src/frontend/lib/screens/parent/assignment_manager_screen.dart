@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../components/child_fun_page.dart';
 import '../../components/empty_state.dart';
+import '../../components/paged_list_view.dart';
 import '../../components/shimmer_loading.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -466,12 +467,27 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       );
     }
 
+    // 草稿 + 已布置拼成一条：只把当前页的卡片交给列表挂载，
+    // 历史作业攒到几十上百条时不会一次性把所有卡片都 inflate 出来。
+    final drafts = _isLoadingData ? const <Map<String, dynamic>>[] : _visibleDrafts;
+    final assigned =
+        _isLoadingData ? const <Map<String, dynamic>>[] : _visibleAssignments;
+
+    final entries = <_PagedEntry>[
+      if (drafts.isNotEmpty) const _PagedEntry.title('草稿作业'),
+      for (final draft in drafts) _PagedEntry.card(() => _buildDraftCard(draft)),
+      if (assigned.isNotEmpty) const _PagedEntry.title('已布置作业'),
+      for (final assignment in assigned)
+        _PagedEntry.card(() => _buildAssignmentCard(assignment)),
+    ];
+
     return RefreshIndicator(
       color: AppTheme.primaryColor,
       onRefresh: _loadData,
-      child: ListView(
+      child: PagedListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
+        physics: const AlwaysScrollableScrollPhysics(),
+        header: <Widget>[
           // 孩子选择器
           ChildSelector(
             children: _children,
@@ -488,13 +504,36 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
           _buildCreateSection(),
           const SizedBox(height: 16),
 
-          // 草稿作业列表
-          _buildDraftSection(),
-          const SizedBox(height: 16),
-
-          // 已布置作业列表
-          _buildAssignmentSection(),
+          // 首屏数据骨架 / 空态
+          if (_isLoadingData)
+            const SizedBox(
+              height: 132,
+              child: Center(
+                child: ShimmerCard(height: 104, margin: EdgeInsets.zero),
+              ),
+            )
+          else if (entries.isEmpty)
+            const EmptyState(
+              emoji: '📋',
+              title: '还没有作业',
+              subtitle: '点击上方按钮为孩子布置第一份作业',
+            ),
         ],
+        itemCount: entries.length,
+        pageSize: 6,
+        skeletonBuilder: (_) =>
+            const PagedSkeletonTile(height: 96, leadingSize: 40),
+        skeletonCount: 2,
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          if (entry.title != null) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              child: _buildSectionTitle(entry.title!),
+            );
+          }
+          return entry.build!();
+        },
       ),
     );
   }
@@ -689,47 +728,12 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     );
   }
 
-  /// 草稿作业列表
-  Widget _buildDraftSection() {
-    if (_isLoadingData) {
-      return SizedBox(
-        height: 200,
-        child: Center(child: ShimmerCard(height: 120)),
-      );
-    }
-
-    // 按孩子过滤并按时间倒序
-    final drafts = _draftLessons
-        .where((d) =>
-            _selectedChildId == null ||
-            _toInt(d['childId']) == _selectedChildId)
-        .toList()
-      ..sort((a, b) {
-        final at = _toDateTime(a['createdAt']);
-        final bt = _toDateTime(b['createdAt']);
-        if (at == null && bt == null) return 0;
-        if (at == null) return 1;
-        if (bt == null) return -1;
-        return bt.compareTo(at);
-      });
-
-    if (drafts.isEmpty) {
-      return const EmptyState(
-        emoji: '📝',
-        title: '暂无草稿作业',
-        subtitle: '未发布的一键生成课程会显示在这里，方便继续查看和编辑。',
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('草稿作业'),
-        const SizedBox(height: 8),
-        ...drafts.map((draft) => _buildDraftCard(draft)),
-      ],
-    );
-  }
+  /// 按当前孩子过滤 + 时间倒序的草稿
+  List<Map<String, dynamic>> get _visibleDrafts => _draftLessons
+      .where((d) =>
+          _selectedChildId == null || _toInt(d['childId']) == _selectedChildId)
+      .toList()
+    ..sort(_byCreatedAtDesc);
 
   /// 草稿卡片
   Widget _buildDraftCard(Map<String, dynamic> draft) {
@@ -912,46 +916,21 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
     );
   }
 
-  /// 已布置作业列表
-  Widget _buildAssignmentSection() {
-    if (_isLoadingData) {
-      return SizedBox(
-        height: 200,
-        child: Center(child: ShimmerCard(height: 120)),
-      );
-    }
+  /// 按当前孩子过滤 + 时间倒序的已布置作业
+  List<Map<String, dynamic>> get _visibleAssignments => _assignments
+      .where((a) =>
+          _selectedChildId == null || _toInt(a['childId']) == _selectedChildId)
+      .toList()
+    ..sort(_byCreatedAtDesc);
 
-    // 按孩子过滤并按时间倒序
-    final filtered = _assignments
-        .where((a) =>
-            _selectedChildId == null ||
-            _toInt(a['childId']) == _selectedChildId)
-        .toList()
-      ..sort((a, b) {
-        final at = _toDateTime(a['createdAt']);
-        final bt = _toDateTime(b['createdAt']);
-        if (at == null && bt == null) return 0;
-        if (at == null) return 1;
-        if (bt == null) return -1;
-        return bt.compareTo(at);
-      });
-
-    if (filtered.isEmpty) {
-      return const EmptyState(
-        emoji: '📋',
-        title: '暂无作业',
-        subtitle: '点击上方按钮为孩子布置作业',
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionTitle('已布置作业'),
-        const SizedBox(height: 8),
-        ...filtered.map((assignment) => _buildAssignmentCard(assignment)),
-      ],
-    );
+  /// 时间倒序比较：新的在前，没有时间的沉底。
+  int _byCreatedAtDesc(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final at = _toDateTime(a['createdAt']);
+    final bt = _toDateTime(b['createdAt']);
+    if (at == null && bt == null) return 0;
+    if (at == null) return 1;
+    if (bt == null) return -1;
+    return bt.compareTo(at);
   }
 
   /// 已布置作业卡片
@@ -2155,4 +2134,15 @@ class _ChipItem {
     required this.value,
     required this.label,
   });
+}
+
+/// 分页列表里的一项：要么是分节标题，要么是一张待构建的卡片。
+///
+/// 卡片用「构建函数」而不是现成的 Widget，这样没翻到的那一页不会被提前 inflate。
+class _PagedEntry {
+  const _PagedEntry.title(String this.title) : build = null;
+  const _PagedEntry.card(Widget Function() this.build) : title = null;
+
+  final String? title;
+  final Widget Function()? build;
 }

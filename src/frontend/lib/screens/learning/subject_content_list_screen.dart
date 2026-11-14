@@ -16,6 +16,7 @@ import '../../theme/subject_meta.dart';
 import '../../providers/user_provider.dart';
 import '../../components/child_home_experience.dart';
 import '../../components/empty_state.dart';
+import '../../components/paged_list_view.dart';
 import '../../components/shimmer_loading.dart';
 import '../../components/top_bar.dart';
 import '../../services/api_service.dart';
@@ -39,8 +40,15 @@ class SubjectContentListScreen extends StatefulWidget {
 }
 
 class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
-  List<Map<String, dynamic>> _courses = [];
+  /// 每页条数（与后端 `/contents` 的 limit 默认值对齐）
+  static const int _pageSize = 20;
+
+  final List<Map<String, dynamic>> _courses = <Map<String, dynamic>>[];
+  int _total = 0;
+  int _page = 0;
+  bool _hasMore = false;
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   bool _hasError = false;
   _CourseFilter _filter = _CourseFilter.all;
 
@@ -63,24 +71,65 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
     });
 
     try {
-      final api = context.read<ApiService>();
-      final list = await api.getContents(domain: subject);
+      final page = await context.read<ApiService>().getContentPage(
+            domain: subject,
+            page: 1,
+            limit: _pageSize,
+          );
       if (!mounted) return;
       setState(() {
-        _courses = list
-            .whereType<Map>()
-            .map((c) => c.map((k, v) => MapEntry(k.toString(), v)))
-            .toList();
+        _courses
+          ..clear()
+          ..addAll(_toMaps(page.items));
+        _total = page.total;
+        _page = 1;
+        _hasMore = page.hasMore;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _hasError = true;
+        _hasError = _courses.isEmpty;
+        _hasMore = false;
       });
     }
   }
+
+  /// 翻下一页：滚到底部时由列表触发，追加到已有条目后面。
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+
+    final next = _page + 1;
+    try {
+      final page = await context.read<ApiService>().getContentPage(
+            domain: subject,
+            page: next,
+            limit: _pageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        _courses.addAll(_toMaps(page.items));
+        _total = page.total;
+        _page = next;
+        _hasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // 不再自动重试，免得滚到底反复打接口；下拉刷新可以重来
+      setState(() {
+        _isLoadingMore = false;
+        _hasMore = false;
+      });
+    }
+  }
+
+  static List<Map<String, dynamic>> _toMaps(List<dynamic> raw) => raw
+      .whereType<Map>()
+      .map((c) => c.map((k, v) => MapEntry(k.toString(), v)))
+      .toList();
 
   // ─── 数据派生 ──────────────────────────────────────────────────────────
 
@@ -105,7 +154,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
       _courses.where((c) => _isStructured(_typeOf(c))).length;
 
   bool get _showFilter =>
-      !_isLoading && _structuredCount > 0 && _structuredCount < _courses.length;
+      _structuredCount > 0 && _structuredCount < _courses.length;
 
   // ─── 导航 ──────────────────────────────────────────────────────────────
 
@@ -147,7 +196,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
                 title: '${_meta.label}课程',
                 subtitle: _isLoading
                     ? '正在整理课程…'
-                    : (_courses.isEmpty ? '还没有课程' : '共 ${_courses.length} 门'),
+                    : (_courses.isEmpty ? '还没有课程' : '共 $_total 门'),
                 leftSlot: IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
                   onPressed: () => Navigator.of(context).pop(),
@@ -172,87 +221,103 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: <Widget>[
-          const ShimmerCard(height: 108, margin: EdgeInsets.zero),
-          const SizedBox(height: 12),
-          ...List<Widget>.generate(
-            4,
-            (_) => const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: ShimmerCard(height: 104, margin: EdgeInsets.zero),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_hasError) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: <Widget>[
-          const SizedBox(height: 48),
-          EmptyState(
-            emoji: '😵',
-            iconSize: 52,
-            title: '课程没加载出来',
-            subtitle: '可能是网络打了个盹',
-            actionLabel: '再试一次',
-            onAction: _loadCourses,
-          ),
-        ],
-      );
-    }
+    // 首屏才铺骨架；下拉刷新时保留旧列表，避免整页闪白
+    if (_isLoading && _courses.isEmpty) return _buildSkeletonBody();
+    if (_hasError && _courses.isEmpty) return _buildErrorBody();
 
     final visible = _visibleCourses;
+    final nothingAtAll = _courses.isEmpty && !_hasMore;
+    final nothingMatched = !nothingAtAll && visible.isEmpty && !_hasMore;
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    // 分页列表：只挂载当前页内的课程行，滚到底再取下一页 20 条。
+    return PagedListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      children: <Widget>[
+      physics: const AlwaysScrollableScrollPhysics(),
+      header: <Widget>[
         _buildSubjectHeader(),
         if (_showFilter) ...<Widget>[
           const SizedBox(height: 16),
           _buildFilterRow(),
         ],
         const SizedBox(height: 16),
-        if (_courses.isEmpty)
+        if (nothingAtAll)
           const EmptyState(
             emoji: '📚',
             title: '这里还空着',
             subtitle: '这个学科的课程正在制作中，先去别的学科逛逛吧 ✨',
           )
-        else if (visible.isEmpty)
+        else if (nothingMatched)
           const EmptyState(
             emoji: '🔍',
             title: '这一栏还没有内容',
             subtitle: '换个筛选条件看看',
-          )
-        else
-          ...List<Widget>.generate(visible.length, (index) {
-            final course = visible[index];
-            final type = _typeOf(course);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _CourseTile(
-                meta: _meta,
-                title: course['title']?.toString() ?? '未命名课程',
-                description: (course['description'] ??
-                        course['subtitle'] ??
-                        course['summary'] ??
-                        '')
-                    .toString(),
-                isStructured: _isStructured(type),
-                minutes: (course['durationMinutes'] ??
-                        course['duration_minutes']) as int?,
-                difficulty: (course['difficulty'] ?? course['level']) as int?,
-                onTap: () => _navigateToCourse(course),
-              ),
-            );
-          }),
+          ),
+      ],
+      itemCount: visible.length,
+      pageSize: 6,
+      hasMore: _hasMore,
+      onLoadMore: _loadMore,
+      skeletonBuilder: (_) => const PagedSkeletonTile(
+        height: 104,
+        leadingSize: 48,
+      ),
+      skeletonCount: 3,
+      itemBuilder: (context, index) {
+        final course = visible[index];
+        final type = _typeOf(course);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _CourseTile(
+            meta: _meta,
+            title: course['title']?.toString() ?? '未命名课程',
+            description: (course['description'] ??
+                    course['subtitle'] ??
+                    course['summary'] ??
+                    '')
+                .toString(),
+            isStructured: _isStructured(type),
+            minutes: (course['durationMinutes'] ?? course['duration_minutes'])
+                as int?,
+            difficulty: (course['difficulty'] ?? course['level']) as int?,
+            onTap: () => _navigateToCourse(course),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 首屏骨架：头部 + 若干课程行占位。
+  Widget _buildSkeletonBody() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      children: <Widget>[
+        const ShimmerCard(height: 108, margin: EdgeInsets.zero),
+        const SizedBox(height: 12),
+        ...List<Widget>.generate(
+          4,
+          (_) => const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: ShimmerCard(height: 104, margin: EdgeInsets.zero),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorBody() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: <Widget>[
+        const SizedBox(height: 48),
+        EmptyState(
+          emoji: '😵',
+          iconSize: 52,
+          title: '课程没加载出来',
+          subtitle: '可能是网络打了个盹',
+          actionLabel: '再试一次',
+          onAction: _loadCourses,
+        ),
       ],
     );
   }
@@ -328,7 +393,7 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                '${_courses.length} 门',
+                '${_total > 0 ? _total : _courses.length} 门',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -342,25 +407,31 @@ class _SubjectContentListScreenState extends State<SubjectContentListScreen> {
   }
 
   Widget _buildFilterRow() {
+    // 还在分页加载时，分类数只是「已加载部分」的统计，显示出来会误导，先只留标签
+    final countOrNull = _hasMore ? null : _courses.length;
+    final structuredOrNull = _hasMore ? null : _structuredCount;
+
     return Row(
       children: <Widget>[
         _FilterChip(
           label: '全部',
-          count: _courses.length,
+          count: countOrNull,
           selected: _filter == _CourseFilter.all,
           onTap: () => setState(() => _filter = _CourseFilter.all),
         ),
         const SizedBox(width: 8),
         _FilterChip(
           label: '六步课程',
-          count: _structuredCount,
+          count: structuredOrNull,
           selected: _filter == _CourseFilter.structured,
           onTap: () => setState(() => _filter = _CourseFilter.structured),
         ),
         const SizedBox(width: 8),
         _FilterChip(
           label: '图文',
-          count: _courses.length - _structuredCount,
+          count: structuredOrNull == null
+              ? null
+              : _courses.length - _structuredCount,
           selected: _filter == _CourseFilter.article,
           onTap: () => setState(() => _filter = _CourseFilter.article),
         ),
@@ -382,7 +453,9 @@ class _FilterChip extends StatelessWidget {
   });
 
   final String label;
-  final int count;
+
+  /// 数量；为 null 时不显示（分页尚未加载完整时）
+  final int? count;
   final bool selected;
   final VoidCallback onTap;
 
@@ -404,7 +477,7 @@ class _FilterChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          '$label $count',
+          count == null ? label : '$label $count',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,

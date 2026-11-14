@@ -6,7 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/generate-video-data';
 import { VoiceService } from '../voice/voice.service';
-import { deriveWatchSceneDocument } from './lesson-scene';
+import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
@@ -551,11 +551,37 @@ export class RemotionRenderService implements OnModuleInit {
             domain,
           );
 
-    return (Array.isArray(sceneDoc?.scenes) ? sceneDoc.scenes : [])
-      .slice(0, 16)
-      .map((scene: Record<string, any>, index: number) =>
-        this.buildSlideFromScene(scene, index, domain),
+    const scenes = (Array.isArray(sceneDoc?.scenes) ? sceneDoc.scenes : []).slice(0, 16);
+    // 旧 pack 兜底曾给整课写同一套模板参数；此时按每页内容重新派生
+    const firstVisual = scenes[0]?.visual;
+    const uniform =
+      scenes.length > 1 &&
+      !!firstVisual?.templateId &&
+      scenes.every(
+        (s) =>
+          s?.visual?.templateId === firstVisual.templateId &&
+          JSON.stringify(s?.visual?.templateParams || {}) ===
+            JSON.stringify(firstVisual.templateParams || {}),
       );
+    const effective = uniform
+      ? scenes.map((s) => ({
+          ...s,
+          visual: buildWatchTemplateHint(
+            [
+              this.toText(s?.title || s?.scene || s?.shot),
+              this.toText(s?.imagePrompt || s?.visualPrompt),
+              this.toText(s?.narration),
+              this.toText(s?.onScreenText || s?.caption),
+            ].join(' '),
+            s,
+            domain,
+          ),
+        }))
+      : scenes;
+
+    return effective.map((scene: Record<string, any>, index: number) =>
+      this.buildSlideFromScene(scene, index, domain),
+    );
   }
 
   private mergeListeningIntoWatchSlides(

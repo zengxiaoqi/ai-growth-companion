@@ -49,6 +49,9 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
   const highlightColor =
     params.highlightColor || data.accentColor || PALETTE.accent;
 
+  // 入场结束后循环高亮下一张卡，整页保持动效而不是静态 PPT
+  const activeIndex = Math.floor(frame / (fps * 2)) % Math.max(1, words.length);
+
   const centerX = width / 2;
   const gridY = height * 0.35;
 
@@ -126,6 +129,13 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
           ? pulseScale(frame - adjustedDelay - 20, fps, 1.5, 0.04, 1)
           : 1;
 
+        // Gentle idle bob so landed cards keep moving
+        const bob = landed
+          ? Math.sin(((frame - adjustedDelay - 20) / fps) * Math.PI + i * 0.9) * 4
+          : 0;
+        const isActive = landed && i === activeIndex;
+        const twinkle = 0.7 + 0.3 * Math.sin(frame / 5 + i * 1.3);
+
         // Glow after landing
         const glowOpacity = landed
           ? interpolate(
@@ -175,7 +185,7 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
               style={{
                 position: "absolute",
                 left: pos.x,
-                top: pos.y + dropY,
+                top: pos.y + dropY + bob,
                 width: CARD_WIDTH,
                 height: CARD_HEIGHT,
                 borderRadius: 16,
@@ -188,7 +198,7 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
                 fontWeight: 900,
                 color: PALETTE.dark,
                 opacity: dropOpacity,
-                transform: `scale(${pulseVal})`,
+                transform: `scale(${pulseVal * (isActive ? 1.08 : 1)})`,
                 boxShadow: `0 4px 16px ${highlightColor}${landed ? "22" : "11"}`,
                 zIndex: 2,
               }}
@@ -213,6 +223,23 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
               />
             )}
 
+            {/* Cycling highlight ring */}
+            {isActive && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: pos.x - 5,
+                  top: pos.y - 5 + bob,
+                  width: CARD_WIDTH + 10,
+                  height: CARD_HEIGHT + 10,
+                  borderRadius: 20,
+                  border: `3px solid ${highlightColor}`,
+                  opacity: 0.85,
+                  zIndex: 3,
+                }}
+              />
+            )}
+
             {/* SVG Star */}
             {starOpacity > 0 && (
               <svg
@@ -220,7 +247,7 @@ export const WordRevealScene: React.FC<AnimatedSceneProps> = ({
                   position: "absolute",
                   left: pos.x + CARD_WIDTH - 20,
                   top: pos.y - 16,
-                  opacity: starOpacity,
+                  opacity: starOpacity * twinkle,
                   transform: `scale(${starScale})`,
                   zIndex: 4,
                 }}

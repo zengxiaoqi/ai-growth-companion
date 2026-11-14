@@ -333,8 +333,7 @@ function sanitizeCompletionPolicy(
   return {
     type: type === 'any_interaction' ? 'any_interaction' : 'all_scenes',
     passingScore: raw?.passingScore != null ? toSafeInt(raw.passingScore, 80, 0, 100) : undefined,
-    minCoverage:
-      raw?.minCoverage != null ? Math.max(0.1, Math.min(1, Number(raw.minCoverage))) : undefined,
+    minCoverage: raw?.minCoverage != null ? Math.max(0.1, Math.min(1, Number(raw.minCoverage))) : undefined,
   };
 }
 
@@ -390,10 +389,10 @@ function inferWatchBackground(source: string): SceneBackground {
 
 function extractTeachingCharacter(source: string): string | null {
   const patterns = [
-    /认识[“"'‘]?([\u4e00-\u9fff])[”"'’]?字/,
-    /[“"'‘]([\u4e00-\u9fff])[”"'’]字/,
-    /([\u4e00-\u9fff])字讲解/,
-    /汉字[“"'‘]?([\u4e00-\u9fff])[”"'’]?/,
+    /认识[“"'‘]?([一-鿿])[”"'’]?字/,
+    /[“"'‘]([一-鿿])[”"'’]字/,
+    /([一-鿿])字讲解/,
+    /汉字[“"'‘]?([一-鿿])[”"'’]?/,
   ];
 
   for (const pattern of patterns) {
@@ -405,24 +404,25 @@ function extractTeachingCharacter(source: string): string | null {
 }
 
 function extractRevealWords(source: string): string[] {
-  const quoted = source.match(/[“"'‘]([\u4e00-\u9fff]{2,8})[”"'’]/)?.[1];
+  const quoted = source.match(/[“"'‘]([一-鿿]{2,8})[”"'’]/)?.[1];
   if (quoted) return quoted.length <= 4 ? quoted.split('') : [quoted];
 
   const separated = source
-    .split(/[、，,]/)
-    .map((part) => (part.match(/[\u4e00-\u9fff]{1,4}/g) || []).join(''))
+    .split(/[、，,\s]+/)
+    .map((part) => (part.match(/[一-鿿]{1,4}/g) || []).join(''))
+    .map((part) => part.replace(/^(认识|学习|复习|了解|观察)/, ''))
     .filter(Boolean);
   if (separated.length >= 2) return Array.from(new Set(separated)).slice(0, 4);
 
   if (/(认识|复习|词语|生字|汉字|朗读)/.test(source)) {
-    const chars = (source.match(/[\u4e00-\u9fff]/g) || []).filter(
-      (char) => !'认识复习字词语讲解朗读老师小朋友'.includes(char),
+    const chars = (source.match(/[一-鿿]/g) || []).filter(
+      (char) => !'认识复习字词语讲解朗读老师小朋友的'.includes(char),
     );
     const uniqueChars = Array.from(new Set(chars));
     if (uniqueChars.length >= 2) return uniqueChars.slice(0, 4);
   }
 
-  const phrase = source.match(/[\u4e00-\u9fff]{2,4}/g)?.find((item) => item.length >= 2);
+  const phrase = source.match(/[一-鿿]{2,4}/g)?.find((item) => item.length >= 2);
   return phrase ? [phrase] : [];
 }
 
@@ -434,7 +434,7 @@ function inferSeasonIndex(source: string): number {
   return -1;
 }
 
-function inferWatchTemplateHint(
+export function inferWatchTemplateHint(
   scene: AnyRecord,
   domain?: string,
 ): Pick<SceneVisual, 'templateId' | 'templateParams'> {
@@ -463,7 +463,20 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 2. Character stroke detection (single Chinese character)
+  // 2. Quoted teaching word: 1 char → stroke order, 2 chars → word cards
+  const quoted =
+    headline.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1] ||
+    source.match(/[“"'‘]([一-鿿]{1,2})[”"'’]/)?.[1];
+  if (quoted) {
+    return quoted.length === 1
+      ? {
+          templateId: 'language.character-stroke',
+          templateParams: { character: quoted, showGrid: true },
+        }
+      : { templateId: 'language.word-reveal', templateParams: { words: [quoted] } };
+  }
+
+  // 3. Character stroke detection (single Chinese character)
   const character = extractTeachingCharacter(headline) || extractTeachingCharacter(source);
   if (character) {
     return {
@@ -472,15 +485,23 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 3. Domain-based template suggestion (uses full rule library covering all 15 templates)
-  if (domain) {
-    const suggested = suggestTemplateByDomain(domain, source);
-    if (suggested) {
-      return { templateId: suggested, templateParams: {} };
+  // 4. Review scene: reveal the keywords listed in the headline
+  if (/(复习|总结|回顾)/.test(headline)) {
+    const words = extractRevealWords(headline);
+    if (words.length > 0) {
+      return { templateId: 'language.word-reveal', templateParams: { words } };
     }
   }
 
-  // 4. Science domain patterns
+  // 5. Color recognition: reveal the seven rainbow color characters
+  if (/(颜色|七彩|七色)/.test(source)) {
+    return {
+      templateId: 'language.word-reveal',
+      templateParams: { words: ['红', '橙', '黄', '绿', '青', '蓝', '紫'] },
+    };
+  }
+
+  // 6. Science domain patterns
   if (/(四季|季节|春夏秋冬|天气|春|夏|秋|冬)/.test(source)) {
     return {
       templateId: 'science.seasons-cycle',
@@ -499,7 +520,7 @@ function inferWatchTemplateHint(
     };
   }
 
-  if (/(水循环|蒸发|云|下雨|冰|雪|彩虹|降水|声音|光|磁铁|溶解)/.test(source)) {
+  if (/(水循环|蒸发|云|下雨|冰|雪|彩虹|降水|声音|光|磁铁|溶解|水珠|折射|弯折)/.test(source)) {
     return {
       templateId: 'science.water-cycle',
       templateParams: { speed: 1, showLabels: true },
@@ -517,7 +538,7 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 4. Math domain patterns
+  // 7. Math domain patterns
   if (/(数字|数数|计数|数量|加法|减法|一共|还剩|分成|比大小)/.test(source)) {
     return {
       templateId: 'math.counting-objects',
@@ -546,7 +567,7 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 5. Art domain patterns
+  // 8. Art domain patterns
   if (/(颜色|色彩|调色|混色|红|蓝|黄|绿|紫|橙|粉)/.test(source)) {
     return {
       templateId: 'art.color-mixing',
@@ -561,7 +582,7 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 6. Social domain patterns
+  // 9. Social domain patterns
   if (/(情绪|表情|开心|生气|难过|害怕|勇敢|害羞|感动|委屈)/.test(source)) {
     return {
       templateId: 'social.emotion-faces',
@@ -576,7 +597,20 @@ function inferWatchTemplateHint(
     };
   }
 
-  // 7. Word reveal for language content
+  // 10. Domain fallback last: earlier it would let language short-circuit the content rules above
+  if (domain) {
+    const suggested = suggestTemplateByDomain(domain, source);
+    if (suggested === 'language.word-reveal') {
+      const words = extractRevealWords(headline);
+      if (words.length > 0) {
+        return { templateId: suggested, templateParams: { words } };
+      }
+    } else if (suggested) {
+      return { templateId: suggested, templateParams: {} };
+    }
+  }
+
+  // 11. Word reveal for language content
   const words = extractRevealWords(headline);
   if (words.length > 0) {
     return {
@@ -598,7 +632,7 @@ function inferWatchTemplateHint(
   };
 }
 
-function buildWatchTemplateHint(source: string, scene: AnyRecord, domain?: string): SceneVisual {
+export function buildWatchTemplateHint(source: string, scene: AnyRecord, domain?: string): SceneVisual {
   const templateHint = inferWatchTemplateHint(scene, domain);
   const visual: SceneVisual = {
     background: inferWatchBackground(source),

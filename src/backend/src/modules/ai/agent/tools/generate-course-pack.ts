@@ -5,12 +5,12 @@ import { ACTIVITY_TYPES as CORE_ACTIVITY_TYPES } from '../../../../agent-framewo
 import {
   buildTemplatePromptContext,
   KNOWN_TEMPLATE_IDS,
-  suggestTemplateByDomain,
 } from '../../../../animations/animation-templates';
 import {
   derivePracticeSceneDocument,
   deriveWatchSceneDocument,
   deriveWriteSceneDocument,
+  inferWatchTemplateHint,
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from '../../../learning/lesson-scene';
@@ -713,59 +713,15 @@ export class GenerateCoursePackTool {
             : {},
       };
     }
-    // Rule-based fallback: suggest a template based on domain + topic
-    const suggested = suggestTemplateByDomain(args.domain, args.topic);
-    if (suggested) {
+    // Rule-based fallback: derive from this scene's own content, not the course topic
+    const hint = inferWatchTemplateHint(scene, args.domain);
+    if (hint.templateId) {
       return {
-        animationTemplate: suggested,
-        animationParams: this.buildDefaultParams(suggested, args),
+        animationTemplate: hint.templateId,
+        animationParams: hint.templateParams || {},
       };
     }
     return {};
-  }
-
-  private buildDefaultParams(templateId: string, args: NormalizedArgs): Record<string, any> {
-    switch (templateId) {
-      case 'language.character-stroke':
-        return { character: args.topic.charAt(0), showGrid: true };
-      case 'language.word-reveal':
-        return { words: [args.topic] };
-      case 'language.story-scene':
-        return { bgType: 'day', characters: [args.topic], items: [] };
-      case 'math.counting-objects':
-        return { targetCount: 5, objectType: 'star' };
-      case 'math.shape-builder':
-        return { shapes: ['circle', 'square', 'triangle'] };
-      case 'math.number-line':
-        return { endNum: 10, highlightNum: 5, hopSequence: [1, 3, 5] };
-      case 'math.abacus':
-        return { rows: 3, values: [3, 5, 2] };
-      case 'science.water-cycle':
-        return { speed: 1, showLabels: true };
-      case 'science.day-night-cycle':
-        return { rotationSpeed: 1, showLabels: true };
-      case 'science.plant-growth':
-        return { plantType: 'flower', stages: 5 };
-      case 'science.seasons-cycle':
-        return {
-          seasonNames: ['春', '夏', '秋', '冬'],
-          focusSeason: -1,
-          showLabels: true,
-        };
-      case 'art.color-mixing':
-        return { color1: '#EF4444', color2: '#3B82F6', resultLabel: '紫色' };
-      case 'art.drawing-steps':
-        return { steps: ['circle', 'line', 'circle'] };
-      case 'social.emotion-faces':
-        return { emotions: ['happy', 'sad', 'angry', 'surprised'] };
-      case 'social.daily-routine':
-        return {
-          activities: ['起床', '上学', '午餐', '放学', '睡觉'],
-          highlightIndex: 0,
-        };
-      default:
-        return {};
-    }
   }
 
   private mergeWatchSceneDocuments(

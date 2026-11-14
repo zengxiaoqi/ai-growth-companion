@@ -12,6 +12,7 @@ import { AiService } from '../../src/modules/ai/ai.service';
 import { AssignmentService } from '../../src/modules/assignment/assignment.service';
 import { LearningTrackerService } from '../../src/modules/learning/learning-tracker.service';
 import { LlmClientService } from '../../src/agent-framework/llm/llm-client.service';
+import { ToolRegistryService } from '../../src/agent-framework/tools/tool-registry.service';
 import { LessonVideoQueueService } from '../../src/modules/learning/lesson-video-queue.service';
 
 describe('LessonContentService modifyDraft scene sync', () => {
@@ -580,5 +581,199 @@ describe('LessonContentService completeStep', () => {
     expect(learningTrackerMock.recordActivity).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'content_completion', domain: 'math' }),
     );
+  });
+});
+
+describe('LessonContentService runGeneration quality closed-loop', () => {
+  let service: any;
+  let contentRepo: any;
+  let toolRegistry: { has: jest.Mock; execute: jest.Mock };
+  let generateActivityTool: { execute: jest.Mock };
+  let generateCoursePackSpy: jest.SpyInstance;
+
+  const basePack = (overrides: Record<string, any> = {}) => ({
+    type: 'course_pack',
+    title: '彩虹课',
+    topic: '彩虹',
+    ageGroup: '5-6',
+    summary: '彩虹总结',
+    outcomes: ['认识彩虹'],
+    modules: { reading: { text: '彩虹有七种颜色' } },
+    visualStory: { scenes: [{ narration: '彩虹' }] },
+    ...overrides,
+  });
+
+  const reviewResult = (score: number) => ({
+    success: true,
+    data: {
+      score,
+      passed: score >= 70,
+      issues: score >= 70 ? [] : ['目标对齐不足'],
+      suggestions: score >= 70 ? [] : ['覆盖目标关键词'],
+      breakdown: {
+        outcomeAlignment: 10,
+        ageAppropriateness: 10,
+        factualAccuracy: 10,
+        contentSpecificity: 10,
+        structuralCompleteness: 10,
+      },
+    },
+  });
+
+  const savedDraft = () => {
+    const call = contentRepo.update.mock.calls.find(
+      (c: any[]) => c[1]?.status === 'draft',
+    );
+    return call ? call[1] : null;
+  };
+
+  const params = {
+    topic: '彩虹',
+    ageGroup: '5-6',
+    domain: 'science',
+    childId: 1,
+    parentId: 1,
+  };
+
+  beforeEach(async () => {
+    contentRepo = {
+      update: jest.fn().mockResolvedValue(undefined),
+      findOne: jest.fn(),
+    };
+    toolRegistry = { has: jest.fn().mockReturnValue(true), execute: jest.fn() };
+    generateActivityTool = {
+      execute: jest
+        .fn()
+        .mockResolvedValue(JSON.stringify({ type: 'quiz', topic: '彩虹', questions: [] })),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        LessonContentService,
+        { provide: getRepositoryToken(Content), useValue: contentRepo },
+        { provide: getRepositoryToken(LearningRecord), useValue: {} },
+        { provide: getRepositoryToken(Assignment), useValue: {} },
+        { provide: getRepositoryToken(StudyPlanRecord), useValue: {} },
+        { provide: ContentsService, useValue: {} },
+        { provide: GenerateCoursePackTool, useValue: {} },
+        { provide: GenerateActivityTool, useValue: generateActivityTool },
+        { provide: AiService, useValue: {} },
+        { provide: AssignmentService, useValue: {} },
+        { provide: LearningTrackerService, useValue: {} },
+        { provide: LlmClientService, useValue: { generate: jest.fn() } },
+        {
+          provide: LessonVideoQueueService,
+          useValue: { enqueue: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: ToolRegistryService, useValue: toolRegistry },
+      ],
+    }).compile();
+    service = module.get(LessonContentService);
+
+    jest.spyOn(service, 'assembleLesson').mockImplementation((pack: any) => ({
+      type: 'structured_lesson',
+      version: 1,
+      topic: pack.topic,
+      ageGroup: '5-6',
+      summary: pack.summary || '',
+      outcomes: pack.outcomes || [],
+      sourceCoursePackId: null,
+      steps: [],
+      parentGuide: { beforeClass: [], duringClass: [], afterClass: [] },
+      generatedAt: '2026-01-01T00:00:00.000Z',
+    }));
+    generateCoursePackSpy = jest.spyOn(service, 'generateCoursePackForLesson');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('stores passing quality without regeneration', async () => {
+    generateCoursePackSpy.mockResolvedValue(JSON.stringify(basePack()));
+    toolRegistry.execute.mockResolvedValue(reviewResult(85));
+
+    await service.runGeneration(10, params);
+
+    const draft = savedDraft();
+    expect(draft.content.quality).toMatchObject({
+      score: 85,
+      passed: true,
+      warning: false,
+    });
+    expect(generateCoursePackSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('regenerates once below threshold and keeps the improved pack', async () => {
+    generateCoursePackSpy
+      .mockResolvedValueOnce(JSON.stringify(basePack({ title: '原始课' })))
+      .mockResolvedValueOnce(JSON.stringify(basePack({ title: '改进课' })));
+    toolRegistry.execute
+      .mockResolvedValueOnce(reviewResult(50))
+      .mockResolvedValueOnce(reviewResult(82));
+
+    await service.runGeneration(11, params);
+
+    const draft = savedDraft();
+    expect(generateCoursePackSpy).toHaveBeenCalledTimes(2);
+    expect(draft.title).toBe('改进课');
+    expect(draft.content.quality).toMatchObject({
+      score: 82,
+      passed: true,
+      warning: false,
+    });
+    const retryArgs = generateCoursePackSpy.mock.calls[1][1];
+    expect(retryArgs.parentPrompt).toContain('质量改进要求');
+    expect(retryArgs.parentPrompt).toContain('目标对齐不足');
+  });
+
+  it('keeps the original pack when regeneration scores worse', async () => {
+    generateCoursePackSpy
+      .mockResolvedValueOnce(JSON.stringify(basePack({ title: '原始课' })))
+      .mockResolvedValueOnce(JSON.stringify(basePack({ title: '更差课' })));
+    toolRegistry.execute
+      .mockResolvedValueOnce(reviewResult(60))
+      .mockResolvedValueOnce(reviewResult(40));
+
+    await service.runGeneration(12, params);
+
+    const draft = savedDraft();
+    expect(draft.title).toBe('原始课');
+    expect(draft.content.quality).toMatchObject({
+      score: 60,
+      passed: false,
+      warning: true,
+    });
+  });
+
+  it('flags warning when still below threshold after retry', async () => {
+    generateCoursePackSpy
+      .mockResolvedValueOnce(JSON.stringify(basePack()))
+      .mockResolvedValueOnce(JSON.stringify(basePack()));
+    toolRegistry.execute
+      .mockResolvedValueOnce(reviewResult(50))
+      .mockResolvedValueOnce(reviewResult(55));
+
+    await service.runGeneration(13, params);
+
+    const draft = savedDraft();
+    expect(draft.content.quality).toMatchObject({
+      score: 55,
+      passed: false,
+      warning: true,
+    });
+    expect(draft.content.quality.issues).toContain('目标对齐不足');
+  });
+
+  it('skips quality scoring when the review tool is unavailable', async () => {
+    toolRegistry.has.mockReturnValue(false);
+    generateCoursePackSpy.mockResolvedValue(JSON.stringify(basePack()));
+
+    await service.runGeneration(14, params);
+
+    const draft = savedDraft();
+    expect(draft.status).toBe('draft');
+    expect(draft.content.quality).toBeUndefined();
+    expect(toolRegistry.execute).not.toHaveBeenCalled();
   });
 });

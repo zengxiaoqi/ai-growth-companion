@@ -22,6 +22,8 @@ import { AssignmentService } from '../assignment/assignment.service';
 import { LearningTrackerService } from './learning-tracker.service';
 import { LessonVideoQueueService } from './lesson-video-queue.service';
 import { LlmClientService } from '../../agent-framework/llm/llm-client.service';
+import { ToolRegistryService } from '../../agent-framework/tools/tool-registry.service';
+import type { CourseQualityResult } from '../../agent-framework/tools/impl/review-course-pack';
 import { CourseGenerationAgentService } from './course-generation-agent.service';
 import {
   derivePracticeSceneDocument,
@@ -109,6 +111,16 @@ interface StructuredLessonContent {
     afterClass: string[];
   };
   generatedAt: string;
+  quality?: LessonQualityInfo;
+}
+
+interface LessonQualityInfo {
+  score: number;
+  passed: boolean;
+  warning: boolean;
+  issues: string[];
+  suggestions: string[];
+  breakdown?: Record<string, number>;
 }
 
 interface ModifyLessonDraftOptions {
@@ -186,6 +198,8 @@ export class LessonContentService implements OnModuleInit {
     private readonly videoQueueService: LessonVideoQueueService,
     @Optional()
     private readonly courseGenerationAgent?: CourseGenerationAgentService,
+    @Optional()
+    private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
   async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {
@@ -419,16 +433,55 @@ export class LessonContentService implements OnModuleInit {
       await this.contentRepo.update(contentId, {
         subtitle: '正在组装课程...',
       } as any);
-      const lessonContent = this.assembleLesson(coursePack, practiceData, {
+      const assembleMeta = {
         topic,
         ageGroup,
         domain,
         summary: coursePack.summary || '',
         outcomes: coursePack.outcomes || [],
-      });
+      };
+      let finalCoursePack = coursePack;
+      let lessonContent = this.assembleLesson(finalCoursePack, practiceData, assembleMeta);
 
-      const title = coursePack.title || `${topic} 全方位学习课`;
-      const subtitle = coursePack.summary || `围绕${topic}的四步综合课程`;
+      // P2-3 review closed-loop: score the pack, regenerate once with feedback if weak.
+      let quality = await this.reviewCoursePackQuality(contentId, finalCoursePack, {
+        topic,
+        ageGroup,
+        domain,
+      });
+      if (quality && !quality.passed) {
+        this.logger.warn(
+          `[contentId=${contentId}] Course quality ${quality.score} < 70, regenerating once with feedback`,
+        );
+        const improved = await this.regenerateCoursePackWithFeedback(
+          contentId,
+          { topic, ageGroup, domain, focus, difficulty, durationMinutes, parentPrompt },
+          quality,
+        );
+        if (improved && improved.quality.score >= quality.score) {
+          finalCoursePack = improved.coursePack;
+          lessonContent = this.assembleLesson(finalCoursePack, practiceData, {
+            ...assembleMeta,
+            summary: finalCoursePack.summary || assembleMeta.summary,
+            outcomes: finalCoursePack.outcomes || assembleMeta.outcomes,
+          });
+          quality = improved.quality;
+        }
+      }
+
+      if (quality) {
+        lessonContent.quality = {
+          score: quality.score,
+          passed: quality.passed,
+          warning: !quality.passed,
+          issues: quality.issues,
+          suggestions: quality.suggestions,
+          breakdown: quality.breakdown,
+        };
+      }
+
+      const title = finalCoursePack.title || `${topic} 全方位学习课`;
+      const subtitle = finalCoursePack.summary || `围绕${topic}的四步综合课程`;
 
       await this.contentRepo.update(contentId, {
         title,
@@ -460,6 +513,95 @@ export class LessonContentService implements OnModuleInit {
         status: 'generation_failed',
         subtitle: `生成失败: ${error?.message || '未知错误'}`,
       });
+    }
+  }
+
+  /** Run the course-pack quality review; returns null when unavailable or failed. */
+  private async reviewCoursePackQuality(
+    contentId: number,
+    coursePack: Record<string, any>,
+    meta: { topic: string; ageGroup: AgeGroup; domain: LessonDomain },
+  ): Promise<CourseQualityResult | null> {
+    if (!this.toolRegistry?.has('reviewCoursePack')) {
+      this.logger.warn(
+        `[contentId=${contentId}] reviewCoursePack tool unavailable, skipping quality review`,
+      );
+      return null;
+    }
+    try {
+      const result = await this.toolRegistry.execute(
+        'reviewCoursePack',
+        {
+          topic: meta.topic,
+          ageGroup: meta.ageGroup,
+          domain: meta.domain,
+          outcomes: coursePack.outcomes || [],
+          coursePack,
+        },
+        {
+          ageGroup: meta.ageGroup,
+          conversationId: `lesson-quality-${contentId}`,
+          extra: { actorType: 'parent' },
+        },
+      );
+      if (result?.success && result.data) {
+        return result.data as CourseQualityResult;
+      }
+      this.logger.warn(
+        `[contentId=${contentId}] Course review failed: ${result?.error || 'unknown'}`,
+      );
+      return null;
+    } catch (error: any) {
+      this.logger.warn(`[contentId=${contentId}] Course review threw: ${error?.message}`);
+      return null;
+    }
+  }
+
+  /** Regenerate the course pack once with review feedback, then re-review it. */
+  private async regenerateCoursePackWithFeedback(
+    contentId: number,
+    params: {
+      topic: string;
+      ageGroup: AgeGroup;
+      domain: LessonDomain;
+      focus: 'literacy' | 'math' | 'science' | 'mixed';
+      difficulty: number;
+      durationMinutes: number;
+      parentPrompt: string;
+    },
+    quality: CourseQualityResult,
+  ): Promise<{ coursePack: Record<string, any>; quality: CourseQualityResult } | null> {
+    const feedback = [
+      ...quality.issues.map((i) => `问题：${i}`),
+      ...quality.suggestions.map((s) => `改进：${s}`),
+    ].join('；');
+    try {
+      const raw = await this.generateCoursePackForLesson(contentId, {
+        topic: params.topic,
+        ageGroup: params.ageGroup,
+        domain: params.domain,
+        focus: params.focus,
+        difficulty: params.difficulty,
+        durationMinutes: params.durationMinutes,
+        includeGame: false,
+        includeAudio: false,
+        includeVideo: true,
+        parentPrompt: `${params.parentPrompt || params.topic}\n\n【质量改进要求】${feedback}`,
+      });
+      const coursePack = this.parseJson(raw);
+      if (!coursePack) return null;
+      const reQuality = await this.reviewCoursePackQuality(contentId, coursePack, {
+        topic: params.topic,
+        ageGroup: params.ageGroup,
+        domain: params.domain,
+      });
+      if (!reQuality) return null;
+      return { coursePack, quality: reQuality };
+    } catch (error: any) {
+      this.logger.warn(
+        `[contentId=${contentId}] Quality regeneration failed, keeping original: ${error?.message}`,
+      );
+      return null;
     }
   }
 

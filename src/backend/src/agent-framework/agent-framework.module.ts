@@ -31,6 +31,7 @@ import { SkillExecutor } from './skills/skill-executor';
 import { PromptProviderService } from './prompts/prompt-provider.service';
 import { GenerateVideoContentTool } from './tools/impl/generate-video-content';
 import { ReviewVideoQualityTool } from './tools/impl/review-video-content';
+import { ReviewCoursePackTool } from './tools/impl/review-course-pack';
 import { ExecuteCommandTool } from './tools/impl/execute-command';
 import { ReadFileTool, WriteFileTool } from './tools/impl/file-operations';
 import { RenderHyperframesTool } from './tools/impl/render-hyperframes';
@@ -95,6 +96,7 @@ import { englishPracticeDefinition } from './agents/definitions/english-practice
     PromptProviderService,
     GenerateVideoContentTool,
     ReviewVideoQualityTool,
+    ReviewCoursePackTool,
     ExecuteCommandTool,
     ReadFileTool,
     WriteFileTool,

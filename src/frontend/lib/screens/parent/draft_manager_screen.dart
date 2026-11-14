@@ -352,13 +352,90 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     if (childId == null) return;
 
     final title = draft['title']?.toString() ?? '未命名课程';
+    final quality = _parseQuality(draft);
+    final hasWarning = quality != null && quality['warning'] == true;
+    final issues = (quality?['issues'] as List?)?.cast<String>() ?? const [];
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('确认发布'),
-        content: Text('确定要发布"$title"吗？\n发布后课程将加入孩子的学习计划。'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('确定要发布"$title"吗？\n发布后课程将加入孩子的学习计划。'),
+              if (quality != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (hasWarning
+                            ? const Color(0xFFE57373)
+                            : const Color(0xFF0B8F55))
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            hasWarning
+                                ? Icons.warning_amber_rounded
+                                : Icons.verified_rounded,
+                            size: 18,
+                            color: hasWarning
+                                ? const Color(0xFFC62828)
+                                : const Color(0xFF0B8F55),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '质量评分 ${quality['score']} 分${hasWarning ? '（待改进）' : ''}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: hasWarning
+                                  ? const Color(0xFFC62828)
+                                  : const Color(0xFF0B8F55),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasWarning && issues.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ...issues.take(4).map(
+                              (i) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  '· $i',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF5D4037),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '建议先编辑改进后再发布。',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Color(0xFF8D6E63),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -492,6 +569,37 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     if (steps.isEmpty) return '';
     final firstType = steps.first['type']?.toString() ?? '';
     return firstType;
+  }
+
+  /// 解析课程质量评审信息（P2-3 评审闭环写入 content.quality）
+  Map<String, dynamic>? _parseQuality(Map<String, dynamic> draft) {
+    final content = draft['content'];
+    Map<String, dynamic>? parsed;
+    if (content is String) {
+      try {
+        parsed = jsonDecode(content) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    } else if (content is Map) {
+      parsed = content.map((k, v) => MapEntry(k.toString(), v));
+    }
+    final quality = parsed?['quality'];
+    if (quality is! Map) return null;
+    final score = _toInt(quality['score']);
+    if (score == null) return null;
+    final passed = quality['passed'] == true;
+    return {
+      'score': score,
+      'passed': passed,
+      'warning': quality['warning'] == true || !passed,
+      'issues': quality['issues'] is List
+          ? (quality['issues'] as List).map((e) => e.toString()).toList()
+          : <String>[],
+      'suggestions': quality['suggestions'] is List
+          ? (quality['suggestions'] as List).map((e) => e.toString()).toList()
+          : <String>[],
+    };
   }
 
   /// 格式化日期字符串
@@ -649,6 +757,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     final domainColor = _domainColors[domain] ?? AppTheme.primaryColor;
     final courseType = _primaryCourseType(draft);
     final typeInfo = _courseTypeInfo[courseType];
+    final quality = _parseQuality(draft);
     final createdAt = _formatDate(draft['created_at']?.toString());
     final updatedAt = _formatDate(draft['updated_at']?.toString());
 
@@ -760,6 +869,44 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                         ],
                       ),
                     ),
+                    // 质量评分标签（P2-3）
+                    if (quality != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (quality['warning'] == true
+                                  ? const Color(0xFFE57373)
+                                  : const Color(0xFF0B8F55))
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              quality['warning'] == true
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.verified_rounded,
+                              size: 14,
+                              color: quality['warning'] == true
+                                  ? const Color(0xFFC62828)
+                                  : const Color(0xFF0B8F55),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '质量 ${quality['score']} 分${quality['warning'] == true ? ' · 待改进' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: quality['warning'] == true
+                                    ? const Color(0xFFC62828)
+                                    : const Color(0xFF0B8F55),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 10),

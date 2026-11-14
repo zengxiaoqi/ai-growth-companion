@@ -12,13 +12,13 @@ jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
 
 describe('GenerateCoursePackTool', () => {
   let tool: GenerateCoursePackTool;
-  let llmClient: { generate: jest.Mock };
+  let llmClient: { generateJson: jest.Mock };
   let generateActivityTool: { execute: jest.Mock };
   let mockedGetCoursePackCurriculumSeed: jest.MockedFunction<typeof getCoursePackCurriculumSeed>;
 
   beforeEach(() => {
     llmClient = {
-      generate: jest.fn(),
+      generateJson: jest.fn(),
     };
     generateActivityTool = {
       execute: jest.fn(),
@@ -61,7 +61,7 @@ describe('GenerateCoursePackTool', () => {
       }),
     );
 
-    llmClient.generate.mockResolvedValueOnce(
+    llmClient.generateJson.mockResolvedValueOnce(
       JSON.stringify({
         title: '加法探险课',
         summary: '通过故事和练习学习10以内加法。',
@@ -219,7 +219,7 @@ describe('GenerateCoursePackTool', () => {
     );
     // Intentionally return invalid JSON to test the fallback path.
     // This triggers MAX_ATTEMPTS retries and falls back to template-based generation.
-    llmClient.generate.mockResolvedValue('not-json');
+    llmClient.generateJson.mockResolvedValue('not-json');
 
     const result = JSON.parse(
       await tool.execute({
@@ -248,7 +248,7 @@ describe('GenerateCoursePackTool', () => {
         ageGroup: '5-6',
       }),
     );
-    expect(llmClient.generate).toHaveBeenCalledTimes(3);
+    expect(llmClient.generateJson).toHaveBeenCalledTimes(3);
   });
 
   it('expands explicit literacy units into per-item teaching shots', async () => {
@@ -265,7 +265,7 @@ describe('GenerateCoursePackTool', () => {
       }),
     );
     // Intentionally return invalid JSON to test the fallback path with literacy unit expansion.
-    llmClient.generate.mockResolvedValue('not-json');
+    llmClient.generateJson.mockResolvedValue('not-json');
 
     const result = JSON.parse(
       await tool.execute({
@@ -305,7 +305,7 @@ describe('GenerateCoursePackTool', () => {
       }),
     );
     // Intentionally return invalid JSON to test the fallback path with curriculum seed.
-    llmClient.generate.mockResolvedValue('not-json');
+    llmClient.generateJson.mockResolvedValue('not-json');
 
     mockedGetCoursePackCurriculumSeed.mockReturnValue({
       summary: '了解春夏秋冬四个季节的特点和变化',
@@ -386,7 +386,7 @@ describe('GenerateCoursePackTool', () => {
       }),
     );
     // Intentionally return invalid JSON to test the fallback path with curriculum seed.
-    llmClient.generate.mockResolvedValue('not-json');
+    llmClient.generateJson.mockResolvedValue('not-json');
 
     mockedGetCoursePackCurriculumSeed.mockReturnValue({
       summary: '认识常见的动物朋友',

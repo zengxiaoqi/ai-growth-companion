@@ -5,6 +5,7 @@ import * as path from 'path';
 import { CreateBaselineSchema1600000000000 } from '../../src/database/migrations/1600000000000-CreateBaselineSchema';
 import { CreateMemoryAndSafetyTables1700000000000 } from '../../src/database/migrations/1700000000000-CreateMemoryAndSafetyTables';
 import { AddCasualToolsToParentControls1762800000000 } from '../../src/database/migrations/1762800000000-AddCasualToolsToParentControls';
+import { CreateKnowledgeCards1794600000000 } from '../../src/database/migrations/1794600000000-CreateKnowledgeCards';
 
 /**
  * The baseline migration has exactly one job worth testing: after it runs, the
@@ -50,6 +51,7 @@ async function buildFromMigrations(): Promise<DataSource> {
       CreateBaselineSchema1600000000000,
       CreateMemoryAndSafetyTables1700000000000,
       AddCasualToolsToParentControls1762800000000,
+      CreateKnowledgeCards1794600000000,
     ] as any[],
     migrationsRun: false,
     synchronize: false,
@@ -104,6 +106,7 @@ describe('baseline migration', () => {
       'CreateBaselineSchema1600000000000',
       'CreateMemoryAndSafetyTables1700000000000',
       'AddCasualToolsToParentControls1762800000000',
+      'CreateKnowledgeCards1794600000000',
     ]);
   });
 

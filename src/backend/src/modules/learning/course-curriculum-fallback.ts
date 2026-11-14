@@ -1,5 +1,9 @@
 import { readdirSync, readFileSync } from 'fs';
 import * as path from 'path';
+import {
+  findKnowledgeCard,
+  type KnowledgeCardView,
+} from '../../common/learning/knowledge-card-registry';
 
 export interface CurriculumQuizItem {
   question: string;
@@ -74,6 +78,10 @@ export function getCoursePackCurriculumSeed(input: {
   const topic = toText(input.topic);
   if (!topic) return null;
 
+  // Knowledge cards first (DB-backed, alias-aware); static JSON is the fallback.
+  const card = findKnowledgeCard(topic, input.ageGroup);
+  if (card && card.facts.length > 0) return seedFromCard(card, topic);
+
   const records = loadCurriculumRecords(input.ageGroup);
   if (records.length === 0) return null;
 
@@ -117,6 +125,38 @@ function loadCurriculumRecords(ageGroup: AgeGroup): CurriculumRecord[] {
   } catch {
     return [];
   }
+}
+
+function seedFromCard(card: KnowledgeCardView, topic: string): CourseCurriculumSeed {
+  const unitFacts: Record<string, string> = {};
+  for (const f of card.facts) {
+    if (f.unit && f.fact && !unitFacts[f.unit]) unitFacts[f.unit] = f.fact;
+  }
+  const units = Object.keys(unitFacts);
+  const teachingUnits = units.slice(0, 6);
+  const quizItems = card.quizSeeds
+    .filter((q) => q.question && Array.isArray(q.options) && q.options.length >= 2 && q.answer)
+    .slice(0, 4);
+  const matchingPairs = units
+    .map((unit) => ({ left: unit, right: unitFacts[unit] }))
+    .slice(0, 4);
+  const readingKeywords = unique([...card.vocabulary, ...teachingUnits]).slice(0, 5);
+
+  return {
+    summary: `认识${topic}，了解${teachingUnits.slice(0, 3).join('、')}的特点。`,
+    outcomes: teachingUnits.slice(0, 3).map((unit) => `认识${unit}的特点`),
+    teachingUnits: teachingUnits.slice(0, 4),
+    unitFacts,
+    readingText:
+      card.facts.map((f) => `${f.unit}：${f.fact}`).join('\n').slice(0, 320) ||
+      `今天我们一起学习${topic}。`,
+    readingKeywords: readingKeywords.length > 0 ? readingKeywords : [topic],
+    listeningQuestions: unique(quizItems.map((item) => item.question)).slice(0, 3),
+    tracingItems: teachingUnits.slice(0, 2),
+    practiceTasks: matchingPairs.slice(0, 2).map((pair) => `说一说${pair.left}${pair.right}`),
+    matchingPairs,
+    quizItems,
+  };
 }
 
 function buildHaystack(record: CurriculumRecord): string {

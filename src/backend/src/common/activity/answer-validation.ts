@@ -17,11 +17,13 @@
  */
 
 import { extractJsonObject } from '../../agent-framework/core';
+import { getDifficultyProfile, type MathOp } from '../learning/difficulty-profiles';
 
 export interface AnswerCheckContext {
   topic: string;
   ageGroup: string;
   difficulty?: number;
+  domain?: string;
   /** Knowledge-card facts as ground truth for the judge (optional). */
   facts?: string[];
 }
@@ -55,7 +57,7 @@ export function isJudgeableType(type: string): boolean {
 
 // ─── L1: deterministic checks ────────────────────────────────────────────
 
-export function validateAnswersL1(activity: any, _ctx: AnswerCheckContext): AnswerCheckResult {
+export function validateAnswersL1(activity: any, ctx: AnswerCheckContext): AnswerCheckResult {
   const issues: string[] = [];
   const fixes: string[] = [];
   const type = activity?.type;
@@ -64,7 +66,7 @@ export function validateAnswersL1(activity: any, _ctx: AnswerCheckContext): Answ
     const kept: any[] = [];
     const questions = Array.isArray(activity?.questions) ? activity.questions : [];
     questions.forEach((q: any, i: number) => {
-      const verdict = checkQuizQuestion(q, i, fixes);
+      const verdict = checkQuizQuestion(q, i, fixes, ctx);
       if (verdict.issue) issues.push(verdict.issue);
       if (verdict.question) kept.push(verdict.question);
     });
@@ -131,6 +133,13 @@ export function validateAnswersL1(activity: any, _ctx: AnswerCheckContext): Answ
         issues.push(`第${i + 1}题出现负数结果，超出幼儿认知`);
         return;
       }
+      if (math) {
+        const difficultyIssue = checkMathDifficulty(math, ctx, i);
+        if (difficultyIssue) {
+          issues.push(difficultyIssue);
+          return;
+        }
+      }
       kept.push(s);
     });
     if (kept.length < MIN_ITEMS) {
@@ -151,6 +160,7 @@ function checkQuizQuestion(
   q: any,
   i: number,
   fixes: string[],
+  ctx: AnswerCheckContext,
 ): { question?: any; issue?: string } {
   const question = String(q?.question ?? '').trim();
   if (!question) return { issue: `第${i + 1}题题干为空` };
@@ -190,6 +200,8 @@ function checkQuizQuestion(
     if (math.expected < 0) {
       return { issue: `第${i + 1}题减法结果为负数（${math.expression}），超出幼儿认知` };
     }
+    const difficultyIssue = checkMathDifficulty(math, ctx, i);
+    if (difficultyIssue) return { issue: difficultyIssue };
     const answerNum = parseOptionNumber(options[correctIndex]);
     if (answerNum !== null && answerNum !== math.expected) {
       const matches = options
@@ -224,6 +236,23 @@ function checkQuizQuestion(
 interface Arithmetic {
   expression: string;
   expected: number;
+  a: number;
+  b: number;
+  op: '+' | '-';
+}
+
+/** Reject arithmetic beyond the age/difficulty profile (ops and number range). */
+function checkMathDifficulty(math: Arithmetic, ctx: AnswerCheckContext, i: number): string | null {
+  const profile = getDifficultyProfile(ctx.ageGroup, ctx.difficulty ?? 1, ctx.domain);
+  const op: MathOp = math.op === '+' ? 'add' : 'sub';
+  if (!profile.allowedOps.includes(op)) {
+    return `第${i + 1}题出现加减运算（${math.expression}），超出 ${ctx.ageGroup} 岁难度${ctx.difficulty ?? 1} 的认知范围`;
+  }
+  const over = [math.a, math.b, math.expected].find((n) => n > profile.maxNumber);
+  if (over !== undefined) {
+    return `第${i + 1}题数字 ${over} 超出难度上限 ${profile.maxNumber}（${math.expression}）`;
+  }
+  return null;
 }
 
 const CN_NUMERALS: Record<string, number> = {
@@ -248,9 +277,9 @@ export function parseArithmetic(text: string): Arithmetic | null {
   if (!m) return null;
   const a = Number(m[1]);
   const b = Number(m[3]);
-  const op = m[2] === '+' || m[2] === '加' ? '+' : '-';
+  const op: '+' | '-' = m[2] === '+' || m[2] === '加' ? '+' : '-';
   const expected = op === '+' ? a + b : a - b;
-  return { expression: `${a} ${op} ${b}`, expected };
+  return { expression: `${a} ${op} ${b}`, expected, a, b, op };
 }
 
 /** Leading numeric value of an option ("5", "5个", "五"). Null when not numeric. */
@@ -326,7 +355,7 @@ ${JSON.stringify(items)}
     if (Number.isInteger(v?.i)) byIndex.set(v.i, v);
   }
 
-  return applyVerdicts(activity, byIndex);
+  return applyVerdicts(activity, byIndex, ctx);
 }
 
 function buildJudgeItems(activity: any): any[] {
@@ -355,7 +384,11 @@ function buildJudgeItems(activity: any): any[] {
   }));
 }
 
-function applyVerdicts(activity: any, byIndex: Map<number, JudgeVerdict>): AnswerCheckResult {
+function applyVerdicts(
+  activity: any,
+  byIndex: Map<number, JudgeVerdict>,
+  ctx: AnswerCheckContext,
+): AnswerCheckResult {
   const issues: string[] = [];
   const fixes: string[] = [];
   const type = activity.type;
@@ -380,10 +413,7 @@ function applyVerdicts(activity: any, byIndex: Map<number, JudgeVerdict>): Answe
       issues.push(`${label}答案错误且评审未给出有效修正：${v.reason ?? ''}`);
       return;
     }
-    const recheck = validateAnswersL1(
-      { type, [listKey]: [fixed, fixed, fixed] },
-      { topic: '', ageGroup: '' },
-    );
+    const recheck = validateAnswersL1({ type, [listKey]: [fixed, fixed, fixed] }, ctx);
     const recheckedItem = recheck.activity?.[listKey]?.[0];
     if (!recheck.ok || !recheckedItem) {
       issues.push(`${label}修正后仍不合格：${recheck.issues.join('；')}`);

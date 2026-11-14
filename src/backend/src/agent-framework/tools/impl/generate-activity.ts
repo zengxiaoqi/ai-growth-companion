@@ -47,6 +47,11 @@ import {
   isJudgeableType,
   type AnswerCheckResult,
 } from '../../../common/activity/answer-validation';
+import { difficultyPromptLines } from '../../../common/learning/difficulty-profiles';
+import {
+  findKnowledgeCard,
+  knowledgeCardFactLines,
+} from '../../../common/learning/knowledge-card-registry';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -263,6 +268,7 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
         topic: normalizedArgs.topic,
         difficulty: normalizedArgs.difficulty,
         ageGroup: normalizedArgs.ageGroup,
+        knowledgeCard: findKnowledgeCard(normalizedArgs.topic, normalizedArgs.ageGroup) ? 'hit' : 'miss',
       })}`,
     );
 
@@ -355,7 +361,19 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
     args: GenerateActivityArgs,
     activity: any,
   ): Promise<AnswerCheckResult> {
-    const ctx = { topic: args.topic, ageGroup: args.ageGroup, difficulty: args.difficulty };
+    const card = findKnowledgeCard(args.topic, args.ageGroup);
+    const ctx = {
+      topic: args.topic,
+      ageGroup: args.ageGroup,
+      difficulty: args.difficulty,
+      domain: args.domain,
+      facts: card
+        ? [
+            ...knowledgeCardFactLines(card),
+            ...card.misconceptions.map((m) => `常见错误：${m}`),
+          ]
+        : undefined,
+    };
     const l1 = validateAnswersL1(activity, ctx);
     if (!l1.ok) return l1;
     if (l1.fixes.length > 0) {
@@ -374,6 +392,19 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
       );
       return l1;
     }
+  }
+
+  private knowledgeCardPromptLines(args: GenerateActivityArgs): string[] {
+    const card = findKnowledgeCard(args.topic, args.ageGroup);
+    if (!card || card.facts.length === 0) return [];
+    const lines = [
+      'Knowledge card facts (ground truth — questions and answers MUST stay consistent):',
+      ...knowledgeCardFactLines(card).map((line) => `- ${line}`),
+    ];
+    if (card.vocabulary.length > 0) {
+      lines.push(`Preferred vocabulary: ${card.vocabulary.join('、')}`);
+    }
+    return lines;
   }
 
   private normalizeArgs(args: GenerateActivityArgs): GenerateActivityArgs {
@@ -436,8 +467,10 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
 
     return [
       'You are a children learning activity generator.',
-      `Age group: ${args.ageGroup}. Topic: ${args.topic}. Difficulty: ${args.difficulty}. Type: ${args.type}.`,
+      `Age group: ${args.ageGroup}. Topic: ${args.topic}. Type: ${args.type}.`,
       args.domain ? `Domain: ${args.domain}.` : '',
+      ...difficultyPromptLines(args.ageGroup, args.difficulty, args.domain),
+      ...this.knowledgeCardPromptLines(args),
       `Attempt: ${attempt}.`,
       failureNotes,
       reflectionNotes,

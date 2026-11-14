@@ -9,6 +9,7 @@ import { LearningPoint } from '../../database/entities/learning-point.entity';
 import { WrongQuestion } from '../../database/entities/wrong-question.entity';
 import { StudyPlanRecord } from '../../database/entities/study-plan-record.entity';
 import { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
+import { KnowledgeCard } from '../../database/entities/knowledge-card.entity';
 import { LearningService } from './learning.service';
 import { LearningTrackerService } from './learning-tracker.service';
 import { LearningArchiveService } from './learning-archive.service';
@@ -21,6 +22,7 @@ import { QuickVideoService } from './quick-video.service';
 import { DshBridgeService } from './dsh-bridge.service';
 import { VisualAssetService } from './visual-asset.service';
 import { CourseGenerationAgentService } from './course-generation-agent.service';
+import { KnowledgeCardService } from './knowledge-card.service';
 import { LearningController } from './learning.controller';
 import { SseModule } from '../sse/sse.module';
 import { AchievementsModule } from '../achievements/achievements.module';
@@ -44,6 +46,7 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
       WrongQuestion,
       StudyPlanRecord,
       VideoGenerationTask,
+      KnowledgeCard,
     ]),
     SseModule,
     AchievementsModule,
@@ -68,6 +71,7 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
     QuickVideoService,
     VisualAssetService,
     CourseGenerationAgentService,
+    KnowledgeCardService,
   ],
   controllers: [LearningController],
   exports: [
@@ -81,6 +85,7 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
     VideoGenerationAgentService,
     VisualAssetService,
     CourseGenerationAgentService,
+    KnowledgeCardService,
   ],
 })
 export class LearningModule {}

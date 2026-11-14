@@ -202,6 +202,89 @@ describe('validateAnswersL1 — true_false / fill_blank', () => {
   });
 });
 
+describe('validateAnswersL1 — difficulty profile enforcement', () => {
+  const mathQuiz = (question: string, options: string[], correctIndex: number) =>
+    quizWith([
+      goodQuestion({ question, options, correctIndex }),
+      goodQuestion({ question, options, correctIndex }),
+      goodQuestion({ question, options, correctIndex }),
+    ]);
+
+  it('rejects arithmetic for 3-4 (counting-only profile)', () => {
+    const result = validateAnswersL1(mathQuiz('3 + 2 = ?', ['4', '5', '6'], 1), {
+      topic: '数字',
+      ageGroup: '3-4',
+      difficulty: 1,
+      domain: 'math',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.join()).toContain('加减运算');
+  });
+
+  it('rejects sums above the 5-6 d1 cap of 10', () => {
+    const result = validateAnswersL1(mathQuiz('8 + 5 = ?', ['12', '13', '14'], 1), {
+      topic: '加法',
+      ageGroup: '5-6',
+      difficulty: 1,
+      domain: 'math',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.join()).toContain('超出难度上限 10');
+  });
+
+  it('allows the same sum at 5-6 d2 (cap 20)', () => {
+    const result = validateAnswersL1(mathQuiz('8 + 5 = ?', ['12', '13', '14'], 1), {
+      topic: '加法',
+      ageGroup: '5-6',
+      difficulty: 2,
+      domain: 'math',
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects operands above the cap even when the result fits', () => {
+    const result = validateAnswersL1(mathQuiz('15 - 9 = ?', ['5', '6', '7'], 1), {
+      topic: '减法',
+      ageGroup: '5-6',
+      difficulty: 1,
+      domain: 'math',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.join()).toContain('超出难度上限');
+  });
+
+  it('enforces the profile on fill_blank arithmetic too', () => {
+    const activity = {
+      type: 'fill_blank',
+      sentences: [
+        { text: '8 + 5 = ___', answer: '13', options: ['12', '13', '14'] },
+        { text: '2 + 2 = ___', answer: '4', options: ['3', '4', '5'] },
+        { text: '1 + 1 = ___', answer: '2', options: ['1', '2', '3'] },
+      ],
+    };
+    const result = validateAnswersL1(activity, {
+      topic: '加法',
+      ageGroup: '5-6',
+      difficulty: 1,
+      domain: 'math',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.join()).toContain('超出难度上限 10');
+  });
+
+  it('leaves non-arithmetic questions untouched by the number cap', () => {
+    const result = validateAnswersL1(
+      quizWith([
+        goodQuestion({ question: '一年有几个月？', options: ['10个', '12个', '8个'], correctIndex: 1 }),
+        goodQuestion(),
+        goodQuestion(),
+      ]),
+      { topic: '四季', ageGroup: '3-4', difficulty: 1 },
+    );
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe('judgeActivityAnswers — L2 verdict application', () => {
   const llmReturning = (payload: any): JudgeLlm => ({
     generateJson: jest.fn().mockResolvedValue(JSON.stringify(payload)),

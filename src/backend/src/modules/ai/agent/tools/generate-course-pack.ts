@@ -15,6 +15,12 @@ import {
   type LessonSceneDocument,
 } from '../../../learning/lesson-scene';
 import { getCoursePackCurriculumSeed } from '../../../learning/course-curriculum-fallback';
+import { difficultyPromptLines } from '../../../../common/learning/difficulty-profiles';
+import {
+  ensureKnowledgeCard,
+  findKnowledgeCard,
+  knowledgeCardFactLines,
+} from '../../../../common/learning/knowledge-card-registry';
 
 type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
@@ -67,6 +73,8 @@ export class GenerateCoursePackTool {
 
   async execute(args: GenerateCoursePackArgs): Promise<string> {
     const normalized = this.normalizeArgs(args);
+    // Warm the knowledge card before any sync seed lookup; never blocks on failure.
+    await ensureKnowledgeCard(normalized.topic, normalized.ageGroup, normalized.domain);
     const gameBundle = normalized.includeGame ? await this.generateGameBundle(normalized) : null;
     const failures: string[] = [];
     const reflections: string[] = [];
@@ -342,7 +350,7 @@ export class GenerateCoursePackTool {
       `Domain: ${args.domain}`,
       `Focus: ${args.focus}`,
       `Duration: ${args.durationMinutes} minutes`,
-      `Difficulty: ${args.difficulty} (1-3)`,
+      ...difficultyPromptLines(args.ageGroup ?? '5-6', args.difficulty ?? 1, args.domain),
       `Parent request: ${args.parentPrompt}`,
       `Include listening module: ${args.includeAudio ? 'yes' : 'no'}`,
       `Include video module: ${args.includeVideo ? 'yes' : 'no'}`,
@@ -399,6 +407,7 @@ export class GenerateCoursePackTool {
       '- Each narration segment: 20-60 Chinese characters',
       '- Include specific knowledge points, not generic greetings',
       '',
+      ...this.knowledgeCardPromptBlock(args),
       'Animation templates:',
       buildTemplatePromptContext(),
       `MANDATORY: Every visualStory scene MUST have an "animationTemplate" field. Domain-specific defaults: ${args.domain}→${this.getDefaultTemplate(args.domain)}. Choose the MOST specific template matching the scene content. Always provide appropriate animationParams.`,
@@ -407,6 +416,19 @@ export class GenerateCoursePackTool {
     ]
       .filter(Boolean)
       .join('\n');
+  }
+
+  private knowledgeCardPromptBlock(args: NormalizedArgs): string[] {
+    const card = findKnowledgeCard(args.topic, args.ageGroup);
+    if (!card || card.facts.length === 0) return [];
+    return [
+      '## Knowledge card facts (ground truth — ALL content must stay consistent with these):',
+      ...knowledgeCardFactLines(card).map((line) => `- ${line}`),
+      ...(card.misconceptions.length > 0
+        ? ['Common misconceptions to avoid:', ...card.misconceptions.map((m) => `- ${m}`)]
+        : []),
+      '',
+    ];
   }
 
   private getDefaultTemplate(domain: string): string {

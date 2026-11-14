@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/child_theme.dart';
 import '../../components/child_home_experience.dart';
 import '../../components/bottom_nav.dart';
+import '../../components/lazy_tab_stack.dart';
 import '../games/trivia_quiz_game.dart';
 import '../games/country_matching_game.dart';
 import '../../providers/user_provider.dart';
@@ -55,7 +56,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     return Scaffold(
       // 不再挂常驻 TopBar：首页/学习/AI 各自的内容头部就是标题，
       // 固定栏只在「我的」里以滚动头部出现（见 ProfileScreen）。
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      // 懒建 + TickerMode：隐藏 tab 不再继续 build / 空转出帧，
+      // 否则学习页里常驻的 loading spinner 会让 App 永远不空闲（实测 ANR）。
+      body: LazyTabStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: SafeArea(
         top: false,
         child: BottomNav(

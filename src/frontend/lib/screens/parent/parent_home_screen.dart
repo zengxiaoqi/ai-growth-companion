@@ -17,6 +17,7 @@ import '../../components/activity_card.dart';
 import '../../components/bottom_nav.dart';
 import '../../components/child_fun_page.dart';
 import '../../components/child_home_experience.dart';
+import '../../components/lazy_tab_stack.dart';
 import '../../components/notification_panel.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
@@ -72,7 +73,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
       backgroundColor: palette.paper,
       // IndexedStack 保留各 tab 的滚动位置与已加载数据，
       // 切回首页不会重新拉接口（孩子端主壳同样用 IndexedStack）。
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      // 与孩子端同一个容器：首帧只建当前 tab，隐藏 tab 停掉 ticker。
+      body: LazyTabStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: SafeArea(
         top: false,
         child: BottomNav(

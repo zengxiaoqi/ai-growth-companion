@@ -240,18 +240,22 @@ class _ChildMascotState extends State<ChildMascot>
 
     if (!widget.bob) return mascot;
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = _controller.value;
-        final dy = -5 * math.sin(t * math.pi);
-        final rotate = (-2 + 4 * t) * math.pi / 180;
-        return Transform.translate(
-          offset: Offset(0, dy),
-          child: Transform.rotate(angle: rotate, child: child),
-        );
-      },
-      child: mascot,
+    // RepaintBoundary：摆动只重绘这 64px 的小图，不要把整页（多张卡片+阴影）
+    // 一起拉着每帧重绘。它在隐藏 tab 里也会被 TickerMode 停掉。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final t = _controller.value;
+          final dy = -5 * math.sin(t * math.pi);
+          final rotate = (-2 + 4 * t) * math.pi / 180;
+          return Transform.translate(
+            offset: Offset(0, dy),
+            child: Transform.rotate(angle: rotate, child: child),
+          );
+        },
+        child: mascot,
+      ),
     );
   }
 }

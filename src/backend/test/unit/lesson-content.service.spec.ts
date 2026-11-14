@@ -777,3 +777,70 @@ describe('LessonContentService runGeneration quality closed-loop', () => {
     expect(toolRegistry.execute).not.toHaveBeenCalled();
   });
 });
+
+describe('LessonContentService assembleLesson practice type', () => {
+  let service: LessonContentService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        LessonContentService,
+        { provide: getRepositoryToken(Content), useValue: {} },
+        { provide: getRepositoryToken(LearningRecord), useValue: {} },
+        { provide: getRepositoryToken(Assignment), useValue: {} },
+        { provide: getRepositoryToken(StudyPlanRecord), useValue: {} },
+        { provide: ContentsService, useValue: {} },
+        { provide: GenerateCoursePackTool, useValue: {} },
+        { provide: GenerateActivityTool, useValue: {} },
+        { provide: AiService, useValue: {} },
+        { provide: AssignmentService, useValue: {} },
+        { provide: LearningTrackerService, useValue: {} },
+        { provide: LlmClientService, useValue: {} },
+        { provide: LessonVideoQueueService, useValue: {} },
+      ],
+    }).compile();
+    service = module.get(LessonContentService);
+  });
+
+  const meta = {
+    topic: '彩虹的颜色',
+    ageGroup: '5-6' as const,
+    domain: 'language' as const,
+    summary: '',
+    outcomes: [],
+  };
+
+  const practiceGame = (lesson: any) =>
+    lesson.steps.find((s: any) => s.id === 'practice').module.game;
+
+  it('follows the activity data type instead of the focus-derived type', () => {
+    const lesson = (service as any).assembleLesson(
+      { focus: 'literacy', modules: {} },
+      {
+        type: 'matching',
+        title: '彩虹的颜色',
+        pairs: [{ id: 'p1', left: '红色', right: '🔴' }],
+      },
+      meta,
+    );
+    expect(practiceGame(lesson).activityType).toBe('matching');
+  });
+
+  it('falls back to focus-derived type when data has no valid type', () => {
+    const lesson = (service as any).assembleLesson(
+      { focus: 'literacy', modules: {} },
+      { title: '彩虹的颜色' },
+      meta,
+    );
+    expect(practiceGame(lesson).activityType).toBe('fill_blank');
+  });
+
+  it('falls back to focus-derived type when practice data is missing', () => {
+    const lesson = (service as any).assembleLesson(
+      { focus: 'math', modules: {} },
+      null,
+      meta,
+    );
+    expect(practiceGame(lesson).activityType).toBe('quiz');
+  });
+});

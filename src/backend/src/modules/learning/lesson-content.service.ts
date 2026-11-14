@@ -16,7 +16,7 @@ import { StudyPlanRecord } from '../../database/entities/study-plan-record.entit
 import { ContentsService } from '../contents/contents.service';
 import { GenerateCoursePackTool } from '../ai/agent/tools/generate-course-pack';
 import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
-import type { ActivityType } from '../../agent-framework/core/types/tool-metadata';
+import { isActivityType, type ActivityType } from '../../agent-framework/core/types/tool-metadata';
 import { AiService } from '../ai/ai.service';
 import { AssignmentService } from '../assignment/assignment.service';
 import { LearningTrackerService } from './learning-tracker.service';
@@ -1097,7 +1097,11 @@ export class LessonContentService implements OnModuleInit {
     const parentGuide = coursePack.parentGuide || {};
     const watchScene = this.resolveWatchScene(coursePack, meta.topic, coursePack.domain as string);
     const writeScene = this.resolveWriteScene(coursePack, meta.topic);
-    const practiceType = this.resolveGameType(coursePack.focus || 'mixed');
+    // 外层 activityType 必须跟随实际题型数据，否则渲染端按外层类型取题会拿到空题
+    const dataType = practiceData?.type;
+    const practiceType = isActivityType(dataType)
+      ? dataType
+      : this.resolveGameType(coursePack.focus || 'mixed');
     const practiceScene = this.resolvePracticeScene(
       coursePack,
       practiceData,

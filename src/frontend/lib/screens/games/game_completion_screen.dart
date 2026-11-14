@@ -83,7 +83,9 @@ class _GameCompletionScreenState extends State<GameCompletionScreen> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.92),
+              color: AppTheme.active.isDarkSurface
+                  ? AppTheme.active.card.withValues(alpha: 0.96)
+                  : Colors.white.withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(

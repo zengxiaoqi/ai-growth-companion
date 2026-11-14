@@ -334,7 +334,7 @@ class _PuzzleGridState extends State<_PuzzleGrid> {
       decoration: BoxDecoration(
         color: isCorrect
             ? AppTheme.accentColor.withValues(alpha: 0.15)
-            : Colors.white,
+            : AppTheme.active.gameCardSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isCorrect

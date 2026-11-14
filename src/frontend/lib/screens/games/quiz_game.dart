@@ -320,8 +320,8 @@ class _QuizGameState extends State<QuizGame>
                   curve: Curves.easeOut,
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Colors.white, Color(0xFFFBFAFC)],
+                    gradient: LinearGradient(
+                      colors: AppTheme.active.gameCardGradientColors,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -336,8 +336,8 @@ class _QuizGameState extends State<QuizGame>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color:
-                              AppTheme.secondaryColor.withValues(alpha: 0.15),
+                          color: AppTheme.active.badgeAccent
+                              .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -345,7 +345,7 @@ class _QuizGameState extends State<QuizGame>
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.secondaryColor,
+                            color: AppTheme.active.badgeAccent,
                           ),
                         ),
                       ),
@@ -398,12 +398,12 @@ class _QuizGameState extends State<QuizGame>
             decoration: BoxDecoration(
               color: _feedbackCorrect
                   ? AppTheme.accentColor.withValues(alpha: 0.15)
-                  : const Color(0xFFE0885F).withValues(alpha: 0.15),
+                  : AppTheme.active.dangerAccent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: _feedbackCorrect
                     ? AppTheme.accentColor.withValues(alpha: 0.3)
-                    : const Color(0xFFE0885F).withValues(alpha: 0.3),
+                    : AppTheme.active.dangerAccent.withValues(alpha: 0.3),
                 width: 1.5,
               ),
             ),
@@ -416,7 +416,7 @@ class _QuizGameState extends State<QuizGame>
                       : Icons.lightbulb_rounded,
                   color: _feedbackCorrect
                       ? AppTheme.accentColor
-                      : AppTheme.warningColor,
+                      : AppTheme.active.dangerAccent,
                   size: 22,
                 ),
                 const SizedBox(width: 8),
@@ -426,7 +426,7 @@ class _QuizGameState extends State<QuizGame>
                     fontWeight: FontWeight.w700,
                     color: _feedbackCorrect
                         ? AppTheme.accentColor
-                        : AppTheme.warningColor,
+                        : AppTheme.active.dangerAccent,
                   ),
                 ),
               ],
@@ -488,23 +488,25 @@ class _QuizOptionState extends State<_QuizOption>
 
     final Color borderColor;
     final Color bgColor;
+    final plainSurface = AppTheme.active.gameCardSurface;
     if (widget.revealed) {
       if (widget.isCorrect) {
         borderColor = AppTheme.accentColor;
         bgColor = AppTheme.accentColor.withValues(alpha: 0.12);
       } else if (widget.isSelected) {
-        borderColor = AppTheme.warningColor;
-        bgColor = AppTheme.warningColor.withValues(alpha: 0.12);
+        borderColor = AppTheme.active.dangerAccent;
+        bgColor = AppTheme.active.dangerAccent.withValues(alpha: 0.12);
       } else {
-        borderColor = Colors.grey.shade200;
-        bgColor = Colors.white;
+        borderColor = AppTheme.active.gameCardLine;
+        bgColor = plainSurface;
       }
     } else {
-      borderColor =
-          widget.isSelected ? AppTheme.primaryColor : Colors.grey.shade200;
+      borderColor = widget.isSelected
+          ? AppTheme.primaryColor
+          : AppTheme.active.gameCardLine;
       bgColor = widget.isSelected
           ? AppTheme.softPink.withValues(alpha: 0.25)
-          : Colors.white;
+          : plainSurface;
     }
 
     // 入场动画
@@ -548,14 +550,14 @@ class _QuizOptionState extends State<_QuizOption>
           curve: Curves.easeOut,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
-            gradient: bgColor == Colors.white
-                ? const LinearGradient(
-                    colors: [Colors.white, Color(0xFFFBFAFC)],
+            gradient: bgColor == plainSurface
+                ? LinearGradient(
+                    colors: AppTheme.active.gameCardGradientColors,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   )
                 : null,
-            color: bgColor == Colors.white ? null : bgColor,
+            color: bgColor == plainSurface ? null : bgColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: borderColor, width: 2),
             boxShadow: widget.isSelected && !widget.revealed
@@ -587,7 +589,7 @@ class _QuizOptionState extends State<_QuizOption>
                     color: widget.revealed && widget.isCorrect
                         ? AppTheme.accentColor
                         : (widget.revealed && widget.isSelected
-                            ? AppTheme.warningColor
+                            ? AppTheme.active.dangerAccent
                             : AppTheme.textColor),
                   ),
                 ),
@@ -597,8 +599,8 @@ class _QuizOptionState extends State<_QuizOption>
                 Icon(Icons.check_circle_rounded,
                     color: AppTheme.accentColor, size: 24),
               if (widget.revealed && widget.isSelected && !widget.isCorrect)
-                const Icon(Icons.cancel_rounded,
-                    color: AppTheme.warningColor, size: 24),
+                Icon(Icons.cancel_rounded,
+                    color: AppTheme.active.dangerAccent, size: 24),
             ],
           ),
         ),

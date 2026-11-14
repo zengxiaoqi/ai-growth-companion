@@ -194,7 +194,7 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.active.gameCardSurface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: AppTheme.softShadow(AppTheme.softBlue),
           ),
@@ -289,14 +289,16 @@ class _TrueFalseGameState extends State<TrueFalseGame> with GameTtsHelper {
     final borderColor = showSuccess
         ? AppTheme.accentColor
         : showFail
-            ? AppTheme.warningColor
-            : (selected ? color : Colors.grey.shade300);
+            ? AppTheme.active.dangerAccent
+            : (selected ? color : AppTheme.active.gameCardLineStrong);
 
     final bgColor = showSuccess
         ? AppTheme.accentColor.withValues(alpha: 0.2)
         : showFail
-            ? AppTheme.warningColor.withValues(alpha: 0.2)
-            : (selected ? color.withValues(alpha: 0.12) : Colors.white);
+            ? AppTheme.active.dangerAccent.withValues(alpha: 0.2)
+            : (selected
+                ? color.withValues(alpha: 0.12)
+                : AppTheme.active.gameCardSurface);
 
     return Material(
       color: bgColor,

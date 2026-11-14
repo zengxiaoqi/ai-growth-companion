@@ -295,34 +295,36 @@ class _ConnectionGameState extends State<ConnectionGame> with GameTtsHelper {
                 rightId != null && _isCorrectConnection(item.id, rightId)
                     ? AppTheme.accentColor
                     : (rightId != null
-                        ? AppTheme.warningColor
-                        : Colors.grey.shade300);
+                        ? AppTheme.active.dangerAccent
+                        : AppTheme.active.gameCardLineStrong);
           } else {
             final hasCorrect = _userConnections.entries.any((e) =>
                 e.value == item.id && _isCorrectConnection(e.key, e.value));
             borderColor = hasCorrect
                 ? AppTheme.accentColor
                 : (_userConnections.containsValue(item.id)
-                    ? AppTheme.warningColor
-                    : Colors.grey.shade300);
+                    ? AppTheme.active.dangerAccent
+                    : AppTheme.active.gameCardLineStrong);
           }
         } else {
           borderColor = isSelected
               ? AppTheme.primaryColor
-              : (isConnected ? AppTheme.secondaryColor : Colors.grey.shade300);
+              : (isConnected
+                  ? AppTheme.secondaryColor
+                  : AppTheme.active.gameCardLineStrong);
         }
 
         final bgColor = _submitted
             ? (borderColor == AppTheme.accentColor
                 ? AppTheme.accentColor.withValues(alpha: 0.12)
-                : (borderColor == AppTheme.warningColor
-                    ? AppTheme.warningColor.withValues(alpha: 0.12)
-                    : Colors.white))
+                : (borderColor == AppTheme.active.dangerAccent
+                    ? AppTheme.active.dangerAccent.withValues(alpha: 0.12)
+                    : AppTheme.active.gameCardSurface))
             : (isSelected
                 ? AppTheme.softBlue.withValues(alpha: 0.25)
                 : (isConnected
                     ? AppTheme.softPink.withValues(alpha: 0.18)
-                    : Colors.white));
+                    : AppTheme.active.gameCardSurface));
 
         return GestureDetector(
           onTap: () => isLeft ? _tapLeft(item.id) : _tapRight(item.id),

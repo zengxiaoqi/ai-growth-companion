@@ -364,7 +364,7 @@ class _ColorFillGameState extends State<ColorFillGame> {
                     const SizedBox(width: 4),
                     Text(
                       _kColorLabels[region.colorKey] ?? '',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                         color: ChildGamePalette.ink,
@@ -435,7 +435,7 @@ class _ColorFillGameState extends State<ColorFillGame> {
                 const SizedBox(height: 3),
                 Text(
                   _kColorLabels[color] ?? '',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     color: ChildGamePalette.ink,
@@ -512,7 +512,7 @@ class _ColorFillGameState extends State<ColorFillGame> {
             ),
           ),
           const SizedBox(height: 14),
-          const Row(
+          Row(
             children: [
               Text('🎨', style: TextStyle(fontSize: 20)),
               SizedBox(width: 6),

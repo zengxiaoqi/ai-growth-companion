@@ -115,6 +115,39 @@ class ChildThemePalette extends ThemeExtension<ChildThemePalette> {
       ? AppTheme.honeySecondary
       : Color.lerp(subjects[1], Colors.black, 0.35)!;
 
+  // ── 游戏 / AI 生成内容的表面派生 token ──
+  // AI 对话生成的题目、游戏组件历史上硬编码「白卡片 + 灰描边」，在深色皮肤
+  // （space）下主题文字是浅色，落在白卡上几乎不可读。这里的派生值让这些
+  // 组件无需逐个判断皮肤：浅色皮肤保持原白色外观零回归，深色皮肤走卡片
+  // token。按 paper 亮度判断深浅，未来新增深色皮肤自动生效。
+
+  /// 页面底色是否为深色表面（如 space）。
+  bool get isDarkSurface => paper.computeLuminance() < 0.5;
+
+  /// 题目 / 选项卡片的微渐变端点。
+  List<Color> get gameCardGradientColors => isDarkSurface
+      ? <Color>[card, Color.lerp(card, paper, 0.45)!]
+      : const <Color>[Colors.white, Color(0xFFFBFAFC)];
+
+  /// 题目 / 选项卡片的默认底色（无渐变时）。
+  Color get gameCardSurface => isDarkSurface ? card : Colors.white;
+
+  /// 未选中卡片的描边（对应历史 `Colors.grey.shade200`）。
+  Color get gameCardLine => isDarkSurface ? line : const Color(0xFFEEEEEE);
+
+  /// 稍强的未选中描边（对应历史 `Colors.grey.shade300`）。
+  Color get gameCardLineStrong =>
+      isDarkSurface ? line : const Color(0xFFE0E0E0);
+
+  /// 徽章 / 次级强调：浅色皮肤用 [popSecondary]（深色文字落在浅卡上），
+  /// 深色皮肤改用 [pop]，保证在深色卡片上可读。
+  Color get badgeAccent => isDarkSurface ? pop : popSecondary;
+
+  /// 错误 / 警示强调色：浅色皮肤用全局深珊瑚红，深色皮肤提亮保证对比度
+  /// （`AppTheme.warningColor` 是全局 const，深底下对比不足）。
+  Color get dangerAccent =>
+      isDarkSurface ? const Color(0xFFFF9E8A) : const Color(0xFFB02500);
+
   // ── 四套静态实例 ──
 
   /// 蜜黄绘本：直接复用 [AppTheme] 蜜黄基准 const 值，保证默认皮肤零视觉回归。

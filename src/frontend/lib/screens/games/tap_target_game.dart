@@ -379,7 +379,7 @@ class _TapTargetGameState extends State<TapTargetGame> {
                 color: ChildGamePalette.sky.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

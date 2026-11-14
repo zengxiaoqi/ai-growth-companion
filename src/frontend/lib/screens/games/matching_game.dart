@@ -295,8 +295,8 @@ class _MatchingGameState extends State<MatchingGame>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFFFFAF0)],
+        gradient: LinearGradient(
+          colors: AppTheme.active.gameCardGradientColors,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -356,8 +356,8 @@ class _MatchingGameState extends State<MatchingGame>
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFF9FBFD)],
+        gradient: LinearGradient(
+          colors: AppTheme.active.gameCardGradientColors,
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -540,7 +540,9 @@ class _PairCardState extends State<_PairCard>
         ? AppTheme.accentColor
         : (widget.flashError
             ? const Color(0xFFFF5252)
-            : (widget.selected ? widget.accentColor : Colors.grey.shade300));
+            : (widget.selected
+                ? widget.accentColor
+                : AppTheme.active.gameCardLineStrong));
 
     final bgColor = widget.matched
         ? AppTheme.accentColor.withValues(alpha: 0.18)
@@ -548,7 +550,7 @@ class _PairCardState extends State<_PairCard>
             ? const Color(0xFFFF5252).withValues(alpha: 0.15)
             : (widget.selected
                 ? widget.accentColor.withValues(alpha: 0.15)
-                : Colors.white));
+                : AppTheme.active.gameCardSurface));
 
     return GestureDetector(
       onTapDown:
@@ -668,10 +670,14 @@ class _LeadingBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected
             ? accentColor.withValues(alpha: 0.2)
-            : Colors.grey.shade100,
+            : (AppTheme.active.isDarkSurface
+                ? AppTheme.active.soft
+                : Colors.grey.shade100),
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? accentColor : Colors.grey.shade300,
+          color: selected
+              ? accentColor
+              : AppTheme.active.gameCardLineStrong,
           width: selected ? 2 : 1,
         ),
       ),

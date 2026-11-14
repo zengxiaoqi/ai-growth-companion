@@ -470,7 +470,7 @@ class _TracePathGameState extends State<TracePathGame> {
                 semanticLabel: '描红字 ${current.text}',
               ),
               const SizedBox(width: 12),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('✍️', style: TextStyle(fontSize: 30)),

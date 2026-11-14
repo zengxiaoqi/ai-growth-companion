@@ -188,7 +188,7 @@ class _SequencingGameState extends State<SequencingGame> with GameTtsHelper {
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.active.gameCardSurface,
               borderRadius: BorderRadius.circular(18),
               boxShadow: AppTheme.softShadow(AppTheme.softPurple),
             ),
@@ -358,7 +358,7 @@ class _OrderPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.active.gameCardSurface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: AppTheme.softShadow(AppTheme.softOrange),
       ),

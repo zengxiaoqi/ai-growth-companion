@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/child_game_voice.dart';
+import '../theme/app_theme.dart';
+import '../theme/child_theme.dart';
 
 /// 幼儿游戏共享 UI 组件库。
 ///
@@ -12,36 +14,84 @@ import '../services/child_game_voice.dart';
 /// - **文本兜底**：语音失败时指令始终可见，不阻塞任何操作。
 ///
 /// 本文件只负责「长什么样 / 怎么点」，不参与任何题型逻辑与结果契约。
+/// 幼儿游戏共享调色板。
+///
+/// 历史上是整套硬编码的「奶油纸面」浅色设计；接入孩子端皮肤系统后改为
+/// 主题感知 getter：浅色皮肤（honey / candy / forest）保持原 const 值零回归，
+/// 深色皮肤（space）从 [AppTheme.active] 派生，避免深底上残留大片亮色。
 class ChildGamePalette {
-  static const Color cream = Color(0xFFFFF9E8);
-  static const Color creamDeep = Color(0xFFFFEBC2);
-  static const Color sunshine = Color(0xFFFFC94D);
-  static const Color coral = Color(0xFFFF8E7C);
-  static const Color sky = Color(0xFF79C7F2);
-  static const Color mint = Color(0xFF74D6A6);
-  static const Color lilac = Color(0xFFB7A2F2);
-  static const Color ink = Color(0xFF3B3012);
-  static const Color inkSoft = Color(0xFF7B6B3F);
-  static const Color success = Color(0xFF37A96B);
-  static const Color retry = Color(0xFFE46B4A);
+  /// 当前活动孩子端皮肤色板。
+  static ChildThemePalette get _p => AppTheme.active;
+
+  /// 当前皮肤是否为深色表面。
+  static bool get _dark => _p.isDarkSurface;
+
+  static Color get cream => _dark ? _p.card : const Color(0xFFFFF9E8);
+
+  static Color get creamDeep =>
+      _dark ? Color.lerp(_p.card, _p.paper, 0.45)! : const Color(0xFFFFEBC2);
+
+  static Color get sunshine => const Color(0xFFFFC94D);
+
+  static Color get coral => const Color(0xFFFF8E7C);
+
+  static Color get sky => const Color(0xFF79C7F2);
+
+  static Color get mint => const Color(0xFF74D6A6);
+
+  static Color get lilac => const Color(0xFFB7A2F2);
+
+  static Color get ink => _dark ? _p.ink : const Color(0xFF3B3012);
+
+  static Color get inkSoft => _dark ? _p.ink2 : const Color(0xFF7B6B3F);
+
+  static Color get success => const Color(0xFF37A96B);
+
+  static Color get retry => const Color(0xFFE46B4A);
 
   /// 每张卡片轮换一个柔和底色，避免整屏只有白卡片。
-  static const List<Color> tints = [
-    Color(0xFFFFF0CF),
-    Color(0xFFE4F3FF),
-    Color(0xFFE7F7EC),
-    Color(0xFFFFE9E4),
-    Color(0xFFF0EAFF),
-    Color(0xFFFFF3E0),
-  ];
+  /// 深色皮肤下从卡片底色向学科色轻柔混合，保证深底上不刺眼。
+  static List<Color> get tints => _dark
+      ? List<Color>.generate(6, (i) {
+          final subject = _p.subjects[i % _p.subjects.length];
+          return Color.lerp(_p.card, subject, 0.30)!;
+        })
+      : const <Color>[
+          Color(0xFFFFF0CF),
+          Color(0xFFE4F3FF),
+          Color(0xFFE7F7EC),
+          Color(0xFFFFE9E4),
+          Color(0xFFF0EAFF),
+          Color(0xFFFFF3E0),
+        ];
 
   static Color tintFor(int index) => tints[index % tints.length];
 
-  static const LinearGradient background = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFFFFDF3), Color(0xFFFFF0CC), Color(0xFFF3F6FF)],
-  );
+  /// 普通卡片底色（浅色白卡 / 深色皮肤卡片 token）。
+  static Color get tileSurface => _dark ? _p.card : Colors.white;
+
+  /// 叠在 [background] 上的可读文字色：亮底用深墨色，暗底用当前皮肤 ink
+  /// （深色皮肤下为浅字，浅色皮肤下同样是深墨色）。
+  static Color inkOn(Color background) =>
+      background.computeLuminance() > 0.5
+          ? const Color(0xFF3B3012)
+          : ink;
+
+  static LinearGradient get background => _dark
+      ? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _p.paper,
+            Color.lerp(_p.paper, Colors.black, 0.18)!,
+            Color.lerp(_p.paper, _p.pop, 0.10)!,
+          ],
+        )
+      : const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFDF3), Color(0xFFFFF0CC), Color(0xFFF3F6FF)],
+        );
 }
 
 /// 一个「视觉主图」：通常是 emoji，描红题里是汉字/数字字形。
@@ -237,9 +287,11 @@ class _ChildVisualTileState extends State<ChildVisualTile> {
       case ChildTileState.revealed:
         return ChildGamePalette.sunshine.withValues(alpha: 0.34);
       case ChildTileState.dimmed:
-        return Colors.white.withValues(alpha: 0.55);
+        return ChildGamePalette._dark
+            ? ChildGamePalette._p.soft
+            : Colors.white.withValues(alpha: 0.55);
       case ChildTileState.normal:
-        return widget.tint ?? Colors.white;
+        return widget.tint ?? ChildGamePalette.tileSurface;
     }
   }
 
@@ -332,7 +384,7 @@ class _ChildVisualTileState extends State<ChildVisualTile> {
                               ? FontWeight.w900
                               : FontWeight.w600,
                           color: widget.visual.isTextGlyph
-                              ? ChildGamePalette.ink
+                              ? ChildGamePalette.inkOn(_background())
                               : null,
                           height: 1.1,
                         ),
@@ -344,7 +396,7 @@ class _ChildVisualTileState extends State<ChildVisualTile> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: ChildGamePalette.ink,
@@ -405,7 +457,7 @@ class ChildMiniChip extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   color: ChildGamePalette.ink,
@@ -424,7 +476,7 @@ class ChildBigButton extends StatelessWidget {
   final String label;
   final String emoji;
   final VoidCallback? onTap;
-  final Color color;
+  final Color? color;
   final double height;
 
   const ChildBigButton({
@@ -432,12 +484,14 @@ class ChildBigButton extends StatelessWidget {
     required this.label,
     this.emoji = '',
     this.onTap,
-    this.color = ChildGamePalette.sunshine,
+    this.color,
     this.height = 54,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 深色皮肤下 sunshine 等亮色填充仍在使用，文字需按填充亮度选深/浅。
+    final Color effectiveColor = color ?? ChildGamePalette.sunshine;
     return Semantics(
       button: true,
       label: label,
@@ -448,10 +502,10 @@ class ChildBigButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: onTap == null
                 ? Colors.grey.withValues(alpha: 0.25)
-                : color.withValues(alpha: 0.85),
+                : effectiveColor.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: color.withValues(alpha: 0.9),
+              color: effectiveColor.withValues(alpha: 0.9),
               width: 2,
             ),
           ),
@@ -465,10 +519,10 @@ class ChildBigButton extends StatelessWidget {
               ],
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
-                  color: ChildGamePalette.ink,
+                  color: ChildGamePalette.inkOn(effectiveColor),
                 ),
               ),
             ],
@@ -528,7 +582,7 @@ class ChildStarProgress extends StatelessWidget {
               const Spacer(),
               Text(
                 caption ?? '$current / $safeTotal',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: ChildGamePalette.inkSoft,
@@ -547,7 +601,7 @@ class ChildStarProgress extends StatelessWidget {
                 value: value,
                 minHeight: 9,
                 backgroundColor: ChildGamePalette.creamDeep,
-                valueColor: const AlwaysStoppedAnimation<Color>(
+                valueColor: AlwaysStoppedAnimation<Color>(
                   ChildGamePalette.coral,
                 ),
               ),
@@ -696,7 +750,7 @@ class ChildFeedbackBanner extends StatelessWidget {
                   Flexible(
                     child: Text(
                       feedback!.text,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: ChildGamePalette.ink,
@@ -941,7 +995,7 @@ class ChildGameShell extends StatelessWidget {
                         title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                           color: ChildGamePalette.ink,
@@ -952,7 +1006,7 @@ class ChildGameShell extends StatelessWidget {
                           stepLabel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: ChildGamePalette.inkSoft,
@@ -988,7 +1042,7 @@ class ChildGameShell extends StatelessWidget {
                   Expanded(
                     child: Text(
                       prompt,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         height: 1.35,

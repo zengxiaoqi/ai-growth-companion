@@ -367,7 +367,7 @@ class _DragSortGameState extends State<DragSortGame> {
               Text(
                 bucket.label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: ChildGamePalette.ink,
@@ -471,7 +471,7 @@ class _DragSortGameState extends State<DragSortGame> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Row(
+                Row(
                   children: [
                     Text('🎈', style: TextStyle(fontSize: 20)),
                     SizedBox(width: 6),

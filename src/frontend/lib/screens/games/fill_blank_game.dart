@@ -277,7 +277,7 @@ class _FillBlankGameState extends State<FillBlankGame> with GameTtsHelper {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.active.gameCardSurface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: AppTheme.softShadow(AppTheme.softBlue),
           ),
@@ -325,26 +325,28 @@ class _FillBlankGameState extends State<FillBlankGame> with GameTtsHelper {
                 ? (isAnswer
                     ? AppTheme.accentColor
                     : (isSelected
-                        ? AppTheme.warningColor
-                        : Colors.grey.shade300))
-                : (isSelected ? AppTheme.primaryColor : Colors.grey.shade300);
+                        ? AppTheme.active.dangerAccent
+                        : AppTheme.active.gameCardLineStrong))
+                : (isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.active.gameCardLineStrong);
 
             final bgColor = _revealed
                 ? (isAnswer
                     ? AppTheme.accentColor.withValues(alpha: 0.18)
                     : (isSelected
-                        ? AppTheme.warningColor.withValues(alpha: 0.18)
-                        : Colors.white))
+                        ? AppTheme.active.dangerAccent.withValues(alpha: 0.18)
+                        : AppTheme.active.gameCardSurface))
                 : (isSelected
                     ? AppTheme.softPink.withValues(alpha: 0.3)
-                    : Colors.white);
+                    : AppTheme.active.gameCardSurface);
 
             return Draggable<String>(
               data: option,
               feedback: _OptionChip(
                 label: option,
                 borderColor: AppTheme.primaryColor,
-                backgroundColor: Colors.white,
+                backgroundColor: AppTheme.active.gameCardSurface,
               ),
               childWhenDragging: Opacity(
                 opacity: 0.35,

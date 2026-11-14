@@ -273,10 +273,10 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
                 trailingIcon = Icon(Icons.check_circle_rounded,
                     color: AppTheme.accentColor, size: 22);
               } else if (isSelected) {
-                bgColor = AppTheme.warningColor.withValues(alpha: 0.18);
-                borderColor = AppTheme.warningColor;
-                trailingIcon = const Icon(Icons.cancel_rounded,
-                    color: AppTheme.warningColor, size: 22);
+                bgColor = AppTheme.active.dangerAccent.withValues(alpha: 0.18);
+                borderColor = AppTheme.active.dangerAccent;
+                trailingIcon = Icon(Icons.cancel_rounded,
+                    color: AppTheme.active.dangerAccent, size: 22);
               } else {
                 bgColor = AppTheme.active.card;
                 borderColor = AppTheme.active.line;
@@ -335,7 +335,7 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
               decoration: BoxDecoration(
                 color: (_selectedOption == correctIndex)
                     ? AppTheme.accentColor.withValues(alpha: 0.12)
-                    : AppTheme.warningColor.withValues(alpha: 0.12),
+                    : AppTheme.active.dangerAccent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child:
@@ -394,12 +394,18 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: allCorrect ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+        color: allCorrect
+            ? (AppTheme.active.isDarkSurface
+                ? AppTheme.accentColor.withValues(alpha: 0.18)
+                : const Color(0xFFE8F5E9))
+            : (AppTheme.active.isDarkSurface
+                ? AppTheme.active.dangerAccent.withValues(alpha: 0.18)
+                : const Color(0xFFFFF3E0)),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
             color: allCorrect
                 ? AppTheme.accentColor.withValues(alpha: 0.4)
-                : AppTheme.warningColor.withValues(alpha: 0.3)),
+                : AppTheme.active.dangerAccent.withValues(alpha: 0.4)),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(allCorrect ? '🎉 全部答对！' : '🌟 答题完成！',
@@ -412,15 +418,16 @@ class _InlineQuizCardState extends State<_InlineQuizCard> {
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color:
-                    allCorrect ? AppTheme.accentColor : AppTheme.warningColor)),
+                color: allCorrect
+                    ? AppTheme.accentColor
+                    : AppTheme.active.dangerAccent)),
         const SizedBox(height: 10),
         GestureDetector(
             onTap: _reset,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.active.gameCardSurface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                       color: AppTheme.primaryColor.withValues(alpha: 0.4))),
@@ -636,17 +643,17 @@ class _InlineGameCardState extends State<_InlineGameCard> {
                   color: AppTheme.primaryColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.play_arrow_rounded,
-                        size: 20, color: Colors.white),
-                    SizedBox(width: 4),
+                        size: 20, color: AppTheme.active.onPrimary),
+                    const SizedBox(width: 4),
                     Text('开始游戏',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                            color: AppTheme.active.onPrimary)),
                   ],
                 ),
               ),

@@ -277,7 +277,7 @@ class _PatternNextGameState extends State<PatternNextGame> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Row(
+                Row(
                   children: [
                     Text('🚂', style: TextStyle(fontSize: 20)),
                     SizedBox(width: 6),
@@ -319,7 +319,7 @@ class _PatternNextGameState extends State<PatternNextGame> {
             ),
           ),
           const SizedBox(height: 14),
-          const Row(
+          Row(
             children: [
               Text('👇', style: TextStyle(fontSize: 20)),
               SizedBox(width: 6),

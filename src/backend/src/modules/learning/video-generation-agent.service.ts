@@ -190,9 +190,19 @@ export class VideoGenerationAgentService {
     const agentLessonTsx = agentFiles?.get('GeneratedLesson.tsx');
     const agentRootTsx = agentFiles?.get('Root.tsx');
     const agentIndexTs = agentFiles?.get('index.ts');
-    const usesAgentTsx = !!agentLessonTsx;
 
-    if (usesAgentTsx) {
+    // 默认使用内置模板：模板是确定性组件，分层动画、字幕分页、舞台光都由帧驱动，
+    // 同一主题每次产出稳定。agent 现写 TSX 仅作为实验路径保留，需显式开启，
+    // 因为自由生成的画面在跨场景一致性和编译成功率上都不可控。
+    const agentTsxEnabled =
+      String(process.env.REMOTION_USE_AGENT_TSX || '').toLowerCase() === 'true';
+    const usesAgentTsx = agentTsxEnabled && !!agentLessonTsx;
+
+    if (agentLessonTsx && !usesAgentTsx) {
+      this.logger.log(
+        `[generateRemotionComposition] ignoring agent-generated TSX (${agentLessonTsx.length} chars), using built-in layered template`,
+      );
+    } else if (usesAgentTsx) {
       this.logger.log(
         `[generateRemotionComposition] using agent-generated TSX (${agentLessonTsx.length} chars)`,
       );
@@ -202,7 +212,7 @@ export class VideoGenerationAgentService {
       {
         path: 'index.ts',
         content:
-          agentIndexTs ||
+          (usesAgentTsx ? agentIndexTs : null) ||
           [
             'import { registerRoot } from "remotion";',
             'import { RemotionRoot } from "./Root";',
@@ -213,11 +223,13 @@ export class VideoGenerationAgentService {
       },
       {
         path: 'Root.tsx',
-        content: agentRootTsx || this.buildGeneratedRootTsx(compositionId, durationFrames),
+        content:
+          (usesAgentTsx ? agentRootTsx : null) ||
+          this.buildGeneratedRootTsx(compositionId, durationFrames),
       },
       {
         path: 'GeneratedLesson.tsx',
-        content: agentLessonTsx || this.buildGeneratedLessonTsx(),
+        content: (usesAgentTsx ? agentLessonTsx : null) || this.buildGeneratedLessonTsx(),
       },
     ];
 
@@ -784,6 +796,7 @@ import {
   Img,
   Sequence,
   interpolate,
+  spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
@@ -843,7 +856,12 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const sky = night ? "#13233f" : scene.habitat === "grassland" ? "#bfeaff" : "#a7e8ff";
   const ground = scene.habitat === "river" ? "#5bc0de" : "#69b66d";
   const sunPulse = interpolate(Math.sin(frame / 18), [-1, 1], [0.94, 1.06]);
-  const bgDrift = interpolate(frame, [0, 180], [-18, 18], { extrapolateRight: "clamp" });
+  const sceneDur = Math.max(90, scene.durationFrames || 180);
+  const travel = interpolate(frame, [0, sceneDur], [0, 1], { extrapolateRight: "clamp" });
+  const bgDrift = interpolate(travel, [0, 1], [-26, 26]);
+  const treeDrift = interpolate(travel, [0, 1], [34, -34]);
+  const cloudDrift = interpolate(travel, [0, 1], [-58, 58]);
+  const breeze = Math.sin(frame / 26) * 5;
 
   return (
     <AbsoluteFill style={{ backgroundColor: sky, overflow: "hidden" }}>
@@ -888,16 +906,50 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
         )}
         <path d="M0 780 C270 705 495 840 780 765 C1110 675 1380 848 1920 750 L1920 1080 L0 1080 Z" fill={ground} />
         {river && <path d="M0 915 C345 840 540 990 855 915 C1230 825 1470 975 1920 885 L1920 1080 L0 1080 Z" fill="url(#dynamicRiver)" opacity="0.95" />}
-        {Array.from({ length: 10 }).map((_, i) => {
-          const x = 35 + i * 192;
-          const h = 150 + (i % 3) * 42;
+        {[0, 1].map((i) => (
+          <g
+            key={"cloud" + i}
+            transform={
+              "translate(" +
+              (cloudDrift * (i === 0 ? 1 : -0.7) + i * 640 - 130) +
+              " " +
+              (128 + i * 104 + Math.sin(frame / 34 + i) * 9) +
+              ")"
+            }
+            opacity={night ? 0.18 : 0.74}
+          >
+            <ellipse cx="0" cy="0" rx="96" ry="42" fill="#ffffff" />
+            <ellipse cx="58" cy="10" rx="66" ry="34" fill="#ffffff" />
+            <ellipse cx="-62" cy="14" rx="58" ry="30" fill="#ffffff" />
+          </g>
+        ))}
+        <g transform={"translate(" + (treeDrift + breeze) + " 0)"}>
+          {Array.from({ length: 11 }).map((_, i) => {
+            const x = -80 + i * 192;
+            const h = 150 + (i % 3) * 42;
+            return (
+              <g key={i} transform={"translate(" + x + " " + (780 - h) + ")"}>
+                <rect x="25" y={h - 28} width="22" height="74" rx="8" fill="#7b4f28" />
+                <circle cx="36" cy={h - 58} r="48" fill={i % 2 ? "#2f9e44" : "#37b24d"} />
+                <circle cx="10" cy={h - 36} r="34" fill="#51cf66" opacity="0.9" />
+                <circle cx="62" cy={h - 32} r="34" fill="#2b8a3e" opacity="0.9" />
+              </g>
+            );
+          })}
+        </g>
+        {Array.from({ length: 12 }).map((_, i) => {
+          const fx = 90 + i * 156 + Math.sin(frame / 40 + i) * 26;
+          const fy = 300 + ((i * 137) % 520) + Math.cos(frame / 32 + i * 1.7) * 18;
+          const fo = 0.12 + (i % 4) * 0.06 + Math.sin(frame / 22 + i) * 0.06;
           return (
-            <g key={i} transform={"translate(" + x + " " + (780 - h) + ")"}>
-              <rect x="25" y={h - 28} width="22" height="74" rx="8" fill="#7b4f28" />
-              <circle cx="36" cy={h - 58} r="48" fill={i % 2 ? "#2f9e44" : "#37b24d"} />
-              <circle cx="10" cy={h - 36} r="34" fill="#51cf66" opacity="0.9" />
-              <circle cx="62" cy={h - 32} r="34" fill="#2b8a3e" opacity="0.9" />
-            </g>
+            <circle
+              key={"spark" + i}
+              cx={fx}
+              cy={fy}
+              r={3 + (i % 3) * 2.5}
+              fill={night ? "#cfe6ff" : "#ffffff"}
+              opacity={fo}
+            />
           );
         })}
       </svg>
@@ -1114,18 +1166,19 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
     );
   }
 
-  // science / social / default
+  // science / social / default：白底教具卡片 + 深色字，保证任意背景下的可读性
   return (
     <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
+      <rect x="80" y="30" width="320" height="250" rx="32" fill="rgba(255, 255, 255, 0.9)" />
       <g transform={"translate(0 " + bob + ")"}>
-        <rect x="160" y="40" width="160" height="200" rx="12" fill={scene.accentColor} opacity="0.15" />
-        <rect x="200" y="60" width="80" height="30" rx="6" fill={scene.accentColor} opacity="0.3" />
-        <circle cx="240" cy="150" r="40" fill="none" stroke={scene.accentColor} strokeWidth="3" opacity="0.5" />
-        <line x1="200" y1="150" x2="280" y2="150" stroke={scene.accentColor} strokeWidth="2" opacity="0.4" />
-        <line x1="240" y1="110" x2="240" y2="190" stroke={scene.accentColor} strokeWidth="2" opacity="0.4" />
-        <text x="240" y="158" textAnchor="middle" fontSize="28" fontWeight="800" fill={scene.accentColor}>{text.slice(0, 6)}</text>
+        <circle cx="240" cy="150" r="76" fill={scene.accentColor} opacity="0.12" />
+        <circle cx="240" cy="150" r="76" fill="none" stroke={scene.accentColor} strokeWidth="4" opacity="0.45" strokeDasharray="14 12" />
+        {Array.from({ length: 3 }).map((_, i) => {
+          const a = frame / 26 + (i * Math.PI * 2) / 3;
+          return <circle key={i} cx={240 + Math.cos(a) * 76} cy={150 + Math.sin(a) * 76} r="8" fill={scene.accentColor} opacity="0.75" />;
+        })}
+        <text x="240" y="176" textAnchor="middle" fontSize="76" fontWeight="900" fill="#12303a">{text.charAt(0)}</text>
       </g>
-      <text x="240" y="275" textAnchor="middle" fontSize="22" fontWeight="700" fill="rgba(0,0,0,0.5)">{text}</text>
     </svg>
   );
 };
@@ -1198,29 +1251,109 @@ const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   if (animalKey === "rabbit") return <RabbitSvg scene={scene} />;
   if (animalKey === "monkey") return <MonkeySvg scene={scene} />;
   // Non-animal topics or unconfigured animals with no emoji
-  if (scene.assetKey === "topic" && scene.domain && scene.domain !== "science") {
+  if (scene.assetKey === "topic" && scene.domain) {
     return <DomainVisual scene={scene} />;
   }
   const emoji = ANIMAL_EMOJI_MAP[scene.assetKey] || ANIMAL_EMOJI_MAP[(scene.assetTags || []).find((t) => ANIMAL_EMOJI_MAP[t]) || ""] || "";
   const orbitR = interpolate(Math.sin(frame / 14), [-1, 1], [90, 110]);
   return (
     <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
-      <circle cx="240" cy="160" r={orbitR * pulse} fill={scene.accentColor} opacity="0.12" />
-      <circle cx="240" cy="160" r="72" fill={scene.accentColor} opacity="0.22" />
+      <rect x="26" y="10" width="428" height="300" rx="34" fill="rgba(255, 255, 255, 0.9)" />
+      <circle cx="240" cy="150" r={orbitR * pulse} fill={scene.accentColor} opacity="0.12" />
+      <circle cx="240" cy="150" r="72" fill={scene.accentColor} opacity="0.2" />
       {Array.from({ length: 6 }).map((_, i) => {
         const angle = (i / 6) * Math.PI * 2 + frame * 0.02;
         const rx = 110 + interpolate(Math.sin(frame / 12 + i), [-1, 1], [-8, 8]);
         const ry = 80 + interpolate(Math.cos(frame / 10 + i), [-1, 1], [-6, 6]);
         const cx = 240 + Math.cos(angle) * rx;
-        const cy = 160 + Math.sin(angle) * ry;
+        const cy = 150 + Math.sin(angle) * ry;
         return <circle key={i} cx={cx} cy={cy} r={16 + (i % 3) * 4} fill={scene.accentColor} opacity={0.15 + (i % 3) * 0.08} />;
       })}
       {emoji ? (
-        <text x="240" y="175" textAnchor="middle" fontSize="120" dominantBaseline="central">{emoji}</text>
+        <text x="240" y="165" textAnchor="middle" fontSize="120" dominantBaseline="central">{emoji}</text>
       ) : (
-        <text x="240" y="172" textAnchor="middle" fontSize="48" fontWeight="800" fill="#fff">{scene.onScreenText || scene.title}</text>
+        <text x="240" y="162" textAnchor="middle" fontSize="44" fontWeight="900" fill="#12303a">{scene.onScreenText || scene.title}</text>
       )}
-      <text x="240" y="280" textAnchor="middle" fontSize="22" fontWeight="700" fill="rgba(0,0,0,0.6)">{scene.onScreenText || scene.title}</text>
+    </svg>
+  );
+};
+
+const CJK_BREAK = /[，。！？；：、,.!?;:]/;
+
+/** 按标点切分旁白，保证每屏不超过 maxLines 行、每行不超过 maxChars 字 */
+const splitNarration = (text: string, maxChars: number, maxLines: number): string[] => {
+  const limit = maxChars * maxLines;
+  const out: string[] = [];
+  let rest = (text || "").trim();
+  if (!rest) return [""];
+  while (rest.length > 0) {
+    if (rest.length <= limit) {
+      out.push(rest);
+      break;
+    }
+    let cut = -1;
+    for (let i = Math.min(rest.length, limit); i > Math.floor(limit * 0.6); i--) {
+      if (CJK_BREAK.test(rest.charAt(i - 1))) {
+        cut = i;
+        break;
+      }
+    }
+    if (cut < 0) cut = limit;
+    out.push(rest.slice(0, cut));
+    rest = rest.slice(cut).trim();
+  }
+  return out.length > 0 ? out : [""];
+};
+
+/** 字幕轨：按场景时长把旁白分成若干屏逐屏推进，替代整段堆在底部 */
+const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
+  const frame = useCurrentFrame();
+  const pages = splitNarration(scene.narration || "", 15, 2);
+  const perPage = Math.max(1, duration / pages.length);
+  const pageIndex = Math.min(pages.length - 1, Math.max(0, Math.floor(frame / perPage)));
+  const local = frame - pageIndex * perPage;
+  const opacity = interpolate(local, [0, Math.min(8, perPage * 0.3)], [0, 1], { extrapolateRight: "clamp" });
+  const lift = interpolate(local, [0, Math.min(10, perPage * 0.35)], [12, 0], { extrapolateRight: "clamp" });
+  const current = pages[pageIndex] || "";
+  const font = current.length > 20 ? 36 : 42;
+
+  return (
+    <div style={{ position: "absolute", left: 150, right: 150, bottom: 56, display: "flex", justifyContent: "center" }}>
+      <div
+        style={{
+          maxWidth: font * 16 + 84,
+          borderRadius: 26,
+          background: "rgba(11, 24, 33, 0.78)",
+          padding: "22px 42px",
+          color: "#fff",
+          fontSize: font,
+          lineHeight: 1.42,
+          fontWeight: 800,
+          textAlign: "center",
+          letterSpacing: 1,
+          opacity,
+          transform: "translateY(" + lift + "px)",
+        }}
+      >
+        {current}
+      </div>
+    </div>
+  );
+};
+
+/** 落地阴影：把主体锚在地面上，避免悬空的贴纸感 */
+const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
+  const frame = useCurrentFrame();
+  const pulse = interpolate(Math.sin(frame / 16), [-1, 1], [0.96, 1.04]);
+  const alpha = interpolate(frame, [0, 20, duration - 20, duration], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0, opacity: alpha }}>
+      <ellipse cx={960} cy={768} rx={392 * pulse} ry={44 * pulse} fill="#1B4D2A" opacity="0.10" />
+      <ellipse cx={960} cy={768} rx={262 * pulse} ry={28 * pulse} fill="#1B4D2A" opacity="0.22" />
     </svg>
   );
 };
@@ -1229,24 +1362,78 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const duration = Math.max(90, scene.durationFrames || 180);
-  const fadeIn = interpolate(frame, [0, 0.45 * fps], [0, 1], { extrapolateRight: "clamp" });
-  const fadeOut = interpolate(frame, [duration - 0.45 * fps, duration], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const titleY = interpolate(frame, [0, 0.7 * fps], [32, 0], { extrapolateRight: "clamp" });
-  const visualX = interpolate(frame, [0, 0.9 * fps], [60, 0], { extrapolateRight: "clamp" });
+  const fadeIn = interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateRight: "clamp" });
+  const fadeOut = interpolate(frame, [duration - 0.4 * fps, duration], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const enter = spring({ frame, fps, config: { damping: 16, stiffness: 110, mass: 0.9 } });
+  const stageY = interpolate(enter, [0, 1], [74, 0]);
+  const stageScale = interpolate(enter, [0, 1], [0.82, 1]);
+  const titleY = interpolate(enter, [0, 1], [-28, 0]);
+  const breath = 1 + Math.sin(frame / 24) * 0.008;
+  const sway = Math.sin(frame / 40) * 0.9;
 
   return (
     <AbsoluteFill style={{ opacity: Math.min(fadeIn, fadeOut), backgroundColor: "#f7fff9", overflow: "hidden" }}>
       <ForestBackground scene={scene} />
-      <div style={{ position: "absolute", left: 70, top: 58, width: 520, color: "#113", transform: "translateY(" + titleY + "px)" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: scene.accentColor }}>Scene {index + 1}</div>
-        <div style={{ fontSize: 62, lineHeight: 1.05, fontWeight: 900, marginTop: 8 }}>{scene.title}</div>
-        <div style={{ fontSize: 28, lineHeight: 1.3, fontWeight: 800, marginTop: 18 }}>{scene.onScreenText}</div>
+      <GroundShadow scene={scene} duration={duration} />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 42,
+          display: "flex",
+          justifyContent: "center",
+          transform: "translateY(" + titleY + "px)",
+        }}
+      >
+        <div
+          style={{
+            borderRadius: 999,
+            background: "rgba(255, 255, 255, 0.88)",
+            padding: "12px 36px",
+            fontSize: 42,
+            fontWeight: 900,
+            color: "#12303a",
+          }}
+        >
+          {scene.title}
+        </div>
       </div>
-      <div style={{ position: "absolute", right: 90, top: 170, transform: "translateX(" + visualX + "px)" }}>
+      {scene.onScreenText ? (
+        <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
+          <div
+            style={{
+              borderRadius: 16,
+              background: "rgba(255, 255, 255, 0.76)",
+              padding: "6px 26px",
+              fontSize: 32,
+              fontWeight: 900,
+              color: scene.accentColor,
+            }}
+          >
+            {scene.onScreenText}
+          </div>
+        </div>
+      ) : null}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 330,
+          display: "flex",
+          justifyContent: "center",
+          transform: "translateY(" + stageY + "px) scale(" + stageScale * breath * 1.4 + ") rotate(" + sway + "deg)",
+        }}
+      >
         <TopicVisual scene={scene} />
       </div>
-      <div style={{ position: "absolute", left: 70, right: 70, bottom: 34, borderRadius: 22, background: "rgba(12, 27, 36, 0.76)", padding: "18px 28px", color: "white", fontSize: scene.narration.length > 72 ? 24 : 28, lineHeight: 1.35, fontWeight: 800 }}>
-        {scene.narration}
+      <SubtitleTrack scene={scene} duration={duration} />
+      <div style={{ position: "absolute", left: 56, top: 48, fontSize: 26, fontWeight: 800, color: "rgba(0, 0, 0, 0.26)" }}>
+        {"0" + (index + 1)}
       </div>
     </AbsoluteFill>
   );

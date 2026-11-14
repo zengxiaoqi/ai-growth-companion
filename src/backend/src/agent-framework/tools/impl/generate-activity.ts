@@ -52,6 +52,8 @@ import {
   findKnowledgeCard,
   knowledgeCardFactLines,
 } from '../../../common/learning/knowledge-card-registry';
+import { computeActivityQuestionHashes } from '../../../common/activity/question-hash';
+import { bankIngest } from '../../../common/activity/question-bank-registry';
 
 type GenerateActivityArgs = {
   type: ActivityType;
@@ -335,6 +337,10 @@ export class GenerateActivityTool extends BaseTool<GenerateActivityArgs> {
           continue;
         }
         const finalActivity = answerCheck.activity;
+        finalActivity.difficulty = normalizedArgs.difficulty;
+        if (normalizedArgs.domain) finalActivity.domain = normalizedArgs.domain;
+        finalActivity.servedQuestionIds = computeActivityQuestionHashes(finalActivity);
+        bankIngest(finalActivity, 'llm');
 
         this.logger.log(
           `[generateActivity] success ${JSON.stringify({ runId, attempt, topic: normalizedArgs.topic, type: normalizedArgs.type })}`,

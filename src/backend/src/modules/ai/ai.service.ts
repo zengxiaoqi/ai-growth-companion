@@ -29,6 +29,7 @@ import { ParentService } from '../parent/parent.service';
 import { AbilitiesService } from '../abilities/abilities.service';
 import { resolveEnglishProfile, type EnglishProfile } from '../abilities/english-level';
 import { parseCasualToolsEnv } from '../../common/policy/casual-tools';
+import { bankSelect } from '../../common/activity/question-bank-registry';
 import type { ChatRequest, ChatResponse, QuizRequest, QuizResponse, AgeGroup } from './ai.types';
 
 type CoursePackExportFormat =
@@ -1430,20 +1431,31 @@ export class AiService {
     const ageGroup: AgeGroup = age >= 3 && age <= 4 ? '3-4' : '5-6';
     const difficulty = ageGroup === '3-4' ? 1 : 2;
 
-    if (!this.generateActivityTool) {
-      throw new Error('测验生成器不可用');
-    }
-    const activityJson = await this.generateActivityTool.execute({
-      type: 'quiz',
+    // Bank-first: reuse quality-tuned questions; fall back to fresh generation
+    // only when the bank can't cover the request.
+    const banked = await bankSelect({
       topic,
-      difficulty,
       ageGroup,
-    });
-    const activity = JSON.parse(activityJson);
-    const questions = (Array.isArray(activity?.questions) ? activity.questions : []).slice(
-      0,
+      type: 'quiz',
+      difficulty,
+      childId,
       count,
-    );
+    });
+    let questions = (Array.isArray(banked?.questions) ? banked.questions : []).slice(0, count);
+
+    if (questions.length < count) {
+      if (!this.generateActivityTool) {
+        throw new Error('测验生成器不可用');
+      }
+      const activityJson = await this.generateActivityTool.execute({
+        type: 'quiz',
+        topic,
+        difficulty,
+        ageGroup,
+      });
+      const activity = JSON.parse(activityJson);
+      questions = (Array.isArray(activity?.questions) ? activity.questions : []).slice(0, count);
+    }
     if (questions.length === 0) {
       throw new Error('生成测验失败：题目为空');
     }

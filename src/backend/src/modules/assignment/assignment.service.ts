@@ -13,6 +13,7 @@ import { GenerateActivityTool } from '../ai/agent/tools/generate-activity';
 import { LearningTrackerService } from '../learning/learning-tracker.service';
 import { LearningArchiveService } from '../learning/learning-archive.service';
 import { UsersService } from '../users/users.service';
+import { bankRecordResults } from '../../common/activity/question-bank-registry';
 
 const ACTIVITY_GENERATION_TIMEOUT_MS = 45000;
 
@@ -341,6 +342,8 @@ export class AssignmentService {
     assignment.score = result.score;
     assignment.resultData = result.resultData;
     const saved = await this.assignmentRepo.save(assignment);
+
+    bankRecordResults(assignment.childId, assignment.activityData, result.resultData);
 
     try {
       await this.learningTracker.recordActivity({

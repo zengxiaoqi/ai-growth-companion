@@ -31,6 +31,7 @@ import {
   type LessonSceneDocument,
 } from './lesson-scene';
 import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
+import { bankRecordResults } from '../../common/activity/question-bank-registry';
 
 type AgeGroup = '3-4' | '5-6';
 type LessonDomain = 'language' | 'math' | 'science' | 'art' | 'social';
@@ -786,6 +787,17 @@ export class LessonContentService implements OnModuleInit {
       }
     }
     if (!step) throw new NotFoundException(`Step "${stepId}" not found`);
+
+    // Feed per-question results back to the bank (lesson practice flow).
+    const gameModule = (step as any).module?.game;
+    const gameActivity = gameModule?.activityData;
+    if (gameActivity) {
+      bankRecordResults(
+        childId,
+        { ...gameActivity, type: gameActivity.type ?? gameModule.activityType },
+        (interactionData as any)?.gameResult,
+      );
+    }
 
     // Check if this step has an assignment (practice/assess)
     if (step.assignmentId) {

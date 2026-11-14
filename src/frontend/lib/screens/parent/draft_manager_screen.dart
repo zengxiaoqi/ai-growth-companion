@@ -9,6 +9,7 @@ import '../../components/shimmer_loading.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../learning/structured_lesson_screen.dart';
 import 'child_selector.dart';
 
 /// 家长端草稿管理页面
@@ -180,168 +181,19 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     }
   }
 
-  void _showPreview(Map<String, dynamic> draft) {
-    final title = draft['title']?.toString() ?? '未命名课程';
-    final domain = draft['domain']?.toString() ?? '';
-    final domainLabel = _domainLabels[domain] ?? domain;
-    final steps = _parseSteps(draft);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  /// 以学生视角预览草稿：复用学生端课程播放器，previewMode 不写学习进度
+  void _openStudentPreview(Map<String, dynamic> draft) {
+    final contentId = _toInt(draft['id']);
+    if (contentId == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StructuredLessonScreen(
+          contentId: contentId,
+          childId: _selectedChildId,
+          previewMode: true,
+        ),
       ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.85,
-          expand: false,
-          builder: (ctx, scrollController) {
-            return ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              children: [
-                // 标题
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                if (domain.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (_domainColors[domain] ?? AppTheme.primaryColor)
-                          .withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      domainLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _domainColors[domain] ?? AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                // 步骤摘要
-                if (steps.isEmpty)
-                  Text(
-                    '暂无课程步骤',
-                    style:
-                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                  )
-                else
-                  ...steps.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final step = entry.value;
-                    final stepTitle =
-                        step['title']?.toString() ?? '步骤 ${i + 1}';
-                    final stepType = step['type']?.toString() ?? '';
-                    final typeInfo = _courseTypeInfo[stepType];
-                    final preview = step['preview']?.toString() ?? '';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color:
-                                  AppTheme.primaryColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (typeInfo != null) ...[
-                                      Icon(
-                                        typeInfo.icon,
-                                        size: 16,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        typeInfo.label,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Expanded(
-                                      child: Text(
-                                        stepTitle,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.textColor,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (preview.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    preview,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 
@@ -504,87 +356,35 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
     return int.tryParse(value?.toString() ?? '');
   }
 
-  /// 从草稿数据中解析课程步骤摘要
-  List<Map<String, dynamic>> _parseSteps(Map<String, dynamic> draft) {
+  /// 解析草稿 content 字段（后端存为 JSON 字符串）
+  Map<String, dynamic>? _parseContent(Map<String, dynamic> draft) {
     final content = draft['content'];
-    Map<String, dynamic>? parsed;
     if (content is String) {
       try {
-        parsed = jsonDecode(content) as Map<String, dynamic>;
+        return jsonDecode(content) as Map<String, dynamic>;
       } catch (_) {
-        return [];
+        return null;
       }
-    } else if (content is Map) {
-      parsed = content.map((k, v) => MapEntry(k.toString(), v));
     }
-    if (parsed == null) return [];
-
-    final rawSteps = parsed['steps'];
-    if (rawSteps is! List || rawSteps.isEmpty) return [];
-
-    return rawSteps.whereType<Map>().map((step) {
-      final module = step['module'];
-      final moduleType = module is Map ? module['type']?.toString() ?? '' : '';
-      String preview = '';
-      int? count;
-      if (module is Map) {
-        if (moduleType == 'video') {
-          final scenes = module['visualStory']?['scenes'] ??
-              module['videoLesson']?['shots'];
-          if (scenes is List && scenes.isNotEmpty) {
-            count = scenes.length;
-            preview = '共 $count 个动画场景';
-          }
-        } else if (moduleType == 'reading') {
-          final text = module['reading']?['text']?.toString();
-          if (text != null && text.isNotEmpty) {
-            preview = text.length > 60 ? '${text.substring(0, 60)}...' : text;
-          }
-        } else if (moduleType == 'writing') {
-          final items = module['writing']?['tracingItems'];
-          if (items is List && items.isNotEmpty) {
-            preview = '描红: ${items.join(', ')}';
-          }
-        } else if (moduleType == 'game') {
-          final questions = module['game']?['activityData']?['questions'] ??
-              module['game']?['questions'];
-          if (questions is List && questions.isNotEmpty) {
-            count = questions.length;
-            preview = '共 $count 道互动题';
-          }
-        }
-      }
-      return <String, dynamic>{
-        'title': step['label']?.toString() ?? '',
-        'type': moduleType,
-        'preview': preview,
-        'count': count,
-      };
-    }).toList();
+    if (content is Map) {
+      return content.map((k, v) => MapEntry(k.toString(), v));
+    }
+    return null;
   }
 
-  /// 提取课程主要类型标签（取第一步的类型）
+  /// 提取课程主要类型标签（取第一步的模块类型）
   String _primaryCourseType(Map<String, dynamic> draft) {
-    final steps = _parseSteps(draft);
-    if (steps.isEmpty) return '';
-    final firstType = steps.first['type']?.toString() ?? '';
-    return firstType;
+    final steps = _parseContent(draft)?['steps'];
+    if (steps is! List || steps.isEmpty) return '';
+    final first = steps.first;
+    if (first is! Map) return '';
+    final module = first['module'];
+    return module is Map ? module['type']?.toString() ?? '' : '';
   }
 
   /// 解析课程质量评审信息（P2-3 评审闭环写入 content.quality）
   Map<String, dynamic>? _parseQuality(Map<String, dynamic> draft) {
-    final content = draft['content'];
-    Map<String, dynamic>? parsed;
-    if (content is String) {
-      try {
-        parsed = jsonDecode(content) as Map<String, dynamic>;
-      } catch (_) {
-        return null;
-      }
-    } else if (content is Map) {
-      parsed = content.map((k, v) => MapEntry(k.toString(), v));
-    }
-    final quality = parsed?['quality'];
+    final quality = _parseContent(draft)?['quality'];
     if (quality is! Map) return null;
     final score = _toInt(quality['score']);
     if (score == null) return null;
@@ -961,7 +761,7 @@ class _DraftManagerScreenState extends State<DraftManagerScreen> {
                   icon: Icons.visibility_outlined,
                   label: '预览',
                   color: AppTheme.secondaryColor,
-                  onTap: () => _showPreview(draft),
+                  onTap: () => _openStudentPreview(draft),
                 ),
                 _buildActionButton(
                   icon: Icons.outbox_outlined,

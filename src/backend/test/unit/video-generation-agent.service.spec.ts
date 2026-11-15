@@ -181,10 +181,11 @@ describe('VideoGenerationAgentService', () => {
     expect(generatedCode).toContain('ForestBackground');
     expect(manifest.assets).toEqual(
       expect.arrayContaining([
+        // provider 链是 vector > local > 网络：库里有真素材时优先用库，手绘只做兜底
         expect.objectContaining({
-          provider: 'local',
-          role: 'tiger-standing',
-          license: 'cc0',
+          provider: 'vector',
+          role: 'tiger',
+          license: 'mit',
         }),
       ]),
     );
@@ -197,15 +198,15 @@ describe('VideoGenerationAgentService', () => {
       ]),
     );
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'local',
-      assetLicense: 'cc0',
+      assetProvider: 'vector',
+      assetLicense: 'mit',
     });
     expect(manifest.props.scenes[0]).toMatchObject({
       assetKey: 'tiger',
       action: 'showFeatures',
       habitat: 'forest',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/lesson/animals/tiger-standing.svg',
+        characterAssetSrc: 'assets/vector/animals/tiger.svg',
         backgroundAssetSrc: 'assets/lesson/backgrounds/forest-day.svg',
       }),
     });
@@ -266,22 +267,23 @@ describe('VideoGenerationAgentService', () => {
       action: 'listen',
       habitat: 'grassland',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/lesson/animals/rabbit-listening.svg',
+        // 矢量库是每个动物一张标准姿态图，不再按 listen/eat 切分动作
+        characterAssetSrc: 'assets/vector/animals/rabbit.svg',
         backgroundAssetSrc: 'assets/lesson/backgrounds/grassland.svg',
         hasCharacterAsset: true,
-        characterProvider: 'local',
+        characterProvider: 'vector',
       }),
     });
     expect(manifest.props.scenes[1]).toMatchObject({
       assetKey: 'rabbit',
       action: 'eat',
       visualAssets: expect.objectContaining({
-        characterAssetSrc: 'assets/lesson/animals/rabbit-eating.svg',
+        characterAssetSrc: 'assets/vector/animals/rabbit.svg',
       }),
     });
     expect(manifest.sceneAssetSummary[0]).toMatchObject({
-      assetProvider: 'local',
-      characterProvider: 'local',
+      assetProvider: 'vector',
+      characterProvider: 'vector',
       hasCharacterAsset: true,
     });
   });

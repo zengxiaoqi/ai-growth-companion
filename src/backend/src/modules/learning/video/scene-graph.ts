@@ -27,12 +27,24 @@ export const GRAPH_NODE_ROLES = ['subject', 'object', 'place', 'abstract'] as co
 
 export type GraphNodeRole = (typeof GRAPH_NODE_ROLES)[number];
 
+/**
+ * 抽象概念画不出来（水蒸气、力气、时间没有实体形状），但也只有有限的几种"不可见"：
+ * 能数的、会往上升的、有高低的、在流动的、跟时间有关的、以及说不清的其他。
+ * 这六种是**画法**的封闭集合，不是主题的枚举——任何主题落到这六种画法上，
+ * 都不会出现"这个主题没做过所以是空白占位"的情况。
+ */
+export const GRAPH_SIGNS = ['count', 'rise', 'level', 'flow', 'time', 'orb'] as const;
+
+export type GraphSign = (typeof GRAPH_SIGNS)[number];
+
 export type GraphNode = {
   id: string;
   label: string;
   /** 素材检索用的名词，可以比 label 更长、更具体（如 label「水」subject「小水滴」） */
   subject: string;
   role: GraphNodeRole;
+  /** 仅 abstract 节点有意义：用哪种示意符号代替实物图标 */
+  sign?: GraphSign;
 };
 
 export type SceneGraph = {
@@ -43,6 +55,7 @@ export type SceneGraph = {
 
 const ROLE_SET = new Set<string>(GRAPH_NODE_ROLES);
 const RELATION_SET = new Set<string>(GRAPH_RELATIONS);
+const SIGN_SET = new Set<string>(GRAPH_SIGNS);
 
 /** 每类关系的最少/最多节点数，渲染布局按这个区间设计，超出会导致重叠 */
 const NODE_BOUNDS: Record<GraphRelationType, { min: number; max: number }> = {
@@ -64,6 +77,15 @@ function cleanText(input: unknown): string {
 function normalizeRole(input: unknown): GraphNodeRole {
   const value = cleanText(input).toLowerCase();
   return ROLE_SET.has(value) ? (value as GraphNodeRole) : 'object';
+}
+
+function normalizeSign(input: unknown, role: GraphNodeRole): GraphSign | undefined {
+  // 只有抽象节点需要示意符号；实物节点由素材库出图，带着 sign 说明 LLM 填错了
+  if (role !== 'abstract') return undefined;
+  const value = cleanText(input).toLowerCase();
+  if (SIGN_SET.has(value)) return value as GraphSign;
+  // 抽象节点没给符号时给一个中性符号，而不是留白
+  return 'orb';
 }
 
 /**
@@ -98,8 +120,11 @@ export function normalizeSceneGraph(raw: unknown): SceneGraph | null {
     }
     usedIds.add(id);
 
-    const label = cleanText(entry.label || entry.name || subject).slice(0, 8) || subject.slice(0, 8);
-    nodes.push({ id, label, subject, role: normalizeRole(entry.role) });
+    const label =
+      cleanText(entry.label || entry.name || subject).slice(0, 8) || subject.slice(0, 8);
+    const role = normalizeRole(entry.role);
+    const sign = normalizeSign(entry.sign || entry.symbol, role);
+    nodes.push({ id, label, subject, role, ...(sign ? { sign } : {}) });
     if (nodes.length >= bounds.max) break;
   }
 
@@ -128,9 +153,16 @@ export function describeGraphGrammar(): string {
     'nodes 规则：',
     '- 每个节点 { "id": "n1", "label": "屏幕上显示的字(≤6字)", "subject": "用于检索图标的具体名词", "role": "subject|object|place|abstract" }',
     '- subject 必须具体到能检索到图：写「小水滴」而不是「东西」，写「苹果」而不是「食物」。',
-    '- role：subject=角色/动物/人，object=具体物品，place=场所环境，abstract=抽象概念(时间/温度/数量)。',
+    '- role：subject=角色/动物/人，object=具体物品，place=场所环境，abstract=抽象概念(时间/力气/数量/温度)。',
+    '- abstract 节点必须给 sign，说明这个看不见的东西该画成什么样（六选一）：',
+    '  count=能数出来的(3个/5片) rise=会往上跑的(水蒸气/热气/力气变大) level=有高低的(温度/水位/饱腹)',
+    '  flow=在流动的(风/电流/水流) time=跟时间有关(快慢/多久) orb=说不清的其他概念',
     '- 节点顺序有意义：cycle/chain/growth 按发生顺序，group/split 第一个是整体，compare 前两个就是左右两项。',
     '- caption 可选，一句关系说明，≤10 字，如「水变成水蒸气」。',
+    '动画由 relation 决定，不用你描述动画：',
+    'cycle 有一颗光点沿环一直转，转到哪个概念哪个亮起来；chain 的光点从左走到右；',
+    'growth 除光点外，节点还从小到大现场长大；split 从整体里散开成部件；group 从散落聚拢到类别下；',
+    'compare 左右轮流亮起做对照。所以节点顺序 = 事情发生的顺序，画面才讲得通。',
   ].join('\n');
 }
 

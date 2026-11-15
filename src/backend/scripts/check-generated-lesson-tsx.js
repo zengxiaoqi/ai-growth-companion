@@ -66,6 +66,11 @@ const mustHave = [
   'relation === "group" || graph.relation === "split"',
   'const hasGraph',
   'normalizeSceneGraph',
+  'const AbstractSign',
+  'const flowPoint',
+  'const FLOW_PERIOD',
+  'item.enterFrom',
+  'const activeIds',
 ];
 
 // 每种关系都必须有布局分支，否则 LLM 选到未实现的关系会渲染成空画面
@@ -74,10 +79,17 @@ const missingRelations = graphRelations.filter(
   (relation) => !template.includes(`graph.relation === "${relation}"`) &&
     !(relation === 'chain' && template.includes('// chain：横向依次推进')),
 );
+
+// 同理：语法层能产出的示意符号，模板里必须都有画法，否则抽象概念会退化成空白
+const graphSigns = ['count', 'rise', 'level', 'flow', 'time'];
+const missingSigns = graphSigns.filter((sign) => !template.includes(`sign === "${sign}"`));
 const missing = mustHave.filter((token) => !template.includes(token) && !source.includes(token));
 console.log('missing_tokens=' + (missing.length ? missing.join(',') : 'none'));
 console.log('missing_relations=' + (missingRelations.length ? missingRelations.join(',') : 'none'));
+console.log('missing_signs=' + (missingSigns.length ? missingSigns.join(',') : 'none'));
 
 process.exit(
-  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 ? 0 : 1,
+  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 && missingSigns.length === 0
+    ? 0
+    : 1,
 );

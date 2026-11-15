@@ -445,7 +445,7 @@ describe('LessonVideoQueueService', () => {
     expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
   });
 
-  it('repairs generated-code dynamic Remotion failures once before fallback', async () => {
+  it('retries once with a rebuilt manifest when dynamic Remotion render fails', async () => {
     const videoAgent = createVideoAgent();
     const agentService = createAgentBackedService(videoAgent);
     remotionRender.renderGeneratedComposition
@@ -466,7 +466,9 @@ describe('LessonVideoQueueService', () => {
       { topic: '认识动物老虎', ageGroup: '5-6', domain: 'science' },
     );
 
-    expect(videoAgent.repairGeneratedRemotionComposition).toHaveBeenCalledTimes(1);
+    // 画面代码由内置模板产出，重试不是"让 AI 重写 TSX"，而是用同一模板重建清单，
+    // 只用来吸收 bundle / 缓存类的偶发失败
+    expect(videoAgent.generateRemotionComposition).toHaveBeenCalledTimes(2);
     expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(2);
     expect(hyperframesRender.renderLessonVideo).not.toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from('repaired-video'));
@@ -498,15 +500,12 @@ describe('LessonVideoQueueService', () => {
     expect(result.buffer).toEqual(Buffer.from('hf'));
   });
 
-  it('falls back to built-in template when AI repair fails, then to HyperFrames if all Remotion fails', async () => {
+  it('falls back to HyperFrames when the rebuilt-manifest retry also fails', async () => {
     const videoAgent = createVideoAgent();
     const agentService = createAgentBackedService(videoAgent);
     remotionRender.renderGeneratedComposition
       .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: Unexpected token'))
-      .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: repaired error'))
-      .mockRejectedValueOnce(
-        new Error('Failed to compile GeneratedLesson.tsx: built-in fallback error'),
-      );
+      .mockRejectedValueOnce(new Error('Failed to compile GeneratedLesson.tsx: rebuilt error'));
     remotionRender.resolveComposition.mockRejectedValue(new Error('fixed remotion unavailable'));
     hyperframesRender.renderLessonVideo.mockResolvedValue(Buffer.from('hf'));
     jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
@@ -522,10 +521,8 @@ describe('LessonVideoQueueService', () => {
       { topic: '认识动物老虎', ageGroup: '5-6', domain: 'science' },
     );
 
-    expect(videoAgent.repairGeneratedRemotionComposition).toHaveBeenCalledTimes(1);
-    // 3 calls: initial render, AI repair retry, built-in template fallback
-    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(3);
-    // 2 calls: initial generation + built-in template fallback after repair failure
+    // 2 calls: 首次渲染 + 重建清单后再渲染；两次都失败才降级到 HyperFrames
+    expect(remotionRender.renderGeneratedComposition).toHaveBeenCalledTimes(2);
     expect(videoAgent.generateRemotionComposition).toHaveBeenCalledTimes(2);
     expect(hyperframesRender.renderLessonVideo).toHaveBeenCalled();
     expect(result.buffer).toEqual(Buffer.from('hf'));

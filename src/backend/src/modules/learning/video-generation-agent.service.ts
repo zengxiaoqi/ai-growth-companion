@@ -12,6 +12,8 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { ToolRegistryService } from '../../agent-framework/tools/tool-registry.service';
 import { AgentRegistryService } from '../../agent-framework/agents/agent-registry.service';
 import { AgentExecutorService } from '../../agent-framework/agents/agent-executor.service';
@@ -571,6 +573,12 @@ export class VideoGenerationAgentService {
           ? `science.animal-${action === 'rest' ? 'habitat' : 'abilities'}`
           : 'dynamic.story-scene');
 
+      // 未通过校验的图直接丢弃，模板会退回单主体路径，而不是带着脏数据渲染
+      const sceneGraph = normalizeSceneGraph(scene?.sceneGraph);
+      if (!sceneGraph) {
+        this.recordGraphSignal(topic, scene, scene?.sceneGraph ? 'invalid' : 'missing');
+      }
+
       return {
         id: `scene-${index + 1}`,
         title,
@@ -588,8 +596,7 @@ export class VideoGenerationAgentService {
         durationSec,
         durationFrames: durationSec * 30,
         accentColor: animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
-        // 未通过校验的图直接丢弃，模板会退回单主体路径，而不是带着脏数据渲染
-        sceneGraph: normalizeSceneGraph(scene?.sceneGraph) || undefined,
+        sceneGraph: sceneGraph || undefined,
       };
     });
 
@@ -613,6 +620,35 @@ export class VideoGenerationAgentService {
         };
       }),
     );
+  }
+
+  /**
+   * 关系图退化信号：LLM 没给 sceneGraph，或给的图不合规被 normalizeSceneGraph 拒掉，
+   * 这个场景就退回"单主体 + 讲解高亮"的老路径。
+   *
+   * 为什么要单独记：这是回答"六种关系够不够用"的唯一依据。miss 日志只说明素材缺，
+   * 这里说明的是**语法缺**——如果 invalid 都集中在某一种 relation，说明该关系的节点
+   * 约束设计得不合理；如果 missing 很多，说明 prompt 没被遵守。两条信号要分开看。
+   */
+  private recordGraphSignal(topic: string, scene: any, reason: 'missing' | 'invalid'): void {
+    const raw = scene?.sceneGraph;
+    const line =
+      JSON.stringify({
+        at: new Date().toISOString(),
+        topic,
+        scene: this.toText(scene?.title, '').slice(0, 32),
+        reason,
+        relation: typeof raw?.relation === 'string' ? raw.relation : null,
+        nodeCount: Array.isArray(raw?.nodes) ? raw.nodes.length : 0,
+      }) + '\n';
+    const file = path.resolve(__dirname, '../../../storage', 'storyboard-signals.jsonl');
+    void fs
+      .mkdir(path.dirname(file), { recursive: true })
+      .then(() => fs.appendFile(file, line, 'utf-8'))
+      .catch((error: any) => {
+        // 运营信号，写不进去不能拖垮出片
+        this.logger.debug(`[recordGraphSignal] failed to append: ${error?.message || 'unknown'}`);
+      });
   }
 
   private toSceneVisualAssets(plan: SceneVisualAssetPlan): Record<string, any> {
@@ -1315,10 +1351,20 @@ const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ s
   );
 };
 
-type GraphNodeView = { id: string; label: string; subject: string; role: string };
+type GraphNodeView = { id: string; label: string; subject: string; role: string; sign?: string };
 type SceneGraphView = { relation: string; caption?: string; nodes: GraphNodeView[] };
 
-type GraphItem = { node: GraphNodeView; x: number; y: number; size: number; delay: number };
+type GraphItem = {
+  node: GraphNodeView;
+  x: number;
+  y: number;
+  size: number;
+  delay: number;
+  /** 入场起点（屏幕坐标）：group 从散落处聚拢、split 从整体里散开，都靠这一项 */
+  enterFrom?: { x: number; y: number };
+  /** growth 关系下节点要"现场长大"，入场从小比例缓慢放大而不是弹一下 */
+  grow?: boolean;
+};
 type GraphEdge = {
   x1: number;
   y1: number;
@@ -1328,9 +1374,15 @@ type GraphEdge = {
   my?: number;
   delay: number;
 };
+/**
+ * 一段运动路径：复用已算好的连线，光点沿着箭头走，位置和画面上的箭头严格一致。
+ * target 是光点"正走向"的节点——它决定此刻谁亮起来。
+ */
+type GraphFlow = { edges: GraphEdge[]; loop: boolean; phase?: number; target: string[] };
 type GraphLayout = {
   items: GraphItem[];
   edges: GraphEdge[];
+  flows: GraphFlow[];
   divider?: { x: number; y1: number; y2: number };
   container?: { x: number; y: number; w: number; h: number };
 };
@@ -1348,9 +1400,10 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
 
   if (graph.relation === "cycle") {
     const cx = 960;
-    const cy = 524;
+    // 底部节点（含标签）必须留在字幕条上方：字幕条顶边在 y≈860，所以圆心+短轴 ≤ 714
+    const cy = 508;
     const rx = 268;
-    const ry = 210;
+    const ry = 202;
     const size = 186;
     nodes.forEach((node, i) => {
       const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
@@ -1376,7 +1429,11 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         delay: 26 + i * 11,
       });
     }
-    return { items, edges };
+    return {
+      items,
+      edges,
+      flows: [{ edges, loop: true, target: nodes.map((_, i) => nodes[(i + 1) % n].id) }],
+    };
   }
 
   if (graph.relation === "growth") {
@@ -1391,6 +1448,7 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         y: baseline - size / 2,
         size,
         delay: 8 + i * 12,
+        grow: true,
       });
     });
     for (let i = 0; i < n - 1; i += 1) {
@@ -1404,7 +1462,7 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         delay: 20 + i * 12,
       });
     }
-    return { items, edges };
+    return { items, edges, flows: [{ edges, loop: false, target: nodes.slice(1).map((v) => v.id) }] };
   }
 
   if (graph.relation === "compare") {
@@ -1416,6 +1474,7 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
     return {
       items,
       edges: [],
+      flows: [],
       divider: { x: 960, y1: 318, y2: 706 },
     };
   }
@@ -1424,25 +1483,42 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
     const parent = nodes[0];
     const children = nodes.slice(1);
     const parentSize = graph.relation === "group" ? 190 : 200;
-    items.push({ node: parent, x: 960, y: graph.relation === "group" ? 306 : 300, size: parentSize, delay: 8 });
+    const parentY = graph.relation === "group" ? 306 : 300;
+    items.push({ node: parent, x: 960, y: parentY, size: parentSize, delay: 8 });
     const spacing = Math.min(330, 1360 / Math.max(1, children.length));
     const startX = 960 - ((children.length - 1) * spacing) / 2;
     const childY = graph.relation === "group" ? 646 : 656;
+    const flows: GraphFlow[] = [];
     children.forEach((node, i) => {
       const size = graph.relation === "group" ? 168 : 156;
+      const x = startX + i * spacing;
+      // 起点要落在"类别/整体"的标签胶囊下面，否则三条箭头会在标签上糊成一团
+      const top = parentY + parentSize / 2 + 58;
+      const bottom = childY - size / 2 - 6;
       items.push({
         node,
-        x: startX + i * spacing,
+        x,
         y: childY,
         size,
         delay: 20 + i * 10,
+        // split：部件从整体里"散开"；group：成员从散落处"聚拢"到类别下
+        enterFrom:
+          graph.relation === "split"
+            ? { x: 960, y: parentY }
+            : { x: 960 + Math.cos(0.5 + i * 1.35) * 620, y: 470 + Math.sin(0.5 + i * 1.35) * 330 },
       });
-      edges.push({
-        x1: 960,
-        y1: (graph.relation === "group" ? 306 : 300) + parentSize / 2 + 6,
-        x2: startX + i * spacing,
-        y2: childY - size / 2 - 6,
-        delay: 16 + i * 10,
+      edges.push(
+        graph.relation === "group"
+          ? // 归类是"成员 → 类别"，箭头朝上，光点也跟着往回流
+            { x1: x, y1: bottom, x2: 960, y2: top, delay: 16 + i * 10 }
+          : { x1: 960, y1: top, x2: x, y2: bottom, delay: 16 + i * 10 },
+      );
+      flows.push({
+        edges: [edges[edges.length - 1]],
+        loop: false,
+        phase: i * 0.22,
+        // 光点即将到达的那一端：split 是部件，group 是类别
+        target: [graph.relation === "group" ? parent.id : node.id],
       });
     });
     if (graph.relation === "group" && children.length > 0) {
@@ -1452,10 +1528,11 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
       return {
         items,
         edges,
+        flows,
         container: { x: left, y: childY - 126, w: right - left, h: 312 },
       };
     }
-    return { items, edges };
+    return { items, edges, flows };
   }
 
   // chain：横向依次推进，节点等距
@@ -1474,7 +1551,187 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
       delay: 22 + i * 11,
     });
   }
-  return { items, edges };
+  return { items, edges, flows: [{ edges, loop: false, target: nodes.slice(1).map((v) => v.id) }] };
+};
+
+/**
+ * 光点沿路径取点：把每段连线的长度累加，先定位落在哪一段，再在段内插值。
+ * 曲线段用二次贝塞尔公式，和 GraphConnector 画的路径完全重合，所以光点看起来
+ * 就是"贴着箭头在走"，而不是另走一条看不见的线。
+ */
+const edgeLength = (edge: GraphEdge): number => {
+  const chord = Math.sqrt((edge.x2 - edge.x1) ** 2 + (edge.y2 - edge.y1) ** 2);
+  if (edge.mx === undefined || edge.my === undefined) return chord;
+  const leg1 = Math.sqrt((edge.mx - edge.x1) ** 2 + (edge.my - edge.y1) ** 2);
+  const leg2 = Math.sqrt((edge.x2 - edge.mx) ** 2 + (edge.y2 - edge.my) ** 2);
+  return (leg1 + leg2 + chord) / 2;
+};
+
+const pointOnEdge = (edge: GraphEdge, u: number): { x: number; y: number } => {
+  if (edge.mx === undefined || edge.my === undefined) {
+    return { x: edge.x1 + (edge.x2 - edge.x1) * u, y: edge.y1 + (edge.y2 - edge.y1) * u };
+  }
+  const k = 1 - u;
+  return {
+    x: k * k * edge.x1 + 2 * k * u * edge.mx + u * u * edge.x2,
+    y: k * k * edge.y1 + 2 * k * u * edge.my + u * u * edge.y2,
+  };
+};
+
+/** t ∈ [0,1) 在全路径上的位置；loop=true 时首尾相接，否则到头即定住（配合透明度淡出重来） */
+const flowPoint = (flow: GraphFlow, t: number): { x: number; y: number; segment: number } => {
+  const lengths = flow.edges.map(edgeLength);
+  const total = lengths.reduce((sum, v) => sum + v, 0) || 1;
+  let remain = Math.max(0, Math.min(1, t)) * total;
+  for (let i = 0; i < lengths.length; i += 1) {
+    if (remain <= lengths[i] || i === lengths.length - 1) {
+      const u = lengths[i] > 0 ? Math.min(1, remain / lengths[i]) : 0;
+      const point = pointOnEdge(flow.edges[i], u);
+      return { ...point, segment: i };
+    }
+    remain -= lengths[i];
+  }
+  return { x: flow.edges[0].x1, y: flow.edges[0].y1, segment: 0 };
+};
+
+/**
+ * 抽象概念的示意符号。水蒸气、力气、时间没有实体形状，但"看不见的东西"只有
+ * 六种画法：能数的、会上升的、有高低的、在流动的、跟时间有关的、说不清的其他。
+ * 六种都是画法而不是主题，所以任何抽象概念都能落到其中一种，不会出现空占位。
+ */
+const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = ({ sign, size, accent }) => {
+  const frame = useCurrentFrame();
+  const box = { width: size * 0.74, height: size * 0.74 };
+
+  if (sign === "count") {
+    return (
+      <svg viewBox="0 0 100 100" style={box}>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+          const lit = (frame / 9 + i) % 9 < 1.7;
+          return (
+            <circle
+              key={i}
+              cx={24 + (i % 3) * 26}
+              cy={24 + Math.floor(i / 3) * 26}
+              r={lit ? 8.5 : 6}
+              fill={accent}
+              opacity={lit ? 0.95 : 0.22}
+            />
+          );
+        })}
+      </svg>
+    );
+  }
+
+  if (sign === "rise") {
+    // 三股弯曲的虚线气流 + 沿气流上升的珠子：比几个散点更像"看不见的东西在往上跑"
+    const columns = [28, 50, 72];
+    return (
+      <svg viewBox="0 0 100 100" style={box}>
+        {columns.map((x, i) => (
+          <path
+            key={"g" + i}
+            d={"M " + x + " 92 Q " + (x + 9) + " 74 " + x + " 56 Q " + (x - 9) + " 38 " + x + " 18"}
+            fill="none"
+            stroke={accent}
+            strokeWidth="4"
+            strokeDasharray="6 8"
+            opacity="0.26"
+          />
+        ))}
+        {columns.map((x, i) => {
+          const p = ((frame / 11 + i * 17) % 54) / 54;
+          return (
+            <circle
+              key={"d" + i}
+              cx={x + Math.sin(p * Math.PI * 2 + i) * 7}
+              cy={92 - p * 74}
+              r={7 - p * 2.5}
+              fill={accent}
+              opacity={Math.sin(p * Math.PI) * 0.85 + 0.1}
+            />
+          );
+        })}
+      </svg>
+    );
+  }
+
+  if (sign === "level") {
+    const level = 0.45 + Math.sin(frame / 24) * 0.3;
+    return (
+      <svg viewBox="0 0 100 100" style={box}>
+        <rect x="34" y="12" width="32" height="76" rx="16" fill="none" stroke={accent} strokeWidth="5" opacity="0.35" />
+        <rect x="40" y={84 - 70 * level} width="20" height={70 * level} rx="10" fill={accent} opacity="0.85" />
+        <line x1="72" y1="28" x2="82" y2="28" stroke={accent} strokeWidth="4" opacity="0.5" />
+        <line x1="72" y1="50" x2="82" y2="50" stroke={accent} strokeWidth="4" opacity="0.5" />
+        <line x1="72" y1="72" x2="82" y2="72" stroke={accent} strokeWidth="4" opacity="0.5" />
+      </svg>
+    );
+  }
+
+  if (sign === "flow") {
+    return (
+      <svg viewBox="0 0 100 100" style={box}>
+        {[0, 1, 2].map((i) => {
+          const p = ((frame * 1.5 + i * 30) % 90) / 90;
+          const x = 6 + p * 64;
+          return (
+            <path
+              key={i}
+              d={"M " + x + " 33 L " + (x + 17) + " 50 L " + x + " 67"}
+              fill="none"
+              stroke={accent}
+              strokeWidth="9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.18 + p * 0.75}
+            />
+          );
+        })}
+      </svg>
+    );
+  }
+
+  if (sign === "time") {
+    const angle = (frame / 44) * Math.PI * 2;
+    return (
+      <svg viewBox="0 0 100 100" style={box}>
+        <circle cx="50" cy="50" r="34" fill="none" stroke={accent} strokeWidth="6" opacity="0.75" />
+        <line
+          x1="50"
+          y1="50"
+          x2={50 + Math.cos(angle) * 26}
+          y2={50 + Math.sin(angle) * 26}
+          stroke={accent}
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+        <circle cx="50" cy="50" r="5" fill={accent} />
+      </svg>
+    );
+  }
+
+  const spin = frame * 0.9;
+  return (
+    <svg viewBox="0 0 100 100" style={box}>
+      <circle
+        cx="50"
+        cy="50"
+        r="32"
+        fill="none"
+        stroke={accent}
+        strokeWidth="4"
+        strokeDasharray="9 11"
+        opacity="0.5"
+        transform={"rotate(" + spin + " 50 50)"}
+      />
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (frame / 70) * Math.PI * 2 + (i / 6) * Math.PI * 2;
+        return <circle key={i} cx={50 + Math.cos(a) * 32} cy={50 + Math.sin(a) * 32} r="4.5" fill={accent} opacity="0.8" />;
+      })}
+      <circle cx="50" cy="50" r={9 + Math.sin(frame / 9) * 1.6} fill={accent} opacity="0.9" />
+    </svg>
+  );
 };
 
 const GraphConnector: React.FC<{ edge: GraphEdge; accent: string }> = ({ edge, accent }) => {
@@ -1525,8 +1782,8 @@ const GraphBadge: React.FC<{
   item: GraphItem;
   iconSrc?: string;
   accent: string;
-  focused: boolean;
-}> = ({ item, iconSrc, accent, focused }) => {
+  active: boolean;
+}> = ({ item, iconSrc, accent, active }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({
@@ -1534,11 +1791,22 @@ const GraphBadge: React.FC<{
     fps,
     config: { damping: 13, stiffness: 150, mass: 0.85 },
   });
-  const pulse = focused ? 1 + Math.sin(frame / 7) * 0.05 : 1;
-  const scale = (0.55 + enter * 0.45) * pulse;
+  // 从远处飞进框里（group 聚拢 / split 散开）要比原地弹出更慢，用近乎无回弹的曲线
+  const travel = item.enterFrom
+    ? spring({ frame: frame - item.delay, fps, config: { damping: 26, stiffness: 62, mass: 1.1 } })
+    : enter;
+  // growth 要"现场长大"：从三成大小缓慢撑到满，过程中就能看出从小到大
+  const growEase = item.grow
+    ? spring({ frame: frame - item.delay, fps, config: { damping: 200, stiffness: 52, mass: 1 } })
+    : enter;
+  const pulse = active ? 1 + Math.sin(frame / 7) * 0.045 : 1;
+  const scale = (item.grow ? 0.3 + growEase * 0.7 : 0.55 + enter * 0.45) * pulse;
+  const dx = item.enterFrom ? (item.enterFrom.x - item.x) * (1 - travel) : 0;
+  const dy = item.enterFrom ? (item.enterFrom.y - item.y) * (1 - travel) : 0;
   const role = item.node.role;
   const radius = role === "subject" || role === "abstract" ? "50%" : 34;
-  const border = role === "abstract" ? "4px dashed " + accent : focused ? "4px solid " + accent : "3px solid rgba(255,255,255,0.9)";
+  // 抽象节点靠内部符号表达"看不见"，卡框就和其他节点统一成实线，两种虚线叠在一起太乱
+  const border = active ? "4px solid " + accent : "3px solid rgba(255,255,255,0.9)";
   const size = item.size;
   // 没图标时用标签文字顶上：两个字才能看出是什么，一个字会被误读（「水果」变「水」）
   const glyph = item.node.label.slice(0, 2);
@@ -1555,49 +1823,67 @@ const GraphBadge: React.FC<{
         flexDirection: "column",
         alignItems: "center",
         opacity: enter,
-        transform: "scale(" + scale + ")",
+        transform: "translate(" + dx + "px, " + dy + "px) scale(" + scale + ")",
         transformOrigin: "center top",
       }}
     >
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius,
-          background: "rgba(255,255,255,0.95)",
-          border,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 18px 30px rgba(18, 48, 24, 0.18)",
-          overflow: "hidden",
-        }}
-      >
-        {iconSrc ? (
-          <Img
-            src={staticFile(iconSrc)}
-            style={{ width: size * 0.84, height: size * 0.84, objectFit: "contain" }}
-          />
-        ) : (
+      <div style={{ position: "relative", width: size, height: size }}>
+        {active ? (
           <div
             style={{
-              fontSize: glyphSize,
-              fontWeight: 900,
-              color: accent,
-              lineHeight: 1,
-              letterSpacing: 2,
+              position: "absolute",
+              left: -12,
+              top: -12,
+              width: size + 24,
+              height: size + 24,
+              borderRadius: radius === "50%" ? "50%" : 46,
+              border: "5px solid " + accent,
+              opacity: 0.28 + Math.sin(frame / 7) * 0.08,
             }}
-          >
-            {glyph}
-          </div>
-        )}
+          />
+        ) : null}
+        <div
+          style={{
+            width: size,
+            height: size,
+            borderRadius: radius,
+            background: "rgba(255,255,255,0.95)",
+            border,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 18px 30px rgba(18, 48, 24, 0.18)",
+            overflow: "hidden",
+          }}
+        >
+          {iconSrc ? (
+            <Img
+              src={staticFile(iconSrc)}
+              style={{ width: size * 0.84, height: size * 0.84, objectFit: "contain" }}
+            />
+          ) : role === "abstract" ? (
+            <AbstractSign sign={item.node.sign || "orb"} size={size} accent={accent} />
+          ) : (
+            <div
+              style={{
+                fontSize: glyphSize,
+                fontWeight: 900,
+                color: accent,
+                lineHeight: 1,
+                letterSpacing: 2,
+              }}
+            >
+              {glyph}
+            </div>
+          )}
+        </div>
       </div>
       <div
         style={{
           marginTop: 10,
           borderRadius: 14,
-          background: focused ? accent : "rgba(255,255,255,0.9)",
-          color: focused ? "#ffffff" : "#12303a",
+          background: active ? accent : "rgba(255,255,255,0.9)",
+          color: active ? "#ffffff" : "#12303a",
           padding: "4px 16px",
           fontSize: 30,
           fontWeight: 900,
@@ -1610,6 +1896,9 @@ const GraphBadge: React.FC<{
   );
 };
 
+/** 一颗光点走完一整条路径的帧数：让它慢到能看清"经过了哪个概念" */
+const FLOW_PERIOD = 84;
+
 const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({
   scene,
   duration,
@@ -1619,11 +1908,34 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   const icons = scene.graphIcons || {};
   const layout = layoutGraph(graph);
   const count = Math.max(1, graph.nodes.length);
-  const warmup = 14;
-  const focusIndex = Math.max(
-    0,
-    Math.min(count - 1, Math.floor(((frame - warmup) / Math.max(24, duration - warmup)) * count)),
-  );
+  const warmup = 18;
+
+  // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
+  // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
+  const tokens = layout.flows.map((flow) => {
+    const raw = (frame - warmup - (flow.phase || 0) * FLOW_PERIOD) / FLOW_PERIOD;
+    const t = ((raw % 1) + 1) % 1;
+    return {
+      flow,
+      t,
+      // 非闭环的路径两头淡出，避免光点"瞬移"回起点
+      alpha: flow.loop ? 0.95 : Math.min(1, Math.sin(t * Math.PI) * 1.9),
+      point: flowPoint(flow, t),
+    };
+  });
+  const activeIds = new Set<string>();
+  if (frame >= warmup) {
+    tokens.forEach((token) => {
+      const target = token.flow.target[Math.min(token.flow.target.length - 1, token.point.segment)];
+      if (target) activeIds.add(target);
+    });
+  }
+  // 没有路径的关系（compare）靠左右轮流点亮来做对照
+  if (activeIds.size === 0) {
+    const half = Math.max(30, (duration - warmup) / 2);
+    const index = frame < warmup ? 0 : Math.floor((frame - warmup) / half) % count;
+    activeIds.add(graph.nodes[Math.min(count - 1, index)].id);
+  }
 
   return (
     <AbsoluteFill>
@@ -1661,6 +1973,20 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
         {layout.edges.map((edge, i) => (
           <GraphConnector key={"e" + i} edge={edge} accent={scene.accentColor} />
         ))}
+        {tokens.map((token, i) => {
+          const head = token.point;
+          const trail = [1, 2, 3].map((k) => flowPoint(token.flow, Math.max(0, token.t - k * 0.04)));
+          return (
+            <g key={"t" + i} opacity={token.alpha}>
+              {trail.map((p, k) => (
+                <circle key={k} cx={p.x} cy={p.y} r={11 - k * 2.2} fill={scene.accentColor} opacity={0.3 - k * 0.08} />
+              ))}
+              <circle cx={head.x} cy={head.y} r={20} fill={scene.accentColor} opacity={0.16} />
+              <circle cx={head.x} cy={head.y} r={12} fill="#ffffff" opacity={0.95} />
+              <circle cx={head.x} cy={head.y} r={7} fill={scene.accentColor} />
+            </g>
+          );
+        })}
       </svg>
       {layout.items.map((item) => (
         <GraphBadge
@@ -1668,7 +1994,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           item={item}
           iconSrc={icons[item.node.id]}
           accent={scene.accentColor}
-          focused={graph.nodes[focusIndex] && graph.nodes[focusIndex].id === item.node.id}
+          active={activeIds.has(item.node.id)}
         />
       ))}
       {graph.caption ? (

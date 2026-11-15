@@ -46,7 +46,7 @@ const scenes = [
       caption: '水转一圈又回来了',
       nodes: [
         { id: 'n1', label: '太阳', subject: '太阳', role: 'place' },
-        { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract' },
+        { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract', sign: 'rise' },
         { id: 'n3', label: '白云', subject: '白云', role: 'object' },
         { id: 'n4', label: '雨滴', subject: '雨', role: 'object' },
       ],
@@ -222,6 +222,32 @@ const scenes = [
       assetProvider: 'vector',
       license: 'mit',
       qualityScore: 92,
+    },
+  },
+  // 看不到的东西怎么画：四个抽象节点各自走一种示意符号，验证没有退化成空白占位
+  {
+    id: 's8',
+    title: '看不见的东西',
+    narration: '数一数有几个，摸一摸有多热，风在流动，时间一直在往前走。',
+    onScreenText: '',
+    visualDescription: 'abstract signs',
+    assetKey: 'topic',
+    assetTags: [],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#7048E8',
+    domain: 'science',
+    sceneGraph: {
+      relation: 'chain',
+      caption: '看不见，但能画出来',
+      nodes: [
+        { id: 'n1', label: '个数', subject: '数量', role: 'abstract', sign: 'count' },
+        { id: 'n2', label: '热量', subject: '温度', role: 'abstract', sign: 'level' },
+        { id: 'n3', label: '风', subject: '风', role: 'abstract', sign: 'flow' },
+        { id: 'n4', label: '时间', subject: '时间', role: 'abstract', sign: 'time' },
+      ],
     },
   },
 ];

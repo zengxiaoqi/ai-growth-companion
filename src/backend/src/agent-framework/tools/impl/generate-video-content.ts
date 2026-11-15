@@ -218,7 +218,8 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
             "id": "n1",
             "label": "string (画面标签，≤6字)",
             "subject": "string (可检索到图标的具体名词，如 '小水滴' '苹果')",
-            "role": "subject | object | place | abstract"
+            "role": "subject | object | place | abstract",
+            "sign": "count | rise | level | flow | time | orb（仅 role=abstract 必填）"
           }
         ]
       }

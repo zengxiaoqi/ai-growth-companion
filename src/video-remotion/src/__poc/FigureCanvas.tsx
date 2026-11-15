@@ -71,6 +71,25 @@ export const FigureCanvas: React.FC<{
 
     if (shape.kind === 'arc') {
       const len = arcLength(shape);
+      const span = Math.abs(shape.to - shape.from);
+      // 整圈弧（0→360）用 path 画不出来：起点终点重合，A 命令退化成一个点。
+      // 实测太阳系的 8 条轨道因此只剩几段虚线，看着像"图上什么都没有"。
+      // 整圈一律改用 <circle>。
+      if (span >= 355) {
+        return (
+          <circle
+            key={key}
+            cx={shape.cx}
+            cy={shape.cy}
+            r={shape.r}
+            fill="none"
+            stroke={shape.stroke}
+            strokeWidth={shape.width}
+            strokeDasharray={len}
+            strokeDashoffset={len * (1 - p)}
+          />
+        );
+      }
       return (
         <path
           key={key}
@@ -177,6 +196,11 @@ export const FigureCanvas: React.FC<{
             fontSize={34}
             fontWeight={900}
             fill={label.color || accent}
+            // 白描边垫底，标签压在图形上也能读（和生产模板一致）
+            stroke="#FFFFFF"
+            strokeWidth={9}
+            strokeLinejoin="round"
+            paintOrder="stroke"
             opacity={p}
           >
             {label.text}

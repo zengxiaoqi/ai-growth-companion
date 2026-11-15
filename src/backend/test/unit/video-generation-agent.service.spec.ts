@@ -178,7 +178,7 @@ describe('VideoGenerationAgentService', () => {
     ]);
     expect(generatedCode).toContain('Img');
     expect(generatedCode).toContain('TigerSvg');
-    expect(generatedCode).toContain('ForestBackground');
+    expect(generatedCode).toContain('SceneBackground');
     expect(manifest.assets).toEqual(
       expect.arrayContaining([
         // provider 链是 vector > local > 网络：库里有真素材时优先用库，手绘只做兜底
@@ -285,6 +285,40 @@ describe('VideoGenerationAgentService', () => {
       assetProvider: 'vector',
       characterProvider: 'vector',
       hasCharacterAsset: true,
+    });
+  });
+
+  // 背景分档的判定：以前所有场景都铺同一片森林，因为默认 habitat 就是 forest
+  describe('resolveBackgroundStyle', () => {
+    const service = createService();
+
+    const resolve = (input: { source: string; hasGraph?: boolean; hasAnimal?: boolean }) =>
+      (service as any).resolveBackgroundStyle({
+        source: input.source,
+        hasGraph: !!input.hasGraph,
+        hasAnimal: !!input.hasAnimal,
+      });
+
+    it('关系图走中性底：抽象结构不该站在草地上', () => {
+      expect(resolve({ source: '水循环', hasGraph: true })).toBe('neutral');
+      expect(resolve({ source: '苹果香蕉葡萄都是水果', hasGraph: true })).toBe('neutral');
+      // 即使文本里出现了"森林"，关系图也优先中性底
+      expect(resolve({ source: '森林里的食物链', hasGraph: true })).toBe('neutral');
+    });
+
+    it('有具体动物才给环境背景', () => {
+      expect(resolve({ source: '认识动物老虎', hasAnimal: true })).toBe('environment');
+      expect(resolve({ source: '小兔子在草原上', hasAnimal: true })).toBe('environment');
+    });
+
+    it('文本点名栖息地时给环境背景', () => {
+      expect(resolve({ source: '森林里的清晨' })).toBe('environment');
+      expect(resolve({ source: '河边的小溪' })).toBe('environment');
+    });
+
+    it('讲抽象概念不给任何"地点"', () => {
+      expect(resolve({ source: '认识数字 1 到 10' })).toBe('neutral');
+      expect(resolve({ source: '什么时候该说我爱你' })).toBe('neutral');
     });
   });
 });

@@ -43,6 +43,9 @@ export const HABITAT_KEYWORDS: KeywordMapping[] = [
     keywords: ['河', '溪', '水', '游泳', 'river', 'swim'],
   },
   { value: 'grassland', keywords: ['草地', '草原', 'grass'] },
+  // 森林原先靠 inferDynamicHabitat 的默认值兜底，看着对其实是巧合：
+  // 文本里明确写了"森林"却命不中，判断"要不要环境背景"时就丢了依据。
+  { value: 'forest', keywords: ['森林', '树林', '丛林', 'forest', 'jungle'] },
 ];
 
 export const ENVIRONMENT_TAG_KEYWORDS: KeywordMapping[] = [

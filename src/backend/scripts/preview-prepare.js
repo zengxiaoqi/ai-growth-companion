@@ -252,6 +252,87 @@ const scenes = [
   },
 ];
 
+// 三种环境背景各验一遍：草原、河岸、夜晚。森林（老虎）已在 s7。
+// 以前植被不分栖息地，草原和河岸都长同一排树，这三帧就是用来盯这件事的。
+const habitatScenes = [
+  {
+    id: 'h1',
+    title: '草原上的兔子',
+    narration: '小兔子竖起长耳朵，听一听四周有没有动静。',
+    onScreenText: '兔子 · 长耳朵',
+    visualDescription: 'rabbit in grassland',
+    assetKey: 'rabbit',
+    assetTags: ['rabbit'],
+    action: 'listen',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#C0863C',
+    domain: 'science',
+    backgroundStyle: 'environment',
+    visualAssets: {
+      characterAssetSrc: 'assets/vector/animals/rabbit.svg',
+      hasCharacterAsset: true,
+      assetProvider: 'vector',
+      license: 'mit',
+      qualityScore: 92,
+    },
+  },
+  {
+    id: 'h2',
+    title: '小鸭在河里',
+    narration: '小鸭子在河面上游来游去，脚掌在水下划水。',
+    onScreenText: '鸭子 · 会游泳',
+    visualDescription: 'duck swimming in river',
+    assetKey: 'duck',
+    assetTags: ['duck', 'river'],
+    action: 'swim',
+    habitat: 'river',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#2F8FB8',
+    domain: 'science',
+    backgroundStyle: 'environment',
+    visualAssets: {
+      characterAssetSrc: 'assets/vector/animals/duck.svg',
+      hasCharacterAsset: true,
+      assetProvider: 'vector',
+      license: 'mit',
+      qualityScore: 92,
+    },
+  },
+  {
+    id: 'h3',
+    title: '夜里的猫头鹰',
+    narration: '天黑了，猫头鹰睁大眼睛，在树枝上看着我们。',
+    onScreenText: '猫头鹰 · 夜里活动',
+    visualDescription: 'owl at night',
+    assetKey: 'owl',
+    assetTags: ['owl'],
+    action: 'idle',
+    habitat: 'night',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#5F5AA2',
+    domain: 'science',
+    backgroundStyle: 'environment',
+    visualAssets: {
+      characterAssetSrc: 'assets/vector/animals/owl.svg',
+      hasCharacterAsset: true,
+      assetProvider: 'vector',
+      license: 'mit',
+      qualityScore: 92,
+    },
+  },
+];
+scenes.push(...habitatScenes);
+
+// 与后端 resolveBackgroundStyle 保持同样的判定：有关系图（循环/对比/分类这类抽象结构）
+// 就走中性底，否则按环境背景。以前不分青红皂白全铺森林，所有课程共用同一条样板街。
+scenes.forEach((scene) => {
+  if (!scene.backgroundStyle) scene.backgroundStyle = scene.sceneGraph ? 'neutral' : 'environment';
+});
+
 const rootSource = `import React from "react";
 import { Composition } from "remotion";
 import { GeneratedLesson } from "./GeneratedLesson";

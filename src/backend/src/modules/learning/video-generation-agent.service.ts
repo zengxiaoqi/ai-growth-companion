@@ -589,6 +589,11 @@ export class VideoGenerationAgentService {
         assetTags: tags,
         action,
         habitat,
+        backgroundStyle: this.resolveBackgroundStyle({
+          source,
+          hasGraph: !!sceneGraph,
+          hasAnimal: !!animalConfig,
+        }),
         template,
         generatedVisual: animalConfig
           ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join('-')}`
@@ -744,6 +749,13 @@ type GeneratedScene = {
   assetTags: string[];
   action: string;
   habitat: string;
+  /**
+   * 背景档位。background 决定画面"在哪里发生"，不决定"讲什么"：
+   * environment=真实世界场景（动物/植物/自然），配森林、草原、河岸；
+   * neutral=抽象内容（数数、时间、关系图、分类），只给柔和渐变，不放树和太阳；
+   * plain=极简纯色。全都套森林背景是早期"只服务动物课"留下的坏习惯。
+   */
+  backgroundStyle?: 'environment' | 'neutral' | 'plain';
   generatedVisual: string;
   durationFrames: number;
   accentColor: string;
@@ -780,12 +792,18 @@ const sceneStarts = (scenes: GeneratedScene[]) => {
   });
 };
 
-const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
+const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const night = scene.habitat === "night";
-  const river = scene.habitat === "river" || (scene.assetTags || []).includes("river");
-  const sky = night ? "#13233f" : scene.habitat === "grassland" ? "#bfeaff" : "#a7e8ff";
-  const ground = scene.habitat === "river" ? "#5bc0de" : "#69b66d";
+  const style = scene.backgroundStyle || "environment";
+  const accent = scene.accentColor || "#4d96ff";
+  const habitat = scene.habitat || "forest";
+  const night = habitat === "night";
+  const river = habitat === "river" || (scene.assetTags || []).includes("river");
+  const meadow = habitat === "grassland";
+  const sky = night ? "#13233f" : meadow ? "#bfeaff" : "#a7e8ff";
+  // 夜晚的地面要跟着暗下去，否则白天草地直接铺在夜空下面
+  const groundGrass = night ? "#2c4636" : meadow ? "#8ed47a" : "#69b66d";
+  const ground = river ? (night ? "#1d3f56" : "#5bc0de") : groundGrass;
   const sunPulse = interpolate(Math.sin(frame / 18), [-1, 1], [0.94, 1.06]);
   const sceneDur = Math.max(90, scene.durationFrames || 180);
   const travel = interpolate(frame, [0, sceneDur], [0, 1], { extrapolateRight: "clamp" });
@@ -793,6 +811,84 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   const treeDrift = interpolate(travel, [0, 1], [34, -34]);
   const cloudDrift = interpolate(travel, [0, 1], [-58, 58]);
   const breeze = Math.sin(frame / 26) * 5;
+
+  /**
+   * 中性背景：抽象内容不发生在任何"地方"，所以不放树、不放太阳、不放地平线。
+   * 只留一层跟着主题色走的柔光，再加一层按关系走的水印纹样——
+   * 否则 8 个场景全是同一张白底，等于把"一排树"换成了"一块白"。
+   */
+  if (style === "neutral") {
+    const sway = Math.sin(frame / 110) * 28;
+    const relation = (scene.sceneGraph && scene.sceneGraph.relation) || "";
+    return (
+      <AbsoluteFill style={{ backgroundColor: "#fcfeff", overflow: "hidden" }}>
+        <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          <defs>
+            <radialGradient id={"glow-" + scene.id} cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%" stopColor={accent} stopOpacity="0.30" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0" />
+            </radialGradient>
+            <pattern id={"dots-" + scene.id} width="64" height="64" patternUnits="userSpaceOnUse">
+              <circle cx="3" cy="3" r="2.4" fill={accent} opacity="0.10" />
+            </pattern>
+          </defs>
+          <rect width="1920" height="1080" fill={"url(#dots-" + scene.id + ")"} />
+          <circle cx={360 + sway} cy={250} r="450" fill={"url(#glow-" + scene.id + ")"} />
+          <circle cx={1630 - sway} cy={810} r="510" fill={"url(#glow-" + scene.id + ")"} />
+          {/* 关系水印：极淡，只作为"这一屏讲的是哪种结构"的底噪 */}
+          <g fill="none" stroke={accent} strokeWidth="2.5" opacity="0.13">
+            {relation === "cycle"
+              ? [430, 610, 790].map((r, i) => (
+                  <circle key={"w" + i} cx={960} cy={512} r={r} strokeDasharray={i === 1 ? "10 16" : "none"} />
+                ))
+              : null}
+            {relation === "chain"
+              ? [0, 1, 2, 3, 4].map((i) => (
+                  <line key={"w" + i} x1={140} y1={300 + i * 130} x2={1780} y2={300 + i * 130} strokeDasharray="14 22" />
+                ))
+              : null}
+            {relation === "growth"
+              ? [0, 1, 2, 3].map((i) => (
+                  <circle key={"w" + i} cx={300 + i * 440} cy={700 - i * 126} r={110 + i * 34} strokeDasharray="12 18" />
+                ))
+              : null}
+            {relation === "compare"
+              ? [0, 1].map((i) => (
+                  <g key={"w" + i}>
+                    <line x1={960} y1={120} x2={960} y2={980} strokeDasharray="16 20" />
+                    <circle cx={i === 0 ? 480 : 1440} cy={520} r="330" strokeDasharray="10 18" />
+                  </g>
+                ))
+              : null}
+            {relation === "group"
+              ? [0, 1, 2, 3, 4, 5].map((i) => (
+                  <line key={"w" + i} x1={160 + i * 320} y1={140} x2={160 + i * 320} y2={950} strokeDasharray="8 24" />
+                ))
+              : null}
+            {relation === "split"
+              ? [0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+                  const a = (i / 8) * Math.PI * 2;
+                  return (
+                    <line
+                      key={"w" + i}
+                      x1={960 + Math.cos(a) * 180}
+                      y1={520 + Math.sin(a) * 180}
+                      x2={960 + Math.cos(a) * 620}
+                      y2={520 + Math.sin(a) * 620}
+                      strokeDasharray="12 20"
+                    />
+                  );
+                })
+              : null}
+          </g>
+        </svg>
+      </AbsoluteFill>
+    );
+  }
+
+  if (style === "plain") {
+    return <AbsoluteFill style={{ backgroundColor: "#ffffff" }} />;
+  }
 
   return (
     <AbsoluteFill style={{ backgroundColor: sky, overflow: "hidden" }}>
@@ -815,16 +911,16 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
       ) : null}
       <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
         <defs>
-          <linearGradient id="dynamicSky" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={"sky-" + scene.id} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={night ? "#101b36" : "#82ddff"} />
             <stop offset="100%" stopColor={night ? "#24385e" : "#d8f8ff"} />
           </linearGradient>
-          <linearGradient id="dynamicRiver" x1="0" y1="0" x2="1" y2="0">
+          <linearGradient id={"water-" + scene.id} x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#22b8cf" />
             <stop offset="100%" stopColor="#74d9ff" />
           </linearGradient>
         </defs>
-        <rect width="1920" height="1080" fill="url(#dynamicSky)" opacity={scene.visualAssets?.backgroundAssetSrc ? 0.22 : 1} />
+        <rect width="1920" height="1080" fill={"url(#sky-" + scene.id + ")"} opacity={scene.visualAssets?.backgroundAssetSrc ? 0.22 : 1} />
         {night ? (
           Array.from({ length: 26 }).map((_, i) => (
             <circle key={i} cx={80 + i * 72} cy={44 + (i % 6) * 42} r={2 + (i % 3)} fill="#fff7b8" opacity={0.45 + (i % 4) * 0.1} />
@@ -835,8 +931,12 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
             <circle r="93" fill="#ffd166" opacity="0.2" />
           </g>
         )}
+        {/* 夜晚用远山剪影代替太阳，画面才不会所有场景都是同一张白天 */}
+        {night ? (
+          <path d="M0 742 L250 566 L430 700 L650 512 L880 726 L1140 566 L1390 742 L1640 604 L1920 760 L1920 1080 L0 1080 Z" fill="#0d1a33" opacity="0.85" />
+        ) : null}
         <path d="M0 780 C270 705 495 840 780 765 C1110 675 1380 848 1920 750 L1920 1080 L0 1080 Z" fill={ground} />
-        {river && <path d="M0 915 C345 840 540 990 855 915 C1230 825 1470 975 1920 885 L1920 1080 L0 1080 Z" fill="url(#dynamicRiver)" opacity="0.95" />}
+        {river && <path d="M0 915 C345 840 540 990 855 915 C1230 825 1470 975 1920 885 L1920 1080 L0 1080 Z" fill={"url(#water-" + scene.id + ")"} opacity="0.95" />}
         {[0, 1].map((i) => (
           <g
             key={"cloud" + i}
@@ -847,27 +947,74 @@ const ForestBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
               (128 + i * 104 + Math.sin(frame / 34 + i) * 9) +
               ")"
             }
-            opacity={night ? 0.18 : 0.74}
+            opacity={night ? 0.09 : 0.74}
           >
             <ellipse cx="0" cy="0" rx="96" ry="42" fill="#ffffff" />
             <ellipse cx="58" cy="10" rx="66" ry="34" fill="#ffffff" />
             <ellipse cx="-62" cy="14" rx="58" ry="30" fill="#ffffff" />
           </g>
         ))}
-        <g transform={"translate(" + (treeDrift + breeze) + " 0)"}>
-          {Array.from({ length: 11 }).map((_, i) => {
-            const x = -80 + i * 192;
-            const h = 150 + (i % 3) * 42;
-            return (
-              <g key={i} transform={"translate(" + x + " " + (780 - h) + ")"}>
-                <rect x="25" y={h - 28} width="22" height="74" rx="8" fill="#7b4f28" />
-                <circle cx="36" cy={h - 58} r="48" fill={i % 2 ? "#2f9e44" : "#37b24d"} />
-                <circle cx="10" cy={h - 36} r="34" fill="#51cf66" opacity="0.9" />
-                <circle cx="62" cy={h - 32} r="34" fill="#2b8a3e" opacity="0.9" />
-              </g>
-            );
-          })}
-        </g>
+        {/*
+          植被按栖息地分开画。以前不分青红皂白排一排树，讲河边也长树、讲深夜也长树，
+          结果所有课程共用同一条样板街。现在只有森林才长树：
+          草原是草丘和野花，河岸是芦苇和波纹，夜晚是远山。
+        */}
+        {meadow ? (
+          <g transform={"translate(" + (treeDrift + breeze) + " 0)"}>
+            {Array.from({ length: 7 }).map((_, i) => {
+              const x = -60 + i * 300;
+              const h = 96 + (i % 3) * 34;
+              return (
+                <g key={"hill" + i}>
+                  <ellipse cx={x} cy={806} rx={210} ry={h} fill={i % 2 ? "#7cc96a" : "#8fd47b"} />
+                  {[0, 1, 2].map((k) => (
+                    <g key={k} transform={"translate(" + (x - 70 + k * 68) + " " + (748 - (k % 2) * 22) + ")"}>
+                      <rect x="-2" y="0" width="4" height="26" rx="2" fill="#4f9e42" />
+                      <circle cx="0" cy="-4" r="9" fill={k % 2 ? "#ffd43b" : "#ff9ec4"} />
+                    </g>
+                  ))}
+                </g>
+              );
+            })}
+          </g>
+        ) : null}
+        {river ? (
+          <g transform={"translate(" + (treeDrift + breeze) + " 0)"}>
+            {Array.from({ length: 14 }).map((_, i) => {
+              const x = -40 + i * 148;
+              const h = 130 + (i % 4) * 46;
+              const lean = Math.sin(frame / 30 + i) * 4;
+              return (
+                <g key={"reed" + i} transform={"translate(" + x + " " + (900 - h) + ")"}>
+                  <path
+                    d={"M 0 " + h + " Q " + lean + " " + h * 0.55 + " " + lean * 2 + " 0"}
+                    fill="none"
+                    stroke="#3f8f4f"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                  />
+                  <ellipse cx={lean * 2} cy="-6" rx="9" ry="24" fill="#7b4b2a" />
+                </g>
+              );
+            })}
+          </g>
+        ) : null}
+        {!meadow && !river && !night ? (
+          <g transform={"translate(" + (treeDrift + breeze) + " 0)"}>
+            {Array.from({ length: 11 }).map((_, i) => {
+              const x = -80 + i * 192;
+              const h = 150 + (i % 3) * 42;
+              return (
+                <g key={i} transform={"translate(" + x + " " + (780 - h) + ")"}>
+                  <rect x="25" y={h - 28} width="22" height="74" rx="8" fill="#7b4f28" />
+                  <circle cx="36" cy={h - 58} r="48" fill={i % 2 ? "#2f9e44" : "#37b24d"} />
+                  <circle cx="10" cy={h - 36} r="34" fill="#51cf66" opacity="0.9" />
+                  <circle cx="62" cy={h - 32} r="34" fill="#2b8a3e" opacity="0.9" />
+                </g>
+              );
+            })}
+          </g>
+        ) : null}
         {Array.from({ length: 12 }).map((_, i) => {
           const fx = 90 + i * 156 + Math.sin(frame / 40 + i) * 26;
           const fy = 300 + ((i * 137) % 520) + Math.cos(frame / 32 + i * 1.7) * 18;
@@ -2140,11 +2287,19 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
   const sway = Math.sin(frame / 40) * 0.9;
   // 有合法关系图就走关系渲染器：关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读
   const hasGraph = !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
+  const backgroundStyle = scene.backgroundStyle || "environment";
 
   return (
-    <AbsoluteFill style={{ opacity: Math.min(fadeIn, fadeOut), backgroundColor: "#f7fff9", overflow: "hidden" }}>
-      <ForestBackground scene={scene} />
-      <GroundShadow scene={scene} duration={duration} />
+    <AbsoluteFill
+      style={{
+        opacity: Math.min(fadeIn, fadeOut),
+        backgroundColor: backgroundStyle === "environment" ? "#f7fff9" : "#fcfeff",
+        overflow: "hidden",
+      }}
+    >
+      <SceneBackground scene={scene} />
+      {/* 地面阴影只在有地面的环境背景里成立；中性背景没有地面，投影会变成"悬空的黑影" */}
+      {backgroundStyle === "environment" ? <GroundShadow scene={scene} duration={duration} /> : null}
       <div
         style={{
           position: "absolute",
@@ -2281,7 +2436,9 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   }
 
   private expectedVisualTerms(source: string): string[] {
-    const terms = new Set<string>(['dynamic', 'visual']);
+    // 这里只放"必须真的出现在产物里的视觉词"，不要放 dynamic 这种拼 assetKey 用的前缀：
+    // 它以前能命中，纯粹是因为模板里有个叫 dynamicSky 的渐变 id，属于指标造假。
+    const terms = new Set<string>(['visual']);
     const animalResult = inferAnimalFromText(source);
     if (animalResult?.config) {
       animalResult.config.visualTerms.forEach((term) => terms.add(term));
@@ -2327,6 +2484,28 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
 
   private inferDynamicHabitat(source: string): string {
     return matchKeyword(source, HABITAT_KEYWORDS) || 'forest';
+  }
+
+  /**
+   * 背景分档。
+   *
+   * 以前所有场景都长着同一片草地、一排树、一个太阳，是因为背景只按 habitat 选，
+   * 而 habitat 又默认 'forest'——讲数数、讲时间、讲情绪也配一片森林。树成了片头水印。
+   *
+   * 正确的分界不是学科，而是"这个画面发生在真实世界里吗"：
+   * - 有具体动物/人物，或文本点名了森林/河边/夜晚 → 环境背景，背景参与叙事（老虎待在林子里）
+   * - 关系图（循环/链式/对比/分类/拆解）、抽象概念 → 中性背景，什么环境元素都不放，
+   *   把注意力整块让给节点本身
+   */
+  private resolveBackgroundStyle(input: {
+    source: string;
+    hasGraph: boolean;
+    hasAnimal: boolean;
+  }): 'environment' | 'neutral' | 'plain' {
+    if (input.hasGraph) return 'neutral';
+    if (input.hasAnimal) return 'environment';
+    if (matchKeyword(input.source, HABITAT_KEYWORDS)) return 'environment';
+    return 'neutral';
   }
 
   private resolveSceneAccent(tags: string[], index: number): string {

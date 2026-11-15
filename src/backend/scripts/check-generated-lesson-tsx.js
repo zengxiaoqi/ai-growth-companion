@@ -76,6 +76,10 @@ const mustHave = [
   'growWindow',
   'swellK',
   'local >= 0.5',
+  // 背景分档：抽象内容不能套森林底，否则所有课程共用同一条样板街
+  'const SceneBackground',
+  'style === "neutral"',
+  'backgroundStyle === "environment" ? <GroundShadow',
 ];
 
 // 每种关系都必须有布局分支，否则 LLM 选到未实现的关系会渲染成空画面

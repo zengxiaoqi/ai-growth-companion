@@ -1351,7 +1351,14 @@ const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ s
   );
 };
 
-type GraphNodeView = { id: string; label: string; subject: string; role: string; sign?: string };
+type GraphNodeView = {
+  id: string;
+  label: string;
+  subject: string;
+  role: string;
+  sign?: string;
+  swell?: string;
+};
 type SceneGraphView = { relation: string; caption?: string; nodes: GraphNodeView[] };
 
 type GraphItem = {
@@ -1364,6 +1371,12 @@ type GraphItem = {
   enterFrom?: { x: number; y: number };
   /** growth 关系下节点要"现场长大"，入场从小比例缓慢放大而不是弹一下 */
   grow?: boolean;
+  /**
+   * 状态变化的窗口，取值是这一屏的叙事进度 0→1。
+   * 和 delay 的区别：delay 是"入场在第几帧"，窗口是"这段内容讲到哪儿了才长出/涨满"。
+   * 前者是装饰动画，讲完就停在原地；后者单调推进，画面跟着讲解一起走。
+   */
+  growWindow?: [number, number];
 };
 type GraphEdge = {
   x1: number;
@@ -1440,6 +1453,8 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
     const baseline = 712;
     const spacing = Math.min(400, 1460 / Math.max(1, n - 1));
     const startX = 960 - ((n - 1) * spacing) / 2;
+    // 依次长大：每个节点占一段叙事窗口，前一个长完才轮到下一个，观众能看出先后
+    const slot = 0.9 / Math.max(1, n);
     nodes.forEach((node, i) => {
       const size = 172 + i * 40;
       items.push({
@@ -1449,6 +1464,7 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         size,
         delay: 8 + i * 12,
         grow: true,
+        growWindow: [i * slot, (i + 1) * slot],
       });
     });
     for (let i = 0; i < n - 1; i += 1) {
@@ -1579,7 +1595,10 @@ const pointOnEdge = (edge: GraphEdge, u: number): { x: number; y: number } => {
 };
 
 /** t ∈ [0,1) 在全路径上的位置；loop=true 时首尾相接，否则到头即定住（配合透明度淡出重来） */
-const flowPoint = (flow: GraphFlow, t: number): { x: number; y: number; segment: number } => {
+const flowPoint = (
+  flow: GraphFlow,
+  t: number,
+): { x: number; y: number; segment: number; local: number } => {
   const lengths = flow.edges.map(edgeLength);
   const total = lengths.reduce((sum, v) => sum + v, 0) || 1;
   let remain = Math.max(0, Math.min(1, t)) * total;
@@ -1587,11 +1606,11 @@ const flowPoint = (flow: GraphFlow, t: number): { x: number; y: number; segment:
     if (remain <= lengths[i] || i === lengths.length - 1) {
       const u = lengths[i] > 0 ? Math.min(1, remain / lengths[i]) : 0;
       const point = pointOnEdge(flow.edges[i], u);
-      return { ...point, segment: i };
+      return { ...point, segment: i, local: u };
     }
     remain -= lengths[i];
   }
-  return { x: flow.edges[0].x1, y: flow.edges[0].y1, segment: 0 };
+  return { x: flow.edges[0].x1, y: flow.edges[0].y1, segment: 0, local: 0 };
 };
 
 /**
@@ -1599,23 +1618,33 @@ const flowPoint = (flow: GraphFlow, t: number): { x: number; y: number; segment:
  * 六种画法：能数的、会上升的、有高低的、在流动的、跟时间有关的、说不清的其他。
  * 六种都是画法而不是主题，所以任何抽象概念都能落到其中一种，不会出现空占位。
  */
-const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = ({ sign, size, accent }) => {
+const AbstractSign: React.FC<{
+  sign: string;
+  size: number;
+  accent: string;
+  /** 这一屏的叙事进度 0→1：count/rise/level/time 跟着它单调推进，讲完就停在终态 */
+  progress: number;
+}> = ({ sign, size, accent, progress }) => {
   const frame = useCurrentFrame();
   const box = { width: size * 0.74, height: size * 0.74 };
+  const at = Math.max(0, Math.min(1, progress));
 
   if (sign === "count") {
+    // 数到第几个就亮几个：已经数过的不熄灭，讲完停在满格
+    const shown = Math.round(at * 9);
     return (
       <svg viewBox="0 0 100 100" style={box}>
         {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-          const lit = (frame / 9 + i) % 9 < 1.7;
+          const lit = i < shown;
+          const newest = i === shown - 1;
           return (
             <circle
               key={i}
               cx={24 + (i % 3) * 26}
               cy={24 + Math.floor(i / 3) * 26}
-              r={lit ? 8.5 : 6}
+              r={lit ? (newest ? 9.2 : 8) : 6}
               fill={accent}
-              opacity={lit ? 0.95 : 0.22}
+              opacity={lit ? 0.95 : 0.2}
             />
           );
         })}
@@ -1624,7 +1653,7 @@ const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = (
   }
 
   if (sign === "rise") {
-    // 三股弯曲的虚线气流 + 沿气流上升的珠子：比几个散点更像"看不见的东西在往上跑"
+    // 珠子真的从底部升到顶部，升上去的留在上面不回落——这才是"水蒸气跑上去了"
     const columns = [28, 50, 72];
     return (
       <svg viewBox="0 0 100 100" style={box}>
@@ -1640,15 +1669,16 @@ const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = (
           />
         ))}
         {columns.map((x, i) => {
-          const p = ((frame / 11 + i * 17) % 54) / 54;
+          const begin = i * 0.16;
+          const local = Math.max(0, Math.min(1, (at - begin) / Math.max(0.12, 1 - begin)));
           return (
             <circle
               key={"d" + i}
-              cx={x + Math.sin(p * Math.PI * 2 + i) * 7}
-              cy={92 - p * 74}
-              r={7 - p * 2.5}
+              cx={x + Math.sin(local * Math.PI * 1.6 + i) * 6}
+              cy={92 - local * 74}
+              r={7.5 - local * 2.5}
               fill={accent}
-              opacity={Math.sin(p * Math.PI) * 0.85 + 0.1}
+              opacity={0.22 + local * 0.7}
             />
           );
         })}
@@ -1657,7 +1687,8 @@ const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = (
   }
 
   if (sign === "level") {
-    const level = 0.45 + Math.sin(frame / 24) * 0.3;
+    // 液面上升：单调往上，只用极小的呼吸量避免看起来像贴图
+    const level = 0.1 + at * 0.78 + Math.sin(frame / 40) * 0.008;
     return (
       <svg viewBox="0 0 100 100" style={box}>
         <rect x="34" y="12" width="32" height="76" rx="16" fill="none" stroke={accent} strokeWidth="5" opacity="0.35" />
@@ -1693,7 +1724,8 @@ const AbstractSign: React.FC<{ sign: string; size: number; accent: string }> = (
   }
 
   if (sign === "time") {
-    const angle = (frame / 44) * Math.PI * 2;
+    // 表针随讲解走完一圈，停下时指向终点，而不是永远匀速空转
+    const angle = at * Math.PI * 2 - Math.PI / 2;
     return (
       <svg viewBox="0 0 100 100" style={box}>
         <circle cx="50" cy="50" r="34" fill="none" stroke={accent} strokeWidth="6" opacity="0.75" />
@@ -1783,7 +1815,10 @@ const GraphBadge: React.FC<{
   iconSrc?: string;
   accent: string;
   active: boolean;
-}> = ({ item, iconSrc, accent, active }) => {
+  /** 光点已经走过这个节点：留一道细边，表示"这一步讲完了" */
+  visited?: boolean;
+  storyProgress: number;
+}> = ({ item, iconSrc, accent, active, visited, storyProgress }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({
@@ -1795,18 +1830,39 @@ const GraphBadge: React.FC<{
   const travel = item.enterFrom
     ? spring({ frame: frame - item.delay, fps, config: { damping: 26, stiffness: 62, mass: 1.1 } })
     : enter;
-  // growth 要"现场长大"：从三成大小缓慢撑到满，过程中就能看出从小到大
-  const growEase = item.grow
-    ? spring({ frame: frame - item.delay, fps, config: { damping: 200, stiffness: 52, mass: 1 } })
-    : enter;
+  // growth 要"现场长大"：尺寸由这一屏的叙事进度决定，讲到它才撑起来，讲过了保持满格。
+  // 用 smoothstep 而不是 spring，是因为 spring 会在入场时一冲就没，与讲解位置脱钩。
+  const growLocal = item.growWindow
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          (storyProgress - item.growWindow[0]) / Math.max(0.001, item.growWindow[1] - item.growWindow[0]),
+        ),
+      )
+    : 0;
+  const growEase = growLocal * growLocal * (3 - 2 * growLocal);
+  // 体量变化（云越积越厚、冰块化掉）：幅度固定 28%，够看出变化又不会挤到邻居。
+  // growth 关系已经有逐节点长大，不再叠一层，否则同一张卡片会长两次。
+  const swellK = !item.grow
+    ? item.node.swell === "grow"
+      ? 1 + 0.28 * storyProgress
+      : item.node.swell === "shrink"
+        ? 1 - 0.28 * storyProgress
+        : 1
+    : 1;
   const pulse = active ? 1 + Math.sin(frame / 7) * 0.045 : 1;
-  const scale = (item.grow ? 0.3 + growEase * 0.7 : 0.55 + enter * 0.45) * pulse;
+  const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * pulse * swellK;
   const dx = item.enterFrom ? (item.enterFrom.x - item.x) * (1 - travel) : 0;
   const dy = item.enterFrom ? (item.enterFrom.y - item.y) * (1 - travel) : 0;
   const role = item.node.role;
   const radius = role === "subject" || role === "abstract" ? "50%" : 34;
   // 抽象节点靠内部符号表达"看不见"，卡框就和其他节点统一成实线，两种虚线叠在一起太乱
-  const border = active ? "4px solid " + accent : "3px solid rgba(255,255,255,0.9)";
+  const border = active
+    ? "4px solid " + accent
+    : visited
+      ? "3px solid " + accent
+      : "3px solid rgba(255,255,255,0.9)";
   const size = item.size;
   // 没图标时用标签文字顶上：两个字才能看出是什么，一个字会被误读（「水果」变「水」）
   const glyph = item.node.label.slice(0, 2);
@@ -1823,11 +1879,21 @@ const GraphBadge: React.FC<{
         flexDirection: "column",
         alignItems: "center",
         opacity: enter,
-        transform: "translate(" + dx + "px, " + dy + "px) scale(" + scale + ")",
-        transformOrigin: "center top",
+        // 位移留在外层，缩放只作用在图形盒上：标签不跟着缩放，
+        // 否则小尺寸时「幼苗」缩到 13px 根本看不清
+        transform: "translate(" + dx + "px, " + dy + "px)",
       }}
     >
-      <div style={{ position: "relative", width: size, height: size }}>
+      <div
+        style={{
+          position: "relative",
+          width: size,
+          height: size,
+          transform: "scale(" + scale + ")",
+          // 以底边为锚：长大的时候是"往上顶"，底部始终踩在地面线上
+          transformOrigin: "center bottom",
+        }}
+      >
         {active ? (
           <div
             style={{
@@ -1862,7 +1928,12 @@ const GraphBadge: React.FC<{
               style={{ width: size * 0.84, height: size * 0.84, objectFit: "contain" }}
             />
           ) : role === "abstract" ? (
-            <AbstractSign sign={item.node.sign || "orb"} size={size} accent={accent} />
+            <AbstractSign
+              sign={item.node.sign || "orb"}
+              size={size}
+              accent={accent}
+              progress={storyProgress}
+            />
           ) : (
             <div
               style={{
@@ -1909,29 +1980,53 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   const layout = layoutGraph(graph);
   const count = Math.max(1, graph.nodes.length);
   const warmup = 18;
+  /**
+   * 这一屏的叙事进度 0→1：扣掉入场和收尾，中间的才是"讲解"发生的时间。
+   * 它单调推进、不回头、有终态，所以符号和尺寸能跟着讲解走完，
+   * 而不是播完入场动画就停在原地空转。
+   */
+  const storyStart = warmup;
+  const storyEnd = Math.max(storyStart + 40, duration - 28);
+  const storyProgress = Math.max(0, Math.min(1, (frame - storyStart) / (storyEnd - storyStart)));
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
   const tokens = layout.flows.map((flow) => {
-    const raw = (frame - warmup - (flow.phase || 0) * FLOW_PERIOD) / FLOW_PERIOD;
-    const t = ((raw % 1) + 1) % 1;
+    if (flow.loop) {
+      // 循环关系（水循环）本来就无止境，按固定周期一直转是对的
+      const raw = (frame - warmup) / FLOW_PERIOD;
+      const t = ((raw % 1) + 1) % 1;
+      return { flow, t, alpha: 0.95, point: flowPoint(flow, t) };
+    }
+    // 单程关系（链式/生长）把整屏时长当作一次完整走程：讲解到哪儿，光点就在哪儿。
+    // 用固定周期会算错——3 段 × 84 帧只有 252 帧的六成，光点早早停在终点等画面演完。
+    const t = storyProgress;
     return {
       flow,
       t,
-      // 非闭环的路径两头淡出，避免光点"瞬移"回起点
-      alpha: flow.loop ? 0.95 : Math.min(1, Math.sin(t * Math.PI) * 1.9),
+      alpha: t < 0.94 ? 1 : Math.max(0, (1 - t) / 0.06),
       point: flowPoint(flow, t),
     };
   });
   const activeIds = new Set<string>();
+  const visitedIds = new Set<string>();
   if (frame >= warmup) {
     tokens.forEach((token) => {
-      const target = token.flow.target[Math.min(token.flow.target.length - 1, token.point.segment)];
+      const seg = Math.max(0, Math.min(token.flow.target.length - 1, token.point.segment));
+      // 走到一段的一半才把高亮交给下一个节点。不这么做的话，光点刚离开 A 就把 B 点亮，
+      // 看起来像"还没讲到就抢先发光"
+      const fromId = seg === 0 ? graph.nodes[0].id : token.flow.target[seg - 1];
+      const toId = token.flow.target[seg];
+      const target = token.point.local >= 0.5 ? toId : fromId;
       if (target) activeIds.add(target);
+      // 走过的节点留一道细边：画面能累积出"已经讲到第几步"
+      if (!token.flow.loop) {
+        token.flow.target.slice(0, seg).forEach((id) => visitedIds.add(id));
+      }
     });
   }
   // 没有路径的关系（compare）靠左右轮流点亮来做对照
-  if (activeIds.size === 0) {
+  if (layout.flows.length === 0) {
     const half = Math.max(30, (duration - warmup) / 2);
     const index = frame < warmup ? 0 : Math.floor((frame - warmup) / half) % count;
     activeIds.add(graph.nodes[Math.min(count - 1, index)].id);
@@ -1995,6 +2090,8 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           iconSrc={icons[item.node.id]}
           accent={scene.accentColor}
           active={activeIds.has(item.node.id)}
+          visited={visitedIds.has(item.node.id)}
+          storyProgress={storyProgress}
         />
       ))}
       {graph.caption ? (

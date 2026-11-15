@@ -11,6 +11,7 @@
 import {
   GRAPH_RELATIONS,
   GRAPH_SIGNS,
+  GRAPH_SWELLS,
   describeGraphGrammar,
   inferRelationFromText,
   normalizeSceneGraph,
@@ -103,6 +104,24 @@ describe('normalizeSceneGraph', () => {
     expect(graph!.nodes[3].sign).toBe('orb');
   });
 
+  it('体量变化只认 grow/shrink 与中文同义词，其他值丢弃', () => {
+    const graph = normalizeSceneGraph({
+      relation: 'cycle',
+      nodes: [
+        node('n1', '太阳'),
+        node('n2', '白云', { swell: 'grow' }),
+        node('n3', '冰块', { swell: '变小' }),
+        node('n4', '雨滴', { swell: 'huge' }),
+      ],
+    });
+
+    expect(graph!.nodes[0].swell).toBeUndefined();
+    expect(graph!.nodes[1].swell).toBe('grow');
+    expect(graph!.nodes[2].swell).toBe('shrink');
+    // 认不出的值不能原样带进渲染器，否则体量会按 NaN 缩放
+    expect(graph!.nodes[3].swell).toBeUndefined();
+  });
+
   it('caption 与 label 做长度收敛，超长文本不会撑破版式', () => {
     const graph = normalizeSceneGraph({
       relation: 'chain',
@@ -124,6 +143,9 @@ describe('describeGraphGrammar', () => {
     }
     for (const sign of GRAPH_SIGNS) {
       expect(grammar).toContain(sign);
+    }
+    for (const swell of GRAPH_SWELLS) {
+      expect(grammar).toContain(swell);
     }
   });
 

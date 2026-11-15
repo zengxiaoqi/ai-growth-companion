@@ -37,6 +37,15 @@ export const GRAPH_SIGNS = ['count', 'rise', 'level', 'flow', 'time', 'orb'] as 
 
 export type GraphSign = (typeof GRAPH_SIGNS)[number];
 
+/**
+ * 体量变化。有些概念不变，有些会"变得更多/更大"（云越积越厚、气球越吹越大），
+ * 有些会"变得少/小"（冰化掉、糖溶掉）。刻意只留这三个取值：
+ * 一旦允许自由填数值，LLM 就会给出 0.37 这类任意数字，画面随即失控。
+ */
+export const GRAPH_SWELLS = ['grow', 'shrink'] as const;
+
+export type GraphSwell = (typeof GRAPH_SWELLS)[number];
+
 export type GraphNode = {
   id: string;
   label: string;
@@ -45,6 +54,8 @@ export type GraphNode = {
   role: GraphNodeRole;
   /** 仅 abstract 节点有意义：用哪种示意符号代替实物图标 */
   sign?: GraphSign;
+  /** 随讲解推进变大/变小；不填则体量不变 */
+  swell?: GraphSwell;
 };
 
 export type SceneGraph = {
@@ -56,6 +67,7 @@ export type SceneGraph = {
 const ROLE_SET = new Set<string>(GRAPH_NODE_ROLES);
 const RELATION_SET = new Set<string>(GRAPH_RELATIONS);
 const SIGN_SET = new Set<string>(GRAPH_SIGNS);
+const SWELL_SET = new Set<string>(GRAPH_SWELLS);
 
 /** 每类关系的最少/最多节点数，渲染布局按这个区间设计，超出会导致重叠 */
 const NODE_BOUNDS: Record<GraphRelationType, { min: number; max: number }> = {
@@ -86,6 +98,14 @@ function normalizeSign(input: unknown, role: GraphNodeRole): GraphSign | undefin
   if (SIGN_SET.has(value)) return value as GraphSign;
   // 抽象节点没给符号时给一个中性符号，而不是留白
   return 'orb';
+}
+
+function normalizeSwell(input: unknown): GraphSwell | undefined {
+  const value = cleanText(input).toLowerCase();
+  // 中文直填也认，省得 LLM 把 "变大" 原样塞进来后被静默丢掉
+  if (value === '变大' || value === '增大') return 'grow';
+  if (value === '变小' || value === '减少') return 'shrink';
+  return SWELL_SET.has(value) ? (value as GraphSwell) : undefined;
 }
 
 /**
@@ -124,7 +144,8 @@ export function normalizeSceneGraph(raw: unknown): SceneGraph | null {
       cleanText(entry.label || entry.name || subject).slice(0, 8) || subject.slice(0, 8);
     const role = normalizeRole(entry.role);
     const sign = normalizeSign(entry.sign || entry.symbol, role);
-    nodes.push({ id, label, subject, role, ...(sign ? { sign } : {}) });
+    const swell = normalizeSwell(entry.swell);
+    nodes.push({ id, label, subject, role, ...(sign ? { sign } : {}), ...(swell ? { swell } : {}) });
     if (nodes.length >= bounds.max) break;
   }
 
@@ -151,9 +172,10 @@ export function describeGraphGrammar(): string {
     '- group：分类归组，3-6 个节点，第一个是类别名，其余是被归入的成员。用于"哪些是水果"、动物分类。',
     '- split：整体拆成部分，3-5 个节点，第一个是整体，其余是部件。用于人体、植物结构、形状构成。',
     'nodes 规则：',
-    '- 每个节点 { "id": "n1", "label": "屏幕上显示的字(≤6字)", "subject": "用于检索图标的具体名词", "role": "subject|object|place|abstract" }',
+    '- 每个节点 { "id": "n1", "label": "屏幕上显示的字(≤6字)", "subject": "用于检索图标的具体名词", "role": "subject|object|place|abstract", "swell": "grow|shrink(可选)" }',
     '- subject 必须具体到能检索到图：写「小水滴」而不是「东西」，写「苹果」而不是「食物」。',
     '- role：subject=角色/动物/人，object=具体物品，place=场所环境，abstract=抽象概念(时间/力气/数量/温度)。',
+    '- swell 只在"这个概念的体量会随讲解变化"时才填：云越积越厚=grow，气球越吹越大=grow，冰块化掉=shrink。保持不变就不填。',
     '- abstract 节点必须给 sign，说明这个看不见的东西该画成什么样（六选一）：',
     '  count=能数出来的(3个/5片) rise=会往上跑的(水蒸气/热气/力气变大) level=有高低的(温度/水位/饱腹)',
     '  flow=在流动的(风/电流/水流) time=跟时间有关(快慢/多久) orb=说不清的其他概念',

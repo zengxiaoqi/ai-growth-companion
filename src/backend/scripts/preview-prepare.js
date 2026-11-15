@@ -47,7 +47,7 @@ const scenes = [
       nodes: [
         { id: 'n1', label: '太阳', subject: '太阳', role: 'place' },
         { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract', sign: 'rise' },
-        { id: 'n3', label: '白云', subject: '白云', role: 'object' },
+        { id: 'n3', label: '白云', subject: '白云', role: 'object', swell: 'grow' },
         { id: 'n4', label: '雨滴', subject: '雨', role: 'object' },
       ],
     },

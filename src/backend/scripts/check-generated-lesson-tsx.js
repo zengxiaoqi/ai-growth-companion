@@ -71,6 +71,11 @@ const mustHave = [
   'const FLOW_PERIOD',
   'item.enterFrom',
   'const activeIds',
+  // 状态插值：这一屏讲到哪儿，画面就跟到哪儿。少了这几项就退回"排好版就静止"
+  'const storyProgress',
+  'growWindow',
+  'swellK',
+  'local >= 0.5',
 ];
 
 // 每种关系都必须有布局分支，否则 LLM 选到未实现的关系会渲染成空画面

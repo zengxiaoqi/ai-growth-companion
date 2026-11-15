@@ -88,6 +88,11 @@ const mustHave = [
   'const SceneBackground',
   'style === "neutral"',
   'backgroundStyle === "environment" ? <GroundShadow',
+  // 整圈弧必须走 <circle>：0→360 的 path 起点终点重合，A 命令退化成点，
+  // 实测太阳系的轨道整条消失。删掉这个分支 = 太阳系又变回空白
+  '>= 355',
+  // 标签白描边：标签压到图形上也读得出
+  'paintOrder="stroke"',
 ];
 
 // 六种图元都必须有渲染分支，否则 LLM 交来的图元会被静默画不出来（画面缺一块）

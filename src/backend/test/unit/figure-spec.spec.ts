@@ -1,6 +1,8 @@
 import {
   FIGURE_HEIGHT,
   FIGURE_WIDTH,
+  MIN_RADIUS,
+  MIN_STROKE,
   describeFigureGrammar,
   normalizeFigureSpec,
   shapeBounds,
@@ -73,6 +75,23 @@ describe('normalizeFigureSpec', () => {
       expect(rect.w).toBe(FIGURE_WIDTH - 200);
       expect(rect.h).toBe(FIGURE_HEIGHT - 100);
     }
+  });
+
+  it('线宽和圆半径有可读性下限：模型给的 hairline 会被抬起来', () => {
+    // 实测太阳系：轨道 width=2、行星 r=7~15，在 1600 宽画布里缩到成片几乎不可见
+    const result = normalizeFigureSpec({
+      shapes: [
+        { kind: 'line', x1: 100, y1: 100, x2: 1500, y2: 500, stroke: '#5A6B7B', width: 2, reveal: 0 },
+        { kind: 'circle', cx: 800, cy: 320, r: 7, fill: '#94A3B8', reveal: 1 },
+        { kind: 'circle', cx: 900, cy: 360, r: 150, fill: '#3E63DD', reveal: 2 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const line = result.spec.shapes[0];
+    expect(line.kind === 'line' && line.width).toBe(MIN_STROKE);
+    const dot = result.spec.shapes[1];
+    expect(dot.kind === 'circle' && dot.r).toBe(MIN_RADIUS);
   });
 
   it('弧的圆心允许落在画布外——彩虹本来就要把圆心压到底边之下', () => {
@@ -176,6 +195,42 @@ describe('normalizeFigureSpec', () => {
     expect(['coverage', 'off-center', 'no-main-shape']).toContain(rejectReason(result));
   });
 
+  it('同心圆这种"只有最外圈够长"的图仍然通过（地球分层）', () => {
+    // 原来的"至少两个图元各自贯穿 60% 高度"会把这份正确的图判死
+    const result = normalizeFigureSpec({
+      shapes: [
+        { kind: 'circle', cx: 800, cy: 320, r: 260, fill: '#8B5E3C', reveal: 0 },
+        { kind: 'circle', cx: 800, cy: 320, r: 175, fill: '#E07A3F', reveal: 1 },
+        { kind: 'circle', cx: 800, cy: 320, r: 95, fill: '#F2C14E', reveal: 2 },
+      ],
+      labels: [{ text: '地壳', x: 250, y: 300 }],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('一条贯穿画面的色带 + 两个小图标不算图：背景条不算内容', () => {
+    // 实测「认识小兔子」就是这个形状：1160×95 的草地色带撑满包围盒，兔子只是几个圆
+    const result = normalizeFigureSpec({
+      shapes: [
+        { kind: 'rect', x: 0, y: 300, w: 1600, h: 90, rx: 0, fill: '#8B9AA8', reveal: 0 },
+        { kind: 'circle', cx: 600, cy: 250, r: 35, fill: '#3E63DD', reveal: 1 },
+        { kind: 'circle', cx: 900, cy: 250, r: 35, fill: '#3E63DD', reveal: 2 },
+      ],
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'no-main-shape' });
+  });
+
+  it('背景条之上有真正的主体时通过（月相排一行的形态）', () => {
+    const result = normalizeFigureSpec({
+      shapes: [
+        { kind: 'rect', x: 0, y: 470, w: 1600, h: 100, rx: 0, fill: '#8B9AA8', reveal: 0 },
+        { kind: 'circle', cx: 500, cy: 300, r: 100, fill: '#F2C14E', reveal: 1 },
+        { kind: 'circle', cx: 1000, cy: 300, r: 100, fill: '#F2C14E', reveal: 2 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it('图形全部挤在左半边时拒绝：偏离中心', () => {
     const result = normalizeFigureSpec({
       shapes: [
@@ -186,7 +241,8 @@ describe('normalizeFigureSpec', () => {
     expect(result).toMatchObject({ ok: false, reason: 'off-center' });
   });
 
-  it('弧半径小到看不见时拒绝', () => {
+  it('看不见的小弧被单独丢掉，不废整张图', () => {
+    // 真实案例：太阳系的土星环是一条 r=18 的小弧，原来会把整份 8 条轨道的图判死
     const result = normalizeFigureSpec({
       shapes: [
         { kind: 'rect', x: 200, y: 120, w: 1200, h: 400, rx: 10, fill: '#8B9AA8', reveal: 0 },
@@ -194,7 +250,20 @@ describe('normalizeFigureSpec', () => {
         { kind: 'arc', cx: 900, cy: 320, r: 12, from: 0, to: 180, stroke: '#E5484D', width: 6, reveal: 1 },
       ],
     });
-    expect(result).toMatchObject({ ok: false, reason: 'tiny-arc' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.spec.shapes.some((s) => s.kind === 'arc')).toBe(false);
+      expect(result.spec.shapes).toHaveLength(2);
+    }
+  });
+
+  it('整张图只有看不见的小弧时仍然拒绝', () => {
+    const result = normalizeFigureSpec({
+      shapes: [
+        { kind: 'arc', cx: 900, cy: 320, r: 12, from: 0, to: 180, stroke: '#E5484D', width: 6, reveal: 0 },
+      ],
+    });
+    expect(result).toMatchObject({ ok: false, reason: 'empty' });
   });
 
   it('标签整个压在实心图形上时拒绝', () => {

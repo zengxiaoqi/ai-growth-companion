@@ -2221,6 +2221,23 @@ const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyp
 
   if (glyph.kind === "arc") {
     const len = glyph.r * Math.abs(glyph.to - glyph.from) * (Math.PI / 180);
+    // 整圈弧（0→360）用 path 画不出来：起点终点重合，A 命令退化成一个点。
+    // 实测太阳系的 8 条轨道只剩几段虚线，整张图像"什么都没画"。
+    // 整圈一律走 <circle>。
+    if (Math.abs(glyph.to - glyph.from) >= 355) {
+      return (
+        <circle
+          cx={glyph.cx}
+          cy={glyph.cy}
+          r={glyph.r}
+          fill="none"
+          stroke={glyph.stroke}
+          strokeWidth={glyph.width}
+          strokeDasharray={len}
+          strokeDashoffset={len * (1 - p)}
+        />
+      );
+    }
     return (
       <path
         d={figureArcPath(glyph)}
@@ -2344,6 +2361,12 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
             fontSize={34}
             fontWeight={900}
             fill={label.color || accent}
+            // 白色描边垫底：实测"太阳"这种两字标签会正好落在太阳圆面上，
+            // 颜色关系和图形撞在一起就读不出来。文字的可读性由模板兜住，不指望模型摆准。
+            stroke="#FFFFFF"
+            strokeWidth={9}
+            strokeLinejoin="round"
+            paintOrder="stroke"
             opacity={labelProgress}
           >
             {label.text}

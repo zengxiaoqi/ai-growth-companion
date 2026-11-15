@@ -46,6 +46,11 @@ export const MAX_LABEL_CHARS = 6;
 export const MAX_COLORS = 12;
 /** 完全相同的图元最多几个——防止 LLM 循环刷同一条线充数 */
 export const MAX_IDENTICAL = 3;
+/** 弧半径下限。小于画布高的 6% 肉眼看不见，装配阶段直接丢掉，不废整张图 */
+export const MIN_ARC_R = FIGURE_HEIGHT * 0.06;
+/** 可读性下限：线宽 / 圆半径。这两项不是模型该操心的事，是成片能不能看清的问题 */
+export const MIN_STROKE = 6;
+export const MIN_RADIUS = 12;
 
 export type FigureShape =
   | {
@@ -159,7 +164,9 @@ function normalizeShape(
   const reveal = toNum(entry.reveal, 0, 0, 1);
   const stroke = toColor(entry.stroke || entry.color, accent);
   const fill = toColor(entry.fill || entry.color, accent);
-  const width = toNum(entry.width || entry.strokeWidth, 4, 1, 60);
+  // 实测模型爱给 width=2 的细线（太阳系的轨道），在 1600 宽画布里缩到成片是 1~1.5px，
+  // 肉眼几乎看不见。线宽是可读性问题，不该由模型决定，这里抬到下限。
+  const width = toNum(entry.width || entry.strokeWidth, 8, MIN_STROKE, 60);
 
   if (kind === 'arc') {
     const from = toNum(entry.from, 0, -720, 720);
@@ -214,7 +221,8 @@ function normalizeShape(
         kind: 'circle',
         cx: inX(entry.cx, FIGURE_WIDTH / 2),
         cy: inY(entry.cy, FIGURE_HEIGHT / 2),
-        r: toNum(entry.r, 60, 2, FIGURE_WIDTH),
+        // 同理：行星那种 r=7 的小圆在成片里就是几粒灰，抬到 r=12 才看得见
+        r: toNum(entry.r, 60, MIN_RADIUS, FIGURE_WIDTH),
         fill,
       },
       reveal,
@@ -392,18 +400,30 @@ function checkGeometry(spec: FigureSpec): FigureRejectReason | null {
   if (Math.abs(cx - FIGURE_WIDTH / 2) > FIGURE_WIDTH * 0.22) return 'off-center';
   if (Math.abs(cy - FIGURE_HEIGHT / 2) > FIGURE_HEIGHT * 0.3) return 'off-center';
 
-  // 弧太小等于没画出弧
-  const minArc = FIGURE_HEIGHT * 0.06;
-  if (spec.shapes.some((s) => s.kind === 'arc' && s.r < minArc)) return 'tiny-arc';
+  // 弧太小等于没画出弧。但**不能因为一条小弧废掉整张图**：
+  // 实测 20 条主题里，"太阳系"那份 8 条轨道 + 太阳 + 行星的稿子，
+  // 就因为土星环被画成 r=18 的小弧而整体被拒——一条装饰性小弧不该毁掉一张正确的图。
+  // 所以小弧在装配阶段就丢掉（见 normalizeFigureSpec），这里只兜底。
+  if (spec.shapes.every((s) => s.kind === 'arc' && s.r < MIN_ARC_R)) return 'tiny-arc';
 
-  // 主线图元：至少要两条"贯穿画面"的元素，否则是一堆小点凑数。
-  // 按最长边而不是按面积判断——光路图、坐标图、结构图的主体全是一条条线，
-  // 线的包围盒面积恒为 0，按面积算会把合法的透镜成像图判成废稿。
-  const mainLength = Math.min(FIGURE_WIDTH, FIGURE_HEIGHT) * 0.6;
-  const mainShapes = boundsList.filter(
-    (b) => Math.max(b.x2 - b.x1, b.y2 - b.y1) >= mainLength,
-  );
-  if (mainShapes.length < 2) return 'no-main-shape';
+  // 主体判定：**去掉背景条之后，内容本身还得是一张图**。
+  // 原规则要求"至少两个图元各自贯穿 60% 高度"，实测把三类正确的图判死：
+  // 同心圆（地球分层 r=260/175/95，只有最外圈够长）、排成一行的小图元
+  // （月亮圆缺、数字 1-5）、短线段拼出来的图形（木棒搭三角形）。
+  // 但也不能只看整体包围盒——"一条贯穿画面的草地色带 + 几个小图标"整体包围盒
+  // 很满，内容却还是小图标，正是要淘汰的旧观感。
+  // 所以先剔掉横贯画面的背景条（rect 宽 ≥ 60% 画布宽），再看剩下的内容边界。
+  const contentBounds =
+    unionBounds(
+      spec.shapes
+        .map((shape) => ({ shape, box: shapeBounds(shape) }))
+        .filter(({ shape, box }) => !(shape.kind === 'rect' && box.x2 - box.x1 >= FIGURE_WIDTH * 0.6))
+        .map(({ box }) => box),
+    ) ?? whole;
+  const cbw = contentBounds.x2 - contentBounds.x1;
+  const cbh = contentBounds.y2 - contentBounds.y1;
+  if (Math.max(cbw, cbh) < FIGURE_HEIGHT * 0.55) return 'no-main-shape';
+  if (Math.min(cbw, cbh) < FIGURE_HEIGHT * 0.12) return 'no-main-shape';
 
   // 标签压在实心图形上读不出来。线条类不比，包围盒判断线条太粗会大量误伤
   const solid = spec.shapes
@@ -442,6 +462,8 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
     if (shapes.length >= MAX_SHAPES) break;
     const normalized = normalizeShape(item, accent);
     if (!normalized) continue;
+    // 看不见的小弧（土星环、装饰性的小弧线）单独丢掉，别让它废掉整份 spec
+    if (normalized.shape.kind === 'arc' && normalized.shape.r < MIN_ARC_R) continue;
     // 完全相同的图元叠着画没有意义，只可能是模型在刷数量
     const key = JSON.stringify(normalized.shape);
     const count = seen.get(key) || 0;

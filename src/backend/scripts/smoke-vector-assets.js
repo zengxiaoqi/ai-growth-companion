@@ -32,4 +32,56 @@ const CASES = [
       ].join(' '),
     );
   }
+
+  // ---- 视觉关系图：脏输入必须被挡在渲染器之外 ----
+  const { normalizeSceneGraph } = require('../dist/modules/learning/video/scene-graph');
+
+  const GRAPH_CASES = [
+    {
+      name: '合法 cycle + 重复 id + 缺 subject',
+      raw: {
+        relation: 'cycle',
+        nodes: [
+          { id: 'a', label: '太阳', subject: '太阳' },
+          { id: 'a', label: '云', subject: '白云' },
+          { label: '雨', subject: '雨' },
+          { label: '空', subject: '' },
+        ],
+      },
+    },
+    { name: '非法 relation', raw: { relation: 'timeline', nodes: [{ subject: 'a' }, { subject: 'b' }] } },
+    {
+      name: 'compare 超过 2 个节点（应截断）',
+      raw: { relation: 'compare', nodes: [{ subject: '石头' }, { subject: '皮球' }, { subject: '木块' }] },
+    },
+    { name: 'group 只有 2 个节点（不足下限）', raw: { relation: 'group', nodes: [{ subject: '水果' }, { subject: '苹果' }] } },
+    { name: '全部节点为空', raw: { relation: 'chain', nodes: [{}, { subject: '' }] } },
+    { name: '缺 relation', raw: { nodes: [{ subject: 'a' }, { subject: 'b' }] } },
+  ];
+
+  for (const item of GRAPH_CASES) {
+    const graph = normalizeSceneGraph(item.raw);
+    console.log(
+      'graph '.padEnd(8) +
+        item.name.padEnd(34) +
+        '→ ' +
+        (graph
+          ? 'relation=' + graph.relation + ' nodes=' + graph.nodes.map((n) => n.id + ':' + n.label).join(',')
+          : 'null(已拒绝)'),
+    );
+  }
+
+  const water = normalizeSceneGraph({
+    relation: 'cycle',
+    caption: '水转一圈又回来了',
+    nodes: [
+      { id: 'n1', label: '太阳', subject: '太阳', role: 'place' },
+      { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract' },
+      { id: 'n3', label: '白云', subject: '白云', role: 'object' },
+      { id: 'n4', label: '雨滴', subject: '雨', role: 'object' },
+    ],
+  });
+  const icons = await service.resolveGraphIcons(water, '水去哪里了');
+  console.log('graph_icons ' + JSON.stringify(icons));
+  console.log('graph_icon_hit=' + Object.keys(icons).length + '/' + water.nodes.length);
 })();

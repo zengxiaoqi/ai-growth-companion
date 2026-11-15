@@ -17,6 +17,7 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
+import { describeGraphGrammar } from '../../../modules/learning/video/scene-graph';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -44,6 +45,8 @@ export type StoryboardScene = {
     id: string;
     params: Record<string, any>;
   };
+  /** 未校验的视觉关系图，由 learning 层的 normalizeSceneGraph 收敛后使用 */
+  sceneGraph?: Record<string, unknown>;
 };
 
 export type VideoStoryboard = {
@@ -206,6 +209,18 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "animationTemplate": {
         "id": "string (模板ID，从下方列表选择)",
         "params": { "key": "value" }
+      },
+      "sceneGraph": {
+        "relation": "cycle | chain | growth | compare | group | split",
+        "caption": "string (可选，一句关系说明，≤10字)",
+        "nodes": [
+          {
+            "id": "n1",
+            "label": "string (画面标签，≤6字)",
+            "subject": "string (可检索到图标的具体名词，如 '小水滴' '苹果')",
+            "role": "subject | object | place | abstract"
+          }
+        ]
       }
     }
   ]
@@ -234,6 +249,14 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       '- Every scene MUST have an animationTemplate with a valid id from the list below.',
       "- Choose the MOST appropriate template for each scene's content.",
       '- Fill in ALL required parameters for the chosen template.',
+      '',
+      '## sceneGraph (MANDATORY per scene):',
+      '- Every scene MUST also carry a sceneGraph. It is what the renderer actually draws;',
+      '  animationTemplate only picks the motion flavour. A scene without sceneGraph falls back',
+      '  to a single generic card and looks like a slide, which is the failure mode we are removing.',
+      '- Nodes are concepts, relation is how they connect. Do NOT invent relation types.',
+      '',
+      describeGraphGrammar(),
       '',
       style ? `## Visual Style: ${style}` : '',
       narration ? `## Additional Context: ${narration}` : '',
@@ -308,6 +331,9 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
           ? 'intro'
           : 'core-concept',
       ...(animationTemplate ? { animationTemplate } : {}),
+      ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
+        ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
+        : {}),
     };
   }
 

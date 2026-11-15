@@ -58,8 +58,26 @@ const mustHave = [
   'stageScale * breath * 1.4',
   'assetProvider === "vector"',
   'built-in template is authoritative',
+  'const SceneGraphStage',
+  'const layoutGraph',
+  'const GraphConnector',
+  'relation === "cycle"',
+  'relation === "compare"',
+  'relation === "group" || graph.relation === "split"',
+  'const hasGraph',
+  'normalizeSceneGraph',
 ];
+
+// 每种关系都必须有布局分支，否则 LLM 选到未实现的关系会渲染成空画面
+const graphRelations = ['cycle', 'chain', 'growth', 'compare', 'group', 'split'];
+const missingRelations = graphRelations.filter(
+  (relation) => !template.includes(`graph.relation === "${relation}"`) &&
+    !(relation === 'chain' && template.includes('// chain：横向依次推进')),
+);
 const missing = mustHave.filter((token) => !template.includes(token) && !source.includes(token));
 console.log('missing_tokens=' + (missing.length ? missing.join(',') : 'none'));
+console.log('missing_relations=' + (missingRelations.length ? missingRelations.join(',') : 'none'));
 
-process.exit(diagnostics.length === 0 && missing.length === 0 ? 0 : 1);
+process.exit(
+  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 ? 0 : 1,
+);

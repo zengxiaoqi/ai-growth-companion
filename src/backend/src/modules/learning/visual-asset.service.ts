@@ -7,6 +7,7 @@ import {
   ANIMAL_SUBJECTS,
   inferAnimalFromText,
 } from './animal-subjects.config';
+import type { SceneGraph } from './video/scene-graph';
 
 export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
@@ -63,6 +64,12 @@ type AssetRequest = {
   minHeight: number;
   /** 用于在素材库里做语义检索的原始文本（中文主题句），不参与网络查询 */
   searchText?: string;
+  /**
+   * exact=true：query 本身就是一个具体名词（关系图节点），要求别名精确命中。
+   * 关闭单字别名过滤，否则「雨」「云」「火」这类单字概念永远检索不到；
+   * 同时禁止长别名做子串匹配，避免「水蒸气」被匹配成「水」。
+   */
+  exact?: boolean;
 };
 
 type VectorManifestAsset = {
@@ -103,6 +110,11 @@ export class VisualAssetService {
   );
   private readonly generatedAssetDir = path.join(this.publicDir, '.generated', 'assets');
   private readonly vectorManifestPath = path.join(this.publicDir, 'assets', 'vector', 'manifest.json');
+  private readonly assetMissLogPath = path.resolve(
+    __dirname,
+    '../../../storage',
+    'asset-misses.jsonl',
+  );
   private localManifestCache: LocalManifest | null | undefined;
   private vectorManifestCache: VectorManifest | null | undefined;
 
@@ -318,11 +330,57 @@ export class VisualAssetService {
    * 打分用别名长度加权，长别名更具体，因此「大老虎」会赢过「老虎」。
    * 匹配不到返回 null，由调用方决定回落策略，不做「最相近」的强行兜底。
    */
+  /**
+   * 给关系图的每个节点找图标。找不到不是错误——渲染器会用占位形状顶上，
+   * 画面结构（关系、箭头、标签）依然成立，只是图标退化成首字。
+   * 但每次 miss 都记一笔，这是素材库该往哪儿扩的唯一依据。
+   */
+  async resolveGraphIcons(graph: SceneGraph, topic: string): Promise<Record<string, string>> {
+    const icons: Record<string, string> = {};
+    await Promise.all(
+      graph.nodes.map(async (node) => {
+        const base: AssetRequest = {
+          kind: 'character',
+          role: 'graph-node',
+          query: node.subject,
+          tags: [node.subject],
+          minWidth: 0,
+          minHeight: 0,
+          searchText: node.subject,
+          exact: true,
+        };
+        const hit =
+          (await this.resolveVectorAsset(base)) ||
+          (await this.resolveVectorAsset({ ...base, kind: 'overlay' }));
+        if (hit) {
+          icons[node.id] = hit.staticPath;
+          return;
+        }
+        await this.recordAssetMiss(node.subject, topic);
+      }),
+    );
+    return icons;
+  }
+
+  private async recordAssetMiss(subject: string, topic: string): Promise<void> {
+    const line = `${JSON.stringify({ at: new Date().toISOString(), subject, topic })}\n`;
+    try {
+      await fs.mkdir(path.dirname(this.assetMissLogPath), { recursive: true });
+      await fs.appendFile(this.assetMissLogPath, line, 'utf-8');
+    } catch (error: any) {
+      // 缺失记录是运营信号，不是出片依赖，写不进去不能拖垮渲染
+      this.logger.debug(`[recordAssetMiss] failed to append: ${error?.message || 'unknown'}`);
+    }
+  }
+
   private async resolveVectorAsset(request: AssetRequest): Promise<VisualAsset | null> {
     const manifest = await this.loadVectorManifest();
     const assets = (manifest?.assets || []).filter((asset) => asset.kind === request.kind);
     if (assets.length === 0) return null;
 
+    const query = String(request.query || '')
+      .toLowerCase()
+      .trim();
     const haystack = [request.searchText || '', request.query, ...request.tags]
       .join(' ')
       .toLowerCase();
@@ -338,8 +396,13 @@ export class VisualAssetService {
       let hitAlias = '';
       for (const alias of aliases) {
         const needle = String(alias).toLowerCase().trim();
-        if (needle.length < 2) continue;
-        if (!haystack.includes(needle)) continue;
+        if (!needle) continue;
+        const exactHit = request.exact && query === needle;
+        if (!exactHit) {
+          // 单字别名只在完全相等时才算命中：否则「水蒸气」会被判成「水」
+          if (needle.length < 2) continue;
+          if (!haystack.includes(needle)) continue;
+        }
         const weighted = needle.length;
         if (weighted > score) {
           score = weighted;
@@ -388,7 +451,8 @@ export class VisualAssetService {
     }
   }
 
-  private async loadLocalManifest(): Promise<LocalManifest | null> {    if (this.localManifestCache !== undefined) return this.localManifestCache;
+  private async loadLocalManifest(): Promise<LocalManifest | null> {
+    if (this.localManifestCache !== undefined) return this.localManifestCache;
     try {
       const raw = await fs.readFile(this.localManifestPath, 'utf-8');
       const parsed = JSON.parse(raw) as LocalManifest;

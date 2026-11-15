@@ -29,6 +29,7 @@ import {
   type VisualAsset,
   type SceneVisualAssetPlan,
 } from './visual-asset.service';
+import { normalizeSceneGraph } from './video/scene-graph';
 import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
@@ -587,6 +588,8 @@ export class VideoGenerationAgentService {
         durationSec,
         durationFrames: durationSec * 30,
         accentColor: animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
+        // 未通过校验的图直接丢弃，模板会退回单主体路径，而不是带着脏数据渲染
+        sceneGraph: normalizeSceneGraph(scene?.sceneGraph) || undefined,
       };
     });
 
@@ -597,10 +600,16 @@ export class VideoGenerationAgentService {
 
     return Promise.all(
       builtScenes.map(async (scene) => {
-        const plan = await this.visualAssetService!.resolveSceneVisualAssets(scene, topic);
+        const [plan, graphIcons] = await Promise.all([
+          this.visualAssetService!.resolveSceneVisualAssets(scene, topic),
+          scene.sceneGraph
+            ? this.visualAssetService!.resolveGraphIcons(scene.sceneGraph, topic)
+            : Promise.resolve({} as Record<string, string>),
+        ]);
         return {
           ...scene,
           visualAssets: this.toSceneVisualAssets(plan),
+          graphIcons,
         };
       }),
     );
@@ -714,6 +723,8 @@ type GeneratedScene = {
     characterProvider?: string;
     characterLicense?: string;
   };
+  sceneGraph?: { relation: string; caption?: string; nodes: GraphNodeView[] };
+  graphIcons?: Record<string, string>;
   audioSrc?: string;
 };
 
@@ -1304,6 +1315,391 @@ const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ s
   );
 };
 
+type GraphNodeView = { id: string; label: string; subject: string; role: string };
+type SceneGraphView = { relation: string; caption?: string; nodes: GraphNodeView[] };
+
+type GraphItem = { node: GraphNodeView; x: number; y: number; size: number; delay: number };
+type GraphEdge = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  mx?: number;
+  my?: number;
+  delay: number;
+};
+type GraphLayout = {
+  items: GraphItem[];
+  edges: GraphEdge[];
+  divider?: { x: number; y1: number; y2: number };
+  container?: { x: number; y: number; w: number; h: number };
+};
+
+/**
+ * 布局是纯函数：同一张图永远得到同一坐标。
+ * 关系类型决定排布拓扑，节点只提供数据——这是"任意主题都能出片"的关键，
+ * 因为新增主题不需要新增代码，只需要改数据。
+ */
+const layoutGraph = (graph: SceneGraphView): GraphLayout => {
+  const nodes = graph.nodes || [];
+  const n = nodes.length;
+  const items: GraphItem[] = [];
+  const edges: GraphEdge[] = [];
+
+  if (graph.relation === "cycle") {
+    const cx = 960;
+    const cy = 524;
+    const rx = 268;
+    const ry = 210;
+    const size = 186;
+    nodes.forEach((node, i) => {
+      const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+      items.push({
+        node,
+        x: cx + Math.cos(a) * rx,
+        y: cy + Math.sin(a) * ry,
+        size,
+        delay: 8 + i * 9,
+      });
+    });
+    for (let i = 0; i < n; i += 1) {
+      const a1 = -Math.PI / 2 + (i / n) * Math.PI * 2;
+      const a2 = -Math.PI / 2 + ((i + 1) / n) * Math.PI * 2;
+      const mid = a1 + (a2 - a1) / 2;
+      edges.push({
+        x1: cx + Math.cos(a1) * (rx + 104),
+        y1: cy + Math.sin(a1) * (ry + 104),
+        x2: cx + Math.cos(a2) * (rx + 104),
+        y2: cy + Math.sin(a2) * (ry + 104),
+        mx: cx + Math.cos(mid) * (rx + 182),
+        my: cy + Math.sin(mid) * (ry + 182),
+        delay: 26 + i * 11,
+      });
+    }
+    return { items, edges };
+  }
+
+  if (graph.relation === "growth") {
+    const baseline = 712;
+    const spacing = Math.min(400, 1460 / Math.max(1, n - 1));
+    const startX = 960 - ((n - 1) * spacing) / 2;
+    nodes.forEach((node, i) => {
+      const size = 172 + i * 40;
+      items.push({
+        node,
+        x: startX + i * spacing,
+        y: baseline - size / 2,
+        size,
+        delay: 8 + i * 12,
+      });
+    });
+    for (let i = 0; i < n - 1; i += 1) {
+      const a = items[i];
+      const b = items[i + 1];
+      edges.push({
+        x1: a.x + a.size / 2 + 12,
+        y1: a.y,
+        x2: b.x - b.size / 2 - 12,
+        y2: b.y,
+        delay: 20 + i * 12,
+      });
+    }
+    return { items, edges };
+  }
+
+  if (graph.relation === "compare") {
+    const size = 262;
+    const left = nodes[0];
+    const right = nodes[1] || nodes[0];
+    items.push({ node: left, x: 528, y: 498, size, delay: 8 });
+    items.push({ node: right, x: 1392, y: 498, size, delay: 18 });
+    return {
+      items,
+      edges: [],
+      divider: { x: 960, y1: 318, y2: 706 },
+    };
+  }
+
+  if (graph.relation === "group" || graph.relation === "split") {
+    const parent = nodes[0];
+    const children = nodes.slice(1);
+    const parentSize = graph.relation === "group" ? 190 : 200;
+    items.push({ node: parent, x: 960, y: graph.relation === "group" ? 306 : 300, size: parentSize, delay: 8 });
+    const spacing = Math.min(330, 1360 / Math.max(1, children.length));
+    const startX = 960 - ((children.length - 1) * spacing) / 2;
+    const childY = graph.relation === "group" ? 646 : 656;
+    children.forEach((node, i) => {
+      const size = graph.relation === "group" ? 168 : 156;
+      items.push({
+        node,
+        x: startX + i * spacing,
+        y: childY,
+        size,
+        delay: 20 + i * 10,
+      });
+      edges.push({
+        x1: 960,
+        y1: (graph.relation === "group" ? 306 : 300) + parentSize / 2 + 6,
+        x2: startX + i * spacing,
+        y2: childY - size / 2 - 6,
+        delay: 16 + i * 10,
+      });
+    });
+    if (graph.relation === "group" && children.length > 0) {
+      const left = startX - 132;
+      const right = startX + (children.length - 1) * spacing + 132;
+      // 高度要包住节点下方的标签胶囊，否则虚线框会从标签中间穿过
+      return {
+        items,
+        edges,
+        container: { x: left, y: childY - 126, w: right - left, h: 312 },
+      };
+    }
+    return { items, edges };
+  }
+
+  // chain：横向依次推进，节点等距
+  const size = 206;
+  const spacing = Math.min(500, 1560 / Math.max(1, n - 1));
+  const startX = 960 - ((n - 1) * spacing) / 2;
+  nodes.forEach((node, i) => {
+    items.push({ node, x: startX + i * spacing, y: 500, size, delay: 8 + i * 11 });
+  });
+  for (let i = 0; i < n - 1; i += 1) {
+    edges.push({
+      x1: startX + i * spacing + size / 2 + 14,
+      y1: 500,
+      x2: startX + (i + 1) * spacing - size / 2 - 14,
+      y2: 500,
+      delay: 22 + i * 11,
+    });
+  }
+  return { items, edges };
+};
+
+const GraphConnector: React.FC<{ edge: GraphEdge; accent: string }> = ({ edge, accent }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const progress = spring({
+    frame: frame - edge.delay,
+    fps,
+    config: { damping: 22, stiffness: 88, mass: 1 },
+  });
+  if (progress <= 0.002) return null;
+
+  const curved = edge.mx !== undefined && edge.my !== undefined;
+  const d = curved
+    ? "M " + edge.x1 + " " + edge.y1 + " Q " + edge.mx + " " + edge.my + " " + edge.x2 + " " + edge.y2
+    : "M " + edge.x1 + " " + edge.y1 + " L " + edge.x2 + " " + edge.y2;
+  const length = curved
+    ? 520
+    : Math.sqrt((edge.x2 - edge.x1) * (edge.x2 - edge.x1) + (edge.y2 - edge.y1) * (edge.y2 - edge.y1));
+  const angle = curved
+    ? Math.atan2(edge.y2 - (edge.my as number), edge.x2 - (edge.mx as number))
+    : Math.atan2(edge.y2 - edge.y1, edge.x2 - edge.x1);
+  const deg = (angle * 180) / Math.PI;
+
+  return (
+    <g opacity={progress}>
+      <path
+        d={d}
+        stroke={accent}
+        strokeWidth={6}
+        strokeLinecap="round"
+        fill="none"
+        strokeDasharray={length}
+        strokeDashoffset={length * (1 - progress)}
+        opacity={0.72}
+      />
+      <polygon
+        points="-3,-10 17,0 -3,10"
+        transform={"translate(" + edge.x2 + "," + edge.y2 + ") rotate(" + deg + ")"}
+        fill={accent}
+        opacity={0.8}
+      />
+    </g>
+  );
+};
+
+const GraphBadge: React.FC<{
+  item: GraphItem;
+  iconSrc?: string;
+  accent: string;
+  focused: boolean;
+}> = ({ item, iconSrc, accent, focused }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const enter = spring({
+    frame: frame - item.delay,
+    fps,
+    config: { damping: 13, stiffness: 150, mass: 0.85 },
+  });
+  const pulse = focused ? 1 + Math.sin(frame / 7) * 0.05 : 1;
+  const scale = (0.55 + enter * 0.45) * pulse;
+  const role = item.node.role;
+  const radius = role === "subject" || role === "abstract" ? "50%" : 34;
+  const border = role === "abstract" ? "4px dashed " + accent : focused ? "4px solid " + accent : "3px solid rgba(255,255,255,0.9)";
+  const size = item.size;
+  // 没图标时用标签文字顶上：两个字才能看出是什么，一个字会被误读（「水果」变「水」）
+  const glyph = item.node.label.slice(0, 2);
+  const glyphSize = glyph.length > 1 ? size * 0.3 : size * 0.46;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: item.x - size / 2,
+        top: item.y - size / 2,
+        width: size,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        opacity: enter,
+        transform: "scale(" + scale + ")",
+        transformOrigin: "center top",
+      }}
+    >
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius,
+          background: "rgba(255,255,255,0.95)",
+          border,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 18px 30px rgba(18, 48, 24, 0.18)",
+          overflow: "hidden",
+        }}
+      >
+        {iconSrc ? (
+          <Img
+            src={staticFile(iconSrc)}
+            style={{ width: size * 0.84, height: size * 0.84, objectFit: "contain" }}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: glyphSize,
+              fontWeight: 900,
+              color: accent,
+              lineHeight: 1,
+              letterSpacing: 2,
+            }}
+          >
+            {glyph}
+          </div>
+        )}
+      </div>
+      <div
+        style={{
+          marginTop: 10,
+          borderRadius: 14,
+          background: focused ? accent : "rgba(255,255,255,0.9)",
+          color: focused ? "#ffffff" : "#12303a",
+          padding: "4px 16px",
+          fontSize: 30,
+          fontWeight: 900,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item.node.label}
+      </div>
+    </div>
+  );
+};
+
+const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({
+  scene,
+  duration,
+}) => {
+  const frame = useCurrentFrame();
+  const graph = scene.sceneGraph as SceneGraphView;
+  const icons = scene.graphIcons || {};
+  const layout = layoutGraph(graph);
+  const count = Math.max(1, graph.nodes.length);
+  const warmup = 14;
+  const focusIndex = Math.max(
+    0,
+    Math.min(count - 1, Math.floor(((frame - warmup) / Math.max(24, duration - warmup)) * count)),
+  );
+
+  return (
+    <AbsoluteFill>
+      <svg
+        width={1920}
+        height={1080}
+        viewBox="0 0 1920 1080"
+        style={{ position: "absolute", inset: 0 }}
+      >
+        {layout.container ? (
+          <rect
+            x={layout.container.x}
+            y={layout.container.y}
+            width={layout.container.w}
+            height={layout.container.h}
+            rx={40}
+            fill="rgba(255,255,255,0.28)"
+            stroke={scene.accentColor}
+            strokeWidth={3}
+            strokeDasharray="18 14"
+            opacity={0.7}
+          />
+        ) : null}
+        {layout.divider ? (
+          <line
+            x1={layout.divider.x}
+            y1={layout.divider.y1}
+            x2={layout.divider.x}
+            y2={layout.divider.y2}
+            stroke="rgba(18, 48, 24, 0.42)"
+            strokeWidth={6}
+            strokeDasharray="18 18"
+          />
+        ) : null}
+        {layout.edges.map((edge, i) => (
+          <GraphConnector key={"e" + i} edge={edge} accent={scene.accentColor} />
+        ))}
+      </svg>
+      {layout.items.map((item) => (
+        <GraphBadge
+          key={item.node.id}
+          item={item}
+          iconSrc={icons[item.node.id]}
+          accent={scene.accentColor}
+          focused={graph.nodes[focusIndex] && graph.nodes[focusIndex].id === item.node.id}
+        />
+      ))}
+      {graph.caption ? (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 132,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.82)",
+              padding: "6px 28px",
+              fontSize: 32,
+              fontWeight: 900,
+              color: scene.accentColor,
+            }}
+          >
+            {graph.caption}
+          </div>
+        </div>
+      ) : null}
+    </AbsoluteFill>
+  );
+};
+
 const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene, index }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -1319,6 +1715,8 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
   const titleY = interpolate(enter, [0, 1], [-28, 0]);
   const breath = 1 + Math.sin(frame / 24) * 0.008;
   const sway = Math.sin(frame / 40) * 0.9;
+  // 有合法关系图就走关系渲染器：关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读
+  const hasGraph = !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
 
   return (
     <AbsoluteFill style={{ opacity: Math.min(fadeIn, fadeOut), backgroundColor: "#f7fff9", overflow: "hidden" }}>
@@ -1348,35 +1746,41 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
           {scene.title}
         </div>
       </div>
-      {scene.onScreenText ? (
-        <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
+      {hasGraph ? (
+        <SceneGraphStage scene={scene} duration={duration} />
+      ) : (
+        <>
+          {scene.onScreenText ? (
+            <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
+              <div
+                style={{
+                  borderRadius: 16,
+                  background: "rgba(255, 255, 255, 0.76)",
+                  padding: "6px 26px",
+                  fontSize: 32,
+                  fontWeight: 900,
+                  color: scene.accentColor,
+                }}
+              >
+                {scene.onScreenText}
+              </div>
+            </div>
+          ) : null}
           <div
             style={{
-              borderRadius: 16,
-              background: "rgba(255, 255, 255, 0.76)",
-              padding: "6px 26px",
-              fontSize: 32,
-              fontWeight: 900,
-              color: scene.accentColor,
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 330,
+              display: "flex",
+              justifyContent: "center",
+              transform: "translateY(" + stageY + "px) scale(" + stageScale * breath * 1.4 + ") rotate(" + sway + "deg)",
             }}
           >
-            {scene.onScreenText}
+            <TopicVisual scene={scene} />
           </div>
-        </div>
-      ) : null}
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: 330,
-          display: "flex",
-          justifyContent: "center",
-          transform: "translateY(" + stageY + "px) scale(" + stageScale * breath * 1.4 + ") rotate(" + sway + "deg)",
-        }}
-      >
-        <TopicVisual scene={scene} />
-      </div>
+        </>
+      )}
       <SubtitleTrack scene={scene} duration={duration} />
       <div style={{ position: "absolute", left: 56, top: 48, fontSize: 26, fontWeight: 800, color: "rgba(0, 0, 0, 0.26)" }}>
         {"0" + (index + 1)}

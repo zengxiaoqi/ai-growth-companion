@@ -73,6 +73,21 @@ export class VideoGenerationTask {
   @Column({ nullable: true })
   expiresAt: Date | null;
 
+  /** 视觉质检总分（0-100）；null = 未跑 QA（vision 未配置或 gate 关闭） */
+  @Column({ type: 'integer', nullable: true })
+  qaScore: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  qaPassed: boolean | null;
+
+  /** 参数级修复轮数（0 或 1）；QA 不达标放行时也要留痕 */
+  @Column({ default: 0 })
+  qaRounds: number;
+
+  /** 实际出片的引擎（engineOrder 里命中的那个），与请求的 renderEngine 区分 */
+  @Column({ nullable: true, length: 30 })
+  actualEngine: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

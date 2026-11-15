@@ -415,6 +415,245 @@ const habitatScenes = [
 ];
 scenes.push(...habitatScenes, ...rainbowScenes);
 
+// beats 解释器演示：同一批图形，焦点/揭示/入场/相机全部由句级编排驱动。
+// 四帧覆盖全部 8 种动效预设（focus-ring/fade-rise/swell/camera-push/stagger/
+// spring-pop/trace-on/orbit），并各带一份年龄 profile（3-4 大幅度 / 5-6 收敛）。
+// 与上面无 beats 的 s1/s2/s6/rb3 对照看：旧路径必须逐像素不变，新路径必须"讲到哪亮到哪"。
+const P34 = { minBeatSec: 2.5, amplitude: 1.25, allowOverlapReveal: false, minCharsPerBeat: 14 };
+const P56 = { minBeatSec: 1.6, amplitude: 1.12, allowOverlapReveal: true, minCharsPerBeat: 8 };
+const beatScenes = [
+  {
+    id: 'b1',
+    title: '水转了一圈（编排版）',
+    narration: '太阳把水晒热，水变成水汽飞到天上，遇冷变回小水珠落下来。',
+    onScreenText: '',
+    visualDescription: 'water cycle with beats',
+    assetKey: 'topic',
+    assetTags: ['river'],
+    action: 'idle',
+    habitat: 'river',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#378ADD',
+    domain: 'science',
+    sceneGraph: {
+      relation: 'cycle',
+      caption: '水转一圈又回来了',
+      nodes: [
+        { id: 'n1', label: '太阳', subject: '太阳', role: 'place' },
+        { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract', sign: 'rise' },
+        { id: 'n3', label: '白云', subject: '白云', role: 'object', swell: 'grow' },
+        { id: 'n4', label: '雨滴', subject: '雨', role: 'object' },
+      ],
+    },
+    graphIcons: {
+      n1: 'assets/vector/weather/sun.svg',
+      n3: 'assets/vector/weather/cloud.svg',
+      n4: 'assets/vector/weather/rain.svg',
+    },
+    choreography: {
+      profile: P34,
+      beats: [
+        { sentenceIndex: 0, focus: '太阳', motion: 'focus-ring', startFrame: 18, endFrame: 80 },
+        { sentenceIndex: 1, focus: '水汽', motion: 'fade-rise', startFrame: 80, endFrame: 140 },
+        { sentenceIndex: 2, focus: '白云', reveal: ['雨滴'], motion: 'swell', startFrame: 140, endFrame: 200 },
+      ],
+    },
+  },
+  {
+    id: 'b2',
+    title: '大树的样子（编排版）',
+    narration: '一棵大树由树干撑着，树枝上长满树叶，春天还会开出花朵。',
+    onScreenText: '',
+    visualDescription: 'tree parts with stagger beats',
+    assetKey: 'topic',
+    assetTags: [],
+    action: 'idle',
+    habitat: 'forest',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#2B8A3E',
+    domain: 'science',
+    sceneGraph: {
+      relation: 'split',
+      caption: '大树由这些组成',
+      nodes: [
+        { id: 'n1', label: '大树', subject: '大树', role: 'object' },
+        { id: 'n2', label: '树叶', subject: '树叶', role: 'object' },
+        { id: 'n3', label: '花朵', subject: '花朵', role: 'object' },
+        { id: 'n4', label: '树根', subject: '树根', role: 'object' },
+      ],
+    },
+    graphIcons: {
+      n1: 'assets/vector/nature/tree.svg',
+      n2: 'assets/vector/nature/leaf.svg',
+      n3: 'assets/vector/nature/flower.svg',
+    },
+    choreography: {
+      profile: P56,
+      beats: [
+        { sentenceIndex: 0, focus: '大树', motion: 'camera-push', startFrame: 18, endFrame: 70 },
+        { sentenceIndex: 1, reveal: ['树叶', '花朵', '树根'], motion: 'stagger', startFrame: 70, endFrame: 140 },
+        { sentenceIndex: 2, focus: '树叶', motion: 'spring-pop', startFrame: 140, endFrame: 200 },
+      ],
+    },
+  },
+  {
+    id: 'b3',
+    title: '彩虹是怎么来的（编排版）',
+    narration: '阳光照到空中的小水滴，被折射和反射，就散成了七种颜色。',
+    onScreenText: '阳光穿过水滴',
+    visualDescription: 'rainbow figure with trace-on beats',
+    assetKey: 'topic',
+    assetTags: ['rainbow', 'sun', 'water'],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#F76B15',
+    domain: 'science',
+    backgroundStyle: 'neutral',
+    figure: {
+      shapes: [
+        { kind: 'circle', cx: 1420, cy: 150, r: 54, fill: '#FFC53D', reveal: 0.05 },
+        { kind: 'circle', cx: 250, cy: 360, r: 11, fill: '#4DABF7', reveal: 0.12 },
+        { kind: 'circle', cx: 300, cy: 445, r: 9, fill: '#4DABF7', reveal: 0.14 },
+        { kind: 'circle', cx: 205, cy: 470, r: 10, fill: '#4DABF7', reveal: 0.16 },
+        { kind: 'circle', cx: 330, cy: 292, r: 8, fill: '#4DABF7', reveal: 0.18 },
+        { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0.3 },
+        { kind: 'arc', cx: 800, cy: 640, r: 450, from: 4, to: 176, stroke: '#F76B15', width: 34, reveal: 0.35 },
+        { kind: 'arc', cx: 800, cy: 640, r: 410, from: 4, to: 176, stroke: '#FFC53D', width: 34, reveal: 0.4 },
+        { kind: 'arc', cx: 800, cy: 640, r: 370, from: 4, to: 176, stroke: '#30A46C', width: 34, reveal: 0.45 },
+        { kind: 'arc', cx: 800, cy: 640, r: 330, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.5 },
+        { kind: 'arc', cx: 800, cy: 640, r: 290, from: 4, to: 176, stroke: '#3E63DD', width: 34, reveal: 0.55 },
+        { kind: 'arc', cx: 800, cy: 640, r: 250, from: 4, to: 176, stroke: '#8E4EC6', width: 34, reveal: 0.6 },
+      ],
+      labels: [
+        { text: '阳光', x: 1420, y: 250 },
+        { text: '水滴', x: 258, y: 540 },
+      ],
+    },
+    choreography: {
+      profile: P56,
+      beats: [
+        { sentenceIndex: 0, focus: '阳光', reveal: ['阳光'], motion: 'focus-ring', startFrame: 10, endFrame: 60 },
+        { sentenceIndex: 1, focus: '水滴', reveal: ['水滴'], motion: 'fade-rise', startFrame: 60, endFrame: 110 },
+        { sentenceIndex: 2, motion: 'trace-on', startFrame: 110, endFrame: 200 },
+      ],
+    },
+  },
+  {
+    id: 'b4',
+    title: '谁吃掉谁（编排版）',
+    narration: '青草被小兔子吃掉，小兔子又会被狐狸盯上。',
+    onScreenText: '',
+    visualDescription: 'food chain with spring-pop and orbit beats',
+    assetKey: 'topic',
+    assetTags: [],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#3E8E5A',
+    domain: 'science',
+    sceneGraph: {
+      relation: 'chain',
+      caption: '一环扣一环',
+      nodes: [
+        { id: 'n1', label: '青草', subject: '青草', role: 'object' },
+        { id: 'n2', label: '兔子', subject: '兔子', role: 'subject' },
+        { id: 'n3', label: '狐狸', subject: '狐狸', role: 'subject' },
+      ],
+    },
+    graphIcons: {
+      n2: 'assets/vector/animals/rabbit.svg',
+      n3: 'assets/vector/animals/fox.svg',
+    },
+    choreography: {
+      profile: P34,
+      beats: [
+        { sentenceIndex: 0, focus: '青草', motion: 'spring-pop', startFrame: 18, endFrame: 80 },
+        { sentenceIndex: 1, focus: '兔子', motion: 'focus-ring', startFrame: 80, endFrame: 140 },
+        { sentenceIndex: 2, focus: '狐狸', motion: 'orbit', startFrame: 140, endFrame: 200 },
+      ],
+    },
+  },
+];
+scenes.push(...beatScenes);
+
+// 年龄 A/B：同一段旁白、同一份 raw beats，只换 ageGroup。
+// 窗口由生产 sanitizeBeats → beatWindows → enforceAgeProfile 生成（scripts/preview-age-ab.js），
+// 不要手改：3-4 合并成 2 拍（≥2.5s）、5-6 保留 4 拍（≥1.6s），幅度 1.25 vs 1.12。
+const AB_NARRATION = '太阳出来了。水变热了。水汽上升。飞上天空。遇冷变云。云越积厚。落下雨滴。水又回来。';
+const AB_GRAPH = {
+  relation: 'cycle',
+  caption: '水转一圈又回来了',
+  nodes: [
+    { id: 'n1', label: '太阳', subject: '太阳', role: 'place' },
+    { id: 'n2', label: '水汽', subject: '水蒸气', role: 'abstract', sign: 'rise' },
+    { id: 'n3', label: '白云', subject: '白云', role: 'object', swell: 'grow' },
+    { id: 'n4', label: '雨滴', subject: '雨', role: 'object' },
+  ],
+};
+const AB_ICONS = {
+  n1: 'assets/vector/weather/sun.svg',
+  n3: 'assets/vector/weather/cloud.svg',
+  n4: 'assets/vector/weather/rain.svg',
+};
+const abScenes = [
+  {
+    id: 'a1',
+    title: '水循环 A/B（3-4 岁）',
+    narration: AB_NARRATION,
+    onScreenText: '',
+    visualDescription: 'water cycle age A/B 3-4',
+    assetKey: 'topic',
+    assetTags: ['river'],
+    action: 'idle',
+    habitat: 'river',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#378ADD',
+    domain: 'science',
+    sceneGraph: AB_GRAPH,
+    graphIcons: AB_ICONS,
+    choreography: {
+      profile: P34,
+      beats: [
+        { sentenceIndex: 0, span: 3, focus: 'n1', motion: 'focus-ring', startFrame: 0, endFrame: 78 },
+        { sentenceIndex: 3, span: 5, focus: 'n4', motion: 'focus-ring', startFrame: 78, endFrame: 200 },
+      ],
+    },
+  },
+  {
+    id: 'a2',
+    title: '水循环 A/B（5-6 岁）',
+    narration: AB_NARRATION,
+    onScreenText: '',
+    visualDescription: 'water cycle age A/B 5-6',
+    assetKey: 'topic',
+    assetTags: ['river'],
+    action: 'idle',
+    habitat: 'river',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#378ADD',
+    domain: 'science',
+    sceneGraph: AB_GRAPH,
+    graphIcons: AB_ICONS,
+    choreography: {
+      profile: P56,
+      beats: [
+        { sentenceIndex: 0, span: 2, focus: 'n1', motion: 'focus-ring', startFrame: 0, endFrame: 54 },
+        { sentenceIndex: 2, span: 2, focus: 'n3', motion: 'focus-ring', startFrame: 54, endFrame: 102 },
+        { sentenceIndex: 4, span: 2, focus: 'n1', motion: 'focus-ring', startFrame: 102, endFrame: 151 },
+        { sentenceIndex: 6, span: 2, focus: 'n3', motion: 'focus-ring', startFrame: 151, endFrame: 200 },
+      ],
+    },
+  },
+];
+scenes.push(...abScenes);
+
 // 与后端 resolveBackgroundStyle 保持同样的判定：有关系图（循环/对比/分类这类抽象结构）
 // 就走中性底，否则按环境背景。以前不分青红皂白全铺森林，所有课程共用同一条样板街。
 scenes.forEach((scene) => {

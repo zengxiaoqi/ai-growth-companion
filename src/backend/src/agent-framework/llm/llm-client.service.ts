@@ -29,6 +29,7 @@ interface ProviderConfig {
   model: string;
   maxTokens: number;
   temperature: number;
+  input?: ('text' | 'image')[];
 }
 
 @Injectable()
@@ -54,6 +55,12 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   /** Intent-classifier model override (LLM_MODEL_INTENT); falls back to casual */
   readonly intentModel?: string;
 
+  /** Vision model override (LLM_VISION_MODEL); undefined when unset */
+  readonly visionModel?: string;
+
+  /** Storyboard/figure authoring override (LLM_AUTHOR_MODEL); undefined when unset */
+  readonly authorModel?: string;
+
   constructor(private readonly configService: ConfigService) {
     this.config = {
       baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
@@ -78,6 +85,17 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     // model so it stays low-latency; LLM_MODEL_INTENT can pin a dedicated one.
     const intent = this.configService.get<string>('LLM_MODEL_INTENT', '').trim();
     this.intentModel = intent && intent !== this.config.model ? intent : this.casualModel;
+
+    // Visual QA / asset admission need a vision-capable model. It can live on a
+    // different gateway than the text models, hence its own base url / key.
+    const vision = this.configService.get<string>('LLM_VISION_MODEL', '').trim();
+    this.visionModel = vision || undefined;
+
+    // Authoring (storyboard + figure) can pin a model without touching the
+    // global chat model: the QA bench and the figure channel disagree on which
+    // model is best, and chat must not follow that decision.
+    const author = this.configService.get<string>('LLM_AUTHOR_MODEL', '').trim();
+    this.authorModel = author && author !== this.config.model ? author : undefined;
 
     this.retryStrategy = new RetryStrategy({
       maxAttempts: 3,
@@ -141,7 +159,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
             provider: pc.id,
             baseUrl: pc.baseUrl,
             reasoning: false,
-            input: ['text'],
+            input: pc.input ?? ['text'],
             cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             contextWindow: 128000,
             maxTokens: pc.maxTokens,
@@ -239,6 +257,50 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
         maxTokens: Number(this.configService.get<string>('INTENT_LLM_MAX_TOKENS', '256')),
         temperature: 0,
       });
+    }
+
+    // Authoring provider entry. Skip when it reuses an already-registered model
+    // id (selectEntries matches by model id).
+    if (
+      this.authorModel &&
+      this.authorModel !== this.config.model &&
+      this.authorModel !== this.casualModel &&
+      this.authorModel !== this.englishModel &&
+      this.authorModel !== this.intentModel
+    ) {
+      configs.push({
+        id: `${primaryId}-author`,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        model: this.authorModel,
+        maxTokens: Number(this.configService.get<string>('LLM_AUTHOR_MAX_TOKENS', '32000')),
+        temperature: 0.7,
+      });
+    }
+
+    // Vision provider entry. Skip when it reuses an already-registered model id
+    // (selectEntries matches by model id); that entry gets image input below.
+    if (
+      this.visionModel &&
+      this.visionModel !== this.config.model &&
+      this.visionModel !== this.casualModel &&
+      this.visionModel !== this.englishModel &&
+      this.visionModel !== this.intentModel
+    ) {
+      configs.push({
+        id: this.configService.get<string>('LLM_VISION_PROVIDER', `${primaryId}-vision`),
+        apiKey: this.configService.get<string>('LLM_VISION_API_KEY', this.config.apiKey),
+        baseUrl: this.configService.get<string>('LLM_VISION_BASE_URL', this.config.baseUrl),
+        model: this.visionModel,
+        maxTokens: Number(this.configService.get<string>('LLM_VISION_MAX_TOKENS', '4096')),
+        temperature: Number(this.configService.get<string>('LLM_VISION_TEMPERATURE', '0.2')),
+        input: ['text', 'image'],
+      });
+    }
+
+    // Any entry serving the vision model must accept image input.
+    for (const c of configs) {
+      if (c.model === this.visionModel) c.input = ['text', 'image'];
     }
 
     return configs;
@@ -401,6 +463,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     return this.generateWithOptions(prompt, systemPrompt, {
       temperature: options.temperature ?? 0.2,
       maxTokens: options.maxTokens ?? 12000,
+      model: options.model,
     });
   }
 
@@ -661,9 +724,19 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
 
   private toPiAiMessage(msg: LlmMessage, allMessages: LlmMessage[]): any {
     if (msg.role === 'user') {
+      const content = msg.images?.length
+        ? [
+            ...(msg.content ? [{ type: 'text', text: msg.content }] : []),
+            ...msg.images.map((img) => ({
+              type: 'image',
+              data: img.data,
+              mimeType: img.mimeType,
+            })),
+          ]
+        : msg.content;
       return {
         role: 'user',
-        content: msg.content,
+        content,
         timestamp: Date.now(),
       };
     }
@@ -798,6 +871,18 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
           role: 'assistant' as const,
           content,
           tool_calls: msg.toolCalls,
+        } as any;
+      }
+      if (msg.images?.length && (msg.role === 'user' || msg.role === 'system')) {
+        return {
+          role: msg.role as any,
+          content: [
+            ...(msg.content ? [{ type: 'text', text: msg.content }] : []),
+            ...msg.images.map((img) => ({
+              type: 'image_url',
+              image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+            })),
+          ],
         } as any;
       }
       return {
@@ -935,13 +1020,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   ): Promise<LlmResponse> {
     return this.retryStrategy.execute(async () => {
       if (this.piAiEnabled) {
-        return this.piAiChatCompletion(messages, undefined, maxTokens, undefined, options);
+        return this.piAiChatCompletion(messages, undefined, maxTokens, options?.model, options);
       }
       const TIMEOUT_MS = 300_000;
       const response = (await Promise.race([
         this.client.chat.completions.create(
           {
-            model: this.config.model,
+            model: options?.model ?? this.config.model,
             messages: this.toOpenAIMessages(messages),
             max_tokens: maxTokens,
             temperature: options?.temperature ?? this.config.temperature,

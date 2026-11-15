@@ -17,8 +17,14 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
-import { describeGraphGrammar } from '../../../modules/learning/video/scene-graph';
-import { describeFigureGrammar } from '../../../modules/learning/video/figure-spec';
+import { describeGraphGrammar, normalizeSceneGraph } from '../../../modules/learning/video/scene-graph';
+import { describeFigureGrammar, normalizeFigureSpec } from '../../../modules/learning/video/figure-spec';
+import { repairFigures, type FigureReject } from '../../../modules/learning/video/figure-repair';
+import {
+  describeChoreographyGrammar,
+  sanitizeBeats,
+  type Beat,
+} from '../../../modules/learning/video/choreography';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -49,6 +55,8 @@ export type StoryboardScene = {
   /** 未校验的视觉关系图，由 learning 层的 normalizeSceneGraph 收敛后使用 */
   sceneGraph?: Record<string, unknown>;
   figure?: Record<string, unknown>;
+  /** 句级编排：讲到哪句、强调谁、揭示什么、用什么动效。缺失时渲染层自行推导 */
+  beats?: Beat[];
 };
 
 export type VideoStoryboard = {
@@ -170,6 +178,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         const llmResponse = await this.llmClient.generate(prompt, undefined, {
           maxTokens: storyboardMaxTokens(),
           temperature: 0.7,
+          model: this.llmClient.authorModel,
         });
         const parsed = this.extractJsonObject(llmResponse);
         if (!parsed) {
@@ -177,7 +186,8 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
           continue;
         }
 
-        const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount);
+        const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount, ageGroup);
+        await this.repairRejectedFigures(storyboard);
         this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
         return this.ok(storyboard);
       } catch (error: unknown) {
@@ -251,7 +261,16 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
             "swell": "grow | shrink（可选，仅当这个概念的体量随讲解变化时）"
           }
         ]
-      }
+      },
+      "beats": [
+        {
+          "sentenceIndex": 0,
+          "span": 1,
+          "focus": "string (本句讲到的主体：graph 节点 id/label/subject 或 figure 标签文字)",
+          "reveal": ["string (本拍首次揭示的元素 id/标签)"],
+          "motion": "focus-ring | spring-pop | trace-on | stagger | swell | orbit | camera-push | fade-rise"
+        }
+      ]
     }
   ]
 }`;
@@ -297,6 +316,8 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       'Reference sceneGraph grammar (only when visualMode is graph):',
       describeGraphGrammar(),
       '',
+      describeChoreographyGrammar(ageGroup),
+      '',
       style ? `## Visual Style: ${style}` : '',
       narration ? `## Additional Context: ${narration}` : '',
       '',
@@ -316,12 +337,13 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     topic: string,
     domain: string,
     expectedSceneCount: number,
+    ageGroup: AgeGroup,
   ): VideoStoryboard {
     const rawScenes = Array.isArray(raw?.scenes) ? raw.scenes : [];
 
     const scenes = rawScenes
       .slice(0, expectedSceneCount)
-      .map((s: any, i: number) => this.sanitizeScene(s, i));
+      .map((s: any, i: number) => this.sanitizeScene(s, i, ageGroup));
 
     if (scenes.length < 3) {
       throw new Error('Too few valid scenes');
@@ -346,18 +368,67 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     };
   }
 
-  private sanitizeScene(raw: Record<string, any>, index: number): StoryboardScene {
+  /**
+   * ≤1 轮 figure 修复：校验拒掉的 figure 把原因喂回创作模型重画一次。
+   * 只跑一次（不随 attempt 循环重试），修不好保留原拒绝结果，日志记因。
+   */
+  private async repairRejectedFigures(storyboard: VideoStoryboard): Promise<void> {
+    const accent = storyboard.visualTheme.accentColor;
+    const rejects: FigureReject[] = [];
+    storyboard.scenes.forEach((scene, i) => {
+      if (!scene.figure) return;
+      const r = normalizeFigureSpec(scene.figure, accent);
+      if (r.ok) return;
+      rejects.push({
+        sceneIndex: i,
+        title: scene.title,
+        narration: scene.narration,
+        accent,
+        // strictNullChecks=false 下判别联合不收窄，显式断言拒绝分支
+        reason: (r as { ok: false; reason: string }).reason,
+        figure: scene.figure,
+      });
+    });
+    if (!rejects.length) return;
+
+    const fixed = await repairFigures(this.llmClient, rejects, this.llmClient.authorModel);
+    if (!fixed) {
+      this.logger.warn(
+        `Figure repair round produced no fixes for ${rejects.length} rejected figure(s): ` +
+          rejects.map((r) => `scene${r.sceneIndex + 1}(${r.reason})`).join(', '),
+      );
+      return;
+    }
+    for (const [index, spec] of fixed) {
+      storyboard.scenes[index].figure = spec;
+    }
+    this.logger.log(`Figure repair round fixed ${fixed.size}/${rejects.length} rejected figure(s)`);
+  }
+
+  private sanitizeScene(raw: Record<string, any>, index: number, ageGroup: AgeGroup): StoryboardScene {
     const emphasis = this.toText(raw?.emphasis);
     const transition = this.toText(raw?.transitionToNext);
 
     const animationTemplate = this.sanitizeAnimationTemplate(raw?.animationTemplate);
+    const narration = this.toText(raw?.narration, `我们一起来学习吧。`).slice(0, 200);
+
+    // beats 的推导/校验需要知道画面里有哪些可聚焦的主体：
+    // graph 用生产同一个 normalize（非法图=null，退回无节点推导），figure 只取标签文字
+    const graph = normalizeSceneGraph(raw?.sceneGraph);
+    const figureLabels = Array.isArray(raw?.figure?.labels)
+      ? raw.figure.labels
+          .map((l: any) => this.toText(l?.text))
+          .filter((t: string) => !!t)
+          .slice(0, 12)
+      : [];
+    const beats = sanitizeBeats(raw?.beats, { narration, graph, figureLabels }, ageGroup);
 
     return {
       id: this.toText(raw?.id, `scene-${index + 1}`).slice(0, 20),
       sequence: index + 1,
       title: this.toText(raw?.title, `场景${index + 1}`).slice(0, 24),
       concept: this.toText(raw?.concept).slice(0, 60) || `知识点${index + 1}`,
-      narration: this.toText(raw?.narration, `我们一起来学习吧。`).slice(0, 200),
+      narration,
       onScreenText: this.toText(raw?.onScreenText).slice(0, 30) || undefined,
       visualDescription: this.toText(raw?.visualDescription).slice(0, 120) || undefined,
       durationSec: Math.max(3, Math.min(30, this.toSafeInt(raw?.durationSec, 6))),
@@ -376,6 +447,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
         ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
         : {}),
+      beats,
     };
   }
 
@@ -419,6 +491,11 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         durationSec: 6,
         transitionToNext: i < sceneCount - 1 ? 'fade' : 'fade',
         emphasis,
+        beats: sanitizeBeats(
+          undefined,
+          { narration: `我们来学习${topic}的第${i + 1}个知识点。` },
+          ageGroup,
+        ),
       });
     }
 

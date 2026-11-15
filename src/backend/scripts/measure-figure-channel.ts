@@ -23,6 +23,7 @@ import OpenAI from 'openai';
 import { GenerateVideoContentTool } from '../src/agent-framework/tools/impl/generate-video-content';
 import { normalizeFigureSpec, type FigureRejectReason } from '../src/modules/learning/video/figure-spec';
 import { normalizeSceneGraph } from '../src/modules/learning/video/scene-graph';
+import { repairFigures, type FigureReject } from '../src/modules/learning/video/figure-repair';
 
 type TopicCase = { topic: string; domain: string };
 
@@ -122,7 +123,7 @@ function evaluateStoryboard(parsed: any): SceneVerdict[] {
           kinds: Array.from(new Set(r.spec.shapes.map((x) => x.kind))),
         };
       }
-      return { index: i, title, channel: 'figure-rejected', reason: r.reason };
+      return { index: i, title, channel: 'figure-rejected', reason: (r as { ok: false; reason: FigureRejectReason }).reason };
     }
     const hasGraph = s?.sceneGraph && typeof s.sceneGraph === 'object';
     if (hasGraph) {
@@ -144,6 +145,8 @@ type TopicResult = {
   truncated?: boolean;
   completionTokens?: number;
   latencyMs?: number;
+  /** ≤1 轮 figure 修复的结果（与生产 tool 走同一个 repairFigures） */
+  repair?: { rejected: number; fixed: number };
   scenes: SceneVerdict[];
   raw?: any;
 };
@@ -201,9 +204,46 @@ async function runTopic(
     };
   }
 
-  const scenes = evaluateStoryboard(parsed);
+  let scenes = evaluateStoryboard(parsed);
 
-  return { topic: item.topic, domain: item.domain, ok: true, completionTokens, latencyMs, scenes, raw: parsed };
+  // ≤1 轮 figure 修复：与生产 tool 同一条 repairFigures 代码路径。
+  // 修好的 figure 写回 parsed.scenes，报告里的 raw 即修复后版本，replay 可直接复核。
+  const accent =
+    typeof parsed?.visualTheme?.accentColor === 'string' ? parsed.visualTheme.accentColor : '#3E63DD';
+  const rejects: FigureReject[] = [];
+  scenes.forEach((v, i) => {
+    if (v.channel !== 'figure-rejected') return;
+    rejects.push({
+      sceneIndex: i,
+      title: v.title,
+      narration: String(parsed.scenes[i]?.narration ?? ''),
+      accent,
+      reason: String(v.reason ?? ''),
+      figure: parsed.scenes[i].figure,
+    });
+  });
+  let repair: TopicResult['repair'];
+  if (rejects.length) {
+    const adapter = {
+      generateJson: async (prompt: string, _sys?: string, options?: { temperature?: number; maxTokens?: number }) => {
+        const res = await client.chat.completions.create({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: options?.maxTokens ?? 6000,
+          temperature: options?.temperature ?? 0.2,
+        } as any);
+        return res.choices?.[0]?.message?.content || '';
+      },
+    };
+    const fixed = await repairFigures(adapter, rejects, model);
+    repair = { rejected: rejects.length, fixed: fixed?.size ?? 0 };
+    if (fixed) {
+      for (const [index, spec] of fixed) parsed.scenes[index].figure = spec;
+      scenes = evaluateStoryboard(parsed);
+    }
+  }
+
+  return { topic: item.topic, domain: item.domain, ok: true, completionTokens, latencyMs, repair, scenes, raw: parsed };
 }
 
 function pct(n: number, d: number): string {
@@ -288,6 +328,10 @@ async function main() {
 
   const lessonWithFigure = okRuns.filter((r) => r.scenes.some((s) => s.channel === 'figure')).length;
 
+  const repairRuns = okRuns.filter((r) => r.repair);
+  const repairRejected = repairRuns.reduce((a, r) => a + (r.repair?.rejected ?? 0), 0);
+  const repairFixed = repairRuns.reduce((a, r) => a + (r.repair?.fixed ?? 0), 0);
+
   const reasonTally: Record<string, number> = {};
   allScenes.forEach((s) => {
     if (s.channel === 'figure-rejected' && s.reason) reasonTally[s.reason] = (reasonTally[s.reason] || 0) + 1;
@@ -312,6 +356,9 @@ async function main() {
   console.log(`graph 非法        : ${graphRejected}`);
   console.log(`两者皆无          : ${none} (${pct(none, allScenes.length)})`);
   console.log(`含 figure 的课节  : ${lessonWithFigure}/${okRuns.length}`);
+  if (repairRuns.length) {
+    console.log(`figure 修复轮     : ${repairRuns.length} 份分镜触发，修好 ${repairFixed}/${repairRejected} 个被拒 figure`);
+  }
   console.log('拒绝原因分布      :', Object.keys(reasonTally).length ? reasonTally : '无');
   console.log('图元使用分布      :', kindsTally);
 
@@ -336,6 +383,9 @@ async function main() {
           graphRejected,
           none,
           lessonsWithFigure: lessonWithFigure,
+          repairRuns: repairRuns.length,
+          repairRejected,
+          repairFixed,
           reasonTally,
           kindsTally,
         },

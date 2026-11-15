@@ -5,10 +5,18 @@
  * (Ollama, OpenAI, Azure, etc.)
  */
 
+/** Base64-encoded image attached to a message (vision calls). */
+export interface LlmImage {
+  data: string;
+  mimeType: string;
+}
+
 /** A single message in the LLM conversation */
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string | null;
+  /** Images ride alongside content; channels convert them to their own part format. */
+  images?: LlmImage[];
   toolCalls?: any[];
   toolCallId?: string;
 }
@@ -42,6 +50,8 @@ export interface LlmResponse {
 export interface LlmCallOptions {
   temperature?: number;
   maxTokens?: number;
+  /** Scoped model override (e.g. LLM_AUTHOR_MODEL); undefined = provider default */
+  model?: string;
 }
 
 /** Configuration for the LLM client */
@@ -77,6 +87,9 @@ export interface ILlmClient {
 
   /** Model for the english-practice mode, when configured via LLM_MODEL_ENGLISH */
   readonly englishModel?: string;
+
+  /** Model for vision calls (visual QA / asset admission), when configured via LLM_VISION_MODEL */
+  readonly visionModel?: string;
 
   /**
    * Secondary call for structured content generation (quizzes, activities, etc.)

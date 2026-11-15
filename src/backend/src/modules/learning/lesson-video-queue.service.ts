@@ -25,6 +25,8 @@ import { RemotionRenderService } from './remotion-render.service';
 import { HyperframesRenderService } from './hyperframes-render.service';
 import { DshBridgeService } from './dsh-bridge.service';
 import { VideoGenerationAgentService } from './video-generation-agent.service';
+import { VisualQaService, type SceneQaInput, type VisualQaVerdict } from './visual-qa.service';
+import { VideoParamRepairService } from './video-param-repair.service';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
@@ -145,6 +147,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     @Optional()
     @Inject(VideoGenerationAgentService)
     private readonly videoGenerationAgent?: VideoGenerationAgentService,
+    @Optional()
+    private readonly visualQa?: VisualQaService,
+    @Optional()
+    private readonly paramRepair?: VideoParamRepairService,
   ) {}
 
   onModuleInit() {
@@ -905,6 +911,59 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`[generateByDynamicRemotion] taskId=${task.id} rebuild retry succeeded`);
     }
 
+    try {
+      await this.taskRepo.update(task.id, { actualEngine: 'dynamic-remotion' });
+    } catch {}
+
+    // 视觉验收：抽帧送 vision 评审；不达标做 ≤1 轮参数修复重渲。
+    // QA 失败不拦出片——记 qaScore 放行（不静默）；gate 本身出错也只 warn。
+    if (this.visualQa?.isConfigured && process.env.VIDEO_QA_GATE !== 'off') {
+      const ageGroup = payload?.ageGroup === '3-4' ? '3-4' : '5-6';
+      try {
+        let activeStoryboard = storyboard;
+        let qaRounds = 0;
+        let verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 0);
+        if (verdict && !verdict.passed && this.paramRepair) {
+          const repaired = await this.paramRepair.repair(activeStoryboard, verdict, ageGroup);
+          if (repaired) {
+            qaRounds = 1;
+            activeStoryboard = { ...activeStoryboard, scenes: repaired.scenes };
+            this.logger.log(
+              `[generateByDynamicRemotion] taskId=${task.id} QA score=${verdict.score} not passed, param-repair round 1 re-render`,
+            );
+            const repairedManifest = await this.videoGenerationAgent.generateRemotionComposition(
+              activeStoryboard,
+              payload,
+              agentFiles,
+            );
+            await this.remotionRender.renderGeneratedComposition(
+              task,
+              repairedManifest,
+              outputPath,
+              onProgress,
+            );
+            verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 1);
+          }
+        }
+        if (verdict) {
+          await this.taskRepo.update(task.id, {
+            qaScore: verdict.score,
+            qaPassed: verdict.passed,
+            qaRounds,
+          });
+          if (!verdict.passed) {
+            this.logger.warn(
+              `[generateByDynamicRemotion] taskId=${task.id} released with QA score=${verdict.score} rounds=${qaRounds} issues=${verdict.issues.length}`,
+            );
+          }
+        }
+      } catch (error: any) {
+        this.logger.warn(
+          `[generateByDynamicRemotion] taskId=${task.id} QA gate error (release original): ${error?.message || error}`,
+        );
+      }
+    }
+
     // Render finished — bump progress to 98 to reduce the window where frontend sees 95%
     try {
       await this.taskRepo.update(task.id, { progress: 98 });
@@ -915,6 +974,51 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       await fs.unlink(outputPath);
     } catch {}
     return buffer;
+  }
+
+  /** 按场景时间轴抽帧并逐场景 vision 评审。时长钳制必须与 buildDynamicSceneProps 一致（4-18s）。 */
+  private async reviewRenderedVideo(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+    storyboard: Record<string, any>,
+    videoPath: string,
+    round: number,
+  ): Promise<VisualQaVerdict | null> {
+    if (!this.visualQa) return null;
+    const scenes: Array<Record<string, any>> = Array.isArray(storyboard?.scenes)
+      ? storyboard.scenes
+      : [];
+    if (scenes.length === 0) return null;
+
+    const qaRoot = path.join(this.visualQa.qaDir(task.id), `round-${round}`);
+    const inputs: SceneQaInput[] = [];
+    let cursorSec = 0;
+    for (let i = 0; i < scenes.length; i += 1) {
+      const scene = scenes[i] || {};
+      const durationSec = Math.max(4, Math.min(18, Number(scene.durationSec) || 6));
+      const times = this.visualQa.sceneSampleTimes(cursorSec, durationSec, 2);
+      cursorSec += durationSec;
+      const frames = await this.visualQa.extractFrames(
+        videoPath,
+        times,
+        path.join(qaRoot, `scene-${i + 1}`),
+      );
+      inputs.push({
+        sceneId: `scene-${i + 1}`,
+        title: scene.title,
+        narration: String(scene.narration || scene.title || ''),
+        onScreenText: scene.onScreenText,
+        frames,
+      });
+    }
+
+    return this.visualQa.reviewVideo({
+      topic: payload?.topic || storyboard?.topic || '',
+      domain: payload?.domain || storyboard?.domain,
+      ageGroup: payload?.ageGroup,
+      scenes: inputs,
+      persistDir: qaRoot,
+    });
   }
 
   private classifyRemotionFailure(error: unknown): RemotionFailureKind {

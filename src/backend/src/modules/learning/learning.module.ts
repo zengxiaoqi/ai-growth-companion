@@ -21,6 +21,8 @@ import { VideoGenerationAgentService } from './video-generation-agent.service';
 import { QuickVideoService } from './quick-video.service';
 import { DshBridgeService } from './dsh-bridge.service';
 import { VisualAssetService } from './visual-asset.service';
+import { VisualQaService } from './visual-qa.service';
+import { VideoParamRepairService } from './video-param-repair.service';
 import { CourseGenerationAgentService } from './course-generation-agent.service';
 import { KnowledgeCardService } from './knowledge-card.service';
 import { LearningController } from './learning.controller';
@@ -70,6 +72,8 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
     VideoGenerationAgentService,
     QuickVideoService,
     VisualAssetService,
+    VisualQaService,
+    VideoParamRepairService,
     CourseGenerationAgentService,
     KnowledgeCardService,
   ],
@@ -84,6 +88,7 @@ import { AgentFrameworkModule } from '../../agent-framework/agent-framework.modu
     HyperframesRenderService,
     VideoGenerationAgentService,
     VisualAssetService,
+    VisualQaService,
     CourseGenerationAgentService,
     KnowledgeCardService,
   ],

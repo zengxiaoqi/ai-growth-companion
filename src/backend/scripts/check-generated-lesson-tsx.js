@@ -96,7 +96,28 @@ const mustHave = [
   // 轮廓兜底：纯白雨珠/月亮/牙齿在白底上等于没画，校验层会给它们补一圈描边。
   // 模板少了这个透传，补了也白补——成片仍是"两颗眼睛浮在背景上"
   'strokeWidth={glyph.strokeWidth}',
+  // beats 解释器：句级编排驱动焦点/揭示/入场/相机。缺了这些，带 beats 的分镜
+  // 会静默退回整屏匀速——编排数据白给，画面又变回"排好版就静止"
+  'const beatStateAt',
+  'const resolveFocusId',
+  // 统一焦点公式：amp=1 时必须与旧式 1.16+sin*0.05 逐像素等价（回归边界）
+  '1 + 0.16 * amp',
+  'beat.motion === "spring-pop"',
+  'beat.motion === "swell"',
+  'beat.delayOverride',
+  'const beatDelays',
+  'b.motion === "stagger"',
+  'cur.motion === "orbit"',
+  'cur.motion === "camera-push"',
+  // 画板按拍生长：第几拍画到第几笔，而不是整屏固定斜率
+  'bs.idx + bs.beatProgress',
+  'const labelBeat',
 ];
+
+// 有专属渲染分支的动效预设：少了分支，LLM 选到该动效会静默退化成 focus-ring
+const motionPresets = ['focus-ring', 'spring-pop', 'stagger', 'swell', 'orbit', 'camera-push'];
+const missingMotions = motionPresets.filter((m) => !template.includes('"' + m + '"'));
+console.log('missing_motions=' + (missingMotions.length ? missingMotions.join(',') : 'none'));
 
 // 六种图元都必须有渲染分支，否则 LLM 交来的图元会被静默画不出来（画面缺一块）
 const figureKinds = ['arc', 'line', 'curve', 'circle', 'rect', 'polygon'];
@@ -122,7 +143,7 @@ console.log('missing_relations=' + (missingRelations.length ? missingRelations.j
 console.log('missing_signs=' + (missingSigns.length ? missingSigns.join(',') : 'none'));
 
 process.exit(
-  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 && missingSigns.length === 0
+  diagnostics.length === 0 && missing.length === 0 && missingRelations.length === 0 && missingSigns.length === 0 && missingMotions.length === 0
     ? 0
     : 1,
 );

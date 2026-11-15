@@ -300,6 +300,44 @@ const rainbowScenes = [
     domain: 'science',
     backgroundStyle: 'neutral',
   },
+  // rb3 是接通画板之后的同一主题：同一句需求，镜头里终于是一道弧。
+  // 这份 spec 的合法性由 test/unit/figure-spec.spec.ts 兜住（等价用例）。
+  {
+    id: 'rb3',
+    title: '彩虹是怎么来的',
+    narration: '阳光照到空中的小水滴，被折射和反射，就散成了七种颜色。',
+    onScreenText: '阳光穿过水滴',
+    visualDescription: 'rainbow formed by sunlight through raindrops',
+    assetKey: 'topic',
+    assetTags: ['rainbow', 'sun', 'water'],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#F76B15',
+    domain: 'science',
+    backgroundStyle: 'neutral',
+    figure: {
+      shapes: [
+        { kind: 'circle', cx: 1420, cy: 150, r: 54, fill: '#FFC53D', reveal: 0.05 },
+        { kind: 'circle', cx: 250, cy: 360, r: 11, fill: '#4DABF7', reveal: 0.12 },
+        { kind: 'circle', cx: 300, cy: 445, r: 9, fill: '#4DABF7', reveal: 0.14 },
+        { kind: 'circle', cx: 205, cy: 470, r: 10, fill: '#4DABF7', reveal: 0.16 },
+        { kind: 'circle', cx: 330, cy: 292, r: 8, fill: '#4DABF7', reveal: 0.18 },
+        { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0.3 },
+        { kind: 'arc', cx: 800, cy: 640, r: 450, from: 4, to: 176, stroke: '#F76B15', width: 34, reveal: 0.35 },
+        { kind: 'arc', cx: 800, cy: 640, r: 410, from: 4, to: 176, stroke: '#FFC53D', width: 34, reveal: 0.4 },
+        { kind: 'arc', cx: 800, cy: 640, r: 370, from: 4, to: 176, stroke: '#30A46C', width: 34, reveal: 0.45 },
+        { kind: 'arc', cx: 800, cy: 640, r: 330, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.5 },
+        { kind: 'arc', cx: 800, cy: 640, r: 290, from: 4, to: 176, stroke: '#3E63DD', width: 34, reveal: 0.55 },
+        { kind: 'arc', cx: 800, cy: 640, r: 250, from: 4, to: 176, stroke: '#8E4EC6', width: 34, reveal: 0.6 },
+      ],
+      labels: [
+        { text: '阳光', x: 1420, y: 250 },
+        { text: '水滴', x: 258, y: 540 },
+      ],
+    },
+  },
 ];
 
 // 三种环境背景各验一遍：草原、河岸、夜晚。森林（老虎）已在 s7。

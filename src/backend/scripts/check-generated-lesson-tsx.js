@@ -76,11 +76,27 @@ const mustHave = [
   'growWindow',
   'swellK',
   'local >= 0.5',
+  // 受控画板：图形本身就是知识时必须走这条，缺了它彩虹只能画成一个小图标
+  'const FigureStage',
+  'const FigureShapePart',
+  'const figureArcPath',
+  'const figurePointAt',
+  'const hasFigure',
+  'FIGURE_W',
+  'shapeProgress',
   // 背景分档：抽象内容不能套森林底，否则所有课程共用同一条样板街
   'const SceneBackground',
   'style === "neutral"',
   'backgroundStyle === "environment" ? <GroundShadow',
 ];
+
+// 六种图元都必须有渲染分支，否则 LLM 交来的图元会被静默画不出来（画面缺一块）
+const figureKinds = ['arc', 'line', 'curve', 'circle', 'rect', 'polygon'];
+const missingKinds = figureKinds.filter((kind) => {
+  if (kind === 'polygon') return !template.includes('return <polygon');
+  return !template.includes(`glyph.kind === "${kind}"`);
+});
+console.log('missing_figure_kinds=' + (missingKinds.length ? missingKinds.join(',') : 'none'));
 
 // 每种关系都必须有布局分支，否则 LLM 选到未实现的关系会渲染成空画面
 const graphRelations = ['cycle', 'chain', 'growth', 'compare', 'group', 'split'];

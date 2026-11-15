@@ -321,4 +321,116 @@ describe('VideoGenerationAgentService', () => {
       expect(resolve({ source: '什么时候该说我爱你' })).toBe('neutral');
     });
   });
+
+  // 画板通道：图形本身就是知识时，必须走 figure 而不是"概念卡片 + 箭头"
+  describe('figure channel', () => {
+    const rainbowFigure = {
+      shapes: [
+        { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0 },
+        { kind: 'arc', cx: 800, cy: 640, r: 450, from: 4, to: 176, stroke: '#F76B15', width: 34, reveal: 0.1 },
+        { kind: 'arc', cx: 800, cy: 640, r: 410, from: 4, to: 176, stroke: '#FFC53D', width: 34, reveal: 0.2 },
+        { kind: 'arc', cx: 800, cy: 640, r: 370, from: 4, to: 176, stroke: '#30A46C', width: 34, reveal: 0.3 },
+        { kind: 'arc', cx: 800, cy: 640, r: 330, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.4 },
+        { kind: 'arc', cx: 800, cy: 640, r: 290, from: 4, to: 176, stroke: '#3E63DD', width: 34, reveal: 0.5 },
+        { kind: 'arc', cx: 800, cy: 640, r: 250, from: 4, to: 176, stroke: '#8E4EC6', width: 34, reveal: 0.6 },
+      ],
+      labels: [{ text: '水滴', x: 240, y: 560 }],
+    };
+
+    const scene = (extra: Record<string, unknown>) => ({
+      id: 'scene-1',
+      sequence: 1,
+      title: '彩虹是怎么来的',
+      concept: '光的折射',
+      narration: '阳光照到空中的小水滴，被折射和反射，就散成了七种颜色。',
+      onScreenText: '阳光穿过水滴',
+      visualDescription: '一道横跨天空的七色弧',
+      durationSec: 6,
+      transitionToNext: 'fade',
+      emphasis: 'core-concept',
+      ...extra,
+    });
+
+    it('画板优先于关系图，并且强制中性背景', async () => {
+      const service = createService();
+      const manifest = await service.generateRemotionComposition({
+        title: '彩虹',
+        topic: '彩虹',
+        domain: 'science',
+        totalDurationSec: 6,
+        sceneCount: 1,
+        scenes: [
+          scene({
+            figure: rainbowFigure,
+            // 同时给关系图：画板存在时它必须被丢掉，否则渲染层会拿到两套坐标系
+            sceneGraph: {
+              relation: 'chain',
+              nodes: [
+                { id: 'n1', label: '阳光', subject: '太阳' },
+                { id: 'n2', label: '水滴', subject: '水滴' },
+              ],
+            },
+          }),
+        ],
+      } as any);
+
+      const built = manifest.props.scenes[0] as any;
+      expect(built.figure).toBeDefined();
+      expect(built.figure.shapes).toHaveLength(7);
+      expect(built.sceneGraph).toBeUndefined();
+      // 画板是画面主体，背景必须退到幕后
+      expect(built.backgroundStyle).toBe('neutral');
+    });
+
+    it('画板非法时整份丢弃，退回关系图而不是带着脏几何渲染', async () => {
+      const service = createService();
+      const manifest = await service.generateRemotionComposition({
+        title: '彩虹',
+        topic: '彩虹',
+        domain: 'science',
+        totalDurationSec: 6,
+        sceneCount: 1,
+        scenes: [
+          scene({
+            // 缩在左上角的小圆：语法合法但几何不合格，覆盖率过不了
+            figure: {
+              shapes: [
+                { kind: 'circle', cx: 120, cy: 120, r: 60, fill: '#3E63DD', reveal: 0 },
+                { kind: 'circle', cx: 220, cy: 160, r: 50, fill: '#3E63DD', reveal: 1 },
+              ],
+            },
+            sceneGraph: {
+              relation: 'chain',
+              nodes: [
+                { id: 'n1', label: '阳光', subject: '太阳' },
+                { id: 'n2', label: '水滴', subject: '水滴' },
+              ],
+            },
+          }),
+        ],
+      } as any);
+
+      const built = manifest.props.scenes[0] as any;
+      expect(built.figure).toBeUndefined();
+      expect(built.sceneGraph).toBeDefined();
+      expect(built.sceneGraph.nodes).toHaveLength(2);
+    });
+
+    it('没有画板时走的还是原来的路，背景判定不受影响', async () => {
+      const service = createService();
+      const manifest = await service.generateRemotionComposition({
+        title: '认识动物老虎',
+        topic: '认识动物老虎',
+        domain: 'science',
+        totalDurationSec: 6,
+        sceneCount: 1,
+        scenes: [scene({ title: '老虎的条纹', narration: '老虎身上有一条条黑色的条纹。' })],
+      } as any);
+
+      const built = manifest.props.scenes[0] as any;
+      expect(built.figure).toBeUndefined();
+      // 有具体动物 → 环境背景，和接画板之前一致
+      expect(built.backgroundStyle).toBe('environment');
+    });
+  });
 });

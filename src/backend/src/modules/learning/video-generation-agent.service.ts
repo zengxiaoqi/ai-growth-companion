@@ -32,6 +32,7 @@ import {
   type SceneVisualAssetPlan,
 } from './visual-asset.service';
 import { normalizeSceneGraph } from './video/scene-graph';
+import { normalizeFigureSpec } from './video/figure-spec';
 import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
@@ -573,9 +574,23 @@ export class VideoGenerationAgentService {
           ? `science.animal-${action === 'rest' ? 'habitat' : 'abilities'}`
           : 'dynamic.story-scene');
 
+      const accentColor = animalConfig?.accentColor || this.resolveSceneAccent(tags, index);
+
+      // 画板优先，且与关系图互斥：图形本身就是知识时，"节点+标签"是降级表达。
+      // 校验不过就整份丢掉，退回关系图，绝不把脏几何带进渲染器。
+      const figureResult = normalizeFigureSpec(scene?.figure, accentColor);
+      const figure = figureResult.ok ? figureResult.spec : undefined;
+      if (!figureResult.ok && scene?.figure) {
+        this.recordFigureSignal(
+          topic,
+          scene,
+          (figureResult as { reason?: string }).reason || 'invalid',
+        );
+      }
+
       // 未通过校验的图直接丢弃，模板会退回单主体路径，而不是带着脏数据渲染
-      const sceneGraph = normalizeSceneGraph(scene?.sceneGraph);
-      if (!sceneGraph) {
+      const sceneGraph = figure ? null : normalizeSceneGraph(scene?.sceneGraph);
+      if (!figure && !sceneGraph) {
         this.recordGraphSignal(topic, scene, scene?.sceneGraph ? 'invalid' : 'missing');
       }
 
@@ -589,18 +604,22 @@ export class VideoGenerationAgentService {
         assetTags: tags,
         action,
         habitat,
-        backgroundStyle: this.resolveBackgroundStyle({
-          source,
-          hasGraph: !!sceneGraph,
-          hasAnimal: !!animalConfig,
-        }),
+        // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
+        backgroundStyle: figure
+          ? 'neutral'
+          : this.resolveBackgroundStyle({
+              source,
+              hasGraph: !!sceneGraph,
+              hasAnimal: !!animalConfig,
+            }),
         template,
         generatedVisual: animalConfig
           ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join('-')}`
           : `dynamic-${habitat}-${tags.slice(0, 4).join('-')}`,
         durationSec,
         durationFrames: durationSec * 30,
-        accentColor: animalConfig?.accentColor || this.resolveSceneAccent(tags, index),
+        accentColor,
+        figure,
         sceneGraph: sceneGraph || undefined,
       };
     });
@@ -625,6 +644,36 @@ export class VideoGenerationAgentService {
         };
       }),
     );
+  }
+
+  /**
+   * 画板被拒信号：LLM 给了 figure，但没过语法校验或几何校验。
+   *
+   * 和 recordGraphSignal 分开看：那条说明"关系语法不够用"，这条说明"画板要么
+   * prompt 没讲清、要么几何阈值定得太死"。reason 决定下一步该改哪儿——
+   * empty/coverage/no-main-shape 多半是 prompt 问题，off-center/label-cover 是
+   * 模型的空间感问题，tiny-arc 是理解错了弧的尺度。
+   */
+  private recordFigureSignal(topic: string, scene: any, reason: string): void {
+    const raw = scene?.figure;
+    const line =
+      JSON.stringify({
+        at: new Date().toISOString(),
+        topic,
+        scene: this.toText(scene?.title, '').slice(0, 32),
+        reason,
+        shapeCount: Array.isArray(raw?.shapes) ? raw.shapes.length : 0,
+        kinds: Array.isArray(raw?.shapes)
+          ? Array.from(new Set(raw.shapes.map((s: any) => this.toText(s?.kind, '?')).filter(Boolean))).slice(0, 8)
+          : [],
+      }) + '\n';
+    const file = path.resolve(__dirname, '../../../storage', 'storyboard-signals.jsonl');
+    void fs
+      .mkdir(path.dirname(file), { recursive: true })
+      .then(() => fs.appendFile(file, line, 'utf-8'))
+      .catch((error: any) => {
+        this.logger.warn(`[figure-signal] 写入失败: ${error?.message || error}`);
+      });
   }
 
   /**
@@ -772,6 +821,8 @@ type GeneratedScene = {
     characterLicense?: string;
   };
   sceneGraph?: { relation: string; caption?: string; nodes: GraphNodeView[] };
+  /** 受控画板：图形本身就是知识时走这条（彩虹、太阳系、光路），与 sceneGraph 互斥 */
+  figure?: FigureView;
   graphIcons?: Record<string, string>;
   audioSrc?: string;
 };
@@ -1498,6 +1549,25 @@ const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ s
   );
 };
 
+/**
+ * 受控画板的类型镜像（渲染侧）。
+ * 校验与契约在后端 figure-spec.ts，这里是模板自带的一份，改一处要改两处。
+ */
+const FIGURE_W = 1600;
+const FIGURE_H = 640;
+
+type FigureShapeView =
+  | { kind: "arc"; cx: number; cy: number; r: number; from: number; to: number; stroke: string; width: number }
+  | { kind: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
+  | { kind: "rect"; x: number; y: number; w: number; h: number; rx: number; fill: string }
+  | { kind: "circle"; cx: number; cy: number; r: number; fill: string }
+  | { kind: "curve"; x1: number; y1: number; c1x: number; c1y: number; c2x: number; c2y: number; x2: number; y2: number; stroke: string; width: number }
+  | { kind: "polygon"; points: string; fill: string };
+
+type FigureGlyphView = FigureShapeView & { reveal: number };
+type FigureLabelView = { text: string; x: number; y: number; color?: string };
+type FigureView = { shapes: FigureGlyphView[]; labels?: FigureLabelView[] };
+
 type GraphNodeView = {
   id: string;
   label: string;
@@ -2117,6 +2187,173 @@ const GraphBadge: React.FC<{
 /** 一颗光点走完一整条路径的帧数：让它慢到能看清"经过了哪个概念" */
 const FLOW_PERIOD = 84;
 
+/** 数学角 → 屏幕坐标点（y 轴翻转）。与后端 figure-spec.ts 的 shapeBounds 用同一套约定 */
+const figurePointAt = (cx: number, cy: number, r: number, deg: number) => {
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+};
+
+/**
+ * 圆弧路径。
+ *
+ * 方向这件事踩过坑：数学角增大在 SVG（y 向下）里是逆时针，对应 sweep-flag 0。
+ * 写反的话 ∩ 会变成 ∪ —— 彩虹的弧顶跑到画面外，看着像"彩虹埋在地里"，
+ * 而在代码和设计文档上都完全看不出问题，只有渲染出来才知道。
+ */
+const figureArcPath = (s: Extract<FigureShapeView, { kind: "arc" }>) => {
+  let from = s.from;
+  let to = s.to;
+  let sweep = 0;
+  if (to < from) {
+    from = s.to;
+    to = s.from;
+    sweep = 1;
+  }
+  const start = figurePointAt(s.cx, s.cy, s.r, from);
+  const end = figurePointAt(s.cx, s.cy, s.r, to);
+  const largeArc = to - from > 180 ? 1 : 0;
+  return "M " + start.x + " " + start.y + " A " + s.r + " " + s.r + " 0 " + largeArc + " " + sweep + " " + end.x + " " + end.y;
+};
+
+/** 单个图元。生长动画按图元类型给不同写法：线用描边生长，面用展开 */
+const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyph, p }) => {
+  if (p <= 0.001) return null;
+
+  if (glyph.kind === "arc") {
+    const len = glyph.r * Math.abs(glyph.to - glyph.from) * (Math.PI / 180);
+    return (
+      <path
+        d={figureArcPath(glyph)}
+        fill="none"
+        stroke={glyph.stroke}
+        strokeWidth={glyph.width}
+        strokeLinecap="round"
+        strokeDasharray={len}
+        strokeDashoffset={len * (1 - p)}
+      />
+    );
+  }
+
+  if (glyph.kind === "line") {
+    const len = Math.hypot(glyph.x2 - glyph.x1, glyph.y2 - glyph.y1);
+    return (
+      <line
+        x1={glyph.x1}
+        y1={glyph.y1}
+        x2={glyph.x2}
+        y2={glyph.y2}
+        stroke={glyph.stroke}
+        strokeWidth={glyph.width}
+        strokeLinecap="round"
+        strokeDasharray={len}
+        strokeDashoffset={len * (1 - p)}
+      />
+    );
+  }
+
+  if (glyph.kind === "curve") {
+    // 贝塞尔弧长没有解析解，用起/中/终三点折线近似足够驱动描边生长
+    const midX = (glyph.x1 + 3 * glyph.c1x + 3 * glyph.c2x + glyph.x2) / 8;
+    const midY = (glyph.y1 + 3 * glyph.c1y + 3 * glyph.c2y + glyph.y2) / 8;
+    const len =
+      (Math.hypot(midX - glyph.x1, midY - glyph.y1) + Math.hypot(glyph.x2 - midX, glyph.y2 - midY)) * 1.04;
+    return (
+      <path
+        d={
+          "M " + glyph.x1 + " " + glyph.y1 + " C " + glyph.c1x + " " + glyph.c1y + " " + glyph.c2x + " " + glyph.c2y + " " + glyph.x2 + " " + glyph.y2
+        }
+        fill="none"
+        stroke={glyph.stroke}
+        strokeWidth={glyph.width}
+        strokeLinecap="round"
+        strokeDasharray={len}
+        strokeDashoffset={len * (1 - p)}
+      />
+    );
+  }
+
+  if (glyph.kind === "circle") {
+    // 圆从中心长出来，比淡入更像"画上去的"
+    const grow = 0.45 + p * 0.55;
+    return <circle cx={glyph.cx} cy={glyph.cy} r={glyph.r * grow} fill={glyph.fill} opacity={Math.min(1, p * 2.2)} />;
+  }
+
+  if (glyph.kind === "rect") {
+    const grow = 0.86 + p * 0.14;
+    return (
+      <rect
+        x={glyph.x + (glyph.w * (1 - grow)) / 2}
+        y={glyph.y + (glyph.h * (1 - grow)) / 2}
+        width={glyph.w * grow}
+        height={glyph.h * grow}
+        rx={glyph.rx}
+        fill={glyph.fill}
+        opacity={Math.min(1, p * 2)}
+      />
+    );
+  }
+
+  return <polygon points={glyph.points} fill={glyph.fill} opacity={Math.min(1, p * 2)} />;
+};
+
+/**
+ * 受控画板渲染。
+ *
+ * 这一层只做三件事：坐标不出界、图元白名单、按 reveal 顺序生长。
+ * "画得好不好看"不在代码里判断 —— 那是 LLM 交上来的几何本身的质量，
+ * 由后端几何校验（覆盖率/居中/弧半径/标签压图）先拦一道。
+ */
+const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
+  const frame = useCurrentFrame();
+  const figure = scene.figure as FigureView;
+  const accent = scene.accentColor || "#3E63DD";
+
+  // 扣掉入场和收尾，剩下的就是"讲到哪儿了"，与字幕同一条时间轴
+  const progress = Math.max(0, Math.min(1, (frame - 10) / Math.max(20, duration - 22)));
+  const maxReveal = Math.max(0.0001, ...figure.shapes.map((s) => s.reveal));
+  // 最后一个图元必须留够生长窗口，且要在讲解说完之前画完 —— 否则字幕讲完七种颜色，
+  // 最内两圈还在长。可用区间收到 0.78，窗口 0.14，最后一道在 0.92 收笔。
+  const waveSize = 0.14;
+  const revealAt = (value: number) => (value / maxReveal) * (1 - waveSize - 0.08);
+  const shapeProgress = (value: number) => Math.max(0, Math.min(1, (progress - revealAt(value)) / waveSize));
+  const labelProgress = Math.max(0, Math.min(1, (progress - 0.6) / 0.2));
+
+  return (
+    <svg
+      width={FIGURE_W}
+      height={FIGURE_H}
+      viewBox={"0 0 " + FIGURE_W + " " + FIGURE_H}
+      style={{
+        position: "absolute",
+        left: (1920 - FIGURE_W) / 2,
+        // 画布底边必须落在字幕条（顶边约 845）之上，否则弧的落脚点被字幕吃掉
+        top: 196,
+        overflow: "visible",
+      }}
+    >
+      {figure.shapes.map((glyph, i) => (
+        <FigureShapePart key={"f" + i} glyph={glyph} p={shapeProgress(glyph.reveal)} />
+      ))}
+      {(figure.labels || []).map((label, i) =>
+        labelProgress <= 0 ? null : (
+          <text
+            key={"fl" + i}
+            x={label.x}
+            y={label.y + (1 - labelProgress) * 14}
+            textAnchor="middle"
+            fontSize={34}
+            fontWeight={900}
+            fill={label.color || accent}
+            opacity={labelProgress}
+          >
+            {label.text}
+          </text>
+        ),
+      )}
+    </svg>
+  );
+};
+
 const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({
   scene,
   duration,
@@ -2285,8 +2522,11 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
   const titleY = interpolate(enter, [0, 1], [-28, 0]);
   const breath = 1 + Math.sin(frame / 24) * 0.008;
   const sway = Math.sin(frame / 40) * 0.9;
-  // 有合法关系图就走关系渲染器：关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读
-  const hasGraph = !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
+  // 关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读。
+  // 画板优先级最高：图形本身就是知识时，任何"节点+标签"的表达都是降级。
+  const hasFigure = !!(scene.figure && scene.figure.shapes && scene.figure.shapes.length > 0);
+  const hasGraph =
+    !hasFigure && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
   const backgroundStyle = scene.backgroundStyle || "environment";
 
   return (
@@ -2324,7 +2564,9 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
           {scene.title}
         </div>
       </div>
-      {hasGraph ? (
+      {hasFigure ? (
+        <FigureStage scene={scene} duration={duration} />
+      ) : hasGraph ? (
         <SceneGraphStage scene={scene} duration={duration} />
       ) : (
         <>

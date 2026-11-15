@@ -18,6 +18,7 @@ import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
 import { describeGraphGrammar } from '../../../modules/learning/video/scene-graph';
+import { describeFigureGrammar } from '../../../modules/learning/video/figure-spec';
 
 type AgeGroup = '3-4' | '5-6';
 
@@ -47,6 +48,7 @@ export type StoryboardScene = {
   };
   /** 未校验的视觉关系图，由 learning 层的 normalizeSceneGraph 收敛后使用 */
   sceneGraph?: Record<string, unknown>;
+  figure?: Record<string, unknown>;
 };
 
 export type VideoStoryboard = {
@@ -210,6 +212,13 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         "id": "string (模板ID，从下方列表选择)",
         "params": { "key": "value" }
       },
+      "visualMode": "figure | graph（先把概念画成图形，图形本身能说明知识就填 figure）",
+      "figure": {
+        "shapes": [
+          { "kind": "arc | line | curve | circle | rect | polygon", "reveal": "0~1，只表达先后", "...": "其余为该图元的坐标字段，见下方 figure 说明" }
+        ],
+        "labels": [{ "text": "≤6字", "x": 0, "y": 0 }]
+      },
       "sceneGraph": {
         "relation": "cycle | chain | growth | compare | group | split",
         "caption": "string (可选，一句关系说明，≤10字)",
@@ -252,12 +261,21 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "- Choose the MOST appropriate template for each scene's content.",
       '- Fill in ALL required parameters for the chosen template.',
       '',
-      '## sceneGraph (MANDATORY per scene):',
-      '- Every scene MUST also carry a sceneGraph. It is what the renderer actually draws;',
-      '  animationTemplate only picks the motion flavour. A scene without sceneGraph falls back',
-      '  to a single generic card and looks like a slide, which is the failure mode we are removing.',
-      '- Nodes are concepts, relation is how they connect. Do NOT invent relation types.',
+      '## Picture grammar (MANDATORY: every scene MUST carry exactly ONE of figure / sceneGraph)',
+      '- Ask this question for every scene: "if I draw this knowledge as a shape, does the shape itself',
+      '  explain it?"  Yes -> use figure.  No -> use sceneGraph.',
+      '- USE figure when the knowledge IS a picture: rainbow (an arc of seven colours), solar system',
+      '  (concentric orbits), magnifier (two rays meeting at the image point), earth layers, a lever.',
+      '  These can never be expressed as "concept cards with labels plus arrows".',
+      '- USE sceneGraph when the knowledge is a RELATIONSHIP between concepts: water cycle, food chain,',
+      '  classification, comparison, part-whole. Nodes are concepts, relation is how they connect.',
+      '- Exactly one of the two. If both are present the figure wins and sceneGraph is dropped.',
+      '- A scene with neither falls back to a single generic card and looks like a slide, which is the',
+      '  failure mode we are removing.',
       '',
+      describeFigureGrammar(),
+      '',
+      'Reference sceneGraph grammar (only when visualMode is graph):',
       describeGraphGrammar(),
       '',
       style ? `## Visual Style: ${style}` : '',
@@ -333,6 +351,9 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
           ? 'intro'
           : 'core-concept',
       ...(animationTemplate ? { animationTemplate } : {}),
+      ...(raw?.figure && typeof raw.figure === 'object'
+        ? { figure: raw.figure as Record<string, unknown> }
+        : {}),
       ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
         ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
         : {}),

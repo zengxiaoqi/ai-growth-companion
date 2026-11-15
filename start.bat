@@ -13,28 +13,28 @@ if /I "%~1"=="--reset-db" set "RESET_DB=1"
 
 :: 1. Install backend deps
 if not exist "src\backend\node_modules" (
-    echo [1/6] Installing backend deps...
+    echo [1/7] Installing backend deps...
     cd src\backend
     call npm install
     cd ..\..
     echo.
 ) else (
-    echo [1/6] Backend deps OK
+    echo [1/7] Backend deps OK
 )
 
 :: 2. Install frontend-web deps
 if not exist "src\frontend-web\node_modules" (
-    echo [2/6] Installing frontend-web deps...
+    echo [2/7] Installing frontend-web deps...
     cd src\frontend-web
     call npm install
     cd ..\..
     echo.
 ) else (
-    echo [2/6] Frontend-web deps OK
+    echo [2/7] Frontend-web deps OK
 )
 
 :: 3. Install Flutter deps
-echo [3/6] Installing Flutter deps...
+echo [3/7] Installing Flutter deps...
 cd src\frontend
 call flutter pub get
 cd ..\..
@@ -43,23 +43,19 @@ echo.
 :: 4. Database policy
 if not "%RESET_DB%"=="1" goto :skip_reset
 if exist "src\backend\lingxi.db" (
-    echo [4/6] Resetting database...
+    echo [4/7] Resetting database...
     del /f "src\backend\lingxi.db" 2>nul
 ) else (
-    echo [4/6] Reset requested, but DB not found - will auto-seed
+    echo [4/7] Reset requested, but DB not found - will auto-seed
 )
 goto :db_done
 :skip_reset
 if exist "src\backend\lingxi.db" (
-    echo [4/6] Keeping existing database ^(default^)
+    echo [4/7] Keeping existing database ^(default^)
 ) else (
-    echo [4/6] First run - will auto-seed
+    echo [4/7] First run - will auto-seed
 )
 :db_done
-
-:: 5. Start services
-echo [5/6] Starting services...
-echo.
 
 set "PROJECT_DIR=%~dp0"
 
@@ -68,19 +64,61 @@ set "PROJECT_DIR=%~dp0"
 :: Keep this file ASCII-only: cmd.exe reads .bat as ANSI, so UTF-8 text breaks parsing.
 set "BACKEND_PORT=3001"
 
+:: 5. Pre-flight: dev ports must be free before starting anything.
+:: A stale backend holding BACKEND_PORT is the usual cause of EADDRINUSE.
+echo [5/7] Checking dev ports...
+echo.
+
+set "PORTS_BUSY="
+for %%P in (%BACKEND_PORT% 5173 8080) do (
+    netstat -aon | findstr /C:":%%P " | findstr /C:"LISTENING" >nul
+    if not errorlevel 1 (
+        echo   [BUSY] Port %%P is already in use:
+        netstat -aon | findstr /C:":%%P " | findstr /C:"LISTENING"
+        set "PORTS_BUSY=1"
+    )
+)
+if defined PORTS_BUSY (
+    echo.
+    echo   Lingxi appears to be running already. Starting again would fail
+    echo   with EADDRINUSE and leave stale processes behind.
+    echo   Run stop.bat first, then start.bat again.
+    echo.
+    pause
+    exit /b 1
+)
+echo   Ports %BACKEND_PORT%, 5173, 8080 are free.
+echo.
+
+:: 6. Start services
+echo [6/7] Starting services...
+echo.
+
 start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && set PORT=%BACKEND_PORT% && npx nest start --watch"
 
-echo Waiting for backend to start...
-timeout /t 8 /nobreak >nul
+echo Waiting for backend to be ready...
+set "WAITED=0"
+:wait_backend
+netstat -aon | findstr /C:":%BACKEND_PORT% " | findstr /C:"LISTENING" >nul
+if not errorlevel 1 goto :backend_ready
+ping -n 2 127.0.0.1 >nul
+set /a "WAITED+=1"
+if %WAITED% LSS 40 goto :wait_backend
+echo   [WARN] Backend did not listen on %BACKEND_PORT% within 40s. Check the Backend window.
+goto :start_frontends
+:backend_ready
+echo   Backend is ready on port %BACKEND_PORT%.
+:start_frontends
 
 start "Frontend-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend-web && npx vite --host 0.0.0.0 --port 5173"
 
 start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d chrome --web-port 8080 --web-hostname 0.0.0.0"
 
-timeout /t 3 /nobreak >nul
+:: Short delay via ping: Git's GNU timeout may shadow timeout.exe on PATH.
+ping -n 4 127.0.0.1 >nul
 
 echo.
-echo [6/6] All services launched.
+echo [7/7] All services launched.
 echo.
 echo ========================================
 echo   Started!

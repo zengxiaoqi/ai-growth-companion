@@ -68,6 +68,22 @@ export type VideoStoryboard = {
 
 const MAX_ATTEMPTS = 3;
 
+/**
+ * 分镜 prompt 的输出上限。
+ *
+ * 为什么需要单独给预算：思考型模型（MiniMax-M3 这类）会在 <think> 里写一两万字，
+ * 实测同一句「介绍彩虹」要 17k~28k completion tokens 才吐出正文，
+ * 而 LLM 客户端默认的升级上限是 16384 —— 于是 finish_reason=length、正文为空、
+ * generate() 返回空串，三个 attempt 全部失败后工具走 buildFallbackStoryboard，
+ * 整节课退回"通用卡片"，figure / sceneGraph 一个都到不了渲染层。
+ *
+ * 所以这里显式给足预算，并且允许用环境变量调（换模型时不必改代码）。
+ */
+function storyboardMaxTokens(): number {
+  const raw = Number(process.env.LLM_STORYBOARD_MAX_TOKENS);
+  return Number.isFinite(raw) && raw >= 4096 ? raw : 32768;
+}
+
 const VALID_EMPHASIS = new Set(['intro', 'core-concept', 'example', 'practice', 'summary']);
 
 const VALID_TRANSITIONS = new Set(['fade', 'slide', 'wipe', 'zoom']);
@@ -151,7 +167,10 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
           attempt,
           failures,
         );
-        const llmResponse = await this.llmClient.generate(prompt);
+        const llmResponse = await this.llmClient.generate(prompt, undefined, {
+          maxTokens: storyboardMaxTokens(),
+          temperature: 0.7,
+        });
         const parsed = this.extractJsonObject(llmResponse);
         if (!parsed) {
           failures.push(`attempt ${attempt}: invalid JSON`);

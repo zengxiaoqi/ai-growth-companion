@@ -78,8 +78,14 @@ export interface ILlmClient {
   /** Model for the english-practice mode, when configured via LLM_MODEL_ENGLISH */
   readonly englishModel?: string;
 
-  /** Secondary call for structured content generation (quizzes, activities, etc.) */
-  generate(prompt: string, systemPrompt?: string): Promise<string>;
+  /**
+   * Secondary call for structured content generation (quizzes, activities, etc.)
+   *
+   * `options.maxTokens` 是给思考型模型用的逃生口：MiniMax-M3 这类模型会把
+   * 一两万 token 花在 <think> 上，默认 16384 的升级上限根本到不了正文，
+   * generate() 于是返回空串，调用方只能走兜底。需要长输出的调用方自己指定预算。
+   */
+  generate(prompt: string, systemPrompt?: string, options?: LlmCallOptions): Promise<string>;
 
   /** Structured JSON generation: low temperature + large token budget by default */
   generateJson(

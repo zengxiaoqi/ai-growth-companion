@@ -389,8 +389,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     return out;
   }
 
-  async generate(prompt: string, systemPrompt?: string): Promise<string> {
-    return this.generateWithOptions(prompt, systemPrompt);
+  async generate(prompt: string, systemPrompt?: string, options?: LlmCallOptions): Promise<string> {
+    return this.generateWithOptions(prompt, systemPrompt, options);
   }
 
   async generateJson(

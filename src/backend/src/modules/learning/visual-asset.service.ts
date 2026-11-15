@@ -11,6 +11,109 @@ import type { SceneGraph } from './video/scene-graph';
 
 export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
+/**
+ * 素材缺失的三种归因。三者对应三种完全不同的动作，混在一起就只能靠猜：
+ * 补素材 / 修匹配器 / 接受降级。
+ */
+export type AssetMissReason =
+  /** 库里真的没有（青草、石头、树根）：只能补素材，任何算法都救不了 */
+  | 'not-in-library'
+  /** 库里有弱相关项（松树→大树、桃花→花朵）：能用，但语义会失真，得人来定 */
+  | 'degraded-candidate'
+  /** 库里有强相关项却没命中（叫法不同）：匹配器的问题 */
+  | 'no-match';
+
+export type AssetMissVerdict = {
+  reason: AssetMissReason;
+  nearestRole?: string;
+  nearestAlias?: string;
+  /** 去掉虚词后能对上的最长连续字数，1=弱相关，≥2=强相关 */
+  overlap: number;
+};
+
+/**
+ * 算相似度时跳过的字。它们几乎出现在任何词组里，算进相似度只会误判：
+ * 「小燕子」和「小鸟」共用一个「小」就判成"有相关项"，实际上库里根本没有燕子。
+ */
+const NEUTRAL_CHARS = new Set('的了在是我有和就不都一个上也很到小大子们这那什么着会开出来去'.split(''));
+
+const stripNeutral = (s: string) =>
+  s
+    .split('')
+    .filter((c) => !NEUTRAL_CHARS.has(c))
+    .join('');
+
+/** 最长公共连续子串长度（去掉虚词后）。只用于归因，不参与匹配决策 */
+export function longestCommonRun(a: string, b: string): number {
+  const x = stripNeutral(a);
+  const y = stripNeutral(b);
+  if (!x || !y) return 0;
+  let prev = new Array(y.length + 1).fill(0) as number[];
+  let cur = new Array(y.length + 1).fill(0) as number[];
+  let best = 0;
+  for (let i = 1; i <= x.length; i += 1) {
+    for (let j = 1; j <= y.length; j += 1) {
+      cur[j] = x[i - 1] === y[j - 1] ? prev[j - 1] + 1 : 0;
+      if (cur[j] > best) best = cur[j];
+    }
+    const swap = prev;
+    prev = cur;
+    cur = swap;
+  }
+  return best;
+}
+
+/**
+ * 给一次素材缺失归因。
+ *
+ * 只做判定，不做映射——匹配器不该"猜最近的"，那是另一件事（降级映射），
+ * 要单独开关、单独验收。这里只回答"这次 miss 该记到哪一栏"。
+ *
+ * 判据要收得很紧，否则中文单字会把所有东西串成一团：
+ * 第一版只看"有没有公共字"，于是「荷花」撞上「梅花鹿」、「稻草人」撞上「草莓」、
+ * 「水蒸气」撞上「水稻」，全被误判成"库里有近似项"。
+ * 现在：两字以上连续重叠，或者去掉虚词后完全相等，才算"库里有"；
+ * 单个字的别名（花/树/鸟/雪）只能当降级候选，而且要覆盖一半以上才算。
+ */
+export function classifyAssetMiss(
+  subject: string,
+  aliases: Array<{ role: string; alias: string }>,
+): AssetMissVerdict {
+  const q = stripNeutral(subject);
+  if (!q) return { reason: 'not-in-library', overlap: 0 };
+
+  let bestRank = 0;
+  let bestCoverage = 0;
+  let bestRun = 0;
+  let nearestRole: string | undefined;
+  let nearestAlias: string | undefined;
+
+  for (const item of aliases) {
+    const a = stripNeutral(item.alias);
+    if (!a) continue;
+    const run = longestCommonRun(subject, item.alias);
+    if (run === 0) continue;
+    const coverage = run / Math.max(q.length, a.length);
+    let rank = 0;
+    if (q === a || run >= 2) rank = 2;
+    else if (a.length <= 2 && coverage >= 0.5) rank = 1;
+    if (rank === 0) continue;
+    if (rank > bestRank || (rank === bestRank && coverage > bestCoverage)) {
+      bestRank = rank;
+      bestCoverage = coverage;
+      bestRun = run;
+      nearestRole = item.role;
+      nearestAlias = item.alias;
+    }
+  }
+
+  if (bestRank === 2) return { reason: 'no-match', nearestRole, nearestAlias, overlap: bestRun };
+  if (bestRank === 1) {
+    return { reason: 'degraded-candidate', nearestRole, nearestAlias, overlap: bestRun };
+  }
+  return { reason: 'not-in-library', overlap: 0 };
+}
+
 export type VisualAssetLicense = {
   license: string;
   licenseUrl?: string;
@@ -363,7 +466,16 @@ export class VisualAssetService {
   }
 
   private async recordAssetMiss(subject: string, topic: string): Promise<void> {
-    const line = `${JSON.stringify({ at: new Date().toISOString(), subject, topic })}\n`;
+    const verdict = await this.classifyMiss(subject);
+    const line = `${JSON.stringify({
+      at: new Date().toISOString(),
+      subject,
+      topic,
+      reason: verdict.reason,
+      ...(verdict.nearestRole ? { nearest: verdict.nearestRole } : {}),
+      ...(verdict.nearestAlias ? { nearestAlias: verdict.nearestAlias } : {}),
+      overlap: verdict.overlap,
+    })}\n`;
     try {
       await fs.mkdir(path.dirname(this.assetMissLogPath), { recursive: true });
       await fs.appendFile(this.assetMissLogPath, line, 'utf-8');
@@ -371,6 +483,18 @@ export class VisualAssetService {
       // 缺失记录是运营信号，不是出片依赖，写不进去不能拖垮渲染
       this.logger.debug(`[recordAssetMiss] failed to append: ${error?.message || 'unknown'}`);
     }
+  }
+
+  /** 把整个矢量库的别名摊平，交给纯函数归因 */
+  private async classifyMiss(subject: string): Promise<AssetMissVerdict> {
+    const manifest = await this.loadVectorManifest();
+    const aliases: Array<{ role: string; alias: string }> = [];
+    for (const asset of manifest?.assets || []) {
+      for (const alias of asset.aliases || asset.tags || []) {
+        aliases.push({ role: asset.role, alias: String(alias) });
+      }
+    }
+    return classifyAssetMiss(subject, aliases);
   }
 
   private async resolveVectorAsset(request: AssetRequest): Promise<VisualAsset | null> {

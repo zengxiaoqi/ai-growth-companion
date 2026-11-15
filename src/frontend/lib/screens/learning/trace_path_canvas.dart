@@ -61,8 +61,8 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   // 采样点列表
   List<ui.Offset> _samplePoints = [];
 
-  // Key 用于重建 CustomPaint
-  int _redrawKey = 0;
+  // 画布区域 Key（用于把手势坐标精确映射到画布坐标）
+  final GlobalKey _paintKey = GlobalKey();
 
   @override
   void initState() {
@@ -73,10 +73,23 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   @override
   void didUpdateWidget(TracePathCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.target != oldWidget.target) {
+    // 父级 rebuild 会创建新的 target 实例，按业务字段比较而非对象引用，
+    // 否则每次父级 setState 都会误判为目标变化并清空进度。
+    if (_targetSignature(widget.target) != _targetSignature(oldWidget.target)) {
       _initSamplePoints();
       _reset();
     }
+  }
+
+  /// 目标的业务签名（类型 + 内容）
+  String _targetSignature(dynamic target) {
+    if (target is TraceGlyphTarget) {
+      return 'glyph:${target.id}:${target.text}';
+    }
+    if (target is TracePolylineTarget) {
+      return 'polyline:${target.id}:${target.points.length}';
+    }
+    return '${target.hashCode}';
   }
 
   /// 初始化采样点
@@ -85,55 +98,103 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     final target = widget.target;
 
     if (target is TraceGlyphTarget) {
-      _samplePoints = _generateGlyphSamples(target);
+      // 像素级采样是异步的（需要先离屏渲染字形），先空着等回调
+      _generateGlyphSamples(target).then((samples) {
+        if (!mounted) return;
+        if (widget.target != target) return; // 目标已切换，丢弃过期结果
+        setState(() => _samplePoints = samples);
+      });
     } else if (target is TracePolylineTarget) {
       _samplePoints = _generatePolylineSamples(target);
     }
   }
 
-  /// 生成文字采样点（基于 TextPainter 实际渲染）
+  /// 生成文字采样点（基于字形实际渲染像素）
   ///
-  /// 使用 TextPainter.getBoxesForSelection 获取文字字形的准确
-  /// 包围盒，在包围盒内部生成采样点。相比之前的全画布均匀网格，
-  /// 此方法只在实际有文字笔画的区域内采样，大幅提升覆盖率计算精度。
-  List<ui.Offset> _generateGlyphSamples(TraceGlyphTarget target) {
+  /// 先把字形离屏渲染成位图，再按像素 alpha 采样——只有真正有笔画的
+  /// 像素会成为覆盖点。相比按包围盒整格采样（会把笔画间的空白也算进
+  /// 覆盖目标），此方法让覆盖率真实反映"描到了多少笔画"。
+  Future<List<ui.Offset>> _generateGlyphSamples(TraceGlyphTarget target) async {
+    final layout = _layoutGlyph(target.text, _canvasSize);
+    try {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: target.text,
+          style: TextStyle(
+            fontSize: layout.fontSize,
+            fontWeight: FontWeight.w900,
+            color: const ui.Color(0xFF000000),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: _canvasSize);
+      textPainter.paint(canvas, layout.offset);
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(
+        _canvasSize.toInt(),
+        _canvasSize.toInt(),
+      );
+      final byteData =
+          await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      image.dispose();
+      picture.dispose();
+
+      if (byteData == null) return _bboxGlyphSampling(target);
+
+      final pixels = byteData.buffer.asUint8List();
+      final canvasInt = _canvasSize.toInt();
+      final samples = <ui.Offset>[];
+
+      const step = 4; // 4px 步长，平衡精度和性能
+      const alphaThreshold = 40;
+      for (int y = 0; y < canvasInt; y += step) {
+        for (int x = 0; x < canvasInt; x += step) {
+          final alpha = pixels[(y * canvasInt + x) * 4 + 3];
+          if (alpha > alphaThreshold) {
+            samples.add(ui.Offset(x.toDouble(), y.toDouble()));
+          }
+        }
+      }
+
+      if (samples.isEmpty) return _bboxGlyphSampling(target);
+      return samples;
+    } catch (_) {
+      // 离屏渲染不可用时（如部分 web 环境），退回包围盒采样
+      return _bboxGlyphSampling(target);
+    }
+  }
+
+  /// 包围盒采样（降级方案）：在字形包围盒内按网格取点
+  List<ui.Offset> _bboxGlyphSampling(TraceGlyphTarget target) {
     final samples = <ui.Offset>[];
 
+    final layout = _layoutGlyph(target.text, _canvasSize);
     final textPainter = TextPainter(
       text: TextSpan(
         text: target.text,
         style: TextStyle(
-          fontSize: target.fontSize ?? 180,
+          fontSize: layout.fontSize,
           fontWeight: FontWeight.w900,
         ),
       ),
       textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
+    )..layout(maxWidth: _canvasSize);
 
-    textPainter.layout(maxWidth: _canvasSize);
-
-    // 计算文字居中偏移
-    final offsetX = (_canvasSize - textPainter.width) / 2;
-    final offsetY = (_canvasSize - textPainter.height) / 2 + 8;
-
-    // 获取每个字形的包围盒（由 TextPainter 实际排版计算得出）
     final boxes = textPainter.getBoxesForSelection(
       TextSelection(baseOffset: 0, extentOffset: target.text.length),
     );
 
-    if (boxes.isEmpty) {
-      // 降级：如果无法获取包围盒，回退到均匀网格
-      return _simpleGlyphSampling(target);
-    }
+    if (boxes.isEmpty) return samples;
 
-    // 在包围盒区域内生成采样点
-    const step = 5.0; // 5px 步长，平衡精度和性能
+    const step = 5.0;
     for (final box in boxes) {
-      final left = box.left + offsetX;
-      final top = box.top + offsetY;
-      final right = box.right + offsetX;
-      final bottom = box.bottom + offsetY;
+      final left = box.left + layout.offset.dx;
+      final top = box.top + layout.offset.dy;
+      final right = box.right + layout.offset.dx;
+      final bottom = box.bottom + layout.offset.dy;
 
       for (double y = top; y <= bottom; y += step) {
         for (double x = left; x <= right; x += step) {
@@ -142,18 +203,6 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       }
     }
 
-    return samples;
-  }
-
-  /// 简化的文字采样（网格方式）
-  List<ui.Offset> _simpleGlyphSampling(TraceGlyphTarget target) {
-    final samples = <ui.Offset>[];
-    // 简化：使用网格采样
-    for (double y = 20; y < _canvasSize - 20; y += 4) {
-      for (double x = 20; x < _canvasSize - 20; x += 4) {
-        samples.add(ui.Offset(x, y));
-      }
-    }
     return samples;
   }
 
@@ -190,7 +239,6 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       _coverage = 0.0;
       _solved = false;
       _warning = null;
-      _redrawKey++;
     });
   }
 
@@ -222,9 +270,11 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       return (point - segment.start).distance;
     }
 
-    final t = ((point.dx - segment.start.dx) * dx +
-            (point.dy - segment.start.dy) * dy) /
-        (dx * dx + dy * dy).clamp(0.0, 1.0);
+    // 先按真实线段长度求投影比例，再把 t 钳到 [0, 1]
+    final t = (((point.dx - segment.start.dx) * dx +
+                (point.dy - segment.start.dy) * dy) /
+            (dx * dx + dy * dy))
+        .clamp(0.0, 1.0);
 
     final px = segment.start.dx + t * dx;
     final py = segment.start.dy + t * dy;
@@ -255,7 +305,6 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     });
 
     _updateCoverage(segment);
-    _redrawKey++;
   }
 
   /// 指针抬起
@@ -269,18 +318,25 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     }
   }
 
-  /// 归一化坐标（0-1 -> 画布坐标）
-  ui.Offset _normalizePosition(Offset position) {
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return ui.Offset.zero;
+  /// 手势坐标 -> 画布坐标
+  ///
+  /// 必须以画布（CustomPaint）自身的 RenderBox 为基准换算，
+  /// 不能用整个 Card 的尺寸（否则笔画会整体偏移、压缩）。
+  ui.Offset _normalizePosition(Offset localPosition) {
+    // GestureDetector 直接包裹 CustomPaint，localPosition 已经是
+    // 画布坐标系；仅在画布实际尺寸与逻辑尺寸不一致时做等比缩放。
+    final renderBox = _paintKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || renderBox.size.width <= 0) {
+      return ui.Offset(localPosition.dx, localPosition.dy);
+    }
 
     final size = renderBox.size;
-    // 假设是正方形容器
-    final canvasSize = size.width < size.height ? size.width : size.height;
+    final scaleX = _canvasSize / size.width;
+    final scaleY = _canvasSize / size.height;
 
     return ui.Offset(
-      (position.dx / canvasSize) * _canvasSize,
-      (position.dy / canvasSize) * _canvasSize,
+      localPosition.dx * scaleX,
+      localPosition.dy * scaleY,
     );
   }
 
@@ -360,36 +416,34 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
             const SizedBox(height: 12),
 
-            // 描红画布
+            // 描红画布（固定正方形，painter 与手势共用同一坐标系）
             Center(
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.grey.shade300,
-                      width: 1,
-                    ),
+              child: Container(
+                width: _canvasSize,
+                height: _canvasSize,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                    width: 1,
                   ),
-                  child: GestureDetector(
-                    onPanStart: (details) =>
-                        _handlePointerDown(details.localPosition),
-                    onPanUpdate: (details) =>
-                        _handlePointerMove(details.localPosition),
-                    onPanEnd: (_) => _handlePointerUp(),
-                    child: CustomPaint(
-                      key: ValueKey(_redrawKey),
-                      painter: _TracePathPainter(
-                        target: widget.target,
-                        segments: _segments,
-                        canvasSize: _canvasSize,
-                      ),
-                      size: const Size(_canvasSize, _canvasSize),
+                ),
+                child: GestureDetector(
+                  onPanStart: (details) =>
+                      _handlePointerDown(details.localPosition),
+                  onPanUpdate: (details) =>
+                      _handlePointerMove(details.localPosition),
+                  onPanEnd: (_) => _handlePointerUp(),
+                  child: CustomPaint(
+                    key: _paintKey,
+                    painter: _TracePathPainter(
+                      target: widget.target,
+                      segments: _segments,
+                      canvasSize: _canvasSize,
                     ),
+                    size: const Size(_canvasSize, _canvasSize),
                   ),
                 ),
               ),
@@ -545,6 +599,37 @@ class _Segment {
   _Segment(this.start, this.end);
 }
 
+/// 字形布局结果
+class _GlyphLayout {
+  final double fontSize;
+  final ui.Offset offset;
+
+  const _GlyphLayout(this.fontSize, this.offset);
+}
+
+/// 计算字形在画布中的字号与居中偏移
+///
+/// 采样与绘制共用此函数，保证参考字和覆盖点完全对齐。
+/// 字号取画布的 86%，让字尽量占满米字格（留出笔画描边余量）。
+_GlyphLayout _layoutGlyph(String text, double canvasSize) {
+  final fontSize = canvasSize * 0.86;
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w900),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: canvasSize);
+
+  return _GlyphLayout(
+    fontSize,
+    ui.Offset(
+      (canvasSize - textPainter.width) / 2,
+      (canvasSize - textPainter.height) / 2,
+    ),
+  );
+}
+
 /// 描红画布绘制器
 class _TracePathPainter extends CustomPainter {
   final dynamic target;
@@ -585,13 +670,14 @@ class _TracePathPainter extends CustomPainter {
       ..strokeJoin = ui.StrokeJoin.round;
 
     if (target is TraceGlyphTarget) {
-      // 绘制文字
+      // 绘制文字（与采样共用同一布局，保证对齐）
       final glyphTarget = target as TraceGlyphTarget;
+      final layout = _layoutGlyph(glyphTarget.text, canvasSize);
       final textPainter = TextPainter(
         text: TextSpan(
           text: glyphTarget.text,
           style: TextStyle(
-            fontSize: glyphTarget.fontSize ?? 180,
+            fontSize: layout.fontSize,
             fontWeight: FontWeight.w900,
             color: const ui.Color(0xFFCBD5E1),
           ),
@@ -601,12 +687,7 @@ class _TracePathPainter extends CustomPainter {
       );
 
       textPainter.layout(maxWidth: canvasSize);
-      final offset = ui.Offset(
-        (canvasSize - textPainter.width) / 2,
-        (canvasSize - textPainter.height) / 2 + 8,
-      );
-
-      textPainter.paint(canvas, offset);
+      textPainter.paint(canvas, layout.offset);
     } else if (target is TracePolylineTarget) {
       // 绘制折线
       final polylineTarget = target as TracePolylineTarget;

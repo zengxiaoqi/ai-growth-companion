@@ -252,6 +252,56 @@ const scenes = [
   },
 ];
 
+// 「彩虹」对照：这是最典型的一类知识——图形本身就是知识。
+// 彩虹不是"几个概念之间的关系"，它是一道横跨天空的七色弧；用节点+标签永远画不出来。
+// 下面两个场景模拟 LLM 面对"介绍彩虹"时最可能的两种输出，用来暴露当前模板的表达力上限。
+const rainbowScenes = [
+  {
+    id: 'rb1',
+    title: '彩虹是怎么来的',
+    narration: '阳光照到空中的小水滴，光被折射和反射，就散成了七种颜色。',
+    onScreenText: '阳光穿过水滴',
+    visualDescription: 'rainbow formed by sunlight through raindrops',
+    assetKey: 'topic',
+    assetTags: ['rainbow', 'sun', 'water'],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#FF8A3D',
+    domain: 'science',
+    backgroundStyle: 'neutral',
+    // 真实链路里「彩虹」会命中 vector-rainbow，这里手工补上，用来展示"最理想情况"——
+    // 即便命中，彩虹也只是白框里的一个小图标，而不是一道横跨天空的弧。
+    graphIcons: { n3: 'assets/vector/weather/rainbow.svg' },
+    sceneGraph: {
+      relation: 'chain',
+      caption: '阳光变成彩虹',
+      nodes: [
+        { id: 'n1', label: '阳光', subject: '太阳', role: 'object' },
+        { id: 'n2', label: '水滴', subject: '水滴', role: 'object' },
+        { id: 'n3', label: '彩虹', subject: '彩虹', role: 'object' },
+      ],
+    },
+  },
+  {
+    id: 'rb2',
+    title: '彩虹有七种颜色',
+    narration: '红橙黄绿蓝靛紫，一道彩虹里藏着七种颜色。',
+    onScreenText: '彩虹',
+    visualDescription: 'rainbow with seven colors',
+    assetKey: 'topic',
+    assetTags: ['rainbow'],
+    action: 'idle',
+    habitat: 'grassland',
+    generatedVisual: 'svg',
+    durationFrames: 200,
+    accentColor: '#FF8A3D',
+    domain: 'science',
+    backgroundStyle: 'neutral',
+  },
+];
+
 // 三种环境背景各验一遍：草原、河岸、夜晚。森林（老虎）已在 s7。
 // 以前植被不分栖息地，草原和河岸都长同一排树，这三帧就是用来盯这件事的。
 const habitatScenes = [
@@ -325,7 +375,7 @@ const habitatScenes = [
     },
   },
 ];
-scenes.push(...habitatScenes);
+scenes.push(...habitatScenes, ...rainbowScenes);
 
 // 与后端 resolveBackgroundStyle 保持同样的判定：有关系图（循环/对比/分类这类抽象结构）
 // 就走中性底，否则按环境背景。以前不分青红皂白全铺森林，所有课程共用同一条样板街。

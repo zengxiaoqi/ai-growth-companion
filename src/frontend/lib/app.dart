@@ -206,7 +206,10 @@ class LingxiApp extends StatelessWidget {
             );
           case '/parent/coursePackManager':
             return page(
-              (_) => const CoursePackManagerScreen(),
+              (_) => CoursePackManagerScreen(
+                initialRecordId: args?['initialRecordId'] as int?,
+                initialChildId: args?['initialChildId'] as int?,
+              ),
               slideFromRight,
             );
           case '/parent/growthReport':

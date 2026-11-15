@@ -114,6 +114,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [draftLessons, setDraftLessons] = useState<DraftLessonSummary[]>([]);
   const [draftLessonToEdit, setDraftLessonToEdit] = useState<DraftLessonSummary | null>(null);
+  const [coursePackToOpen, setCoursePackToOpen] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -431,8 +432,13 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
     [navigate],
   );
 
-  const handleViewCoursePack = useCallback((_coursePackId: number) => {
+  const handleViewCoursePack = useCallback((coursePackId: number) => {
+    setCoursePackToOpen(coursePackId);
     setActiveTab('assignments');
+  }, []);
+
+  const handleCoursePackOpened = useCallback(() => {
+    setCoursePackToOpen(null);
   }, []);
 
   const handleEditDraftLesson = useCallback((draftLesson: DraftLessonSummary) => {
@@ -452,7 +458,6 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
 
   return (
     <div className="app-shell min-h-app bg-background">
-
       <header className="px-3 pt-safe md:px-6">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-secondary-container">
@@ -474,9 +479,7 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-medium md:text-2xl">
-              灵犀伴学 · 家长端
-            </h1>
+            <h1 className="truncate text-xl font-medium md:text-2xl">灵犀伴学 · 家长端</h1>
           </div>
 
           <ChildSelector
@@ -730,6 +733,8 @@ export default function ParentDashboard({ onBack }: ParentDashboardProps) {
                 <CoursePackManager
                   selectedChildId={selectedChildId}
                   onCoursePackGenerated={handleDraftLessonUpdated}
+                  initialRecordId={coursePackToOpen}
+                  onInitialRecordConsumed={handleCoursePackOpened}
                 />
                 <AssignmentManager
                   assignments={assignments}

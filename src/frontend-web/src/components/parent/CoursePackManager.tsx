@@ -1,5 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, BookOpen, Clock3, ArrowDownTray} from '@/icons';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, BookOpen, Clock3, ArrowDownTray } from '@/icons';
 import api from '@/services/api';
 import type { CoursePackRecord } from '@/types';
 import { Button, Card, EmptyState } from '../ui';
@@ -7,6 +7,8 @@ import { Button, Card, EmptyState } from '../ui';
 interface CoursePackManagerProps {
   selectedChildId: number | null;
   onCoursePackGenerated?: () => void | Promise<void>;
+  initialRecordId?: number | null;
+  onInitialRecordConsumed?: () => void;
 }
 
 const FOCUS_OPTIONS = [
@@ -29,6 +31,8 @@ type ExportFormat =
 export default function CoursePackManager({
   selectedChildId,
   onCoursePackGenerated,
+  initialRecordId,
+  onInitialRecordConsumed,
 }: CoursePackManagerProps) {
   const [topic, setTopic] = useState('');
   const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
@@ -52,6 +56,8 @@ export default function CoursePackManager({
   const [weeklyStartDate, setWeeklyStartDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
+  const previewRef = useRef<HTMLDivElement>(null);
+  const scrollOnPreviewRef = useRef(false);
 
   const loadPacks = useCallback(async () => {
     if (!selectedChildId) {
@@ -137,19 +143,38 @@ export default function CoursePackManager({
   ]);
 
   const handleViewPack = useCallback(
-    async (record: CoursePackRecord) => {
-      setPreviewRecordId(record.id);
+    async (recordId: number) => {
+      setPreviewRecordId(recordId);
       setError(null);
       try {
-        const row = await api.getCoursePackById(record.id);
+        const row = await api.getCoursePackById(recordId);
         setPreview(row?.planContent || null);
-        await loadVersionHistory(record.id);
+        await loadVersionHistory(recordId);
       } catch (viewError: any) {
         setError(viewError?.message || '获取课程包详情失败');
       }
     },
     [loadVersionHistory],
   );
+
+  useEffect(() => {
+    if (!initialRecordId) return;
+    let cancelled = false;
+    scrollOnPreviewRef.current = true;
+    handleViewPack(initialRecordId).finally(() => {
+      if (!cancelled) onInitialRecordConsumed?.();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRecordId, handleViewPack, onInitialRecordConsumed]);
+
+  useEffect(() => {
+    if (preview && scrollOnPreviewRef.current) {
+      scrollOnPreviewRef.current = false;
+      previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [preview]);
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
@@ -226,12 +251,20 @@ export default function CoursePackManager({
       if (result?.coursePackRecordId) {
         await loadVersionHistory(result.coursePackRecordId);
       }
+      if (onCoursePackGenerated) await onCoursePackGenerated();
     } catch (saveError: any) {
       setError(saveError?.message || '保存版本失败');
     } finally {
       setIsSavingVersion(false);
     }
-  }, [editableJson, loadPacks, loadVersionHistory, previewRecordId, versionNote]);
+  }, [
+    editableJson,
+    loadPacks,
+    loadVersionHistory,
+    onCoursePackGenerated,
+    previewRecordId,
+    versionNote,
+  ]);
 
   const handleEnrichBilingual = useCallback(async () => {
     if (!previewRecordId) {
@@ -515,7 +548,7 @@ export default function CoursePackManager({
                     选择
                   </label>
                   <button
-                    onClick={() => handleViewPack(record)}
+                    onClick={() => handleViewPack(record.id)}
                     className="min-w-0 flex-1 text-left"
                   >
                     <p className="truncate text-sm font-semibold text-on-surface">{record.title}</p>
@@ -535,183 +568,185 @@ export default function CoursePackManager({
       </Card>
 
       {preview ? (
-        <Card className="space-y-2 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-on-surface">课程包预览</h3>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleEnrichBilingual}
-                disabled={!previewRecordId || isEnrichingBilingual || isSavingVersion}
-              >
-                {isEnrichingBilingual && <Loader2 className="h-4 w-4 animate-spin" />}
-                自动补全双语
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('bundle_zip')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'bundle_zip' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出素材包 ZIP
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('capcut_json')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'capcut_json' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出 CapCut JSON
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('narration_txt')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'narration_txt' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出配音 TXT
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('narration_mp3')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'narration_mp3' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出配音 MP3
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('teaching_video_mp4')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'teaching_video_mp4' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出教学视频 MP4
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('storyboard_csv')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'storyboard_csv' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出分镜 CSV
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('subtitle_srt')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'subtitle_srt' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出字幕 SRT
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleExport('subtitle_srt_bilingual')}
-                disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
-              >
-                {exportingFormat === 'subtitle_srt_bilingual' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowDownTray className="h-4 w-4" />
-                )}
-                导出双语字幕 SRT
-              </Button>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px]">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">
-                可编辑 JSON（保存将生成新版本）
-              </label>
-              <textarea
-                value={editableJson}
-                onChange={(event) => setEditableJson(event.target.value)}
-                className="min-h-[340px] w-full rounded-xl border border-outline-variant/30 bg-surface-container-low p-3 text-[11px] leading-5 text-on-surface outline-none transition focus:border-primary"
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
-                  value={versionNote}
-                  onChange={(event) => setVersionNote(event.target.value)}
-                  placeholder="版本备注，例如：补充双语旁白"
-                  className="h-10 min-w-[220px] flex-1 rounded-xl border border-outline-variant/30 bg-surface px-3 text-xs outline-none transition focus:border-primary"
-                />
+        <div ref={previewRef}>
+          <Card className="space-y-2 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-on-surface">课程包预览</h3>
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  onClick={handleSaveVersion}
-                  disabled={!previewRecordId || isSavingVersion || isEnrichingBilingual}
+                  variant="ghost"
+                  onClick={handleEnrichBilingual}
+                  disabled={!previewRecordId || isEnrichingBilingual || isSavingVersion}
                 >
-                  {isSavingVersion && <Loader2 className="h-4 w-4 animate-spin" />}
-                  保存为新版本
+                  {isEnrichingBilingual && <Loader2 className="h-4 w-4 animate-spin" />}
+                  自动补全双语
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('bundle_zip')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'bundle_zip' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出素材包 ZIP
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('capcut_json')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'capcut_json' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出 CapCut JSON
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('narration_txt')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'narration_txt' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出配音 TXT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('narration_mp3')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'narration_mp3' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出配音 MP3
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('teaching_video_mp4')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'teaching_video_mp4' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出教学视频 MP4
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('storyboard_csv')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'storyboard_csv' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出分镜 CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('subtitle_srt')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'subtitle_srt' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出字幕 SRT
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleExport('subtitle_srt_bilingual')}
+                  disabled={!previewRecordId || !!exportingFormat || isSavingVersion}
+                >
+                  {exportingFormat === 'subtitle_srt_bilingual' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowDownTray className="h-4 w-4" />
+                  )}
+                  导出双语字幕 SRT
                 </Button>
               </div>
             </div>
-
-            <div className="space-y-2 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-2">
-              <p className="px-1 text-xs font-bold text-on-surface-variant">版本历史</p>
-              {versionHistory.length === 0 ? (
-                <p className="px-1 py-2 text-[11px] text-on-surface-variant">暂无版本记录</p>
-              ) : (
-                <div className="space-y-1">
-                  {versionHistory.map((row) => (
-                    <button
-                      key={row.id}
-                      onClick={() => handleViewPack(row)}
-                      className={`w-full rounded-lg border px-2 py-1 text-left ${
-                        previewRecordId === row.id
-                          ? 'border-primary/40 bg-primary-container/15'
-                          : 'border-outline-variant/25 bg-surface hover:border-primary/30'
-                      }`}
-                    >
-                      <p className="truncate text-[11px] font-semibold text-on-surface">
-                        #{row.id} {row.title}
-                      </p>
-                      <p className="text-xs text-on-surface-variant">
-                        {new Date(row.createdAt).toLocaleString('zh-CN')}
-                      </p>
-                    </button>
-                  ))}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px]">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-on-surface-variant">
+                  可编辑 JSON（保存将生成新版本）
+                </label>
+                <textarea
+                  value={editableJson}
+                  onChange={(event) => setEditableJson(event.target.value)}
+                  className="min-h-[340px] w-full rounded-xl border border-outline-variant/30 bg-surface-container-low p-3 text-[11px] leading-5 text-on-surface outline-none transition focus:border-primary"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={versionNote}
+                    onChange={(event) => setVersionNote(event.target.value)}
+                    placeholder="版本备注，例如：补充双语旁白"
+                    className="h-10 min-w-[220px] flex-1 rounded-xl border border-outline-variant/30 bg-surface px-3 text-xs outline-none transition focus:border-primary"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveVersion}
+                    disabled={!previewRecordId || isSavingVersion || isEnrichingBilingual}
+                  >
+                    {isSavingVersion && <Loader2 className="h-4 w-4 animate-spin" />}
+                    保存为新版本
+                  </Button>
                 </div>
-              )}
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-2">
+                <p className="px-1 text-xs font-bold text-on-surface-variant">版本历史</p>
+                {versionHistory.length === 0 ? (
+                  <p className="px-1 py-2 text-[11px] text-on-surface-variant">暂无版本记录</p>
+                ) : (
+                  <div className="space-y-1">
+                    {versionHistory.map((row) => (
+                      <button
+                        key={row.id}
+                        onClick={() => handleViewPack(row.id)}
+                        className={`w-full rounded-lg border px-2 py-1 text-left ${
+                          previewRecordId === row.id
+                            ? 'border-primary/40 bg-primary-container/15'
+                            : 'border-outline-variant/25 bg-surface hover:border-primary/30'
+                        }`}
+                      >
+                        <p className="truncate text-[11px] font-semibold text-on-surface">
+                          #{row.id} {row.title}
+                        </p>
+                        <p className="text-xs text-on-surface-variant">
+                          {new Date(row.createdAt).toLocaleString('zh-CN')}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       ) : null}
     </section>
   );

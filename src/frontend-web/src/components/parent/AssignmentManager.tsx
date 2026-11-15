@@ -370,13 +370,23 @@ export default function AssignmentManager({
 
                 <div className="flex justify-end gap-2">
                   {isCoursePack ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewCoursePack(draftLesson.id)}
-                    >
-                      查看
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewCoursePack(draftLesson.id)}
+                      >
+                        查看
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onViewCoursePack(draftLesson.id)}
+                      >
+                        <Wrench className="h-4 w-4" />
+                        编辑
+                      </Button>
+                    </>
                   ) : (
                     <>
                       <Button

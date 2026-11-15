@@ -14,10 +14,20 @@ import 'child_selector.dart';
 /// 功能：
 /// 1. 一句话生成课程包（主题 + 重点方向 + 时长）
 /// 2. 历史课程包列表（按时间倒序）
-/// 3. 课程包预览（JSON 内容滚动查看）
+/// 3. 课程包预览与 JSON 编辑（保存生成新版本）
 /// 4. 简化导出功能
 class CoursePackManagerScreen extends StatefulWidget {
-  const CoursePackManagerScreen({super.key});
+  const CoursePackManagerScreen({
+    super.key,
+    this.initialRecordId,
+    this.initialChildId,
+  });
+
+  /// 从草稿列表进入时自动打开的课程包记录
+  final int? initialRecordId;
+
+  /// 该记录所属孩子，进入时优先选中
+  final int? initialChildId;
 
   @override
   State<CoursePackManagerScreen> createState() =>
@@ -38,6 +48,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
   // 表单状态
   final TextEditingController _topicController = TextEditingController();
+  final TextEditingController _jsonController = TextEditingController();
   String _selectedFocus = 'mixed';
   int _selectedDuration = 20;
 
@@ -46,6 +57,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
   bool _isLoadingPacks = false;
   bool _isGenerating = false;
   bool _isExporting = false;
+  bool _isSavingVersion = false;
   List<Map<String, dynamic>> _children = [];
   int? _selectedChildId;
   List<Map<String, dynamic>> _packs = [];
@@ -62,6 +74,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
   @override
   void dispose() {
     _topicController.dispose();
+    _jsonController.dispose();
     super.dispose();
   }
 
@@ -87,15 +100,25 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
     if (!mounted) return;
 
+    final preferredChildId = widget.initialChildId;
+    final hasPreferredChild = preferredChildId != null &&
+        children.any((c) => _toInt(c['id']) == preferredChildId);
+
     setState(() {
       _children = children;
-      _selectedChildId =
-          _toInt(children.isNotEmpty ? children.first['id'] : null);
+      _selectedChildId = hasPreferredChild
+          ? preferredChildId
+          : _toInt(children.isNotEmpty ? children.first['id'] : null);
       _isLoadingChildren = false;
     });
 
     if (_selectedChildId != null) {
       await _loadPacks();
+    }
+
+    final initialRecordId = widget.initialRecordId;
+    if (initialRecordId != null) {
+      await _viewPack({'id': initialRecordId});
     }
   }
 
@@ -167,6 +190,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               : null);
       _previewRecordId = recordId;
       _isGenerating = false;
+      _jsonController.text = _encodeJson(_previewContent);
     });
 
     // 清空输入并刷新列表
@@ -203,7 +227,63 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
           : (planContent is Map
               ? planContent.map((k, v) => MapEntry(k.toString(), v))
               : detail);
+      _jsonController.text = _encodeJson(_previewContent);
     });
+  }
+
+  /// 保存 JSON 编辑为新版本
+  Future<void> _saveVersion() async {
+    final recordId = _previewRecordId;
+    if (recordId == null) {
+      setState(() => _error = '请先选择一个课程包');
+      return;
+    }
+
+    Map<String, dynamic> parsed;
+    try {
+      final decoded = jsonDecode(_jsonController.text);
+      if (decoded is! Map) throw const FormatException('not a JSON object');
+      parsed = decoded.map((k, v) => MapEntry(k.toString(), v));
+    } catch (_) {
+      setState(() => _error = 'JSON 格式不正确，请先修正后再保存');
+      return;
+    }
+
+    setState(() {
+      _isSavingVersion = true;
+      _error = null;
+    });
+
+    final api = context.read<ApiService>();
+    final result = await api.saveCoursePackVersion(
+      recordId,
+      planContent: parsed,
+      note: 'manual_edit',
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      setState(() {
+        _error = '保存版本失败，请稍后重试';
+        _isSavingVersion = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _previewRecordId = _toInt(result['coursePackRecordId']) ?? recordId;
+      _previewContent = result;
+      _jsonController.text = _encodeJson(result);
+      _isSavingVersion = false;
+    });
+
+    await _loadPacks();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已保存为新版本')),
+    );
   }
 
   /// 导出课程包（简化版）
@@ -249,6 +329,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
       _packs = [];
       _previewContent = null;
       _previewRecordId = null;
+      _jsonController.clear();
     });
 
     _loadPacks();
@@ -696,10 +777,6 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
 
   /// 课程包预览卡片
   Widget _buildPreviewCard() {
-    final jsonString = _previewContent != null
-        ? const JsonEncoder.withIndent('  ').convert(_previewContent)
-        : '暂无内容';
-
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -756,7 +833,15 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            // JSON 预览区域（可滚动）
+            Text(
+              '可编辑 JSON（保存将生成新版本）',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            // JSON 编辑区域（可滚动）
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 360),
@@ -767,14 +852,41 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: SingleChildScrollView(
-                child: SelectableText(
-                  jsonString,
+                child: TextField(
+                  controller: _jsonController,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
                     color: AppTheme.textColor,
                     height: 1.5,
                   ),
+                  decoration: const InputDecoration.collapsed(hintText: ''),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _isSavingVersion ? null : _saveVersion,
+                icon: _isSavingVersion
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            color: AppTheme.primaryColor, strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded, size: 18),
+                label: const Text('保存为新版本'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ),
@@ -794,6 +906,11 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
   int? _toInt(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  String _encodeJson(Map<String, dynamic>? content) {
+    if (content == null) return '';
+    return const JsonEncoder.withIndent('  ').convert(content);
   }
 
   String _formatDateTime(String raw) {

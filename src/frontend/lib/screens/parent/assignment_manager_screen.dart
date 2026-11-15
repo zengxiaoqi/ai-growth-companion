@@ -847,6 +847,38 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                 ),
               ],
             ),
+            // 课程包草稿：查看/编辑都进入课程包管理页的预览编辑面板
+            if (isCoursePack) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _openCoursePack(draft),
+                    icon: const Icon(Icons.visibility_rounded, size: 18),
+                    label: const Text('查看'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    onPressed: () => _openCoursePack(draft),
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    label: const Text('编辑'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.secondaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             // 视频/动画/课程类草稿的预览按钮
             if (isVideoDraft) ...[
               const SizedBox(height: 10),
@@ -887,6 +919,18 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
         ),
       ),
     );
+  }
+
+  /// 打开课程包草稿（进入课程包管理页并自动加载该记录）
+  void _openCoursePack(Map<String, dynamic> draft) {
+    final recordId = _toInt(draft['id']);
+    if (recordId == null) return;
+    Navigator.pushNamed(context, '/parent/coursePackManager', arguments: {
+      'initialRecordId': recordId,
+      'initialChildId': _toInt(draft['childId']),
+    }).then((_) {
+      if (mounted) _loadData();
+    });
   }
 
   /// 视频/动画作业场景预览（底部弹出面板）

@@ -7,6 +7,7 @@ import * as path from 'path';
 import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/generate-video-data';
 import { VoiceService } from '../voice/voice.service';
 import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
+import { buildSubtitleCues, type WordBoundary } from './subtitle-timing';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
@@ -1581,6 +1582,9 @@ export class RemotionRenderService implements OnModuleInit {
     const scenes = Array.isArray(props.scenes) ? props.scenes : [];
 
     let audioCount = 0;
+    let cueCount = 0;
+    let shiftSum = 0;
+    let shiftMax = 0;
     for (let index = 0; index < scenes.length; index += 1) {
       const scene = scenes[index];
       const narration = this.toText(scene?.narration);
@@ -1602,7 +1606,35 @@ export class RemotionRenderService implements OnModuleInit {
       await fs.writeFile(path.join(publicTaskDir, filename), audio.buffer);
 
       scene.audioSrc = `${publicTaskRel}/${filename}`;
-      scene.durationFrames = Math.max(Number(scene.durationFrames) || 0, audio.durationFrames);
+
+      // 字幕逐字时间轴：把 TTS 词边界映射成"每个字在第几帧点亮"。
+      // 对齐失败（覆盖率 <60%）时不下发 subtitlePages，模板自动回退到按字数估算。
+      const cues = buildSubtitleCues(narration, audio.wordBoundaries, {
+        fps: 30,
+        sceneFrames: audio.durationFrames,
+      });
+
+      // 时长：拿到时间轴后以语音为准（语音 + 0.3s 入画 + 0.5s 收尾，且不低于 6s）。
+      // 旧口径是 max(分镜估算, 语音)，估算偏长就在句末留下"念完了字幕不动"的死等。
+      // 拿不到时间戳时不动时长——那时字幕还在按整屏估算铺满，画面提前切走会更错。
+      scene.durationFrames = cues
+        ? Math.max(90, audio.durationFrames)
+        : Math.max(Number(scene.durationFrames) || 0, audio.durationFrames);
+
+      if (cues) {
+        scene.subtitlePages = cues.pages;
+        cueCount += 1;
+        shiftSum += cues.shiftFrames.avg;
+        shiftMax = Math.max(shiftMax, cues.shiftFrames.max);
+        this.logger.log(
+          `[renderGeneratedComposition] taskId=${taskId} subtitleCues scene="${scene?.title || index + 1}" pages=${cues.pages.length} coverage=${(cues.coverage * 100).toFixed(0)}% avgShift=${cues.shiftFrames.avg}s maxShift=${cues.shiftFrames.max}s duration=${scene.durationFrames}`,
+        );
+      } else {
+        this.logger.warn(
+          `[renderGeneratedComposition] taskId=${taskId} subtitleCues scene="${scene?.title || index + 1}" missing — falling back to estimated beat (boundaries=${audio.wordBoundaries.length})`,
+        );
+      }
+
       audioCount += 1;
       this.logger.log(
         `[renderGeneratedComposition] taskId=${taskId} scene="${scene?.title || index + 1}" template=${scene?.template || ''} generatedVisual=${scene?.generatedVisual || ''} assetProvider=${scene?.visualAssets?.assetProvider || 'svgFallback'} characterProvider=${scene?.visualAssets?.characterProvider || ''} backgroundProvider=${scene?.visualAssets?.backgroundProvider || ''} hasCharacterAsset=${Boolean(scene?.visualAssets?.characterAssetSrc)} license=${scene?.visualAssets?.license || ''} assetQuality=${scene?.visualAssets?.qualityScore || 0} audioBytes=${audio.buffer.length}`,
@@ -1621,18 +1653,25 @@ export class RemotionRenderService implements OnModuleInit {
     this.logger.log(
       `[renderGeneratedComposition] narration audio generated for ${audioCount}/${scenes.length} dynamic scenes`,
     );
+    this.logger.log(
+      `[renderGeneratedComposition] subtitle cues aligned for ${cueCount}/${audioCount} narration scenes` +
+        (cueCount > 0
+          ? ` (avg correction vs estimate ${(shiftSum / cueCount).toFixed(2)}s, max ${shiftMax.toFixed(2)}s)`
+          : ''),
+    );
     return props;
   }
 
   private async tryGenerateNarrationAudio(
     narration: string,
     label: string,
-  ): Promise<{ buffer: Buffer; durationFrames: number } | null> {
+  ): Promise<{ buffer: Buffer; durationFrames: number; wordBoundaries: WordBoundary[] } | null> {
     const minBytes = this.toInt(process.env.REMOTION_TTS_MIN_BYTES, 1024, 1, 1024 * 1024);
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const buffer = await this.voiceService.textToSpeech(narration);
+        const speech = await this.voiceService.textToSpeechWithTiming(narration);
+        const buffer = speech.buffer;
         if (!Buffer.isBuffer(buffer) || buffer.length < minBytes) {
           const size = buffer?.length || 0;
           // Zero-byte responses are a persistent failure (TTS engine down or
@@ -1649,6 +1688,7 @@ export class RemotionRenderService implements OnModuleInit {
         return {
           buffer,
           durationFrames: this.parseMp3DurationFrames(buffer),
+          wordBoundaries: speech.wordBoundaries,
         };
       } catch (error: any) {
         if (attempt === 0) {

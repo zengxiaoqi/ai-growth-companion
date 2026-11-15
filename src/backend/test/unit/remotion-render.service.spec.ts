@@ -15,7 +15,7 @@ jest.mock('../../src/modules/learning/remotion-ts-validator', () => ({
 describe('RemotionRenderService', () => {
   let service: RemotionRenderService;
   let generateVideoDataTool: { execute: jest.Mock };
-  let voiceService: { textToSpeech: jest.Mock };
+  let voiceService: { textToSpeech: jest.Mock; textToSpeechWithTiming: jest.Mock };
 
   beforeEach(() => {
     generateVideoDataTool = {
@@ -24,6 +24,13 @@ describe('RemotionRenderService', () => {
 
     voiceService = {
       textToSpeech: jest.fn().mockResolvedValue(Buffer.alloc(0)),
+      // 视频链路走带时间戳的版本：词边界缺失/时长 0 时等价于"只有音频"，
+      // 与旧行为一致（字幕回退按字数估算）
+      textToSpeechWithTiming: jest.fn().mockResolvedValue({
+        buffer: Buffer.alloc(0),
+        wordBoundaries: [],
+        durationMs: 0,
+      }),
     };
 
     service = new RemotionRenderService(
@@ -472,7 +479,80 @@ describe('RemotionRenderService', () => {
 
     // Zero-byte TTS responses are a persistent failure — the service should
     // fail fast (1 call) instead of retrying pointlessly.
-    expect(voiceService.textToSpeech).toHaveBeenCalledTimes(1);
+    expect(voiceService.textToSpeechWithTiming).toHaveBeenCalledTimes(1);
     expect(renderedProps.scenes[0].audioSrc).toBeUndefined();
+  }, 60000);
+
+  it('attaches word-level subtitle cues and lets audio decide scene duration', async () => {
+    // 30000 B 走 parseMp3 的 40kbps 兜底 ≈ 6.0s 语音 → 180 帧 + 24 帧垫片 = 204 帧
+    // 分镜估算只有 180 帧：拿到时间轴后应以语音为准，而不是把 24 帧空等留在句末
+    const narration = '老虎身上有黑色条纹。';
+    const words = Array.from(narration).filter((ch) => ch !== '。');
+    const boundaries = words.map((ch, i) => ({
+      text: ch,
+      offset: Math.round(i * 0.15 * 1e7),
+      duration: Math.round(0.15 * 1e7),
+    }));
+
+    voiceService.textToSpeechWithTiming.mockResolvedValue({
+      buffer: Buffer.alloc(30000),
+      wordBoundaries: boundaries,
+      durationMs: 6000,
+    });
+
+    let renderedProps: any = null;
+    jest
+      .spyOn(service as any, 'runGeneratedRemotionRender')
+      .mockImplementation(
+        async (
+          _entryPath: string,
+          _compositionId: string,
+          _outputPath: string,
+          propsPath: string,
+        ) => {
+          renderedProps = JSON.parse(await fs.readFile(propsPath, 'utf-8'));
+        },
+      );
+
+    await service.renderGeneratedComposition(
+      { id: 78, cacheKey: 'cache-key-cues' } as any,
+      {
+        compositionId: 'GeneratedLesson_tiger',
+        files: [
+          { path: 'index.ts', content: 'export {};' },
+          { path: 'Root.tsx', content: 'export {};' },
+          { path: 'GeneratedLesson.tsx', content: 'export {};' },
+        ],
+        props: {
+          title: '认识动物老虎',
+          durationFrames: 180,
+          scenes: [
+            {
+              id: 'scene-1',
+              title: '老虎条纹',
+              narration,
+              generatedVisual: 'tiger-showFeatures-forest-stripe',
+              durationFrames: 180,
+            },
+          ],
+        },
+        assets: [],
+        durationFrames: 180,
+        sceneAssetSummary: [{ title: '老虎条纹', generatedVisual: 'tiger-showFeatures-forest-stripe' }],
+      },
+      path.join(os.tmpdir(), 'dynamic-remotion-cues.mp4'),
+    );
+
+    const scene = renderedProps.scenes[0];
+    expect(scene.subtitlePages).toBeDefined();
+    expect(scene.subtitlePages[0].tokens.join('')).toBe(narration);
+    expect(scene.subtitlePages[0].starts.length).toBe(scene.subtitlePages[0].tokens.length);
+    expect(scene.subtitlePages[0].starts[0]).toBeLessThanOrEqual(1);
+    for (let i = 1; i < scene.subtitlePages[0].starts.length; i += 1) {
+      expect(scene.subtitlePages[0].starts[i]).toBeGreaterThanOrEqual(
+        scene.subtitlePages[0].starts[i - 1],
+      );
+    }
+    expect(scene.durationFrames).toBe(204);
   }, 60000);
 });

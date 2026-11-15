@@ -912,6 +912,11 @@ type GeneratedScene = {
   figure?: FigureView;
   graphIcons?: Record<string, string>;
   audioSrc?: string;
+  /**
+   * 逐字时间轴：由后端用 TTS 词边界算好（每屏的 token 与"第几帧点亮"，场景内相对帧）。
+   * 有它就按真实发音点亮；没有就回退按屏长均分估算（旧行为）。
+   */
+  subtitlePages?: { tokens: string[]; starts: number[] }[];
   choreography?: ChoreographyView;
 };
 
@@ -1650,6 +1655,11 @@ const resolveFocusId = (
 
 const SUB_PUNCT = /[，。！？；：、,.!?;:]/;
 
+/** 有词级时间戳时，换页提前几帧露出下一句（0.2s），给观众预读的时间 */
+const SUB_PRE_ROLL = 6;
+/** 两屏之间至少隔多少帧，避免相邻两句挤在同一秒里来回翻 */
+const SUB_MIN_PAGE = 12;
+
 /** 把一屏文字切成"字+尾随标点"的 token，标点不单独占一拍 */
 const subtitleTokens = (text: string): string[] => {
   const out: string[] = [];
@@ -1667,31 +1677,59 @@ const subtitleTokens = (text: string): string[] => {
  * 只能盯着不动的字。实测（measure-motion.py）字幕带"有节奏"的帧只占 0.6 次/秒，
  * 最长 5.9 秒一个字都不动；逐字点亮后是 4.5 次/秒、最长空档 1.7 秒。
  *
- * 节奏来源：把这一屏的字按屏长铺满（每字 perPage/字数 帧）。屏长本来就由旁白长度
- * 决定，字念完的时刻应该落在屏末；按固定 5.5 帧/字念会"提前念完干等"，实测短句
- * 场景因此尾段静态 96 帧（3.2 秒）。上限 10 帧/字（3 字/秒），再慢就像卡住。
- * 局限：没有词级时间戳，节奏是估算值，和真实 TTS 语音会有 ±0.3s 级漂移。
+ * 点亮时刻有两档：
+ * 1. scene.subtitlePages 存在（后端拿到 TTS 词边界）→ 按真实发音帧点亮，误差 ≤1 帧。
+ * 2. 不存在 → 按屏长均分估算（每字 perPage/字数，上限 10 帧/字）。
+ *    估算口径与真实语音偏中位 0.56s、最大 1.36s，只作为拿不到时间戳时的兜底。
  */
 const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
   const frame = useLocalFrame();
-  const pages = splitNarration(scene.narration || "", 15, 2);
-  const perPage = Math.max(1, duration / pages.length);
-  const pageIndex = Math.min(pages.length - 1, Math.max(0, Math.floor(frame / perPage)));
-  const local = frame - pageIndex * perPage;
+  // 有时间戳就用真实的；结构不合法（长度对不上）时当作没有，别让字幕整轨消失
+  const timed = Array.isArray(scene.subtitlePages)
+    ? scene.subtitlePages.filter((p) => Array.isArray(p.tokens) && p.tokens.length > 0 && p.starts.length === p.tokens.length)
+    : [];
+  const useTimed = timed.length > 0;
+  const fallbackPages = useTimed ? [] : splitNarration(scene.narration || "", 15, 2);
+  const pageCount = Math.max(1, useTimed ? timed.length : fallbackPages.length);
+  const perPage = Math.max(1, duration / pageCount);
+
+  // 每屏起帧：timed 用第一个字的真实发音帧提前 SUB_PRE_ROLL 帧露出，
+  // 让下一句先以暗字出现（观众能预读），也让换页不卡在"字已经念出来才出现"。
+  const pageStarts: number[] = [];
+  for (let i = 0; i < pageCount; i += 1) {
+    if (i === 0) {
+      pageStarts.push(0);
+      continue;
+    }
+    const raw = useTimed ? Math.max(0, timed[i].starts[0] - SUB_PRE_ROLL) : i * perPage;
+    pageStarts.push(Math.max(pageStarts[i - 1] + SUB_MIN_PAGE, raw));
+  }
+  let pageIndex = 0;
+  for (let i = 0; i < pageCount; i += 1) if (frame >= pageStarts[i]) pageIndex = i;
+  const local = frame - pageStarts[pageIndex];
   const enterRamp = interpolate(local, [0, Math.min(8, perPage * 0.3)], [0, 1], { extrapolateRight: "clamp" });
   // 换页时底板常驻、只让文字接上。底板跟着淡出会在每次换页留 1~6 帧"整屏没有字幕"，
   // 实测 33 秒里 55 帧（最长连段 9 帧）；底板不动之后观感是"上一句换成下一句"。
   const capsuleOpacity = pageIndex === 0 ? enterRamp : 1;
   const lift = pageIndex === 0 ? interpolate(local, [0, Math.min(10, perPage * 0.35)], [12, 0], { extrapolateRight: "clamp" }) : 0;
   const textOpacity = pageIndex === 0 ? 1 : interpolate(local, [0, 3], [0.3, 1], { extrapolateRight: "clamp" });
-  const current = pages[pageIndex] || "";
-  const font = current.length > 20 ? 36 : 42;
   const accent = scene.accentColor || "#4d96ff";
 
-  const tokens = subtitleTokens(current);
-  // 按屏长铺满：每字 perPage/字数 帧。封顶 10 帧/字（3 字/秒），再慢观众会以为卡住了。
-  const beat = Math.min(10, perPage / Math.max(1, tokens.length));
-  const spoken = Math.min(tokens.length, Math.floor(local / Math.max(1, beat)) + 1);
+  const tokens = useTimed ? timed[pageIndex].tokens : subtitleTokens(fallbackPages[pageIndex] || "");
+  const current = tokens.join("");
+  const font = current.length > 20 ? 36 : 42;
+
+  // 已念到几个字：timed 直接比真实发音帧；否则按屏长均分算拍
+  let spoken: number;
+  if (useTimed) {
+    const starts = timed[pageIndex].starts;
+    spoken = 0;
+    while (spoken < starts.length && frame >= starts[spoken]) spoken += 1;
+  } else {
+    // 按屏长铺满：每字 perPage/字数 帧。封顶 10 帧/字（3 字/秒），再慢观众会以为卡住了。
+    const beat = Math.min(10, perPage / Math.max(1, tokens.length));
+    spoken = Math.min(tokens.length, Math.floor(local / Math.max(1, beat)) + 1);
+  }
 
   return (
     <div style={{ position: "absolute", left: 150, right: 150, bottom: 56, display: "flex", justifyContent: "center" }}>

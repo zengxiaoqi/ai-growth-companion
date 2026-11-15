@@ -112,6 +112,12 @@ const mustHave = [
   // 画板按拍生长：第几拍画到第几笔，而不是整屏固定斜率
   'bs.idx + bs.beatProgress',
   'const labelBeat',
+  // 字幕逐字跟读必须两档并存：有 TTS 词边界走真实时间轴（scene.subtitlePages），
+  // 没有则回退按屏长估算。少了前者，字幕永远偏中位 0.56s；少了后者，
+  // 拿不到时间戳的场景（TTS 挂了/老任务重渲）整轨字幕会消失
+  'scene.subtitlePages',
+  'SUB_PRE_ROLL',
+  'splitNarration(scene.narration || "", 15, 2)',
 ];
 
 // 有专属渲染分支的动效预设：少了分支，LLM 选到该动效会静默退化成 focus-ring

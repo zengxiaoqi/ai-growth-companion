@@ -1,6 +1,14 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EdgeTTS } from '@andresaya/edge-tts';
 import { AiService } from '../ai/ai.service';
+import type { WordBoundary } from '../learning/subtitle-timing';
+
+/** TTS 结果：音频 + 词级时间戳（offset/duration 单位 100ns，相对音频起点） */
+export type TtsWithTimingResult = {
+  buffer: Buffer;
+  wordBoundaries: WordBoundary[];
+  durationMs: number;
+};
 
 @Injectable()
 export class VoiceService {
@@ -54,6 +62,22 @@ export class VoiceService {
     voice: string = 'zh-CN-XiaoyiNeural',
     rate?: string,
   ): Promise<Buffer> {
+    const { buffer } = await this.textToSpeechWithTiming(text, voice, rate);
+    return buffer;
+  }
+
+  /**
+   * 文字转语音 + 词级时间戳。
+   *
+   * Edge-TTS 的 synthesize() 本来就会把 WordBoundary 收进实例（同一条 websocket
+   * 消息流里，不额外发请求），此前全仓只取 toBuffer()，把这部分数据丢了。
+   * 时间戳是字幕逐字跟读、以及"念到某个词时图形跟着强调"的唯一同步信号。
+   */
+  async textToSpeechWithTiming(
+    text: string,
+    voice: string = 'zh-CN-XiaoyiNeural',
+    rate?: string,
+  ): Promise<TtsWithTimingResult> {
     const clean = this.sanitizeForTTS(text);
     // 语速参数校验：仅接受 ±N% 形式，非法回落默认 +12%（pitch 不变）
     const safeRate = rate && /^[+-]\d{1,3}%$/.test(rate) ? rate : '+12%';
@@ -63,7 +87,33 @@ export class VoiceService {
       rate: safeRate,
       pitch: '+2Hz',
     });
-    return tts.toBuffer();
+    const buffer = tts.toBuffer();
+
+    let wordBoundaries: WordBoundary[] = [];
+    try {
+      const raw = tts.getWordBoundaries();
+      if (Array.isArray(raw)) {
+        wordBoundaries = raw
+          .map((item: any) => ({
+            text: String(item?.text ?? ''),
+            offset: Number(item?.offset) || 0,
+            duration: Number(item?.duration) || 0,
+          }))
+          .filter((item) => item.text.length > 0);
+      }
+    } catch (error: any) {
+      // 拿不到时间戳不该让配音失败：调用方会回退到按字数估算字幕节奏
+      this.logger.warn(`getWordBoundaries unavailable: ${error?.message || 'unknown'}`);
+    }
+
+    let durationMs = 0;
+    try {
+      durationMs = Number(tts.getDuration()) || 0;
+    } catch {
+      durationMs = 0;
+    }
+
+    return { buffer, wordBoundaries, durationMs };
   }
 
   // ============ 以下保留原有功能，TTS 部分改用 Edge-TTS ============

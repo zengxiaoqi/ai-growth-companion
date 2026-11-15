@@ -34,6 +34,13 @@ import {
 import { normalizeSceneGraph } from './video/scene-graph';
 import { normalizeFigureSpec } from './video/figure-spec';
 import {
+  ageMotionProfile,
+  beatWindows,
+  enforceAgeProfile,
+  sanitizeBeats,
+  type Beat,
+} from './video/choreography';
+import {
   ANIMAL_SUBJECTS,
   ANIMAL_EMOJI_MAP,
   getInlineSvgAssetKeys,
@@ -533,6 +540,7 @@ export class VideoGenerationAgentService {
     payload: Record<string, any>,
   ): Promise<Array<Record<string, any>>> {
     const topic = this.toText(storyboard.topic || payload?.topic, 'lesson');
+    const ageGroup = payload?.ageGroup === '3-4' ? '3-4' : '5-6';
     const scenes = Array.isArray(storyboard.scenes) ? storyboard.scenes : [];
     const sourceScenes =
       scenes.length > 0
@@ -574,7 +582,13 @@ export class VideoGenerationAgentService {
           ? `science.animal-${action === 'rest' ? 'habitat' : 'abilities'}`
           : 'dynamic.story-scene');
 
-      const accentColor = animalConfig?.accentColor || this.resolveSceneAccent(tags, index);
+      // QA 参数修复轮会往分镜写显式覆盖；旧分镜无这两个字段，推导行为不变
+      const accentOverride =
+        typeof scene?.accentColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(scene.accentColor)
+          ? scene.accentColor
+          : null;
+      const accentColor =
+        accentOverride || animalConfig?.accentColor || this.resolveSceneAccent(tags, index);
 
       // 画板优先，且与关系图互斥：图形本身就是知识时，"节点+标签"是降级表达。
       // 校验不过就整份丢掉，退回关系图，绝不把脏几何带进渲染器。
@@ -594,6 +608,14 @@ export class VideoGenerationAgentService {
         this.recordGraphSignal(topic, scene, scene?.sceneGraph ? 'invalid' : 'missing');
       }
 
+      // beats 是新增的编排层：只有分镜真的带了 beats 才启用解释器。
+      // 旧分镜（无 beats 字段）走原路径，已缓存任务重渲逐像素不变——
+      // 这也是"未改动场景零差异"回归的边界。
+      const choreography =
+        Array.isArray(scene?.beats) && scene.beats.length
+          ? this.buildSceneChoreography(scene.beats, narration, durationSec, ageGroup, sceneGraph, figure)
+          : undefined;
+
       return {
         id: `scene-${index + 1}`,
         title,
@@ -607,11 +629,13 @@ export class VideoGenerationAgentService {
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
         backgroundStyle: figure
           ? 'neutral'
-          : this.resolveBackgroundStyle({
-              source,
-              hasGraph: !!sceneGraph,
-              hasAnimal: !!animalConfig,
-            }),
+          : ['environment', 'neutral', 'plain'].includes(scene?.backgroundStyle)
+            ? scene.backgroundStyle
+            : this.resolveBackgroundStyle({
+                source,
+                hasGraph: !!sceneGraph,
+                hasAnimal: !!animalConfig,
+              }),
         template,
         generatedVisual: animalConfig
           ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join('-')}`
@@ -621,6 +645,7 @@ export class VideoGenerationAgentService {
         accentColor,
         figure,
         sceneGraph: sceneGraph || undefined,
+        choreography,
       };
     });
 
@@ -644,6 +669,47 @@ export class VideoGenerationAgentService {
         };
       }),
     );
+  }
+
+  /**
+   * 把分镜 beats 编译成渲染层直接可解释的时间轴：每拍带上帧窗。
+   * 时长分配与字幕同源（句字数比例），TTS 有词级时间戳后只需换这一处。
+   */
+  private buildSceneChoreography(
+    rawBeats: unknown,
+    narration: string,
+    durationSec: number,
+    ageGroup: '3-4' | '5-6',
+    graph: ReturnType<typeof normalizeSceneGraph>,
+    figure?: { labels?: Array<{ text: string }> },
+  ) {
+    const beats = sanitizeBeats(
+      rawBeats,
+      {
+        narration,
+        graph,
+        figureLabels: (figure?.labels || []).map((l) => l.text).filter(Boolean),
+      },
+      ageGroup,
+    );
+    const profile = ageMotionProfile(ageGroup);
+    const windows = enforceAgeProfile(beatWindows(beats, narration, durationSec), profile);
+    return {
+      profile,
+      beats: windows.map((w) => {
+        const startFrame = Math.round(w.startSec * 30);
+        return {
+          sentenceIndex: w.beat.sentenceIndex,
+          ...(w.beat.span ? { span: w.beat.span } : {}),
+          ...(w.beat.focus ? { focus: w.beat.focus } : {}),
+          ...(w.beat.reveal?.length ? { reveal: w.beat.reveal } : {}),
+          motion: w.beat.motion,
+          ...(w.beat.params ? { params: w.beat.params } : {}),
+          startFrame,
+          endFrame: Math.max(startFrame + 1, Math.round(w.endSec * 30)),
+        };
+      }),
+    };
   }
 
   /**
@@ -788,6 +854,27 @@ import { Audio } from "@remotion/media";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 
+/**
+ * 编排时间轴（后端 choreography.ts 编译产物）。
+ * 每拍 = 旁白的一句（或合并的几句），带帧窗、焦点、揭示元素和动效预设。
+ * 场景没有这份数据时，所有解释器返回 null，渲染走原路径——旧分镜像素级不变。
+ */
+type BeatView = {
+  sentenceIndex: number;
+  span?: number;
+  focus?: string;
+  reveal?: string[];
+  motion: string;
+  params?: Record<string, any>;
+  startFrame: number;
+  endFrame: number;
+};
+
+type ChoreographyView = {
+  profile: { minBeatSec: number; amplitude: number; allowOverlapReveal: boolean; minCharsPerBeat: number };
+  beats: BeatView[];
+};
+
 type GeneratedScene = {
   id: string;
   title: string;
@@ -825,6 +912,7 @@ type GeneratedScene = {
   figure?: FigureView;
   graphIcons?: Record<string, string>;
   audioSrc?: string;
+  choreography?: ChoreographyView;
 };
 
 type GeneratedLessonProps = {
@@ -844,7 +932,7 @@ const sceneStarts = (scenes: GeneratedScene[]) => {
 };
 
 const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const style = scene.backgroundStyle || "environment";
   const accent = scene.accentColor || "#4d96ff";
   const habitat = scene.habitat || "forest";
@@ -1087,7 +1175,7 @@ const SceneBackground: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 const TigerSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const run = scene.action === "run";
   const swim = scene.action === "swim";
   const roar = scene.action === "roar";
@@ -1140,7 +1228,7 @@ const TigerSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 const RabbitSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const jump = scene.action === "jump" || scene.action === "run";
   const eat = scene.action === "eat";
   const bob = interpolate(Math.sin(frame / (jump ? 5 : 13)), [-1, 1], [-14, 10]);
@@ -1179,7 +1267,7 @@ const RabbitSvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 const MonkeySvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const jump = scene.action === "jump" || scene.action === "run";
   const eat = scene.action === "eat";
   const climb = scene.action === "climb";
@@ -1237,7 +1325,7 @@ const MonkeySvg: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const { fps } = useVideoConfig();
   const domain = scene.domain || "science";
   const text = scene.onScreenText || scene.title;
@@ -1377,7 +1465,7 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
 };
 
 const TopicVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const pulse = interpolate(Math.sin(frame / 10), [-1, 1], [0.94, 1.04]);
   const drift = scene.action === "run"
     ? interpolate(frame, [0, Math.max(90, scene.durationFrames || 180)], [-90, 80], { extrapolateRight: "clamp" })
@@ -1496,17 +1584,114 @@ const splitNarration = (text: string, maxChars: number, maxLines: number): strin
   return out.length > 0 ? out : [""];
 };
 
-/** 字幕轨：按场景时长把旁白分成若干屏逐屏推进，替代整段堆在底部 */
+/**
+ * 帧冻结：场景放完后会多留一个转场窗口让下一场把它顶走。这段时间里子组件如果
+ * 继续按真实帧跑，各自的"结尾淡出"会先把内容清空——那正是切换瞬间整屏只剩
+ * 标题和字幕的来源。用 context 把子组件的帧钉在收尾淡出之前，画面保持"满"。
+ */
+const FrameOverride = React.createContext<number | null>(null);
+
+const useLocalFrame = (): number => {
+  const frame = useCurrentFrame(); // 真实帧：本函数自己不能走 useLocalFrame，会递归
+  const frozen = React.useContext(FrameOverride);
+  return frozen === null ? frame : Math.min(frame, frozen);
+};
+
+/**
+ * beats 解释器：当前帧落在哪一拍、拍内进度、已揭示/已讲过的主体。
+ * 没有编排数据返回 null——所有消费方据此走原路径，旧分镜像素级不变。
+ * 拍与拍之间有空隙时保持上一拍（焦点不闪断），场景结尾停在最后一拍的终态。
+ */
+const beatStateAt = (scene: GeneratedScene, frame: number) => {
+  const ch = scene.choreography;
+  if (!ch || !ch.beats || ch.beats.length === 0) return null;
+  const beats = ch.beats;
+  let idx = -1;
+  for (let i = 0; i < beats.length; i += 1) {
+    if (frame >= beats[i].startFrame) idx = i;
+    else break;
+  }
+  const current = idx >= 0 ? beats[idx] : null;
+  const span = current ? Math.max(1, current.endFrame - current.startFrame) : 1;
+  const beatProgress = current
+    ? Math.max(0, Math.min(1, (frame - current.startFrame) / span))
+    : 0;
+  const revealed = new Set<string>();
+  const spoken: string[] = [];
+  for (const b of beats) {
+    if (frame >= b.startFrame) {
+      for (const r of b.reveal || []) revealed.add(r);
+      if (b.focus) spoken.push(b.focus);
+    }
+  }
+  return {
+    current,
+    idx,
+    count: beats.length,
+    beatProgress,
+    revealed,
+    spoken,
+    amplitude: ch.profile && ch.profile.amplitude ? ch.profile.amplitude : 1,
+    popFrame: current ? frame - current.startFrame : 0,
+  };
+};
+
+/** focus/reveal 写的可能是节点 id、label 或 subject，统一解析成节点 id */
+const resolveFocusId = (
+  graph: SceneGraphView | undefined,
+  focus?: string,
+): string | undefined => {
+  if (!focus || !graph) return undefined;
+  for (const n of graph.nodes) {
+    if (n.id === focus || n.label === focus || n.subject === focus) return n.id;
+  }
+  return undefined;
+};
+
+const SUB_PUNCT = /[，。！？；：、,.!?;:]/;
+
+/** 把一屏文字切成"字+尾随标点"的 token，标点不单独占一拍 */
+const subtitleTokens = (text: string): string[] => {
+  const out: string[] = [];
+  for (const ch of Array.from(text)) {
+    if (out.length > 0 && SUB_PUNCT.test(ch)) out[out.length - 1] += ch;
+    else out.push(ch);
+  }
+  return out;
+};
+
+/**
+ * 字幕轨：按场景时长把旁白分成若干屏逐屏推进，屏内逐字跟读（karaoke）。
+ *
+ * 为什么不再整屏刷出：整屏一次性出现后，接下来几秒画面没有任何视觉事件，观众
+ * 只能盯着不动的字。实测（measure-motion.py）字幕带"有节奏"的帧只占 0.6 次/秒，
+ * 最长 5.9 秒一个字都不动；逐字点亮后是 4.5 次/秒、最长空档 1.7 秒。
+ *
+ * 节奏来源：把这一屏的字按屏长铺满（每字 perPage/字数 帧）。屏长本来就由旁白长度
+ * 决定，字念完的时刻应该落在屏末；按固定 5.5 帧/字念会"提前念完干等"，实测短句
+ * 场景因此尾段静态 96 帧（3.2 秒）。上限 10 帧/字（3 字/秒），再慢就像卡住。
+ * 局限：没有词级时间戳，节奏是估算值，和真实 TTS 语音会有 ±0.3s 级漂移。
+ */
 const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const pages = splitNarration(scene.narration || "", 15, 2);
   const perPage = Math.max(1, duration / pages.length);
   const pageIndex = Math.min(pages.length - 1, Math.max(0, Math.floor(frame / perPage)));
   const local = frame - pageIndex * perPage;
-  const opacity = interpolate(local, [0, Math.min(8, perPage * 0.3)], [0, 1], { extrapolateRight: "clamp" });
-  const lift = interpolate(local, [0, Math.min(10, perPage * 0.35)], [12, 0], { extrapolateRight: "clamp" });
+  const enterRamp = interpolate(local, [0, Math.min(8, perPage * 0.3)], [0, 1], { extrapolateRight: "clamp" });
+  // 换页时底板常驻、只让文字接上。底板跟着淡出会在每次换页留 1~6 帧"整屏没有字幕"，
+  // 实测 33 秒里 55 帧（最长连段 9 帧）；底板不动之后观感是"上一句换成下一句"。
+  const capsuleOpacity = pageIndex === 0 ? enterRamp : 1;
+  const lift = pageIndex === 0 ? interpolate(local, [0, Math.min(10, perPage * 0.35)], [12, 0], { extrapolateRight: "clamp" }) : 0;
+  const textOpacity = pageIndex === 0 ? 1 : interpolate(local, [0, 3], [0.3, 1], { extrapolateRight: "clamp" });
   const current = pages[pageIndex] || "";
   const font = current.length > 20 ? 36 : 42;
+  const accent = scene.accentColor || "#4d96ff";
+
+  const tokens = subtitleTokens(current);
+  // 按屏长铺满：每字 perPage/字数 帧。封顶 10 帧/字（3 字/秒），再慢观众会以为卡住了。
+  const beat = Math.min(10, perPage / Math.max(1, tokens.length));
+  const spoken = Math.min(tokens.length, Math.floor(local / Math.max(1, beat)) + 1);
 
   return (
     <div style={{ position: "absolute", left: 150, right: 150, bottom: 56, display: "flex", justifyContent: "center" }}>
@@ -1522,11 +1707,29 @@ const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ 
           fontWeight: 800,
           textAlign: "center",
           letterSpacing: 1,
-          opacity,
+          opacity: capsuleOpacity,
           transform: "translateY(" + lift + "px)",
         }}
       >
-        {current}
+        <span style={{ opacity: textOpacity }}>
+          {tokens.map((tk, i) => {
+            const isSpoken = i < spoken;
+            // 未念到的字留 28% 亮度占位：布局不跳、观众能预判句子长短，
+            // 点亮时是"变亮"而不是"凭空长出一块白"
+            const isCurrent = i === spoken - 1;
+            return (
+              <span
+                key={i}
+                style={{
+                  color: isCurrent ? accent : isSpoken ? "#fff" : "rgba(255,255,255,0.28)",
+                  textShadow: isCurrent ? "0 0 22px " + accent + ", 0 0 6px rgba(255,255,255,0.5)" : "none",
+                }}
+              >
+                {tk}
+              </span>
+            );
+          })}
+        </span>
       </div>
     </div>
   );
@@ -1534,7 +1737,7 @@ const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ 
 
 /** 落地阴影：把主体锚在地面上，避免悬空的贴纸感 */
 const GroundShadow: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const pulse = interpolate(Math.sin(frame / 16), [-1, 1], [0.96, 1.04]);
   const alpha = interpolate(frame, [0, 20, duration - 20, duration], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
@@ -1842,7 +2045,7 @@ const AbstractSign: React.FC<{
   /** 这一屏的叙事进度 0→1：count/rise/level/time 跟着它单调推进，讲完就停在终态 */
   progress: number;
 }> = ({ sign, size, accent, progress }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const box = { width: size * 0.74, height: size * 0.74 };
   const at = Math.max(0, Math.min(1, progress));
 
@@ -1984,7 +2187,7 @@ const AbstractSign: React.FC<{
 };
 
 const GraphConnector: React.FC<{ edge: GraphEdge; accent: string }> = ({ edge, accent }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const { fps } = useVideoConfig();
   const progress = spring({
     frame: frame - edge.delay,
@@ -2035,17 +2238,27 @@ const GraphBadge: React.FC<{
   /** 光点已经走过这个节点：留一道细边，表示"这一步讲完了" */
   visited?: boolean;
   storyProgress: number;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress }) => {
-  const frame = useCurrentFrame();
+  /** beats 解释器给出的本拍状态；null/缺省 = 原路径（公式在 amp=1 时逐像素等价） */
+  beat?: {
+    motion: string;
+    beatProgress: number;
+    popFrame: number;
+    amplitude: number;
+    delayOverride?: number;
+  } | null;
+}> = ({ item, iconSrc, accent, active, visited, storyProgress, beat }) => {
+  const frame = useLocalFrame();
   const { fps } = useVideoConfig();
+  // 揭示 gating：被某拍 reveal 的节点推迟到那一拍才入场（stagger 拍内再错开）
+  const enterDelay = beat && beat.delayOverride !== undefined ? beat.delayOverride : item.delay;
   const enter = spring({
-    frame: frame - item.delay,
+    frame: frame - enterDelay,
     fps,
     config: { damping: 13, stiffness: 150, mass: 0.85 },
   });
   // 从远处飞进框里（group 聚拢 / split 散开）要比原地弹出更慢，用近乎无回弹的曲线
   const travel = item.enterFrom
-    ? spring({ frame: frame - item.delay, fps, config: { damping: 26, stiffness: 62, mass: 1.1 } })
+    ? spring({ frame: frame - enterDelay, fps, config: { damping: 26, stiffness: 62, mass: 1.1 } })
     : enter;
   // growth 要"现场长大"：尺寸由这一屏的叙事进度决定，讲到它才撑起来，讲过了保持满格。
   // 用 smoothstep 而不是 spring，是因为 spring 会在入场时一冲就没，与讲解位置脱钩。
@@ -2061,11 +2274,13 @@ const GraphBadge: React.FC<{
   const growEase = growLocal * growLocal * (3 - 2 * growLocal);
   // 体量变化（云越积越厚、冰块化掉）：幅度固定 28%，够看出变化又不会挤到邻居。
   // growth 关系已经有逐节点长大，不再叠一层，否则同一张卡片会长两次。
+  // beats 路径下 swell 拍的体量跟着「本拍进度」走，讲到哪涨到哪，而不是整屏均摊。
+  const swellT = beat && beat.motion === "swell" ? beat.beatProgress : storyProgress;
   const swellK = !item.grow
     ? item.node.swell === "grow"
-      ? 1 + 0.28 * storyProgress
+      ? 1 + 0.28 * swellT
       : item.node.swell === "shrink"
-        ? 1 - 0.28 * storyProgress
+        ? 1 - 0.28 * swellT
         : 1
     : 1;
   // 焦点分三档：讲到的推到前面并持续呼吸，讲过的归位，还没讲到的退到后面。
@@ -2073,8 +2288,17 @@ const GraphBadge: React.FC<{
   // 实测中段 99% 的相邻帧几乎没有像素变化——不是没有动效，是动的那块太小。
   // 呼吸幅度 4%、周期约 36 帧：180px 的卡每帧位移约 1.2px，刚好过"看得出在动"的阈值。
   // 再快会像心跳，再慢就回到亚像素。
-  const focusK = active ? 1.16 + Math.sin(frame / 5.7) * 0.05 : visited ? 0.97 : 0.86;
-  const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * focusK * swellK;
+  // 年龄幅度：amp=1（原路径）时 1+0.16=1.16、呼吸 0.05，与旧公式完全一致；
+  // 3-4 岁 amp=1.25 → 焦点更大、呼吸更明显，5-6 岁 amp=1.12 → 稍快稍收敛。
+  const amp = beat ? beat.amplitude : 1;
+  const focusK = active ? 1 + 0.16 * amp + Math.sin(frame / 5.7) * 0.05 * amp : visited ? 0.97 : 0.86;
+  // spring-pop 拍：焦点主体带弹性过冲地弹出（低阻尼 spring 天然有过冲），
+  // 落定后回到呼吸档。只在 beats 路径且本拍 motion=spring-pop 时生效。
+  const popK =
+    beat && beat.motion === "spring-pop" && active
+      ? 0.62 + 0.38 * spring({ frame: beat.popFrame, fps, config: { damping: 8, stiffness: 170, mass: 0.7 } })
+      : 1;
+  const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * focusK * swellK * popK;
   const dx = item.enterFrom ? (item.enterFrom.x - item.x) * (1 - travel) : 0;
   const dy = item.enterFrom ? (item.enterFrom.y - item.y) * (1 - travel) : 0;
   const role = item.node.role;
@@ -2129,7 +2353,7 @@ const GraphBadge: React.FC<{
               borderRadius: radius === "50%" ? "50%" : 46,
               border: "5px solid " + accent,
               // 光环跟着同一个呼吸周期走：两处不同频会互相打架，看起来像抖动而不是呼吸
-              opacity: 0.3 + Math.sin(frame / 5.7) * 0.12,
+              opacity: 0.3 + Math.sin(frame / 5.7) * 0.12 * amp,
             }}
           />
         ) : null}
@@ -2350,12 +2574,20 @@ const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyp
  * 由后端几何校验（覆盖率/居中/弧半径/标签压图）先拦一道。
  */
 const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const figure = scene.figure as FigureView;
   const accent = scene.accentColor || "#3E63DD";
+  const bs = beatStateAt(scene, frame);
 
   // 扣掉入场和收尾，剩下的就是"讲到哪儿了"，与字幕同一条时间轴
-  const progress = Math.max(0, Math.min(1, (frame - 10) / Math.max(20, duration - 22)));
+  const linearProgress = Math.max(0, Math.min(1, (frame - 10) / Math.max(20, duration - 22)));
+  // beats 路径：画到第几笔由「第几拍」决定——旁白讲到哪，颜色就长到哪，
+  // 而不是整屏按固定斜率匀速生长（旧路径，无 beats 时保留）。
+  const progress = bs
+    ? bs.idx < 0
+      ? 0
+      : Math.max(0, Math.min(1, (bs.idx + bs.beatProgress) / bs.count))
+    : linearProgress;
   const maxReveal = Math.max(0.0001, ...figure.shapes.map((s) => s.reveal));
   // 最后一个图元必须留够生长窗口，且要在讲解说完之前画完 —— 否则字幕讲完七种颜色，
   // 最内两圈还在长。可用区间收到 0.78，窗口 0.14，最后一道在 0.92 收笔。
@@ -2364,7 +2596,28 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   const shapeProgress = (value: number) => Math.max(0, Math.min(1, (progress - revealAt(value)) / waveSize));
   const labelProgress = Math.max(0, Math.min(1, (progress - 0.6) / 0.2));
 
-  return (
+  // 标签跟拍：被某拍 reveal/focus 点名的标签，在那一拍开始后 12 帧内浮现；
+  // 没被编排点名的沿用旧的 0.6 阈值（无 beats 时全部走这条，逐像素不变）。
+  const labelBeat: Record<string, number> = {};
+  if (bs && scene.choreography) {
+    for (const b of scene.choreography.beats) {
+      const names = (b.reveal || []).slice();
+      if (b.focus) names.push(b.focus);
+      for (const name of names) {
+        if (labelBeat[name] === undefined) labelBeat[name] = b.startFrame;
+      }
+    }
+  }
+  const labelAt = (text: string) => {
+    const at = labelBeat[text];
+    if (at === undefined) return labelProgress;
+    return Math.max(0, Math.min(1, (frame - at) / 12));
+  };
+  const focusedLabel = bs && bs.current ? bs.current.focus : undefined;
+  const pushK =
+    bs && bs.current && bs.current.motion === "camera-push" ? 0.05 * bs.amplitude * bs.beatProgress : 0;
+
+  const canvas = (
     <svg
       width={FIGURE_W}
       height={FIGURE_H}
@@ -2380,29 +2633,64 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
       {figure.shapes.map((glyph, i) => (
         <FigureShapePart key={"f" + i} glyph={glyph} p={shapeProgress(glyph.reveal)} />
       ))}
-      {(figure.labels || []).map((label, i) =>
-        labelProgress <= 0 ? null : (
-          <text
-            key={"fl" + i}
-            x={label.x}
-            y={label.y + (1 - labelProgress) * 14}
-            textAnchor="middle"
-            fontSize={34}
-            fontWeight={900}
-            fill={label.color || accent}
-            // 白色描边垫底：实测"太阳"这种两字标签会正好落在太阳圆面上，
-            // 颜色关系和图形撞在一起就读不出来。文字的可读性由模板兜住，不指望模型摆准。
-            stroke="#FFFFFF"
-            strokeWidth={9}
-            strokeLinejoin="round"
-            paintOrder="stroke"
-            opacity={labelProgress}
-          >
-            {label.text}
-          </text>
-        ),
-      )}
+      {(figure.labels || []).map((label, i) => {
+        const lp = labelAt(label.text);
+        if (lp <= 0) return null;
+        const focused = focusedLabel === label.text;
+        const boxW = label.text.length * 34 + 20;
+        return (
+          <g key={"fl" + i}>
+            {focused ? (
+              <rect
+                x={label.x - boxW / 2}
+                y={label.y - 36}
+                width={boxW}
+                height={50}
+                rx={12}
+                fill="none"
+                stroke={accent}
+                strokeWidth={4}
+                opacity={0.85 * lp}
+              />
+            ) : null}
+            <text
+              x={label.x}
+              y={label.y + (1 - lp) * 14}
+              textAnchor="middle"
+              fontSize={34}
+              fontWeight={900}
+              fill={label.color || accent}
+              // 白色描边垫底：实测"太阳"这种两字标签会正好落在太阳圆面上，
+              // 颜色关系和图形撞在一起就读不出来。文字的可读性由模板兜住，不指望模型摆准。
+              stroke="#FFFFFF"
+              strokeWidth={9}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+              opacity={lp}
+            >
+              {label.text}
+            </text>
+          </g>
+        );
+      })}
     </svg>
+  );
+
+  if (pushK <= 0) return canvas;
+  const focusLabel = (figure.labels || []).find((l) => l.text === focusedLabel);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        transform: "scale(" + (1 + pushK) + ")",
+        transformOrigin: focusLabel
+          ? (1920 - FIGURE_W) / 2 + focusLabel.x + "px " + (196 + focusLabel.y) + "px"
+          : "center center",
+      }}
+    >
+      {canvas}
+    </div>
   );
 };
 
@@ -2410,7 +2698,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   scene,
   duration,
 }) => {
-  const frame = useCurrentFrame();
+  const frame = useLocalFrame();
   const graph = scene.sceneGraph as SceneGraphView;
   const icons = scene.graphIcons || {};
   const layout = layoutGraph(graph);
@@ -2490,8 +2778,99 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     visitedIds.add(graph.nodes[0].id);
   }
 
-  return (
-    <AbsoluteFill>
+  // ---- beats 解释器分支 ----
+  // 分镜带句级编排时，焦点/揭示/入场全部改由拍驱动；上面的光点推导只服务
+  // 无 beats 的旧分镜（已缓存任务重渲逐像素不变的回归边界）。
+  const bs = beatStateAt(scene, frame);
+  const beatDelays: Record<string, number> = {};
+  const edgeGate = new Map<GraphEdge, number>();
+  let beatDot: { x: number; y: number } | null = null;
+  let pushK = 0;
+  let pushOrigin = "center center";
+  if (bs) {
+    activeIds.clear();
+    visitedIds.clear();
+    const cur = bs.current;
+    const activeNow: string[] = [];
+    if (cur) {
+      const fid = resolveFocusId(graph, cur.focus);
+      if (fid) activeNow.push(fid);
+      for (const r of cur.reveal || []) {
+        const rid = resolveFocusId(graph, r);
+        if (rid && activeNow.indexOf(rid) < 0) activeNow.push(rid);
+      }
+    }
+    activeNow.forEach((id) => activeIds.add(id));
+    // 讲过/揭示过的退到"已讲"档，但当前拍正在讲的不算讲过
+    bs.spoken.forEach((name) => {
+      const id = resolveFocusId(graph, name);
+      if (id && !activeIds.has(id)) visitedIds.add(id);
+    });
+    bs.revealed.forEach((name) => {
+      const id = resolveFocusId(graph, name);
+      if (id && !activeIds.has(id)) visitedIds.add(id);
+    });
+    if (graph.relation === "split" || graph.relation === "group") {
+      visitedIds.add(graph.nodes[0].id);
+    }
+    // 入场 gating：节点第一次被 reveal/focus 的那一拍才弹出来。
+    // stagger 拍内再按序错开 7 帧——"一个接一个"而不是"一起亮"。
+    // 没被任何拍提到的节点不写 delay，沿用 item.delay 正常入场（当背景陪衬）。
+    for (const b of scene.choreography ? scene.choreography.beats : []) {
+      const names = (b.reveal || []).slice();
+      if (b.focus) names.push(b.focus);
+      names.forEach((name, i) => {
+        const id = resolveFocusId(graph, name);
+        if (!id) return;
+        const at = b.startFrame + (b.motion === "stagger" ? i * 7 : 0);
+        if (beatDelays[id] === undefined || at < beatDelays[id]) beatDelays[id] = at;
+      });
+    }
+    // 焦点滑移点： replaces 多条流光。讲到谁，光点就从上一个主体滑到谁身上，
+    // 18 帧 smoothstep——比瞬移看得清"焦点转移"，比沿边流光更贴旁白。
+    // 停靠在卡片右上角而不是中心：中心会被卡片自己盖住，光点等于没画。
+    if (cur) {
+      const curId = resolveFocusId(graph, cur.focus);
+      const curItem = curId ? layout.items.find((it) => it.node.id === curId) : undefined;
+      if (curItem) {
+        const all = scene.choreography ? scene.choreography.beats : [];
+        const prev = bs.idx > 0 ? all[bs.idx - 1] : null;
+        const prevId = prev ? resolveFocusId(graph, prev.focus) : undefined;
+        const prevItem = prevId ? layout.items.find((it) => it.node.id === prevId) : undefined;
+        const corner = (it: GraphItem) => ({ x: it.x + it.size * 0.62, y: it.y - it.size * 0.62 });
+        const from = corner(prevItem || curItem);
+        const to = corner(curItem);
+        const glide = Math.max(0, Math.min(1, (frame - cur.startFrame) / 18));
+        const ease = glide * glide * (3 - 2 * glide);
+        let x = from.x + (to.x - from.x) * ease;
+        let y = from.y + (to.y - from.y) * ease;
+        // orbit：光点绕主体小幅公转，表示"围着它看"（行星绕太阳这类）
+        if (cur.motion === "orbit") {
+          x += Math.cos(frame / 9) * 14;
+          y += Math.sin(frame / 9) * 14;
+        }
+        beatDot = { x, y };
+        // camera-push：整屏向焦点缓慢推近 5%×幅度，拍内持续推进
+        if (cur.motion === "camera-push") {
+          pushK = 0.05 * bs.amplitude * bs.beatProgress;
+          pushOrigin = curItem.x + "px " + curItem.y + "px";
+        }
+      }
+    }
+    // 连线跟揭示走：两端都入场了箭头才画出来，否则箭头指向一片空白
+    for (const flow of layout.flows) {
+      let gate = 0;
+      for (const id of flow.target) {
+        const it = layout.items.find((x) => x.node.id === id);
+        const at = beatDelays[id] !== undefined ? beatDelays[id] : it ? it.delay : 0;
+        if (at > gate) gate = at;
+      }
+      for (const e of flow.edges) edgeGate.set(e, gate);
+    }
+  }
+
+  const stage = (
+    <>
       <svg
         width={1920}
         height={1080}
@@ -2523,23 +2902,34 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
             strokeDasharray="18 18"
           />
         ) : null}
-        {layout.edges.map((edge, i) => (
-          <GraphConnector key={"e" + i} edge={edge} accent={scene.accentColor} />
-        ))}
-        {tokens.map((token, i) => {
-          const head = token.point;
-          const trail = [1, 2, 3].map((k) => flowPoint(token.flow, Math.max(0, token.t - k * 0.04)));
-          return (
-            <g key={"t" + i} opacity={token.alpha}>
-              {trail.map((p, k) => (
-                <circle key={k} cx={p.x} cy={p.y} r={11 - k * 2.2} fill={scene.accentColor} opacity={0.3 - k * 0.08} />
-              ))}
-              <circle cx={head.x} cy={head.y} r={20} fill={scene.accentColor} opacity={0.16} />
-              <circle cx={head.x} cy={head.y} r={12} fill="#ffffff" opacity={0.95} />
-              <circle cx={head.x} cy={head.y} r={7} fill={scene.accentColor} />
+        {layout.edges.map((edge, i) =>
+          bs ? (
+            <g
+              key={"e" + i}
+              opacity={Math.max(0, Math.min(1, (frame - (edgeGate.get(edge) || 0)) / 12))}
+            >
+              <GraphConnector edge={edge} accent={scene.accentColor} />
             </g>
-          );
-        })}
+          ) : (
+            <GraphConnector key={"e" + i} edge={edge} accent={scene.accentColor} />
+          ),
+        )}
+        {bs
+          ? null
+          : tokens.map((token, i) => {
+            const head = token.point;
+            const trail = [1, 2, 3].map((k) => flowPoint(token.flow, Math.max(0, token.t - k * 0.04)));
+            return (
+              <g key={"t" + i} opacity={token.alpha}>
+                {trail.map((p, k) => (
+                  <circle key={k} cx={p.x} cy={p.y} r={11 - k * 2.2} fill={scene.accentColor} opacity={0.3 - k * 0.08} />
+                ))}
+                <circle cx={head.x} cy={head.y} r={20} fill={scene.accentColor} opacity={0.16} />
+                <circle cx={head.x} cy={head.y} r={12} fill="#ffffff" opacity={0.95} />
+                <circle cx={head.x} cy={head.y} r={7} fill={scene.accentColor} />
+              </g>
+            );
+          })}
       </svg>
       {layout.items.map((item) => (
         <GraphBadge
@@ -2550,8 +2940,32 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           active={activeIds.has(item.node.id)}
           visited={visitedIds.has(item.node.id)}
           storyProgress={storyProgress}
+          beat={
+            bs && bs.current
+              ? {
+                motion: activeIds.has(item.node.id) ? bs.current.motion : "focus-ring",
+                beatProgress: bs.beatProgress,
+                popFrame: bs.popFrame,
+                amplitude: bs.amplitude,
+                delayOverride: beatDelays[item.node.id],
+              }
+              : null
+          }
         />
       ))}
+      {bs && beatDot ? (
+        // 顶层光点：画在卡片之上才不会被焦点卡自己盖住（停靠在卡片右上角外）
+        <svg
+          width={1920}
+          height={1080}
+          viewBox="0 0 1920 1080"
+          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+        >
+          <circle cx={beatDot.x} cy={beatDot.y} r={20} fill={scene.accentColor} opacity={0.16} />
+          <circle cx={beatDot.x} cy={beatDot.y} r={12} fill="#ffffff" opacity={0.95} />
+          <circle cx={beatDot.x} cy={beatDot.y} r={7} fill={scene.accentColor} />
+        </svg>
+      ) : null}
       {graph.caption ? (
         <div
           style={{
@@ -2577,19 +2991,58 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           </div>
         </div>
       ) : null}
+    </>
+  );
+
+  return (
+    <AbsoluteFill>
+      {pushK > 0 ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            transform: "scale(" + (1 + pushK) + ")",
+            transformOrigin: pushOrigin,
+          }}
+        >
+          {stage}
+        </div>
+      ) : (
+        stage
+      )}
     </AbsoluteFill>
   );
 };
 
-const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene, index }) => {
+/** 转场时长：12 帧 = 0.4s，短到不打断讲解，长到能看清是"推上来" */
+const SCENE_SLIDE_FRAMES = 12;
+
+const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boolean }> = ({ scene, index, isLast }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const duration = Math.max(90, scene.durationFrames || 180);
-  const fadeIn = interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateRight: "clamp" });
-  const fadeOut = interpolate(frame, [duration - 0.4 * fps, duration], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  // 转场：新场景从画面下方推上来，把上一场整块顶走。
+  // 试过"整层淡出到根底色"（原方案，实测每处切换亮度从 235 冲到 249、画面内容
+  // 归零 3~4 帧）和"圆形遮罩从中心展开"（教学画面的主体就在中心，圆一开先把
+  // 主体盖掉）。平移不挑内容位置，全程满屏，也不会两套标题/字幕叠在一起。
+  const enterFade = index === 0 ? interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateRight: "clamp" }) : 1;
+  const tailFade = isLast
+    ? interpolate(frame, [duration - 0.4 * fps, duration], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+  const slide = index === 0 ? 1 : interpolate(frame, [0, SCENE_SLIDE_FRAMES], [0, 1], { extrapolateRight: "clamp" });
+  // 起手快、收尾稳：位移不匀才像"推上来"，匀速滑动会显得像掉帧
+  const slideY = (1 - Math.pow(slide, 0.55)) * 1080;
+  // 自己放完后被下一场顶上：屏内内容同步上移一屏，和下一场的入场拼成一次完整滚动
+  const exitP = isLast
+    ? 0
+    : interpolate(frame, [duration, duration + SCENE_SLIDE_FRAMES], [0, 1], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      });
+  const offsetY = Math.round(slideY - exitP * 1080);
   const enter = spring({ frame, fps, config: { damping: 16, stiffness: 110, mass: 0.9 } });
   const stageY = interpolate(enter, [0, 1], [74, 0]);
   const stageScale = interpolate(enter, [0, 1], [0.82, 1]);
@@ -2604,9 +3057,13 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
   const backgroundStyle = scene.backgroundStyle || "environment";
 
   return (
+    // 冻结在"子组件开始收尾淡出"之前（各组件都在 duration 前 ~12 帧起淡出）。
+    // 钉在最后一帧反而会停在淡出的末态上，画面是半透明的。
+    <FrameOverride.Provider value={isLast ? null : Math.max(0, duration - 14)}>
     <AbsoluteFill
       style={{
-        opacity: Math.min(fadeIn, fadeOut),
+        opacity: Math.min(enterFade, tailFade),
+        transform: offsetY !== 0 ? "translateY(" + offsetY + "px)" : undefined,
         backgroundColor: backgroundStyle === "environment" ? "#f7fff9" : "#fcfeff",
         overflow: "hidden",
       }}
@@ -2680,6 +3137,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number }> = ({ scene,
         {"0" + (index + 1)}
       </div>
     </AbsoluteFill>
+    </FrameOverride.Provider>
   );
 };
 
@@ -2687,12 +3145,23 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   const starts = sceneStarts(scenes);
   return (
     <AbsoluteFill style={{ backgroundColor: "#ecfff8" }}>
-      {scenes.map((scene, index) => (
-        <Sequence key={scene.id || index} from={starts[index]} durationInFrames={Math.max(90, scene.durationFrames || 180)} premountFor={30}>
-          <SceneLayer scene={scene} index={index} />
-          {scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}
-        </Sequence>
-      ))}
+      {scenes.map((scene, index) => {
+        const sceneDur = Math.max(90, scene.durationFrames || 180);
+        const isLast = index === scenes.length - 1;
+        return (
+          <Sequence
+            key={scene.id || index}
+            from={starts[index]}
+            // 除最后一场外都多留一个转场窗口：自己放完后"站"12 帧，让下一场
+            // 有东西可以顶走，而不是顶在空底色上
+            durationInFrames={sceneDur + (isLast ? 0 : SCENE_SLIDE_FRAMES)}
+            premountFor={30}
+          >
+            <SceneLayer scene={scene} index={index} isLast={isLast} />
+            {scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={0.94} /> : null}
+          </Sequence>
+        );
+      })}
       <div style={{ position: "absolute", top: 18, right: 24, color: "rgba(0,0,0,0.38)", fontSize: 18, fontWeight: 700 }}>
         {title || topic}
       </div>

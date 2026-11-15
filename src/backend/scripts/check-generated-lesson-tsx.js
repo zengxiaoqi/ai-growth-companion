@@ -93,12 +93,15 @@ const mustHave = [
   '>= 355',
   // 标签白描边：标签压到图形上也读得出
   'paintOrder="stroke"',
+  // 轮廓兜底：纯白雨珠/月亮/牙齿在白底上等于没画，校验层会给它们补一圈描边。
+  // 模板少了这个透传，补了也白补——成片仍是"两颗眼睛浮在背景上"
+  'strokeWidth={glyph.strokeWidth}',
 ];
 
 // 六种图元都必须有渲染分支，否则 LLM 交来的图元会被静默画不出来（画面缺一块）
 const figureKinds = ['arc', 'line', 'curve', 'circle', 'rect', 'polygon'];
 const missingKinds = figureKinds.filter((kind) => {
-  if (kind === 'polygon') return !template.includes('return <polygon');
+  if (kind === 'polygon') return !template.includes('points={glyph.points}');
   return !template.includes(`glyph.kind === "${kind}"`);
 });
 console.log('missing_figure_kinds=' + (missingKinds.length ? missingKinds.join(',') : 'none'));

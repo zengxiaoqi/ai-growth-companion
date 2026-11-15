@@ -28,8 +28,8 @@ export type FigureShape =
       width: number;
     }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: 'rect'; x: number; y: number; w: number; h: number; rx: number; fill: string }
-  | { kind: 'circle'; cx: number; cy: number; r: number; fill: string }
+  | { kind: 'rect'; x: number; y: number; w: number; h: number; rx: number; fill: string; stroke?: string; strokeWidth?: number }
+  | { kind: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; strokeWidth?: number }
   | {
       kind: 'curve';
       x1: number;
@@ -43,7 +43,7 @@ export type FigureShape =
       stroke: string;
       width: number;
     }
-  | { kind: 'polygon'; points: string; fill: string };
+  | { kind: 'polygon'; points: string; fill: string; stroke?: string; strokeWidth?: number };
 
 export type FigureGlyph = FigureShape & {
   /** 0..1，按这个先后顺序出现；同一数值同时出现 */

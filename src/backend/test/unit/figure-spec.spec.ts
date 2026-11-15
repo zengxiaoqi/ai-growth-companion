@@ -1,8 +1,12 @@
 import {
+  FIGURE_CANVAS_BG,
   FIGURE_HEIGHT,
   FIGURE_WIDTH,
+  MIN_CONTOUR_DELTA_E,
   MIN_RADIUS,
   MIN_STROKE,
+  MIN_VISIBLE_DELTA_E,
+  colorDistance,
   describeFigureGrammar,
   normalizeFigureSpec,
   shapeBounds,
@@ -307,6 +311,107 @@ describe('normalizeFigureSpec', () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.spec.shapes.filter((s) => s.kind === 'polygon')).toHaveLength(0);
+  });
+});
+
+/**
+ * 轮廓兜底。实测 22 张真实成片里 9 张带纯白图元：彩虹那四张的"雨珠"是
+ * 纯白圆 + 纯白触角，成片里只剩两颗蓝眼睛浮在背景上。白色是雨珠的正确颜色，
+ * 该补的是轮廓，不是把白改成灰。
+ */
+describe('填充色对比度下限', () => {
+  const drop = (fill = '#FFFFFF') => ({
+    shapes: [
+      ...rainbow().shapes,
+      { kind: 'circle', cx: 1470, cy: 520, r: 42, fill, reveal: 0.9 },
+    ],
+  });
+
+  it('纯白圆在白底上会补一圈看得见的轮廓', () => {
+    const result = normalizeFigureSpec(drop());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const circle = result.spec.shapes.find((s) => s.kind === 'circle');
+    expect(circle?.kind).toBe('circle');
+    if (circle?.kind !== 'circle') return;
+    // 填充保持白色——语义归模型，不改
+    expect(circle.fill).toBe('#FFFFFF');
+    expect(circle.stroke).toBeDefined();
+    expect(circle.strokeWidth).toBe(MIN_STROKE);
+    // 轮廓必须真的和填充、和底色都分得开，否则补了也白补
+    expect(colorDistance(circle.stroke!, circle.fill)).toBeGreaterThanOrEqual(MIN_CONTOUR_DELTA_E);
+    expect(colorDistance(circle.stroke!, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(MIN_VISIBLE_DELTA_E);
+  });
+
+  it('本身够显眼的填充不动——不能顺手给所有图元描边', () => {
+    const result = normalizeFigureSpec(drop('#E5484D'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const circle = result.spec.shapes.find((s) => s.kind === 'circle');
+    expect(circle).toBeDefined();
+    expect(circle && 'stroke' in circle ? circle.stroke : undefined).toBeUndefined();
+  });
+
+  it('纯白线条没有"面"可描边，就把自己的颜色压深到看得见', () => {
+    const result = normalizeFigureSpec({
+      shapes: [
+        ...rainbow().shapes,
+        { kind: 'curve', x1: 1452, y1: 432, c1x: 1440, c1y: 395, c2x: 1445, c2y: 360, x2: 1460, y2: 345, stroke: '#FFFFFF', width: 14, reveal: 0.9 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const curve = result.spec.shapes.find((s) => s.kind === 'curve');
+    expect(curve?.kind).toBe('curve');
+    if (curve?.kind !== 'curve') return;
+    expect(colorDistance(curve.stroke, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(MIN_VISIBLE_DELTA_E);
+  });
+
+  it('画在深色底上的白色不补轮廓：边界已经由底下的颜色交代了', () => {
+    const result = normalizeFigureSpec({
+      shapes: [
+        ...rainbow().shapes,
+        { kind: 'rect', x: 200, y: 420, w: 400, h: 200, rx: 12, fill: '#334155', reveal: 0.85 },
+        { kind: 'circle', cx: 400, cy: 520, r: 40, fill: '#FFFFFF', reveal: 0.9 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const white = result.spec.shapes.filter((s) => s.kind === 'circle')[0];
+    expect(white && 'stroke' in white ? white.stroke : undefined).toBeUndefined();
+  });
+
+  it('横贯画面的浅色色带不补轮廓：边界就是画布边界，加框像给地面装相框', () => {
+    const result = normalizeFigureSpec({
+      shapes: [
+        ...rainbow().shapes,
+        { kind: 'rect', x: 0, y: 560, w: FIGURE_WIDTH, h: 80, rx: 0, fill: '#EAF8DF', reveal: 0.9 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const band = result.spec.shapes.find((s) => s.kind === 'rect');
+    expect(band?.kind).toBe('rect');
+    if (band?.kind !== 'rect') return;
+    expect(band.fill).toBe('#EAF8DF');
+    expect(band.stroke).toBeUndefined();
+  });
+
+  it('小到放不下一圈轮廓的淡色图元改压深填充，不描边', () => {
+    // 铁钉那种 40×14 的细条：描边宽度会把整条填满，看起来像糊了一块深色
+    const result = normalizeFigureSpec({
+      shapes: [
+        ...rainbow().shapes,
+        { kind: 'rect', x: 1300, y: 480, w: 40, h: 14, rx: 7, fill: '#DDE3EA', reveal: 0.9 },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const nail = result.spec.shapes.find((s) => s.kind === 'rect');
+    expect(nail?.kind).toBe('rect');
+    if (nail?.kind !== 'rect') return;
+    expect(nail.stroke).toBeUndefined();
+    expect(colorDistance(nail.fill, FIGURE_CANVAS_BG)).toBeGreaterThanOrEqual(MIN_VISIBLE_DELTA_E);
   });
 });
 

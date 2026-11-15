@@ -52,6 +52,17 @@ export const MIN_ARC_R = FIGURE_HEIGHT * 0.06;
 export const MIN_STROKE = 6;
 export const MIN_RADIUS = 12;
 
+/** 画布中性底色，与模板 SceneBackground 的 neutral 分支一致——对比度按它算 */
+export const FIGURE_CANVAS_BG = '#FCFEFF';
+/** 图元颜色与底色的最小 CIE76 色差。低于它的图元在白底上等于没画 */
+export const MIN_VISIBLE_DELTA_E = 12;
+/** 轮廓与填充的最小色差——轮廓得看出是一条边，不能只是浅一点点 */
+export const MIN_CONTOUR_DELTA_E = 22;
+/** 补轮廓时往这个深色混：石板灰，与色板同族，不引入新色相 */
+const CONTOUR_INK = '#334155';
+/** 横贯画面的色带（草地、天空、水层）不补轮廓：它的边界就是画布边界，加框反而怪 */
+const BAND_WIDTH = FIGURE_WIDTH * 0.6;
+
 export type FigureShape =
   | {
       kind: 'arc';
@@ -66,8 +77,19 @@ export type FigureShape =
       width: number;
     }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: 'rect'; x: number; y: number; w: number; h: number; rx: number; fill: string }
-  | { kind: 'circle'; cx: number; cy: number; r: number; fill: string }
+  | {
+      kind: 'rect';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      rx: number;
+      fill: string;
+      /** 仅当填充色离底色太近时由校验层补上，模型不填 */
+      stroke?: string;
+      strokeWidth?: number;
+    }
+  | { kind: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; strokeWidth?: number }
   | {
       kind: 'curve';
       x1: number;
@@ -81,7 +103,7 @@ export type FigureShape =
       stroke: string;
       width: number;
     }
-  | { kind: 'polygon'; points: string; fill: string };
+  | { kind: 'polygon'; points: string; fill: string; stroke?: string; strokeWidth?: number };
 
 export type FigureGlyph = FigureShape & {
   /** 0..1，只表达先后；同一数值同时出现。渲染器负责映射到讲解进度 */
@@ -122,6 +144,48 @@ function toNum(input: unknown, fallback: number, min: number, max: number): numb
 function toColor(input: unknown, fallback: string): string {
   const value = cleanText(input);
   return HEX_COLOR.test(value) ? value : fallback;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const body = hex.replace('#', '');
+  const full = body.length === 3 ? body.split('').map((c) => c + c).join('') : body;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+const toLinear = (value: number) => {
+  const c = value / 255;
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+};
+
+function toLab(hex: string): [number, number, number] {
+  const [r, g, b] = hexToRgb(hex).map(toLinear) as [number, number, number];
+  const x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  const y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(x);
+  const fy = f(y);
+  const fz = f(z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+
+/**
+ * CIE76 色差。用来回答的只有一个问题：**这两个颜色在白底上分得开吗**。
+ * 不做 CIEDE2000 那套权重——那是给印刷配色用的精度，这里差 2 和差 3 没有区别。
+ * 非法色值返回 Infinity：看不懂的颜色不动它，宁可漏补也不乱改模型的稿子。
+ */
+export function colorDistance(a: string, b: string): number {
+  if (!HEX_COLOR.test(a) || !HEX_COLOR.test(b)) return Number.POSITIVE_INFINITY;
+  const [l1, a1, b1] = toLab(a);
+  const [l2, a2, b2] = toLab(b);
+  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+}
+
+function mixHex(from: string, to: string, ratio: number): string {
+  const a = hexToRgb(from);
+  const b = hexToRgb(to);
+  const out = a.map((v, i) => Math.round(v + (b[i] - v) * ratio));
+  return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
 /** 画布内 clamp：普通图元一律不许出界 */
@@ -361,6 +425,77 @@ const overlapArea = (a: Bounds, b: Bounds) => {
   return w > 0 && h > 0 ? w * h : 0;
 };
 
+type FilledShape = Extract<FigureShape, { fill: string }>;
+
+const isFilled = (shape: FigureShape): shape is FilledShape =>
+  shape.kind === 'circle' || shape.kind === 'rect' || shape.kind === 'polygon';
+
+/** 轮廓色：填充色向深石板灰混，保持同一色相，不引入新颜色 */
+function contourOf(fill: string): string {
+  const ink = mixHex(fill, CONTOUR_INK, 0.55);
+  if (colorDistance(ink, fill) >= MIN_CONTOUR_DELTA_E) return ink;
+  return mixHex(fill, '#1F2937', 0.72);
+}
+
+/** 线类图元没有"面"可描边，只能把自己压深到看得见 */
+function deepenInk(color: string): string {
+  for (const ratio of [0.5, 0.65, 0.8]) {
+    const next = mixHex(color, CONTOUR_INK, ratio);
+    if (colorDistance(next, FIGURE_CANVAS_BG) >= MIN_VISIBLE_DELTA_E) return next;
+  }
+  return mixHex(color, '#1F2937', 0.85);
+}
+
+/**
+ * 这个图元是不是画在另一块已经带色的图上——是的话它不缺轮廓。
+ * 例如深色眼珠上的一块白高光，白自己不显眼，但底下的颜色已经把边界交代清楚了。
+ * 只认画在它之前（更靠底层）的实心图元。
+ */
+function hasBackdrop(shape: FigureShape, index: number, shapes: FigureShape[]): boolean {
+  if (!isFilled(shape)) return false;
+  const box = shapeBounds(shape);
+  for (let i = 0; i < index; i += 1) {
+    const under = shapes[i];
+    if (!isFilled(under)) continue;
+    const b = shapeBounds(under);
+    if (b.x1 <= box.x1 && b.y1 <= box.y1 && b.x2 >= box.x2 && b.y2 >= box.y2) {
+      if (colorDistance(under.fill, shape.fill) >= MIN_VISIBLE_DELTA_E) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 可读性兜底：颜色离底色太近的图元，在白底上等于没画。
+ *
+ * 实测 22 张成片里 9 张（41%）带纯白图元——彩虹那四张的"雨珠"是纯白圆 +
+ * 纯白触角曲线，成片里只剩两颗蓝眼睛浮在背景上；小兔子的身体、牙齿、
+ * 月亮也都是白的。这些不是模型画错，白色本来就是雨珠和月亮的正确颜色。
+ *
+ * 所以不改语义色，只补轮廓：实心图元加一圈深色描边，线类图元把自己的颜色压深。
+ * 「什么颜色」归模型，「能不能看见」归代码——和线宽下限、圆半径下限同一条原则。
+ */
+function withReadableInk(shapes: FigureGlyph[]): FigureGlyph[] {
+  return shapes.map((shape, index) => {
+    if (isFilled(shape)) {
+      if (colorDistance(shape.fill, FIGURE_CANVAS_BG) >= MIN_VISIBLE_DELTA_E) return shape;
+      // 横贯画面的色带不需要框：边界就是画布边界，加一圈描边像给地面画了个相框
+      if (shape.kind === 'rect' && shapeBounds(shape).x2 - shapeBounds(shape).x1 >= BAND_WIDTH) return shape;
+      if (hasBackdrop(shape, index, shapes)) return shape;
+      // 小到放不下一圈轮廓的图形（铁钉那种 14px 细条），描边会把里面填满、
+      // 看起来像糊了一块深色 —— 这种直接压深填充，别描边
+      const box = shapeBounds(shape);
+      if (Math.min(box.x2 - box.x1, box.y2 - box.y1) < MIN_STROKE * 3) {
+        return { ...shape, fill: deepenInk(shape.fill) };
+      }
+      return { ...shape, stroke: contourOf(shape.fill), strokeWidth: MIN_STROKE };
+    }
+    if (colorDistance(shape.stroke, FIGURE_CANVAS_BG) >= MIN_VISIBLE_DELTA_E) return shape;
+    if (hasBackdrop(shape, index, shapes)) return shape;
+    return { ...shape, stroke: deepenInk(shape.stroke) };
+  });
+}
+
 /** 标签包围盒按字号 34 估算，宁可估宽一点，避免字压在图形上还判定通过 */
 const labelBounds = (label: FigureLabel): Bounds => {
   const halfW = (Math.max(1, label.text.length) * 34) / 2;
@@ -417,7 +552,7 @@ function checkGeometry(spec: FigureSpec): FigureRejectReason | null {
     unionBounds(
       spec.shapes
         .map((shape) => ({ shape, box: shapeBounds(shape) }))
-        .filter(({ shape, box }) => !(shape.kind === 'rect' && box.x2 - box.x1 >= FIGURE_WIDTH * 0.6))
+        .filter(({ shape, box }) => !(shape.kind === 'rect' && box.x2 - box.x1 >= BAND_WIDTH))
         .map(({ box }) => box),
     ) ?? whole;
   const cbw = contentBounds.x2 - contentBounds.x1;
@@ -474,6 +609,10 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
 
   if (shapes.length === 0) return { ok: false, reason: 'empty' };
 
+  // 补轮廓要在几何校验之前：轮廓不影响包围盒，但「太阳」这类标签的压图判断
+  // 与顺序无关，放在这里是为了让校验看到的就是最终要渲染的那份 spec
+  const inked = withReadableInk(shapes);
+
   const rawLabels = Array.isArray(source.labels) ? source.labels : [];
   const labels: FigureLabel[] = [];
   for (const item of rawLabels) {
@@ -490,7 +629,7 @@ export function normalizeFigureSpec(raw: unknown, accent = '#3E63DD'): FigureRes
     });
   }
 
-  const spec: FigureSpec = { shapes, ...(labels.length ? { labels } : {}) };
+  const spec: FigureSpec = { shapes: inked, ...(labels.length ? { labels } : {}) };
   const reject = checkGeometry(spec);
   if (reject) return { ok: false, reason: reject };
   return { ok: true, spec };
@@ -519,6 +658,7 @@ export function describeFigureGrammar(): string {
     '- 图元总数 ≤ 32，颜色 ≤ 8 种。',
     '- 图形要铺开：内容占画布面积 1/5 到 4/5，别缩在角落，别撑满。',
     '- 同一份 figure 里至少有两个"主体图元"（比如七条弧、几条光线），不要一堆小圆点凑数。',
+    '- 颜色按实物来就行：雨珠白、月亮白、牙齿白都可以。太接近底色的图元会被自动补一圈深色轮廓，不用为了"看得见"把白色改成灰的。',
     '- 几何要算准：光线要真的汇聚到交点，弧的圆心和半径要能对上两端落点。算不准就别用 figure，退回 sceneGraph。',
   ].join('\n');
 }

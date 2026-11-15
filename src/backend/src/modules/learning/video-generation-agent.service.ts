@@ -1559,10 +1559,10 @@ const FIGURE_H = 640;
 type FigureShapeView =
   | { kind: "arc"; cx: number; cy: number; r: number; from: number; to: number; stroke: string; width: number }
   | { kind: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: "rect"; x: number; y: number; w: number; h: number; rx: number; fill: string }
-  | { kind: "circle"; cx: number; cy: number; r: number; fill: string }
+  | { kind: "rect"; x: number; y: number; w: number; h: number; rx: number; fill: string; stroke?: string; strokeWidth?: number }
+  | { kind: "circle"; cx: number; cy: number; r: number; fill: string; stroke?: string; strokeWidth?: number }
   | { kind: "curve"; x1: number; y1: number; c1x: number; c1y: number; c2x: number; c2y: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: "polygon"; points: string; fill: string };
+  | { kind: "polygon"; points: string; fill: string; stroke?: string; strokeWidth?: number };
 
 type FigureGlyphView = FigureShapeView & { reveal: number };
 type FigureLabelView = { text: string; x: number; y: number; color?: string };
@@ -2292,7 +2292,18 @@ const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyp
   if (glyph.kind === "circle") {
     // 圆从中心长出来，比淡入更像"画上去的"
     const grow = 0.45 + p * 0.55;
-    return <circle cx={glyph.cx} cy={glyph.cy} r={glyph.r * grow} fill={glyph.fill} opacity={Math.min(1, p * 2.2)} />;
+    return (
+      <circle
+        cx={glyph.cx}
+        cy={glyph.cy}
+        r={glyph.r * grow}
+        fill={glyph.fill}
+        // 校验层只给"离底色太近"的图元补轮廓（纯白雨珠、月亮），其余为 undefined
+        stroke={glyph.stroke}
+        strokeWidth={glyph.strokeWidth}
+        opacity={Math.min(1, p * 2.2)}
+      />
+    );
   }
 
   if (glyph.kind === "rect") {
@@ -2305,12 +2316,22 @@ const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyp
         height={glyph.h * grow}
         rx={glyph.rx}
         fill={glyph.fill}
+        stroke={glyph.stroke}
+        strokeWidth={glyph.strokeWidth}
         opacity={Math.min(1, p * 2)}
       />
     );
   }
 
-  return <polygon points={glyph.points} fill={glyph.fill} opacity={Math.min(1, p * 2)} />;
+  return (
+    <polygon
+      points={glyph.points}
+      fill={glyph.fill}
+      stroke={glyph.stroke}
+      strokeWidth={glyph.strokeWidth}
+      opacity={Math.min(1, p * 2)}
+    />
+  );
 };
 
 /**

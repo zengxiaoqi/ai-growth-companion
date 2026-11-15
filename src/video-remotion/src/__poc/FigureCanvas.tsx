@@ -148,6 +148,9 @@ export const FigureCanvas: React.FC<{
           cy={shape.cy}
           r={shape.r * grow}
           fill={shape.fill}
+          // 校验层只给"离底色太近"的图元补轮廓（纯白雨珠、月亮）
+          stroke={shape.stroke}
+          strokeWidth={shape.strokeWidth}
           opacity={Math.min(1, p * 2.2)}
         />
       );
@@ -164,13 +167,22 @@ export const FigureCanvas: React.FC<{
           height={shape.h * grow}
           rx={shape.rx}
           fill={shape.fill}
+          stroke={shape.stroke}
+          strokeWidth={shape.strokeWidth}
           opacity={Math.min(1, p * 2)}
         />
       );
     }
 
     return (
-      <polygon key={key} points={shape.points} fill={shape.fill} opacity={Math.min(1, p * 2)} />
+      <polygon
+        key={key}
+        points={shape.points}
+        fill={shape.fill}
+        stroke={shape.stroke}
+        strokeWidth={shape.strokeWidth}
+        opacity={Math.min(1, p * 2)}
+      />
     );
   };
 

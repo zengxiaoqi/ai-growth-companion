@@ -2068,8 +2068,13 @@ const GraphBadge: React.FC<{
         ? 1 - 0.28 * storyProgress
         : 1
     : 1;
-  const pulse = active ? 1 + Math.sin(frame / 7) * 0.045 : 1;
-  const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * pulse * swellK;
+  // 焦点分三档：讲到的推到前面并持续呼吸，讲过的归位，还没讲到的退到后面。
+  // 改之前只有被点亮的那张卡在动（占画面约 4%），其余 96% 面积完全静止，
+  // 实测中段 99% 的相邻帧几乎没有像素变化——不是没有动效，是动的那块太小。
+  // 呼吸幅度 4%、周期约 36 帧：180px 的卡每帧位移约 1.2px，刚好过"看得出在动"的阈值。
+  // 再快会像心跳，再慢就回到亚像素。
+  const focusK = active ? 1.16 + Math.sin(frame / 5.7) * 0.05 : visited ? 0.97 : 0.86;
+  const scale = (item.grow ? 0.42 + growEase * 0.58 : 0.55 + enter * 0.45) * focusK * swellK;
   const dx = item.enterFrom ? (item.enterFrom.x - item.x) * (1 - travel) : 0;
   const dy = item.enterFrom ? (item.enterFrom.y - item.y) * (1 - travel) : 0;
   const role = item.node.role;
@@ -2095,7 +2100,9 @@ const GraphBadge: React.FC<{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        opacity: enter,
+        // 退后的节点同时降透明度：只缩小不降透明度，看起来像"画小了"而不是"退到后面"。
+        // 保留下限 0.84——5-6 岁看的画面，未讲到的词也得看得清，不能淡到读不出。
+        opacity: enter * (active ? 1 : visited ? 0.92 : 0.82),
         // 位移留在外层，缩放只作用在图形盒上：标签不跟着缩放，
         // 否则小尺寸时「幼苗」缩到 13px 根本看不清
         transform: "translate(" + dx + "px, " + dy + "px)",
@@ -2121,7 +2128,8 @@ const GraphBadge: React.FC<{
               height: size + 24,
               borderRadius: radius === "50%" ? "50%" : 46,
               border: "5px solid " + accent,
-              opacity: 0.28 + Math.sin(frame / 7) * 0.08,
+              // 光环跟着同一个呼吸周期走：两处不同频会互相打架，看起来像抖动而不是呼吸
+              opacity: 0.3 + Math.sin(frame / 5.7) * 0.12,
             }}
           />
         ) : null}
@@ -2419,16 +2427,24 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
-  const tokens = layout.flows.map((flow) => {
+  const flowCount = layout.flows.length;
+  const tokens = layout.flows.map((flow, index) => {
     if (flow.loop) {
       // 循环关系（水循环）本来就无止境，按固定周期一直转是对的
       const raw = (frame - warmup) / FLOW_PERIOD;
       const t = ((raw % 1) + 1) % 1;
       return { flow, t, alpha: 0.95, point: flowPoint(flow, t) };
     }
-    // 单程关系（链式/生长）把整屏时长当作一次完整走程：讲解到哪儿，光点就在哪儿。
-    // 用固定周期会算错——3 段 × 84 帧只有 252 帧的六成，光点早早停在终点等画面演完。
-    const t = storyProgress;
+    // 多条独立路径（split 散开 / group 聚拢）必须错开走。
+    // 原来所有路径共用一个 storyProgress：5 条光点同时出发、同时到达，
+    // 5 个部件在同一帧一起亮起来——整屏从头到尾只有 1 个视觉事件。
+    // 实测中段 140 帧里只有 1 帧有明显变化，这就是"呆板"的直接来源。
+    // 单条路径（chain，一环扣一环）保持原来的"整屏一次走完"，不能被切开。
+    const spread = flowCount > 1 ? 0.58 : 0;
+    const slot = flowCount > 1 ? spread / flowCount : 0;
+    const begin = index * slot;
+    const span = Math.max(0.3, 1 - spread);
+    const t = Math.max(0, Math.min(1, (storyProgress - begin) / span));
     return {
       flow,
       t,
@@ -2450,14 +2466,28 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
       // 走过的节点留一道细边：画面能累积出"已经讲到第几步"
       if (!token.flow.loop) {
         token.flow.target.slice(0, seg).forEach((id) => visitedIds.add(id));
+        // split/group 的路径只有一段（target 只有一个元素），seg 恒为 0，
+        // 上面那句永远不触发。补一条"走到终点即讲完"，否则每次切换都像从头开始。
+        if (token.t >= 0.995) visitedIds.add(toId);
       }
     });
   }
-  // 没有路径的关系（compare）靠左右轮流点亮来做对照
+  // 没有路径的关系（compare / split）靠逐个点亮来做对照。
+  // 原来这里写死除以 2：200 帧的场景 5 个节点只有前 2 个被点亮过，
+  // 后 3 个从头到尾停在"没讲到"的状态——一半内容没被强调过，画面也自然停住了。
   if (layout.flows.length === 0) {
-    const half = Math.max(30, (duration - warmup) / 2);
+    const half = Math.max(30, (duration - warmup) / Math.max(1, count));
     const index = frame < warmup ? 0 : Math.floor((frame - warmup) / half) % count;
-    activeIds.add(graph.nodes[Math.min(count - 1, index)].id);
+    const current = Math.min(count - 1, index);
+    activeIds.add(graph.nodes[current].id);
+    // 讲过的留一道细边，画面能累积出"讲到第几个了"；否则每一拍都像重新开始
+    for (let i = 0; i < current; i += 1) visitedIds.add(graph.nodes[i].id);
+  }
+  // split/group 的第一个节点是这一屏的主题（「大树由这些组成」里的"大树"）。
+  // 焦点转到部件之后它会落到"还没讲到"那一档，跟着一起缩到 0.86——
+  // 主题跟着配角退场是错的，至少保住"讲过了"的档位。
+  if (graph.relation === "split" || graph.relation === "group") {
+    visitedIds.add(graph.nodes[0].id);
   }
 
   return (

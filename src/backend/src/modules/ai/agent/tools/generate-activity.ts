@@ -452,7 +452,7 @@ export class GenerateActivityTool {
 
   private buildPrompt(args: GenerateActivityArgs, attempt: number, failures: string[]): string {
     const schema = this.schemaForType(args.type);
-    const typeRules = this.typeRules(args.type);
+    const typeRules = this.typeRules(args.type, args.ageGroup);
     const topicRules = this.topicRules(args.topic);
     const failureNotes =
       failures.length > 0
@@ -523,7 +523,7 @@ export class GenerateActivityTool {
     }
   }
 
-  private typeRules(type: ActivityType): string[] {
+  private typeRules(type: ActivityType, ageGroup: string): string[] {
     const common = [
       'Use short and answerable sentences.',
       'At least 3 valid items (prefer 4+ for matching/connection).',
@@ -598,7 +598,9 @@ export class GenerateActivityTool {
           ...common,
           'Generate 2-4 tracing targets about the given topic.',
           'Each target is {id, kind:"glyph", text, label}: text is 1-2 common Chinese characters, digits or letters (NEVER emoji or rare characters); label defaults to the text.',
-          'Glyphs must be visually simple and appropriate for tracing by a 3-4 year old.',
+          ageGroup === '3-4'
+            ? 'Glyphs must be single visually-simple common characters suitable for a 3-4 year old (e.g. 大、小、水、火、山).'
+            : 'Glyphs may be 1-2 common characters forming a topic-related word suitable for a 5-6 year old; avoid rare/complex characters.',
           'minCoverage is 0.5-0.85 (0.7 recommended); passingScore is 0-100; timeLimitSec is 30-300.',
         ];
       case 'color_fill':
@@ -607,7 +609,7 @@ export class GenerateActivityTool {
           'Generate 2-6 regions about the given topic.',
           'Each region is {id, shape, colorKey}: shape is circle/star/heart/triangle/square/flower/sun/moon/cloud/fish; colorKey is red/blue/yellow/green/orange/purple/pink/brown/black/white. NEVER invent other shapes or colors, NEVER provide coordinates.',
           'palette lists 3-8 colorKeys, MUST include every region colorKey plus at least one distractor color.',
-          'The color assignment must be semantically sensible for a 3-4 year old (e.g. sun=yellow, leaf=green).',
+          `The color assignment must be semantically sensible for a ${ageGroup} year old (e.g. sun=yellow, leaf=green).`,
           'passingScore is 0-100; timeLimitSec is 30-300.',
         ];
       case 'tap_target':

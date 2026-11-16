@@ -1,5 +1,6 @@
 import type { ActivityType } from '../ai/agent/tools/generate-activity';
 import { suggestTemplateByDomain } from '../../animations/animation-templates';
+import { isValidGlyphText, TRACE_PATH_LIMITS } from '../../common/activity/trace-path';
 
 export type ActivityData = Record<string, any> & {
   type?: ActivityType;
@@ -746,11 +747,39 @@ export function deriveWatchSceneDocument(
   };
 }
 
+export function normalizeTracingItems(items: unknown, topic: string): string[] {
+  const glyphs: string[] = [];
+  const push = (text: string) => {
+    if (
+      glyphs.length >= TRACE_PATH_LIMITS.maxTargets ||
+      glyphs.includes(text) ||
+      !isValidGlyphText(text)
+    ) {
+      return;
+    }
+    glyphs.push(text);
+  };
+  for (const item of Array.isArray(items) ? items : []) {
+    const text = toText(item);
+    if (!text) continue;
+    if (isValidGlyphText(text)) {
+      push(text);
+    } else {
+      // 长词/算式拆成单字，只保留可描红的合法字符
+      for (const ch of Array.from(text)) push(ch);
+    }
+  }
+  if (glyphs.length === 0) {
+    for (const ch of Array.from(toText(topic))) push(ch);
+  }
+  return glyphs.length > 0 ? glyphs : ['一', '二'];
+}
+
 export function deriveWriteSceneDocument(writing: AnyRecord, topic: string): LessonSceneDocument {
   const tracingItems = Array.isArray(writing?.tracingItems) ? writing.tracingItems : [];
   const practiceTasks = Array.isArray(writing?.practiceTasks) ? writing.practiceTasks : [];
   const checklist = Array.isArray(writing?.checklist) ? writing.checklist : [];
-  const targets = tracingItems.length > 0 ? tracingItems : [topic];
+  const targets = normalizeTracingItems(tracingItems, topic);
 
   const scenes = targets.slice(0, 6).map((item: any, index: number) => {
     const text = toText(item, topic);

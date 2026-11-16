@@ -11,6 +11,7 @@ import {
   deriveWatchSceneDocument,
   deriveWriteSceneDocument,
   inferWatchTemplateHint,
+  normalizeTracingItems,
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from '../../../learning/lesson-scene';
@@ -409,6 +410,13 @@ export class GenerateCoursePackTool {
       '- Each narration segment: 20-60 Chinese characters',
       '- Include specific knowledge points, not generic greetings',
       '',
+      '## writing Module Requirements:',
+      '- tracingItems: 2-4 items, each 1-2 common Chinese characters/digits/letters DIRECTLY tied to the topic (e.g. topic 海洋动物 → 鱼、鲸、海). NEVER the full topic name when it is longer than 2 characters, NEVER generic placeholders like "关键词".',
+      args.ageGroup === '3-4'
+        ? '- Age 3-4: prefer single visually-simple characters (e.g. 大、小、水、火、山) or digits 1-5; no complex or rare characters.'
+        : '- Age 5-6: 1-2 character topic words are fine (e.g. 海龟、蓝鲸); avoid rare/complex characters.',
+      '- practiceTasks and checklist must be topic-specific and follow the difficulty constraints above; no generic tasks like "写下你最喜欢的知识点".',
+      '',
       ...this.knowledgeCardPromptBlock(args),
       'Animation templates:',
       buildTemplatePromptContext(),
@@ -496,9 +504,6 @@ export class GenerateCoursePackTool {
     const fallbackReadingQuestions = curriculumSeed?.quizItems?.length
       ? curriculumSeed.quizItems.map((item) => item.question).slice(0, 3)
       : ['这段内容讲了什么？', '你学到了什么？'];
-    const fallbackTracingItems = curriculumSeed?.tracingItems?.length
-      ? curriculumSeed.tracingItems
-      : [args.topic, '关键词'];
     const fallbackWritingTasks = curriculumSeed?.practiceTasks?.length
       ? curriculumSeed.practiceTasks
       : ['写下你最喜欢的知识点。', '用一句话总结今天的学习内容。'];
@@ -550,7 +555,12 @@ export class GenerateCoursePackTool {
         },
         writing: {
           goal: this.toText(writing?.goal, '通过书写和练习巩固今天学到的知识。'),
-          tracingItems: this.toStringArray(writing?.tracingItems, 2, fallbackTracingItems),
+          tracingItems: normalizeTracingItems(
+            Array.isArray(writing?.tracingItems) && writing.tracingItems.length > 0
+              ? writing.tracingItems
+              : curriculumSeed?.tracingItems,
+            args.topic,
+          ),
           practiceTasks: this.toStringArray(writing?.practiceTasks, 2, fallbackWritingTasks),
           checklist: this.toStringArray(
             writing?.checklist,

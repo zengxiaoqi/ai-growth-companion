@@ -33,6 +33,7 @@ import {
   type LessonSceneDocument,
 } from './lesson-scene';
 import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
+import { pickPracticeActivityType } from '../../common/learning/practice-type-pool';
 import { bankRecordResults } from '../../common/activity/question-bank-registry';
 
 type AgeGroup = '3-4' | '5-6';
@@ -382,7 +383,7 @@ export class LessonContentService implements OnModuleInit {
 
     try {
       // 1 & 2. Generate course pack AND practice game in parallel
-      const practiceType = this.resolveGameType(focus);
+      const practiceType = pickPracticeActivityType({ ageGroup, domain, focus });
       this.logger.log(
         `[contentId=${contentId}] Step 1/2: Generating course pack + practice game in parallel...`,
       );
@@ -1256,6 +1257,12 @@ export class LessonContentService implements OnModuleInit {
         ? getCoursePackCurriculumSeed({ topic, ageGroup, domain })
         : null;
 
+    // 题型池会选到没有静态兜底的类型（tap_target 等）；降级到有种子的连线或测评，
+    // 保证兜底 payload 与 type 字段始终匹配（assembleLesson 跟随 data.type）。
+    if (!['quiz', 'matching', 'connection', 'fill_blank'].includes(type)) {
+      type = curriculumSeed?.matchingPairs?.length ? 'connection' : 'quiz';
+    }
+
     if (type === 'quiz') {
       const quizItems = curriculumSeed?.quizItems?.length
         ? curriculumSeed.quizItems.slice(0, 3)
@@ -1388,20 +1395,8 @@ export class LessonContentService implements OnModuleInit {
       }
     }
 
-    return {
-      type: type || 'quiz',
-      title: `${topic} 练习`,
-      topic,
-      ageGroup,
-      questions: [
-        {
-          question: `关于${topic}，下面哪个是对的？`,
-          options: ['A', 'B', 'C'],
-          correctIndex: 0,
-          explanation: `${topic}的知识点`,
-        },
-      ],
-    };
+    // connection/fill_blank 在缺少种子数据时会落到这里；统一降级为合法 quiz。
+    return this.buildFallbackActivity('quiz', topic, ageGroup, domain);
   }
 
   private parseJson(text: string): Record<string, any> | null {

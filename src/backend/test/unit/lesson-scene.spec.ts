@@ -1,6 +1,7 @@
 import {
   deriveWatchSceneDocument,
   deriveWriteSceneDocument,
+  normalizeTracingItems,
   sanitizeSceneDocument,
 } from '../../src/modules/learning/lesson-scene';
 
@@ -164,5 +165,43 @@ describe('lesson-scene helpers', () => {
         text: '8',
       });
     }
+  });
+});
+
+describe('normalizeTracingItems', () => {
+  it('keeps 1-2 character words whole', () => {
+    expect(normalizeTracingItems(['蓝鲸', '海龟'], '海洋动物')).toEqual(['蓝鲸', '海龟']);
+  });
+
+  it('splits long topic words into single traceable characters', () => {
+    expect(normalizeTracingItems(['海洋动物'], '海洋动物')).toEqual(['海', '洋', '动', '物']);
+  });
+
+  it('strips non-glyph symbols from arithmetic strings', () => {
+    expect(normalizeTracingItems(['2+3=5'], '10以内加法')).toEqual(['2', '3', '5']);
+  });
+
+  it('falls back to topic characters when items are empty or invalid', () => {
+    expect(normalizeTracingItems([], '海洋动物')).toEqual(['海', '洋', '动', '物']);
+    expect(normalizeTracingItems(['🐱'], '猫')).toEqual(['猫']);
+  });
+
+  it('deduplicates and caps at 4 targets', () => {
+    expect(normalizeTracingItems(['鱼', '鱼', '鲸'], '鱼')).toEqual(['鱼', '鲸']);
+    expect(normalizeTracingItems(['a', 'b', 'c', 'd', 'e'], 'abcde')).toHaveLength(4);
+  });
+
+  it('deriveWriteSceneDocument never emits multi-character glyph targets', () => {
+    const scene = deriveWriteSceneDocument({ tracingItems: ['海洋动物'] }, '海洋动物');
+    for (const s of scene.scenes) {
+      if (s.interaction?.type === 'trace_path') {
+        for (const target of s.interaction.targets) {
+          if (target.kind === 'glyph') {
+            expect(Array.from(target.text).length).toBeLessThanOrEqual(2);
+          }
+        }
+      }
+    }
+    expect(scene.scenes.length).toBe(4);
   });
 });

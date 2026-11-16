@@ -843,4 +843,32 @@ describe('LessonContentService assembleLesson practice type', () => {
     );
     expect(practiceGame(lesson).activityType).toBe('quiz');
   });
+
+  it('fallback activity payload matches its type for pool types without static fallback', () => {
+    const activity = (service as any).buildFallbackActivity(
+      'tap_target',
+      '海洋动物',
+      '5-6',
+      'science',
+    );
+    if (activity.type === 'connection') {
+      expect(activity.leftItems.length).toBeGreaterThan(0);
+      expect(activity.connections.length).toBeGreaterThan(0);
+    } else {
+      expect(activity.type).toBe('quiz');
+      expect(activity.questions.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('fill_blank without seed data degrades to a valid quiz payload', () => {
+    const activity = (service as any).buildFallbackActivity(
+      'fill_blank',
+      '未知主题xyz',
+      '5-6',
+      'science',
+    );
+    expect(activity.type).toBe('quiz');
+    expect(activity.questions.length).toBeGreaterThan(0);
+    expect(activity.questions[0].options.length).toBeGreaterThanOrEqual(3);
+  });
 });

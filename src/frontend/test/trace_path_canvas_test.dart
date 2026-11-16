@@ -10,7 +10,7 @@ void main() {
   Future<ScrollController> pumpCanvas(
     WidgetTester tester, {
     String text = '十',
-    double minCoverage = 0.65,
+    double minCoverage = 0.75,
   }) async {
     final scrollController = ScrollController(initialScrollOffset: 0);
     await tester.pumpWidget(
@@ -65,6 +65,23 @@ void main() {
   int readPercent(WidgetTester tester) {
     final text = tester.widget<Text>(find.textContaining('覆盖率')).data!;
     return int.parse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+  }
+
+  /// 沿一串画布坐标（0-280）连笔描一条线（分段移动，避免触发跳变保护）
+  Future<void> traceLine(
+    WidgetTester tester,
+    RenderBox box,
+    List<Offset> canvasPoints,
+  ) async {
+    final global =
+        canvasPoints.map((p) => box.localToGlobal(p)).toList(growable: false);
+    final gesture = await tester.startGesture(global.first);
+    for (var i = 1; i < global.length; i++) {
+      await gesture.moveTo(global[i]);
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
   }
 
   group('TracePathCanvas — 描红笔画不被外层滚动劫持', () {
@@ -192,6 +209,46 @@ void main() {
 
       // 去重后只剩 2 个字
       expect(find.text('第 1/2 个字'), findsOneWidget);
+    });
+  });
+
+  group('TracePathCanvas — 少写一两笔不能提前完成', () {
+    // 注意：widget 测试环境里字体是实心方块（没有真实字形），
+    // 所以这里只验证"判定逻辑"：整体覆盖率门槛调低后，局部区域检查
+    // 仍然必须拦住"还有整片没描到"的情况。
+
+    testWidgets('只描一部分时，覆盖率达标也不算完成', (tester) async {
+      final scrollController = await pumpCanvas(tester, minCoverage: 0.05);
+      final box = findCanvasBox(tester);
+
+      // 只描左侧一竖条，右侧大片墨迹完全没写
+      await traceLine(tester, box, [
+        for (var i = 0; i <= 12; i++) Offset(60, 30 + i * 18.0),
+      ]);
+
+      expect(scrollController.offset, 0.0);
+      expect(readPercent(tester), greaterThan(5),
+          reason: '描过的部分应该计入覆盖率，说明描红本身生效');
+      expect(find.textContaining('写得真好'), findsNothing,
+          reason: '还有整片笔画没描到，不应该判定完成并跳到下一个字');
+      expect(find.textContaining('没描到'), findsWidgets,
+          reason: '应该提示还有哪些地方没描到');
+    });
+
+    testWidgets('整片都描到后才判定完成', (tester) async {
+      await pumpCanvas(tester, minCoverage: 0.05);
+      final box = findCanvasBox(tester);
+
+      // 逐行横向涂满整个字形区域，让每一块有墨迹的区域都被描到
+      for (var row = 0; row < 8; row++) {
+        final y = 17.5 + row * 35;
+        await traceLine(tester, box, [
+          for (var i = 0; i <= 10; i++) Offset(25 + i * 23.0, y),
+        ]);
+      }
+
+      expect(find.textContaining('全部写完'), findsOneWidget,
+          reason: '整片墨迹都描到后应该判定完成');
     });
   });
 }

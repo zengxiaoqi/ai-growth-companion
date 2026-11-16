@@ -56,13 +56,37 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   static const double _inkFillRatio = 0.86;
 
   /// 覆盖判定容差（画布坐标）
+  ///
+  /// 容差按"一根手指的半径"取：手指描得略有偏差也算描到，但相邻笔画
+  /// 之间的间距通常远大于 2 倍容差，不会把没写的那一笔也算成已覆盖。
   static const double _coverageTolerance = 14.0;
+
+  /// 局部检查网格：把格子切成 8x8，逐块检查墨迹是否被描到
+  ///
+  /// 只看整体覆盖率会出现"漏了一两笔但占比仍有七成"的误判，
+  /// 逐块检查能保证每个有笔画的角落都被写到。
+  static const int _regionGrid = 8;
+
+  /// 区域内至少有这么多采样点才算"有墨迹"，忽略笔画末端的零星采样点
+  static const int _regionMinSamples = 14;
+
+  /// 区域内被描到的比例低于此值，判定为"这一片还没写到"
+  static const double _regionCoveredRatio = 0.3;
 
   /// 用户绘制的笔画线段
   final List<_Segment> _segments = [];
 
   /// 已覆盖的采样点索引
   final Set<int> _coveredPoints = {};
+
+  /// 采样点所属区域下标（-1 表示未归属）
+  List<int> _regionOfPoint = const [];
+
+  /// 每个区域内的采样点总数
+  List<int> _regionTotals = const [];
+
+  /// 每个区域内已被描到的采样点数
+  List<int> _regionCovered = const [];
 
   /// 当前活动点（用于连续绘制）
   ui.Offset? _activePoint;
@@ -178,14 +202,80 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
   void _clearStrokeState() {
     _segments.clear();
-    _coveredPoints.clear();
+    _setSamples(const []);
     _activePoint = null;
     _activePointerId = null;
     _coverage = 0.0;
     _stepSolved = false;
     _warning = null;
-    _samplePoints = const [];
     _guideLayout = null;
+  }
+
+  /// 应用采样点集合（同时重置覆盖统计，避免下标错位）
+  void _setSamples(List<ui.Offset> samples) {
+    _samplePoints = samples;
+    _coveredPoints.clear();
+
+    final regionCount = _regionGrid * _regionGrid;
+    _regionOfPoint = List<int>.filled(samples.length, -1);
+    _regionTotals = List<int>.filled(regionCount, 0);
+    _regionCovered = List<int>.filled(regionCount, 0);
+
+    for (var i = 0; i < samples.length; i++) {
+      final point = samples[i];
+      final cx = (point.dx / _canvasSize * _regionGrid)
+          .floor()
+          .clamp(0, _regionGrid - 1);
+      final cy = (point.dy / _canvasSize * _regionGrid)
+          .floor()
+          .clamp(0, _regionGrid - 1);
+      final region = cy * _regionGrid + cx;
+      _regionOfPoint[i] = region;
+      _regionTotals[region] += 1;
+    }
+  }
+
+  /// 采样点变化后重算已有笔画的覆盖情况
+  ///
+  /// 参考字布局是异步渲染出来的，可能在用户已经落笔后才生效；
+  /// 直接替换采样点会让旧下标全部错位，必须整体重算。
+  void _applySamples(List<ui.Offset> samples) {
+    _setSamples(samples);
+    for (final segment in _segments) {
+      _accumulateCoverage(segment);
+    }
+    _coverage = _samplePoints.isEmpty
+        ? 0.0
+        : _coveredPoints.length / _samplePoints.length;
+  }
+
+  /// 还没描到的区域数量
+  int get _missingRegions {
+    var missing = 0;
+    for (var i = 0; i < _regionTotals.length; i++) {
+      final total = _regionTotals[i];
+      if (total < _regionMinSamples) continue;
+      if (_regionCovered[i] / total < _regionCoveredRatio) missing++;
+    }
+    return missing;
+  }
+
+  /// 还没描到的区域矩形（把漏掉的笔画标成暖色用）
+  List<ui.Rect> get _pendingRegionRects {
+    const cell = _canvasSize / _regionGrid;
+    final rects = <ui.Rect>[];
+    for (var i = 0; i < _regionTotals.length; i++) {
+      final total = _regionTotals[i];
+      if (total < _regionMinSamples) continue;
+      if (_regionCovered[i] / total >= _regionCoveredRatio) continue;
+      rects.add(ui.Rect.fromLTWH(
+        (i % _regionGrid) * cell,
+        (i ~/ _regionGrid) * cell,
+        cell,
+        cell,
+      ));
+    }
+    return rects;
   }
 
   /// 重来当前字
@@ -287,7 +377,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       if (!mounted || gen != _guideGeneration) return;
       setState(() {
         _guideLayout = null;
-        _samplePoints = _stepSolved ? const [] : samples;
+        if (!_stepSolved) _applySamples(samples);
       });
       return;
     }
@@ -306,7 +396,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       final layout = _fallbackLayout(text);
       setState(() {
         _guideLayout = layout;
-        if (!_stepSolved) _samplePoints = _fallbackSampling(layout, text);
+        if (!_stepSolved) _applySamples(_fallbackSampling(layout, text));
       });
     });
 
@@ -316,7 +406,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
     setState(() {
       _guideLayout = guide.layout;
-      if (!_stepSolved) _samplePoints = guide.samples;
+      if (!_stepSolved) _applySamples(guide.samples);
     });
   }
 
@@ -556,10 +646,19 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     _activePointerId = null;
     _activePoint = null;
 
-    if (!_stepSolved && _coverage < widget.minCoverage) {
-      setState(() {
-        _warning = '继续沿着浅色字形描一描，尽量把笔画都盖到。';
-      });
+    if (_stepSolved) return;
+
+    final missing = _missingRegions;
+    final String? hint;
+    if (_coverage < widget.minCoverage) {
+      hint = '继续沿着浅色字形描一描，尽量把笔画都盖到。';
+    } else if (missing > 0) {
+      hint = '还有 $missing 处没描到，橙色笔画就是漏掉的，补上就完成了。';
+    } else {
+      hint = null;
+    }
+    if (hint != null) {
+      setState(() => _warning = hint);
     }
   }
 
@@ -584,22 +683,49 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     );
   }
 
-  /// 更新覆盖率
-  void _updateCoverage(_Segment segment) {
-    if (_samplePoints.isNotEmpty) {
-      for (int i = 0; i < _samplePoints.length; i++) {
-        if (_coveredPoints.contains(i)) continue;
-        if (_distanceToSegment(_samplePoints[i], segment) <=
-            _coverageTolerance) {
-          _coveredPoints.add(i);
-        }
+  /// 记录一段笔画覆盖到的采样点
+  bool _accumulateCoverage(_Segment segment) {
+    if (_samplePoints.isEmpty) return false;
+
+    var added = false;
+    for (var i = 0; i < _samplePoints.length; i++) {
+      if (_coveredPoints.contains(i)) continue;
+      if (_distanceToSegment(_samplePoints[i], segment) > _coverageTolerance) {
+        continue;
       }
-      final coverage = _coveredPoints.length / _samplePoints.length;
-      setState(() => _coverage = coverage);
+      _coveredPoints.add(i);
+      final region = _regionOfPoint[i];
+      if (region >= 0) _regionCovered[region] += 1;
+      added = true;
+    }
+    return added;
+  }
+
+  /// 更新覆盖率并判定是否完成
+  void _updateCoverage(_Segment segment) {
+    if (_accumulateCoverage(segment) && _samplePoints.isNotEmpty) {
+      setState(() => _coverage = _coveredPoints.length / _samplePoints.length);
+    }
+    if (_stepSolved) return;
+
+    // 测试/演示用：minCoverage <= 0 表示一落笔即通过
+    if (widget.minCoverage <= 0) {
+      _finishStep();
+      return;
+    }
+    if (_coverage < widget.minCoverage) return;
+
+    // 整体占比够了还不够：逐块检查，漏掉的笔画所在区域必须也被描到，
+    // 否则会出现"还差一两笔就提示完成"的情况。
+    final missing = _missingRegions;
+    if (missing == 0) {
+      _finishStep();
+      return;
     }
 
-    if (_coverage >= widget.minCoverage && !_stepSolved) {
-      _finishStep();
+    final hint = '还有 $missing 处没描到，橙色笔画就是漏掉的，补上就完成了。';
+    if (_warning != hint) {
+      setState(() => _warning = hint);
     }
   }
 
@@ -738,6 +864,14 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     );
   }
 
+  /// 需要标暖色的区域：只在快描完时才提示，避免一落笔满屏橙色
+  List<ui.Rect> get _pendingRegionsForPaint {
+    if (_stepSolved) return const [];
+    if (widget.minCoverage <= 0) return const [];
+    if (_coverage < widget.minCoverage * 0.55) return const [];
+    return _pendingRegionRects;
+  }
+
   Widget _buildCanvasSurface() {
     return Container(
       decoration: BoxDecoration(
@@ -775,6 +909,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                   canvasSize: _canvasSize,
                   guideText: _currentText,
                   guideLayout: _guideLayout,
+                  pendingRegions: _pendingRegionsForPaint,
                 ),
                 size: const Size(_canvasSize, _canvasSize),
               ),
@@ -808,6 +943,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   Widget _buildStatus() {
     final message = _statusMessage();
     final percent = (_coverage * 100).round();
+    final missing = _stepSolved ? 0 : _missingRegions;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -821,9 +957,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                 ? AppTheme.active.line
                 : Colors.grey.shade200,
             valueColor: AlwaysStoppedAnimation(
-              _coverage >= widget.minCoverage
-                  ? AppTheme.accentColor
-                  : AppTheme.primaryColor,
+              _stepSolved ? AppTheme.accentColor : AppTheme.primaryColor,
             ),
           ),
         ),
@@ -854,6 +988,17 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
               '覆盖率 $percent%',
               style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
+            if (missing > 0 && !_stepSolved) ...[
+              const SizedBox(width: 8),
+              Text(
+                '还缺 $missing 处',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFD97706),
+                ),
+              ),
+            ],
             const Spacer(),
             Text(
               '尝试 $_attempts 次',
@@ -1011,12 +1156,16 @@ class _TracePathPainter extends CustomPainter {
   final String guideText;
   final _GlyphLayout? guideLayout;
 
+  /// 还没描到的区域：把这些区域里的参考字标成暖色，提示"这几笔还没写"
+  final List<ui.Rect> pendingRegions;
+
   _TracePathPainter({
     required this.target,
     required this.segments,
     required this.canvasSize,
     required this.guideText,
     required this.guideLayout,
+    this.pendingRegions = const [],
   });
 
   @override
@@ -1052,6 +1201,7 @@ class _TracePathPainter extends CustomPainter {
 
       // 注意：不要设置 textAlign.center，否则会与居中 offset 叠加导致偏左
       textPainter.paint(canvas, layout.offset);
+      _drawPendingHint(canvas, layout);
       return;
     }
 
@@ -1072,6 +1222,31 @@ class _TracePathPainter extends CustomPainter {
         path.lineTo(polylineTarget.points[i].dx, polylineTarget.points[i].dy);
       }
       canvas.drawPath(path, guidePaint);
+    }
+  }
+
+  /// 把还没描到的区域里的参考笔画标成暖色
+  void _drawPendingHint(Canvas canvas, _GlyphLayout layout) {
+    if (pendingRegions.isEmpty || guideText.isEmpty) return;
+
+    final hintPainter = TextPainter(
+      text: TextSpan(
+        text: guideText,
+        style: TextStyle(
+          fontSize: layout.fontSize,
+          fontWeight: FontWeight.w900,
+          color: const ui.Color(0xFFF59E0B),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+
+    for (final rect in pendingRegions) {
+      canvas.save();
+      canvas.clipRect(rect);
+      hintPainter.paint(canvas, layout.offset);
+      canvas.restore();
     }
   }
 
@@ -1125,6 +1300,7 @@ class _TracePathPainter extends CustomPainter {
         canvasSize != oldDelegate.canvasSize ||
         guideText != oldDelegate.guideText ||
         guideLayout != oldDelegate.guideLayout ||
+        pendingRegions.length != oldDelegate.pendingRegions.length ||
         !identical(target, oldDelegate.target);
   }
 }

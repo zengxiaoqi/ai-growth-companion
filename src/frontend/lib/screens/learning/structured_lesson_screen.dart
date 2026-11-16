@@ -2674,7 +2674,9 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           label: '描红: ${chars.join(' ')}',
           text: chars.join(),
         ),
-        minCoverage: 0.65,
+        // 整体墨迹覆盖率 + 画板内部的逐块检查一起判定，
+        // 覆盖率 0.75 不会出现"少写一两笔就算完成"。
+        minCoverage: 0.75,
         onSolved: (traceResult) {
           if (!mounted) return;
           setState(() {

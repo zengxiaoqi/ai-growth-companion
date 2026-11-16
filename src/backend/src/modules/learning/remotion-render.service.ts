@@ -8,7 +8,7 @@ import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/gene
 import { VoiceService } from '../voice/voice.service';
 import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
 import { buildSubtitleCues, type WordBoundary } from './subtitle-timing';
-import { buildActionAnchors, summarizeActionAnchors } from './action-anchors';
+import { auditFlowOrder, buildActionAnchors, summarizeActionAnchors } from './action-anchors';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
@@ -1718,6 +1718,14 @@ export class RemotionRenderService implements OnModuleInit {
                 .map((a) => `${a.matched}:${a.start}-${a.end}`)
                 .join(',')}`,
             );
+            // 光点挂词要求"图上节点顺序 = 旁白顺序"，不一致时整条路径会静默回退时钟。
+            // 降级本身不影响出片，但要能在日志里看见，否则只能靠人眼发现"这次又没对上"。
+            const flowOrder = auditFlowOrder(graphNodes, anchors);
+            if (flowOrder.drift.length > 0) {
+              this.logger.warn(
+                `[renderGeneratedComposition] taskId=${taskId} flowAnchors scene="${scene?.title || index + 1}" graph order != narration order (${flowOrder.drift.join(' / ')}) — flow falls back to clock`,
+              );
+            }
           } else if (anchorStats.total > 0) {
             this.logger.warn(
               `[renderGeneratedComposition] taskId=${taskId} actionAnchors scene="${scene?.title || index + 1}" no anchor matched (${anchorStats.missed.join('/')}) — storyProgress fallback`,

@@ -929,8 +929,14 @@ type GeneratedScene = {
    * 没有（无配音/词没命中）的节点回退 storyProgress，行为与旧版一致。
    */
   actionAnchors?: Record<string, { start: number; end: number }>;
-  /** 探针用开关：false = 忽略 actionAnchors，回到整屏均摊，供 A/B 对拍 */
+  /**
+   * 探针用开关：false = 忽略 actionAnchors 与光点挂词，回到整屏时钟驱动，供 A/B 对拍。
+   * 光点另有独立开关（flowAnchors），这样才能把"节点动作挂词"和"光点挂词"分开量化，
+   * 否则一次 A/B 里两件事一起变，无法判断是哪一件起了作用。
+   */
   anchorSigns?: boolean;
+  /** 探针用开关：false = 光点回退整屏时钟（节点动作仍挂词），用于单独量化光点挂词的效果 */
+  flowAnchors?: boolean;
   choreography?: ChoreographyView;
 };
 
@@ -2492,6 +2498,11 @@ const GraphBadge: React.FC<{
 
 /** 一颗光点走完一整条路径的帧数：让它慢到能看清"经过了哪个概念" */
 const FLOW_PERIOD = 84;
+/**
+ * 一条边挂词后的最短时长（帧）。旁白把两个概念连着念时（"水汽·云"），
+ * 边只有五六帧就走完，肉眼只看到闪烁——这种段不挂词，整条路径回退时钟。
+ */
+const FLOW_MIN_SEG = 12;
 
 /** 数学角 → 屏幕坐标点（y 轴翻转）。与后端 figure-spec.ts 的 shapeBounds 用同一套约定 */
 const figurePointAt = (cx: number, cy: number, r: number, deg: number) => {
@@ -2842,13 +2853,111 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
+  //
+  // 它原来挂在 storyProgress 上：光点按整屏时钟匀速走，"到达某节点"的那一帧与旁白
+  // 念到这个词没有任何关系。挂词之后一条边 = "从 A 说到 B 的那段话"，走到 B 的那一帧
+  // 正好是念到 B 的那一帧。这件事比节点自己的动作更要紧：光点决定谁亮着，
+  // 而"亮着"就是孩子在看的那个概念——提前亮就是提前把注意力搬走。
+  //
+  // 三条边界：
+  // 1. 边的时间窗由节点的 cueWindows 反推；任一环节缺词就整条路径回退时钟驱动，
+  //    不做部分下发——半条挂词、半条挂钟，画面上会出现两套节奏。
+  // 2. 一段短于 FLOW_MIN_SEG 帧（0.4s）看不清"经过了什么"，同样回退。
+  // 3. 循环关系的最后一段（回到起点）在旁白里没有对应的"到达"，落在本屏收尾帧上。
+  const flowCueOn = scene.flowAnchors !== false;
+  const cueSpokenFrames = flowCueOn
+    ? Object.keys(cueWindows)
+      .map((id) => cueWindows[id].start)
+      .sort((a, b) => a - b)
+    : [];
+  /** 旁白在这帧之前最后念到的是哪一帧——它是"这一条边从哪里动身"的起点 */
+  const spokenBefore = (f: number): number | null => {
+    let prev: number | null = null;
+    for (let i = 0; i < cueSpokenFrames.length; i += 1) {
+      if (cueSpokenFrames[i] < f - 1) prev = cueSpokenFrames[i];
+      else break;
+    }
+    return prev;
+  };
+  /** 一条路径的到达时刻表：stops[0] 动身，stops[i+1] 到达 target[i]。任一环不成立返回 null */
+  const flowStops = (flow: GraphFlow): number[] | null => {
+    if (!flowCueOn) return null;
+    const targets = flow.target;
+    if (!targets || targets.length === 0) return null;
+    // 路径段数与到达节点数必须一一对应，否则 t 与 stops 无法逐段对齐
+    if (flow.edges.length !== targets.length) return null;
+    const arrive = (id: string): number | null => (cueWindows[id] ? cueWindows[id].start : null);
+    const first = arrive(targets[0]);
+    if (first === null) return null;
+    const depart = spokenBefore(first);
+    if (depart === null) return null;
+    const stops: number[] = [depart];
+    for (let i = 0; i < targets.length; i += 1) {
+      if (flow.loop && i === targets.length - 1) {
+        stops.push(Math.max(stops[stops.length - 1] + FLOW_MIN_SEG, storyEnd));
+        continue;
+      }
+      const at = arrive(targets[i]);
+      if (at === null) return null;
+      stops.push(at);
+    }
+    for (let i = 1; i < stops.length; i += 1) {
+      if (stops[i] - stops[i - 1] < FLOW_MIN_SEG) return null;
+    }
+    return stops;
+  };
+  /**
+   * 帧 → 路径参数 t。按每条边的时长分段、边内线性，所以"一条边正好走完一段话"；
+   * t 的区间边界按边长归一，光点仍贴着箭头走，不另走一条看不见的线。
+   */
+  const tAtStops = (flow: GraphFlow, stops: number[]): number => {
+    const lengths = flow.edges.map(edgeLength);
+    const total = lengths.reduce((a, b) => a + b, 0) || 1;
+    const bounds: number[] = [0];
+    let acc = 0;
+    for (let i = 0; i < lengths.length; i += 1) {
+      acc += lengths[i];
+      bounds.push(acc / total);
+    }
+    if (frame <= stops[0]) return 0;
+    for (let i = 0; i < stops.length - 1; i += 1) {
+      if (frame <= stops[i + 1]) {
+        const span = Math.max(1, stops[i + 1] - stops[i]);
+        const u = (frame - stops[i]) / span;
+        return bounds[i] + u * (bounds[i + 1] - bounds[i]);
+      }
+    }
+    // 走完一整条路径：循环关系继续一圈一圈转，其余停在终点
+    if (flow.loop) {
+      return (1 + (frame - stops[stops.length - 1]) / FLOW_PERIOD) % 1;
+    }
+    return 1;
+  };
+
   const flowCount = layout.flows.length;
   const tokens = layout.flows.map((flow, index) => {
+    const stops = flowStops(flow);
+    if (stops) {
+      const t = tAtStops(flow, stops);
+      // 讲完之后循环关系还会继续转（"一圈又一圈"），但高亮不能再跟着转：
+      // 转一圈 2.8 秒，被点亮的节点每 21 帧换一个，孩子会以为刚讲完的概念又开始了。
+      // 转完第一圈就把焦点钉在最后讲到的那个概念上，光点继续绕只是"还在循环"的提示。
+      const done = flow.loop && frame >= stops[stops.length - 1];
+      return {
+        flow,
+        t,
+        anchored: true,
+        done,
+        finalId: done ? flow.target[flow.target.length - 2] || flow.target[0] : "",
+        alpha: flow.loop ? 0.95 : t < 0.94 ? 1 : Math.max(0, (1 - t) / 0.06),
+        point: flowPoint(flow, t),
+      };
+    }
     if (flow.loop) {
       // 循环关系（水循环）本来就无止境，按固定周期一直转是对的
       const raw = (frame - warmup) / FLOW_PERIOD;
       const t = ((raw % 1) + 1) % 1;
-      return { flow, t, alpha: 0.95, point: flowPoint(flow, t) };
+      return { flow, t, anchored: false, done: false, finalId: "", alpha: 0.95, point: flowPoint(flow, t) };
     }
     // 多条独立路径（split 散开 / group 聚拢）必须错开走。
     // 原来所有路径共用一个 storyProgress：5 条光点同时出发、同时到达，
@@ -2863,6 +2972,9 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     return {
       flow,
       t,
+      anchored: false,
+      done: false,
+      finalId: "",
       alpha: t < 0.94 ? 1 : Math.max(0, (1 - t) / 0.06),
       point: flowPoint(flow, t),
     };
@@ -2871,12 +2983,20 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   const visitedIds = new Set<string>();
   if (frame >= warmup) {
     tokens.forEach((token) => {
+      if (token.done) {
+        // 第一圈已经走完：焦点钉在最后讲到的概念上，光点继续转但不改高亮
+        if (token.finalId) activeIds.add(token.finalId);
+        return;
+      }
       const seg = Math.max(0, Math.min(token.flow.target.length - 1, token.point.segment));
-      // 走到一段的一半才把高亮交给下一个节点。不这么做的话，光点刚离开 A 就把 B 点亮，
-      // 看起来像"还没讲到就抢先发光"
+      // 时钟驱动时走到一段的一半才把高亮交给下一个节点：不这么做，光点刚离开 A
+      // 就把 B 点亮，看起来像"还没讲到就抢先发光"。
+      // 挂词驱动时改成"到达才点亮"——到达那一刻就是这个词被念出来的那一刻，
+      // 提前半段点亮等于把注意力提前搬到一个还没讲的概念上。
       const fromId = seg === 0 ? graph.nodes[0].id : token.flow.target[seg - 1];
       const toId = token.flow.target[seg];
-      const target = token.point.local >= 0.5 ? toId : fromId;
+      const handoff = token.anchored ? 0.999 : 0.5;
+      const target = token.point.local >= handoff ? toId : fromId;
       if (target) activeIds.add(target);
       // 走过的节点留一道细边：画面能累积出"已经讲到第几步"
       if (!token.flow.loop) {

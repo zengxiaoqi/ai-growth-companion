@@ -169,3 +169,42 @@ export function summarizeActionAnchors(
   const anchored = total - missed.length;
   return { total, anchored, ratio: total > 0 ? anchored / total : 0, missed };
 }
+
+/**
+ * 光点挂词的前置条件：节点在图上的顺序必须与旁白念到它们的顺序一致。
+ *
+ * 原因：一条边的起止帧是从"相邻两个词的发音帧"推出来的（见模板 flowStops）。
+ * 图上的顺序若与旁白顺序不同（旁白先说云、后说小水珠，图上却是 小水珠 → 云），
+ * 光点会朝反方向走或者干脆算不出窗口，整条路径回退时钟。
+ *
+ * 回退本身不报错、画面也正常，所以必须在渲染日志里把它说出来——静默降级
+ * 比明确报错难查得多：看起来一切正常，只是"怎么又跟旁白对不上了"。
+ */
+export function auditFlowOrder(
+  nodes: AnchorNode[],
+  table: ActionAnchorTable,
+): { order: string[]; spokenOrder: string[]; drift: string[] } {
+  const anchors = table || {};
+  const grounded = (nodes || [])
+    .map((node) => {
+      const anchor = anchors[String(node?.id || '')];
+      return anchor
+        ? { id: String(node.id), label: String(node.label || node.id), at: anchor.start }
+        : null;
+    })
+    .filter((item): item is { id: string; label: string; at: number } => item !== null);
+
+  const order = grounded.map((item) => item.id);
+  const spokenOrder = grounded
+    .slice()
+    .sort((a, b) => a.at - b.at)
+    .map((item) => item.id);
+  const drift: string[] = [];
+  for (let i = 0; i < order.length; i += 1) {
+    if (order[i] !== spokenOrder[i]) {
+      const item = grounded.find((entry) => entry.id === order[i]);
+      drift.push(`${item ? item.label : order[i]}@${item ? item.at : -1}f`);
+    }
+  }
+  return { order, spokenOrder, drift };
+}

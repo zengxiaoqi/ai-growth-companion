@@ -1,4 +1,4 @@
-import { buildActionAnchors, summarizeActionAnchors } from '../../src/modules/learning/action-anchors';
+import { auditFlowOrder, buildActionAnchors, summarizeActionAnchors } from '../../src/modules/learning/action-anchors';
 
 /** 造字幕页：按"每个字 N 帧"排发音帧，够用且好读 */
 function pages(texts: Array<{ text: string; from: number; step?: number }>) {
@@ -143,5 +143,42 @@ describe('单字标签', () => {
       durationFrames: 200,
     });
     expect(table.r).toBeUndefined();
+  });
+});
+
+describe('auditFlowOrder', () => {
+  const nodes = [
+    { id: 'n1', label: '小水滴' },
+    { id: 'n2', label: '水蒸气' },
+    { id: 'n3', label: '小水珠' },
+  ];
+
+  it('图上顺序与旁白顺序一致时不报警', () => {
+    const audit = auditFlowOrder(nodes, {
+      n1: { start: 22, end: 60, matched: '小水滴', page: 0 },
+      n2: { start: 75, end: 120, matched: '水蒸气', page: 0 },
+      n3: { start: 140, end: 190, matched: '小水珠', page: 1 },
+    });
+    expect(audit.order).toEqual(['n1', 'n2', 'n3']);
+    expect(audit.drift).toEqual([]);
+  });
+
+  it('旁白先说后面的节点时报警，并带上节点名与发音帧', () => {
+    const audit = auditFlowOrder(nodes, {
+      n1: { start: 22, end: 60, matched: '小水滴', page: 0 },
+      n2: { start: 150, end: 190, matched: '水蒸气', page: 1 },
+      n3: { start: 75, end: 120, matched: '小水珠', page: 0 },
+    });
+    expect(audit.spokenOrder).toEqual(['n1', 'n3', 'n2']);
+    expect(audit.drift).toContain('水蒸气@150f');
+  });
+
+  it('没锚点的节点不参与顺序判断——它本来就不挂在旁白上', () => {
+    const audit = auditFlowOrder(nodes, {
+      n1: { start: 22, end: 60, matched: '小水滴', page: 0 },
+      n2: { start: 75, end: 120, matched: '水蒸气', page: 0 },
+    });
+    expect(audit.order).toEqual(['n1', 'n2']);
+    expect(audit.drift).toEqual([]);
   });
 });

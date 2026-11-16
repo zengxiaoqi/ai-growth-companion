@@ -75,7 +75,12 @@ const mustHave = [
   'const storyProgress',
   'growWindow',
   'swellK',
-  'local >= 0.5',
+  // 高亮交接：时钟驱动走半段就交给下一个节点，挂词驱动必须"到达才点亮"
+  'const handoff = token.anchored ? 0.999 : 0.5',
+  // 光点挂词：一条边 = 从 A 说到 B 的那段话。缺了这三项光点会退回整屏时钟
+  'const flowStops',
+  'const tAtStops',
+  'FLOW_MIN_SEG',
   // 受控画板：图形本身就是知识时必须走这条，缺了它彩虹只能画成一个小图标
   'const FigureStage',
   'const FigureShapePart',

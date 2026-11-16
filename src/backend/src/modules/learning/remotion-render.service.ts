@@ -1708,6 +1708,10 @@ export class RemotionRenderService implements OnModuleInit {
         if (graphNodes.length > 0) {
           const anchors = buildActionAnchors(graphNodes, cues.pages, {
             durationFrames: scene.durationFrames,
+            // 词边界：单字标签（云/风/雨）靠它判断"这个字有没有独立成词"，
+            // 否则「水」会被「水果」里的那个字骗到
+            boundaries: audio.wordBoundaries,
+            fps: 30,
           });
           const anchorStats = summarizeActionAnchors(graphNodes, anchors);
           if (anchorStats.anchored > 0) {

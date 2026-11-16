@@ -105,7 +105,7 @@ async function main(): Promise<void> {
         }
       }
     }
-    const anchors = graph ? buildActionAnchors(graph.nodes, cues.pages, { durationFrames: duration }) : {};
+    const anchors = graph ? buildActionAnchors(graph.nodes, cues.pages, { durationFrames: duration, boundaries, fps: FPS }) : {};
 
     const retimed = beatFramesFromSpeech(rawBeats, narration, boundaries, { sceneFrames: duration });
     const sentences = splitSentences(narration);

@@ -58,6 +58,34 @@ describe('auditGraphNarration', () => {
     expect(result.missing).toEqual([]);
   });
 
+  it('单字标签在旁白里出现两次仍算命中——重复指的多半是同一个概念', () => {
+    // 早先这里要求"单字且全篇唯一"才算覆盖，理由是单字子串会静默错配。
+    // 但实测生成端压不住单字（把"不要用单字"写进提示词后单字反而更多），
+    // 结果是这些节点永远不亮。锚点建设已改成"整词匹配、取第一次"，
+    // 审计随之放宽：只要旁白里出现过这个字就算讲到了。
+    const result = auditGraphNarration(
+      { nodes: [node('云', '云朵')] },
+      '遇冷变云，云越积厚，就落下雨滴。',
+    );
+    expect(result.matched).toBe(1);
+    expect(result.missing).toEqual([]);
+  });
+
+  it('单字标签在全篇只出现一次：可用', () => {
+    const result = auditGraphNarration({ nodes: [node('风', '风')] }, '风在流动，时间往前走。');
+    expect(result.matched).toBe(1);
+    expect(result.missing).toEqual([]);
+  });
+
+  it('双字标签重复出现仍算命中——锚到第一次，不会错配到无关的词', () => {
+    const result = auditGraphNarration(
+      { nodes: [node('雨滴', '雨滴')] },
+      '雨滴落下来，雨滴打在叶子上。',
+    );
+    expect(result.matched).toBe(1);
+    expect(result.missing).toEqual([]);
+  });
+
   it('没有图或空节点时不报错', () => {
     expect(auditGraphNarration(null, '随便说点什么')).toEqual({ total: 0, matched: 0, missing: [] });
     expect(auditGraphNarration({ nodes: [] }, '')).toEqual({ total: 0, matched: 0, missing: [] });
@@ -75,5 +103,13 @@ describe('formatCoverageFeedback', () => {
     expect(text).toContain('「白云」');
     expect(text).toContain('太阳把水晒热');
     expect(text).toContain('换成旁白里确实说过的词');
+  });
+
+  it('旁白自带句末标点时不再补一个句号', () => {
+    const narration = '太阳把水晒热。';
+    const coverage = auditGraphNarration({ nodes: [node('白云')] }, narration);
+    const text = formatCoverageFeedback('水转了一圈', narration, coverage);
+    expect(text).toContain('太阳把水晒热。修法');
+    expect(text).not.toContain('。。');
   });
 });

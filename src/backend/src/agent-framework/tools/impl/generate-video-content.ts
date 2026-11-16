@@ -164,7 +164,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     const failures: string[] = [];
     // 重试带话术重掷整份分镜，不是定点修补：实测有样本被掷得更差（缺 2 个节点 → 缺 6 个）。
     // 所以每轮留最好的一份，别让更差的覆盖更好的。
-    let best: { storyboard: VideoStoryboard; mismatches: string[] } | null = null;
+    let best: { storyboard: VideoStoryboard; mismatches: string[]; missing: number } | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
@@ -191,16 +191,20 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
 
         const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount, ageGroup);
         await this.repairRejectedFigures(storyboard);
-        const mismatches = this.auditNarrationCoverage(storyboard);
-        if (mismatches.length === 0) {
+        const audit = this.auditNarrationCoverage(storyboard);
+        if (audit.missingCount === 0) {
           this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
           return this.ok(storyboard);
         }
         // 画面节点没被旁白念到 = 孩子看见一个没讲过的概念。带具体话术重试一轮；
         // 用尽重试仍不达标就交出缺口最少的那份并告警——宁可少讲一个概念，也不要因为
         // 校验把整节课退化成通用卡片（buildFallbackStoryboard 比"多一张没讲过的卡"更糟）。
-        if (!best || mismatches.length < best.mismatches.length) best = { storyboard, mismatches };
-        failures.push(`attempt ${attempt}: ${mismatches.join(' | ')}`);
+        // 留优按"缺几个节点"比，不按"几个场景有问题"：两份都是 2 个场景有问题时，
+        // 一份缺 2 个节点、一份缺 6 个，按场景数比不出来，会把更差的当同分保留下来。
+        if (!best || audit.missingCount < best.missing) {
+          best = { storyboard, mismatches: audit.issues, missing: audit.missingCount };
+        }
+        failures.push(`attempt ${attempt}: ${audit.issues.join(' | ')}`);
       } catch (error: unknown) {
         failures.push(`attempt ${attempt}: ${error instanceof Error ? error.message : 'unknown'}`);
       }
@@ -209,7 +213,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     if (best) {
       this.logger.warn(
         `narration/graph mismatch accepted after ${MAX_ATTEMPTS} attempts for "${topic}" ` +
-          `(best of ${MAX_ATTEMPTS}, ${best.mismatches.length} node(s) unspoken): ${best.mismatches.join(' | ')}`,
+          `(best of ${MAX_ATTEMPTS}, ${best.missing} node(s) unspoken): ${best.mismatches.join(' | ')}`,
       );
       return this.ok(best.storyboard);
     }
@@ -431,19 +435,27 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
    * 「白云」卡、旁白却只说"水汽飞到天上，遇冷变回小水珠"——云这个节点从头到尾没被念到。
    * 这类缺口在实测里占 22%，且集中在最需要画面解释的抽象概念上，靠渲染侧补不回来。
    *
-   * 只报前 2 个场景：feedback 会进下一轮 prompt，逐条列全会把预算吃光。
+   * 两个返回值口径不同，别混用：
+   * - `issues` 是回喂 LLM 的话术，只取前 2 个场景（再多会把下一轮 prompt 预算吃光）；
+   * - `missingCount` 是**节点数**，用于重试留优。
    */
-  private auditNarrationCoverage(storyboard: { scenes: StoryboardScene[] }): string[] {
+  private auditNarrationCoverage(storyboard: { scenes: StoryboardScene[] }): {
+    issues: string[];
+    missingCount: number;
+  } {
     const issues: string[] = [];
+    let missingCount = 0;
     for (const scene of storyboard.scenes) {
       const graph = normalizeSceneGraph(scene.sceneGraph);
       if (!graph) continue;
       const coverage = auditGraphNarration(graph, scene.narration);
       if (coverage.missing.length === 0) continue;
-      issues.push(formatCoverageFeedback(scene.title, scene.narration, coverage));
-      if (issues.length >= 2) break;
+      missingCount += coverage.missing.length;
+      if (issues.length < 2) {
+        issues.push(formatCoverageFeedback(scene.title, scene.narration, coverage));
+      }
     }
-    return issues;
+    return { issues, missingCount };
   }
 
   private sanitizeScene(raw: Record<string, any>, index: number, ageGroup: AgeGroup): StoryboardScene {

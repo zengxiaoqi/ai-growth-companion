@@ -223,7 +223,9 @@ function simulate(opts: {
       if (frame < WARMUP || starSpoken) return;
       const { segment, local } = localAt(flow, t);
       const seg = Math.max(0, Math.min(flow.target.length - 1, segment));
-      const focusIds = flow.focus || flow.target;
+      // 与模板一致：focus 只在挂词驱动时接管高亮，时钟驱动仍按 target 推。
+      // 少了这个条件，时钟臂也会按 focus 亮，读数会假性变好（成员"也亮"）。
+      const focusIds = anchored && flow.focus ? flow.focus : flow.target;
       const fromId = seg === 0 ? nodes[0].id : focusIds[seg - 1];
       const toId = focusIds[seg];
       const handoff = anchored ? 0.999 : 0.5;
@@ -309,7 +311,7 @@ async function main(): Promise<void> {
     const cues = buildSubtitleCues(narration, boundaries, { fps: FPS, sceneFrames: duration });
     if (!cues) continue;
 
-    const anchors = buildActionAnchors(graph.nodes, cues.pages, { durationFrames: duration });
+    const anchors = buildActionAnchors(graph.nodes, cues.pages, { durationFrames: duration, boundaries, fps: FPS });
     const order = auditFlowOrder(graph.nodes, anchors, { relation: graph.relation });
     const { items, flows } = layoutSplitGroup(graph.relation, graph.nodes);
 

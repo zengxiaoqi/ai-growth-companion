@@ -37,30 +37,35 @@ function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
 
-/** 把提示词还原成"规则上线前"的样子：删掉三条 label 约束，schema 描述改回旧文案 */
+/** 把提示词还原成"规则上线前"的样子：删掉 label 相关的约束行，schema 描述改回旧文案 */
 function stripCoverageRule(prompt: string): string {
+  // 按行首关键字整行删除。新增一条 label 约束时必须同步加进这个列表，
+  // 否则 old 臂会偷偷保留新规则，A/B 就变成"新规则 vs 新规则"，读数全是 0 差。
+  const NEW_RULE_LINES = [
+    'label 必须逐字出现在本场景 narration 里',
+    '宁可 3 个节点都讲过',
+    '写完 narration 再回头对一遍',
+    '不要为了凑节点去改 narration 的叙事',
+    'subject 取旁白里的说法',
+    // 列举节奏：一屏连报三个名词时，成员卡片跟不上点名
+    '旁白的节奏要求',
+    '一屏里并列列出 3 个以上概念时',
+    '不要写成「苹果、香蕉和葡萄」这种纯名单',
+    '写成「苹果红红的',
+    '一屏旁白 3-5 句',
+  ];
   const lines = prompt.split('\n');
-  const kept = lines.filter(
-    (line, i) =>
-      !(
-        line.includes('label 必须逐字出现在本场景 narration 里') ||
-        line.includes('宁可 3 个节点都讲过') ||
-        line.includes('写完 narration 再回头对一遍') ||
-        line.includes('不要为了凑节点去改 narration 的叙事') ||
-        line.includes('subject 取旁白里的说法') ||
-        // 续行（上一行被删时，紧随的缩进续行也要删）
-        (i > 0 && lines[i - 1]?.includes('label 必须逐字出现在本场景 narration 里') && line.trim().startsWith('宁可'))
-      ),
-  );
+  const kept = lines.filter((line) => !NEW_RULE_LINES.some((marker) => line.includes(marker)));
   return kept
     .join('\n')
+    // 只替换描述文字，不碰引号：schema 在提示词里是 JSON.stringify 的转义形式
+    // （\"label\": ...），按整段带引号的字符串替换永远匹配不上，会静默留下新文案，
+    // old 臂于是仍带着新约束，A/B 读出差值就失真了。
+    .replace('画面标签，≤6字；必须逐字出现在本场景 narration 里', '画面标签，≤6字')
+    .replace('屏幕上显示的字(2-6字)', '屏幕上显示的字(≤6字)')
     .replace(
-      '"label": "string (画面标签，≤6字；必须逐字出现在本场景 narration 里)"',
-      '"label": "string (画面标签，≤6字)"',
-    )
-    .replace(
-      /"subject": "string \(可检索到图标的具体名词；取旁白里的说法[^"]*\)"/,
-      '"subject": "string (可检索到图标的具体名词，如 \'小水滴\' \'苹果\')"',
+      /可检索到图标的具体名词；取旁白里的说法[^)"]*/,
+      "可检索到图标的具体名词，如 '小水滴' '苹果'",
     );
 }
 
@@ -80,6 +85,10 @@ type ArmResult = {
   arm: string;
   nodes: number;
   missing: number;
+  /** 单字标签总数：这类标签只要在旁白里重复就彻底锚不上 */
+  singles: number;
+  /** 其中"单字且在旁白里出现多次"的数量——上一版审计看不见这一档 */
+  ambiguous: number;
   details: string[];
   retriedMissing: number | null;
   retriedNodes: number | null;
@@ -122,7 +131,14 @@ async function main(): Promise<void> {
     const raw = buildPrompt('水循环是怎么回事', 'science', '5-6', 5, undefined, undefined, 1, []);
     const stripped = stripCoverageRule(raw);
     console.log('rule 提示词长度', raw.length, '→ 还原后', stripped.length, '差', raw.length - stripped.length);
-    for (const probe of ['逐字出现在本场景 narration', '宁可 3 个节点都讲过', '取旁白里的说法', '≤6字；必须逐字']) {
+    for (const probe of [
+      '逐字出现在本场景 narration',
+      '宁可 3 个节点都讲过',
+      '取旁白里的说法',
+      '一屏里并列列出 3 个以上概念时',
+      '一屏旁白 3-5 句',
+      '≤6字；必须逐字',
+    ]) {
       console.log(`  含「${probe}」: 规则开=${raw.includes(probe)}  规则关=${stripped.includes(probe)}`);
     }
     return;
@@ -144,6 +160,8 @@ async function main(): Promise<void> {
   const auditStoryboard = (parsed: any) => {
     let nodes = 0;
     let missing = 0;
+    let singles = 0;
+    let ambiguous = 0;
     const details: string[] = [];
     const issues: string[] = [];
     for (const scene of parsed?.scenes || []) {
@@ -152,14 +170,21 @@ async function main(): Promise<void> {
       const coverage = auditGraphNarration(graph, String(scene?.narration || ''));
       nodes += coverage.total;
       missing += coverage.missing.length;
+      for (const node of graph.nodes) {
+        const bare = Array.from(String(node.label || '')).filter((ch) => !/[\s\p{P}\p{S}]/u.test(ch));
+        if (bare.length === 1) singles += 1;
+      }
+      const bad = coverage.missing.filter((m) => m.reason === 'ambiguous-single');
+      ambiguous += bad.length;
       if (coverage.missing.length) {
-        details.push(`${scene.title || scene.id}: ${coverage.missing.map((m) => m.label).join('/')}`);
+        const tags = coverage.missing.map((m) => (m.reason === 'ambiguous-single' ? `${m.label}(歧义)` : m.label));
+        details.push(`${scene.title || scene.id}: ${tags.join('/')}`);
         if (issues.length < 2) {
           issues.push(formatCoverageFeedback(String(scene?.title || scene?.id || ''), String(scene?.narration || ''), coverage));
         }
       }
     }
-    return { nodes, missing, details, issues };
+    return { nodes, missing, singles, ambiguous, details, issues };
   };
 
   const pct = (nodes: number, missing: number) =>
@@ -194,13 +219,15 @@ async function main(): Promise<void> {
           arm,
           nodes: first.nodes,
           missing: first.missing,
+          singles: first.singles,
+          ambiguous: first.ambiguous,
           details: first.details,
           retriedMissing: retried ? retried.missing : null,
           retriedNodes: retried ? retried.nodes : null,
         });
         console.log(
           `${arm} | ${topic.padEnd(10)} #${s} 节点 ${String(first.nodes).padStart(2)}  缺 ${String(first.missing).padStart(2)}  ` +
-            `覆盖 ${pct(first.nodes, first.missing)}` +
+            `覆盖 ${pct(first.nodes, first.missing)}  单字 ${first.singles} 歧义 ${first.ambiguous}` +
             (retried ? `  → 回喂后缺 ${retried.missing} (${pct(retried.nodes, retried.missing)})` : '') +
             (first.details.length ? `  [${first.details.join('; ')}]` : ''),
         );
@@ -212,16 +239,20 @@ async function main(): Promise<void> {
     const rows = results.filter((r) => r.arm === arm);
     const nodes = rows.reduce((a, r) => a + r.nodes, 0);
     const missing = rows.reduce((a, r) => a + r.missing, 0);
-    return { topics: rows.length, nodes, missing, ratio: nodes ? (nodes - missing) / nodes : 0 };
+    const singles = rows.reduce((a, r) => a + r.singles, 0);
+    const ambiguous = rows.reduce((a, r) => a + r.ambiguous, 0);
+    return { topics: rows.length, nodes, missing, singles, ambiguous, ratio: nodes ? (nodes - missing) / nodes : 0 };
   };
   const oldSum = sum('old');
   const newSum = sum('new');
   console.log('\n=== 汇总（首轮，不重试）===');
   console.log(
-    `规则关：${oldSum.nodes - oldSum.missing}/${oldSum.nodes} = ${(oldSum.ratio * 100).toFixed(0)}%   缺 ${oldSum.missing} 个节点`,
+    `规则关：${oldSum.nodes - oldSum.missing}/${oldSum.nodes} = ${(oldSum.ratio * 100).toFixed(0)}%   缺 ${oldSum.missing} 个节点` +
+      `   单字 ${oldSum.singles}（其中歧义 ${oldSum.ambiguous}）`,
   );
   console.log(
-    `规则开：${newSum.nodes - newSum.missing}/${newSum.nodes} = ${(newSum.ratio * 100).toFixed(0)}%   缺 ${newSum.missing} 个节点`,
+    `规则开：${newSum.nodes - newSum.missing}/${newSum.nodes} = ${(newSum.ratio * 100).toFixed(0)}%   缺 ${newSum.missing} 个节点` +
+      `   单字 ${newSum.singles}（其中歧义 ${newSum.ambiguous}）`,
   );
 
   const retriedRows = results.filter((r) => r.retriedMissing !== null);

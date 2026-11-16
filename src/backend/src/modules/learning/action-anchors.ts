@@ -40,6 +40,14 @@ export type BuildActionAnchorOptions = {
   durationFrames: number;
   /** 动作最短可看时长（帧）。词出现在句尾时把起点前移，避免"一闪就完" */
   minWindow?: number;
+  /**
+   * TTS 词边界（offset/duration 单位 100ns）。字幕页的 token 是**逐字**的，
+   * 单字标签靠它才能判断"这个字是独立的一个词"——「水」不该被「水果」里的那个字锚上。
+   * 缺省时退回逐字出现（旧行为）。
+   */
+  boundaries?: Array<{ text: string; offset: number; duration: number }>;
+  /** 词边界的秒 → 帧换算；缺省 30fps */
+  fps?: number;
 };
 
 const NON_SPEECH = /[\s\p{P}\p{S}]/u;
@@ -82,23 +90,12 @@ function toSpokenPages(pages: PageCue[], durationFrames: number): SpokenPage[] {
   return out;
 }
 
-/** 去掉标点空白后的说法；短于两字的不参与匹配（单字误配是静默的，宁可不锚） */
+/** 去掉标点空白后的说法；短于两字的不参与子串匹配（单字误配是静默的，宁可不锚） */
 function normalizeTerm(value: string | undefined): string | null {
   const cleaned = Array.from(String(value || ''))
     .filter((ch) => !NON_SPEECH.test(ch))
     .join('');
   return cleaned.length >= 2 ? cleaned : null;
-}
-
-/** 全篇里出现了几次（只用于单字标签的歧义判断） */
-function countOccurrences(text: string, term: string): number {
-  let count = 0;
-  let at = text.indexOf(term);
-  while (at >= 0) {
-    count += 1;
-    at = text.indexOf(term, at + 1);
-  }
-  return count;
 }
 
 /**
@@ -117,7 +114,19 @@ export function buildActionAnchors(
   const spoken = toSpokenPages(pages, durationFrames);
   if (spoken.length === 0) return table;
 
-  const wholeText = spoken.map((page) => page.text).join('');
+  // 词级索引：单字标签判断"是否独立成词"要用到。字幕 token 是逐字的，
+  // 拿不到词边界就只能退回逐字（旧行为），这时「水」有被「水果」骗到的风险。
+  const fps = Number(options.fps) > 0 ? Number(options.fps) : 30;
+  const ticks = 1e7;
+  const wordIndex: Array<{ text: string; frame: number }> = [];
+  for (const word of options.boundaries || []) {
+    const text = Array.from(String(word?.text || ''))
+      .filter((ch) => !NON_SPEECH.test(ch))
+      .join('');
+    const offset = Number(word?.offset);
+    if (!text || !Number.isFinite(offset)) continue;
+    wordIndex.push({ text, frame: Math.round((offset / ticks) * fps) });
+  }
 
   for (const node of nodes) {
     const id = String(node?.id || '');
@@ -126,13 +135,6 @@ export function buildActionAnchors(
     const terms = [normalizeTerm(node.label), normalizeTerm(node.subject)].filter(
       (term, i, arr): term is string => Boolean(term) && arr.indexOf(term) === i,
     );
-    // 单字标签（云、雨、风这类中文里极常见）另开一档：只有当标签本身就是一个字、
-    // 且这个字在全篇旁白里恰好出现一次时才锚。双字标签绝不退化成单字匹配——
-    // 「树根」被「大树」的「树」命中会静默把动作挂到错的地方，比不挂更糟。
-    const singleLabel = Array.from(String(node.label || '')).filter((ch) => !NON_SPEECH.test(ch));
-    if (singleLabel.length === 1 && countOccurrences(wholeText, singleLabel[0]) === 1) {
-      terms.push(singleLabel[0]);
-    }
     for (const term of terms) {
       let hit: ActionAnchor | null = null;
       for (const page of spoken) {
@@ -148,6 +150,33 @@ export function buildActionAnchors(
       }
       if (hit) {
         table[id] = hit;
+        break;
+      }
+    }
+    if (table[id]) continue;
+
+    // label 本身就是一个字（云 / 风 / 雨）。
+    //
+    // 早先要求"全篇只出现一次"才锚，理由是单字子串匹配会静默错配（「水」命中「水果」）。
+    // 但实测生成端压不住单字——把"不要用单字"写进提示词之后，单字标签反而从 5 个涨到 9 个
+    // （模型看到云/风/雨这几个例子，照着用）。结果是这些节点永远不亮，比"锚到第一处"更糟。
+    //
+    // 现在改成用 TTS 词边界判断"这个字有没有独立成词"：「水果」是一个词、不等于「水」，
+    // 所以「水」不会靠"水果"那一刻锚上；而「水变成水汽」里的「水」是独立词，能锚。
+    // 重复出现时取第一次——旁白把同一个字讲两次，指的多半还是同一个概念。
+    const bare = Array.from(String(node.label || '')).filter((ch) => !NON_SPEECH.test(ch));
+    if (bare.length === 1) {
+      const ch = bare[0];
+      const frames = wordIndex.length
+        ? wordIndex.filter((w) => w.text === ch).map((w) => w.frame)
+        : // 没有词边界（旧任务/单测）：退回逐字，取第一次出现
+          spoken.flatMap((page) => page.chars.filter((c) => c.ch === ch).map((c) => c.frame));
+      for (const frame of frames) {
+        const page = spoken.find((p) => frame >= p.start && frame < p.end);
+        if (!page) continue;
+        const start = Math.max(page.start, Math.min(frame, page.end - minWindow));
+        if (page.end - start < Math.max(4, Math.floor(minWindow / 2))) continue;
+        table[id] = { start, end: page.end, matched: ch, page: page.index };
         break;
       }
     }

@@ -86,4 +86,27 @@ describe('generateVideoContent · 画面节点必须被旁白念到', () => {
     expect(llm.generate).toHaveBeenCalledTimes(3); // 用尽重试次数
     expect((result.data as VideoStoryboard).scenes[0].title).toBe('A1');
   });
+
+  it('两份都是"1 个场景有问题"时，留缺节点更少的那份', async () => {
+    // 留优曾经按"有问题的场景数"比：两份都只有 1 个场景出问题就判平，
+    // 于是保留先到的那份——哪怕它一屏缺 3 个节点、后一份只缺 1 个。
+    // 按节点数比才分得出高低。
+    const missThree: SceneSpec[] = [
+      { narration: '水汽飞到天上。', nodes: ['水汽', '白云', '彩虹', '闪电'] },
+      { narration: '兔子被狐狸盯上。', nodes: ['兔子', '狐狸'] },
+      { narration: '兔子和狐狸排成一条链子。', nodes: ['兔子', '狐狸'] },
+    ];
+    const missOne: SceneSpec[] = [
+      { narration: '水汽飞到天上。', nodes: ['水汽', '白云'] },
+      { narration: '兔子被狐狸盯上。', nodes: ['兔子', '狐狸'] },
+      { narration: '兔子和狐狸排成一条链子。', nodes: ['兔子', '狐狸'] },
+    ];
+    const { tool } = makeTool([
+      storyboardJson('A', missThree),
+      storyboardJson('B', missOne),
+      storyboardJson('C', missOne),
+    ]);
+    const result = await tool.execute({ topic: '测试' } as any, {} as any);
+    expect((result.data as VideoStoryboard).scenes[0].title).toBe('B1');
+  });
 });

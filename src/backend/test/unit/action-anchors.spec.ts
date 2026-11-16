@@ -126,7 +126,9 @@ describe('单字标签', () => {
     expect(table.c?.start).toBe(50);
   });
 
-  it('单字在全篇出现多次 → 不锚（第一次出现未必指它）', () => {
+  it('单字出现多次 → 取第一次（重复指的多半是同一个概念）', () => {
+    // 早先这里直接不锚，理由是"第一次未必指它"。实测生成端压不住单字
+    // （提示词写"不要用单字"反而让模型更常写），于是这些节点永远不亮。
     const cue = pages([
       { text: '天上的云很大', from: 0 },
       { text: '云里有很多水', from: 80 },
@@ -134,7 +136,37 @@ describe('单字标签', () => {
     const table = buildActionAnchors([{ id: 'c', label: '云', subject: '云朵' }], cue, {
       durationFrames: 200,
     });
-    expect(table.c).toBeUndefined();
+    expect(table.c?.start).toBe(15);
+    expect(table.c?.page).toBe(0);
+  });
+
+  it('单字被更长的词包住时不算命中——「水」不能靠「水果」锚上', () => {
+    // 有词边界时只认独立成词。字幕 token 是逐字的，靠 indexOf 会静默错配，
+    // 把「水」的动效演在"水果"那一刻。
+    const cue = pages([{ text: '它们都是水果', from: 0 }]);
+    const table = buildActionAnchors([{ id: 'w', label: '水', subject: '水' }], cue, {
+      durationFrames: 200,
+      boundaries: [
+        { text: '它们', offset: 0, duration: 5e6 },
+        { text: '都是', offset: 5e6, duration: 5e6 },
+        { text: '水果', offset: 1e7, duration: 1e7 },
+      ],
+    });
+    expect(table.w).toBeUndefined();
+  });
+
+  it('单字独立成词时锚定，哪怕旁白里还有别的含这个字的词', () => {
+    const cue = pages([{ text: '水变成水汽', from: 0 }]);
+    const table = buildActionAnchors([{ id: 'w', label: '水', subject: '水' }], cue, {
+      durationFrames: 200,
+      boundaries: [
+        { text: '水', offset: 0, duration: 4e6 },
+        { text: '变成', offset: 4e6, duration: 6e6 },
+        { text: '水汽', offset: 1e7, duration: 6e6 },
+      ],
+    });
+    expect(table.w?.matched).toBe('水');
+    expect(table.w?.start).toBe(0);
   });
 
   it('双字标签不会退化成单字匹配', () => {

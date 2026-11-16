@@ -8,6 +8,7 @@ import { GenerateVideoDataTool, TeachingVideoData } from '../ai/agent/tools/gene
 import { VoiceService } from '../voice/voice.service';
 import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
 import { buildSubtitleCues, type WordBoundary } from './subtitle-timing';
+import { buildActionAnchors, summarizeActionAnchors } from './action-anchors';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
@@ -1585,6 +1586,8 @@ export class RemotionRenderService implements OnModuleInit {
     let cueCount = 0;
     let shiftSum = 0;
     let shiftMax = 0;
+    let anchorCovered = 0;
+    let anchorTotal = 0;
     for (let index = 0; index < scenes.length; index += 1) {
       const scene = scenes[index];
       const narration = this.toText(scene?.narration);
@@ -1626,6 +1629,34 @@ export class RemotionRenderService implements OnModuleInit {
         cueCount += 1;
         shiftSum += cues.shiftFrames.avg;
         shiftMax = Math.max(shiftMax, cues.shiftFrames.max);
+
+        // 语义动作锚点：让"水汽上升""云越积越厚"只在旁白讲到它的那一段发生。
+        // 只在有词边界时才有锚点，命中不了（旁白没念到该节点）就整条不下发，
+        // 模板回退 storyProgress —— 不做部分下发，否则同一屏会出现两套时间轴。
+        const graphNodes = Array.isArray((scene as any)?.sceneGraph?.nodes)
+          ? ((scene as any).sceneGraph.nodes as Array<{ id: string; label?: string; subject?: string }>)
+          : [];
+        if (graphNodes.length > 0) {
+          const anchors = buildActionAnchors(graphNodes, cues.pages, {
+            durationFrames: scene.durationFrames,
+          });
+          const anchorStats = summarizeActionAnchors(graphNodes, anchors);
+          if (anchorStats.anchored > 0) {
+            scene.actionAnchors = anchors;
+            anchorCovered += anchorStats.anchored;
+            anchorTotal += anchorStats.total;
+            this.logger.log(
+              `[renderGeneratedComposition] taskId=${taskId} actionAnchors scene="${scene?.title || index + 1}" anchored=${anchorStats.anchored}/${anchorStats.total} missed=${anchorStats.missed.join('/') || '-'} window=${Object.values(anchors)
+                .map((a) => `${a.matched}:${a.start}-${a.end}`)
+                .join(',')}`,
+            );
+          } else if (anchorStats.total > 0) {
+            this.logger.warn(
+              `[renderGeneratedComposition] taskId=${taskId} actionAnchors scene="${scene?.title || index + 1}" no anchor matched (${anchorStats.missed.join('/')}) — storyProgress fallback`,
+            );
+          }
+        }
+
         this.logger.log(
           `[renderGeneratedComposition] taskId=${taskId} subtitleCues scene="${scene?.title || index + 1}" pages=${cues.pages.length} coverage=${(cues.coverage * 100).toFixed(0)}% avgShift=${cues.shiftFrames.avg}s maxShift=${cues.shiftFrames.max}s duration=${scene.durationFrames}`,
         );
@@ -1659,6 +1690,12 @@ export class RemotionRenderService implements OnModuleInit {
           ? ` (avg correction vs estimate ${(shiftSum / cueCount).toFixed(2)}s, max ${shiftMax.toFixed(2)}s)`
           : ''),
     );
+    if (anchorTotal > 0) {
+      this.logger.log(
+        `[renderGeneratedComposition] action anchors for ${anchorCovered}/${anchorTotal} graph nodes` +
+          ` (${((anchorCovered / anchorTotal) * 100).toFixed(0)}%, rest fall back to storyProgress)`,
+      );
+    }
     return props;
   }
 

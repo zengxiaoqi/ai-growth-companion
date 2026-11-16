@@ -922,6 +922,15 @@ type GeneratedScene = {
    * 有它就按真实发音点亮；没有就回退按屏长均分估算（旧行为）。
    */
   subtitlePages?: { tokens: string[]; starts: number[] }[];
+  /**
+   * 语义动作的时间窗：节点 id → { start, end }（场景内相对帧）。
+   * 后端按"这个名字在第几帧被念到、那句话到哪帧说完"算好，让"水汽上升"只在
+   * 旁白讲水汽那一段发生，而不是从入场均摊到整屏结束。
+   * 没有（无配音/词没命中）的节点回退 storyProgress，行为与旧版一致。
+   */
+  actionAnchors?: Record<string, { start: number; end: number }>;
+  /** 探针用开关：false = 忽略 actionAnchors，回到整屏均摊，供 A/B 对拍 */
+  anchorSigns?: boolean;
   choreography?: ChoreographyView;
 };
 
@@ -2293,6 +2302,8 @@ const GraphBadge: React.FC<{
   /** 光点已经走过这个节点：留一道细边，表示"这一步讲完了" */
   visited?: boolean;
   storyProgress: number;
+  /** 这个名字被念到的那一段（场景内相对帧）；缺省 = 没有配音/词没命中，回退整屏均摊 */
+  cueWindow?: { start: number; end: number } | null;
   /** beats 解释器给出的本拍状态；null/缺省 = 原路径（公式在 amp=1 时逐像素等价） */
   beat?: {
     motion: string;
@@ -2301,9 +2312,17 @@ const GraphBadge: React.FC<{
     amplitude: number;
     delayOverride?: number;
   } | null;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress, beat }) => {
+}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, beat }) => {
   const frame = useLocalFrame();
   const { fps } = useVideoConfig();
+  /**
+   * 语义动作的时间基。有锚点就只在"念到这个词 → 这句话说完"之间推进：
+   * 锚点之前停在起点（旁白还没提它，不该先演），窗口结束停在终态。
+   * 没有锚点退回整屏均摊，与旧行为逐像素一致。
+   */
+  const actionProgress = cueWindow
+    ? Math.max(0, Math.min(1, (frame - cueWindow.start) / Math.max(1, cueWindow.end - cueWindow.start)))
+    : storyProgress;
   // 揭示 gating：被某拍 reveal 的节点推迟到那一拍才入场（stagger 拍内再错开）
   const enterDelay = beat && beat.delayOverride !== undefined ? beat.delayOverride : item.delay;
   const enter = spring({
@@ -2330,7 +2349,7 @@ const GraphBadge: React.FC<{
   // 体量变化（云越积越厚、冰块化掉）：幅度固定 28%，够看出变化又不会挤到邻居。
   // growth 关系已经有逐节点长大，不再叠一层，否则同一张卡片会长两次。
   // beats 路径下 swell 拍的体量跟着「本拍进度」走，讲到哪涨到哪，而不是整屏均摊。
-  const swellT = beat && beat.motion === "swell" ? beat.beatProgress : storyProgress;
+  const swellT = beat && beat.motion === "swell" ? beat.beatProgress : actionProgress;
   const swellK = !item.grow
     ? item.node.swell === "grow"
       ? 1 + 0.28 * swellT
@@ -2436,7 +2455,7 @@ const GraphBadge: React.FC<{
               sign={item.node.sign || "orb"}
               size={size}
               accent={accent}
-              progress={storyProgress}
+              progress={actionProgress}
             />
           ) : (
             <div
@@ -2817,6 +2836,9 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   const storyStart = warmup;
   const storyEnd = Math.max(storyStart + 40, duration - 28);
   const storyProgress = Math.max(0, Math.min(1, (frame - storyStart) / (storyEnd - storyStart)));
+  // 每个节点自己的动作时间窗（后端按词边界算好）。缺省或探针关掉时退回整屏均摊。
+  const cueWindows: Record<string, { start: number; end: number }> =
+    scene.anchorSigns === false ? {} : scene.actionAnchors || {};
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
@@ -3045,6 +3067,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           active={activeIds.has(item.node.id)}
           visited={visitedIds.has(item.node.id)}
           storyProgress={storyProgress}
+          cueWindow={cueWindows[item.node.id] || null}
           beat={
             bs && bs.current
               ? {

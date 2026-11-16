@@ -262,7 +262,9 @@ describe('RemotionRenderService', () => {
         expect.objectContaining({
           title: '动物配对',
           emoji: '🎮',
-          subtitle: 'matching',
+          // 卡片副标题走 ACTIVITY_TYPE_LABELS 的中文文案（matching → 配对练习），
+          // 这里断言的是孩子看到的字，不是活动类型的关键字
+          subtitle: '配对练习',
         }),
         expect.objectContaining({
           title: '动物小测验',

@@ -8,6 +8,8 @@ import {
   inferAnimalFromText,
 } from './animal-subjects.config';
 import type { SceneGraph } from './video/scene-graph';
+import type { FigureSpec } from './video/figure-spec';
+import { AssetGenService } from './asset-gen.service';
 
 export type VisualAssetKind = 'character' | 'background' | 'overlay';
 
@@ -127,7 +129,7 @@ export type VisualAsset = VisualAssetLicense & {
   kind: VisualAssetKind;
   role: string;
   staticPath: string;
-  provider: 'local' | 'vector' | 'openverse' | 'wikimedia' | 'kenney' | 'svgFallback';
+  provider: 'local' | 'vector' | 'openverse' | 'wikimedia' | 'kenney' | 'svgFallback' | 'generated';
   width?: number;
   height?: number;
   qualityScore: number;
@@ -201,6 +203,9 @@ type VectorManifest = {
 
 type AnimalSubject = string;
 
+/** 单次场景解析（一张关系图/一份画板）里允许的素材生成次数上限 */
+const MAX_GEN_PER_CALL = 6;
+
 @Injectable()
 export class VisualAssetService {
   private readonly logger = new Logger(VisualAssetService.name);
@@ -220,6 +225,9 @@ export class VisualAssetService {
   );
   private localManifestCache: LocalManifest | null | undefined;
   private vectorManifestCache: VectorManifest | null | undefined;
+
+  /** assetGen 可选：单测直接 new VisualAssetService() 时不启用生成层 */
+  constructor(private readonly assetGen?: AssetGenService) {}
 
   async resolveSceneVisualAssets(
     scene: ResolveSceneInput,
@@ -440,32 +448,89 @@ export class VisualAssetService {
    */
   async resolveGraphIcons(graph: SceneGraph, topic: string): Promise<Record<string, string>> {
     const icons: Record<string, string> = {};
+    const budget = { left: MAX_GEN_PER_CALL };
     await Promise.all(
       graph.nodes.map(async (node) => {
-        const base: AssetRequest = {
-          kind: 'character',
-          role: 'graph-node',
-          query: node.subject,
-          tags: [node.subject],
-          minWidth: 0,
-          minHeight: 0,
-          searchText: node.subject,
-          exact: true,
-        };
-        const hit =
-          (await this.resolveVectorAsset(base)) ||
-          (await this.resolveVectorAsset({ ...base, kind: 'overlay' }));
-        if (hit) {
-          icons[node.id] = hit.staticPath;
+        const resolved = await this.resolveSubjectIcon(node.subject, topic, budget);
+        if (resolved) {
+          icons[node.id] = resolved.src;
+          // 生成救回的 miss 仍记一笔（带 rescued 标记）：这是素材库该往哪儿扩的依据
+          if (resolved.generated) await this.recordAssetMiss(node.subject, topic, true);
           return;
         }
-        await this.recordAssetMiss(node.subject, topic);
+        await this.recordAssetMiss(node.subject, topic, false);
       }),
     );
     return icons;
   }
 
-  private async recordAssetMiss(subject: string, topic: string): Promise<void> {
+  /**
+   * 受控画板的 subjectIcon 解析：与关系图节点同一条查找链
+   * （矢量库精确命中 → 生成层），解析结果写回 shape.iconSrc。
+   * 解析不到不报错——渲染器画占位圆，几何结构依然成立。
+   */
+  async resolveFigureIcons(figure: FigureSpec, topic: string): Promise<void> {
+    const icons = figure.shapes.filter((s) => s.kind === 'subjectIcon');
+    if (icons.length === 0) return;
+    const budget = { left: MAX_GEN_PER_CALL };
+    const subjects = [...new Set(icons.map((s) => (s.kind === 'subjectIcon' ? s.subject : '')))].filter(Boolean);
+    const resolved = new Map<string, string>();
+    await Promise.all(
+      subjects.map(async (subject) => {
+        const hit = await this.resolveSubjectIcon(subject, topic, budget);
+        if (hit) {
+          resolved.set(subject, hit.src);
+          if (hit.generated) await this.recordAssetMiss(subject, topic, true);
+        } else {
+          await this.recordAssetMiss(subject, topic, false);
+        }
+      }),
+    );
+    for (const shape of icons) {
+      if (shape.kind !== 'subjectIcon') continue;
+      const src = resolved.get(shape.subject);
+      if (src) shape.iconSrc = src;
+    }
+  }
+
+  /**
+   * 单个具体主体的图标查找：先矢量库（character/overlay 两栏精确命中），
+   * miss 再走生成层。budget 限制单次场景解析里的生成次数——素材生成是
+   * 加分项，不能让一张 20 节点的图把出片拖进分钟级等待。
+   */
+  private async resolveSubjectIcon(
+    subject: string,
+    topic: string,
+    budget: { left: number },
+  ): Promise<{ src: string; generated: boolean } | null> {
+    const base: AssetRequest = {
+      kind: 'character',
+      role: 'graph-node',
+      query: subject,
+      tags: [subject],
+      minWidth: 0,
+      minHeight: 0,
+      searchText: subject,
+      exact: true,
+    };
+    const hit =
+      (await this.resolveVectorAsset(base)) ||
+      (await this.resolveVectorAsset({ ...base, kind: 'overlay' }));
+    if (hit) return { src: hit.staticPath, generated: false };
+
+    if (this.assetGen?.isEnabled && budget.left > 0) {
+      budget.left -= 1;
+      const generated = await this.assetGen.generateSubjectIcon(subject);
+      if (generated) return { src: generated.staticPath, generated: true };
+    } else if (this.assetGen?.isEnabled && budget.left <= 0) {
+      this.logger.warn(
+        `[resolveSubjectIcon] "${subject}" (topic=${topic}) generation budget exhausted — placeholder fallback`,
+      );
+    }
+    return null;
+  }
+
+  private async recordAssetMiss(subject: string, topic: string, rescued = false): Promise<void> {
     const verdict = await this.classifyMiss(subject);
     const line = `${JSON.stringify({
       at: new Date().toISOString(),
@@ -475,6 +540,7 @@ export class VisualAssetService {
       ...(verdict.nearestRole ? { nearest: verdict.nearestRole } : {}),
       ...(verdict.nearestAlias ? { nearestAlias: verdict.nearestAlias } : {}),
       overlap: verdict.overlap,
+      rescued,
     })}\n`;
     try {
       await fs.mkdir(path.dirname(this.assetMissLogPath), { recursive: true });

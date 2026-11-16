@@ -25,15 +25,17 @@ import { RemotionRenderService } from './remotion-render.service';
 import { HyperframesRenderService } from './hyperframes-render.service';
 import { DshBridgeService } from './dsh-bridge.service';
 import { VideoGenerationAgentService } from './video-generation-agent.service';
-import { VisualQaService, type SceneQaInput, type VisualQaVerdict } from './visual-qa.service';
+import { VisualQaService, type SceneQaInput, type SceneTimelineEntry, type VisualQaVerdict } from './visual-qa.service';
 import { VideoParamRepairService } from './video-param-repair.service';
+import { AgentRemotionService } from './agent-remotion.service';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
-type RenderAttemptEngine = VideoRenderEngine | 'dynamic-remotion';
+type RenderAttemptEngine = VideoRenderEngine | 'dynamic-remotion' | 'agent-remotion';
 type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
+  'agent-remotion',
   'dynamic-remotion',
   'remotion',
   'hyperframes',
@@ -151,6 +153,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     private readonly visualQa?: VisualQaService,
     @Optional()
     private readonly paramRepair?: VideoParamRepairService,
+    @Optional()
+    private readonly agentRemotion?: AgentRemotionService,
   ) {}
 
   onModuleInit() {
@@ -470,25 +474,31 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + this.cacheTtlHours * 3600 * 1000);
 
-      task.status = 'completed';
-      task.progress = 100;
-      task.providerTaskId = providerTaskId || task.providerTaskId;
-      task.sourceVideoUrl = sourceVideoUrl || task.sourceVideoUrl;
-      task.localVideoPath = localPath;
-      task.errorMessage = null;
-      task.completedAt = now;
-      task.expiresAt = expiresAt;
-      task.approvalStatus = 'pending_approval';
-      await this.taskRepo.save(task);
+      // 用定向 update 而非 save(task)：task 实体是生成前加载的旧快照，生成期间
+      // generateByAgentRemotion/generateByDynamicRemotion 经 .update() 写入的
+      // actualEngine/qaScore/qaPassed/qaRounds 只在 DB 行上，旧实体里仍是 null。
+      // save(task) 会把这些字段一并写回 null，覆盖掉引擎命中与 QA 结果。
+      await this.taskRepo.update(task.id, {
+        status: 'completed',
+        progress: 100,
+        providerTaskId: providerTaskId || task.providerTaskId,
+        sourceVideoUrl: sourceVideoUrl || task.sourceVideoUrl,
+        localVideoPath: localPath,
+        errorMessage: null,
+        completedAt: now,
+        expiresAt,
+        approvalStatus: 'pending_approval',
+      } as any);
       this.logger.log(
         `Video task completed: taskId=${task.id}, size=${buffer.length} bytes, path=${localPath}, provider=${task.provider}`,
       );
     } catch (error: any) {
       const canRetry = (task.attemptCount || 0) <= this.maxRetries;
-      task.status = canRetry ? 'pending' : 'failed';
-      task.progress = 0;
-      task.errorMessage = String(error?.message || 'video generation failed').slice(0, 500);
-      await this.taskRepo.save(task);
+      await this.taskRepo.update(task.id, {
+        status: canRetry ? 'pending' : 'failed',
+        progress: 0,
+        errorMessage: String(error?.message || 'video generation failed').slice(0, 500),
+      } as any);
       this.logger.warn(
         `Video task ${canRetry ? 're-queued' : 'failed'}: taskId=${task.id}, attempt=${task.attemptCount}, maxRetries=${this.maxRetries}, message=${task.errorMessage}`,
       );
@@ -665,6 +675,25 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`[generateVideoBuffer] taskId=${task.id} trying engine: ${engine}`);
       const engineStart = Date.now();
       try {
+        if (engine === 'agent-remotion') {
+          await this.taskRepo.update(task.id, {
+            provider: this.resolveProviderName('agent-remotion'),
+            renderEngine: task.renderEngine || requestedEngine,
+          } as any);
+          const buffer = await this.generateByAgentRemotion(task, payload);
+          if (buffer) {
+            this.logger.log(
+              `[generateVideoBuffer] taskId=${task.id} engine=${engine} succeeded in ${Date.now() - engineStart}ms, size=${buffer.length}`,
+            );
+            return { buffer, providerTaskId: null, sourceVideoUrl: null };
+          }
+          errors.push('agent-remotion returned empty buffer');
+          this.logger.warn(
+            `[generateVideoBuffer] taskId=${task.id} engine=${engine} unavailable/empty after ${Date.now() - engineStart}ms, falling back`,
+          );
+          continue;
+        }
+
         if (engine === 'dynamic-remotion') {
           await this.taskRepo.update(task.id, {
             provider: this.resolveProviderName('dynamic-remotion'),
@@ -879,8 +908,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       } catch {}
     };
 
+    let sceneTimeline: SceneTimelineEntry[] | undefined;
     try {
-      await this.remotionRender.renderGeneratedComposition(task, manifest, outputPath, onProgress);
+      sceneTimeline = await this.remotionRender.renderGeneratedComposition(task, manifest, outputPath, onProgress);
     } catch (error: any) {
       const failureKind = this.classifyRemotionFailure(error);
       this.logger.warn(
@@ -902,7 +932,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
         storyboard,
         payload,
       );
-      await this.remotionRender.renderGeneratedComposition(
+      sceneTimeline = await this.remotionRender.renderGeneratedComposition(
         task,
         rebuiltManifest,
         outputPath,
@@ -922,7 +952,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       try {
         let activeStoryboard = storyboard;
         let qaRounds = 0;
-        let verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 0);
+        let verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 0, sceneTimeline);
         if (verdict && !verdict.passed && this.paramRepair) {
           const repaired = await this.paramRepair.repair(activeStoryboard, verdict, ageGroup);
           if (repaired) {
@@ -936,13 +966,13 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
               payload,
               agentFiles,
             );
-            await this.remotionRender.renderGeneratedComposition(
+            sceneTimeline = await this.remotionRender.renderGeneratedComposition(
               task,
               repairedManifest,
               outputPath,
               onProgress,
             );
-            verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 1);
+            verdict = await this.reviewRenderedVideo(task, payload, activeStoryboard, outputPath, 1, sceneTimeline);
           }
         }
         if (verdict) {
@@ -976,13 +1006,90 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return buffer;
   }
 
-  /** 按场景时间轴抽帧并逐场景 vision 评审。时长钳制必须与 buildDynamicSceneProps 一致（4-18s）。 */
+  /** agent-remotion 引擎：创作闭环 + 全量渲染 + 终检 QA（按真实时间轴抽帧）。 */
+  private async generateByAgentRemotion(
+    task: VideoGenerationTask,
+    payload: Record<string, any>,
+  ): Promise<Buffer | null> {
+    const topic = payload?.topic || '';
+    const storyboard = payload?.__storyboard;
+
+    if (!this.agentRemotion?.isAvailable) {
+      this.logger.warn(
+        `[generateByAgentRemotion] taskId=${task.id} skipped: agent engine unavailable (LLM not configured or VIDEO_AGENT_REMOTION=off)`,
+      );
+      return null;
+    }
+    if (!topic || !storyboard) {
+      this.logger.warn(
+        `[generateByAgentRemotion] taskId=${task.id} skipped: missing topic or storyboard`,
+      );
+      return null;
+    }
+
+    const outputPath = path.join(this.storageDir, `${task.cacheKey}-agent-remotion.mp4`);
+    await fs.mkdir(this.storageDir, { recursive: true });
+    const onProgress = async (percent: number) => {
+      try {
+        await this.taskRepo.update(task.id, {
+          progress: Math.max(10, Math.min(95, percent)),
+        });
+      } catch {}
+    };
+
+    const { stillsRounds, sceneTimeline } = await this.agentRemotion.renderToVideo(
+      task,
+      payload,
+      outputPath,
+      onProgress,
+    );
+
+    try {
+      await this.taskRepo.update(task.id, { actualEngine: 'agent-remotion' });
+    } catch {}
+
+    // 终检：创作闭环已在 stills 层修过 ≤2 轮，这里只评审记录，不做参数修复
+    // （bespoke 代码无法用 beats 参数修复面改）。不达标放行但记 qaScore（不静默）。
+    if (this.visualQa?.isConfigured && process.env.VIDEO_QA_GATE !== 'off') {
+      try {
+        const verdict = await this.reviewRenderedVideo(task, payload, storyboard, outputPath, 0, sceneTimeline);
+        if (verdict) {
+          await this.taskRepo.update(task.id, {
+            qaScore: verdict.score,
+            qaPassed: verdict.passed,
+            qaRounds: stillsRounds,
+          });
+          if (!verdict.passed) {
+            this.logger.warn(
+              `[generateByAgentRemotion] taskId=${task.id} released with QA score=${verdict.score} stillsRounds=${stillsRounds} issues=${verdict.issues.length}`,
+            );
+          }
+        }
+      } catch (error: any) {
+        this.logger.warn(
+          `[generateByAgentRemotion] taskId=${task.id} QA gate error (release original): ${error?.message || error}`,
+        );
+      }
+    }
+
+    try {
+      await this.taskRepo.update(task.id, { progress: 98 });
+    } catch {}
+
+    const buffer = await fs.readFile(outputPath);
+    try {
+      await fs.unlink(outputPath);
+    } catch {}
+    return buffer;
+  }
+
   private async reviewRenderedVideo(
     task: VideoGenerationTask,
     payload: Record<string, any>,
     storyboard: Record<string, any>,
     videoPath: string,
     round: number,
+    timeline?: SceneTimelineEntry[],
   ): Promise<VisualQaVerdict | null> {
     if (!this.visualQa) return null;
     const scenes: Array<Record<string, any>> = Array.isArray(storyboard?.scenes)
@@ -995,7 +1102,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     let cursorSec = 0;
     for (let i = 0; i < scenes.length; i += 1) {
       const scene = scenes[i] || {};
-      const durationSec = Math.max(4, Math.min(18, Number(scene.durationSec) || 6));
+      // 真实时间轴优先：渲染时长按 TTS 语音调整过，分镜 durationSec 只是估算，
+      // 按估算抽帧会累计漂移到上一场景的画面（假"图文不符"blocker）。
+      const actual = timeline?.[i];
+      const durationSec = actual
+        ? Math.max(1, actual.durationSec)
+        : Math.max(4, Math.min(18, Number(scene.durationSec) || 6));
       const times = this.visualQa.sceneSampleTimes(cursorSec, durationSec, 2);
       cursorSec += durationSec;
       const frames = await this.visualQa.extractFrames(
@@ -1005,9 +1117,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       );
       inputs.push({
         sceneId: `scene-${i + 1}`,
-        title: scene.title,
-        narration: String(scene.narration || scene.title || ''),
-        onScreenText: scene.onScreenText,
+        title: actual?.title || scene.title,
+        narration: actual?.narration || String(scene.narration || scene.title || ''),
+        onScreenText: actual?.onScreenText || scene.onScreenText,
         frames,
       });
     }
@@ -1829,6 +1941,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private resolveProviderName(engine: RenderAttemptEngine): string {
+    if (engine === 'agent-remotion') {
+      return 'remotion-agent';
+    }
     if (engine === 'dynamic-remotion') {
       return 'remotion-dynamic';
     }
@@ -1851,6 +1966,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     if (raw === 'hyperframes') return 'hyperframes';
     if (raw === 'remotion') return 'remotion';
     if (raw === 'dsh') return 'dsh';
+    if (raw === 'agent-remotion') return 'agent-remotion';
     return 'auto';
   }
 
@@ -1858,6 +1974,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     if (engine === 'hyperframes') return ['hyperframes'];
     if (engine === 'remotion') return ['dynamic-remotion', 'remotion'];
     if (engine === 'dsh') return ['dsh', 'dynamic-remotion', 'remotion', 'hyperframes'];
+    if (engine === 'agent-remotion') {
+      return ['agent-remotion', 'dynamic-remotion', 'remotion', 'hyperframes'];
+    }
     return [...FALLBACK_RENDER_ENGINES];
   }
 

@@ -56,9 +56,11 @@ export class AgentExecutorService {
    * @param onToolCall - Optional callback invoked after each tool call (for persistence)
    * @returns ExecutionResult with final response and tool call log
    */
-  /** Model override for casual (碎碎念) / english-practice chats, if configured */
+  /** Model override for casual (碎碎念) / english-practice chats and video authoring, if configured */
   private chatModelOverride(context: AgentContext): string | undefined {
-    const chatMode = normalizeChatMode((context.metadata as Record<string, any> | undefined)?.chatMode);
+    const metadata = context.metadata as Record<string, any> | undefined;
+    if (metadata?.authoring) return this.llmClient.authorModel;
+    const chatMode = normalizeChatMode(metadata?.chatMode);
     if (chatMode === 'casual') return this.llmClient.casualModel;
     if (chatMode === 'english') return this.llmClient.englishModel;
     return undefined;
@@ -106,6 +108,8 @@ export class AgentExecutorService {
       result: string;
     }) => Promise<void> | void,
     maxTokensOverride?: number,
+    beforeModelCall?: (messages: LlmMessage[]) => LlmMessage[] | Promise<LlmMessage[]>,
+    toolGuard?: (toolName: string, args: Record<string, any>) => string | null | Promise<string | null>,
   ): Promise<ExecutionResult> {
     const fullMessages: LlmMessage[] = [{ role: 'system', content: systemPrompt }, ...messages];
     const modelOverride = this.chatModelOverride(context);
@@ -129,8 +133,11 @@ export class AgentExecutorService {
         iteration === 0
           ? false
           : !lastIterationHadToolCall && !!toolDefinitions && toolDefinitions.length > 0;
+      // 历史变换钩子：调用方可在每次请求前压缩/注入消息（如创作引擎把磁盘上的
+      // 完整文件经 user 消息注入——网关会截断 assistant tool_calls 大参数）。
+      const modelMessages = beforeModelCall ? await beforeModelCall(fullMessages) : fullMessages;
       const response = await this.llmClient.chatCompletion(
-        fullMessages,
+        modelMessages,
         toolDefinitions,
         maxTokensOverride,
         forceToolChoice,
@@ -195,6 +202,25 @@ export class AgentExecutorService {
             conversationId: context.conversationId,
             extra: context.metadata,
           };
+          // Caller-supplied guard: reject a call without executing it (workflow gates).
+          if (toolGuard) {
+            const guardMessage = await toolGuard(toolName, toolArgs);
+            if (guardMessage) {
+              this.logger.warn(`Tool "${toolName}" rejected by toolGuard: ${guardMessage.slice(0, 120)}`);
+              const rejection = JSON.stringify({ error: guardMessage });
+              fullMessages.push({ role: 'tool', content: rejection, toolCallId: toolCall.id });
+              toolCallLog.push({
+                tool: toolName,
+                args: toolArgs,
+                resultSummary: rejection.slice(0, 100),
+              });
+              if (onToolCall) {
+                await onToolCall({ toolName, args: toolArgs, result: rejection });
+              }
+              continue;
+            }
+          }
+
           const normalizedToolArgs = this.normalizeToolArgs(toolName, toolArgs, context);
           const result = await this.toolRegistry.execute(
             toolName,

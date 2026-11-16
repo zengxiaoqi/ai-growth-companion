@@ -91,6 +91,9 @@ export interface ILlmClient {
   /** Model for vision calls (visual QA / asset admission), when configured via LLM_VISION_MODEL */
   readonly visionModel?: string;
 
+  /** Model for video authoring (storyboard / TSX creation), when configured via LLM_AUTHOR_MODEL */
+  readonly authorModel?: string;
+
   /**
    * Secondary call for structured content generation (quizzes, activities, etc.)
    *

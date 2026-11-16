@@ -76,6 +76,15 @@ type GeneratedScene = {
    * 有它就按真实发音点亮；没有就回退按屏长均分估算（旧行为）。
    */
   subtitlePages?: { tokens: string[]; starts: number[] }[];
+  /**
+   * 语义动作的时间窗：节点 id → { start, end }（场景内相对帧）。
+   * 后端按"这个名字在第几帧被念到、那句话到哪帧说完"算好，让"水汽上升"只在
+   * 旁白讲水汽那一段发生，而不是从入场均摊到整屏结束。
+   * 没有（无配音/词没命中）的节点回退 storyProgress，行为与旧版一致。
+   */
+  actionAnchors?: Record<string, { start: number; end: number }>;
+  /** 探针用开关：false = 忽略 actionAnchors，回到整屏均摊，供 A/B 对拍 */
+  anchorSigns?: boolean;
   choreography?: ChoreographyView;
 };
 
@@ -962,7 +971,8 @@ type FigureShapeView =
   | { kind: "rect"; x: number; y: number; w: number; h: number; rx: number; fill: string; stroke?: string; strokeWidth?: number }
   | { kind: "circle"; cx: number; cy: number; r: number; fill: string; stroke?: string; strokeWidth?: number }
   | { kind: "curve"; x1: number; y1: number; c1x: number; c1y: number; c2x: number; c2y: number; x2: number; y2: number; stroke: string; width: number }
-  | { kind: "polygon"; points: string; fill: string; stroke?: string; strokeWidth?: number };
+  | { kind: "polygon"; points: string; fill: string; stroke?: string; strokeWidth?: number }
+  | { kind: "subjectIcon"; subject: string; x: number; y: number; size: number; iconSrc?: string };
 
 type FigureGlyphView = FigureShapeView & { reveal: number };
 type FigureLabelView = { text: string; x: number; y: number; color?: string };
@@ -1031,10 +1041,13 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
   if (graph.relation === "cycle") {
     const cx = 960;
     // 底部节点（含标签）必须留在字幕条上方：字幕条顶边在 y≈860，所以圆心+短轴 ≤ 714
-    const cy = 508;
-    const rx = 268;
-    const ry = 202;
-    const size = 186;
+    // 放大一档（卡 186→232、横半径 268→322）：原来整组只占 722×590，画面 62% 是空背景，
+    // 任何局部动效都被空白稀释——实测中段活跃块只有 4.2%，而 4 张 186 卡全动也只够 6.7% 屏。
+    // 顶部卡顶 188 仍在 caption 底边（≈174）之下，底部标签落到 856，都没越界。
+    const cy = 500;
+    const rx = 322;
+    const ry = 196;
+    const size = 232;
     nodes.forEach((node, i) => {
       const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
       items.push({
@@ -1068,12 +1081,13 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
 
   if (graph.relation === "growth") {
     const baseline = 712;
-    const spacing = Math.min(400, 1460 / Math.max(1, n - 1));
+    const spacing = Math.min(408, 1490 / Math.max(1, n - 1));
     const startX = 960 - ((n - 1) * spacing) / 2;
     // 依次长大：每个节点占一段叙事窗口，前一个长完才轮到下一个，观众能看出先后
     const slot = 0.9 / Math.max(1, n);
     nodes.forEach((node, i) => {
-      const size = 172 + i * 40;
+      // 末节点要"长成大树"，尺寸差是叙事本身；整体抬高 14% 让后段有生长空间
+      const size = 196 + i * 44;
       items.push({
         node,
         x: startX + i * spacing,
@@ -1099,11 +1113,13 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
   }
 
   if (graph.relation === "compare") {
-    const size = 262;
+    // 对照组是"两块并排比大小"，卡太小就看不出差别；放大到 300，
+    // 左右各占 1/6 屏宽，中间留出分隔线两侧的气口
+    const size = 300;
     const left = nodes[0];
     const right = nodes[1] || nodes[0];
-    items.push({ node: left, x: 528, y: 498, size, delay: 8 });
-    items.push({ node: right, x: 1392, y: 498, size, delay: 18 });
+    items.push({ node: left, x: 520, y: 492, size, delay: 8 });
+    items.push({ node: right, x: 1400, y: 492, size, delay: 18 });
     return {
       items,
       edges: [],
@@ -1115,15 +1131,18 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
   if (graph.relation === "group" || graph.relation === "split") {
     const parent = nodes[0];
     const children = nodes.slice(1);
-    const parentSize = graph.relation === "group" ? 190 : 200;
-    const parentY = graph.relation === "group" ? 306 : 300;
+    // 整体放大一档：父卡 190/200→216/228、子卡 168/156→192/180。
+    // 父卡下移 14px、子卡下移 14px，两者间距没变，但整组更靠近画面中心的安全区，
+    // 子卡标签底边仍在字幕条（y≈860）之上。
+    const parentSize = graph.relation === "group" ? 216 : 228;
+    const parentY = graph.relation === "group" ? 292 : 286;
     items.push({ node: parent, x: 960, y: parentY, size: parentSize, delay: 8 });
-    const spacing = Math.min(330, 1360 / Math.max(1, children.length));
+    const spacing = Math.min(350, 1420 / Math.max(1, children.length));
     const startX = 960 - ((children.length - 1) * spacing) / 2;
-    const childY = graph.relation === "group" ? 646 : 656;
+    const childY = graph.relation === "group" ? 660 : 672;
     const flows: GraphFlow[] = [];
     children.forEach((node, i) => {
-      const size = graph.relation === "group" ? 168 : 156;
+      const size = graph.relation === "group" ? 192 : 180;
       const x = startX + i * spacing;
       // 起点要落在"类别/整体"的标签胶囊下面，否则三条箭头会在标签上糊成一团
       const top = parentY + parentSize / 2 + 58;
@@ -1155,22 +1174,24 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
       });
     });
     if (graph.relation === "group" && children.length > 0) {
-      const left = startX - 132;
-      const right = startX + (children.length - 1) * spacing + 132;
+      const left = startX - 148;
+      const right = startX + (children.length - 1) * spacing + 148;
       // 高度要包住节点下方的标签胶囊，否则虚线框会从标签中间穿过
       return {
         items,
         edges,
         flows,
-        container: { x: left, y: childY - 126, w: right - left, h: 312 },
+        container: { x: left, y: childY - 132, w: right - left, h: 320 },
       };
     }
     return { items, edges, flows };
   }
 
   // chain：横向依次推进，节点等距
-  const size = 206;
-  const spacing = Math.min(500, 1560 / Math.max(1, n - 1));
+  // 卡 206→244、步距 500→528：环形排布放大后，链条也得跟上，
+  // 否则同一支片子里"水循环"那张满屏、"食物链"那张缩在中间，观感不连续。
+  const size = 244;
+  const spacing = Math.min(528, 1600 / Math.max(1, n - 1));
   const startX = 960 - ((n - 1) * spacing) / 2;
   nodes.forEach((node, i) => {
     items.push({ node, x: startX + i * spacing, y: 500, size, delay: 8 + i * 11 });
@@ -1435,6 +1456,8 @@ const GraphBadge: React.FC<{
   /** 光点已经走过这个节点：留一道细边，表示"这一步讲完了" */
   visited?: boolean;
   storyProgress: number;
+  /** 这个名字被念到的那一段（场景内相对帧）；缺省 = 没有配音/词没命中，回退整屏均摊 */
+  cueWindow?: { start: number; end: number } | null;
   /** beats 解释器给出的本拍状态；null/缺省 = 原路径（公式在 amp=1 时逐像素等价） */
   beat?: {
     motion: string;
@@ -1443,9 +1466,17 @@ const GraphBadge: React.FC<{
     amplitude: number;
     delayOverride?: number;
   } | null;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress, beat }) => {
+}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, beat }) => {
   const frame = useLocalFrame();
   const { fps } = useVideoConfig();
+  /**
+   * 语义动作的时间基。有锚点就只在"念到这个词 → 这句话说完"之间推进：
+   * 锚点之前停在起点（旁白还没提它，不该先演），窗口结束停在终态。
+   * 没有锚点退回整屏均摊，与旧行为逐像素一致。
+   */
+  const actionProgress = cueWindow
+    ? Math.max(0, Math.min(1, (frame - cueWindow.start) / Math.max(1, cueWindow.end - cueWindow.start)))
+    : storyProgress;
   // 揭示 gating：被某拍 reveal 的节点推迟到那一拍才入场（stagger 拍内再错开）
   const enterDelay = beat && beat.delayOverride !== undefined ? beat.delayOverride : item.delay;
   const enter = spring({
@@ -1472,7 +1503,7 @@ const GraphBadge: React.FC<{
   // 体量变化（云越积越厚、冰块化掉）：幅度固定 28%，够看出变化又不会挤到邻居。
   // growth 关系已经有逐节点长大，不再叠一层，否则同一张卡片会长两次。
   // beats 路径下 swell 拍的体量跟着「本拍进度」走，讲到哪涨到哪，而不是整屏均摊。
-  const swellT = beat && beat.motion === "swell" ? beat.beatProgress : storyProgress;
+  const swellT = beat && beat.motion === "swell" ? beat.beatProgress : actionProgress;
   const swellK = !item.grow
     ? item.node.swell === "grow"
       ? 1 + 0.28 * swellT
@@ -1578,7 +1609,7 @@ const GraphBadge: React.FC<{
               sign={item.node.sign || "orb"}
               size={size}
               accent={accent}
-              progress={storyProgress}
+              progress={actionProgress}
             />
           ) : (
             <div
@@ -1647,6 +1678,28 @@ const figureArcPath = (s: Extract<FigureShapeView, { kind: "arc" }>) => {
 /** 单个图元。生长动画按图元类型给不同写法：线用描边生长，面用展开 */
 const FigureShapePart: React.FC<{ glyph: FigureGlyphView; p: number }> = ({ glyph, p }) => {
   if (p <= 0.001) return null;
+
+  if (glyph.kind === "subjectIcon") {
+    // 有素材时由 FigureStage 的 <Img> 叠层渲染（SVG <image> 不走 delayRender，
+    // 会在图片加载完成前截帧）；这里只画"没找到素材"的占位圆
+    if (glyph.iconSrc) return null;
+    const r = glyph.size / 2;
+    return (
+      <g opacity={Math.min(1, p * 2)}>
+        <circle cx={glyph.x} cy={glyph.y} r={r * (0.7 + p * 0.3)} fill="#E8F0F8" stroke="#8B9AA8" strokeWidth={6} />
+        <text
+          x={glyph.x}
+          y={glyph.y + glyph.size * 0.14}
+          textAnchor="middle"
+          fontSize={glyph.size * 0.42}
+          fontWeight={900}
+          fill="#5A6B7B"
+        >
+          {glyph.subject.slice(0, 1)}
+        </text>
+      </g>
+    );
+  }
 
   if (glyph.kind === "arc") {
     const len = glyph.r * Math.abs(glyph.to - glyph.from) * (Math.PI / 180);
@@ -1814,7 +1867,13 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   const pushK =
     bs && bs.current && bs.current.motion === "camera-push" ? 0.05 * bs.amplitude * bs.beatProgress : 0;
 
+  // subjectIcon 素材层：<Img> 走 delayRender，截帧前保证图片已加载
+  const iconGlyphs = figure.shapes.filter(
+    (g): g is Extract<FigureGlyphView, { kind: "subjectIcon" }> => g.kind === "subjectIcon" && !!g.iconSrc
+  );
+
   const canvas = (
+    <>
     <svg
       width={FIGURE_W}
       height={FIGURE_H}
@@ -1871,6 +1930,28 @@ const FigureStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
         );
       })}
     </svg>
+    {iconGlyphs.map((glyph, i) => {
+      const p = shapeProgress(glyph.reveal);
+      if (p <= 0.001) return null;
+      const grow = 0.6 + p * 0.4;
+      return (
+        <Img
+          key={"fi" + i}
+          src={staticFile(glyph.iconSrc as string)}
+          style={{
+            position: "absolute",
+            left: (1920 - FIGURE_W) / 2 + glyph.x - glyph.size / 2,
+            top: 196 + glyph.y - glyph.size / 2,
+            width: glyph.size,
+            height: glyph.size,
+            objectFit: "contain",
+            opacity: Math.min(1, p * 2),
+            transform: "scale(" + grow + ")",
+          }}
+        />
+      );
+    })}
+    </>
   );
 
   if (pushK <= 0) return canvas;
@@ -1909,6 +1990,9 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   const storyStart = warmup;
   const storyEnd = Math.max(storyStart + 40, duration - 28);
   const storyProgress = Math.max(0, Math.min(1, (frame - storyStart) / (storyEnd - storyStart)));
+  // 每个节点自己的动作时间窗（后端按词边界算好）。缺省或探针关掉时退回整屏均摊。
+  const cueWindows: Record<string, { start: number; end: number }> =
+    scene.anchorSigns === false ? {} : scene.actionAnchors || {};
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
@@ -2137,6 +2221,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           active={activeIds.has(item.node.id)}
           visited={visitedIds.has(item.node.id)}
           storyProgress={storyProgress}
+          cueWindow={cueWindows[item.node.id] || null}
           beat={
             bs && bs.current
               ? {

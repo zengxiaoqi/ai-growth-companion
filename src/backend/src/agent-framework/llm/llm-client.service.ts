@@ -46,6 +46,11 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   private entries: ProviderEntry[] = [];
   private piAiEnabled = false;
 
+  // 队列可能在 onModuleInit 完成前认领任务（pi-ai 动态 import 耗时数秒），
+  // 此时 client/piAi 均未就绪；所有 LLM 入口必须等初始化落定。
+  private readonly ready: Promise<void>;
+  private resolveReady!: () => void;
+
   /** Casual-mode model override (LLM_MODEL_CASUAL); undefined when unset */
   readonly casualModel?: string;
 
@@ -62,6 +67,9 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
   readonly authorModel?: string;
 
   constructor(private readonly configService: ConfigService) {
+    this.ready = new Promise<void>((resolve) => {
+      this.resolveReady = resolve;
+    });
     this.config = {
       baseUrl: this.configService.get<string>('LLM_BASE_URL', 'http://localhost:11434/v1'),
       apiKey: this.configService.get<string>('LLM_API_KEY', 'unused'),
@@ -119,6 +127,8 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       this.logger.log(
         `LLM client initialized: model=${this.config.model}, baseUrl=${this.config.baseUrl}`,
       );
+    } finally {
+      this.resolveReady();
     }
   }
 
@@ -322,6 +332,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     modelOverride?: string,
     options?: LlmCallOptions,
   ): Promise<LlmResponse> {
+    await this.ready;
     this.logger.debug(`chatCompletion model=${modelOverride ?? this.config.model}`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
@@ -342,6 +353,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     tools?: LlmToolDefinition[],
     modelOverride?: string,
   ): AsyncGenerator<string> {
+    await this.ready;
     this.logger.debug(`chatCompletionStream model=${modelOverride ?? this.config.model}`);
     const safeMessages = this.sanitizeToolMessageSequence(messages);
     if (this.piAiEnabled) {
@@ -1018,6 +1030,7 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     maxTokens: number,
     options?: LlmCallOptions,
   ): Promise<LlmResponse> {
+    await this.ready;
     return this.retryStrategy.execute(async () => {
       if (this.piAiEnabled) {
         return this.piAiChatCompletion(messages, undefined, maxTokens, options?.model, options);

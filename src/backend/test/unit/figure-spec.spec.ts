@@ -447,13 +447,92 @@ describe('shapeBounds', () => {
 });
 
 describe('describeFigureGrammar', () => {
-  it('六种图元与画布尺寸都写进了 prompt 说明', () => {
+  it('七种图元与画布尺寸都写进了 prompt 说明', () => {
     const grammar = describeFigureGrammar();
-    ['arc', 'line', 'curve', 'circle', 'rect', 'polygon'].forEach((kind) => {
+    ['arc', 'line', 'curve', 'circle', 'rect', 'polygon', 'subjectIcon'].forEach((kind) => {
       expect(grammar).toContain(kind);
     });
     expect(grammar).toContain(String(FIGURE_WIDTH));
     expect(grammar).toContain(String(FIGURE_HEIGHT));
     expect(grammar).toContain('labels');
+  });
+});
+
+describe('subjectIcon 图元', () => {
+  /** 合法基准：一道弧 + 一个主体图标（彩虹下的蝌蚪） */
+  const withIcon = (icon: Record<string, unknown>) => ({
+    shapes: [
+      { kind: 'arc', cx: 800, cy: 640, r: 490, from: 4, to: 176, stroke: '#E5484D', width: 34, reveal: 0 },
+      { kind: 'arc', cx: 800, cy: 640, r: 430, from: 4, to: 176, stroke: '#0091FF', width: 34, reveal: 0.2 },
+      icon,
+    ],
+  });
+
+  it('接受合法 subjectIcon 并保留 subject/坐标/尺寸', () => {
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjectIcon', subject: '小蝌蚪', x: 400, y: 460, size: 160, reveal: 0.5 }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const icon = result.spec.shapes[2];
+    expect(icon.kind).toBe('subjectIcon');
+    if (icon.kind !== 'subjectIcon') return;
+    expect(icon.subject).toBe('小蝌蚪');
+    expect(icon.x).toBe(400);
+    expect(icon.y).toBe(460);
+    expect(icon.size).toBe(160);
+    expect(icon.iconSrc).toBeUndefined();
+  });
+
+  it('kind 大小写不敏感（subjecticon → subjectIcon）', () => {
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjecticon', subject: '鸟', x: 1200, y: 200, size: 120 }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.spec.shapes[2].kind).toBe('subjectIcon');
+  });
+
+  it('空 subject 的图标被丢弃，不废整份 spec', () => {
+    const result = normalizeFigureSpec(withIcon({ kind: 'subjectIcon', subject: '  ', x: 400, y: 460 }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.spec.shapes).toHaveLength(2);
+  });
+
+  it('subject 截断到 8 字，尺寸 clamp 到上下限', () => {
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjectIcon', subject: '一二三四五六七八九十', x: 400, y: 460, size: 9999 }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const icon = result.spec.shapes[2];
+    if (icon.kind !== 'subjectIcon') return;
+    expect(icon.subject).toHaveLength(8);
+    expect(icon.size).toBe(480);
+  });
+
+  it('坐标 clamp 在画布内，包围盒按尺寸计算', () => {
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjectIcon', subject: '石头', x: -100, y: 9999, size: 200 }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const icon = result.spec.shapes[2];
+    if (icon.kind !== 'subjectIcon') return;
+    expect(icon.x).toBe(0);
+    expect(icon.y).toBe(FIGURE_HEIGHT);
+    expect(shapeBounds(icon)).toEqual({ x1: -100, y1: FIGURE_HEIGHT - 100, x2: 100, y2: FIGURE_HEIGHT + 100 });
+  });
+
+  it('图标不占颜色配额，也不被补轮廓', () => {
+    const result = normalizeFigureSpec(
+      withIcon({ kind: 'subjectIcon', subject: '白云', x: 400, y: 200, size: 160 }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const icon = result.spec.shapes[2];
+    expect('stroke' in icon).toBe(false);
+    expect('fill' in icon).toBe(false);
   });
 });

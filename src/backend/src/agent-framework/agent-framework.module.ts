@@ -36,6 +36,8 @@ import { ExecuteCommandTool } from './tools/impl/execute-command';
 import { ReadFileTool, WriteFileTool } from './tools/impl/file-operations';
 import { RenderHyperframesTool } from './tools/impl/render-hyperframes';
 import { RenderRemotionTool } from './tools/impl/render-remotion';
+import { RenderStillsTool } from './tools/impl/render-stills';
+import { VisualQaTool } from './tools/impl/visual-qa';
 import { LoadSkillTool } from './tools/impl/load-skill';
 import { GenerateBentoDocumentTool } from './tools/impl/generate-bento-document';
 
@@ -45,6 +47,7 @@ import { parentAdvisorDefinition } from './agents/definitions/parent-advisor.age
 import { courseDesignerDefinition } from './agents/definitions/course-designer.agent';
 import { activityGeneratorDefinition } from './agents/definitions/activity-generator.agent';
 import { videoGeneratorDefinition } from './agents/definitions/video-generator.agent';
+import { videoAuthorDefinition } from './agents/definitions/video-author.agent';
 import { rewardAdvisorDefinition } from './agents/definitions/reward-advisor.agent';
 import { englishPracticeDefinition } from './agents/definitions/english-practice.agent';
 
@@ -102,6 +105,8 @@ import { englishPracticeDefinition } from './agents/definitions/english-practice
     WriteFileTool,
     RenderHyperframesTool,
     RenderRemotionTool,
+    RenderStillsTool,
+    VisualQaTool,
     LoadSkillTool,
     GenerateBentoDocumentTool,
   ],
@@ -130,6 +135,7 @@ export class AgentFrameworkModule implements OnModuleInit {
       courseDesignerDefinition,
       activityGeneratorDefinition,
       videoGeneratorDefinition,
+      videoAuthorDefinition,
       rewardAdvisorDefinition,
       englishPracticeDefinition,
     ];

@@ -207,7 +207,7 @@ export class QuickVideoService {
       contentId,
       params.childId,
       params.force || false,
-      params.renderEngine || 'dsh',
+      params.renderEngine || 'auto',
       true,
     );
 

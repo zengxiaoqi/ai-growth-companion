@@ -12,6 +12,7 @@ import { buildActionAnchors, summarizeActionAnchors } from './action-anchors';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
+import { buildSceneTimeline, type SceneTimelineEntry } from './visual-qa.service';
 
 export type ResolvedComposition = {
   compositionId: string;
@@ -155,6 +156,11 @@ const ACTIVITY_TYPE_LABELS: Record<string, string> = {
 export class RemotionRenderService implements OnModuleInit {
   private readonly logger = new Logger(RemotionRenderService.name);
   private readonly remotionDir = path.resolve(__dirname, '../../../../video-remotion');
+
+  /** agent-remotion 引擎预置任务目录 / renderStills 工具共用的项目根 */
+  get remotionProjectDir(): string {
+    return this.remotionDir;
+  }
 
   /**
    * Hard timeout for Remotion render processes (15 minutes).
@@ -1494,7 +1500,7 @@ export class RemotionRenderService implements OnModuleInit {
     manifest: DynamicRemotionManifest,
     outputPath: string,
     onProgress?: (percent: number) => void,
-  ): Promise<void> {
+  ): Promise<SceneTimelineEntry[]> {
     const taskName = `task-${task.id}-${Date.now()}`;
     const taskDir = path.join(this.remotionDir, '.generated', 'remotion-tasks', taskName);
     const publicTaskDir = path.join(
@@ -1558,10 +1564,72 @@ export class RemotionRenderService implements OnModuleInit {
         propsPath,
         onProgress,
       );
+      return buildSceneTimeline(Array.isArray(props.scenes) ? props.scenes : []);
     } catch (err) {
       if (preserveFailedDir) {
         this.logger.warn(
           `[renderGeneratedComposition] REMOTION_PRESERVE_FAILED_TASK_DIR=true — keeping task dir for debugging: ${taskDir}`,
+        );
+      }
+      throw err;
+    } finally {
+      if (!preserveFailedDir) {
+        await this.safeRemove(taskDir);
+        await this.safeRemove(publicTaskDir);
+      }
+    }
+  }
+
+  /**
+   * agent-remotion 引擎的全量渲染入口：任务目录已由创作服务预置并校验
+   * （contract/index/Root/props/GeneratedLesson + TTS），这里只跑与
+   * renderGeneratedComposition 相同的 tsc 兜底 + 渲染原语，不再重建 props。
+   */
+  async renderPreparedComposition(
+    taskDir: string,
+    compositionId: string,
+    outputPath: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<void> {
+    const preserveFailedDir = process.env.REMOTION_PRESERVE_FAILED_TASK_DIR === 'true';
+    const publicTaskDir = path.join(
+      this.remotionDir,
+      'public',
+      '.generated',
+      'remotion-tasks',
+      path.basename(taskDir),
+    );
+    const propsPath = path.join(taskDir, 'props.json');
+    const entryPath = path.join(taskDir, 'index.ts');
+
+    try {
+      const tsResult = await checkGeneratedFiles(taskDir, this.remotionDir);
+      if (!tsResult.passed) {
+        const { fixed, unfixed } = await autoFixErrors(tsResult.errors, taskDir);
+        this.logger.log(
+          `[renderPreparedComposition] auto-fixed ${fixed} TS errors, ${unfixed.length} unfixed`,
+        );
+        if (unfixed.length > 0) {
+          const recheck = await checkGeneratedFiles(taskDir, this.remotionDir);
+          if (!recheck.passed) {
+            throw new Error(
+              `authored Remotion TS check failed with ${recheck.errors.length} unfixable errors:\n${recheck.errors.map((e) => `${e.file}(${e.line},${e.col}): ${e.code}: ${e.message}`).join('\n')}`,
+            );
+          }
+        }
+      }
+
+      await this.runGeneratedRemotionRender(
+        entryPath,
+        compositionId,
+        outputPath,
+        propsPath,
+        onProgress,
+      );
+    } catch (err) {
+      if (preserveFailedDir) {
+        this.logger.warn(
+          `[renderPreparedComposition] REMOTION_PRESERVE_FAILED_TASK_DIR=true — keeping task dir for debugging: ${taskDir}`,
         );
       }
       throw err;
@@ -1699,7 +1767,8 @@ export class RemotionRenderService implements OnModuleInit {
     return props;
   }
 
-  private async tryGenerateNarrationAudio(
+  /** TTS + 时长 + 词边界。dynamic-remotion 与 agent-remotion 共用同一条配音路径。 */
+  async tryGenerateNarrationAudio(
     narration: string,
     label: string,
   ): Promise<{ buffer: Buffer; durationFrames: number; wordBoundaries: WordBoundary[] } | null> {

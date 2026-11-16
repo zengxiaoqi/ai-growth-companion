@@ -27,6 +27,8 @@ function createService(cfgMap: Record<string, string | undefined>) {
   // Set up the OpenAI client mock directly (onModuleInit is NOT called)
   const mockCreate = jest.fn();
   (svc as any).client = { chat: { completions: { create: mockCreate } } };
+  // onModuleInit normally releases the readiness gate; release it here too.
+  (svc as any).resolveReady();
   return { svc, mockCreate };
 }
 
@@ -36,6 +38,23 @@ function createService(cfgMap: Record<string, string | undefined>) {
 
 describe('LlmClientService — legacy path', () => {
   describe('chatCompletion()', () => {
+    it('blocks LLM calls until onModuleInit readiness resolves (startup race)', async () => {
+      const svc = new LlmClientService(makeConfigMap({}) as any);
+      const mockCreate = jest.fn().mockResolvedValue({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      });
+      (svc as any).client = { chat: { completions: { create: mockCreate } } };
+      // Do NOT release the gate yet: a call issued before init must not hit the SDK.
+      const pending = svc.chatCompletion([{ role: 'user', content: 'hi' }]);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(mockCreate).not.toHaveBeenCalled();
+      (svc as any).resolveReady();
+      const result = await pending;
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(result.content).toBe('ok');
+    });
+
     it('passes max_tokens override when provided', async () => {
       const { svc, mockCreate } = createService({});
       const messages: LlmMessage[] = [{ role: 'user', content: 'hello' }];

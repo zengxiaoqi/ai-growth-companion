@@ -20,7 +20,7 @@
 export const FIGURE_WIDTH = 1600;
 export const FIGURE_HEIGHT = 640;
 
-export const FIGURE_KINDS = ['arc', 'line', 'rect', 'circle', 'curve', 'polygon'] as const;
+export const FIGURE_KINDS = ['arc', 'line', 'rect', 'circle', 'curve', 'polygon', 'subjectIcon'] as const;
 
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 
@@ -43,6 +43,10 @@ export const FIGURE_PALETTE = [
 export const MAX_SHAPES = 48;
 export const MAX_LABELS = 6;
 export const MAX_LABEL_CHARS = 6;
+/** subjectIcon 的主体名上限：「小蝌蚪」「树根」这类具体名词，不是句子 */
+export const MAX_SUBJECT_CHARS = 8;
+export const MIN_ICON_SIZE = 48;
+export const MAX_ICON_SIZE = 480;
 export const MAX_COLORS = 12;
 /** 完全相同的图元最多几个——防止 LLM 循环刷同一条线充数 */
 export const MAX_IDENTICAL = 3;
@@ -103,7 +107,17 @@ export type FigureShape =
       stroke: string;
       width: number;
     }
-  | { kind: 'polygon'; points: string; fill: string; stroke?: string; strokeWidth?: number };
+  | { kind: 'polygon'; points: string; fill: string; stroke?: string; strokeWidth?: number }
+  | {
+      kind: 'subjectIcon';
+      /** 具体名词（≤8 字）。服务层按它查矢量库/生成素材，填进 iconSrc */
+      subject: string;
+      x: number;
+      y: number;
+      size: number;
+      /** 解析后的素材 public 相对路径；未解析到时渲染器画占位圆 */
+      iconSrc?: string;
+    };
 
 export type FigureGlyph = FigureShape & {
   /** 0..1，只表达先后；同一数值同时出现。渲染器负责映射到讲解进度 */
@@ -222,7 +236,9 @@ function normalizeShape(
 ): { shape: FigureShape; reveal: number } | null {
   if (!raw || typeof raw !== 'object') return null;
   const entry = raw as Record<string, unknown>;
-  const kind = cleanText(entry.kind || entry.type).toLowerCase();
+  const rawKind = cleanText(entry.kind || entry.type).toLowerCase();
+  // kind 统一小写比较，但 subjectIcon 保留驼峰（与渲染侧类型一致）
+  const kind = rawKind === 'subjecticon' ? 'subjectIcon' : rawKind;
   if (!KIND_SET.has(kind)) return null;
 
   const reveal = toNum(entry.reveal, 0, 0, 1);
@@ -312,6 +328,21 @@ function normalizeShape(
     };
   }
 
+  if (kind === 'subjectIcon') {
+    const subject = cleanText(entry.subject || entry.name).slice(0, MAX_SUBJECT_CHARS);
+    if (!subject) return null;
+    return {
+      shape: {
+        kind: 'subjectIcon',
+        subject,
+        x: inX(entry.x, FIGURE_WIDTH / 2),
+        y: inY(entry.y, FIGURE_HEIGHT / 2),
+        size: toNum(entry.size, 160, MIN_ICON_SIZE, MAX_ICON_SIZE),
+      },
+      reveal,
+    };
+  }
+
   const points = normalizePoints(entry.points);
   if (!points) return null;
   return { shape: { kind: 'polygon', points, fill }, reveal };
@@ -324,6 +355,11 @@ const pointAt = (cx: number, cy: number, r: number, deg: number) => {
 
 /** 图元的包围盒。弧和曲线用采样近似——只为几何校验服务，不参与渲染 */
 export function shapeBounds(shape: FigureShape): Bounds {
+  if (shape.kind === 'subjectIcon') {
+    const half = shape.size / 2;
+    return { x1: shape.x - half, y1: shape.y - half, x2: shape.x + half, y2: shape.y + half };
+  }
+
   if (shape.kind === 'line') {
     return {
       x1: Math.min(shape.x1, shape.x2),
@@ -477,6 +513,8 @@ function hasBackdrop(shape: FigureShape, index: number, shapes: FigureShape[]): 
  */
 function withReadableInk(shapes: FigureGlyph[]): FigureGlyph[] {
   return shapes.map((shape, index) => {
+    // 图标是素材图片，不是色块，没有"补轮廓"一说
+    if (shape.kind === 'subjectIcon') return shape;
     if (isFilled(shape)) {
       if (colorDistance(shape.fill, FIGURE_CANVAS_BG) >= MIN_VISIBLE_DELTA_E) return shape;
       // 横贯画面的色带不需要框：边界就是画布边界，加一圈描边像给地面画了个相框
@@ -562,7 +600,7 @@ function checkGeometry(spec: FigureSpec): FigureRejectReason | null {
 
   // 标签压在实心图形上读不出来。线条类不比，包围盒判断线条太粗会大量误伤
   const solid = spec.shapes
-    .filter((s) => s.kind === 'circle' || s.kind === 'rect' || s.kind === 'polygon')
+    .filter((s) => s.kind === 'circle' || s.kind === 'rect' || s.kind === 'polygon' || s.kind === 'subjectIcon')
     .map((s) => shapeBounds(s));
   for (const label of spec.labels || []) {
     const box = labelBounds(label);
@@ -572,7 +610,10 @@ function checkGeometry(spec: FigureSpec): FigureRejectReason | null {
   }
 
   const colors = new Set<string>();
-  spec.shapes.forEach((s) => colors.add('stroke' in s ? s.stroke : s.fill));
+  spec.shapes.forEach((s) => {
+    if (s.kind === 'subjectIcon') return;
+    colors.add('stroke' in s ? s.stroke : s.fill);
+  });
   (spec.labels || []).forEach((l) => colors.add(l.color || ''));
   colors.delete('');
   if (colors.size > MAX_COLORS) return 'too-many-colors';
@@ -642,7 +683,7 @@ export function describeFigureGrammar(): string {
     '有些知识本身就是一张图：彩虹是一道七色弧，太阳系是一圈圈轨道，凸透镜成像是两条光线交于像点。',
     '这类内容用"节点+标签"画不出来，请改用 figure：你直接给图元的坐标。',
     `画布固定 ${FIGURE_WIDTH}×${FIGURE_HEIGHT}，原点在左上角，中心在 (${FIGURE_WIDTH / 2}, ${FIGURE_HEIGHT / 2})。`,
-    '图元只能取六种，kind 字段区分：',
+    '图元只能取七种，kind 字段区分：',
     '- {"kind":"arc","cx":800,"cy":640,"r":490,"from":4,"to":176,"stroke":"#E5484D","width":34,"reveal":0}',
     '  弧。角度单位是度，0°在右、逆时针为正。画彩虹要让圆心落在画布底边之下(cy≥640)，弧才宽。',
     '- {"kind":"line","x1":330,"y1":150,"x2":800,"y2":150,"stroke":"#F76B15","width":4,"reveal":0}',
@@ -652,6 +693,9 @@ export function describeFigureGrammar(): string {
     '- {"kind":"circle","cx":800,"cy":285,"r":60,"fill":"#FFB020","reveal":0}  圆。天体、水滴、粒子、节点。',
     '- {"kind":"rect","x":200,"y":400,"w":1200,"h":80,"rx":12,"fill":"#8B9AA8","reveal":0}  矩形。地层、容器、格子。',
     '- {"kind":"polygon","points":"330,124 313,166 347,166","fill":"#E5484D","reveal":0}  多边形。箭头尖、山形、棱锥。',
+    '- {"kind":"subjectIcon","subject":"小蝌蚪","x":400,"y":460,"size":160,"reveal":0.5}  主体图标。',
+    '  图里需要"具体事物"时用（彩虹下的蝌蚪、大树旁的鸟）：给一个 ≤8 字的具体名词，',
+    '  系统自动找/生成该主体的插画贴在这里，找不到时画占位圆。不要用它代替几何图形本身。',
     '规则：',
     '- reveal 取 0~1，只表达"先画哪个"，同一数值同时出现。不用你管时长和动画。',
     '- 文字一律不要画。需要标位置时用 labels：[{"text":"水滴","x":250,"y":520}]，每个 ≤6 字，并且不要压在图形上。',

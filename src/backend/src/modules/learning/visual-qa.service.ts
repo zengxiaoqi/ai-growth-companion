@@ -27,6 +27,28 @@ export type SceneQaInput = {
   frames: string[];
 };
 
+/** 渲染后的真实场景时间轴（TTS 调整后的时长）。QA 抽帧必须用它而非分镜估算：
+ * 语音时长经常超出分镜 durationSec 的 4-18s 钳制，按估算抽帧会累计漂移，
+ * 把上一场景的画面评成下一场景的"图文不符"（首轮验收 task 11/13/15 实测）。 */
+export type SceneTimelineEntry = {
+  title?: string;
+  narration: string;
+  onScreenText?: string;
+  durationSec: number;
+};
+
+/** 从渲染 props 的场景数组提取真实时间轴（durationFrames 已是 TTS 调整后的值）。 */
+export function buildSceneTimeline(
+  scenes: Array<{ title?: unknown; narration?: unknown; onScreenText?: unknown; durationFrames?: unknown }>,
+): SceneTimelineEntry[] {
+  return (Array.isArray(scenes) ? scenes : []).map((s) => ({
+    title: s?.title ? String(s.title) : undefined,
+    narration: String(s?.narration || s?.title || ''),
+    onScreenText: s?.onScreenText ? String(s.onScreenText) : undefined,
+    durationSec: Math.max(1, (Number(s?.durationFrames) || 180) / 30),
+  }));
+}
+
 export type SceneQaResult = {
   sceneId: string;
   score: number;

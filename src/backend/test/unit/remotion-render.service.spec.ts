@@ -555,4 +555,79 @@ describe('RemotionRenderService', () => {
     }
     expect(scene.durationFrames).toBe(204);
   }, 60000);
+
+  it('writes action anchors for graph nodes whose label is spoken, and skips the rest', async () => {
+    const narration = '老虎身上有黑色条纹。';
+    const words = Array.from(narration).filter((ch) => ch !== '。');
+    const boundaries = words.map((ch, i) => ({
+      text: ch,
+      offset: Math.round(i * 0.15 * 1e7),
+      duration: Math.round(0.15 * 1e7),
+    }));
+
+    voiceService.textToSpeechWithTiming.mockResolvedValue({
+      buffer: Buffer.alloc(30000),
+      wordBoundaries: boundaries,
+      durationMs: 6000,
+    });
+
+    let renderedProps: any = null;
+    jest
+      .spyOn(service as any, 'runGeneratedRemotionRender')
+      .mockImplementation(
+        async (
+          _entryPath: string,
+          _compositionId: string,
+          _outputPath: string,
+          propsPath: string,
+        ) => {
+          renderedProps = JSON.parse(await fs.readFile(propsPath, 'utf-8'));
+        },
+      );
+
+    await service.renderGeneratedComposition(
+      { id: 81, cacheKey: 'cache-key-anchors' } as any,
+      {
+        compositionId: 'GeneratedLesson_tiger_anchor',
+        files: [
+          { path: 'index.ts', content: 'export {};' },
+          { path: 'Root.tsx', content: 'export {};' },
+          { path: 'GeneratedLesson.tsx', content: 'export {};' },
+        ],
+        props: {
+          title: '认识动物老虎',
+          durationFrames: 180,
+          scenes: [
+            {
+              id: 'scene-1',
+              title: '老虎条纹',
+              narration,
+              durationFrames: 180,
+              // 森林是旁白里没有的词：不该拿到锚点，必须回退 storyProgress
+              sceneGraph: {
+                relation: 'chain',
+                nodes: [
+                  { id: 'n-tiger', label: '老虎', subject: '老虎' },
+                  { id: 'n-forest', label: '森林', subject: '森林' },
+                ],
+                flows: [],
+              },
+            },
+          ],
+        },
+        assets: [],
+        durationFrames: 180,
+        sceneAssetSummary: [{ title: '老虎条纹', generatedVisual: 'tiger-showFeatures-forest-stripe' }],
+      },
+      path.join(os.tmpdir(), 'dynamic-remotion-anchors.mp4'),
+    );
+
+    const scene = renderedProps.scenes[0];
+    expect(scene.actionAnchors).toBeDefined();
+    expect(Object.keys(scene.actionAnchors)).toEqual(['n-tiger']);
+    const window = scene.actionAnchors['n-tiger'];
+    expect(window.start).toBeGreaterThanOrEqual(0);
+    expect(window.end).toBeLessThanOrEqual(scene.durationFrames);
+    expect(window.end).toBeGreaterThan(window.start);
+  }, 60000);
 });

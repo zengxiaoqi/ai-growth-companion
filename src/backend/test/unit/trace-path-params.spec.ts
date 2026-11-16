@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   TRACE_PATH_LIMITS,
   collectTracePathBodyText,
@@ -95,7 +92,12 @@ describe('trace_path parameter contract', () => {
 
     it('defaults the label to the glyph text and clamps minCoverage', () => {
       const activity = sanitizeTracePathParams(
-        makeValidRaw({ targets: [{ id: 'g1', text: '山' }, { id: 'g2', text: '3' }] }),
+        makeValidRaw({
+          targets: [
+            { id: 'g1', text: '山' },
+            { id: 'g2', text: '3' },
+          ],
+        }),
         ctx,
       );
       expect(activity.targets[0].label).toBe('山');
@@ -150,7 +152,10 @@ describe('trace_path parameter contract', () => {
     it('rejects polyline targets loudly (LLM generation is glyph-only)', () => {
       const raw = makeValidRaw();
       raw.targets[0].kind = 'polyline';
-      raw.targets[0].points = [{ x: 10, y: 10 }, { x: 200, y: 200 }];
+      raw.targets[0].points = [
+        { x: 10, y: 10 },
+        { x: 200, y: 200 },
+      ];
       expect(() => sanitizeTracePathParams(raw, ctx)).toThrow(/only accepts glyph/);
     });
 
@@ -237,9 +242,9 @@ describe('trace_path parameter contract', () => {
 
     it('collectTracePathBodyText is a no-op for legacy activity types', () => {
       expect(collectTracePathBodyText(null)).toBe('');
-      expect(
-        collectTracePathBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] }),
-      ).toBe('');
+      expect(collectTracePathBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] })).toBe(
+        '',
+      );
       expect(collectTracePathBodyText(makeValidRaw())).toContain('火');
     });
   });
@@ -266,9 +271,7 @@ describe('trace_path whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

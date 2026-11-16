@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   PATTERN_NEXT_LIMITS,
   collectPatternNextBodyText,
@@ -177,9 +174,9 @@ describe('pattern_next parameter contract', () => {
 
     it('collectPatternNextBodyText is a no-op for legacy activity types', () => {
       expect(collectPatternNextBodyText(null)).toBe('');
-      expect(
-        collectPatternNextBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] }),
-      ).toBe('');
+      expect(collectPatternNextBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] })).toBe(
+        '',
+      );
       expect(collectPatternNextBodyText(makeValidRaw())).toContain('苹果');
     });
   });
@@ -205,9 +202,7 @@ describe('pattern_next whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

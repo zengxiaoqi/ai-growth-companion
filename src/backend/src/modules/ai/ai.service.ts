@@ -260,7 +260,15 @@ export class AiService {
 
   /** Streaming chat — yields tokens via AsyncGenerator */
   async *chatStream(params: ChatRequest): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
+    type:
+      | 'thinking'
+      | 'token'
+      | 'done'
+      | 'error'
+      | 'tool_start'
+      | 'tool_result'
+      | 'game_data'
+      | 'music_data';
     content?: string;
     thinkingContent?: string;
     toolName?: string;
@@ -548,7 +556,13 @@ export class AiService {
     bookTitle?: string;
     careTopic?: string;
     mode?: 'default' | 'casual';
-  }): Promise<{ reply: string; toolCalls: any[]; wasFiltered?: boolean; gameData?: unknown; musicData?: unknown }> {
+  }): Promise<{
+    reply: string;
+    toolCalls: any[];
+    wasFiltered?: boolean;
+    gameData?: unknown;
+    musicData?: unknown;
+  }> {
     if (this.frameworkOrchestrator) {
       const casualTools =
         params.mode === 'casual'
@@ -598,7 +612,15 @@ export class AiService {
     careTopic?: string;
     mode?: 'default' | 'casual';
   }): AsyncGenerator<{
-    type: 'thinking' | 'token' | 'done' | 'error' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
+    type:
+      | 'thinking'
+      | 'token'
+      | 'done'
+      | 'error'
+      | 'tool_start'
+      | 'tool_result'
+      | 'game_data'
+      | 'music_data';
     content?: string;
     thinkingContent?: string;
     toolName?: string;

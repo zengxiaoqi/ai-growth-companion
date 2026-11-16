@@ -413,9 +413,13 @@ export class OrchestratorService implements OnApplicationBootstrap {
           '- 孩子想听歌时（"我想听小星星""放首歌"），调用 playMusic（传入歌名），成功后只用一句话回应，比如"给你放《小星星》啦～"。歌曲卡片会自动出现并播放，不要念链接或列表。',
         );
       }
-      const others = tools.filter((t) => t !== 'translate' && t !== 'playStory' && t !== 'playMusic');
+      const others = tools.filter(
+        (t) => t !== 'translate' && t !== 'playStory' && t !== 'playMusic',
+      );
       if (others.length > 0) {
-        lines.push(`- 需要时也可以调用这些工具：${others.join('、')}，调用后把结果用口语讲给孩子听。`);
+        lines.push(
+          `- 需要时也可以调用这些工具：${others.join('、')}，调用后把结果用口语讲给孩子听。`,
+        );
       }
       lines.push('');
     }
@@ -424,7 +428,9 @@ export class OrchestratorService implements OnApplicationBootstrap {
       '禁止事项：',
       '- 不要出题、讲课、安排任务、生成课程/练习/游戏/视频，也不要提学习计划。',
       '- 不要用列表、标题、加粗、代码块等任何格式，只输出纯文本短句。',
-      hasTools ? '- 除了讲故事，不要一次把话说完，不要长篇大论。' : '- 不要一次把话说完，不要长篇大论。',
+      hasTools
+        ? '- 除了讲故事，不要一次把话说完，不要长篇大论。'
+        : '- 不要一次把话说完，不要长篇大论。',
       '- 不要说"作为AI""我能帮您"这类客服腔。',
     );
 

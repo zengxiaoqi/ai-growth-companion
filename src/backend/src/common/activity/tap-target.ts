@@ -148,51 +148,48 @@ export interface TapTargetContext {
  * Throws with a human-readable reason so the tool's existing 3-attempt
  * reflection loop can feed the failure back to the model.
  */
-export function sanitizeTapTargetParams(
-  raw: any,
-  ctx: TapTargetContext,
-): TapTargetActivity {
+export function sanitizeTapTargetParams(raw: any, ctx: TapTargetContext): TapTargetActivity {
   const rawRounds = Array.isArray(raw?.rounds) ? raw.rounds : [];
   const usedRoundIds = new Set<string>();
   const rounds: TapTargetRound[] = [];
 
-  for (
-    let i = 0;
-    i < rawRounds.length && rounds.length < TAP_TARGET_LIMITS.maxRounds;
-    i++
-  ) {
+  for (let i = 0; i < rawRounds.length && rounds.length < TAP_TARGET_LIMITS.maxRounds; i++) {
     const entry = rawRounds[i];
-    const prompt = safeText(entry?.prompt, `rounds[${i}].prompt`, TAP_TARGET_LIMITS.maxPromptLength);
+    const prompt = safeText(
+      entry?.prompt,
+      `rounds[${i}].prompt`,
+      TAP_TARGET_LIMITS.maxPromptLength,
+    );
     if (!prompt) continue;
 
     const rawTargets = Array.isArray(entry?.targets) ? entry.targets : [];
     const usedTargetIds = new Set<string>();
     const usedLabels = new Set<string>();
     const targets: TapTargetItem[] = [];
-    for (
-      let t = 0;
-      t < rawTargets.length && targets.length < TAP_TARGET_LIMITS.maxTargets;
-      t++
-    ) {
+    for (let t = 0; t < rawTargets.length && targets.length < TAP_TARGET_LIMITS.maxTargets; t++) {
       const item = rawTargets[t];
-      const label = safeText(item?.label, `rounds[${i}].targets[${t}].label`, TAP_TARGET_LIMITS.maxLabelLength);
+      const label = safeText(
+        item?.label,
+        `rounds[${i}].targets[${t}].label`,
+        TAP_TARGET_LIMITS.maxLabelLength,
+      );
       if (!label) continue;
       // Duplicate labels within a round would make the instruction ambiguous.
       if (usedLabels.has(label)) {
-        throw new Error(
-          `rounds[${i}].targets[${t}] duplicates an existing target label: ${label}`,
-        );
+        throw new Error(`rounds[${i}].targets[${t}] duplicates an existing target label: ${label}`);
       }
       usedLabels.add(label);
-      const icon = safeText(item?.icon, `rounds[${i}].targets[${t}].icon`, TAP_TARGET_LIMITS.maxIconLength);
+      const icon = safeText(
+        item?.icon,
+        `rounds[${i}].targets[${t}].icon`,
+        TAP_TARGET_LIMITS.maxIconLength,
+      );
       const id = uniqueId(safeId(item?.id, `t${i + 1}_${t + 1}`), usedTargetIds);
       targets.push(icon ? { id, label, icon } : { id, label });
     }
 
     if (targets.length < TAP_TARGET_LIMITS.minTargets) {
-      throw new Error(
-        `rounds[${i}] needs at least ${TAP_TARGET_LIMITS.minTargets} valid targets`,
-      );
+      throw new Error(`rounds[${i}] needs at least ${TAP_TARGET_LIMITS.minTargets} valid targets`);
     }
 
     const rawCorrect = Array.isArray(entry?.correctIds) ? entry.correctIds : [];
@@ -227,9 +224,7 @@ export function sanitizeTapTargetParams(
   }
 
   if (rounds.length < TAP_TARGET_LIMITS.minRounds) {
-    throw new Error(
-      `tap_target needs at least ${TAP_TARGET_LIMITS.minRounds} valid rounds`,
-    );
+    throw new Error(`tap_target needs at least ${TAP_TARGET_LIMITS.minRounds} valid rounds`);
   }
 
   const title = safeText(
@@ -246,12 +241,16 @@ export function sanitizeTapTargetParams(
     ageGroup: toText(ctx.ageGroup),
     rounds,
     passingScore: clamp(
-      Number.isFinite(Number(raw?.passingScore)) ? Math.trunc(Number(raw?.passingScore)) : TAP_TARGET_LIMITS.defaultPassingScore,
+      Number.isFinite(Number(raw?.passingScore))
+        ? Math.trunc(Number(raw?.passingScore))
+        : TAP_TARGET_LIMITS.defaultPassingScore,
       0,
       100,
     ),
     timeLimitSec: clamp(
-      Number.isFinite(Number(raw?.timeLimitSec)) ? Math.trunc(Number(raw?.timeLimitSec)) : TAP_TARGET_LIMITS.defaultTimeLimitSec,
+      Number.isFinite(Number(raw?.timeLimitSec))
+        ? Math.trunc(Number(raw?.timeLimitSec))
+        : TAP_TARGET_LIMITS.defaultTimeLimitSec,
       TAP_TARGET_LIMITS.minTimeLimitSec,
       TAP_TARGET_LIMITS.maxTimeLimitSec,
     ),
@@ -335,7 +334,10 @@ export function validateTapTargetParams(value: unknown): TapTargetValidation {
         return { ok: false, reason: `duplicate target label ${target.label}` };
       }
       labels.add(target.label);
-      if (target.icon && (!isSafeParamText(target.icon) || charLength(target.icon) > TAP_TARGET_LIMITS.maxIconLength)) {
+      if (
+        target.icon &&
+        (!isSafeParamText(target.icon) || charLength(target.icon) > TAP_TARGET_LIMITS.maxIconLength)
+      ) {
         return { ok: false, reason: `unsafe target icon ${target.id}` };
       }
     }

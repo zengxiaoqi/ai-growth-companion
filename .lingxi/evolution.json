@@ -1,28 +1,29 @@
 {
   "last_analysis": "2026-11-16",
-  "analysis_count": 174,
-  "commit_count": 777,
-  "last_commit": "2026-11-16T03:00:00+08:00",
-  "remote_head": "52495cd",
+  "analysis_count": 175,
+  "commit_count": 778,
+  "last_commit": "2026-11-16T12:45:00+08:00",
+  "remote_head": "7da25e0",
   "commits_ahead_remote": 0,
-  "uncommitted_files": ["src/frontend/pubspec.lock"],
+  "uncommitted_files": [],
   "stale_days": 0,
   "capabilities": {
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 99,
-    "code_quality": 98
+    "code_quality": 99
   },
   "active_plans": [],
   "completed_actions": [
     "2026-11-11: Daily evolution analysis #172 — All systems healthy. No new commits since Nov 10.",
-    "2026-11-16: Daily evolution analysis #174 — 15 new commits since Nov 11. Games P1 Plan B fully landed (6 parameterized activity types dual-end). Voice TTS markdown stripping fix. Music bridge integration. PlayMusic AI tool. Per-activity process details in parent reports. Casual chat tool configuration. Flutter Web rebuilt and deployed v1787475201. All builds passing. Deploy verified HTTPS 200."
+    "2026-11-16: Daily evolution analysis #174 — 15 new commits since Nov 11. Games P1 Plan B fully landed (6 parameterized activity types dual-end). Voice TTS markdown stripping fix. Music bridge integration. PlayMusic AI tool. Per-activity process details in parent reports. Casual chat tool configuration. Flutter Web rebuilt and deployed v1787475201. All builds passing. Deploy verified HTTPS 200.",
+    "2026-11-16: Autonomous evaluation #175 — Fixed 81 prettier lint errors in backend source and test files. Build clean, 114 unit tests passing for voice/ai modules. No stale Flutter builds. pubspec.lock committed as c7bc6c0."
   ],
   "lessons_learned": [
-    "Games P1 Plan B implementation completed as batch of 6 parameterized activity types — each committed separately but functionally complete together.",
     "pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
-    "Flutter build freshness check must account for post-build-web.sh cleaning old version files — keep latest 2 versions only."
+    "Flutter build freshness check must account for post-build-web.sh cleaning old version files — keep latest 2 versions only.",
+    "Prettier formatting should be run proactively after any commit that touches TS files — 81 errors accumulated from multi-commit style drift."
   ],
   "metrics": {
     "backend_files": 193,
@@ -30,6 +31,6 @@
     "flutter_files": 63,
     "web_files": 97,
     "content_files": 46,
-    "total_lines": 12150
+    "total_lines": 12200
   }
 }

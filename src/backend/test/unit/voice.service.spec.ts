@@ -211,9 +211,7 @@ describe('VoiceService', () => {
     });
 
     it('drops table separator rows and pipes', () => {
-      expect(sanitize('| 名字 | 分数 |\n| --- | --- |\n| 小明 | 5 |')).toBe(
-        '名字 分数\n小明 5',
-      );
+      expect(sanitize('| 名字 | 分数 |\n| --- | --- |\n| 小明 | 5 |')).toBe('名字 分数\n小明 5');
     });
 
     it('keeps multiplication stars intact', () => {

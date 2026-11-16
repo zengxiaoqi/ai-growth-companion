@@ -22,9 +22,10 @@ const audius: MusicSource = {
   note: '独立音乐平台公开 API，完整曲目',
 
   async search(query, limit, config: MusicConfig): Promise<SourceTrack[]> {
-    const url = `${config.audiusHost}/v1/tracks/search`
-      + `?query=${encodeURIComponent(query)}&limit=${limit}`
-      + `&app_name=${encodeURIComponent(config.audiusAppName)}`;
+    const url =
+      `${config.audiusHost}/v1/tracks/search` +
+      `?query=${encodeURIComponent(query)}&limit=${limit}` +
+      `&app_name=${encodeURIComponent(config.audiusAppName)}`;
     const payload = await getJson(url, { timeoutMs: config.sourceTimeoutMs });
     const list = Array.isArray(payload?.data) ? payload.data : [];
     const rows: SourceTrack[] = [];
@@ -43,9 +44,10 @@ const audius: MusicSource = {
         id,
         title,
         artist,
-        duration: Number.isFinite(seconds) && seconds > 0 && seconds < 86400
-          ? Math.floor(seconds)
-          : undefined,
+        duration:
+          Number.isFinite(seconds) && seconds > 0 && seconds < 86400
+            ? Math.floor(seconds)
+            : undefined,
       });
       if (rows.length >= limit) break;
     }
@@ -58,8 +60,9 @@ const audius: MusicSource = {
       throw new MusicError('no_media_source', 'audius');
     }
     return {
-      url: `${config.audiusHost}/v1/tracks/${encodeURIComponent(id)}/stream`
-        + `?app_name=${encodeURIComponent(config.audiusAppName)}`,
+      url:
+        `${config.audiusHost}/v1/tracks/${encodeURIComponent(id)}/stream` +
+        `?app_name=${encodeURIComponent(config.audiusAppName)}`,
     };
   },
 };

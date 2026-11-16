@@ -87,7 +87,11 @@ function cleanText(value: unknown, max: number): string {
     return String(value).slice(0, max);
   }
   if (typeof value !== 'string') return '';
-  return value.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  return value
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
 }
 
 function toDuration(item: TrackItem): number | null {
@@ -100,7 +104,9 @@ function toDuration(item: TrackItem): number | null {
 
 /** Letters+digits only; for deciding whether two rows are the same song. */
 function normText(value: unknown): string {
-  return String(value || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
 /** Containment either way counts as the same artist (Pinkfong ⊂ 碰碰狐PINKFONG). */
@@ -152,7 +158,8 @@ function matchesQuery(title: string, artist: string, query: string): boolean {
   if (!q) return true;
   const haystack = `${normText(title)}|${normText(artist)}`;
   if (haystack.includes(q)) return true;
-  const tokens = String(query).toLowerCase()
+  const tokens = String(query)
+    .toLowerCase()
     .split(/[\s,，、/|&+]+/)
     .map(normText)
     .filter((token) => token.length >= 2);

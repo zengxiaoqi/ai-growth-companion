@@ -702,7 +702,9 @@ describe('AgentExecutorService runLoopStream', () => {
     };
 
     it('emits music_data from the musicData side channel, keeping URLs out of tool_result', async () => {
-      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '小星星' }));
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        toolCallResponse('playMusic', { query: '小星星' }),
+      );
       toolRegistry.execute.mockResolvedValueOnce({
         success: true,
         data: { count: 1, tracks: [{ title: '小星星', artist: '儿歌', duration_s: 74 }] },
@@ -724,7 +726,9 @@ describe('AgentExecutorService runLoopStream', () => {
     });
 
     it('does not emit music_data when the tool failed', async () => {
-      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '不存在' }));
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        toolCallResponse('playMusic', { query: '不存在' }),
+      );
       toolRegistry.execute.mockResolvedValueOnce({
         success: false,
         error: '没有找到相关的歌曲',
@@ -740,7 +744,9 @@ describe('AgentExecutorService runLoopStream', () => {
     });
 
     it('runLoop carries musicData on the execution result', async () => {
-      llmClient.chatCompletion.mockResolvedValueOnce(toolCallResponse('playMusic', { query: '小星星' }));
+      llmClient.chatCompletion.mockResolvedValueOnce(
+        toolCallResponse('playMusic', { query: '小星星' }),
+      );
       toolRegistry.execute.mockResolvedValueOnce({
         success: true,
         data: { count: 1, tracks: [{ title: '小星星', artist: '儿歌', duration_s: 74 }] },

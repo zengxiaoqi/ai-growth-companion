@@ -8,7 +8,11 @@ import * as http from 'http';
 import { AddressInfo } from 'net';
 import { ConfigService } from '@nestjs/config';
 import { loadMusicConfig, MusicConfig } from '../../src/modules/music/music.config';
-import { sanitizeRange, streamUpstream, streamWithFallback } from '../../src/modules/music/upstream';
+import {
+  sanitizeRange,
+  streamUpstream,
+  streamWithFallback,
+} from '../../src/modules/music/upstream';
 import { TrackCandidate } from '../../src/modules/music/tracks';
 
 const AUDIO = Buffer.from('FAILOVER-AUDIO-BYTES-0123456789');
@@ -33,7 +37,12 @@ function makeConfig(overrides: Partial<MusicConfig> = {}): MusicConfig {
 }
 
 function candidate(provider: string): TrackCandidate {
-  return { provider, item: { id: provider, title: '兜底', artist: 'x' }, full: true, duration: null };
+  return {
+    provider,
+    item: { id: provider, title: '兜底', artist: 'x' },
+    full: true,
+    duration: null,
+  };
 }
 
 /** Serve streamWithFallback over real HTTP so headersSent semantics are real. */
@@ -112,13 +121,18 @@ describe('upstream failover (offline fake)', () => {
   });
 
   it('single dead source → honest 502 with a fixed error code', async () => {
-    await withEndpoint(config, [candidate('dead')], async () => ({ url: `${upstreamBase}/dead/x` }), async (base) => {
-      const response = await fetch(base);
-      expect(response.status).toBe(502);
-      const body = await response.json();
-      expect(body.error).toBe('upstream_unavailable');
-      expect(JSON.stringify(body)).not.toContain(upstreamBase);
-    });
+    await withEndpoint(
+      config,
+      [candidate('dead')],
+      async () => ({ url: `${upstreamBase}/dead/x` }),
+      async (base) => {
+        const response = await fetch(base);
+        expect(response.status).toBe(502);
+        const body = await response.json();
+        expect(body.error).toBe('upstream_unavailable');
+        expect(JSON.stringify(body)).not.toContain(upstreamBase);
+      },
+    );
   });
 
   it('dead then good source → 200 with real audio bytes', async () => {
@@ -147,11 +161,16 @@ describe('upstream failover (offline fake)', () => {
   });
 
   it('m3u8 playlist is detected before headers and switched away', async () => {
-    await withEndpoint(config, [candidate('hls')], async () => ({ url: `${upstreamBase}/hls/x` }), async (base) => {
-      const response = await fetch(base);
-      expect(response.status).toBe(502);
-      expect((await response.json()).error).toBe('upstream_unavailable');
-    });
+    await withEndpoint(
+      config,
+      [candidate('hls')],
+      async () => ({ url: `${upstreamBase}/hls/x` }),
+      async (base) => {
+        const response = await fetch(base);
+        expect(response.status).toBe(502);
+        expect((await response.json()).error).toBe('upstream_unavailable');
+      },
+    );
     await withEndpoint(
       config,
       [candidate('hls'), candidate('good')],
@@ -165,9 +184,14 @@ describe('upstream failover (offline fake)', () => {
   });
 
   it('redirect loops hit the hop limit instead of spinning', async () => {
-    await withEndpoint(config, [candidate('loop')], async () => ({ url: `${upstreamBase}/loop/x` }), async (base) => {
-      expect((await fetch(base)).status).toBe(502);
-    });
+    await withEndpoint(
+      config,
+      [candidate('loop')],
+      async () => ({ url: `${upstreamBase}/loop/x` }),
+      async (base) => {
+        expect((await fetch(base)).status).toBe(502);
+      },
+    );
   });
 });
 
@@ -206,29 +230,44 @@ describe('Range passthrough', () => {
   });
 
   it('forwards Range and passes 206 + Content-Range through', async () => {
-    await withEndpoint(config, [candidate('good')], async () => ({ url: `${upstreamBase}/supports/x` }), async (base) => {
-      const response = await fetch(base, { headers: { range: 'bytes=5-14' } });
-      expect(response.status).toBe(206);
-      expect(response.headers.get('content-range')).toBe(`bytes 5-14/${AUDIO.length}`);
-      expect(response.headers.get('accept-ranges')).toBe('bytes');
-      expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO.slice(5, 15));
-    });
+    await withEndpoint(
+      config,
+      [candidate('good')],
+      async () => ({ url: `${upstreamBase}/supports/x` }),
+      async (base) => {
+        const response = await fetch(base, { headers: { range: 'bytes=5-14' } });
+        expect(response.status).toBe(206);
+        expect(response.headers.get('content-range')).toBe(`bytes 5-14/${AUDIO.length}`);
+        expect(response.headers.get('accept-ranges')).toBe('bytes');
+        expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO.slice(5, 15));
+      },
+    );
   });
 
   it('open-ended range gets the tail', async () => {
-    await withEndpoint(config, [candidate('good')], async () => ({ url: `${upstreamBase}/supports/x` }), async (base) => {
-      const response = await fetch(base, { headers: { range: 'bytes=10-' } });
-      expect(response.status).toBe(206);
-      expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO.slice(10));
-    });
+    await withEndpoint(
+      config,
+      [candidate('good')],
+      async () => ({ url: `${upstreamBase}/supports/x` }),
+      async (base) => {
+        const response = await fetch(base, { headers: { range: 'bytes=10-' } });
+        expect(response.status).toBe(206);
+        expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO.slice(10));
+      },
+    );
   });
 
   it('upstream ignoring Range still yields a playable 200 full body', async () => {
-    await withEndpoint(config, [candidate('good')], async () => ({ url: `${upstreamBase}/ignores/x` }), async (base) => {
-      const response = await fetch(base, { headers: { range: 'bytes=5-14' } });
-      expect(response.status).toBe(200);
-      expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO);
-    });
+    await withEndpoint(
+      config,
+      [candidate('good')],
+      async () => ({ url: `${upstreamBase}/ignores/x` }),
+      async (base) => {
+        const response = await fetch(base, { headers: { range: 'bytes=5-14' } });
+        expect(response.status).toBe(200);
+        expect(Buffer.from(await response.arrayBuffer())).toEqual(AUDIO);
+      },
+    );
   });
 
   it('sanitizeRange only accepts well-formed single ranges', () => {
@@ -246,29 +285,33 @@ describe('SSRF discipline', () => {
   it('blocks private IP literals by default', async () => {
     const config = makeConfig({ allowPrivateUpstream: false });
     const res = new http.ServerResponse({ method: 'GET' } as any);
-    await expect(streamUpstream({ url: 'http://127.0.0.1:9/x.mp3' }, res, config))
-      .rejects.toMatchObject({ code: 'upstream_blocked' });
+    await expect(
+      streamUpstream({ url: 'http://127.0.0.1:9/x.mp3' }, res, config),
+    ).rejects.toMatchObject({ code: 'upstream_blocked' });
   });
 
   it('blocks hostnames resolving to private addresses (DNS rebinding guard)', async () => {
     const config = makeConfig({ allowPrivateUpstream: false });
     const res = new http.ServerResponse({ method: 'GET' } as any);
-    await expect(streamUpstream({ url: 'http://localhost:9/x.mp3' }, res, config))
-      .rejects.toMatchObject({ code: 'upstream_blocked' });
+    await expect(
+      streamUpstream({ url: 'http://localhost:9/x.mp3' }, res, config),
+    ).rejects.toMatchObject({ code: 'upstream_blocked' });
   });
 
   it('blocks http upstream unless explicitly allowed', async () => {
     const config = makeConfig({ allowHttpUpstream: false });
     const res = new http.ServerResponse({ method: 'GET' } as any);
-    await expect(streamUpstream({ url: 'http://example.com/x.mp3' }, res, config))
-      .rejects.toMatchObject({ code: 'upstream_blocked' });
+    await expect(
+      streamUpstream({ url: 'http://example.com/x.mp3' }, res, config),
+    ).rejects.toMatchObject({ code: 'upstream_blocked' });
   });
 
   it('blocks non-http schemes', async () => {
     const config = makeConfig();
     const res = new http.ServerResponse({ method: 'GET' } as any);
-    await expect(streamUpstream({ url: 'file:///etc/passwd' }, res, config))
-      .rejects.toMatchObject({ code: 'upstream_blocked' });
+    await expect(streamUpstream({ url: 'file:///etc/passwd' }, res, config)).rejects.toMatchObject({
+      code: 'upstream_blocked',
+    });
   });
 
   it('converts URL-embedded credentials into an Authorization header', async () => {
@@ -283,7 +326,10 @@ describe('SSRF discipline', () => {
     const chunks: Buffer[] = [];
     const res = new http.ServerResponse({ method: 'GET' } as any);
     // Capture writes without a real socket.
-    (res as any).write = (chunk: Buffer) => { chunks.push(chunk); return true; };
+    (res as any).write = (chunk: Buffer) => {
+      chunks.push(chunk);
+      return true;
+    };
     (res as any).end = () => {};
     (res as any).writeHead = () => {};
     try {

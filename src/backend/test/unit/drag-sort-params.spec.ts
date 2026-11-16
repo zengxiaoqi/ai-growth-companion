@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   DRAG_SORT_LIMITS,
   collectDragSortBodyText,
@@ -139,12 +136,7 @@ describe('drag_sort parameter contract', () => {
     });
 
     it('rejects script/HTML/URL content in any text field', () => {
-      const unsafe = [
-        'buckets[0].label',
-        'items[0].label',
-        'title',
-        'prompt',
-      ] as const;
+      const unsafe = ['buckets[0].label', 'items[0].label', 'title', 'prompt'] as const;
       for (const field of unsafe) {
         const raw = makeValidRaw();
         if (field === 'buckets[0].label') raw.buckets[0].label = '<script>alert(1)</script>';
@@ -232,9 +224,7 @@ describe('drag_sort whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

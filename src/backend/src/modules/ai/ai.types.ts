@@ -68,7 +68,15 @@ export interface QuizResponse {
 }
 
 export interface StreamEvent {
-  type: 'token' | 'done' | 'error' | 'thinking' | 'tool_start' | 'tool_result' | 'game_data' | 'music_data';
+  type:
+    | 'token'
+    | 'done'
+    | 'error'
+    | 'thinking'
+    | 'tool_start'
+    | 'tool_result'
+    | 'game_data'
+    | 'music_data';
   content?: string;
   sessionId?: string;
   wasFiltered?: boolean;

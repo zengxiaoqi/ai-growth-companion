@@ -159,20 +159,13 @@ export interface TracePathContext {
  * Throws with a human-readable reason so the tool's existing 3-attempt
  * reflection loop can feed the failure back to the model.
  */
-export function sanitizeTracePathParams(
-  raw: any,
-  ctx: TracePathContext,
-): TracePathActivity {
+export function sanitizeTracePathParams(raw: any, ctx: TracePathContext): TracePathActivity {
   const rawTargets = Array.isArray(raw?.targets) ? raw.targets : [];
   const usedIds = new Set<string>();
   const usedTexts = new Set<string>();
   const targets: TracePathTarget[] = [];
 
-  for (
-    let i = 0;
-    i < rawTargets.length && targets.length < TRACE_PATH_LIMITS.maxTargets;
-    i++
-  ) {
+  for (let i = 0; i < rawTargets.length && targets.length < TRACE_PATH_LIMITS.maxTargets; i++) {
     const entry = rawTargets[i];
     // The polyline mode is for hand-made course content only; coordinates from
     // an LLM cannot be validated for shape correctness, so refuse loudly.
@@ -193,7 +186,12 @@ export function sanitizeTracePathParams(
       throw new Error(`targets[${i}] duplicates glyph text: ${text}`);
     }
     usedTexts.add(text);
-    const label = safeText(entry?.label, `targets[${i}].label`, TRACE_PATH_LIMITS.maxLabelLength, text);
+    const label = safeText(
+      entry?.label,
+      `targets[${i}].label`,
+      TRACE_PATH_LIMITS.maxLabelLength,
+      text,
+    );
     const id = uniqueId(safeId(entry?.id, `g${i + 1}`), usedIds);
     targets.push({ id, kind: 'glyph', text, label });
   }
@@ -210,12 +208,7 @@ export function sanitizeTracePathParams(
       ? clamp(rawCoverage, TRACE_PATH_LIMITS.minCoverage, TRACE_PATH_LIMITS.maxCoverage)
       : TRACE_PATH_LIMITS.defaultCoverage;
 
-  const title = safeText(
-    raw?.title,
-    'title',
-    TRACE_PATH_LIMITS.maxTitleLength,
-    `${ctx.topic}描红`,
-  );
+  const title = safeText(raw?.title, 'title', TRACE_PATH_LIMITS.maxTitleLength, `${ctx.topic}描红`);
   const prompt = safeText(raw?.prompt, 'prompt', TRACE_PATH_LIMITS.maxPromptLength);
 
   const activity: TracePathActivity = {
@@ -226,12 +219,16 @@ export function sanitizeTracePathParams(
     targets,
     minCoverage: Math.round(minCoverage * 100) / 100,
     passingScore: clamp(
-      Number.isFinite(Number(raw?.passingScore)) ? Math.trunc(Number(raw?.passingScore)) : TRACE_PATH_LIMITS.defaultPassingScore,
+      Number.isFinite(Number(raw?.passingScore))
+        ? Math.trunc(Number(raw?.passingScore))
+        : TRACE_PATH_LIMITS.defaultPassingScore,
       0,
       100,
     ),
     timeLimitSec: clamp(
-      Number.isFinite(Number(raw?.timeLimitSec)) ? Math.trunc(Number(raw?.timeLimitSec)) : TRACE_PATH_LIMITS.defaultTimeLimitSec,
+      Number.isFinite(Number(raw?.timeLimitSec))
+        ? Math.trunc(Number(raw?.timeLimitSec))
+        : TRACE_PATH_LIMITS.defaultTimeLimitSec,
       TRACE_PATH_LIMITS.minTimeLimitSec,
       TRACE_PATH_LIMITS.maxTimeLimitSec,
     ),

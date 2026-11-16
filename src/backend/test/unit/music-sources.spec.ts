@@ -52,8 +52,12 @@ function makeFakeSources() {
         resultCount: 3,
         results: [
           {
-            wrapperType: 'track', kind: 'song', trackId: 11, trackName: '小星星',
-            artistName: '儿歌测试', previewUrl: `${base}/media/itunes.m4a`,
+            wrapperType: 'track',
+            kind: 'song',
+            trackId: 11,
+            trackName: '小星星',
+            artistName: '儿歌测试',
+            previewUrl: `${base}/media/itunes.m4a`,
           },
           { kind: 'song', trackName: '没有试听的条目', artistName: 'x' },
           { kind: 'podcast', trackName: '播客不是歌', previewUrl: `${base}/media/podcast.mp3` },
@@ -64,9 +68,28 @@ function makeFakeSources() {
     if (p === '/audius/v1/tracks/search') {
       json(res, {
         data: [
-          { id: 'aaa111', title: 'Twinkle', duration: 95, is_streamable: true, user: { name: 'Audius Artist' } },
-          { id: 'bbb222', title: 'Gated', duration: 60, is_streamable: true, is_stream_gated: true, user: { name: 'x' } },
-          { id: 'ccc333', title: 'NotStreamable', duration: 60, is_streamable: false, user: { name: 'y' } },
+          {
+            id: 'aaa111',
+            title: 'Twinkle',
+            duration: 95,
+            is_streamable: true,
+            user: { name: 'Audius Artist' },
+          },
+          {
+            id: 'bbb222',
+            title: 'Gated',
+            duration: 60,
+            is_streamable: true,
+            is_stream_gated: true,
+            user: { name: 'x' },
+          },
+          {
+            id: 'ccc333',
+            title: 'NotStreamable',
+            duration: 60,
+            is_streamable: false,
+            user: { name: 'y' },
+          },
         ],
       });
       return;
@@ -81,9 +104,30 @@ function makeFakeSources() {
         code: 200,
         result: {
           songs: [
-            { id: 1001, name: '小星星', fee: 8, status: 0, duration: 74225, artists: [{ name: '儿歌多多' }] },
-            { id: 1002, name: 'VIP 曲目', fee: 1, status: 0, duration: 196885, artists: [{ name: '汪苏泷' }] },
-            { id: 1003, name: '下架曲目', fee: 0, status: 1, duration: 100000, artists: [{ name: 'x' }] },
+            {
+              id: 1001,
+              name: '小星星',
+              fee: 8,
+              status: 0,
+              duration: 74225,
+              artists: [{ name: '儿歌多多' }],
+            },
+            {
+              id: 1002,
+              name: 'VIP 曲目',
+              fee: 1,
+              status: 0,
+              duration: 196885,
+              artists: [{ name: '汪苏泷' }],
+            },
+            {
+              id: 1003,
+              name: '下架曲目',
+              fee: 0,
+              status: 1,
+              duration: 100000,
+              artists: [{ name: 'x' }],
+            },
           ],
         },
       });
@@ -95,12 +139,13 @@ function makeFakeSources() {
       return;
     }
     if (p === '/kuwo/r.s') {
-      const body = "{'ARTISTPIC':'','HIT':'3594','abslist':["
-        + "{'NAME':'小星星&nbsp;Twinkle&nbsp;Little&nbsp;Star','ARTIST':'儿歌多多',"
-        + "'DURATION':'112','MUSICRID':'MUSIC_363343188','FORMATS':'MP3128|MP3H'},"
-        + "{'NAME':'只有无损','ARTIST':'x','DURATION':'90',"
-        + "'MUSICRID':'MUSIC_444','FORMATS':'ALFLAC'}"
-        + "],'TOTAL':'3594'}";
+      const body =
+        "{'ARTISTPIC':'','HIT':'3594','abslist':[" +
+        "{'NAME':'小星星&nbsp;Twinkle&nbsp;Little&nbsp;Star','ARTIST':'儿歌多多'," +
+        "'DURATION':'112','MUSICRID':'MUSIC_363343188','FORMATS':'MP3128|MP3H'}," +
+        "{'NAME':'只有无损','ARTIST':'x','DURATION':'90'," +
+        "'MUSICRID':'MUSIC_444','FORMATS':'ALFLAC'}" +
+        "],'TOTAL':'3594'}";
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
       res.end(body);
       return;
@@ -118,17 +163,32 @@ function makeFakeSources() {
           total: 3,
           lists: [
             {
-              FileHash: 'A1B2C3D4E5F60718293A4B5C6D7E8F90', AlbumID: '37376237',
-              SongName: '<em>小星星</em>', SingerName: '酷狗儿歌', Duration: 88,
-              PayType: 0, Privilege: 0, ExtName: 'mp3',
+              FileHash: 'A1B2C3D4E5F60718293A4B5C6D7E8F90',
+              AlbumID: '37376237',
+              SongName: '<em>小星星</em>',
+              SingerName: '酷狗儿歌',
+              Duration: 88,
+              PayType: 0,
+              Privilege: 0,
+              ExtName: 'mp3',
             },
             {
-              FileHash: 'B1B2C3D4E5F60718293A4B5C6D7E8F91', SongName: '付费曲目',
-              SingerName: 'x', Duration: 200, PayType: 3, Privilege: 10, ExtName: 'mp3',
+              FileHash: 'B1B2C3D4E5F60718293A4B5C6D7E8F91',
+              SongName: '付费曲目',
+              SingerName: 'x',
+              Duration: 200,
+              PayType: 3,
+              Privilege: 10,
+              ExtName: 'mp3',
             },
             {
-              FileHash: 'C1B2C3D4E5F60718293A4B5C6D7E8F92', SongName: '只有无损',
-              SingerName: 'y', Duration: 120, PayType: 0, Privilege: 0, ExtName: 'flac',
+              FileHash: 'C1B2C3D4E5F60718293A4B5C6D7E8F92',
+              SongName: '只有无损',
+              SingerName: 'y',
+              Duration: 120,
+              PayType: 0,
+              Privilege: 0,
+              ExtName: 'flac',
             },
           ],
         },
@@ -167,7 +227,12 @@ function makeFakeSources() {
     res.writeHead(404);
     res.end();
   });
-  return { server, setBase(value: string) { base = value; } };
+  return {
+    server,
+    setBase(value: string) {
+      base = value;
+    },
+  };
 }
 
 describe('music sources (offline fake)', () => {
@@ -257,18 +322,24 @@ describe('music sources (offline fake)', () => {
   it('kugou errcode!=0 is a failure, not an empty URL', async () => {
     const rows = await kugou.search('小星星', 5, config);
     const deadConfig = { ...config, kugouMediaBase: `${base}/kugou-dead` };
-    await expect(kugou.getMedia(rows[0], deadConfig)).rejects.toMatchObject({ code: 'no_media_source' });
+    await expect(kugou.getMedia(rows[0], deadConfig)).rejects.toMatchObject({
+      code: 'no_media_source',
+    });
   });
 
   it('200 HTML error pages are source_bad_payload, not empty results', async () => {
-    await expect(netease.search('x', 5, { ...config, neteaseBase: `${base}/broken` }))
-      .rejects.toMatchObject({ code: 'source_bad_payload' });
-    await expect(kuwo.search('x', 5, { ...config, kuwoSearchBase: `${base}/broken` }))
-      .rejects.toMatchObject({ code: 'source_bad_payload' });
+    await expect(
+      netease.search('x', 5, { ...config, neteaseBase: `${base}/broken` }),
+    ).rejects.toMatchObject({ code: 'source_bad_payload' });
+    await expect(
+      kuwo.search('x', 5, { ...config, kuwoSearchBase: `${base}/broken` }),
+    ).rejects.toMatchObject({ code: 'source_bad_payload' });
   });
 
   it('full chain: five sources → tokens → audio bytes, no upstream leak', async () => {
-    const service = new MusicService({ get: (key: string) => env[key] } as unknown as ConfigService);
+    const service = new MusicService({
+      get: (key: string) => env[key],
+    } as unknown as ConfigService);
     const wrapper = http.createServer((req, res) => {
       const token = (req.url || '').slice('/music/audio/'.length);
       service.streamAudio(token, req.headers.range, res).catch(() => {
@@ -282,7 +353,9 @@ describe('music sources (offline fake)', () => {
       const result = await service.search('小星星', 5);
       expect(result.enabled).toBe(true);
       expect(result.tracks).toHaveLength(5);
-      expect(JSON.stringify(result)).not.toContain(`:${(fake.server.address() as AddressInfo).port}`);
+      expect(JSON.stringify(result)).not.toContain(
+        `:${(fake.server.address() as AddressInfo).port}`,
+      );
       const titles = new Set(result.tracks.map((t) => t.title));
       expect(titles.has('小星星')).toBe(true);
       expect(titles.has('Twinkle')).toBe(true);

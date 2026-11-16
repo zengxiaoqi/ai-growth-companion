@@ -19,7 +19,11 @@ function sampleLog(): string[] {
     line(TS, 'info', 'success', { runId: 'A', attempt: 1, type: 'quiz', topic: '水果' }),
     // run B：第 2 次通过（tap_target）
     line(TS, 'info', 'start', { runId: 'B', type: 'tap_target', topic: '动物' }),
-    line(TS, 'warn', 'attempt_failed', { runId: 'B', attempt: 1, reason: 'prompt must mention the correct target label' }),
+    line(TS, 'warn', 'attempt_failed', {
+      runId: 'B',
+      attempt: 1,
+      reason: 'prompt must mention the correct target label',
+    }),
     line(TS, 'info', 'llm_request', { runId: 'B', attempt: 2, type: 'tap_target' }),
     line(TS, 'info', 'success', { runId: 'B', attempt: 2, type: 'tap_target', topic: '动物' }),
     // run C：重试后失败（color_fill）
@@ -60,7 +64,9 @@ describe('measure-activity-pass-rate', () => {
   });
 
   it('aggregates first-pass rate, failure rate and per-type breakdown', () => {
-    const events = sampleLog().map((l: string) => tool.parseLine(l)).filter(Boolean);
+    const events = sampleLog()
+      .map((l: string) => tool.parseLine(l))
+      .filter(Boolean);
     const stats = tool.aggregate(events);
 
     expect(stats.runs).toBe(4);
@@ -78,7 +84,9 @@ describe('measure-activity-pass-rate', () => {
   });
 
   it('filters by activity type and since date', () => {
-    const events = sampleLog().map((l: string) => tool.parseLine(l)).filter(Boolean);
+    const events = sampleLog()
+      .map((l: string) => tool.parseLine(l))
+      .filter(Boolean);
     const byType = tool.aggregate(events, { type: 'tap_target' });
     expect(byType.runs).toBe(1);
     expect(byType.firstPassRate).toBe(0);

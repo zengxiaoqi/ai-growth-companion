@@ -146,9 +146,7 @@ describe('ParentController', () => {
     it('rejects parents without access to the child', async () => {
       usersService.canAccessChild.mockResolvedValue(false);
 
-      await expect(controller.getCasualTools('2', req)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(controller.getCasualTools('2', req)).rejects.toBeInstanceOf(ForbiddenException);
       expect(parentService.getCasualTools).not.toHaveBeenCalled();
     });
   });

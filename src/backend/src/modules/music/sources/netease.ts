@@ -3,14 +3,18 @@ import { MusicError } from '../music-error';
 import { MusicConfig } from '../music.config';
 import { MediaSource, MusicSource, SourceTrack } from './types';
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-  + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const PLAYABLE_FEE = new Set([0, 8]);
 
 function cleanName(value: unknown): string {
   if (typeof value !== 'string') return '';
-  return value.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -29,8 +33,8 @@ const netease: MusicSource = {
 
   async search(query, limit, config: MusicConfig): Promise<SourceTrack[]> {
     const base = config.neteaseBase;
-    const url = `${base}/api/search/get?s=${encodeURIComponent(query)}`
-      + `&type=1&limit=${limit}&offset=0`;
+    const url =
+      `${base}/api/search/get?s=${encodeURIComponent(query)}` + `&type=1&limit=${limit}&offset=0`;
     const payload = await getJson(url, {
       timeoutMs: config.sourceTimeoutMs,
       headers: { referer: `${base}/`, 'user-agent': UA },
@@ -47,7 +51,10 @@ const netease: MusicSource = {
       const title = cleanName(song.name);
       if (!title) continue;
       const artist = Array.isArray(song.artists)
-        ? song.artists.map((item) => cleanName(item?.name)).filter(Boolean).join(' / ')
+        ? song.artists
+            .map((item) => cleanName(item?.name))
+            .filter(Boolean)
+            .join(' / ')
         : '';
       const seconds = typeof song.duration === 'number' ? Math.round(song.duration / 1000) : 0;
       rows.push({

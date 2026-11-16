@@ -5,13 +5,7 @@ import { loadMusicConfig, MusicConfig } from './music.config';
 import { MusicError } from './music-error';
 import { MusicSource } from './sources/types';
 import { SOURCE_REGISTRY } from './sources';
-import {
-  groupTracks,
-  makeTracks,
-  PublicTrack,
-  TokenRegistry,
-  TrackItem,
-} from './tracks';
+import { groupTracks, makeTracks, PublicTrack, TokenRegistry, TrackItem } from './tracks';
 import { streamWithFallback } from './upstream';
 
 export interface MusicSearchResult {
@@ -122,7 +116,11 @@ export class MusicService implements OnModuleDestroy {
   }
 
   /** Token is the capability; an invalid/expired token is a plain 404. */
-  async streamAudio(token: string, rangeHeader: string | undefined, res: ServerResponse): Promise<void> {
+  async streamAudio(
+    token: string,
+    rangeHeader: string | undefined,
+    res: ServerResponse,
+  ): Promise<void> {
     const entry = this.registry.consume(token);
     if (!entry) {
       res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });

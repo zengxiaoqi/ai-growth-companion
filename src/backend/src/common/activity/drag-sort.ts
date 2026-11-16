@@ -119,7 +119,7 @@ function safeId(value: unknown, fallback: string): string {
   return raw || fallback;
 }
 
-function uniqueId(candidate: string, used: Set<string>, prefix: string): string {
+function uniqueId(candidate: string, used: Set<string>, _prefix: string): string {
   let id = candidate;
   let suffix = 2;
   while (used.has(id)) {
@@ -204,11 +204,7 @@ export function sanitizeDragSortParams(raw: any, ctx: DragSortContext): DragSort
     ageGroup: toText(ctx.ageGroup),
     buckets,
     items,
-    passingScore: clamp(
-      toInt(raw?.passingScore, DRAG_SORT_LIMITS.defaultPassingScore),
-      0,
-      100,
-    ),
+    passingScore: clamp(toInt(raw?.passingScore, DRAG_SORT_LIMITS.defaultPassingScore), 0, 100),
     timeLimitSec: clamp(
       toInt(raw?.timeLimitSec, DRAG_SORT_LIMITS.defaultTimeLimitSec),
       DRAG_SORT_LIMITS.minTimeLimitSec,
@@ -276,7 +272,10 @@ export function validateDragSortParams(value: unknown): DragSortValidation {
     if (charLength(bucket.label) > DRAG_SORT_LIMITS.maxLabelLength) {
       return { ok: false, reason: `bucket label too long ${bucket.id}` };
     }
-    if (bucket.icon && (!isSafeParamText(bucket.icon) || charLength(bucket.icon) > DRAG_SORT_LIMITS.maxIconLength)) {
+    if (
+      bucket.icon &&
+      (!isSafeParamText(bucket.icon) || charLength(bucket.icon) > DRAG_SORT_LIMITS.maxIconLength)
+    ) {
       return { ok: false, reason: `unsafe bucket icon ${bucket.id}` };
     }
   }

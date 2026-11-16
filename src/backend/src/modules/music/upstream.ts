@@ -10,12 +10,23 @@ import { TrackCandidate } from './tracks';
 
 const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
 const BAD_CONTENT_TYPES = new Set([
-  'text/html', 'text/plain', 'application/json', 'application/xml',
-  'text/xml', 'application/javascript', 'application/x-www-form-urlencoded',
+  'text/html',
+  'text/plain',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'application/javascript',
+  'application/x-www-form-urlencoded',
 ]);
 const SKIP_REQUEST_HEADERS = new Set([
-  'host', 'connection', 'content-length', 'transfer-encoding',
-  'proxy-authorization', 'proxy-connection', 'accept-encoding', 'range',
+  'host',
+  'connection',
+  'content-length',
+  'transfer-encoding',
+  'proxy-authorization',
+  'proxy-connection',
+  'accept-encoding',
+  'range',
 ]);
 
 function isPublicIPv4(address: string): boolean {
@@ -38,9 +49,9 @@ function isPublicIPv6(address: string): boolean {
   if (lower === '::' || lower === '::1') return false;
   const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return isPublicIPv4(mapped[1]);
-  if (/^f[cd]/.test(lower)) return false;        // fc00::/7
-  if (/^fe[89ab]/.test(lower)) return false;     // fe80::/10
-  if (lower.startsWith('ff')) return false;      // multicast
+  if (/^f[cd]/.test(lower)) return false; // fc00::/7
+  if (/^fe[89ab]/.test(lower)) return false; // fe80::/10
+  if (lower.startsWith('ff')) return false; // multicast
   if (lower.startsWith('2001:db8')) return false; // documentation
   return true;
 }
@@ -150,11 +161,13 @@ function openUpstream(
     request.setTimeout(config.upstreamTimeoutMs, () => {
       request.destroy(new MusicError('upstream_timeout', 'timeout'));
     });
-    request.on('error', (error) => reject(
-      error instanceof MusicError
-        ? error
-        : new MusicError('upstream_io', (error as any).code || 'io'),
-    ));
+    request.on('error', (error) =>
+      reject(
+        error instanceof MusicError
+          ? error
+          : new MusicError('upstream_io', (error as any).code || 'io'),
+      ),
+    );
     request.end();
   });
 }
@@ -185,7 +198,9 @@ function pipeAudio(
       return;
     }
     const contentType = String(response.headers['content-type'] || '')
-      .split(';')[0].trim().toLowerCase();
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
     if (contentType.startsWith('text/') || BAD_CONTENT_TYPES.has(contentType)) {
       response.destroy();
       reject(new MusicError('upstream_not_audio', 'bad content type'));

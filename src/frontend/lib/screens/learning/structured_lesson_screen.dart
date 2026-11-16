@@ -1171,6 +1171,24 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildStepContent(_LessonStep step) {
     final isCompleted = _progress.completedSteps.contains(step.id);
 
+    // 练习步骤里的游戏需要「吃掉剩余高度」并在内部自己滚动：
+    // 之前是塞进外层 SingleChildScrollView + 固定 430 高度，卡片一多就溢出
+    // （BOTTOM OVERFLOWED BY N PIXELS），也和页面底部导航抢位置。
+    if (step.type == 'practice') {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTtsBar(),
+            _buildStepTitle(step),
+            const SizedBox(height: 10),
+            Expanded(child: _buildPracticeStep(step, isCompleted)),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       child: Column(
@@ -1186,7 +1204,6 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             'watch' => _buildWatchStep(step, isCompleted),
             'read' => _buildReadStep(step, isCompleted),
             'write' => _buildWriteStep(step, isCompleted),
-            'practice' => _buildPracticeStep(step, isCompleted),
             _ => _buildGenericStep(step, isCompleted),
           },
           // 提交中提示
@@ -1744,13 +1761,20 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildPracticeStep(_LessonStep step, bool isCompleted) {
     final module = step.module;
 
-    // 尝试使用场景播放器
+    // 尝试使用场景播放器（自带固定高度，放进滚动容器避免小屏溢出）
     final scenes = _extractScenes(module);
     if (scenes.isNotEmpty && module['useScenePlayer'] == true) {
-      return AnimationScenePlayer(
-        scenes: scenes,
-        isCompleted: isCompleted,
-        onComplete: (score) => _completeStep(score: score ?? 85),
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnimationScenePlayer(
+              scenes: scenes,
+              isCompleted: isCompleted,
+              onComplete: (score) => _completeStep(score: score ?? 85),
+            ),
+          ],
+        ),
       );
     }
 
@@ -1778,20 +1802,18 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     final difficulty =
         game['difficulty'] is num ? (game['difficulty'] as num).toInt() : 1;
 
-    // 游戏组件内部用 Expanded 布局，需要有限高度；课程步骤外层是无界滚动容器
-    return SizedBox(
-      height: 430,
-      child: GameRenderer(
-        activityType: activityType,
-        initialData: activityData,
-        gameId: gameId,
-        difficulty: difficulty,
-        onExit: () {},
-        onCompleted: (result) {
-          final score = result['score'] as int? ?? 85;
-          _completeStep(score: score, interactionData: {'gameResult': result});
-        },
-      ),
+    // 游戏组件内部是「标题 + 可滚动卡片区 + 底部按钮」的 Column，
+    // 直接交给外层 Expanded 拿满剩余高度即可（不要再套固定高度）。
+    return GameRenderer(
+      activityType: activityType,
+      initialData: activityData,
+      gameId: gameId,
+      difficulty: difficulty,
+      onExit: () {},
+      onCompleted: (result) {
+        final score = result['score'] as int? ?? 85;
+        _completeStep(score: score, interactionData: {'gameResult': result});
+      },
     );
   }
 

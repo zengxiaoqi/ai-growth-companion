@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/tts_service.dart';
+import '../../theme/app_theme.dart';
 
 /// 游戏 TTS 语音播报 Mixin
 ///
@@ -63,10 +64,12 @@ mixin GameTtsHelper<T extends StatefulWidget> on State<T> {
 
   /// 构建 TTS 控制按钮（喇叭图标）
   Widget buildTtsToggleButton() {
+    final color =
+        _ttsEnabled ? AppTheme.primaryColor : AppTheme.textSecondary;
     return IconButton(
       icon: Icon(
         _ttsEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-        color: _ttsEnabled ? const Color(0xFF6C5CE7) : Colors.grey,
+        color: color.withValues(alpha: _ttsEnabled ? 1 : 0.5),
       ),
       onPressed: toggleTts,
       tooltip: _ttsEnabled ? '关闭语音' : '开启语音',
@@ -74,9 +77,13 @@ mixin GameTtsHelper<T extends StatefulWidget> on State<T> {
   }
 
   /// 构建重新朗读按钮
-  Widget buildReplayButton(String text, {Color color = const Color(0xFF6C5CE7)}) {
+  Widget buildReplayButton(String text, {Color? color}) {
     return IconButton(
-      icon: Icon(Icons.campaign_rounded, color: color, size: 22),
+      icon: Icon(
+        Icons.campaign_rounded,
+        color: color ?? AppTheme.primaryColor,
+        size: 22,
+      ),
       onPressed: () => speak(text),
       tooltip: '重新朗读',
     );

@@ -2188,12 +2188,25 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
    * 不做部分下发：半屏挂词半屏挂钟，画面上是两种节奏同时存在。
    */
   const starRelation = graph.relation === "split" || graph.relation === "group";
-  const starSpoken =
-    starRelation && flowCueOn && graph.nodes.every((node) => cueWindows[node.id])
-      ? graph.nodes
+  /**
+   * 节点按"被念到的先后"排好的表；覆盖率不够时是 null。
+   * 星形拓扑用它决定谁亮着；带拍的分镜用它决定焦点落在谁身上（见下面的 beats 分支）。
+   *
+   * 门槛是"能不能定位到词"，不是"一个不漏"：单字节点（云、风、雨）在旁白里出现
+   * 两次以上时，逐字匹配会静默挂错位置，锚点建设本来就跳过它——要求全命中等于让
+   * 这类场景永远用不上按词调度。所以按覆盖率放行：70% 以上的节点能定位就按词走，
+   * 定位不到的那个保持"没被讲到"的状态（旁白里确实没有它，亮它才是错的）。
+   */
+  const anchoredNodes = graph.nodes.filter((node) => cueWindows[node.id]);
+  const anchorOrder =
+    flowCueOn &&
+    anchoredNodes.length >= 2 &&
+    anchoredNodes.length >= Math.ceil(graph.nodes.length * 0.7)
+      ? anchoredNodes
           .map((node) => ({ id: node.id, at: cueWindows[node.id].start }))
           .sort((a, b) => a.at - b.at)
       : null;
+  const starSpoken = starRelation ? anchorOrder : null;
   /**
    * 成员卡片的入场帧：按"这个词被念到"倒推，而不是按 8/20/30/40 的固定阶梯排队。
    * 实测「都是水果」：香蕉第 24 帧被念到，卡片第 30 帧才起步、飞到落位在第 48 帧——
@@ -2288,10 +2301,26 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     activeIds.clear();
     visitedIds.clear();
     const cur = bs.current;
+    /**
+     * 这一帧旁白念到的是谁。拍解释器只拿它决定"谁亮着、光点停哪"：
+     * 一拍往往覆盖好几句话，而 beat.focus 只能写一个主体——
+     * 实测 a1（8 句 / 2 拍）的第 2 拍覆盖 5 句、focus 写的是「雨滴」，
+     * 于是「水汽」「白云」从头到尾 0 帧亮起，而「雨滴」在旁白第 126 帧就亮、
+     * 一直到第 244 帧才真的念到它。
+     * 拍仍然负责怎么演（动效、揭示、入场、相机），只是不再兼任焦点调度。
+     */
+    let spokenNow: string | null = null;
+    if (anchorOrder) {
+      for (const item of anchorOrder) {
+        if (item.at <= frame) spokenNow = item.id;
+        else break;
+      }
+    }
     const activeNow: string[] = [];
     if (cur) {
-      const fid = resolveFocusId(graph, cur.focus);
+      const fid = spokenNow || resolveFocusId(graph, cur.focus);
       if (fid) activeNow.push(fid);
+      // reveal 是"这一拍新出现的东西"，与焦点是两件事：按词走时也要保留
       for (const r of cur.reveal || []) {
         const rid = resolveFocusId(graph, r);
         if (rid && activeNow.indexOf(rid) < 0) activeNow.push(rid);
@@ -2307,6 +2336,12 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
       const id = resolveFocusId(graph, name);
       if (id && !activeIds.has(id)) visitedIds.add(id);
     });
+    // 按词走时，"已经念过的"由词决定：念过但此刻不是焦点的退到"已讲"档
+    if (spokenNow && anchorOrder) {
+      for (const item of anchorOrder) {
+        if (item.at <= frame && item.id !== spokenNow) visitedIds.add(item.id);
+      }
+    }
     if (graph.relation === "split" || graph.relation === "group") {
       visitedIds.add(graph.nodes[0].id);
     }
@@ -2326,29 +2361,40 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     // 焦点滑移点： replaces 多条流光。讲到谁，光点就从上一个主体滑到谁身上，
     // 18 帧 smoothstep——比瞬移看得清"焦点转移"，比沿边流光更贴旁白。
     // 停靠在卡片右上角而不是中心：中心会被卡片自己盖住，光点等于没画。
-    if (cur) {
-      const curId = resolveFocusId(graph, cur.focus);
+    // 有锚点时"讲到谁"就是旁白此刻念到的那个词（spokenNow），不是拍里写的 focus——
+    // 一拍覆盖多句时，focus 只能写一个，光点会一路停在一个还没被念到的节点上。
+    if (cur || spokenNow) {
+      const curId = spokenNow || (cur ? resolveFocusId(graph, cur.focus) : undefined);
       const curItem = curId ? layout.items.find((it) => it.node.id === curId) : undefined;
       if (curItem) {
         const all = scene.choreography ? scene.choreography.beats : [];
-        const prev = bs.idx > 0 ? all[bs.idx - 1] : null;
-        const prevId = prev ? resolveFocusId(graph, prev.focus) : undefined;
+        const prev = cur && bs.idx > 0 ? all[bs.idx - 1] : null;
+        // 出发地：上一个被念到的节点（按词）或上一拍的焦点（按拍）
+        let prevId: string | undefined;
+        if (spokenNow && anchorOrder) {
+          const at = anchorOrder.findIndex((item) => item.id === spokenNow);
+          prevId = at > 0 ? anchorOrder[at - 1].id : undefined;
+        } else {
+          prevId = prev ? resolveFocusId(graph, prev.focus) : undefined;
+        }
         const prevItem = prevId ? layout.items.find((it) => it.node.id === prevId) : undefined;
         const corner = (it: GraphItem) => ({ x: it.x + it.size * 0.62, y: it.y - it.size * 0.62 });
         const from = corner(prevItem || curItem);
         const to = corner(curItem);
-        const glide = Math.max(0, Math.min(1, (frame - cur.startFrame) / 18));
+        // 滑移窗口：按词时从"这个词被念到"起算，按拍时从拍开场起算
+        const glideFrom = spokenNow && cueWindows[spokenNow] ? cueWindows[spokenNow].start : cur ? cur.startFrame : 0;
+        const glide = Math.max(0, Math.min(1, (frame - glideFrom) / 18));
         const ease = glide * glide * (3 - 2 * glide);
         let x = from.x + (to.x - from.x) * ease;
         let y = from.y + (to.y - from.y) * ease;
         // orbit：光点绕主体小幅公转，表示"围着它看"（行星绕太阳这类）
-        if (cur.motion === "orbit") {
+        if (cur && cur.motion === "orbit") {
           x += Math.cos(frame / 9) * 14;
           y += Math.sin(frame / 9) * 14;
         }
         beatDot = { x, y };
         // camera-push：整屏向焦点缓慢推近 5%×幅度，拍内持续推进
-        if (cur.motion === "camera-push") {
+        if (cur && cur.motion === "camera-push") {
           pushK = 0.05 * bs.amplitude * bs.beatProgress;
           pushOrigin = curItem.x + "px " + curItem.y + "px";
         }

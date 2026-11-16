@@ -52,6 +52,13 @@ async function main(): Promise<void> {
   } catch {
     cache = {};
   }
+  // --relabel 白云=云：旧预览场景里有节点名在旁白里从未出现（"遇冷变云" vs 标签"白云"），
+  // 而现在的生成端强制"节点标签必须逐字出现在旁白里"，这种场景不会再产出。
+  // 改掉标签是为了造一个"今天真会产出的场景"来量拍内焦点，不是绕过规则。
+  const relabel = (arg('relabel') || '')
+    .split(',')
+    .map((pair) => pair.split('=').map((s) => s.trim()))
+    .filter((pair) => pair.length === 2 && pair[0] && pair[1]);
 
   const outDir = path.resolve(__dirname, '../../video-remotion/out/beat-probe');
   if (wantProps) await fs.mkdir(outDir, { recursive: true });
@@ -89,6 +96,15 @@ async function main(): Promise<void> {
     const cues = buildSubtitleCues(narration, boundaries, { fps: FPS, sceneFrames: duration });
     if (!cues) continue;
     const graph = normalizeSceneGraph(scene?.sceneGraph);
+    if (graph && relabel.length) {
+      for (const node of graph.nodes) {
+        const hit = relabel.find(([from]) => from === node.label);
+        if (hit) {
+          node.label = hit[1];
+          node.subject = hit[1];
+        }
+      }
+    }
     const anchors = graph ? buildActionAnchors(graph.nodes, cues.pages, { durationFrames: duration }) : {};
 
     const retimed = beatFramesFromSpeech(rawBeats, narration, boundaries, { sceneFrames: duration });

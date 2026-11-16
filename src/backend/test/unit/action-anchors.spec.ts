@@ -181,4 +181,31 @@ describe('auditFlowOrder', () => {
     expect(audit.order).toEqual(['n1', 'n2']);
     expect(audit.drift).toEqual([]);
   });
+
+  // group 的类别按语言习惯排在旁白最后（"苹果、香蕉和葡萄，它们都是水果"），
+  // 图上却必须是第一个节点。这不是漂移，是归类关系的固有顺序，报警只会误导排查。
+  it('星形拓扑（split/group）不报顺序漂移', () => {
+    const fruits = [
+      { id: 'n1', label: '水果' },
+      { id: 'n2', label: '苹果' },
+      { id: 'n3', label: '香蕉' },
+    ];
+    const table = {
+      n1: { start: 71, end: 120, matched: '水果', page: 1 },
+      n2: { start: 1, end: 24, matched: '苹果', page: 0 },
+      n3: { start: 24, end: 71, matched: '香蕉', page: 0 },
+    };
+    const linear = auditFlowOrder(fruits, table);
+    expect(linear.drift.length).toBeGreaterThan(0);
+
+    const star = auditFlowOrder(fruits, table, { relation: 'group' });
+    expect(star.skipped).toBe(true);
+    expect(star.drift).toEqual([]);
+    // 顺序本身仍要如实给出，日志里能看出"旁白先说苹果、最后才是水果"
+    expect(star.spokenOrder).toEqual(['n2', 'n3', 'n1']);
+
+    expect(auditFlowOrder(fruits, table, { relation: 'split' }).skipped).toBe(true);
+    // chain 这类一条路径串起所有节点的拓扑仍然要校验
+    expect(auditFlowOrder(fruits, table, { relation: 'chain' }).skipped).toBe(false);
+  });
 });

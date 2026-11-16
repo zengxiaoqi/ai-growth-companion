@@ -1870,7 +1870,18 @@ type GraphEdge = {
  * 一段运动路径：复用已算好的连线，光点沿着箭头走，位置和画面上的箭头严格一致。
  * target 是光点"正走向"的节点——它决定此刻谁亮起来。
  */
-type GraphFlow = { edges: GraphEdge[]; loop: boolean; phase?: number; target: string[] };
+type GraphFlow = {
+  edges: GraphEdge[];
+  loop: boolean;
+  phase?: number;
+  target: string[];
+  /**
+   * 这条路径"讲的是谁"——落点可能不是它。group 的箭头是"成员 → 类别"，
+   * 光点全落在类别上，可旁白念的是成员（苹果、香蕉、葡萄…最后才是水果）。
+   * 缺省与 target 相同；只有 group 会填成成员。
+   */
+  focus?: string[];
+};
 type GraphLayout = {
   items: GraphItem[];
   edges: GraphEdge[];
@@ -2023,6 +2034,9 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         phase: i * 0.22,
         // 光点即将到达的那一端：split 是部件，group 是类别
         target: [graph.relation === "group" ? parent.id : node.id],
+        // 而这条路径讲的对象永远是成员自己——group 的类别要等旁白最后点名，
+        // 不能因为它在地理上是箭头终点，就让它从入场起一直霸占高亮。
+        focus: [node.id],
       });
     });
     if (graph.relation === "group" && children.length > 0) {
@@ -2310,6 +2324,12 @@ const GraphBadge: React.FC<{
   storyProgress: number;
   /** 这个名字被念到的那一段（场景内相对帧）；缺省 = 没有配音/词没命中，回退整屏均摊 */
   cueWindow?: { start: number; end: number } | null;
+  /**
+   * 入场帧覆盖：卡片要在这个词被念到之前落位。
+   * 只在"按固定阶梯排队会晚于点名"时才会传（星形拓扑的成员卡），
+   * 其余关系保持既定的入场节奏不变。
+   */
+  enterAt?: number;
   /** beats 解释器给出的本拍状态；null/缺省 = 原路径（公式在 amp=1 时逐像素等价） */
   beat?: {
     motion: string;
@@ -2318,7 +2338,7 @@ const GraphBadge: React.FC<{
     amplitude: number;
     delayOverride?: number;
   } | null;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, beat }) => {
+}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, enterAt, beat }) => {
   const frame = useLocalFrame();
   const { fps } = useVideoConfig();
   /**
@@ -2330,7 +2350,14 @@ const GraphBadge: React.FC<{
     ? Math.max(0, Math.min(1, (frame - cueWindow.start) / Math.max(1, cueWindow.end - cueWindow.start)))
     : storyProgress;
   // 揭示 gating：被某拍 reveal 的节点推迟到那一拍才入场（stagger 拍内再错开）
-  const enterDelay = beat && beat.delayOverride !== undefined ? beat.delayOverride : item.delay;
+  // enterAt 只做"提前"，不推迟——它解决的是"话已经说了、卡片还没飞到"，
+  // 不是"还没讲到就不要出现"，后者会改掉 split 的"整体摊开给人看"。
+  const enterDelay =
+    beat && beat.delayOverride !== undefined
+      ? beat.delayOverride
+      : enterAt !== undefined
+        ? Math.min(enterAt, item.delay)
+        : item.delay;
   const enter = spring({
     frame: frame - enterDelay,
     fps,
@@ -2889,6 +2916,18 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     const arrive = (id: string): number | null => (cueWindows[id] ? cueWindows[id].start : null);
     const first = arrive(targets[0]);
     if (first === null) return null;
+    // group 是"归入"：成员被点名的那一刻从成员出发，飞到类别被点名的那一刻落地。
+    // split（散开）、chain/cycle（推进）是另一个方向：上一个被念到的节点就是出发地，
+    // 到达帧由落点自己的词给出。两者不能共用一个 depart 推导——
+    // group 的落点（类别）在旁白末尾才出现，按"上一个被念到的节点"推，
+    // 三条路径会全部挤到同一帧出发、同一帧到达，错开走的收益被整块抹掉。
+    if (flow.focus && flow.focus[0] && flow.focus[0] !== targets[0]) {
+      const depart = arrive(flow.focus[0]);
+      const land = arrive(targets[0]);
+      if (depart === null || land === null) return null;
+      if (land - depart < FLOW_MIN_SEG) return null;
+      return [depart, land];
+    }
     const depart = spokenBefore(first);
     if (depart === null) return null;
     const stops: number[] = [depart];
@@ -2981,7 +3020,58 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   });
   const activeIds = new Set<string>();
   const visitedIds = new Set<string>();
-  if (frame >= warmup) {
+  /**
+   * 星形拓扑（split/group）里，"谁亮着"不能由光点推断——一屏上是 N 条互不相交的路径，
+   * 每条只管自己那一个成员。
+   *
+   * group 的箭头是"成员 → 类别"，光点全部落在类别上，于是实测出来：
+   * 三个成员（苹果、香蕉、葡萄）从头到尾 0 帧被点亮过，而"水果"从入场结束第 18 帧
+   * 就亮着，比旁白念到它（第 71 帧）早 53 帧——整整 1.8 秒的注意力挂在一个还没讲的词上。
+   *
+   * 这里的口径改成"旁白念到谁，谁就亮"：按被念到的先后排一次序，取本帧之前最后一次点名。
+   * 光点退回它本来的职责——"归入/散开"的手势，不再兼任焦点调度。
+   * 只有全部节点都能锚定时才这样走；有节点没被念到（旧缓存）就整体回退光点推导，
+   * 不做部分下发：半屏挂词半屏挂钟，画面上是两种节奏同时存在。
+   */
+  const starRelation = graph.relation === "split" || graph.relation === "group";
+  const starSpoken =
+    starRelation && flowCueOn && graph.nodes.every((node) => cueWindows[node.id])
+      ? graph.nodes
+          .map((node) => ({ id: node.id, at: cueWindows[node.id].start }))
+          .sort((a, b) => a.at - b.at)
+      : null;
+  /**
+   * 成员卡片的入场帧：按"这个词被念到"倒推，而不是按 8/20/30/40 的固定阶梯排队。
+   * 实测「都是水果」：香蕉第 24 帧被念到，卡片第 30 帧才起步、飞到落位在第 48 帧——
+   * 这个词整句讲完了，画面上还没有这张卡（测量里连一次亮起都读不到）；
+   * 葡萄晚 17 帧；苹果的作品在第 1 帧，卡片第 20 帧才入场，一次都没亮过。
+   * 只在会晚于点名时才提前（min 比较），split 那种"先把整体摊开"的节奏不变。
+   */
+  const cueEnterAt: Record<string, number> = {};
+  if (starRelation && flowCueOn) {
+    const span = 20; // 从远处飞入的 spring 约 20 帧落位
+    layout.items.forEach((item, index) => {
+      const cue = cueWindows[item.node.id];
+      // 第一个节点是这一屏的主题（整体/类别），画面得先立起来
+      if (!cue || index === 0) return;
+      const at = Math.max(0, cue.start - span);
+      if (at < item.delay) cueEnterAt[item.node.id] = at;
+    });
+  }
+  if (starSpoken) {
+    let spoken = -1;
+    for (let i = 0; i < starSpoken.length; i += 1) {
+      if (starSpoken[i].at <= frame) spoken = i;
+      else break;
+    }
+    // 不套入场门槛（warmup）：星形拓扑的第一个词往往就是全片第一个字
+    // （"苹果、香蕉和葡萄…"里「苹果」在旁白第 1 帧），等入场结束再点亮，
+    // 第一个成员只剩 6 帧亮着就交棒给第二个了。这里提前点亮不会露馅——
+    // 卡片自己还在飞入，亮着的胶囊只会跟着卡片一起进场。
+    if (spoken >= 0) activeIds.add(starSpoken[spoken].id);
+    // 点过名的退到"讲过了"档：成员一个个沉下去，画面能看出"已经归进去几个"
+    for (let i = 0; i < Math.max(0, spoken); i += 1) visitedIds.add(starSpoken[i].id);
+  } else if (frame >= warmup) {
     tokens.forEach((token) => {
       if (token.done) {
         // 第一圈已经走完：焦点钉在最后讲到的概念上，光点继续转但不改高亮
@@ -2993,8 +3083,12 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
       // 就把 B 点亮，看起来像"还没讲到就抢先发光"。
       // 挂词驱动时改成"到达才点亮"——到达那一刻就是这个词被念出来的那一刻，
       // 提前半段点亮等于把注意力提前搬到一个还没讲的概念上。
-      const fromId = seg === 0 ? graph.nodes[0].id : token.flow.target[seg - 1];
-      const toId = token.flow.target[seg];
+      // 高亮的对象取 focus（这条路径讲的是谁），不是 target（箭头落在哪）：
+      // group 两者相反，用 target 会让类别一路霸屏、成员一次不亮。
+      // 只在挂词驱动时才换口径——时钟驱动必须与改动前逐像素一致（老任务重渲不变）。
+      const focusIds = token.anchored && token.flow.focus ? token.flow.focus : token.flow.target;
+      const fromId = seg === 0 ? graph.nodes[0].id : focusIds[seg - 1];
+      const toId = focusIds[seg];
       const handoff = token.anchored ? 0.999 : 0.5;
       const target = token.point.local >= handoff ? toId : fromId;
       if (target) activeIds.add(target);
@@ -3021,7 +3115,9 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   // split/group 的第一个节点是这一屏的主题（「大树由这些组成」里的"大树"）。
   // 焦点转到部件之后它会落到"还没讲到"那一档，跟着一起缩到 0.86——
   // 主题跟着配角退场是错的，至少保住"讲过了"的档位。
-  if (graph.relation === "split" || graph.relation === "group") {
+  // 挂词驱动时这条兜底反而错：group 的类别排在旁白最后（"它们都是水果"），
+  // 还没念到就先标成"讲过了"等于提前给它降档。交给上面的顺序判定即可。
+  if (!starSpoken && (graph.relation === "split" || graph.relation === "group")) {
     visitedIds.add(graph.nodes[0].id);
   }
 
@@ -3188,6 +3284,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           visited={visitedIds.has(item.node.id)}
           storyProgress={storyProgress}
           cueWindow={cueWindows[item.node.id] || null}
+          enterAt={cueEnterAt[item.node.id]}
           beat={
             bs && bs.current
               ? {

@@ -81,6 +81,15 @@ const mustHave = [
   'const flowStops',
   'const tAtStops',
   'FLOW_MIN_SEG',
+  // 星形拓扑：group 的箭头是"成员→类别"，三条路径全部落在类别上，
+  // 用 target 决定谁亮会让成员一次都不亮、类别从入场就霸屏。缺了这三项
+  // 高亮又回到"光点落在哪就亮谁"，group 的成员等于没被讲过
+  'const starSpoken',
+  'token.anchored && token.flow.focus ? token.flow.focus : token.flow.target',
+  'flow.focus[0] !== targets[0]',
+  // 成员卡片按词入场：卡片落地晚于点名时，那个词等于没讲（香蕉 0 次亮起）
+  'const cueEnterAt',
+  'enterAt !== undefined',
   // 受控画板：图形本身就是知识时必须走这条，缺了它彩虹只能画成一个小图标
   'const FigureStage',
   'const FigureShapePart',

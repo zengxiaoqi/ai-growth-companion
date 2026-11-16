@@ -1720,7 +1720,10 @@ export class RemotionRenderService implements OnModuleInit {
             );
             // 光点挂词要求"图上节点顺序 = 旁白顺序"，不一致时整条路径会静默回退时钟。
             // 降级本身不影响出片，但要能在日志里看见，否则只能靠人眼发现"这次又没对上"。
-            const flowOrder = auditFlowOrder(graphNodes, anchors);
+            // 星形拓扑（split/group）不受这条约束，auditFlowOrder 会直接跳过。
+            const flowOrder = auditFlowOrder(graphNodes, anchors, {
+              relation: String((scene as any)?.sceneGraph?.relation || ''),
+            });
             if (flowOrder.drift.length > 0) {
               this.logger.warn(
                 `[renderGeneratedComposition] taskId=${taskId} flowAnchors scene="${scene?.title || index + 1}" graph order != narration order (${flowOrder.drift.join(' / ')}) — flow falls back to clock`,

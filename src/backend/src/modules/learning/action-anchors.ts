@@ -177,13 +177,20 @@ export function summarizeActionAnchors(
  * 图上的顺序若与旁白顺序不同（旁白先说云、后说小水珠，图上却是 小水珠 → 云），
  * 光点会朝反方向走或者干脆算不出窗口，整条路径回退时钟。
  *
+ * 这条约束只对"一条路径串起所有节点"的拓扑成立（chain / cycle / growth）：
+ * 段与段必须按旁白顺序接上。星形拓扑（split / group）不走这条规则——
+ * 一屏是 N 条互不相交的路径，每条只认自己那一个词，顺序不一致也不影响；
+ * 尤其 group 的类别本来就在旁白最后才点名（"苹果、香蕉和葡萄，它们都是水果"），
+ * 把它判成"顺序漂移"只是在报一个永远不会修的假警。
+ *
  * 回退本身不报错、画面也正常，所以必须在渲染日志里把它说出来——静默降级
  * 比明确报错难查得多：看起来一切正常，只是"怎么又跟旁白对不上了"。
  */
 export function auditFlowOrder(
   nodes: AnchorNode[],
   table: ActionAnchorTable,
-): { order: string[]; spokenOrder: string[]; drift: string[] } {
+  options: { relation?: string } = {},
+): { order: string[]; spokenOrder: string[]; drift: string[]; skipped: boolean } {
   const anchors = table || {};
   const grounded = (nodes || [])
     .map((node) => {
@@ -199,6 +206,8 @@ export function auditFlowOrder(
     .slice()
     .sort((a, b) => a.at - b.at)
     .map((item) => item.id);
+  const star = options.relation === 'split' || options.relation === 'group';
+  if (star) return { order, spokenOrder, drift: [], skipped: true };
   const drift: string[] = [];
   for (let i = 0; i < order.length; i += 1) {
     if (order[i] !== spokenOrder[i]) {
@@ -206,5 +215,5 @@ export function auditFlowOrder(
       drift.push(`${item ? item.label : order[i]}@${item ? item.at : -1}f`);
     }
   }
-  return { order, spokenOrder, drift };
+  return { order, spokenOrder, drift, skipped: false };
 }

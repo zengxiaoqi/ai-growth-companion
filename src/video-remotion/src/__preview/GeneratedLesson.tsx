@@ -83,8 +83,14 @@ type GeneratedScene = {
    * 没有（无配音/词没命中）的节点回退 storyProgress，行为与旧版一致。
    */
   actionAnchors?: Record<string, { start: number; end: number }>;
-  /** 探针用开关：false = 忽略 actionAnchors，回到整屏均摊，供 A/B 对拍 */
+  /**
+   * 探针用开关：false = 忽略 actionAnchors 与光点挂词，回到整屏时钟驱动，供 A/B 对拍。
+   * 光点另有独立开关（flowAnchors），这样才能把"节点动作挂词"和"光点挂词"分开量化，
+   * 否则一次 A/B 里两件事一起变，无法判断是哪一件起了作用。
+   */
   anchorSigns?: boolean;
+  /** 探针用开关：false = 光点回退整屏时钟（节点动作仍挂词），用于单独量化光点挂词的效果 */
+  flowAnchors?: boolean;
   choreography?: ChoreographyView;
 };
 
@@ -1018,7 +1024,18 @@ type GraphEdge = {
  * 一段运动路径：复用已算好的连线，光点沿着箭头走，位置和画面上的箭头严格一致。
  * target 是光点"正走向"的节点——它决定此刻谁亮起来。
  */
-type GraphFlow = { edges: GraphEdge[]; loop: boolean; phase?: number; target: string[] };
+type GraphFlow = {
+  edges: GraphEdge[];
+  loop: boolean;
+  phase?: number;
+  target: string[];
+  /**
+   * 这条路径"讲的是谁"——落点可能不是它。group 的箭头是"成员 → 类别"，
+   * 光点全落在类别上，可旁白念的是成员（苹果、香蕉、葡萄…最后才是水果）。
+   * 缺省与 target 相同；只有 group 会填成成员。
+   */
+  focus?: string[];
+};
 type GraphLayout = {
   items: GraphItem[];
   edges: GraphEdge[];
@@ -1171,6 +1188,9 @@ const layoutGraph = (graph: SceneGraphView): GraphLayout => {
         phase: i * 0.22,
         // 光点即将到达的那一端：split 是部件，group 是类别
         target: [graph.relation === "group" ? parent.id : node.id],
+        // 而这条路径讲的对象永远是成员自己——group 的类别要等旁白最后点名，
+        // 不能因为它在地理上是箭头终点，就让它从入场起一直霸占高亮。
+        focus: [node.id],
       });
     });
     if (graph.relation === "group" && children.length > 0) {
@@ -1458,6 +1478,12 @@ const GraphBadge: React.FC<{
   storyProgress: number;
   /** 这个名字被念到的那一段（场景内相对帧）；缺省 = 没有配音/词没命中，回退整屏均摊 */
   cueWindow?: { start: number; end: number } | null;
+  /**
+   * 入场帧覆盖：卡片要在这个词被念到之前落位。
+   * 只在"按固定阶梯排队会晚于点名"时才会传（星形拓扑的成员卡），
+   * 其余关系保持既定的入场节奏不变。
+   */
+  enterAt?: number;
   /** beats 解释器给出的本拍状态；null/缺省 = 原路径（公式在 amp=1 时逐像素等价） */
   beat?: {
     motion: string;
@@ -1466,7 +1492,7 @@ const GraphBadge: React.FC<{
     amplitude: number;
     delayOverride?: number;
   } | null;
-}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, beat }) => {
+}> = ({ item, iconSrc, accent, active, visited, storyProgress, cueWindow, enterAt, beat }) => {
   const frame = useLocalFrame();
   const { fps } = useVideoConfig();
   /**
@@ -1478,7 +1504,14 @@ const GraphBadge: React.FC<{
     ? Math.max(0, Math.min(1, (frame - cueWindow.start) / Math.max(1, cueWindow.end - cueWindow.start)))
     : storyProgress;
   // 揭示 gating：被某拍 reveal 的节点推迟到那一拍才入场（stagger 拍内再错开）
-  const enterDelay = beat && beat.delayOverride !== undefined ? beat.delayOverride : item.delay;
+  // enterAt 只做"提前"，不推迟——它解决的是"话已经说了、卡片还没飞到"，
+  // 不是"还没讲到就不要出现"，后者会改掉 split 的"整体摊开给人看"。
+  const enterDelay =
+    beat && beat.delayOverride !== undefined
+      ? beat.delayOverride
+      : enterAt !== undefined
+        ? Math.min(enterAt, item.delay)
+        : item.delay;
   const enter = spring({
     frame: frame - enterDelay,
     fps,
@@ -1646,6 +1679,11 @@ const GraphBadge: React.FC<{
 
 /** 一颗光点走完一整条路径的帧数：让它慢到能看清"经过了哪个概念" */
 const FLOW_PERIOD = 84;
+/**
+ * 一条边挂词后的最短时长（帧）。旁白把两个概念连着念时（"水汽·云"），
+ * 边只有五六帧就走完，肉眼只看到闪烁——这种段不挂词，整条路径回退时钟。
+ */
+const FLOW_MIN_SEG = 12;
 
 /** 数学角 → 屏幕坐标点（y 轴翻转）。与后端 figure-spec.ts 的 shapeBounds 用同一套约定 */
 const figurePointAt = (cx: number, cy: number, r: number, deg: number) => {
@@ -1996,13 +2034,123 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
 
   // 光点沿箭头前进：走到哪个节点，哪个节点亮起来。这就是"状态变化"——
   // 画面不再是一次性排好版就静止，而是持续看得出"事情正在发生"。
+  //
+  // 它原来挂在 storyProgress 上：光点按整屏时钟匀速走，"到达某节点"的那一帧与旁白
+  // 念到这个词没有任何关系。挂词之后一条边 = "从 A 说到 B 的那段话"，走到 B 的那一帧
+  // 正好是念到 B 的那一帧。这件事比节点自己的动作更要紧：光点决定谁亮着，
+  // 而"亮着"就是孩子在看的那个概念——提前亮就是提前把注意力搬走。
+  //
+  // 三条边界：
+  // 1. 边的时间窗由节点的 cueWindows 反推；任一环节缺词就整条路径回退时钟驱动，
+  //    不做部分下发——半条挂词、半条挂钟，画面上会出现两套节奏。
+  // 2. 一段短于 FLOW_MIN_SEG 帧（0.4s）看不清"经过了什么"，同样回退。
+  // 3. 循环关系的最后一段（回到起点）在旁白里没有对应的"到达"，落在本屏收尾帧上。
+  const flowCueOn = scene.flowAnchors !== false;
+  const cueSpokenFrames = flowCueOn
+    ? Object.keys(cueWindows)
+      .map((id) => cueWindows[id].start)
+      .sort((a, b) => a - b)
+    : [];
+  /** 旁白在这帧之前最后念到的是哪一帧——它是"这一条边从哪里动身"的起点 */
+  const spokenBefore = (f: number): number | null => {
+    let prev: number | null = null;
+    for (let i = 0; i < cueSpokenFrames.length; i += 1) {
+      if (cueSpokenFrames[i] < f - 1) prev = cueSpokenFrames[i];
+      else break;
+    }
+    return prev;
+  };
+  /** 一条路径的到达时刻表：stops[0] 动身，stops[i+1] 到达 target[i]。任一环不成立返回 null */
+  const flowStops = (flow: GraphFlow): number[] | null => {
+    if (!flowCueOn) return null;
+    const targets = flow.target;
+    if (!targets || targets.length === 0) return null;
+    // 路径段数与到达节点数必须一一对应，否则 t 与 stops 无法逐段对齐
+    if (flow.edges.length !== targets.length) return null;
+    const arrive = (id: string): number | null => (cueWindows[id] ? cueWindows[id].start : null);
+    const first = arrive(targets[0]);
+    if (first === null) return null;
+    // group 是"归入"：成员被点名的那一刻从成员出发，飞到类别被点名的那一刻落地。
+    // split（散开）、chain/cycle（推进）是另一个方向：上一个被念到的节点就是出发地，
+    // 到达帧由落点自己的词给出。两者不能共用一个 depart 推导——
+    // group 的落点（类别）在旁白末尾才出现，按"上一个被念到的节点"推，
+    // 三条路径会全部挤到同一帧出发、同一帧到达，错开走的收益被整块抹掉。
+    if (flow.focus && flow.focus[0] && flow.focus[0] !== targets[0]) {
+      const depart = arrive(flow.focus[0]);
+      const land = arrive(targets[0]);
+      if (depart === null || land === null) return null;
+      if (land - depart < FLOW_MIN_SEG) return null;
+      return [depart, land];
+    }
+    const depart = spokenBefore(first);
+    if (depart === null) return null;
+    const stops: number[] = [depart];
+    for (let i = 0; i < targets.length; i += 1) {
+      if (flow.loop && i === targets.length - 1) {
+        stops.push(Math.max(stops[stops.length - 1] + FLOW_MIN_SEG, storyEnd));
+        continue;
+      }
+      const at = arrive(targets[i]);
+      if (at === null) return null;
+      stops.push(at);
+    }
+    for (let i = 1; i < stops.length; i += 1) {
+      if (stops[i] - stops[i - 1] < FLOW_MIN_SEG) return null;
+    }
+    return stops;
+  };
+  /**
+   * 帧 → 路径参数 t。按每条边的时长分段、边内线性，所以"一条边正好走完一段话"；
+   * t 的区间边界按边长归一，光点仍贴着箭头走，不另走一条看不见的线。
+   */
+  const tAtStops = (flow: GraphFlow, stops: number[]): number => {
+    const lengths = flow.edges.map(edgeLength);
+    const total = lengths.reduce((a, b) => a + b, 0) || 1;
+    const bounds: number[] = [0];
+    let acc = 0;
+    for (let i = 0; i < lengths.length; i += 1) {
+      acc += lengths[i];
+      bounds.push(acc / total);
+    }
+    if (frame <= stops[0]) return 0;
+    for (let i = 0; i < stops.length - 1; i += 1) {
+      if (frame <= stops[i + 1]) {
+        const span = Math.max(1, stops[i + 1] - stops[i]);
+        const u = (frame - stops[i]) / span;
+        return bounds[i] + u * (bounds[i + 1] - bounds[i]);
+      }
+    }
+    // 走完一整条路径：循环关系继续一圈一圈转，其余停在终点
+    if (flow.loop) {
+      return (1 + (frame - stops[stops.length - 1]) / FLOW_PERIOD) % 1;
+    }
+    return 1;
+  };
+
   const flowCount = layout.flows.length;
   const tokens = layout.flows.map((flow, index) => {
+    const stops = flowStops(flow);
+    if (stops) {
+      const t = tAtStops(flow, stops);
+      // 讲完之后循环关系还会继续转（"一圈又一圈"），但高亮不能再跟着转：
+      // 转一圈 2.8 秒，被点亮的节点每 21 帧换一个，孩子会以为刚讲完的概念又开始了。
+      // 转完第一圈就把焦点钉在最后讲到的那个概念上，光点继续绕只是"还在循环"的提示。
+      const done = flow.loop && frame >= stops[stops.length - 1];
+      return {
+        flow,
+        t,
+        anchored: true,
+        done,
+        finalId: done ? flow.target[flow.target.length - 2] || flow.target[0] : "",
+        alpha: flow.loop ? 0.95 : t < 0.94 ? 1 : Math.max(0, (1 - t) / 0.06),
+        point: flowPoint(flow, t),
+      };
+    }
     if (flow.loop) {
       // 循环关系（水循环）本来就无止境，按固定周期一直转是对的
       const raw = (frame - warmup) / FLOW_PERIOD;
       const t = ((raw % 1) + 1) % 1;
-      return { flow, t, alpha: 0.95, point: flowPoint(flow, t) };
+      return { flow, t, anchored: false, done: false, finalId: "", alpha: 0.95, point: flowPoint(flow, t) };
     }
     // 多条独立路径（split 散开 / group 聚拢）必须错开走。
     // 原来所有路径共用一个 storyProgress：5 条光点同时出发、同时到达，
@@ -2017,20 +2165,86 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
     return {
       flow,
       t,
+      anchored: false,
+      done: false,
+      finalId: "",
       alpha: t < 0.94 ? 1 : Math.max(0, (1 - t) / 0.06),
       point: flowPoint(flow, t),
     };
   });
   const activeIds = new Set<string>();
   const visitedIds = new Set<string>();
-  if (frame >= warmup) {
+  /**
+   * 星形拓扑（split/group）里，"谁亮着"不能由光点推断——一屏上是 N 条互不相交的路径，
+   * 每条只管自己那一个成员。
+   *
+   * group 的箭头是"成员 → 类别"，光点全部落在类别上，于是实测出来：
+   * 三个成员（苹果、香蕉、葡萄）从头到尾 0 帧被点亮过，而"水果"从入场结束第 18 帧
+   * 就亮着，比旁白念到它（第 71 帧）早 53 帧——整整 1.8 秒的注意力挂在一个还没讲的词上。
+   *
+   * 这里的口径改成"旁白念到谁，谁就亮"：按被念到的先后排一次序，取本帧之前最后一次点名。
+   * 光点退回它本来的职责——"归入/散开"的手势，不再兼任焦点调度。
+   * 只有全部节点都能锚定时才这样走；有节点没被念到（旧缓存）就整体回退光点推导，
+   * 不做部分下发：半屏挂词半屏挂钟，画面上是两种节奏同时存在。
+   */
+  const starRelation = graph.relation === "split" || graph.relation === "group";
+  const starSpoken =
+    starRelation && flowCueOn && graph.nodes.every((node) => cueWindows[node.id])
+      ? graph.nodes
+          .map((node) => ({ id: node.id, at: cueWindows[node.id].start }))
+          .sort((a, b) => a.at - b.at)
+      : null;
+  /**
+   * 成员卡片的入场帧：按"这个词被念到"倒推，而不是按 8/20/30/40 的固定阶梯排队。
+   * 实测「都是水果」：香蕉第 24 帧被念到，卡片第 30 帧才起步、飞到落位在第 48 帧——
+   * 这个词整句讲完了，画面上还没有这张卡（测量里连一次亮起都读不到）；
+   * 葡萄晚 17 帧；苹果的作品在第 1 帧，卡片第 20 帧才入场，一次都没亮过。
+   * 只在会晚于点名时才提前（min 比较），split 那种"先把整体摊开"的节奏不变。
+   */
+  const cueEnterAt: Record<string, number> = {};
+  if (starRelation && flowCueOn) {
+    const span = 20; // 从远处飞入的 spring 约 20 帧落位
+    layout.items.forEach((item, index) => {
+      const cue = cueWindows[item.node.id];
+      // 第一个节点是这一屏的主题（整体/类别），画面得先立起来
+      if (!cue || index === 0) return;
+      const at = Math.max(0, cue.start - span);
+      if (at < item.delay) cueEnterAt[item.node.id] = at;
+    });
+  }
+  if (starSpoken) {
+    let spoken = -1;
+    for (let i = 0; i < starSpoken.length; i += 1) {
+      if (starSpoken[i].at <= frame) spoken = i;
+      else break;
+    }
+    // 不套入场门槛（warmup）：星形拓扑的第一个词往往就是全片第一个字
+    // （"苹果、香蕉和葡萄…"里「苹果」在旁白第 1 帧），等入场结束再点亮，
+    // 第一个成员只剩 6 帧亮着就交棒给第二个了。这里提前点亮不会露馅——
+    // 卡片自己还在飞入，亮着的胶囊只会跟着卡片一起进场。
+    if (spoken >= 0) activeIds.add(starSpoken[spoken].id);
+    // 点过名的退到"讲过了"档：成员一个个沉下去，画面能看出"已经归进去几个"
+    for (let i = 0; i < Math.max(0, spoken); i += 1) visitedIds.add(starSpoken[i].id);
+  } else if (frame >= warmup) {
     tokens.forEach((token) => {
+      if (token.done) {
+        // 第一圈已经走完：焦点钉在最后讲到的概念上，光点继续转但不改高亮
+        if (token.finalId) activeIds.add(token.finalId);
+        return;
+      }
       const seg = Math.max(0, Math.min(token.flow.target.length - 1, token.point.segment));
-      // 走到一段的一半才把高亮交给下一个节点。不这么做的话，光点刚离开 A 就把 B 点亮，
-      // 看起来像"还没讲到就抢先发光"
-      const fromId = seg === 0 ? graph.nodes[0].id : token.flow.target[seg - 1];
-      const toId = token.flow.target[seg];
-      const target = token.point.local >= 0.5 ? toId : fromId;
+      // 时钟驱动时走到一段的一半才把高亮交给下一个节点：不这么做，光点刚离开 A
+      // 就把 B 点亮，看起来像"还没讲到就抢先发光"。
+      // 挂词驱动时改成"到达才点亮"——到达那一刻就是这个词被念出来的那一刻，
+      // 提前半段点亮等于把注意力提前搬到一个还没讲的概念上。
+      // 高亮的对象取 focus（这条路径讲的是谁），不是 target（箭头落在哪）：
+      // group 两者相反，用 target 会让类别一路霸屏、成员一次不亮。
+      // 只在挂词驱动时才换口径——时钟驱动必须与改动前逐像素一致（老任务重渲不变）。
+      const focusIds = token.anchored && token.flow.focus ? token.flow.focus : token.flow.target;
+      const fromId = seg === 0 ? graph.nodes[0].id : focusIds[seg - 1];
+      const toId = focusIds[seg];
+      const handoff = token.anchored ? 0.999 : 0.5;
+      const target = token.point.local >= handoff ? toId : fromId;
       if (target) activeIds.add(target);
       // 走过的节点留一道细边：画面能累积出"已经讲到第几步"
       if (!token.flow.loop) {
@@ -2055,7 +2269,9 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
   // split/group 的第一个节点是这一屏的主题（「大树由这些组成」里的"大树"）。
   // 焦点转到部件之后它会落到"还没讲到"那一档，跟着一起缩到 0.86——
   // 主题跟着配角退场是错的，至少保住"讲过了"的档位。
-  if (graph.relation === "split" || graph.relation === "group") {
+  // 挂词驱动时这条兜底反而错：group 的类别排在旁白最后（"它们都是水果"），
+  // 还没念到就先标成"讲过了"等于提前给它降档。交给上面的顺序判定即可。
+  if (!starSpoken && (graph.relation === "split" || graph.relation === "group")) {
     visitedIds.add(graph.nodes[0].id);
   }
 
@@ -2222,6 +2438,7 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
           visited={visitedIds.has(item.node.id)}
           storyProgress={storyProgress}
           cueWindow={cueWindows[item.node.id] || null}
+          enterAt={cueEnterAt[item.node.id]}
           beat={
             bs && bs.current
               ? {

@@ -202,7 +202,10 @@ export class LessonContentService implements OnModuleInit {
     private readonly toolRegistry?: ToolRegistryService,
   ) {}
 
-  async listDraftLessonsForChild(childId: number): Promise<DraftLessonSummary[]> {
+  async listDraftLessonsForChild(
+    childId: number,
+    includeFailed = false,
+  ): Promise<DraftLessonSummary[]> {
     const drafts = await this.contentRepo
       .createQueryBuilder('content')
       .select([
@@ -218,7 +221,9 @@ export class LessonContentService implements OnModuleInit {
       ])
       .where('content.childId = :childId', { childId })
       .andWhere('content.status IN (:...statuses)', {
-        statuses: ['draft', 'generating'],
+        statuses: includeFailed
+          ? ['draft', 'generating', 'generation_failed']
+          : ['draft', 'generating'],
       })
       .andWhere('content.contentType = :contentType', {
         contentType: 'structured_lesson',
@@ -338,6 +343,9 @@ export class LessonContentService implements OnModuleInit {
         version: 1,
         topic,
         ageGroup,
+        // 保留生成参数，失败重试时可按原参数重跑
+        focus: params.focus || 'mixed',
+        parentPrompt: params.parentPrompt || '',
         summary: '',
         outcomes: [],
         sourceCoursePackId: null,
@@ -518,6 +526,50 @@ export class LessonContentService implements OnModuleInit {
   }
 
   /** Run the course-pack quality review; returns null when unavailable or failed. */
+  /**
+   * Retry a failed generation in place: resets the same Content record to
+   * 'generating' and re-runs the background pipeline with the original params.
+   */
+  async retryGeneration(contentId: number): Promise<Content> {
+    const content = await this.contentRepo.findOne({
+      where: { id: contentId },
+    });
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.contentType !== 'structured_lesson') {
+      throw new ForbiddenException('Only structured lessons can be retried');
+    }
+    if (content.status !== 'generation_failed') {
+      throw new ForbiddenException('Only failed generations can be retried');
+    }
+
+    const stored = (content.content || {}) as Record<string, any>;
+    const params: GenerateLessonParams = {
+      topic: content.topic || stored.topic || content.title,
+      childId: content.childId!,
+      parentId: content.parentId!,
+      ageGroup: (content.ageRange as AgeGroup) || stored.ageGroup || '5-6',
+      domain: (content.domain as LessonDomain) || 'language',
+      focus: stored.focus || 'mixed',
+      difficulty: content.difficulty ?? undefined,
+      durationMinutes: content.durationMinutes ?? undefined,
+      parentPrompt: stored.parentPrompt || '',
+    };
+
+    await this.contentRepo.update(contentId, {
+      status: 'generating',
+      subtitle: '正在重新生成课程内容...',
+    } as any);
+    this.logger.log(`Lesson generation retry started: contentId=${contentId}`);
+
+    this.runGeneration(contentId, params).catch((err: any) => {
+      this.logger.error(
+        `Background retry failed for contentId=${contentId}: ${err?.message}`,
+      );
+    });
+
+    return (await this.contentRepo.findOne({ where: { id: contentId } }))!;
+  }
+
   private async reviewCoursePackQuality(
     contentId: number,
     coursePack: Record<string, any>,
@@ -678,16 +730,16 @@ export class LessonContentService implements OnModuleInit {
    * Pure CRUD: takes partial data from the frontend and updates the DB record.
    */
   /**
-   * Delete a draft lesson. Only content records with status='draft' and
-   * contentType='structured_lesson' can be deleted.
+   * Delete a draft lesson. Only content records with status='draft' or
+   * 'generation_failed' and contentType='structured_lesson' can be deleted.
    */
   async deleteDraft(contentId: number): Promise<{ success: boolean }> {
     const content = await this.contentRepo.findOne({
       where: { id: contentId },
     });
     if (!content) throw new NotFoundException('Content not found');
-    if (content.status !== 'draft') {
-      throw new ForbiddenException('Only draft lessons can be deleted');
+    if (content.status !== 'draft' && content.status !== 'generation_failed') {
+      throw new ForbiddenException('Only draft or failed lessons can be deleted');
     }
 
     await this.contentRepo.delete(contentId);

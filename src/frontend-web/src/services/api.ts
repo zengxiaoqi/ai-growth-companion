@@ -662,8 +662,26 @@ class ApiService {
     return this.request<Assignment[]>(`/assignments/parent/${parentId}`);
   }
 
-  async getDraftLessons(childId: number): Promise<DraftLessonSummary[]> {
-    return this.request<DraftLessonSummary[]>(`/learning/lessons/drafts?childId=${childId}`);
+  async getDraftLessons(
+    childId: number,
+    includeFailed = false,
+  ): Promise<DraftLessonSummary[]> {
+    const query = includeFailed ? '&includeFailed=true' : '';
+    return this.request<DraftLessonSummary[]>(
+      `/learning/lessons/drafts?childId=${childId}${query}`,
+    );
+  }
+
+  async retryLessonGeneration(contentId: number): Promise<Content> {
+    return this.request<Content>(`/learning/lessons/${contentId}/retry`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteLessonDraft(contentId: number): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/learning/lessons/${contentId}`, {
+      method: 'DELETE',
+    });
   }
 
   async getAssignment(id: number): Promise<Assignment> {

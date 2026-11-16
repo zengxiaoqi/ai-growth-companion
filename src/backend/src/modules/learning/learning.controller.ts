@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   NotFoundException,
@@ -281,7 +282,11 @@ export class LearningController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: '获取当前孩子的课程草稿列表' })
-  async getDraftLessons(@Request() req: any, @Query('childId') childId: string) {
+  async getDraftLessons(
+    @Request() req: any,
+    @Query('childId') childId: string,
+    @Query('includeFailed') includeFailed?: string,
+  ) {
     if (req.user?.type !== 'parent') {
       throw new ForbiddenException('仅家长可查看课程草稿');
     }
@@ -290,7 +295,10 @@ export class LearningController {
       throw new BadRequestException('childId is required');
     }
     await this.assertAccessToChild(req, numericChildId);
-    return this.lessonContentService.listDraftLessonsForChild(numericChildId);
+    return this.lessonContentService.listDraftLessonsForChild(
+      numericChildId,
+      includeFailed === 'true',
+    );
   }
 
   @Post('lessons/generate')
@@ -366,6 +374,34 @@ export class LearningController {
       durationMinutes: body.durationMinutes,
       content: body.content,
     });
+  }
+
+  @Post('lessons/:id/retry')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '重试失败的课程生成任务（原地重跑）' })
+  async retryLessonGeneration(@Request() req: any, @Param('id') id: string) {
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可重试课程生成');
+    }
+    const content = await this.contentRepo.findOne({ where: { id: +id } });
+    if (!content) throw new NotFoundException('Content not found');
+    await this.assertAccessToChild(req, content.childId!);
+    return this.lessonContentService.retryGeneration(+id);
+  }
+
+  @Delete('lessons/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '删除课程草稿或失败的生成记录' })
+  async deleteLessonDraft(@Request() req: any, @Param('id') id: string) {
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可删除课程草稿');
+    }
+    const content = await this.contentRepo.findOne({ where: { id: +id } });
+    if (!content) throw new NotFoundException('Content not found');
+    await this.assertAccessToChild(req, content.childId!);
+    return this.lessonContentService.deleteDraft(+id);
   }
 
   @Patch('lessons/:id')

@@ -11,6 +11,7 @@ import '../../components/shimmer_loading.dart';
 import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/child_theme.dart';
 import '../../screens/learning/animation_scene_player.dart';
 import '../../screens/learning/structured_lesson_screen.dart';
 import 'child_selector.dart';
@@ -27,7 +28,8 @@ class LessonGeneratorScreen extends StatefulWidget {
   State<LessonGeneratorScreen> createState() => _LessonGeneratorScreenState();
 }
 
-class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
+class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
+    with SingleTickerProviderStateMixin {
   // ── 配置数据 ──
   static const List<_FocusOption> _focusOptions = [
     _FocusOption(value: 'mixed', label: '综合'),
@@ -114,7 +116,15 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   Map<String, dynamic>? _generatedContent;
   Map<String, dynamic>? _lessonData;
   Timer? _pollTimer;
+  int _pollCount = 0;
+  static const _maxPollCount = 100;
   String? _expandedStepId;
+
+  // ── 页签与历史记录 ──
+  late final TabController _tabController;
+  List<Map<String, dynamic>> _history = [];
+  bool _loadingHistory = false;
+  Timer? _historyPollTimer;
 
   final TextEditingController _modificationController = TextEditingController();
   String _editScope = 'selected';
@@ -130,8 +140,18 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      if (_tabController.index == 1) {
+        _loadHistory();
+      } else {
+        _stopHistoryPoll();
+      }
+    });
     _loadChildren().then((_) {
       if (widget.draftContentId != null) _loadDraft(widget.draftContentId!);
+      _loadHistory(silent: true);
     });
   }
 
@@ -140,6 +160,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     _topicController.dispose();
     _modificationController.dispose();
     _pollTimer?.cancel();
+    _historyPollTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -226,6 +248,144 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
       _selectedChildId = _toInt(child['id']);
       _updateChildAgeGroup();
     });
+    _loadHistory(silent: true);
+  }
+
+  // ── 历史记录 ──
+
+  /// 拉取当前孩子的结构化课程任务/草稿（含失败态）。
+  /// [silent] 为 true 时不显示加载态，用于轮询刷新与横幅计数。
+  Future<void> _loadHistory({bool silent = false}) async {
+    final childId = _selectedChildId;
+    if (childId == null) return;
+    if (!silent) {
+      setState(() {
+        _loadingHistory = true;
+      });
+    }
+    final api = context.read<ApiService>();
+    final raw = await api.getDraftLessons(childId, includeFailed: true);
+    if (!mounted) return;
+    final rows = raw
+        .whereType<Map>()
+        .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+        .where((m) => m['contentType']?.toString() == 'structured_lesson')
+        .toList();
+    // 轮询刷新时内容没变就不重建，避免无谓 setState
+    String signature(List<Map<String, dynamic>> list) => list
+        .map((m) => '${m['id']}:${m['status']}:${m['updatedAt']}')
+        .join('|');
+    if (silent && signature(rows) == signature(_history)) {
+      _syncHistoryPoll();
+      return;
+    }
+    setState(() {
+      _history = rows;
+      _loadingHistory = false;
+    });
+    _syncHistoryPoll();
+  }
+
+  int get _backgroundGeneratingCount => _history
+      .where((m) => m['status']?.toString() == 'generating')
+      .length;
+
+  /// 历史页签可见且存在生成中任务时才轮询，离开页签即停
+  void _syncHistoryPoll() {
+    final shouldPoll =
+        _tabController.index == 1 && _backgroundGeneratingCount > 0;
+    if (shouldPoll && _historyPollTimer == null) {
+      _historyPollTimer = Timer.periodic(
+          const Duration(seconds: 5), (_) => _loadHistory(silent: true));
+    } else if (!shouldPoll) {
+      _stopHistoryPoll();
+    }
+  }
+
+  void _stopHistoryPoll() {
+    _historyPollTimer?.cancel();
+    _historyPollTimer = null;
+  }
+
+  void _editHistoryDraft(Map<String, dynamic> row) {
+    final contentId = _toInt(row['id']);
+    if (contentId == null) return;
+    _tabController.animateTo(0);
+    _loadDraft(contentId);
+  }
+
+  void _previewHistoryDraft(Map<String, dynamic> row) {
+    final contentId = _toInt(row['id']);
+    if (contentId == null) return;
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StructuredLessonScreen(
+            contentId: contentId,
+            childId: _selectedChildId,
+            previewMode: true,
+          ),
+        ));
+  }
+
+  Future<void> _retryHistoryTask(Map<String, dynamic> row) async {
+    final contentId = _toInt(row['id']);
+    if (contentId == null) return;
+    final api = context.read<ApiService>();
+    final result = await api.retryLessonGeneration(contentId);
+    if (!mounted) return;
+    if (result == null) {
+      _showSnack('重试失败，请稍后再试');
+      return;
+    }
+    _showSnack('已重新开始生成，可离开此页等待');
+    _loadHistory();
+  }
+
+  Future<void> _deleteHistoryRow(Map<String, dynamic> row) async {
+    final contentId = _toInt(row['id']);
+    final title = row['title']?.toString() ?? '未命名课程';
+    if (contentId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('确认删除'),
+        content: Text('确定要删除"$title"吗？\n删除后无法恢复。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade400,
+                foregroundColor: Colors.white),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final api = context.read<ApiService>();
+    final success = await api.deleteLessonDraft(contentId);
+    if (!mounted) return;
+    if (success) {
+      setState(() {
+        _history.removeWhere((m) => _toInt(m['id']) == contentId);
+      });
+      _syncHistoryPoll();
+      _showSnack('已删除');
+    } else {
+      _showSnack('删除失败，请稍后重试');
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
   }
 
   // ── 生成课程 ──
@@ -262,10 +422,11 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
         _onLessonGenerated(result);
       } else if (status == 'generating') {
         setState(() {
-          _generationProgress = 'AI 正在生成课程，请稍候...';
+          _generationProgress = 'AI 正在后台生成课程...';
           _generatedContent = result;
         });
         _startPolling(result);
+        _loadHistory(silent: true);
       } else {
         setState(() {
           _error = '生成状态异常: $status';
@@ -312,16 +473,21 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
     _pollTimer?.cancel();
     final contentId = _toInt(content['id']);
     if (contentId == null) return;
+    _pollCount = 0;
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       try {
         final api = context.read<ApiService>();
         final latest = await api.getContentDetail(contentId);
-        if (!mounted) return;
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
         final status = latest?['status']?.toString();
         if (status == 'draft') {
           timer.cancel();
           _pollTimer = null;
           _onLessonGenerated(latest!);
+          _loadHistory(silent: true);
         } else if (status == 'generation_failed') {
           timer.cancel();
           _pollTimer = null;
@@ -331,26 +497,32 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
             _generationProgress = '';
             _generatedContent = null;
           });
+          _loadHistory(silent: true);
         } else {
-          setState(() {
-            _generationProgress = '正在生成... ($status)';
-          });
+          _pollCount++;
+          if (_pollCount >= _maxPollCount) {
+            // 超时只放弃前台等待：服务端任务继续，历史页签仍可跟踪
+            timer.cancel();
+            _pollTimer = null;
+            setState(() {
+              _error = '等待超时，任务仍在后台生成，可在历史记录中查看';
+              _isGenerating = false;
+              _generationProgress = '';
+              _generatedContent = null;
+            });
+            _loadHistory(silent: true);
+          } else {
+            final progress =
+                latest?['subtitle']?.toString() ?? 'AI 正在后台生成课程...';
+            if (progress != _generationProgress) {
+              setState(() {
+                _generationProgress = progress;
+                if (latest != null) _generatedContent = latest;
+              });
+            }
+          }
         }
       } catch (_) {}
-    });
-    Timer(const Duration(minutes: 5), () {
-      if (_pollTimer != null && _isGenerating) {
-        _pollTimer?.cancel();
-        _pollTimer = null;
-        if (mounted) {
-          setState(() {
-            _error = '生成超时，请重试';
-            _isGenerating = false;
-            _generationProgress = '';
-            _generatedContent = null;
-          });
-        }
-      }
     });
   }
 
@@ -567,15 +739,17 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
 
   void _applyQuickEdit(_QuickEditOption option) {
     final selectedStep = _selectedStep;
-    if (_editScope == 'selected' && selectedStep != null) {
-      final stepLabel = selectedStep['label']?.toString() ?? '';
-      final stepTitle = _getStepTitle(selectedStep);
-      _modificationController.text =
-          '请只修改"$stepLabel · $stepTitle"这一步，其他步骤尽量保持不变。\n重点修改方向：${option.prompt}\n请同时同步更新这一步的 scene 预览内容，让家长端预览和学生端展示保持一致。\n修改后继续保持内容贴合主题、年龄合适、表达自然。';
-    } else {
-      _modificationController.text =
-          '请基于整节课做一次整体优化。\n重点修改方向：${option.prompt}\n如果某一步内容发生变化，请同步更新对应的 scene 预览内容。\n修改后继续保持内容贴合主题、年龄合适、表达自然。';
-    }
+    setState(() {
+      if (_editScope == 'selected' && selectedStep != null) {
+        final stepLabel = selectedStep['label']?.toString() ?? '';
+        final stepTitle = _getStepTitle(selectedStep);
+        _modificationController.text =
+            '请只修改"$stepLabel · $stepTitle"这一步，其他步骤尽量保持不变。\n重点修改方向：${option.prompt}\n请同时同步更新这一步的 scene 预览内容，让家长端预览和学生端展示保持一致。\n修改后继续保持内容贴合主题、年龄合适、表达自然。';
+      } else {
+        _modificationController.text =
+            '请基于整节课做一次整体优化。\n重点修改方向：${option.prompt}\n如果某一步内容发生变化，请同步更新对应的 scene 预览内容。\n修改后继续保持内容贴合主题、年龄合适、表达自然。';
+      }
+    });
   }
 
   // ── 辅助方法 ──
@@ -788,13 +962,54 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
   // ── 构建 UI ──
   @override
   Widget build(BuildContext context) {
+    final palette = ChildThemePalette.of(context);
     return ChildFunPage(
       title: 'AI 课程生成',
       subtitle: '一键生成"看、读、写、练"完整课程',
       icon: Icons.auto_awesome_rounded,
       padding: EdgeInsets.zero,
       scrollable: false,
-      child: _buildBody(),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: palette.card,
+                borderRadius: BorderRadius.circular(palette.radiusMd),
+                border: palette.isCartoon
+                    ? Border.all(color: palette.line, width: 2)
+                    : null,
+              ),
+              child: TabBar(
+                controller: _tabController,
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: palette.pop,
+                  borderRadius: BorderRadius.circular(palette.radiusSm),
+                ),
+                labelColor: palette.onPrimary,
+                unselectedLabelColor: palette.ink2,
+                tabs: const [
+                  Tab(icon: Icon(Icons.auto_awesome_rounded), text: '生成'),
+                  Tab(icon: Icon(Icons.history_rounded), text: '历史记录'),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildBody(),
+                _buildHistoryTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -824,61 +1039,305 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
               onChildChanged: _onChildChanged,
               mode: ChildSelectorMode.bottomSheet),
           const SizedBox(height: 14),
+          if (_backgroundGeneratingCount > 0 && !_isGenerating)
+            _buildBackgroundBanner(),
           if (_error != null) _buildErrorBanner(),
           if (_generatedContent == null) _buildInputForm(),
           if (_generatedContent != null && _lessonData == null && _isGenerating)
-            _buildGeneratingSkeleton(),
+            _buildBackgroundTaskCard(),
           if (_generatedContent != null && _lessonData != null)
             _buildLessonPreview(),
         ]);
   }
 
-  /// 生成中骨架屏
-  Widget _buildGeneratingSkeleton() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _buildSkeletonCard(height: 90),
-      const SizedBox(height: 12),
-      ...List.generate(
-          4,
-          (_) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _buildSkeletonCard(height: 70),
-              )),
-      const SizedBox(height: 16),
-      Center(
-          child: Column(children: [
+  /// 上次进入页面时提交、仍在后台生成的任务提示
+  Widget _buildBackgroundBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+          color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border:
+              Border.all(color: AppTheme.secondaryColor.withValues(alpha: 0.3))),
+      child: Row(children: [
         SizedBox(
-            height: 24,
-            width: 24,
+            width: 16,
+            height: 16,
             child: CircularProgressIndicator(
-                strokeWidth: 2, color: AppTheme.primaryColor)),
-        const SizedBox(height: 12),
-        Text(
-            _generationProgress.isNotEmpty
-                ? _generationProgress
-                : 'AI 正在生成课程...',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-      ])),
-    ]);
+                strokeWidth: 2, color: AppTheme.secondaryColor)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text('$_backgroundGeneratingCount 个课程正在后台生成',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor))),
+        TextButton(
+            onPressed: () => _tabController.animateTo(1),
+            style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppTheme.secondaryColor),
+            child: const Text('查看进度', style: TextStyle(fontSize: 12))),
+      ]),
+    );
   }
 
-  Widget _buildSkeletonCard({double height = 80}) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: ShaderMask(
-        shaderCallback: (bounds) => LinearGradient(
-          colors: [
-            Colors.grey.shade200,
-            Colors.grey.shade100,
-            Colors.grey.shade200
+  /// 提交成功后的后台任务卡：不锁页，可离开、可看历史、可再提交一单
+  Widget _buildBackgroundTaskCard() {
+    final title = _generatedContent?['title']?.toString() ??
+        _topicController.text.trim();
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.5, color: AppTheme.primaryColor)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Text(title,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textColor))),
+          ]),
+          const SizedBox(height: 10),
+          Text(
+              _generationProgress.isNotEmpty
+                  ? _generationProgress
+                  : 'AI 正在后台生成课程...',
+              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 6),
+          Text('生成在后台进行，无需停留在此页；离开后也可在「历史记录」查看进度、编辑或发布。',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(
+                child: OutlinedButton.icon(
+              onPressed: () => _tabController.animateTo(1),
+              icon: const Icon(Icons.history_rounded, size: 18),
+              label: const Text('查看历史记录'),
+              style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  foregroundColor: AppTheme.secondaryColor,
+                  side: BorderSide(color: AppTheme.secondaryColor),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14))),
+            )),
+            const SizedBox(width: 10),
+            Expanded(
+                child: ElevatedButton.icon(
+              onPressed: _handleReset,
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+              label: const Text('再生成一个'),
+              style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14))),
+            )),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  // ═══ 历史记录页签 ═══
+
+  Widget _buildHistoryTab() {
+    if (_selectedChildId == null) {
+      return Center(
+          child: Text('请先在「生成」页选择孩子',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 15)));
+    }
+    if (_loadingHistory) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_history.isEmpty) {
+      return Center(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.school_rounded, size: 64, color: AppTheme.textSecondary),
+        const SizedBox(height: 16),
+        const Text('暂无生成记录',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Text('在「生成」页提交主题后，\n任务进度与课程草稿会显示在这里',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
+        const SizedBox(height: 20),
+        ElevatedButton.icon(
+          onPressed: () => _tabController.animateTo(0),
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: const Text('去生成课程'),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white),
+        ),
+      ]));
+    }
+    return RefreshIndicator(
+      onRefresh: () => _loadHistory(),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _history.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 4),
+              child: Text('共 ${_history.length} 条记录',
+                  style:
+                      TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+            );
+          }
+          return _buildHistoryCard(_history[index - 1]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard(Map<String, dynamic> row) {
+    final status = row['status']?.toString() ?? '';
+    final title = row['title']?.toString() ?? '未命名课程';
+    final subtitle = row['subtitle']?.toString() ?? '';
+    final isGenerating = status == 'generating';
+    final isFailed = status == 'generation_failed';
+    final isDraft = status == 'draft';
+
+    final IconData statusIcon;
+    final Color statusColor;
+    final String statusLabel;
+    if (isGenerating) {
+      statusIcon = Icons.sync_rounded;
+      statusColor = AppTheme.secondaryColor;
+      statusLabel = '生成中';
+    } else if (isFailed) {
+      statusIcon = Icons.error_rounded;
+      statusColor = Colors.red;
+      statusLabel = '失败';
+    } else {
+      statusIcon = Icons.edit_note_rounded;
+      statusColor = AppTheme.primaryColor;
+      statusLabel = '草稿';
+    }
+
+    String timeStr = '';
+    final createdAt = row['createdAt']?.toString();
+    if (createdAt != null) {
+      final dt = DateTime.tryParse(createdAt);
+      if (dt != null) {
+        timeStr =
+            '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+    }
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(statusIcon, color: statusColor, size: 18),
+            const SizedBox(width: 6),
+            Text(statusLabel,
+                style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13)),
+            const Spacer(),
+            Text(timeStr,
+                style:
+                    TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+          ]),
+          const SizedBox(height: 8),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textColor)),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: isFailed ? Colors.red : AppTheme.textSecondary)),
           ],
-          stops: const [0.1, 0.5, 0.9],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ).createShader(bounds),
-        child: Container(color: Colors.white, width: double.infinity),
+          if (isGenerating) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: statusColor)),
+              const SizedBox(width: 8),
+              Text('后台生成中，可离开此页',
+                  style:
+                      TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ]),
+          ],
+          const SizedBox(height: 10),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            if (isDraft) ...[
+              TextButton.icon(
+                onPressed: () => _previewHistoryDraft(row),
+                icon: const Icon(Icons.visibility_rounded, size: 18),
+                label: const Text('预览'),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              ),
+              const SizedBox(width: 4),
+              TextButton.icon(
+                onPressed: () => _editHistoryDraft(row),
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: const Text('编辑'),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.secondaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              ),
+            ],
+            if (isFailed)
+              TextButton.icon(
+                onPressed: () => _retryHistoryTask(row),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('重试'),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              ),
+            if (isDraft || isFailed) ...[
+              const SizedBox(width: 4),
+              TextButton.icon(
+                onPressed: () => _deleteHistoryRow(row),
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('删除'),
+                style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade400,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              ),
+            ],
+          ]),
+        ]),
       ),
     );
   }
@@ -929,6 +1388,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
           const SizedBox(height: 6),
           TextField(
             controller: _topicController,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: '例如：认识动物、数字1-10、四季变化',
               filled: true,
@@ -1603,6 +2063,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen> {
           TextField(
             controller: _modificationController,
             maxLines: 4,
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: '输入修改要求，或点击上方模板快速填写...',
               filled: true,

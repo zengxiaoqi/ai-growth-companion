@@ -699,15 +699,36 @@ class ApiService {
 
   // ═══ 课程草稿 / 生成 ═══
 
-  Future<List<dynamic>> getDraftLessons(int childId) async {
+  Future<List<dynamic>> getDraftLessons(int childId,
+      {bool includeFailed = false}) async {
     try {
       final response = await _dio.get('/learning/lessons/drafts',
-          queryParameters: {'childId': childId});
+          queryParameters: {
+            'childId': childId,
+            if (includeFailed) 'includeFailed': 'true',
+          });
       if (response.data is List) return response.data as List<dynamic>;
       return [];
     } catch (e) {
       _log.warning('Get draft lessons error: $e');
       return [];
+    }
+  }
+
+  /// 重试失败的课程生成任务（后端原地重跑，返回更新后的 content）
+  Future<Map<String, dynamic>?> retryLessonGeneration(int contentId) async {
+    try {
+      final response = await _dio.post('/learning/lessons/$contentId/retry');
+      if (response.data is Map<String, dynamic>) {
+        return response.data as Map<String, dynamic>;
+      }
+      if (response.data is Map) {
+        return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      }
+      return null;
+    } catch (e) {
+      _log.warning('Retry lesson generation error: $e');
+      return null;
     }
   }
 

@@ -63,7 +63,9 @@ class _DraftApi extends ApiService {
       <dynamic>[];
 
   @override
-  Future<List<dynamic>> getDraftLessons(int childId) async => <dynamic>[
+  Future<List<dynamic>> getDraftLessons(int childId,
+          {bool includeFailed = false}) async =>
+      <dynamic>[
         <String, dynamic>{
           'id': 47,
           'title': '四季：春夏秋冬',

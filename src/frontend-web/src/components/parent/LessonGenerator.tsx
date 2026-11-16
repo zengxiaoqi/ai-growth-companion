@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { Loader2, Check, RotateCcw, Play, XCircle} from '@/icons';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, Check, RotateCcw, Play, XCircle, Clock, Eye, Wrench, X, Sparkles } from '@/icons';
 import api from '@/services/api';
-import type { Content, StructuredLessonContent, StructuredLessonStep } from '@/types';
+import type { Content, DraftLessonSummary, StructuredLessonContent, StructuredLessonStep } from '@/types';
 import LessonScenePlayer from '@/scenes/LessonScenePlayer';
 import { resolveLessonSceneDocument } from '@/scenes/scene-helpers';
-import { Button, Card } from '../ui';
+import { Button, Card, EmptyState } from '../ui';
 import { cn } from '@/lib/utils';
 
 interface LessonGeneratorProps {
@@ -124,6 +125,16 @@ export default function LessonGenerator({
 
   const [generationProgress, setGenerationProgress] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
+
+  // ── 页签与历史记录 ──
+  const [tab, setTab] = useState<'generate' | 'history'>('generate');
+  const [history, setHistory] = useState<DraftLessonSummary[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [localDraftId, setLocalDraftId] = useState<number | null>(null);
+  const [draftNonce, setDraftNonce] = useState(0);
+  const historyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigate = useNavigate();
 
   // Video approval state
   const [videoTaskId, setVideoTaskId] = useState<number | null>(null);
@@ -147,8 +158,78 @@ export default function LessonGenerator({
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       if (videoPollRef.current) clearInterval(videoPollRef.current);
+      if (historyPollRef.current) clearInterval(historyPollRef.current);
     };
   }, []);
+
+  // ── 历史记录加载与轮询 ──
+  const loadHistory = useCallback(
+    async (silent = false) => {
+      if (!selectedChildId) return;
+      if (!silent) setLoadingHistory(true);
+      try {
+        const rows = await api.getDraftLessons(selectedChildId, true);
+        setHistory(rows.filter((row) => row.contentType === 'structured_lesson'));
+      } catch {
+        // 保留上一次列表，轮询下次再试
+      } finally {
+        if (!silent) setLoadingHistory(false);
+      }
+    },
+    [selectedChildId],
+  );
+
+  useEffect(() => {
+    loadHistory(true);
+  }, [loadHistory]);
+
+  useEffect(() => {
+    if (tab === 'history') loadHistory();
+  }, [tab, loadHistory]);
+
+  const backgroundGeneratingCount = history.filter(
+    (row) => row.status === 'generating',
+  ).length;
+
+  // 历史页签可见且存在生成中任务时才轮询
+  useEffect(() => {
+    const shouldPoll = tab === 'history' && backgroundGeneratingCount > 0;
+    if (shouldPoll && !historyPollRef.current) {
+      historyPollRef.current = setInterval(() => loadHistory(true), 5000);
+    } else if (!shouldPoll && historyPollRef.current) {
+      clearInterval(historyPollRef.current);
+      historyPollRef.current = null;
+    }
+  }, [tab, backgroundGeneratingCount, loadHistory]);
+
+  const openHistoryDraft = (row: DraftLessonSummary) => {
+    setLocalDraftId(row.id);
+    setDraftNonce((n) => n + 1);
+    setTab('generate');
+  };
+
+  const previewHistoryDraft = (row: DraftLessonSummary) => {
+    navigate(`/parent/content/${row.id}`);
+  };
+
+  const retryHistoryTask = async (row: DraftLessonSummary) => {
+    try {
+      await api.retryLessonGeneration(row.id);
+      await loadHistory();
+    } catch (err: any) {
+      setError(err?.message || '重试失败，请稍后再试');
+    }
+  };
+
+  const deleteHistoryRow = async (row: DraftLessonSummary) => {
+    if (!window.confirm(`确定要删除"${row.title}"吗？删除后无法恢复。`)) return;
+    try {
+      await api.deleteLessonDraft(row.id);
+      setHistory((prev) => prev.filter((item) => item.id !== row.id));
+    } catch (err: any) {
+      setError(err?.message || '删除失败，请稍后重试');
+    }
+  };
 
   useEffect(() => {
     if (!lessonData?.steps?.length) {
@@ -168,13 +249,14 @@ export default function LessonGenerator({
   }, [selectedStep, editScope]);
 
   useEffect(() => {
-    if (!draftLessonId) return;
+    const effectiveDraftId = draftLessonId ?? localDraftId;
+    if (!effectiveDraftId) return;
 
     let cancelled = false;
 
     const loadDraftLesson = async () => {
       try {
-        const content = await api.getContent(draftLessonId);
+        const content = await api.getContent(effectiveDraftId);
         if (cancelled) return;
         setGeneratedContent(content);
         const lesson =
@@ -195,7 +277,7 @@ export default function LessonGenerator({
     return () => {
       cancelled = true;
     };
-  }, [draftLessonId, onDraftLessonLoaded]);
+  }, [draftLessonId, localDraftId, draftNonce, onDraftLessonLoaded]);
 
   // After generatedContent is set with a draft status, check for existing video task
   useEffect(() => {
@@ -281,10 +363,12 @@ export default function LessonGenerator({
         durationMinutes: 20,
       } as any);
 
-      // If status is 'generating', poll until done
+      // If status is 'generating', poll until done (task keeps running server-side)
       if (content.status === 'generating') {
-        setGenerationProgress('AI 正在生成课程，请稍候...');
+        setGenerationProgress('AI 正在后台生成课程...');
         setGeneratedContent(content);
+        loadHistory(true);
+        pollCountRef.current = 0;
 
         pollRef.current = setInterval(async () => {
           try {
@@ -300,6 +384,7 @@ export default function LessonGenerator({
               setLessonData(lesson);
               setIsGenerating(false);
               setGenerationProgress('');
+              loadHistory(true);
               // Auto-enqueue video generation
               setTimeout(() => startVideoGeneration(), 500);
             } else if (latest.status === 'generation_failed') {
@@ -309,25 +394,26 @@ export default function LessonGenerator({
               setGenerationProgress('');
               setError(latest.subtitle || '生成课程失败，请重试');
               setGeneratedContent(null);
+              loadHistory(true);
             } else {
-              setGenerationProgress(`正在生成... (${latest.status})`);
+              pollCountRef.current += 1;
+              if (pollCountRef.current >= 100) {
+                // 超时只放弃前台等待：服务端任务继续，历史页签仍可跟踪
+                if (pollRef.current) clearInterval(pollRef.current);
+                pollRef.current = null;
+                setIsGenerating(false);
+                setGenerationProgress('');
+                setError('等待超时，任务仍在后台生成，可在历史记录中查看');
+                setGeneratedContent(null);
+                loadHistory(true);
+              } else {
+                setGenerationProgress(latest.subtitle || 'AI 正在后台生成课程...');
+              }
             }
           } catch {
             // Polling error — keep trying
           }
         }, 3000);
-
-        // Safety timeout: stop polling after 5 minutes
-        setTimeout(() => {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-            setIsGenerating(false);
-            setGenerationProgress('');
-            setError('生成超时，请重试');
-            setGeneratedContent(null);
-          }
-        }, 300000);
       } else if (content.status === 'draft') {
         // Already completed (fast LLM or cached)
         setGeneratedContent(content);
@@ -336,6 +422,7 @@ export default function LessonGenerator({
         setLessonData(lesson);
         setIsGenerating(false);
         setGenerationProgress('');
+        loadHistory(true);
         // Auto-enqueue video generation
         setTimeout(() => startVideoGeneration(), 500);
       }
@@ -520,6 +607,43 @@ export default function LessonGenerator({
 
   return (
     <div className="space-y-4">
+      {/* 页签切换：生成 / 历史记录 */}
+      <div className="flex rounded-xl bg-surface-container p-1">
+        <button
+          type="button"
+          onClick={() => setTab('generate')}
+          className={cn(
+            'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition',
+            tab === 'generate'
+              ? 'bg-primary text-on-primary'
+              : 'text-on-surface-variant hover:text-on-surface',
+          )}
+        >
+          <Sparkles className="h-4 w-4" />
+          生成
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('history')}
+          className={cn(
+            'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition',
+            tab === 'history'
+              ? 'bg-primary text-on-primary'
+              : 'text-on-surface-variant hover:text-on-surface',
+          )}
+        >
+          <Clock className="h-4 w-4" />
+          历史记录
+          {backgroundGeneratingCount > 0 && (
+            <span className="rounded-full bg-secondary-container px-1.5 text-[11px] font-semibold text-on-secondary-container">
+              {backgroundGeneratingCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {tab === 'generate' && (
+        <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
         <h3 className="text-lg font-medium text-on-surface">一键生成学习课程</h3>
@@ -527,6 +651,17 @@ export default function LessonGenerator({
       <p className="text-sm text-on-surface-variant">
         输入学习主题，AI 自动生成包含"看、读、写、练"四步的完整课程
       </p>
+
+      {/* 后台仍在生成的任务提示 */}
+      {!isGenerating && backgroundGeneratingCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg bg-secondary-container/15 px-4 py-3 text-sm text-on-surface">
+          <Loader2 className="h-4 w-4 animate-spin text-secondary" />
+          <span className="flex-1">{backgroundGeneratingCount} 个课程正在后台生成</span>
+          <Button size="sm" variant="secondary" onClick={() => setTab('history')}>
+            查看进度
+          </Button>
+        </div>
+      )}
 
       {/* Input Form */}
       {!generatedContent && (
@@ -615,6 +750,32 @@ export default function LessonGenerator({
       {/* Error */}
       {error && (
         <div className="rounded-lg bg-error-container/10 px-4 py-3 text-sm text-error">{error}</div>
+      )}
+
+      {/* 后台任务卡：提交后不锁页，可离开、可看历史、可再提交一单 */}
+      {generatedContent && !lessonData && isGenerating && (
+        <Card className="space-y-3 p-4">
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <h4 className="flex-1 font-bold text-on-surface">{generatedContent.title}</h4>
+          </div>
+          <p className="text-sm text-on-surface-variant">
+            {generationProgress || 'AI 正在后台生成课程...'}
+          </p>
+          <p className="text-xs text-on-surface-variant">
+            生成在后台进行，无需停留在此页；离开后也可在「历史记录」查看进度、编辑或发布。
+          </p>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setTab('history')}>
+              <Clock className="mr-2 h-4 w-4" />
+              查看历史记录
+            </Button>
+            <Button className="flex-1" onClick={handleReset}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              再生成一个
+            </Button>
+          </div>
+        </Card>
       )}
 
       {/* Preview */}
@@ -975,8 +1136,128 @@ export default function LessonGenerator({
           </div>
         </div>
       )}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        <div className="space-y-3">
+          {loadingHistory ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : history.length === 0 ? (
+            <EmptyState
+              title="暂无生成记录"
+              description="在「生成」页提交主题后，任务进度与课程草稿会显示在这里"
+              actionLabel="去生成课程"
+              onAction={() => setTab('generate')}
+              icon={<Sparkles className="h-6 w-6 text-primary" />}
+            />
+          ) : (
+            <>
+              <p className="text-xs text-on-surface-variant">共 {history.length} 条记录</p>
+              {history.map((row) => {
+                const isGenerating = row.status === 'generating';
+                const isFailed = row.status === 'generation_failed';
+                const isDraft = row.status === 'draft';
+                return (
+                  <Card key={row.id} className="space-y-2 p-4">
+                    <div className="flex items-center gap-2 text-xs">
+                      {isGenerating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-secondary" />
+                      ) : isFailed ? (
+                        <XCircle className="h-3.5 w-3.5 text-error" />
+                      ) : (
+                        <Wrench className="h-3.5 w-3.5 text-primary" />
+                      )}
+                      <span
+                        className={cn(
+                          'font-semibold',
+                          isGenerating
+                            ? 'text-secondary'
+                            : isFailed
+                              ? 'text-error'
+                              : 'text-primary',
+                        )}
+                      >
+                        {isGenerating ? '生成中' : isFailed ? '失败' : '草稿'}
+                      </span>
+                      <span className="ml-auto text-on-surface-variant">
+                        {formatHistoryTime(row.createdAt)}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-on-surface">{row.title}</h4>
+                    {row.subtitle && (
+                      <p
+                        className={cn(
+                          'line-clamp-2 text-xs',
+                          isFailed ? 'text-error' : 'text-on-surface-variant',
+                        )}
+                      >
+                        {row.subtitle}
+                      </p>
+                    )}
+                    {isGenerating && (
+                      <p className="text-xs text-on-surface-variant">后台生成中，可离开此页</p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      {isDraft && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => previewHistoryDraft(row)}
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" />
+                          预览
+                        </Button>
+                      )}
+                      {isDraft && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openHistoryDraft(row)}
+                        >
+                          <Wrench className="mr-1 h-3.5 w-3.5" />
+                          编辑
+                        </Button>
+                      )}
+                      {isFailed && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => retryHistoryTask(row)}
+                        >
+                          <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                          重试
+                        </Button>
+                      )}
+                      {(isDraft || isFailed) && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => deleteHistoryRow(row)}
+                        >
+                          <X className="mr-1 h-3.5 w-3.5" />
+                          删除
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function formatHistoryTime(iso: string): string {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getMonth() + 1}/${dt.getDate()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
 function getStepTitle(step: StructuredLessonStep): string {

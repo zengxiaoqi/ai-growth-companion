@@ -1,18 +1,24 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import 'lesson_scene_models.dart';
 
-/// 描红画布组件
+/// 描红画布（单字模式）
 ///
-/// Canvas 描红练习（手写练习），支持：
-/// - glyph（文字）描红
-/// - shape（折线形状）描红
-/// - 实时计算覆盖率和得分
-/// - 多笔画支持
-/// - 完成判定（minCoverage）
+/// 设计要点：
+/// - **一次只显示一个字**：`TraceGlyphTarget.text` 即使是一整句，也会按字
+///   拆成多个步骤，写完一个字才进入下一个字，避免多个字挤在一个格子里。
+/// - **按墨迹铺满格子**：离屏渲染字形后测量真实墨迹包围盒，再反算字号与
+///   偏移，保证任意汉字/字母都能尽量占满米字格且不被裁切。
+/// - **不参与外层滚动**：用 [Listener] 直接收指针事件，配合
+///   [EagerGestureRecognizer] 抢赢手势竞技场；滚轮事件在画板内被吞掉，
+///   描红时页面既不滚动也不翻页。
+/// - **覆盖率按像素采样**：只有真正落在笔画上的点才算覆盖目标。
 class TracePathCanvas extends StatefulWidget {
   /// 描红目标（文字或形状）
   final dynamic target; // TraceGlyphTarget | TracePolylineTarget
@@ -20,14 +26,22 @@ class TracePathCanvas extends StatefulWidget {
   /// 最小覆盖率要求（0.0-1.0）
   final double minCoverage;
 
-  /// 完成回调
+  /// 全部完成回调（多字时所有字都写完后才回调一次）
   final void Function(TraceResult result) onSolved;
+
+  /// 单字达标后是否自动进入下一个字
+  final bool autoAdvance;
+
+  /// 自动进入下一个字前的停留时间（让学习者看到"写好了"的反馈）
+  final Duration autoAdvanceDelay;
 
   const TracePathCanvas({
     super.key,
     required this.target,
     this.minCoverage = 0.9,
     required this.onSolved,
+    this.autoAdvance = true,
+    this.autoAdvanceDelay = const Duration(milliseconds: 900),
   });
 
   @override
@@ -35,40 +49,90 @@ class TracePathCanvas extends StatefulWidget {
 }
 
 class _TracePathCanvasState extends State<TracePathCanvas> {
-  // 画布大小
+  /// 逻辑画布尺寸（所有绘制/采样坐标都在这个坐标系里）
   static const double _canvasSize = 280.0;
 
-  // 用户绘制的笔画线段
+  /// 字形墨迹占格子的比例（留出一点边距，避免贴边被裁）
+  static const double _inkFillRatio = 0.86;
+
+  /// 覆盖判定容差（画布坐标）
+  static const double _coverageTolerance = 14.0;
+
+  /// 用户绘制的笔画线段
   final List<_Segment> _segments = [];
 
-  // 已覆盖的采样点索引
+  /// 已覆盖的采样点索引
   final Set<int> _coveredPoints = {};
 
-  // 当前活动点（用于连续绘制）
+  /// 当前活动点（用于连续绘制）
   ui.Offset? _activePoint;
 
-  // 尝试次数
+  /// 当前活动指针 id（多指触控时只跟踪第一根手指）
+  int? _activePointerId;
+
+  /// 覆盖采样点
+  List<ui.Offset> _samplePoints = const [];
+
+  /// 参考字的布局（按真实墨迹计算，采样与绘制共用）
+  _GlyphLayout? _guideLayout;
+
+  /// 采样代次：目标/步骤变化后丢弃过期的异步结果
+  int _guideGeneration = 0;
+
+  /// 步骤（多字时逐字）
+  List<String> _steps = const ['一'];
+
+  /// 当前步骤下标
+  int _stepIndex = 0;
+
+  /// 每个字的完成结果
+  final List<TraceResult> _stepResults = [];
+
+  /// 当前字尝试次数
   int _attempts = 1;
 
-  // 当前覆盖率
+  /// 当前字覆盖率
   double _coverage = 0.0;
 
-  // 是否已解决（完成）
-  bool _solved = false;
+  /// 当前字是否已达标
+  bool _stepSolved = false;
 
-  // 警告信息
+  /// 是否已经回调过 onSolved
+  bool _reported = false;
+
+  /// 提示信息
   String? _warning;
 
-  // 采样点列表
-  List<ui.Offset> _samplePoints = [];
+  /// 自动进入下一个字的定时器
+  Timer? _advanceTimer;
 
-  // 画布区域 Key（用于把手势坐标精确映射到画布坐标）
+  /// 字形加载兜底定时器
+  Timer? _guideWatchdog;
+
+  /// 画布区域 Key（用于把手势坐标精确映射到画布坐标）
   final GlobalKey _paintKey = GlobalKey();
+
+  bool get _isLastStep => _stepIndex >= _steps.length - 1;
+
+  String get _currentText {
+    final target = widget.target;
+    if (target is! TraceGlyphTarget) return '';
+    if (_steps.isEmpty) return '';
+    return _steps[_stepIndex.clamp(0, _steps.length - 1)];
+  }
 
   @override
   void initState() {
     super.initState();
-    _initSamplePoints();
+    _setupSteps();
+    _loadGuide();
+  }
+
+  @override
+  void dispose() {
+    _advanceTimer?.cancel();
+    _guideWatchdog?.cancel();
+    super.dispose();
   }
 
   @override
@@ -77,8 +141,14 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     // 父级 rebuild 会创建新的 target 实例，按业务字段比较而非对象引用，
     // 否则每次父级 setState 都会误判为目标变化并清空进度。
     if (_targetSignature(widget.target) != _targetSignature(oldWidget.target)) {
-      _initSamplePoints();
-      _reset();
+      _advanceTimer?.cancel();
+      _reported = false;
+      _stepResults.clear();
+      _stepIndex = 0;
+      _attempts = 1;
+      _setupSteps();
+      _clearStrokeState();
+      _loadGuide();
     }
   }
 
@@ -93,117 +163,307 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     return '${target.hashCode}';
   }
 
-  /// 初始化采样点
-  void _initSamplePoints() {
-    _samplePoints = [];
-    final target = widget.target;
+  // ─── 步骤 ──────────────────────────────────────────────────────────────
 
+  void _setupSteps() {
+    final target = widget.target;
     if (target is TraceGlyphTarget) {
-      // 像素级采样是异步的（需要先离屏渲染字形），先空着等回调
-      _generateGlyphSamples(target).then((samples) {
-        if (!mounted) return;
-        if (widget.target != target) return; // 目标已切换，丢弃过期结果
-        setState(() => _samplePoints = samples);
-      });
-    } else if (target is TracePolylineTarget) {
-      _samplePoints = _generatePolylineSamples(target);
+      final chars = _splitGlyphChars(target.text);
+      _steps = chars.isEmpty ? const ['一'] : chars;
+    } else {
+      _steps = const ['__shape__'];
+    }
+    _stepIndex = _stepIndex.clamp(0, _steps.length - 1);
+  }
+
+  void _clearStrokeState() {
+    _segments.clear();
+    _coveredPoints.clear();
+    _activePoint = null;
+    _activePointerId = null;
+    _coverage = 0.0;
+    _stepSolved = false;
+    _warning = null;
+    _samplePoints = const [];
+    _guideLayout = null;
+  }
+
+  /// 重来当前字
+  void _resetCurrentStep() {
+    _advanceTimer?.cancel();
+    setState(() {
+      _attempts += 1;
+      _clearStrokeState();
+    });
+    _loadGuide();
+  }
+
+  /// 进入下一个字（未完成时会跳过当前字）
+  void _goToNextStep() {
+    _advanceTimer?.cancel();
+
+    if (_isLastStep) {
+      _reportSolved();
+      return;
+    }
+
+    setState(() {
+      _stepIndex += 1;
+      _attempts = 1;
+      _clearStrokeState();
+    });
+    _loadGuide();
+  }
+
+  /// 当前字达标
+  void _finishStep() {
+    if (_stepSolved) return;
+
+    final result = TraceResult(
+      coverage: _coverage,
+      attempts: _attempts,
+      score: _scoreFor(_coverage, _attempts),
+    );
+
+    setState(() {
+      _stepSolved = true;
+      _activePoint = null;
+      _activePointerId = null;
+      _warning = null;
+      _stepResults.add(result);
+    });
+
+    if (!_isLastStep) {
+      if (widget.autoAdvance) {
+        _advanceTimer = Timer(widget.autoAdvanceDelay, () {
+          if (!mounted) return;
+          _goToNextStep();
+        });
+      }
+    } else {
+      _reportSolved();
     }
   }
 
-  /// 生成文字采样点（基于字形实际渲染像素）
-  ///
-  /// 先把字形离屏渲染成位图，再按像素 alpha 采样——只有真正有笔画的
-  /// 像素会成为覆盖点。相比按包围盒整格采样（会把笔画间的空白也算进
-  /// 覆盖目标），此方法让覆盖率真实反映"描到了多少笔画"。
-  Future<List<ui.Offset>> _generateGlyphSamples(TraceGlyphTarget target) async {
-    final layout = _layoutGlyph(target.text, _canvasSize);
+  int _scoreFor(double coverage, int attempts) {
+    return (coverage * 100 - (attempts - 1) * 4).clamp(70.0, 100.0).round();
+  }
+
+  void _reportSolved() {
+    if (_reported) return;
+    _reported = true;
+
+    final results = _stepResults.isEmpty
+        ? [
+            TraceResult(
+              coverage: _coverage,
+              attempts: _attempts,
+              score: _scoreFor(_coverage, _attempts),
+            ),
+          ]
+        : _stepResults;
+
+    final avgCoverage =
+        results.map((r) => r.coverage).reduce((a, b) => a + b) / results.length;
+    final avgScore = results.map((r) => r.score).reduce((a, b) => a + b) /
+        results.length;
+
+    widget.onSolved(TraceResult(
+      coverage: avgCoverage,
+      attempts: results.map((r) => r.attempts).reduce(math.max),
+      score: avgScore.round().clamp(0, 100),
+    ));
+  }
+
+  // ─── 采样 / 字形布局 ───────────────────────────────────────────────────
+
+  /// 加载当前步骤的参考字布局与覆盖采样点
+  Future<void> _loadGuide() async {
+    final gen = ++_guideGeneration;
+    final target = widget.target;
+
+    if (target is TracePolylineTarget) {
+      final samples = _generatePolylineSamples(target);
+      if (!mounted || gen != _guideGeneration) return;
+      setState(() {
+        _guideLayout = null;
+        _samplePoints = _stepSolved ? const [] : samples;
+      });
+      return;
+    }
+
+    if (target is! TraceGlyphTarget) return;
+    final text = _currentText;
+    if (text.isEmpty) return;
+
+    // 兜底：离屏渲染在某些平台（如部分 web 后端）可能迟迟不返回或抛错，
+    // 超过 400ms 还没拿到布局就退化为「估算布局 + 包围盒采样」，
+    // 保证描红始终可用，不会出现"有格子但没有字」的状态。
+    _guideWatchdog?.cancel();
+    _guideWatchdog = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted || gen != _guideGeneration) return;
+      if (_guideLayout != null) return;
+      final layout = _fallbackLayout(text);
+      setState(() {
+        _guideLayout = layout;
+        if (!_stepSolved) _samplePoints = _fallbackSampling(layout, text);
+      });
+    });
+
+    final guide = await _buildGlyphGuide(text);
+    _guideWatchdog?.cancel();
+    if (!mounted || gen != _guideGeneration) return;
+
+    setState(() {
+      _guideLayout = guide.layout;
+      if (!_stepSolved) _samplePoints = guide.samples;
+    });
+  }
+
+  /// 构建字形参考：按真实墨迹计算字号/偏移，并按像素采样覆盖点
+  Future<_GuideData> _buildGlyphGuide(String text) async {
+    const probeFontSize = 120.0;
+
+    final scan = await _scanInk(text, probeFontSize);
+    final ink = scan?.ink;
+    if (scan == null || ink == null || ink.width <= 0 || ink.height <= 0) {
+      final layout = _fallbackLayout(text);
+      return _GuideData(layout, _fallbackSampling(layout, text));
+    }
+
+    final targetExtent = _canvasSize * _inkFillRatio;
+    final scale = math.min(
+      targetExtent / ink.width,
+      targetExtent / ink.height,
+    );
+    final fontSize =
+        (probeFontSize * scale).clamp(24.0, _canvasSize * 1.1).toDouble();
+    final applied = fontSize / probeFontSize;
+
+    // 把墨迹包围盒精确居中到格子内
+    final layout = _GlyphLayout(
+      fontSize,
+      ui.Offset(
+        (_canvasSize - ink.width * applied) / 2 - ink.left * applied,
+        (_canvasSize - ink.height * applied) / 2 - ink.top * applied,
+      ),
+    );
+
+    // 探针图上的采样点等比映射到最终布局（只做一次离屏渲染）
+    final samples = <ui.Offset>[];
+    for (final point in scan.points) {
+      samples.add(ui.Offset(
+        layout.offset.dx + (point.dx - scan.origin.dx) * applied,
+        layout.offset.dy + (point.dy - scan.origin.dy) * applied,
+      ));
+    }
+
+    if (samples.isEmpty) {
+      return _GuideData(layout, _fallbackSampling(layout, text));
+    }
+    return _GuideData(layout, samples);
+  }
+
+  /// 离屏渲染字形，一次拿到墨迹包围盒 + 笔画采样点
+  Future<_InkScan?> _scanInk(String text, double fontSize) async {
+    const pad = 40.0;
+    const step = 2;
+    final dim = (fontSize * 2.4 + pad * 2).ceil();
     try {
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder);
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: target.text,
-          style: TextStyle(
-            fontSize: layout.fontSize,
-            fontWeight: FontWeight.w900,
-            color: const ui.Color(0xFF000000),
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: _canvasSize);
-      textPainter.paint(canvas, layout.offset);
+      final painter = _glyphPainter(text, fontSize);
+      const origin = ui.Offset(pad, pad);
+      painter.paint(canvas, origin);
 
       final picture = recorder.endRecording();
-      final image = await picture.toImage(
-        _canvasSize.toInt(),
-        _canvasSize.toInt(),
-      );
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      final image = await picture.toImage(dim, dim);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
       image.dispose();
       picture.dispose();
+      if (bytes == null) return null;
 
-      if (byteData == null) return _bboxGlyphSampling(target);
+      final pixels = bytes.buffer.asUint8List();
+      var minX = dim, minY = dim, maxX = -1, maxY = -1;
+      final points = <ui.Offset>[];
 
-      final pixels = byteData.buffer.asUint8List();
-      final canvasInt = _canvasSize.toInt();
-      final samples = <ui.Offset>[];
-
-      const step = 4; // 4px 步长，平衡精度和性能
-      const alphaThreshold = 40;
-      for (int y = 0; y < canvasInt; y += step) {
-        for (int x = 0; x < canvasInt; x += step) {
-          final alpha = pixels[(y * canvasInt + x) * 4 + 3];
-          if (alpha > alphaThreshold) {
-            samples.add(ui.Offset(x.toDouble(), y.toDouble()));
-          }
+      for (var y = 0; y < dim; y += step) {
+        final rowOffset = y * dim * 4;
+        for (var x = 0; x < dim; x += step) {
+          if (pixels[rowOffset + x * 4 + 3] <= 40) continue;
+          points.add(ui.Offset(x.toDouble(), y.toDouble()));
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
         }
       }
+      if (maxX < 0 || maxY < 0) return null;
 
-      if (samples.isEmpty) return _bboxGlyphSampling(target);
-      return samples;
+      return _InkScan(
+        ink: _InkBox(
+          left: minX - pad,
+          top: minY - pad,
+          width: (maxX - minX + 1).toDouble(),
+          height: (maxY - minY + 1).toDouble(),
+        ),
+        points: points,
+        origin: origin,
+      );
     } catch (_) {
-      // 离屏渲染不可用时（如部分 web 环境），退回包围盒采样
-      return _bboxGlyphSampling(target);
+      return null;
     }
   }
 
-  /// 包围盒采样（降级方案）：在字形包围盒内按网格取点
-  List<ui.Offset> _bboxGlyphSampling(TraceGlyphTarget target) {
-    final samples = <ui.Offset>[];
-
-    final layout = _layoutGlyph(target.text, _canvasSize);
-    final textPainter = TextPainter(
+  TextPainter _glyphPainter(String text, double fontSize) {
+    return TextPainter(
       text: TextSpan(
-        text: target.text,
+        text: text,
         style: TextStyle(
-          fontSize: layout.fontSize,
+          fontSize: fontSize,
           fontWeight: FontWeight.w900,
+          color: const ui.Color(0xFF000000),
         ),
       ),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: _canvasSize);
+      maxLines: 1,
+    )..layout();
+  }
 
-    final boxes = textPainter.getBoxesForSelection(
-      TextSelection(baseOffset: 0, extentOffset: target.text.length),
+  /// 降级布局（离屏渲染不可用时）：按字号与行长估算，保证能描红
+  _GlyphLayout _fallbackLayout(String text) {
+    final fontSize = _canvasSize * 0.62;
+    final painter = _glyphPainter(text, fontSize);
+    return _GlyphLayout(
+      fontSize,
+      ui.Offset(
+        (_canvasSize - painter.width) / 2,
+        (_canvasSize - painter.height) / 2,
+      ),
     );
+  }
 
+  /// 降级采样：在字形外接框内按网格取点
+  List<ui.Offset> _fallbackSampling(_GlyphLayout layout, String text) {
+    final samples = <ui.Offset>[];
+    final painter = _glyphPainter(text, layout.fontSize);
+    final boxes = painter.getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: text.length),
+    );
     if (boxes.isEmpty) return samples;
 
     const step = 5.0;
     for (final box in boxes) {
-      final left = box.left + layout.offset.dx;
-      final top = box.top + layout.offset.dy;
-      final right = box.right + layout.offset.dx;
-      final bottom = box.bottom + layout.offset.dy;
-
+      final left = (box.left + layout.offset.dx).clamp(0.0, _canvasSize);
+      final top = (box.top + layout.offset.dy).clamp(0.0, _canvasSize);
+      final right = (box.right + layout.offset.dx).clamp(0.0, _canvasSize);
+      final bottom = (box.bottom + layout.offset.dy).clamp(0.0, _canvasSize);
       for (double y = top; y <= bottom; y += step) {
         for (double x = left; x <= right; x += step) {
           samples.add(ui.Offset(x, y));
         }
       }
     }
-
     return samples;
   }
 
@@ -230,36 +490,117 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     return samples;
   }
 
-  /// 重置
-  void _reset() {
-    setState(() {
-      _segments.clear();
-      _coveredPoints.clear();
-      _activePoint = null;
-      _attempts++;
-      _coverage = 0.0;
-      _solved = false;
-      _warning = null;
+  // ─── 指针交互 ──────────────────────────────────────────────────────────
+
+  /// 画板内吞掉滚轮事件：既不滚动页面，也不会凭空画线
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      // 故意不处理：滚轮在描红画板上不产生任何滚动
     });
+
+    // 滚轮期间结束当前笔画，避免残留连线
+    _activePoint = null;
+    _activePointerId = null;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_stepSolved || _activePointerId != null) return;
+    // 鼠标只认左键（滚轮/悬停产生的杂散事件直接忽略）
+    if (event.kind == PointerDeviceKind.mouse &&
+        (event.buttons & kPrimaryMouseButton) == 0) {
+      return;
+    }
+
+    setState(() {
+      _activePointerId = event.pointer;
+      _warning = null;
+      _activePoint = _normalizePosition(event.localPosition);
+    });
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (_stepSolved || _activePoint == null) return;
+    if (event.pointer != _activePointerId) return;
+
+    // 鼠标松开后（含滚轮/悬停导致的伪移动）不再画线
+    if (event.kind == PointerDeviceKind.mouse &&
+        (event.buttons & kPrimaryMouseButton) == 0) {
+      _activePoint = null;
+      _activePointerId = null;
+      return;
+    }
+
+    final nextPoint = _normalizePosition(event.localPosition);
+
+    // 同一次事件里跳过大半个画布：多半不是正常书写（模拟器把滚轮/
+    // 惯性滑动塞成了指针移动）。不连成一条长线，只把落点挪过去。
+    if ((nextPoint - _activePoint!).distance > _canvasSize * 0.45) {
+      setState(() => _activePoint = nextPoint);
+      return;
+    }
+
+    final segment = _Segment(_activePoint!, nextPoint);
+
+    setState(() {
+      _segments.add(segment);
+      _activePoint = nextPoint;
+    });
+
+    _updateCoverage(segment);
+  }
+
+  void _handlePointerUp(PointerEvent event) {
+    if (event.pointer != _activePointerId) return;
+    _activePointerId = null;
+    _activePoint = null;
+
+    if (!_stepSolved && _coverage < widget.minCoverage) {
+      setState(() {
+        _warning = '继续沿着浅色字形描一描，尽量把笔画都盖到。';
+      });
+    }
+  }
+
+  /// 手势坐标 -> 画布坐标
+  ///
+  /// 以画布（CustomPaint）自身的 RenderBox 为基准换算，画布被缩放显示时
+  /// 也能正确映射。
+  ui.Offset _normalizePosition(Offset localPosition) {
+    final renderBox =
+        _paintKey.currentContext?.findRenderObject() as RenderBox?;
+    double scaleX = 1, scaleY = 1;
+    if (renderBox != null &&
+        renderBox.size.width > 0 &&
+        renderBox.size.height > 0) {
+      scaleX = _canvasSize / renderBox.size.width;
+      scaleY = _canvasSize / renderBox.size.height;
+    }
+
+    return ui.Offset(
+      (localPosition.dx * scaleX).clamp(0.0, _canvasSize),
+      (localPosition.dy * scaleY).clamp(0.0, _canvasSize),
+    );
   }
 
   /// 更新覆盖率
   void _updateCoverage(_Segment segment) {
-    if (_samplePoints.isEmpty) return;
-
-    const tolerance = _canvasSize * 0.045;
-
-    for (int i = 0; i < _samplePoints.length; i++) {
-      if (_coveredPoints.contains(i)) continue;
-
-      if (_distanceToSegment(_samplePoints[i], segment) <= tolerance) {
-        _coveredPoints.add(i);
+    if (_samplePoints.isNotEmpty) {
+      for (int i = 0; i < _samplePoints.length; i++) {
+        if (_coveredPoints.contains(i)) continue;
+        if (_distanceToSegment(_samplePoints[i], segment) <=
+            _coverageTolerance) {
+          _coveredPoints.add(i);
+        }
       }
+      final coverage = _coveredPoints.length / _samplePoints.length;
+      setState(() => _coverage = coverage);
     }
 
-    setState(() {
-      _coverage = _coveredPoints.length / _samplePoints.length;
-    });
+    if (_coverage >= widget.minCoverage && !_stepSolved) {
+      _finishStep();
+    }
   }
 
   /// 点到线段的距离
@@ -283,87 +624,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     return (ui.Offset(px, py) - point).distance;
   }
 
-  // 当前活动指针 id（多指触控时只跟踪第一根手指）
-  int? _activePointerId;
-
-  /// 指针按下
-  void _handlePointerDown(PointerDownEvent event) {
-    if (_solved || _activePointerId != null) return;
-
-    setState(() {
-      _activePointerId = event.pointer;
-      _warning = null;
-      _activePoint = _normalizePosition(event.localPosition);
-    });
-  }
-
-  /// 指针移动
-  void _handlePointerMove(PointerMoveEvent event) {
-    if (_activePoint == null || _solved) return;
-    if (event.pointer != _activePointerId) return;
-
-    final nextPoint = _normalizePosition(event.localPosition);
-    final segment = _Segment(_activePoint!, nextPoint);
-
-    setState(() {
-      _segments.add(segment);
-      _activePoint = nextPoint;
-    });
-
-    _updateCoverage(segment);
-  }
-
-  /// 指针抬起
-  void _handlePointerUp(PointerEvent event) {
-    if (event.pointer != _activePointerId) return;
-    _activePointerId = null;
-    _activePoint = null;
-
-    if (!_solved && _coverage < widget.minCoverage) {
-      setState(() {
-        _warning = '继续沿着浅色路径描一描，尽量覆盖更多位置。';
-      });
-    }
-  }
-
-  /// 手势坐标 -> 画布坐标
-  ///
-  /// 必须以画布（CustomPaint）自身的 RenderBox 为基准换算，
-  /// 不能用整个 Card 的尺寸（否则笔画会整体偏移、压缩）。
-  ui.Offset _normalizePosition(Offset localPosition) {
-    // GestureDetector 直接包裹 CustomPaint，localPosition 已经是
-    // 画布坐标系；仅在画布实际尺寸与逻辑尺寸不一致时做等比缩放。
-    final renderBox = _paintKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || renderBox.size.width <= 0) {
-      return ui.Offset(localPosition.dx, localPosition.dy);
-    }
-
-    final size = renderBox.size;
-    final scaleX = _canvasSize / size.width;
-    final scaleY = _canvasSize / size.height;
-
-    return ui.Offset(
-      localPosition.dx * scaleX,
-      localPosition.dy * scaleY,
-    );
-  }
-
-  /// 提交完成
-  void _submitSolution() {
-    if (_solved) return;
-
-    setState(() => _solved = true);
-
-    // 计算得分：覆盖率 - (尝试次数-1) * 4，最低 70 分
-    final score =
-        (_coverage * 100 - (_attempts - 1) * 4).clamp(70.0, 100.0).toInt();
-
-    widget.onSolved(TraceResult(
-      coverage: _coverage,
-      attempts: _attempts,
-      score: score,
-    ));
-  }
+  // ─── 构建 ──────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -378,158 +639,183 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 标题栏
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _reset,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppTheme.active.isDarkSurface
-                          ? AppTheme.active.soft
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.refresh_rounded,
-                            size: 14, color: AppTheme.textSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          '重来',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
+            _buildHeader(label),
             const SizedBox(height: 12),
-
-            // 描红画布（固定正方形，painter 与手势共用同一坐标系）
-            Center(
-              child: Container(
-                width: _canvasSize,
-                height: _canvasSize,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                    width: 1,
-                  ),
-                ),
-                child: Listener(
-                  behavior: HitTestBehavior.opaque,
-                  onPointerDown: _handlePointerDown,
-                  onPointerMove: _handlePointerMove,
-                  onPointerUp: _handlePointerUp,
-                  onPointerCancel: _handlePointerUp,
-                  child: RawGestureDetector(
-                    // 占位拖拽识别器：抢赢手势竞技场，阻止外层
-                    // SingleChildScrollView / PageView 把竖向描红
-                    // 笔画当成页面滚动或横向翻页。
-                    gestures: {
-                      VerticalDragGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<
-                            VerticalDragGestureRecognizer
-                          >(
-                            () => VerticalDragGestureRecognizer(),
-                            (instance) {
-                              instance.onUpdate = (_) {};
-                              instance.onEnd = (_) {};
-                            },
-                          ),
-                      HorizontalDragGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<
-                            HorizontalDragGestureRecognizer
-                          >(
-                            () => HorizontalDragGestureRecognizer(),
-                            (instance) {
-                              instance.onUpdate = (_) {};
-                              instance.onEnd = (_) {};
-                            },
-                          ),
-                    },
-                    child: CustomPaint(
-                      key: _paintKey,
-                      painter: _TracePathPainter(
-                        target: widget.target,
-                        segments: _segments,
-                        canvasSize: _canvasSize,
-                      ),
-                      size: const Size(_canvasSize, _canvasSize),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
+            _buildCanvas(),
             const SizedBox(height: 12),
-
-            // 结果展示
-            if (_solved) _buildSolvedState() else _buildProgressState(),
+            _buildStatus(),
           ],
         ),
       ),
     );
   }
 
-  /// 已完成状态
-  Widget _buildSolvedState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_rounded,
-              size: 18, color: AppTheme.primaryColor),
-          SizedBox(width: 8),
-          Text(
-            '描摹完成',
+  Widget _buildHeader(String label) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
+              color: AppTheme.textColor,
             ),
           ),
+        ),
+        if (_steps.length > 1) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '第 ${_stepIndex + 1}/${_steps.length} 个字',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        GestureDetector(
+          onTap: _resetCurrentStep,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppTheme.active.isDarkSurface
+                  ? AppTheme.active.soft
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.refresh_rounded,
+                    size: 14, color: AppTheme.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '重来',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 正方形画布：逻辑坐标固定 280，窄屏等比缩小，不会溢出也不会变形
+  Widget _buildCanvas() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = math.min(constraints.maxWidth, _canvasSize);
+        return Center(
+          child: SizedBox(
+            width: side,
+            height: side,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: _canvasSize,
+                height: _canvasSize,
+                child: _buildCanvasSurface(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCanvasSurface() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerSignal: _handlePointerSignal,
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerUp,
+            onPointerCancel: _handlePointerUp,
+            child: RawGestureDetector(
+              behavior: HitTestBehavior.opaque,
+              // 立刻赢下手势竞技场：外层 SingleChildScrollView / PageView
+              // 永远拿不到描红区域里的手指，笔画不会变成滚动/翻页。
+              gestures: <Type, GestureRecognizerFactory>{
+                EagerGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                        EagerGestureRecognizer>(
+                  () => EagerGestureRecognizer(),
+                  (_) {},
+                ),
+              },
+              child: CustomPaint(
+                key: _paintKey,
+                painter: _TracePathPainter(
+                  target: widget.target,
+                  segments: _segments,
+                  canvasSize: _canvasSize,
+                  guideText: _currentText,
+                  guideLayout: _guideLayout,
+                ),
+                size: const Size(_canvasSize, _canvasSize),
+              ),
+            ),
+          ),
+          if (_stepSolved)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      shape: BoxShape.circle,
+                      boxShadow: AppTheme.softShadow(),
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: 42,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// 进行中状态
-  Widget _buildProgressState() {
+  Widget _buildStatus() {
+    final message = _statusMessage();
+    final percent = (_coverage * 100).round();
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 进度条
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: _coverage,
+            value: _coverage.clamp(0.0, 1.0),
             minHeight: 8,
             backgroundColor: AppTheme.active.isDarkSurface
                 ? AppTheme.active.line
@@ -541,69 +827,46 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
             ),
           ),
         ),
-
         const SizedBox(height: 8),
-
-        // 警告信息
-        if (_warning != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+        // 固定高度信息条：文案切换不改变布局，避免画布上下跳动
+        SizedBox(
+          height: 18,
+          child: Align(
+            alignment: Alignment.centerLeft,
             child: Text(
-              _warning!,
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.textSecondary,
+                fontWeight: _stepSolved ? FontWeight.w600 : FontWeight.w400,
+                color: _stepSolved
+                    ? AppTheme.primaryColor
+                    : AppTheme.textSecondary,
               ),
             ),
           ),
-
-        // 状态文字
+        ),
+        const SizedBox(height: 6),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              '覆盖率 ${(_coverage * 100).toInt()}%',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
+              '覆盖率 $percent%',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
+            const Spacer(),
             Text(
-              '尝试次数: $_attempts',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
+              '尝试 $_attempts 次',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ],
         ),
-
         const SizedBox(height: 12),
-
-        // 操作按钮
         Row(
           children: [
             Expanded(
-              child: ElevatedButton(
-                onPressed: _submitSolution,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: AppTheme.active.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  '写好了，进入下一项',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
               child: OutlinedButton(
-                onPressed: _reset,
+                onPressed: _resetCurrentStep,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textSecondary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -619,11 +882,74 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                 child: const Text('再描一次'),
               ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _stepSolved && _isLastStep
+                    ? _reportSolved
+                    : _goToNextStep,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: AppTheme.active.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  _primaryActionLabel(),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
           ],
         ),
       ],
     );
   }
+
+  String _primaryActionLabel() {
+    if (_stepSolved && _isLastStep) return '写好了，完成';
+    if (_stepSolved) return '下一个字 →';
+    if (_isLastStep) return '跳过这个字';
+    return '跳过，下一个字';
+  }
+
+  String _statusMessage() {
+    if (_stepSolved && _isLastStep) {
+      return '全部写完啦，点「写好了，完成」结束这一项';
+    }
+    if (_stepSolved) {
+      return '写得真好！马上进入下一个字…';
+    }
+    if (_warning != null) return _warning!;
+    if (_steps.length > 1) {
+      return '沿着浅色字形描一遍（第 ${_stepIndex + 1}/${_steps.length} 个字）';
+    }
+    return '沿着浅色字形描一遍，尽量覆盖每一笔';
+  }
+}
+
+/// 需要跳过描红的标点/空白
+const Set<String> _ignoredGlyphChars = {
+  '，', '。', '、', '；', '：', '！', '？', '“', '”', '‘', '’',
+  '（', '）', '《', '》', '「', '」', '『', '』', '…', '—', '·', '～',
+  ',', '.', ';', ':', '!', '?', '"', "'", '(', ')', '[', ']', '{', '}',
+  '/', '\\', '~', '_', '+', '=', '*', '&', '%', '@', '#', '^', '|',
+};
+
+/// 把任意文本拆成"一个字"一个步骤（去重、跳过标点）
+List<String> _splitGlyphChars(String text) {
+  final chars = <String>[];
+  for (final rune in text.runes) {
+    final ch = String.fromCharCode(rune);
+    if (ch.trim().isEmpty) continue;
+    if (_ignoredGlyphChars.contains(ch)) continue;
+    if (chars.contains(ch)) continue; // 同一个字只描一次
+    chars.add(ch);
+  }
+  return chars;
 }
 
 /// 线段
@@ -642,75 +968,78 @@ class _GlyphLayout {
   const _GlyphLayout(this.fontSize, this.offset);
 }
 
-/// 计算字形在画布中的字号与居中偏移
-///
-/// 采样与绘制共用此函数，保证参考字和覆盖点完全对齐。
-/// 字号取画布的 86%，让字尽量占满米字格（留出笔画描边余量）。
-_GlyphLayout _layoutGlyph(String text, double canvasSize) {
-  final fontSize = canvasSize * 0.86;
-  final textPainter = TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w900),
-    ),
-    textDirection: TextDirection.ltr,
-  )..layout(maxWidth: canvasSize);
+/// 墨迹包围盒（相对绘制原点）
+class _InkBox {
+  final double left;
+  final double top;
+  final double width;
+  final double height;
 
-  return _GlyphLayout(
-    fontSize,
-    ui.Offset(
-      (canvasSize - textPainter.width) / 2,
-      (canvasSize - textPainter.height) / 2,
-    ),
-  );
+  const _InkBox({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
 }
 
+/// 墨迹扫描结果：包围盒 + 笔画采样点 + 探针绘制原点
+class _InkScan {
+  final _InkBox ink;
+  final List<ui.Offset> points;
+  final ui.Offset origin;
+
+  const _InkScan({
+    required this.ink,
+    required this.points,
+    required this.origin,
+  });
+}
+
+/// 参考字数据
+class _GuideData {
+  final _GlyphLayout layout;
+  final List<ui.Offset> samples;
+
+  const _GuideData(this.layout, this.samples);
+}
 /// 描红画布绘制器
 class _TracePathPainter extends CustomPainter {
   final dynamic target;
   final List<_Segment> segments;
   final double canvasSize;
+  final String guideText;
+  final _GlyphLayout? guideLayout;
 
   _TracePathPainter({
     required this.target,
     required this.segments,
     required this.canvasSize,
+    required this.guideText,
+    required this.guideLayout,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 绘制背景
     canvas.drawRect(
       Rect.fromLTWH(0, 0, canvasSize, canvasSize),
       Paint()..color = const ui.Color(0xFFF8FAFC),
     );
 
-    // 绘制参考目标
-    _drawGuide(canvas);
-
-    // 绘制网格
     _drawGrid(canvas);
-
-    // 绘制用户笔画
+    _drawGuide(canvas);
     _drawUserStrokes(canvas);
   }
 
   /// 绘制参考目标
   void _drawGuide(Canvas canvas) {
-    final guidePaint = Paint()
-      ..color = const ui.Color(0xFFCBD5E1)
-      ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..strokeCap = ui.StrokeCap.round
-      ..strokeJoin = ui.StrokeJoin.round;
-
     if (target is TraceGlyphTarget) {
-      // 绘制文字（与采样共用同一布局，保证对齐）
-      final glyphTarget = target as TraceGlyphTarget;
-      final layout = _layoutGlyph(glyphTarget.text, canvasSize);
+      final layout = guideLayout;
+      if (layout == null || guideText.isEmpty) return;
+
       final textPainter = TextPainter(
         text: TextSpan(
-          text: glyphTarget.text,
+          text: guideText,
           style: TextStyle(
             fontSize: layout.fontSize,
             fontWeight: FontWeight.w900,
@@ -718,44 +1047,62 @@ class _TracePathPainter extends CustomPainter {
           ),
         ),
         textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      );
+        maxLines: 1,
+      )..layout();
 
-      textPainter.layout(maxWidth: canvasSize);
+      // 注意：不要设置 textAlign.center，否则会与居中 offset 叠加导致偏左
       textPainter.paint(canvas, layout.offset);
-    } else if (target is TracePolylineTarget) {
-      // 绘制折线
+      return;
+    }
+
+    if (target is TracePolylineTarget) {
       final polylineTarget = target as TracePolylineTarget;
-      if (polylineTarget.points.length >= 2) {
-        final path = ui.Path();
-        path.moveTo(polylineTarget.points[0].dx, polylineTarget.points[0].dy);
-        for (int i = 1; i < polylineTarget.points.length; i++) {
-          path.lineTo(polylineTarget.points[i].dx, polylineTarget.points[i].dy);
-        }
-        canvas.drawPath(path, guidePaint);
+      if (polylineTarget.points.length < 2) return;
+
+      final guidePaint = Paint()
+        ..color = const ui.Color(0xFFCBD5E1)
+        ..style = ui.PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..strokeCap = ui.StrokeCap.round
+        ..strokeJoin = ui.StrokeJoin.round;
+
+      final path = ui.Path();
+      path.moveTo(polylineTarget.points[0].dx, polylineTarget.points[0].dy);
+      for (int i = 1; i < polylineTarget.points.length; i++) {
+        path.lineTo(polylineTarget.points[i].dx, polylineTarget.points[i].dy);
       }
+      canvas.drawPath(path, guidePaint);
     }
   }
 
-  /// 绘制网格
+  /// 绘制米字格
   void _drawGrid(Canvas canvas) {
     final gridPaint = Paint()
       ..color = const ui.Color(0xFFE2E8F0)
       ..style = ui.PaintingStyle.stroke
       ..strokeWidth = 1;
 
-    for (double step = 0; step <= canvasSize; step += 32) {
-      canvas.drawLine(
-        ui.Offset(step, 0),
-        ui.Offset(step, canvasSize),
-        gridPaint,
-      );
-      canvas.drawLine(
-        ui.Offset(0, step),
-        ui.Offset(canvasSize, step),
-        gridPaint,
-      );
+    final step = canvasSize / 8;
+    for (double pos = 0; pos <= canvasSize + 0.5; pos += step) {
+      canvas.drawLine(ui.Offset(pos, 0), ui.Offset(pos, canvasSize), gridPaint);
+      canvas.drawLine(ui.Offset(0, pos), ui.Offset(canvasSize, pos), gridPaint);
     }
+
+    // 中线略深，方便对位
+    final axisPaint = Paint()
+      ..color = const ui.Color(0xFFCBD5E1)
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+    canvas.drawLine(
+      ui.Offset(canvasSize / 2, 0),
+      ui.Offset(canvasSize / 2, canvasSize),
+      axisPaint,
+    );
+    canvas.drawLine(
+      ui.Offset(0, canvasSize / 2),
+      ui.Offset(canvasSize, canvasSize / 2),
+      axisPaint,
+    );
   }
 
   /// 绘制用户笔画
@@ -763,7 +1110,7 @@ class _TracePathPainter extends CustomPainter {
     final strokePaint = Paint()
       ..color = const ui.Color(0xFF0EA5E9)
       ..style = ui.PaintingStyle.stroke
-      ..strokeWidth = 8
+      ..strokeWidth = 12
       ..strokeCap = ui.StrokeCap.round
       ..strokeJoin = ui.StrokeJoin.round;
 
@@ -775,6 +1122,9 @@ class _TracePathPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TracePathPainter oldDelegate) {
     return segments.length != oldDelegate.segments.length ||
-        canvasSize != oldDelegate.canvasSize;
+        canvasSize != oldDelegate.canvasSize ||
+        guideText != oldDelegate.guideText ||
+        guideLayout != oldDelegate.guideLayout ||
+        !identical(target, oldDelegate.target);
   }
 }

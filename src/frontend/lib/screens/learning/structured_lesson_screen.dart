@@ -2338,7 +2338,16 @@ class _WriteStepContent extends StatefulWidget {
 
 class _WriteStepContentState extends State<_WriteStepContent> {
   late Set<int> _checkedItems;
-  final Map<int, TraceResult> _traceResults = {};
+
+  /// 描红整体结果（所有字写完后才有值）
+  TraceResult? _traceResult;
+
+  static const Set<String> _ignoredTraceChars = {
+    '，', '。', '、', '；', '：', '！', '？', '“', '”', '‘', '’',
+    '（', '）', '《', '》', '「', '」', '『', '』', '…', '—', '·', '～',
+    ',', '.', ';', ':', '!', '?', '"', "'", '(', ')', '[', ']', '{', '}',
+    '/', '\\', '~', '_', '+', '=', '*', '&', '%', '@', '#', '^', '|',
+  };
 
   @override
   void initState() {
@@ -2347,12 +2356,28 @@ class _WriteStepContentState extends State<_WriteStepContent> {
   }
 
   /// 是否有描红内容需要完成
-  bool get _hasTracing => widget.tracingItems.isNotEmpty;
+  bool get _hasTracing => _traceChars.isNotEmpty;
 
   /// 所有描红项是否已完成
-  bool get _allTraced =>
-      widget.tracingItems.isEmpty ||
-      _traceResults.length == widget.tracingItems.length;
+  bool get _allTraced => !_hasTracing || _traceResult != null;
+
+  /// 描红字列表：把所有描红项按字拆开、去重、跳过标点
+  ///
+  /// 生成式课程里的 tracingItems 常常是「海星」「海星的五只腕」这样的词组，
+  /// 直接整段塞进一个格子会叠在一起。这里拆成单字，交给画板逐字描。
+  List<String> get _traceChars {
+    final chars = <String>[];
+    for (final item in widget.tracingItems) {
+      for (final rune in item.runes) {
+        final ch = String.fromCharCode(rune);
+        if (ch.trim().isEmpty) continue;
+        if (_ignoredTraceChars.contains(ch)) continue;
+        if (chars.contains(ch)) continue;
+        chars.add(ch);
+      }
+    }
+    return chars;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2526,7 +2551,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
   /// 描红标题 + 进度提示
   Widget _buildTracingHeader() {
-    final totalCount = widget.tracingItems.length;
+    final totalCount = _traceChars.length;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -2564,7 +2589,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           ),
           const SizedBox(height: 2),
           Text(
-            '用手指沿着浅色字形描画，完成 $totalCount 个字即可',
+            '用手指沿着浅色字形描画，写完一个字自动进入下一个（共 $totalCount 个字）',
             style: TextStyle(
               fontSize: 12,
               color: AppTheme.textSecondary,
@@ -2577,8 +2602,6 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
   /// 描红进度指示
   Widget _buildTraceProgress() {
-    final doneCount = _traceResults.length;
-    final totalCount = widget.tracingItems.length;
     if (_allTraced) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -2596,39 +2619,48 @@ class _WriteStepContentState extends State<_WriteStepContent> {
         ),
       );
     }
-    return Text(
-      '$doneCount / $totalCount',
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.primaryColor,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '共 ${_traceChars.length} 个字',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.primaryColor,
+        ),
       ),
     );
   }
 
   /// 描红画布区域
+  ///
+  /// 只渲染一个画布：所有字交给画板逐字描（写完一个字自动进入下一个），
+  /// 不再为每个描红项堆一个画布，页面不会因为多个画板而反复滚动。
   List<Widget> _buildTraceCanvas() {
-    return List.generate(widget.tracingItems.length, (index) {
-      final item = widget.tracingItems[index];
+    final chars = _traceChars;
+    if (chars.isEmpty) return const [];
 
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: TracePathCanvas(
-          target: TraceGlyphTarget(
-            id: 'trace_$index',
-            label: '描红: $item',
-            text: item,
-            fontSize: 160,
-          ),
-          minCoverage: 0.65,
-          onSolved: (traceResult) {
-            setState(() {
-              _traceResults[index] = traceResult;
-            });
-          },
+    return [
+      TracePathCanvas(
+        key: const ValueKey('trace_canvas'),
+        target: TraceGlyphTarget(
+          id: 'trace_all',
+          label: '描红: ${chars.join(' · ')}',
+          text: chars.join(),
         ),
-      );
-    });
+        minCoverage: 0.65,
+        onSolved: (traceResult) {
+          if (!mounted) return;
+          setState(() {
+            _traceResult = traceResult;
+          });
+        },
+      ),
+    ];
   }
 
   Widget _buildCompleteButton() {
@@ -2663,24 +2695,19 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           child: FilledButton.icon(
             onPressed: canComplete
                 ? () {
-                    // 收集描红得分
-                    final traceScores =
-                        _traceResults.values.map((r) => r.score).toList();
-                    final avgTraceScore = traceScores.isNotEmpty
-                        ? traceScores.reduce((a, b) => a + b) ~/
-                            traceScores.length
-                        : 80;
+                    final traceResult = _traceResult;
                     widget.onComplete(
-                      avgTraceScore,
+                      traceResult?.score ?? 80,
                       {
                         'checkedItems': _checkedItems.toList(),
-                        'traceResults': _traceResults.values
-                            .map((r) => {
-                                  'coverage': r.coverage,
-                                  'attempts': r.attempts,
-                                  'score': r.score,
-                                })
-                            .toList(),
+                        if (traceResult != null)
+                          'traceResults': [
+                            {
+                              'coverage': traceResult.coverage,
+                              'attempts': traceResult.attempts,
+                              'score': traceResult.score,
+                            },
+                          ],
                       },
                     );
                   }
@@ -2707,7 +2734,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              '还有 ${widget.tracingItems.length - _traceResults.length} 个字需要描完哦~',
+              '还有 ${_traceChars.length} 个字需要描完哦~',
               style: TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondary,

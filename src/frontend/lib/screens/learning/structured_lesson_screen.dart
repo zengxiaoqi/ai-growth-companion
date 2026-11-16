@@ -2649,7 +2649,7 @@ class _WriteStepContentState extends State<_WriteStepContent> {
         key: const ValueKey('trace_canvas'),
         target: TraceGlyphTarget(
           id: 'trace_all',
-          label: '描红: ${chars.join(' · ')}',
+          label: '描红: ${chars.join(' ')}',
           text: chars.join(),
         ),
         minCoverage: 0.65,

@@ -1,9 +1,9 @@
 /**
  * AgentRemotionService — agent-remotion 质量引擎。
  *
- * 单代码路径：服务层预置 contract.ts / index.ts / Root.tsx / props.json（含 TTS
- * 与素材解析，复用 dynamic-remotion 的场景规范化），创作 agent 只写
- * GeneratedLesson.tsx；stills→visualQa→修代码闭环在工具层限 3 轮；全量渲染走
+ * 单代码路径：服务层预置 contract.ts / motion-helpers.ts / index.ts / Root.tsx /
+ * props.json（含 TTS 与素材解析，复用 dynamic-remotion 的场景规范化），创作 agent
+ * 只写 GeneratedLesson.tsx；stills→visualQa→修代码闭环在工具层限 3 轮；全量渲染走
  * RemotionRenderService.renderPreparedComposition（与确定性引擎同一渲染原语）。
  * 任何失败都 throw 回队列落引擎兜底，不静默。
  */
@@ -25,6 +25,7 @@ import { VideoGenerationAgentService } from './video-generation-agent.service';
 import {
   AUTHOR_CONTRACT_TS,
   AUTHOR_INDEX_TS,
+  AUTHOR_MOTION_HELPERS_TS,
   buildAuthorRootTsx,
   validateAuthorTaskDir,
   type AuthorLessonProps,
@@ -87,6 +88,7 @@ export class AgentRemotionService {
 
       const props = await this.buildProps(task, payload, storyboard, publicTaskDir, publicTaskRel);
       await fs.writeFile(path.join(taskDir, 'contract.ts'), AUTHOR_CONTRACT_TS, 'utf-8');
+      await fs.writeFile(path.join(taskDir, 'motion-helpers.ts'), AUTHOR_MOTION_HELPERS_TS, 'utf-8');
       await fs.writeFile(path.join(taskDir, 'index.ts'), AUTHOR_INDEX_TS, 'utf-8');
       await fs.writeFile(
         path.join(taskDir, 'Root.tsx'),

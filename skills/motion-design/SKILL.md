@@ -41,9 +41,32 @@ If the storyboard provides `beats`, honor them; if not, derive one beat per sent
   at the core-concept sentence; never stack with focus-ring on the same beat.
 - `fade-rise`: quiet entrance for background/summary elements.
 
+## Motion helpers (prefer these for standard beats)
+
+The authoring task directory ships `motion-helpers.ts` — pre-tuned primitives
+extracted from the proven deterministic-engine recipes. Import what you need:
+`import { ageAmplitude, springEnter, focusScale, staggerEnter, popScale, swellScale, progress } from "./motion-helpers";`
+
+| Vocabulary | Helper |
+|---|---|
+| focus-ring | `focusScale(frame, "active"\|"visited"\|"pending", amp)` |
+| spring-pop | `popScale(frame, popFrame, fps)` then settle into `focusScale` |
+| stagger | `staggerEnter(frame, enterFrame, index, fps)` (8-frame offset) |
+| swell | `swellScale(progress01, "grow"\|"shrink")` (±28%) |
+| entrances | `springEnter(frame, enterFrame, fps, "pop"\|"travel")` |
+| amplitude | `ageAmplitude(ageGroup)` — multiply every scale by it |
+| beat windows | `progress(frame, start, end)` — clamped 0→1 |
+
+Helpers are optional, not mandatory: bespoke motion the helpers don't cover
+(trace-on, orbit, camera-push, custom choreography) is still written with raw
+`interpolate`/`spring` following the recipes below. Preferring helpers shrinks
+the code you must write and keeps the common cases on tuned parameters.
+
 ## Easing and anticipation recipes
 
-- Entrances: spring or cubic-bezier(0.22, 1, 0.36, 1) (ease-out-quint). Never linear.
+- Entrances: spring or cubic-bezier(0.22, 1, 0.36, 1) (ease-out-quint). Never linear —
+  the contract validator rejects `Easing.linear` unless the same/previous line carries
+  a `// linear-ok: <reason>` comment (continuous motion like rotation/progress only).
 - Exits: ease-in (accelerate away), 12-18 frames; a lingering exit reads as lag.
 - Anticipation: before a big move, 4-6 frames of 2-3% counter-scale. Children read
   the wind-up as "something is about to happen" — it buys attention for the reveal.

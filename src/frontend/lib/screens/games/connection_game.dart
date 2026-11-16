@@ -206,7 +206,10 @@ class _ConnectionGameState extends State<ConnectionGame>
   Color _pairColorAt(int leftIndex) {
     final colors = AppTheme.childColors;
     if (colors.isEmpty) return AppTheme.secondaryColor;
-    return colors[leftIndex.abs() % colors.length];
+    // 学科色原始顺序里陶土红与琥珀相邻，两对同时出现时分不清；
+    // 这里按「色相跳开」的顺序取色，四对之内颜色一眼可辨。
+    const order = [0, 1, 4, 2, 5, 3];
+    return colors[order[leftIndex.abs() % order.length] % colors.length];
   }
 
   void _scheduleAnchorMeasure() {
@@ -344,8 +347,13 @@ class _ConnectionGameState extends State<ConnectionGame>
               ),
               child: Row(
                 children: [
-                  Text(allCorrect ? '🎉' : '💪',
-                      style: const TextStyle(fontSize: 15)),
+                  Icon(
+                    allCorrect
+                        ? Icons.emoji_events_rounded
+                        : Icons.trending_up_rounded,
+                    size: 17,
+                    color: color,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -486,8 +494,10 @@ class _ConnectionGameState extends State<ConnectionGame>
                     rightAnchors: _rightAnchors,
                     correctPairs: _correctPairs,
                     submitted: _submitted,
-                    leftOrder: _leftItems.map((e) => e.id).toList(),
-                    pairColors: AppTheme.childColors,
+                    leftColors: {
+                      for (var i = 0; i < _leftItems.length; i++)
+                        _leftItems[i].id: _pairColorAt(i),
+                    },
                   ),
                 ),
               ),
@@ -683,19 +693,32 @@ class _ConnectionGameState extends State<ConnectionGame>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  // 未连线时不画点，避免满屏小圆点看不出含义。
-                  color: connected ? pairColor : Colors.transparent,
-                  shape: BoxShape.circle,
+            // 判分后把「配对圆点」换成对错图标：放在行首，
+            // 卡片文字宽度不变，不会因为多一个尾巴图标而重新换行。
+            if (correct != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(
+                  correct ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                  size: 16,
+                  color:
+                      correct ? AppTheme.successColor : AppTheme.warningColor,
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    // 未连线时不画点，避免满屏小圆点看不出含义。
+                    color: connected ? pairColor : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -710,14 +733,6 @@ class _ConnectionGameState extends State<ConnectionGame>
                 ),
               ),
             ),
-            if (correct != null) ...[
-              const SizedBox(width: 4),
-              Icon(
-                correct ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                size: 17,
-                color: correct ? AppTheme.successColor : AppTheme.warningColor,
-              ),
-            ],
           ],
         ),
       ),
@@ -780,12 +795,14 @@ class _ConnectionGameState extends State<ConnectionGame>
         child: FilledButton.icon(
           onPressed: _finish,
           icon: const Icon(Icons.emoji_events_rounded, size: 20),
-          label: const Text('查看结果'),
+          label: const Text(
+            '查看结果',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: AppTheme.active.onPrimary,
             elevation: 0,
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -803,14 +820,16 @@ class _ConnectionGameState extends State<ConnectionGame>
           canSubmit ? Icons.send_rounded : Icons.touch_app_rounded,
           size: 20,
         ),
-        label: Text(canSubmit ? '提交连线' : '先连好一条线'),
+        label: Text(
+          canSubmit ? '提交连线' : '先连好一条线',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
         style: FilledButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           foregroundColor: AppTheme.active.onPrimary,
           disabledBackgroundColor: AppTheme.active.card,
           disabledForegroundColor: AppTheme.textSecondary.withValues(alpha: 0.8),
           elevation: 0,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -839,8 +858,7 @@ class _ConnectionPainter extends CustomPainter {
   final Map<String, Offset> rightAnchors;
   final List<_ConnectionPair> correctPairs;
   final bool submitted;
-  final List<String> leftOrder;
-  final List<Color> pairColors;
+  final Map<String, Color> leftColors;
 
   _ConnectionPainter({
     required this.progress,
@@ -849,8 +867,7 @@ class _ConnectionPainter extends CustomPainter {
     required this.rightAnchors,
     required this.correctPairs,
     required this.submitted,
-    required this.leftOrder,
-    required this.pairColors,
+    required this.leftColors,
   });
 
   Color _colorFor(String leftId, String rightId) {
@@ -859,9 +876,7 @@ class _ConnectionPainter extends CustomPainter {
     if (submitted) {
       return isCorrect ? AppTheme.successColor : AppTheme.warningColor;
     }
-    if (pairColors.isEmpty) return AppTheme.secondaryColor;
-    final index = leftOrder.indexOf(leftId);
-    return pairColors[(index < 0 ? 0 : index) % pairColors.length];
+    return leftColors[leftId] ?? AppTheme.secondaryColor;
   }
 
   @override

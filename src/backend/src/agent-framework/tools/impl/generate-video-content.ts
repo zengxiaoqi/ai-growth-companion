@@ -17,7 +17,7 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
-import { describeGraphGrammar, normalizeSceneGraph } from '../../../modules/learning/video/scene-graph';
+import { describeGraphGrammar, normalizeSceneGraph, auditGraphNarration, formatCoverageFeedback } from '../../../modules/learning/video/scene-graph';
 import { describeFigureGrammar, normalizeFigureSpec } from '../../../modules/learning/video/figure-spec';
 import { repairFigures, type FigureReject } from '../../../modules/learning/video/figure-repair';
 import {
@@ -162,6 +162,9 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     const domain = this.toText(args?.domain) || this.inferDomain(topic);
 
     const failures: string[] = [];
+    // 重试带话术重掷整份分镜，不是定点修补：实测有样本被掷得更差（缺 2 个节点 → 缺 6 个）。
+    // 所以每轮留最好的一份，别让更差的覆盖更好的。
+    let best: { storyboard: VideoStoryboard; mismatches: string[] } | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
@@ -188,11 +191,27 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
 
         const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount, ageGroup);
         await this.repairRejectedFigures(storyboard);
-        this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
-        return this.ok(storyboard);
+        const mismatches = this.auditNarrationCoverage(storyboard);
+        if (mismatches.length === 0) {
+          this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
+          return this.ok(storyboard);
+        }
+        // 画面节点没被旁白念到 = 孩子看见一个没讲过的概念。带具体话术重试一轮；
+        // 用尽重试仍不达标就交出缺口最少的那份并告警——宁可少讲一个概念，也不要因为
+        // 校验把整节课退化成通用卡片（buildFallbackStoryboard 比"多一张没讲过的卡"更糟）。
+        if (!best || mismatches.length < best.mismatches.length) best = { storyboard, mismatches };
+        failures.push(`attempt ${attempt}: ${mismatches.join(' | ')}`);
       } catch (error: unknown) {
         failures.push(`attempt ${attempt}: ${error instanceof Error ? error.message : 'unknown'}`);
       }
+    }
+
+    if (best) {
+      this.logger.warn(
+        `narration/graph mismatch accepted after ${MAX_ATTEMPTS} attempts for "${topic}" ` +
+          `(best of ${MAX_ATTEMPTS}, ${best.mismatches.length} node(s) unspoken): ${best.mismatches.join(' | ')}`,
+      );
+      return this.ok(best.storyboard);
     }
 
     this.logger.warn(
@@ -254,8 +273,8 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         "nodes": [
           {
             "id": "n1",
-            "label": "string (画面标签，≤6字)",
-            "subject": "string (可检索到图标的具体名词，如 '小水滴' '苹果')",
+            "label": "string (画面标签，≤6字；必须逐字出现在本场景 narration 里)",
+            "subject": "string (可检索到图标的具体名词；取旁白里的说法，如旁白说 '小水珠' 就写 '小水珠' 而不是 '雨')",
             "role": "subject | object | place | abstract",
             "sign": "count | rise | level | flow | time | orb（仅 role=abstract 必填）",
             "swell": "grow | shrink（可选，仅当这个概念的体量随讲解变化时）"
@@ -403,6 +422,28 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       storyboard.scenes[index].figure = spec;
     }
     this.logger.log(`Figure repair round fixed ${fixed.size}/${rejects.length} rejected figure(s)`);
+  }
+
+  /**
+   * 逐场景检查「画面节点是否都被旁白念到」。
+   *
+   * 旁白和 sceneGraph 是同一次调用产出的，但两边互不校验，于是会出现画面上挂着
+   * 「白云」卡、旁白却只说"水汽飞到天上，遇冷变回小水珠"——云这个节点从头到尾没被念到。
+   * 这类缺口在实测里占 22%，且集中在最需要画面解释的抽象概念上，靠渲染侧补不回来。
+   *
+   * 只报前 2 个场景：feedback 会进下一轮 prompt，逐条列全会把预算吃光。
+   */
+  private auditNarrationCoverage(storyboard: { scenes: StoryboardScene[] }): string[] {
+    const issues: string[] = [];
+    for (const scene of storyboard.scenes) {
+      const graph = normalizeSceneGraph(scene.sceneGraph);
+      if (!graph) continue;
+      const coverage = auditGraphNarration(graph, scene.narration);
+      if (coverage.missing.length === 0) continue;
+      issues.push(formatCoverageFeedback(scene.title, scene.narration, coverage));
+      if (issues.length >= 2) break;
+    }
+    return issues;
   }
 
   private sanitizeScene(raw: Record<string, any>, index: number, ageGroup: AgeGroup): StoryboardScene {

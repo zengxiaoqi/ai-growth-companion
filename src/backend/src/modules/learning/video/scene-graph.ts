@@ -159,6 +159,73 @@ export function normalizeSceneGraph(raw: unknown): SceneGraph | null {
   };
 }
 
+/**
+ * 画面节点 ↔ 旁白的对齐审计。
+ *
+ * 为什么需要：sceneGraph 的节点是画面上的一张大卡片，narration 是孩子听到的话。
+ * 两者是同一次 LLM 调用产出的，但提示词从没要求 label 出现在旁白里，于是会出现
+ * 「画面上有"白云"卡，旁白从头到尾没说过"云"」——孩子看见一个没被讲过的概念。
+ * 实测 8 个场景 27 个节点里有 6 个（22%）属于这种，且集中在云/雨/幼苗/花/根/彩虹
+ * 这些最需要画面解释的抽象概念上（见 scripts/probe-cue-anchors.ts）。
+ *
+ * 判定口径刻意从严：label 或 subject 必须**逐字**出现在旁白里。
+ * 不做同义/单字兜底——「树根」靠单字「树」命中「大树」是静默错配，比不命中更糟。
+ */
+export type NarrationCoverageMiss = {
+  label: string;
+  subject: string;
+};
+
+export type NarrationCoverage = {
+  total: number;
+  matched: number;
+  missing: NarrationCoverageMiss[];
+};
+
+/** 剥标点与空白：旁白里「苹果、香蕉」和标签「苹果」应当算命中 */
+function spokenForm(input: string): string {
+  return String(input ?? '').replace(/[\s\p{P}\p{S}]/gu, '');
+}
+
+export function auditGraphNarration(
+  graph: Pick<SceneGraph, 'nodes'> | null | undefined,
+  narration: string,
+): NarrationCoverage {
+  const nodes = Array.isArray(graph?.nodes) ? graph!.nodes : [];
+  const spoken = spokenForm(narration);
+  const missing: NarrationCoverageMiss[] = [];
+  let matched = 0;
+
+  for (const node of nodes) {
+    const label = spokenForm(node.label);
+    const subject = spokenForm(node.subject);
+    const hit = (label && spoken.includes(label)) || (subject && spoken.includes(subject));
+    if (hit) matched += 1;
+    else missing.push({ label: node.label, subject: node.subject });
+  }
+
+  return { total: nodes.length, matched, missing };
+}
+
+/**
+ * 把审计结果写成能直接回喂给 LLM 的一句话。
+ * 要说清三件事：哪个场景、哪些节点没被念到、怎么改（换词或删节点），
+ * 否则模型只会原样再交一遍。
+ */
+export function formatCoverageFeedback(
+  sceneTitle: string,
+  narration: string,
+  coverage: NarrationCoverage,
+): string {
+  const names = coverage.missing.map((n) => `「${n.label}」`).join('');
+  return (
+    `场景「${sceneTitle}」的画面节点 ${names} 在旁白里没有出现。` +
+    `旁白原文：${narration}。` +
+    `修法：把 label 换成旁白里确实说过的词（图上写的字孩子必须听到），` +
+    `或者删掉这些节点换一个旁白提到的概念；不要靠改 narration 迁就画面。`
+  );
+}
+
 /** 提供给 prompt 的语法说明，和上面的实现必须同步——改一处要改两处 */
 export function describeGraphGrammar(): string {
   return [
@@ -180,6 +247,11 @@ export function describeGraphGrammar(): string {
     '  count=能数出来的(3个/5片) rise=会往上跑的(水蒸气/热气/力气变大) level=有高低的(温度/水位/饱腹)',
     '  flow=在流动的(风/电流/水流) time=跟时间有关(快慢/多久) orb=说不清的其他概念',
     '- 节点顺序有意义：cycle/chain/growth 按发生顺序，group/split 第一个是整体，compare 前两个就是左右两项。',
+    '- label 必须逐字出现在本场景 narration 里。图上的字是给孩子看的，旁白没提到的概念不要放节点：',
+    '  宁可 3 个节点都讲过，也不要 4 个节点里有一个从没被念到（实测这种"图上有、话里没有"占 22%）。',
+    '- 写完 narration 再回头对一遍：每个 label 都能在 narration 里原样找到吗？找不到就换词或删节点，',
+    '  不要为了凑节点去改 narration 的叙事，也不要用近义词糊过去（旁白说「小水珠」就把 label 写成「小水珠」）。',
+    '- subject 取旁白里的说法（旁白说「小水珠」就不要写「雨」）：图标检索和后续对齐都依赖它。',
     '- caption 可选，一句关系说明，≤10 字，如「水变成水蒸气」。',
     '动画由 relation 决定，不用你描述动画：',
     'cycle 有一颗光点沿环一直转，转到哪个概念哪个亮起来；chain 的光点从左走到右；',

@@ -18,6 +18,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { VoiceService } from '../src/modules/voice/voice.service';
 import type { WordBoundary } from '../src/modules/learning/subtitle-timing';
+import { auditGraphNarration, normalizeSceneGraph } from '../src/modules/learning/video/scene-graph';
 
 const FPS = 30;
 const TICKS = 1e7;
@@ -164,6 +165,28 @@ async function main(): Promise<void> {
   const only = arg('only');
   const scenes = await loadPreviewScenes();
   const voice = new VoiceService();
+
+  // --audit：不跑 TTS，只用生产侧的 auditGraphNarration 过一遍现有场景。
+  // 用来交叉验证"探针口径"和"生产口径"是否一致，也当这条规则的快速回归。
+  if (arg('audit') === 'true') {
+    let total = 0;
+    let missingTotal = 0;
+    for (const scene of scenes) {
+      const graph = normalizeSceneGraph(scene?.sceneGraph);
+      if (!graph) continue;
+      const coverage = auditGraphNarration(graph, String(scene.narration || ''));
+      total += coverage.total;
+      missingTotal += coverage.missing.length;
+      const flag = coverage.missing.length === 0 ? '✓' : '✗';
+      console.log(
+        `${flag} ${String(scene.id).padEnd(4)} ${String(scene.title).slice(0, 10).padEnd(11)} ` +
+          `${coverage.matched}/${coverage.total}` +
+          (coverage.missing.length ? `  缺失: ${coverage.missing.map((m) => m.label).join(' / ')}` : ''),
+      );
+    }
+    console.log(`\n合计 ${total - missingTotal}/${total} = ${(((total - missingTotal) / total) * 100).toFixed(0)}% 覆盖`);
+    return;
+  }
 
   // 词边界缓存：同一句旁白的 TTS 结果不重复请求（探针要反复跑，网络调用是唯一慢点）
   const cacheFile = path.resolve(__dirname, '../../video-remotion/out/.tts-boundary-cache.json');

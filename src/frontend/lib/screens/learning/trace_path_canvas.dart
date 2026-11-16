@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
@@ -282,21 +283,26 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     return (ui.Offset(px, py) - point).distance;
   }
 
+  // 当前活动指针 id（多指触控时只跟踪第一根手指）
+  int? _activePointerId;
+
   /// 指针按下
-  void _handlePointerDown(Offset position) {
-    if (_solved) return;
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_solved || _activePointerId != null) return;
 
     setState(() {
+      _activePointerId = event.pointer;
       _warning = null;
-      _activePoint = _normalizePosition(position);
+      _activePoint = _normalizePosition(event.localPosition);
     });
   }
 
   /// 指针移动
-  void _handlePointerMove(Offset position) {
+  void _handlePointerMove(PointerMoveEvent event) {
     if (_activePoint == null || _solved) return;
+    if (event.pointer != _activePointerId) return;
 
-    final nextPoint = _normalizePosition(position);
+    final nextPoint = _normalizePosition(event.localPosition);
     final segment = _Segment(_activePoint!, nextPoint);
 
     setState(() {
@@ -308,7 +314,9 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   }
 
   /// 指针抬起
-  void _handlePointerUp() {
+  void _handlePointerUp(PointerEvent event) {
+    if (event.pointer != _activePointerId) return;
+    _activePointerId = null;
     _activePoint = null;
 
     if (!_solved && _coverage < widget.minCoverage) {
@@ -430,20 +438,47 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                     width: 1,
                   ),
                 ),
-                child: GestureDetector(
-                  onPanStart: (details) =>
-                      _handlePointerDown(details.localPosition),
-                  onPanUpdate: (details) =>
-                      _handlePointerMove(details.localPosition),
-                  onPanEnd: (_) => _handlePointerUp(),
-                  child: CustomPaint(
-                    key: _paintKey,
-                    painter: _TracePathPainter(
-                      target: widget.target,
-                      segments: _segments,
-                      canvasSize: _canvasSize,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: _handlePointerDown,
+                  onPointerMove: _handlePointerMove,
+                  onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerUp,
+                  child: RawGestureDetector(
+                    // 占位拖拽识别器：抢赢手势竞技场，阻止外层
+                    // SingleChildScrollView / PageView 把竖向描红
+                    // 笔画当成页面滚动或横向翻页。
+                    gestures: {
+                      VerticalDragGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<
+                            VerticalDragGestureRecognizer
+                          >(
+                            () => VerticalDragGestureRecognizer(),
+                            (instance) {
+                              instance.onUpdate = (_) {};
+                              instance.onEnd = (_) {};
+                            },
+                          ),
+                      HorizontalDragGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<
+                            HorizontalDragGestureRecognizer
+                          >(
+                            () => HorizontalDragGestureRecognizer(),
+                            (instance) {
+                              instance.onUpdate = (_) {};
+                              instance.onEnd = (_) {};
+                            },
+                          ),
+                    },
+                    child: CustomPaint(
+                      key: _paintKey,
+                      painter: _TracePathPainter(
+                        target: widget.target,
+                        segments: _segments,
+                        canvasSize: _canvasSize,
+                      ),
+                      size: const Size(_canvasSize, _canvasSize),
                     ),
-                    size: const Size(_canvasSize, _canvasSize),
                   ),
                 ),
               ),

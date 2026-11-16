@@ -256,12 +256,12 @@ class _ShimmerPlaceholderState extends State<ShimmerPlaceholder>
               BorderRadius.all(Radius.circular(AppTheme.cardRadius)),
           child: Stack(
             children: [
-              // 底层骨架色
-              Positioned.fill(
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(base, BlendMode.srcATop),
-                  child: child!,
-                ),
+              // 底层骨架色：非 positioned，让 Stack 按 child 自身尺寸定大小。
+              // 全 positioned 的 Stack 在 Column/ListView 等无界高度约束下
+              // 会断言失败（骨架屏一显示就崩）。
+              ColorFiltered(
+                colorFilter: ColorFilter.mode(base, BlendMode.srcATop),
+                child: child!,
               ),
 
               // 滑动高光

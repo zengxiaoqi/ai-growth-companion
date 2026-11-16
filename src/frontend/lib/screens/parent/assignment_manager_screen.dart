@@ -9,6 +9,7 @@ import '../../providers/user_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import '../learning/animation_scene_player.dart';
+import '../learning/structured_lesson_screen.dart';
 import 'child_selector.dart';
 
 /// 家长端作业管理页面
@@ -879,6 +880,38 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
                 ],
               ),
             ],
+            // 结构化课程草稿：预览复用学生端播放器，编辑回课程生成器继续改
+            if (!isCoursePack && !isVideoDraft) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _previewDraftLesson(draft),
+                    icon: const Icon(Icons.visibility_rounded, size: 18),
+                    label: const Text('预览'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    onPressed: () => _editDraftLesson(draft),
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    label: const Text('编辑'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.secondaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             // 视频/动画/课程类草稿的预览按钮
             if (isVideoDraft) ...[
               const SizedBox(height: 10),
@@ -929,6 +962,35 @@ class _AssignmentManagerScreenState extends State<AssignmentManagerScreen> {
       'initialRecordId': recordId,
       'initialChildId': _toInt(draft['childId']),
     }).then((_) {
+      if (mounted) _loadData();
+    });
+  }
+
+  /// 结构化课程草稿：以学生视角预览，previewMode 不写学习进度
+  void _previewDraftLesson(Map<String, dynamic> draft) {
+    final contentId = _toInt(draft['id']);
+    if (contentId == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StructuredLessonScreen(
+          contentId: contentId,
+          childId: _selectedChildId,
+          previewMode: true,
+        ),
+      ),
+    );
+  }
+
+  /// 结构化课程草稿：回课程生成器加载该草稿继续编辑
+  void _editDraftLesson(Map<String, dynamic> draft) {
+    final contentId = _toInt(draft['id']);
+    if (contentId == null) return;
+    Navigator.pushNamed(
+      context,
+      '/parent/lessonGenerator',
+      arguments: {'draftContentId': contentId},
+    ).then((_) {
       if (mounted) _loadData();
     });
   }

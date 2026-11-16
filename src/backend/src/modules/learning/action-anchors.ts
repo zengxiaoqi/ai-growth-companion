@@ -172,7 +172,9 @@ export function buildActionAnchors(
         : // 没有词边界（旧任务/单测）：退回逐字，取第一次出现
           spoken.flatMap((page) => page.chars.filter((c) => c.ch === ch).map((c) => c.frame));
       for (const frame of frames) {
-        const page = spoken.find((p) => frame >= p.start && frame < p.end);
+        // 帧落在页间空隙时归到下一句：字幕那边的逐字帧做过单调钳制，
+        // 与词边界换算出的帧可能差几帧，严格区间判断会把它漏掉。
+        const page = spoken.find((p) => frame >= p.start && frame < p.end) || spoken.find((p) => p.end > frame);
         if (!page) continue;
         const start = Math.max(page.start, Math.min(frame, page.end - minWindow));
         if (page.end - start < Math.max(4, Math.floor(minWindow / 2))) continue;

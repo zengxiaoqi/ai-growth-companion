@@ -94,7 +94,9 @@ echo.
 echo [6/7] Starting services...
 echo.
 
-start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend && set PORT=%BACKEND_PORT% && npx nest start --watch"
+:: Disable QuickEdit first: a selected console freezes Node's synchronous stdout,
+:: which stalls the event loop and makes every API request time out.
+start "Backend" cmd /k "cd /d %PROJECT_DIR%src\backend\scripts & powershell -NoProfile -ExecutionPolicy Bypass -File disable-console-quickedit.ps1 >nul 2>&1 & cd /d %PROJECT_DIR%src\backend && set PORT=%BACKEND_PORT% && npx nest start --watch"
 
 echo Waiting for backend to be ready...
 set "WAITED=0"
@@ -131,6 +133,8 @@ echo   API Docs     : http://localhost:%BACKEND_PORT%/api/docs
 echo.
 echo   Note: Flutter dev server has no /api proxy; the app calls the
 echo         backend directly at port %BACKEND_PORT%.
+echo   Note: Backend console QuickEdit is disabled at startup. Selecting text
+echo         in a Windows console otherwise blocks Node stdout and freezes all APIs.
 echo.
 echo   Test Account: 13800000001 / password123
 echo   Tip: run start.bat --reset-db to reset database

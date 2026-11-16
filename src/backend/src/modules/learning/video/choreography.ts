@@ -293,3 +293,90 @@ export function beatWindows(
     };
   });
 }
+/**
+ * 用真实词边界重排拍窗：把"按字数比例分时长"换成"按这句话真正说了多久"。
+ *
+ * 原来 `beatWindows` 是按句字数占全篇的比例切场景时长（它的注释里就写着
+ * "TTS 有词级时间戳后可替换此分配"）。字数比例在一种情况下会明显失真：
+ * 中文里长句往往读得快、短句（"它们都是水果。"）念得慢，而数字数的算法
+ * 认为字多就占得多。于是拍的边界落在旁白两句话之间，而不是两句话之间那个停顿上——
+ * 焦点在上一句还没说完时就跳走了，或者上一句说完了还停在旧主体上。
+ *
+ * 判据：
+ * 1. 句子按 `splitSentences` 切（与 beats 的 sentenceIndex 同一口径）。
+ * 2. 每句的起止帧取它第一个字与最后一个字的发音帧；末字加上那个词自己的时长。
+ * 3. 任一环节对不上（句子里的字在发音序列里找不到、越界）就整体返回 null，
+ *    调用方回退字数比例——不做部分重排，半句按词半句按字数，画面会出现两套节奏。
+ */
+export function beatFramesFromSpeech(
+  beats: Array<{ sentenceIndex: number; span?: number }>,
+  narration: string,
+  boundaries: Array<{ text: string; offset: number; duration: number }> | undefined,
+  options: { sceneFrames: number; fps?: number; ticks?: number },
+): Array<{ startFrame: number; endFrame: number }> | null {
+  const sentences = splitSentences(narration);
+  if (!sentences.length || !beats.length) return null;
+  if (!Array.isArray(boundaries) || boundaries.length === 0) return null;
+  const fps = options.fps ?? 30;
+  const ticks = options.ticks ?? 1e7;
+  const nonSpeech = /[\s\p{P}\p{S}]/u;
+
+  // 发音序列：每个能念的字 + 它被念到的秒数 + 它所在词的结束秒数
+  const spoken: Array<{ ch: string; at: number; until: number }> = [];
+  for (const word of boundaries) {
+    const chars = Array.from(String(word?.text || '')).filter((ch) => !nonSpeech.test(ch));
+    if (chars.length === 0) continue;
+    const start = Number(word.offset);
+    const dur = Number(word.duration);
+    if (!Number.isFinite(start)) continue;
+    const span = Number.isFinite(dur) && dur > 0 ? dur / chars.length : 0;
+    chars.forEach((ch, i) => {
+      spoken.push({ ch, at: (start + span * i) / ticks, until: (start + dur) / ticks });
+    });
+  }
+  if (spoken.length === 0) return null;
+
+  // 句子 → 发音序列上的区间：按顺序消耗，不做模糊对齐
+  const windows: Array<{ start: number; end: number }> = [];
+  let cursor = 0;
+  for (const sentence of sentences) {
+    const chars = Array.from(sentence).filter((ch) => !nonSpeech.test(ch));
+    if (chars.length === 0) {
+      const last = windows[windows.length - 1];
+      windows.push(last ? { start: last.end, end: last.end } : { start: 0, end: 0 });
+      continue;
+    }
+    if (cursor + chars.length > spoken.length) return null;
+    for (let i = 0; i < chars.length; i += 1) {
+      if (spoken[cursor + i].ch !== chars[i]) return null;
+    }
+    windows.push({
+      start: spoken[cursor].at,
+      end: Math.max(spoken[cursor].at, spoken[cursor + chars.length - 1].until),
+    });
+    cursor += chars.length;
+  }
+
+  const sceneEnd = Math.max(1, options.sceneFrames) / fps;
+  const retimed = beats.map((beat, index) => {
+    const from = Math.max(0, Math.min(windows.length - 1, Math.trunc(beat.sentenceIndex) || 0));
+    const span = Math.max(1, Math.trunc(beat.span || 1));
+    const lastIndex = Math.min(windows.length - 1, from + span - 1);
+    const startFrame = Math.round(windows[from].start * fps);
+    // 拍到下一拍开场为止（或本句说完、或场景收尾），取最早的那个，保证不越界
+    const nextBeat = beats[index + 1];
+    const naturalEnd = Math.round(windows[lastIndex].end * fps);
+    const nextStart =
+      nextBeat && index + 1 < beats.length
+        ? Math.round(windows[Math.max(0, Math.min(windows.length - 1, Math.trunc(nextBeat.sentenceIndex) || 0))].start * fps)
+        : sceneEnd * fps;
+    const endFrame = Math.max(startFrame + 1, Math.min(naturalEnd + 1, Math.round(nextStart)));
+    return { startFrame, endFrame: Math.max(startFrame + 1, endFrame) };
+  });
+  // 拍必须严格递增：拍数多于句子数时（LLM 给的 sentenceIndex 越界），
+  // 所有拍都会挤到第一句的帧上，拍解释器就永远停在同一拍——比字数比例更糟。
+  for (let i = 1; i < retimed.length; i += 1) {
+    if (retimed[i].startFrame <= retimed[i - 1].startFrame) return null;
+  }
+  return retimed;
+}

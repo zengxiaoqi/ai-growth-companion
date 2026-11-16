@@ -9,6 +9,7 @@ import { VoiceService } from '../voice/voice.service';
 import { buildWatchTemplateHint, deriveWatchSceneDocument } from './lesson-scene';
 import { buildSubtitleCues, type WordBoundary } from './subtitle-timing';
 import { auditFlowOrder, buildActionAnchors, summarizeActionAnchors } from './action-anchors';
+import { beatFramesFromSpeech } from './video/choreography';
 import type { VideoGenerationTask } from '../../database/entities/video-generation-task.entity';
 import type { DynamicRemotionManifest } from './video-generation-agent.service';
 import { checkStaticFiles, checkGeneratedFiles, autoFixErrors } from './remotion-ts-validator';
@@ -1732,6 +1733,34 @@ export class RemotionRenderService implements OnModuleInit {
           } else if (anchorStats.total > 0) {
             this.logger.warn(
               `[renderGeneratedComposition] taskId=${taskId} actionAnchors scene="${scene?.title || index + 1}" no anchor matched (${anchorStats.missed.join('/')}) — storyProgress fallback`,
+            );
+          }
+        }
+
+        // 拍的定时：有词边界就按"这句话真正说了多久"排，而不是按句字数占全篇的比例
+        // 切场景时长。字数比例在中文里会明显失真（长句读得快、短句念得慢），
+        // 拍界落不在两句之间的停顿上——焦点在上一句还没说完时就跳走。
+        // 对不上就整体保留原分配，不做部分重排。
+        const beats = (scene as any)?.choreography?.beats;
+        if (Array.isArray(beats) && beats.length > 0) {
+          const retimed = beatFramesFromSpeech(beats, String(scene.narration || ''), audio.wordBoundaries, {
+            sceneFrames: scene.durationFrames,
+          });
+          if (retimed) {
+            const shift = beats.reduce(
+              (max, beat, i) => Math.max(max, Math.abs(Number(beat.startFrame) - retimed[i].startFrame)),
+              0,
+            );
+            beats.forEach((beat, i) => {
+              beat.startFrame = retimed[i].startFrame;
+              beat.endFrame = retimed[i].endFrame;
+            });
+            this.logger.log(
+              `[renderGeneratedComposition] taskId=${taskId} beatTiming scene="${scene?.title || index + 1}" beats=${beats.length} maxShift=${shift}f (${(shift / 30).toFixed(2)}s)`,
+            );
+          } else {
+            this.logger.warn(
+              `[renderGeneratedComposition] taskId=${taskId} beatTiming scene="${scene?.title || index + 1}" beats=${beats.length} 对不上词边界 — 保留字数比例分配`,
             );
           }
         }

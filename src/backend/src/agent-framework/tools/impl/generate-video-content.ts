@@ -17,7 +17,14 @@ import { BaseTool } from '../base-tool';
 import { RegisterTool } from '../decorators/register-tool';
 import type { ToolMetadata, ToolResult, ToolExecutionContext } from '../../core';
 import { LEARNING_DOMAINS } from '../../../common/domain/learning-domains';
-import { describeGraphGrammar, normalizeSceneGraph, auditGraphNarration, formatCoverageFeedback } from '../../../modules/learning/video/scene-graph';
+import {
+  describeGraphGrammar,
+  normalizeSceneGraph,
+  auditGraphNarration,
+  auditGraphDensity,
+  formatCoverageFeedback,
+  formatDensityFeedback,
+} from '../../../modules/learning/video/scene-graph';
 import { describeFigureGrammar, normalizeFigureSpec } from '../../../modules/learning/video/figure-spec';
 import { repairFigures, type FigureReject } from '../../../modules/learning/video/figure-repair';
 import {
@@ -164,7 +171,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     const failures: string[] = [];
     // 重试带话术重掷整份分镜，不是定点修补：实测有样本被掷得更差（缺 2 个节点 → 缺 6 个）。
     // 所以每轮留最好的一份，别让更差的覆盖更好的。
-    let best: { storyboard: VideoStoryboard; mismatches: string[]; missing: number } | null = null;
+    let best: { storyboard: VideoStoryboard; mismatches: string[]; missing: number; score: number } | null = null;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
@@ -192,17 +199,18 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         const storyboard = this.sanitizeStoryboard(parsed, topic, domain, sceneCount, ageGroup);
         await this.repairRejectedFigures(storyboard);
         const audit = this.auditNarrationCoverage(storyboard);
-        if (audit.missingCount === 0) {
+        if (audit.missingCount === 0 && audit.crowdedCount === 0) {
           this.logger.log(`Generated storyboard for "${topic}": ${storyboard.scenes.length} scenes`);
           return this.ok(storyboard);
         }
-        // 画面节点没被旁白念到 = 孩子看见一个没讲过的概念。带具体话术重试一轮；
-        // 用尽重试仍不达标就交出缺口最少的那份并告警——宁可少讲一个概念，也不要因为
-        // 校验把整节课退化成通用卡片（buildFallbackStoryboard 比"多一张没讲过的卡"更糟）。
-        // 留优按"缺几个节点"比，不按"几个场景有问题"：两份都是 2 个场景有问题时，
-        // 一份缺 2 个节点、一份缺 6 个，按场景数比不出来，会把更差的当同分保留下来。
-        if (!best || audit.missingCount < best.missing) {
-          best = { storyboard, mismatches: audit.issues, missing: audit.missingCount };
+        // 画面节点没被旁白念到 = 孩子看见一个没讲过的概念；一屏塞太多概念 = 旁白只能连报。
+        // 带具体话术重试一轮；用尽重试仍不达标就交出问题最少的那份并告警——宁可少讲一个
+        // 概念，也不要因为校验把整节课退化成通用卡片（buildFallbackStoryboard 更糟）。
+        // 留优按"缺几个节点 + 几个屏过密"合计比，不按"几个场景有问题"：两份都是 2 个场景
+        // 有问题时，一份缺 2 个节点、一份缺 6 个，按场景数比不出来，会把更差的留下来。
+        const score = audit.missingCount + audit.crowdedCount;
+        if (!best || score < best.score) {
+          best = { storyboard, mismatches: audit.issues, missing: audit.missingCount, score };
         }
         failures.push(`attempt ${attempt}: ${audit.issues.join(' | ')}`);
       } catch (error: unknown) {
@@ -213,7 +221,7 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
     if (best) {
       this.logger.warn(
         `narration/graph mismatch accepted after ${MAX_ATTEMPTS} attempts for "${topic}" ` +
-          `(best of ${MAX_ATTEMPTS}, ${best.missing} node(s) unspoken): ${best.mismatches.join(' | ')}`,
+          `(best of ${MAX_ATTEMPTS}, ${best.missing} node(s) unspoken, score ${best.score}): ${best.mismatches.join(' | ')}`,
       );
       return this.ok(best.storyboard);
     }
@@ -429,25 +437,39 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
   }
 
   /**
-   * 逐场景检查「画面节点是否都被旁白念到」。
+   * 逐场景检查两件事：画面节点是否都被旁白念到、一屏是否塞了太多概念。
    *
    * 旁白和 sceneGraph 是同一次调用产出的，但两边互不校验，于是会出现画面上挂着
    * 「白云」卡、旁白却只说"水汽飞到天上，遇冷变回小水珠"——云这个节点从头到尾没被念到。
    * 这类缺口在实测里占 22%，且集中在最需要画面解释的抽象概念上，靠渲染侧补不回来。
    *
-   * 两个返回值口径不同，别混用：
-   * - `issues` 是回喂 LLM 的话术，只取前 2 个场景（再多会把下一轮 prompt 预算吃光）；
-   * - `missingCount` 是**节点数**，用于重试留优。
+   * 密度那一项是后加的：group 一屏塞 9 个节点（三组颜色 × 三个水果）时，覆盖率可能
+   * 100%（每个名字都念到了），但旁白只能连报，孩子抓不住任何一个。覆盖率审计看不见
+   * 这一档，所以单列一个计数。
+   *
+   * 三个返回值口径不同，别混用：
+   * - `issues` 是回喂 LLM 的话术，密度最多 1 条 + 覆盖最多 2 条（再多会把 prompt 预算吃光）；
+   * - `missingCount` / `crowdedCount` 是**计数**，用于重试留优。
    */
   private auditNarrationCoverage(storyboard: { scenes: StoryboardScene[] }): {
     issues: string[];
     missingCount: number;
+    crowdedCount: number;
   } {
     const issues: string[] = [];
+    const densityIssues: string[] = [];
     let missingCount = 0;
+    let crowdedCount = 0;
     for (const scene of storyboard.scenes) {
       const graph = normalizeSceneGraph(scene.sceneGraph);
       if (!graph) continue;
+      const density = auditGraphDensity(graph);
+      if (density.crowded) {
+        crowdedCount += 1;
+        if (densityIssues.length < 1) {
+          densityIssues.push(formatDensityFeedback(scene.title, graph.relation, density.nodes));
+        }
+      }
       const coverage = auditGraphNarration(graph, scene.narration);
       if (coverage.missing.length === 0) continue;
       missingCount += coverage.missing.length;
@@ -455,7 +477,8 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         issues.push(formatCoverageFeedback(scene.title, scene.narration, coverage));
       }
     }
-    return { issues, missingCount };
+    // 密度问题排在前面：它是结构性的（要拆屏），覆盖缺失往往删个节点就能补
+    return { issues: [...densityIssues, ...issues], missingCount, crowdedCount };
   }
 
   private sanitizeScene(raw: Record<string, any>, index: number, ageGroup: AgeGroup): StoryboardScene {

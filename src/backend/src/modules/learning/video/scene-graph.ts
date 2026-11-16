@@ -226,6 +226,41 @@ export function formatCoverageFeedback(
   );
 }
 
+/**
+ * 一屏塞了多少概念。
+ *
+ * group/split 是星形拓扑：一个类别（或整体）+ N 个成员平铺一屏，每多一个成员，
+ * 旁白就要多报一个名字。实测 9 个节点的"按颜色分类"屏，旁白只能是
+ * 「苹果和草莓是红色的，香蕉和柠檬是黄色的，葡萄和蓝莓是紫色的」——六个名字挤在
+ * 一屏里，孩子抓不住任何一个，卡片也来不及逐个点亮。
+ *
+ * 阈值 5（类别 + 4 个成员），与提示词里"group 一屏 = 一个类别 + 最多 4 个成员"同口径。
+ * 超过它不是"节奏没排好"，而是这一屏承载了两层信息（既分颜色又列举），该拆屏。
+ */
+export const GRAPH_DENSITY_LIMIT = 5;
+
+export function auditGraphDensity(
+  graph: Pick<SceneGraph, 'relation' | 'nodes'> | null | undefined,
+): { nodes: number; crowded: boolean } {
+  const nodes = Array.isArray(graph?.nodes) ? graph!.nodes.length : 0;
+  const star = graph?.relation === 'group' || graph?.relation === 'split';
+  return { nodes, crowded: star && nodes > GRAPH_DENSITY_LIMIT };
+}
+
+/** 密度超标的回喂话术：说清"塞了几个"和"怎么拆"，否则模型只会删掉一个节点交回来 */
+export function formatDensityFeedback(
+  sceneTitle: string,
+  relation: GraphRelationType,
+  nodes: number,
+): string {
+  return (
+    `场景「${sceneTitle}」的 ${relation} 图有 ${nodes} 个节点，一屏塞不下这么多概念：` +
+    `旁白要连着报 ${nodes - 1} 个成员，每个只分到半秒，画面上的卡片来不及逐个点亮，孩子也记不住。` +
+    `修法：拆成两屏——这一屏只留一个类别 + 最多 4 个成员，剩下的成员另起一屏，` +
+    `每屏旁白写 40-70 字；不要靠删节点把数量凑够，也不要在一屏里既分类又逐项列举。`
+  );
+}
+
 /** 提供给 prompt 的语法说明，和上面的实现必须同步——改一处要改两处 */
 export function describeGraphGrammar(): string {
   return [
@@ -254,11 +289,12 @@ export function describeGraphGrammar(): string {
     '- subject 取旁白里的说法（旁白说「小水珠」就不要写「雨」）：图标检索和后续对齐都依赖它。',
     '- caption 可选，一句关系说明，≤10 字，如「水变成水蒸气」。',
     '旁白的节奏要求（和画面同步直接相关）：',
-    '- 一屏里并列列出 3 个以上概念时（归类、拆解、列举），每个概念后面跟半句以上的描述，',
-    '  不要写成「苹果、香蕉和葡萄」这种纯名单：纯名单三个词的间隔只有 16-23 帧（0.5-0.8 秒），',
-    '  而成员卡片从被念到到卡面落位要 36 帧，中间那个词只会闪一下。',
-    '  写成「苹果红红的，香蕉弯弯的，葡萄一串一串的」间隔就有 30-36 帧，每项各带一句则有 70 帧以上。',
-    '- 一屏旁白 3-5 句，不要为了拉开间隔把一句话硬拆成三段，也不要一屏连报四五个名词。',
+    '- 一屏只讲清一件事：group 一屏 = 一个类别 + 最多 4 个成员；要按第二种办法再分一次',
+    '  （先按颜色分、再按大小分），另起一屏。实测同屏塞三组颜色九个水果时，旁白只能连报，',
+    '  孩子听完也记不住画面在比什么。',
+    '- 名字连着念是允许的（「苹果、香蕉和葡萄」）：渲染器会把连着念出来的一组名字一起点亮，',
+    '  不会出现"话讲完了卡片还没到"。不要为了拉开间隔把句子拆得别扭。',
+    '- 一屏旁白 3-5 句、40-70 字。超过 70 字这一屏就太长了，拆成两屏讲。',
     '动画由 relation 决定，不用你描述动画：',
     'cycle 有一颗光点沿环一直转，转到哪个概念哪个亮起来；chain 的光点从左走到右；',
     'growth 除光点外，节点还从小到大现场长大；split 从整体里散开成部件；group 从散落聚拢到类别下；',

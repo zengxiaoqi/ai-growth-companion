@@ -19,7 +19,9 @@ import OpenAI from 'openai';
 import { GenerateVideoContentTool } from '../src/agent-framework/tools/impl/generate-video-content';
 import {
   auditGraphNarration,
+  auditGraphDensity,
   formatCoverageFeedback,
+  formatDensityFeedback,
   normalizeSceneGraph,
 } from '../src/modules/learning/video/scene-graph';
 
@@ -47,11 +49,13 @@ function stripCoverageRule(prompt: string): string {
     '写完 narration 再回头对一遍',
     '不要为了凑节点去改 narration 的叙事',
     'subject 取旁白里的说法',
-    // 列举节奏：一屏连报三个名词时，成员卡片跟不上点名
+    // 节奏/密度约束：一屏塞太多概念、字数超预算
     '旁白的节奏要求',
-    '一屏里并列列出 3 个以上概念时',
-    '不要写成「苹果、香蕉和葡萄」这种纯名单',
-    '写成「苹果红红的',
+    '一屏只讲清一件事',
+    '（先按颜色分、再按大小分）',
+    '孩子听完也记不住画面在比什么',
+    '名字连着念是允许的',
+    '不会出现"话讲完了卡片还没到"',
     '一屏旁白 3-5 句',
   ];
   const lines = prompt.split('\n');
@@ -92,6 +96,9 @@ type ArmResult = {
   details: string[];
   retriedMissing: number | null;
   retriedNodes: number | null;
+  /** 一屏超过 5 个节点的星形屏数量：覆盖率看不见这一档 */
+  crowded: number;
+  retriedCrowded: number | null;
 };
 
 async function main(): Promise<void> {
@@ -162,11 +169,22 @@ async function main(): Promise<void> {
     let missing = 0;
     let singles = 0;
     let ambiguous = 0;
+    let crowded = 0;
     const details: string[] = [];
+    const densityIssues: string[] = [];
     const issues: string[] = [];
     for (const scene of parsed?.scenes || []) {
       const graph = normalizeSceneGraph(scene?.sceneGraph);
       if (!graph) continue;
+      // 与生产 auditNarrationCoverage 同口径：密度问题排在覆盖缺失前面
+      const density = auditGraphDensity(graph);
+      if (density.crowded) {
+        crowded += 1;
+        details.push(`${scene.title || scene.id}: 一屏 ${density.nodes} 个节点`);
+        if (densityIssues.length < 1) {
+          densityIssues.push(formatDensityFeedback(String(scene?.title || scene?.id || ''), graph.relation, density.nodes));
+        }
+      }
       const coverage = auditGraphNarration(graph, String(scene?.narration || ''));
       nodes += coverage.total;
       missing += coverage.missing.length;
@@ -184,7 +202,7 @@ async function main(): Promise<void> {
         }
       }
     }
-    return { nodes, missing, singles, ambiguous, details, issues };
+    return { nodes, missing, singles, ambiguous, crowded, details, issues: [...densityIssues, ...issues] };
   };
 
   const pct = (nodes: number, missing: number) =>
@@ -203,13 +221,13 @@ async function main(): Promise<void> {
         const slug = `${arm}-${topic.replace(/[\\/:*?"<>|]/g, '_')}-${s}`;
         await fs.writeFile(path.join(dumpDir, `${slug}.json`), JSON.stringify(parsed, null, 2), 'utf8');
 
-        let retried: { nodes: number; missing: number } | null = null;
-        if (withRetry && first.missing > 0) {
+        let retried: { nodes: number; missing: number; crowded: number } | null = null;
+        if (withRetry && (first.missing > 0 || first.crowded > 0)) {
           // 复刻生产重试：把首轮的具体缺失话术回喂，看模型能不能自己补齐
           const second = await generate(topic, arm, 2, first.issues);
           if (second) {
             const a2 = auditStoryboard(second);
-            retried = { nodes: a2.nodes, missing: a2.missing };
+            retried = { nodes: a2.nodes, missing: a2.missing, crowded: a2.crowded };
             await fs.writeFile(path.join(dumpDir, `${slug}-retry.json`), JSON.stringify(second, null, 2), 'utf8');
           }
         }
@@ -224,11 +242,16 @@ async function main(): Promise<void> {
           details: first.details,
           retriedMissing: retried ? retried.missing : null,
           retriedNodes: retried ? retried.nodes : null,
+          crowded: first.crowded,
+          retriedCrowded: retried ? retried.crowded : null,
         });
         console.log(
           `${arm} | ${topic.padEnd(10)} #${s} 节点 ${String(first.nodes).padStart(2)}  缺 ${String(first.missing).padStart(2)}  ` +
             `覆盖 ${pct(first.nodes, first.missing)}  单字 ${first.singles} 歧义 ${first.ambiguous}` +
-            (retried ? `  → 回喂后缺 ${retried.missing} (${pct(retried.nodes, retried.missing)})` : '') +
+            `  过密屏 ${first.crowded}` +
+            (retried
+              ? `  → 回喂后缺 ${retried.missing} (${pct(retried.nodes, retried.missing)}) 过密 ${retried.crowded}`
+              : '') +
             (first.details.length ? `  [${first.details.join('; ')}]` : ''),
         );
       }

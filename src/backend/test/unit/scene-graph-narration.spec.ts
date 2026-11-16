@@ -8,7 +8,13 @@
  * 这种假阴性比不校验更糟，所以必须由测试锁死。
  */
 
-import { auditGraphNarration, formatCoverageFeedback } from '../../src/modules/learning/video/scene-graph';
+import {
+  auditGraphNarration,
+  auditGraphDensity,
+  formatCoverageFeedback,
+  formatDensityFeedback,
+  GRAPH_DENSITY_LIMIT,
+} from '../../src/modules/learning/video/scene-graph';
 
 const node = (label: string, subject = label) => ({
   id: `n${label}`,
@@ -111,5 +117,61 @@ describe('formatCoverageFeedback', () => {
     const text = formatCoverageFeedback('水转了一圈', narration, coverage);
     expect(text).toContain('太阳把水晒热。修法');
     expect(text).not.toContain('。。');
+  });
+});
+
+/**
+ * 一屏塞几个概念才不算挤。
+ *
+ * 这条口径是从实测反推的：group 一屏 9 个节点（三组颜色 × 三个水果）时覆盖率可以
+ * 100%——每个名字都念到了——但旁白只能是「苹果和草莓是红色的，香蕉和柠檬是黄色的，
+ * 葡萄和蓝莓是紫色的」，六个名字挤在一屏里，孩子抓不住任何一个，卡片也来不及逐个点亮。
+ * 覆盖率审计对这一档完全失明，所以要单独锁住。
+ */
+describe('auditGraphDensity', () => {
+  const star = (relation: 'group' | 'split', n: number) => ({
+    relation,
+    nodes: Array.from({ length: n }, (_, i) => node(`节点${i + 1}`)),
+  });
+
+  it('类别 + 4 个成员（5 个节点）是上限，不算挤', () => {
+    expect(auditGraphDensity(star('group', GRAPH_DENSITY_LIMIT))).toEqual({
+      nodes: 5,
+      crowded: false,
+    });
+  });
+
+  it('6 个节点起报告过密——多出来的成员必然被连报', () => {
+    expect(auditGraphDensity(star('group', 6)).crowded).toBe(true);
+    expect(auditGraphDensity(star('split', 9))).toEqual({ nodes: 9, crowded: true });
+  });
+
+  it('cycle/chain 不算星形拓扑，节点多也不是"列举过密"', () => {
+    // 循环和链条本来就是一条线上多个概念，旁白按顺序一个个讲，不存在同屏连报
+    expect(auditGraphDensity(star('group' as any, 0)).crowded).toBe(false);
+    expect(auditGraphDensity({ relation: 'cycle', nodes: star('group', 6).nodes }).crowded).toBe(
+      false,
+    );
+  });
+
+  it('没有图时不报错，也不算挤', () => {
+    expect(auditGraphDensity(null)).toEqual({ nodes: 0, crowded: false });
+    expect(auditGraphDensity({ relation: 'group', nodes: [] } as any)).toEqual({
+      nodes: 0,
+      crowded: false,
+    });
+  });
+});
+
+describe('formatDensityFeedback', () => {
+  it('要说清塞了几个、为什么会挤、怎么拆', () => {
+    const text = formatDensityFeedback('水果分类', 'group', 9);
+    expect(text).toContain('水果分类');
+    expect(text).toContain('9 个节点');
+    expect(text).toContain('8 个成员');
+    expect(text).toContain('拆成两屏');
+    expect(text).toContain('最多 4 个成员');
+    // 不能只是让模型删节点凑数：拆屏才是修法
+    expect(text).toContain('不要靠删节点');
   });
 });

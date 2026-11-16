@@ -182,25 +182,42 @@ function simulate(opts: {
   const perFrame: Set<string>[] = [];
   const tSeries: number[][] = flows.map(() => []);
   // 星形拓扑：按"被念到的先后"取本帧之前最后一次点名（与模板 starSpoken 同步）
+  // 门槛与模板一致：覆盖率 70% 就按词走，不强求全命中——单字节点在旁白里出现多次时
+  // 锚点建设本来就会跳过它，要求全命中等于让这类场景永远回退光点推导。
+  const anchoredNodes = nodes.filter((node) => cueWindows[node.id]);
   const starSpoken =
-    opts.relation === 'split' || opts.relation === 'group'
-      ? nodes.every((node) => cueWindows[node.id])
-        ? nodes
-            .map((node) => ({ id: node.id, at: cueWindows[node.id].start }))
-            .sort((a, b) => a.at - b.at)
-        : null
+    (opts.relation === 'split' || opts.relation === 'group') &&
+    anchoredNodes.length >= 2 &&
+    anchoredNodes.length >= Math.ceil(nodes.length * 0.7)
+      ? anchoredNodes
+          .map((node) => ({ id: node.id, at: cueWindows[node.id].start }))
+          .sort((a, b) => a.at - b.at)
       : null;
+  // 与模板 STAR_MERGE_GAP 同步：连着念出来的一组名字整组一起亮
+  const STAR_MERGE_GAP = 26;
+  const starGroups = starSpoken
+    ? starSpoken.reduce<Array<{ ids: string[]; at: number; lastAt: number }>>((groups, item) => {
+        const prev = groups[groups.length - 1];
+        if (prev && item.at - prev.lastAt < STAR_MERGE_GAP) {
+          prev.ids.push(item.id);
+          prev.lastAt = item.at;
+        } else {
+          groups.push({ ids: [item.id], at: item.at, lastAt: item.at });
+        }
+        return groups;
+      }, [])
+    : null;
 
   for (let frame = 0; frame < duration; frame += 1) {
     const storyProgress = Math.max(0, Math.min(1, (frame - storyStart) / (storyEnd - storyStart)));
     const active = new Set<string>();
-    if (starSpoken) {
-      let spoken = -1;
-      for (let i = 0; i < starSpoken.length; i += 1) {
-        if (starSpoken[i].at <= frame) spoken = i;
+    if (starGroups) {
+      let spokenGroup = -1;
+      for (let i = 0; i < starGroups.length; i += 1) {
+        if (starGroups[i].at <= frame) spokenGroup = i;
         else break;
       }
-      if (spoken >= 0) active.add(starSpoken[spoken].id);
+      if (spokenGroup >= 0) starGroups[spokenGroup].ids.forEach((id) => active.add(id));
     }
     flows.forEach((flow, index) => {
       const stops = stopsByFlow[index];

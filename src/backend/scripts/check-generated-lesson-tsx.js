@@ -90,6 +90,11 @@ const mustHave = [
   // 成员卡片按词入场：卡片落地晚于点名时，那个词等于没讲（香蕉 0 次亮起）
   'const cueEnterAt',
   'enterAt !== undefined',
+  // 连报合并：旁白一口气念几个名字时（间隔 <26 帧），逐个交棒每个只亮半秒，
+  // 看起来只是闪了一下。缺了这两项又退回"逐个闪"，提示词压不住这种写法
+  'const STAR_MERGE_GAP',
+  'prev.lastAt',
+  'starGroups[spokenGroup].ids.forEach',
   // 受控画板：图形本身就是知识时必须走这条，缺了它彩虹只能画成一个小图标
   'const FigureStage',
   'const FigureShapePart',

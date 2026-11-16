@@ -2208,6 +2208,35 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
       : null;
   const starSpoken = starRelation ? anchorOrder : null;
   /**
+   * 星形成员"同时被点名"的合并。
+   *
+   * 旁白并列列举（「苹果、香蕉和葡萄」）时，词与词只隔 15-22 帧——逐个交棒的话
+   * 每个成员只亮半秒，孩子还没看清就换人了，看起来只是闪了一下。这类写法提示词
+   * 压不住（实测规则上线前后"间隔 <36 帧"的相邻对都是 27-28%，见
+   * scripts/probe-star-cadence.ts），所以在画面上兜：连着念出来的一组名字一起亮，
+   * 这更接近"孩子听到的是一串名字"这件事本身。
+   *
+   * 阈值 26 帧（0.87 秒）：真实配音下"纯名单"的相邻间隔是 15-23 帧、"每项带半句"是
+   * 30-36 帧、"每项整句"是 73-83 帧。26 帧落在两档之间的空档里，只吃纯名单那一档。
+   * 取 20 帧会漏：s5「苹果、香蕉和葡萄」里苹果@1、香蕉@24 相隔 23 帧，第一个名字
+   * 仍会单独闪 23 帧才轮到另外两个。
+   */
+  const STAR_MERGE_GAP = 26;
+  const starGroups = starSpoken
+    ? starSpoken.reduce<Array<{ ids: string[]; at: number; lastAt: number }>>((groups, item) => {
+        const prev = groups[groups.length - 1];
+        // 跟"组里上一个名字"比，不是跟组首比：三个名字依次隔 23/16 帧时，跟组首比
+        // 会让第三个掉出组去（40-1=39），结果第一个名字单独亮、后两个一起亮。
+        if (prev && item.at - prev.lastAt < STAR_MERGE_GAP) {
+          prev.ids.push(item.id);
+          prev.lastAt = item.at;
+        } else {
+          groups.push({ ids: [item.id], at: item.at, lastAt: item.at });
+        }
+        return groups;
+      }, [])
+    : null;
+  /**
    * 成员卡片的入场帧：按"这个词被念到"倒推，而不是按 8/20/30/40 的固定阶梯排队。
    * 实测「都是水果」：香蕉第 24 帧被念到，卡片第 30 帧才起步、飞到落位在第 48 帧——
    * 这个词整句讲完了，画面上还没有这张卡（测量里连一次亮起都读不到）；
@@ -2225,19 +2254,25 @@ const SceneGraphStage: React.FC<{ scene: GeneratedScene; duration: number }> = (
       if (at < item.delay) cueEnterAt[item.node.id] = at;
     });
   }
-  if (starSpoken) {
-    let spoken = -1;
-    for (let i = 0; i < starSpoken.length; i += 1) {
-      if (starSpoken[i].at <= frame) spoken = i;
+  if (starGroups) {
+    let spokenGroup = -1;
+    for (let i = 0; i < starGroups.length; i += 1) {
+      if (starGroups[i].at <= frame) spokenGroup = i;
       else break;
     }
     // 不套入场门槛（warmup）：星形拓扑的第一个词往往就是全片第一个字
     // （"苹果、香蕉和葡萄…"里「苹果」在旁白第 1 帧），等入场结束再点亮，
-    // 第一个成员只剩 6 帧亮着就交棒给第二个了。这里提前点亮不会露馅——
+    // 第一个成员只剩几帧亮着就交棒了。这里提前点亮不会露馅——
     // 卡片自己还在飞入，亮着的胶囊只会跟着卡片一起进场。
-    if (spoken >= 0) activeIds.add(starSpoken[spoken].id);
+    // 连着念出来的一组（间隔 <20 帧）整组一起亮：这段声音是一口气说完的，
+    // 画面上分成三次闪烁反而不对。
+    if (spokenGroup >= 0) {
+      starGroups[spokenGroup].ids.forEach((id) => activeIds.add(id));
+    }
     // 点过名的退到"讲过了"档：成员一个个沉下去，画面能看出"已经归进去几个"
-    for (let i = 0; i < Math.max(0, spoken); i += 1) visitedIds.add(starSpoken[i].id);
+    for (let i = 0; i < Math.max(0, spokenGroup); i += 1) {
+      starGroups[i].ids.forEach((id) => visitedIds.add(id));
+    }
   } else if (frame >= warmup) {
     tokens.forEach((token) => {
       if (token.done) {

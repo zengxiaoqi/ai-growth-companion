@@ -632,6 +632,7 @@ export class LearningController {
       rejectionReason: task.rejectionReason || null,
       errorMessage: task.errorMessage || null,
       ready: task.status === 'completed',
+      createdAt: task.createdAt,
     };
   }
 

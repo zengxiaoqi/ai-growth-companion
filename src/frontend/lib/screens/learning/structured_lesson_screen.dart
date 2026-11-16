@@ -131,6 +131,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   String? _videoUrl;
   bool _isVideoGenerating = false;
   Timer? _videoPollTimer;
+  DateTime? _videoTaskCreatedAt;
 
   @override
   void initState() {
@@ -248,13 +249,19 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   /// 检查视频生成状态并在处理中时轮询
   Future<void> _checkVideoStatus() async {
-    if (widget.childId == null) return;
+    if (widget.childId == null || !mounted) return;
 
     final api = context.read<ApiService>();
     try {
       final status =
           await api.getVideoStatus(widget.contentId, widget.childId!);
-      if (status == null || !mounted) return;
+      if (!mounted) return;
+
+      // 瞬时请求失败不能断掉轮询链，否则占位图会永远转圈
+      if (status == null) {
+        _scheduleVideoPoll();
+        return;
+      }
 
       final exists = status['exists'] == true;
       final taskStatus = status['status']?.toString() ?? '';
@@ -280,23 +287,34 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       }
 
       if (taskStatus == 'pending' || taskStatus == 'processing') {
-        if (mounted) {
-          setState(() => _isVideoGenerating = true);
-        }
-        // Poll every 3 seconds
-        _videoPollTimer?.cancel();
-        _videoPollTimer = Timer(
-          const Duration(seconds: 3),
-          () => _checkVideoStatus(),
+        final createdAt = DateTime.tryParse(
+          status['createdAt']?.toString() ?? '',
         );
+        if (mounted) {
+          setState(() {
+            _isVideoGenerating = true;
+            _videoTaskCreatedAt = createdAt;
+          });
+        }
+        _scheduleVideoPoll();
         return;
       }
 
       // failed or unknown — fall back to module check
       _syncVideoUrlFromModule();
     } catch (_) {
+      if (!mounted) return;
       _syncVideoUrlFromModule();
+      _scheduleVideoPoll();
     }
+  }
+
+  void _scheduleVideoPoll() {
+    _videoPollTimer?.cancel();
+    _videoPollTimer = Timer(
+      const Duration(seconds: 3),
+      () => _checkVideoStatus(),
+    );
   }
 
   /// 从课程模块数据中同步 videoUrl（课程已发布且视频已就绪时后端会写入）
@@ -1424,6 +1442,17 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     );
   }
 
+  String _videoWaitHint() {
+    final createdAt = _videoTaskCreatedAt;
+    final minutes = createdAt == null
+        ? null
+        : DateTime.now().difference(createdAt).inMinutes;
+    if (minutes == null || minutes < 1) {
+      return '生成通常需要几分钟到十几分钟，可先看动画版';
+    }
+    return '已生成 $minutes 分钟 · 通常需要几分钟到十几分钟';
+  }
+
   /// 视频生成中的占位组件
   Widget _buildVideoGeneratingPlaceholder(bool isCompleted) {
     return Center(
@@ -1463,7 +1492,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'AI 正在为这节课制作动画视频\n请稍等片刻，马上就好',
+              'AI 正在为这节课制作动画视频\n${_videoWaitHint()}',
               style: TextStyle(
                 fontSize: 14,
                 color: AppTheme.textSecondary,

@@ -268,10 +268,20 @@ s5「都是水果」的读数（`probe-flow-topology.ts`，模板镜像逐帧重
 同一批真实生成样本上（`probe-star-cadence.ts`，6+10 个星形屏）：成员平均亮帧
 old 69.8 → 88.9、new 83.4 → 107.4，split 那类间隔本来就大的场景一帧没动。
 
-> 渲染级复验：这一轮 Remotion 启动被安全策略拦（它要调 WMIC），逐像素对拍没跑成，
-> 上面的读数是模板镜像探针 + 校验器（`check-generated-lesson-tsx.js` 已把
-> `STAR_MERGE_GAP` / `prev.lastAt` / `starGroups[spokenGroup].ids.forEach` 三个 token
-> 钉住）。下次环境允许时按 6.5 的同一口径补一次。
+> **渲染级复验（已补跑）**：先前把失败归给"安全策略拦 WMIC"是错的——那条报错只是噪音，
+> 真正拦路的是两件事：Remotion 默认要下载/探测浏览器（25 秒超时），以及 `--entry-point`
+> 在 4.0.446 里**不生效**（CLI 只把模块 require 进来，没写进 Config，传了照样 bundle
+> 默认入口，于是永远找不到 `LessonPreview`）。改用 `--browser-executable` 指向本机 Chrome、
+> 并用 `REMOTION_ENTRY` 环境变量在 `remotion.config.ts` 里切入口之后，212 帧一次渲完，
+> `WMIC.exe` 的报错照旧打印但不再阻塞。
+>
+> 逐帧目视（`out/flow-probe/v5-s5-on`）：第 50 帧「苹果/香蕉/葡萄」三条胶囊**同时**为
+> 强调色；第 78 帧「水果」接管、三个成员退回白底——正是设计意图。
+>
+> 顺带一个测量口径的坑：`measure-highlight-onset.py` 的"亮起帧"对 group **不可靠**。
+> 成员卡片聚拢过程中位置一直在变，取样框按最终坐标取，动画早期读不到橙色——实测
+> 第 8 帧苹果胶囊已经橙了，脚本报 22 帧；同一屏的"对拍命中率"也会因为"三个一起亮"
+> 被判成错配而虚低（65.2%）。这一档只作趋势参考，结论以目视 + 探针为准。
 
 ### 6.7 密度：一屏塞太多概念，覆盖率审计看不见
 

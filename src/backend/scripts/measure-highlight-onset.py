@@ -119,6 +119,9 @@ def main():
     parser.add_argument("--layout", default="auto", choices=["auto", "relation", "meta"])
     # 取样框：wide 取胶囊整条带；tight 只取左侧实心区，避开落在胶囊上的箭头与光点
     parser.add_argument("--pill", default="wide", choices=["wide", "tight"])
+    # 只统计前 N 帧：序列渲染可能把整条 composition（4000 帧）都吐出来，
+    # 而这一屏只有 durationFrames 帧，多出来的静态尾帧会把命中率稀释成个位数
+    parser.add_argument("--max-frame", type=int, default=None, help="缺省取 meta.durationFrames")
     parser.add_argument("--json")
     args = parser.parse_args()
 
@@ -128,6 +131,9 @@ def main():
     accent = args.accent or meta.get("accent") or "#4d96ff"
     rgb = accent_rgb(accent)
     paths = list_frames(args.dir)
+    limit = args.max_frame if args.max_frame is not None else meta.get("durationFrames")
+    if limit:
+        paths = [item for item in paths if item[0] < int(limit)]
     items = {item["id"]: item for item in (meta.get("items") or [])}
     use_meta = args.layout == "meta" or (args.layout == "auto" and items)
 

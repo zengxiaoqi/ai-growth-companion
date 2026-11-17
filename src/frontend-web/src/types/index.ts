@@ -372,6 +372,8 @@ export interface TapTargetItem {
   id: string;
   label: string;
   icon?: string;
+  /** Server-generated situation picture, preferred over the emoji. */
+  imageUrl?: string;
 }
 
 export interface TapTargetRound {
@@ -797,6 +799,22 @@ export interface StructuredLessonContent {
     afterClass: string[];
   };
   generatedAt: string;
+}
+
+export interface ReadAloudChar {
+  char: string;
+  status: 'read' | 'missed';
+}
+
+export interface ReadAloudEvaluation {
+  accuracy: number;
+  stars: 0 | 1 | 2 | 3;
+  chars: ReadAloudChar[];
+  missedWords: string[];
+  recognizedText: string;
+  feedback: string;
+  fluencyNote?: string;
+  feedbackAudio?: string;
 }
 
 export interface GenerateLessonParams {

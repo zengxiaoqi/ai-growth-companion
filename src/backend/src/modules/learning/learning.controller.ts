@@ -27,6 +27,7 @@ import { LearningArchiveService, WrongQuestionReviewItem } from './learning-arch
 import { LessonContentService } from './lesson-content.service';
 import { LessonVideoQueueService } from './lesson-video-queue.service';
 import { QuickVideoService } from './quick-video.service';
+import { AssetGenService } from './asset-gen.service';
 import { LearningService } from './learning.service';
 import { LearningTrackerService } from './learning-tracker.service';
 import type { VideoRenderEngine } from '../../database/entities/video-generation-task.entity';
@@ -60,6 +61,7 @@ export class LearningController {
     @InjectRepository(VideoGenerationTask)
     private readonly videoTaskRepo: Repository<VideoGenerationTask>,
     private readonly quickVideoService: QuickVideoService,
+    private readonly assetGenService: AssetGenService,
   ) {}
 
   private async assertAccessToChild(req: any, childId: number): Promise<void> {
@@ -514,6 +516,36 @@ export class LearningController {
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
     };
+  }
+
+  @Get('activity-image/:subject')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '幼儿游戏 tap_target 的情景图（按需生成并缓存）' })
+  async getActivityImage(
+    @Param('subject') subjectParam: string,
+    @Res() res: Response,
+  ) {
+    let subject: string;
+    try {
+      subject = decodeURIComponent(subjectParam);
+    } catch {
+      throw new BadRequestException('无效的图片主体');
+    }
+    // Only short plain labels are valid subjects — no paths, no markup.
+    if (!subject || subject.length > 12 || /[\\/\x00-\x1f<>]/.test(subject)) {
+      throw new BadRequestException('无效的图片主体');
+    }
+
+    const image = await this.assetGenService.loadActivityImage(subject);
+    if (!image) {
+      // Client falls back to the emoji when the picture is unavailable.
+      throw new NotFoundException('情景图暂不可用');
+    }
+
+    res.setHeader('Content-Type', image.mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(image.body);
   }
 
   @Get('lessons/:id/teaching-video')

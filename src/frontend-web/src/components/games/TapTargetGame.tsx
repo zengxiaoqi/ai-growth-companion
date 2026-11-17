@@ -217,6 +217,7 @@ export default function TapTargetGame({ data, onComplete }: TapTargetGameProps) 
                 key={target.id}
                 visual={visualFor({ icon: target.icon, label: target.label })}
                 label={target.label}
+                imageUrl={target.imageUrl}
                 ariaLabel={`目标 ${entryText(target.icon, target.label)}`}
                 state={state}
                 className={cn(

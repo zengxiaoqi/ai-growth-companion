@@ -105,6 +105,24 @@ export class AssetGenService {
   }
 
   /**
+   * 幼儿游戏 tap_target 的情景图：按主体词生成/命中缓存后，返回文件字节与
+   * MIME 供控制器直接吐给前端。生成失败返回 null，前端回退 emoji。
+   * 复用 generateSubjectIcon 的磁盘缓存与并发/预算控制，不额外开销。
+   */
+  async loadActivityImage(subject: string): Promise<{ body: Buffer; mimeType: string } | null> {
+    const icon = await this.generateSubjectIcon(subject);
+    if (!icon) return null;
+    try {
+      const body = await fs.readFile(icon.filePath);
+      const mimeType = icon.staticPath.endsWith('.svg') ? 'image/svg+xml' : 'image/png';
+      return { body, mimeType };
+    } catch (error: any) {
+      this.logger.warn(`[AssetGen] activity image read failed for "${subject}": ${error?.message || 'unknown'}`);
+      return null;
+    }
+  }
+
+  /**
    * 为一个具体主体生成图标。命中缓存直接返回；未命中走 层1→层2。
    * 任何一层失败都日志记因并继续下一层，全部失败返回 null（调用方回退）。
    */

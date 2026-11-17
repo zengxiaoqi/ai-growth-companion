@@ -429,6 +429,23 @@ export class LessonContentService implements OnModuleInit {
         practiceData = this.buildFallbackActivity(practiceType, topic, ageGroup, domain);
       }
 
+      // Attach same-origin situation-picture URLs to tap_target targets. The
+      // picture is generated lazily on first request (and cached), so this
+      // only embeds a stable path — it never blocks lesson generation. The
+      // client prefers the picture over the single emoji and falls back to
+      // the emoji if the image cannot load.
+      if (practiceData?.type === 'tap_target' && Array.isArray(practiceData.rounds)) {
+        for (const round of practiceData.rounds) {
+          if (!Array.isArray(round?.targets)) continue;
+          for (const target of round.targets) {
+            const label = String(target?.label || '').trim();
+            if (label) {
+              target.imageUrl = `/api/learning/activity-image/${encodeURIComponent(label)}`;
+            }
+          }
+        }
+      }
+
       // 3. Assemble 4-step lesson
       this.logger.log(`[contentId=${contentId}] Step 2/2: Assembling lesson...`);
       await this.contentRepo.update(contentId, {

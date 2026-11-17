@@ -31,6 +31,12 @@ export interface TapTargetItem {
   id: string;
   label: string;
   icon?: string;
+  /**
+   * Optional situation picture: a concrete illustration of the label, preferred
+   * over the single emoji for pre-readers. Written by the server after the LLM
+   * emits the activity; must be a same-origin relative path served by the API.
+   */
+  imageUrl?: string;
 }
 
 export interface TapTargetRound {
@@ -120,6 +126,31 @@ function safeText(value: unknown, field: string, maxLength: number, fallback = '
   return text;
 }
 
+/**
+ * Only same-origin image paths the app itself serves are accepted:
+ * /api/learning/activity-image/<url-encoded subject>. Reject protocols,
+ * protocol-relative URLs, traversal and data URIs. LLM-controlled data must
+ * never be able to point the child's browser at another origin.
+ */
+const ACTIVITY_IMAGE_PATH_RE =
+  /^\/api\/learning\/activity-image\/[A-Za-z0-9_.%~-]{1,200}$/;
+
+export function safeImageUrl(value: unknown): string | undefined {
+  const text = toText(value);
+  if (!text || text.length > 220) return undefined;
+  if (!ACTIVITY_IMAGE_PATH_RE.test(text)) return undefined;
+  // Encoded subject must decode to a short, plain label (no path traversal).
+  try {
+    const subject = decodeURIComponent(
+      text.slice('/api/learning/activity-image/'.length),
+    );
+    if (!subject || subject.length > 12 || /[\\/\x00-\x1f]/.test(subject)) return undefined;
+  } catch {
+    return undefined;
+  }
+  return text;
+}
+
 function safeId(value: unknown, fallback: string): string {
   const raw = toText(value, fallback)
     .replace(/[^a-zA-Z0-9_-]/g, '')
@@ -185,8 +216,14 @@ export function sanitizeTapTargetParams(
       }
       usedLabels.add(label);
       const icon = safeText(item?.icon, `rounds[${i}].targets[${t}].icon`, TAP_TARGET_LIMITS.maxIconLength);
+      // imageUrl is server-populated only. Accept a narrow same-origin relative path;
+      // never let LLM-controlled data point at another origin or a script.
+      const imageUrl = safeImageUrl(item?.imageUrl);
       const id = uniqueId(safeId(item?.id, `t${i + 1}_${t + 1}`), usedTargetIds);
-      targets.push(icon ? { id, label, icon } : { id, label });
+      const target: TapTargetItem = { id, label };
+      if (icon) target.icon = icon;
+      if (imageUrl) target.imageUrl = imageUrl;
+      targets.push(target);
     }
 
     if (targets.length < TAP_TARGET_LIMITS.minTargets) {
@@ -337,6 +374,9 @@ export function validateTapTargetParams(value: unknown): TapTargetValidation {
       labels.add(target.label);
       if (target.icon && (!isSafeParamText(target.icon) || charLength(target.icon) > TAP_TARGET_LIMITS.maxIconLength)) {
         return { ok: false, reason: `unsafe target icon ${target.id}` };
+      }
+      if (target.imageUrl && !safeImageUrl(target.imageUrl)) {
+        return { ok: false, reason: `unsafe target imageUrl ${target.id}` };
       }
     }
 

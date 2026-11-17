@@ -535,7 +535,14 @@ export function normalizeTapTargetData(raw: any): Pick<
       const rawId = toText(item?.id);
       if (rawId) idMap.set(rawId, id);
       const icon = toText(item?.icon).slice(0, TAP_TARGET_LIMITS.maxIconLength);
-      targets.push(icon ? { id, label, icon } : { id, label });
+      const target: TapTargetActivityData['rounds'][number]['targets'][number] = { id, label };
+      if (icon) target.icon = icon;
+      // Only same-origin activity-image paths reach the DOM as <img src>.
+      const imageUrl = toText(item?.imageUrl);
+      if (/^\/api\/learning\/activity-image\/[A-Za-z0-9_.%~-]{1,200}$/.test(imageUrl)) {
+        target.imageUrl = imageUrl;
+      }
+      targets.push(target);
     }
     if (targets.length < 2) continue;
 

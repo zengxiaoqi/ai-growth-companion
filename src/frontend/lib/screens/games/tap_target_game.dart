@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../components/child_game_ui.dart';
 import '../../services/child_game_voice.dart';
+import '../../services/api_service.dart';
 import '../../theme/app_theme.dart';
 import 'game_completion_screen.dart';
 
@@ -37,8 +38,15 @@ class _TapItem {
   final String id;
   final String label;
   final String? icon;
+  /// Server-generated situation picture, preferred over the single emoji.
+  final String? imageUrl;
 
-  const _TapItem({required this.id, required this.label, this.icon});
+  const _TapItem({
+    required this.id,
+    required this.label,
+    this.icon,
+    this.imageUrl,
+  });
 }
 
 class _TapRound {
@@ -175,8 +183,19 @@ class _TapTargetGameState extends State<TapTargetGame> {
         final rawId = (itemMap['id']?.toString() ?? '').trim();
         if (rawId.isNotEmpty) idMap[rawId] = id;
         final icon = _clip((itemMap['icon']?.toString() ?? '').trim(), 8);
-        targets.add(
-            _TapItem(id: id, label: label, icon: icon.isEmpty ? null : icon));
+        // Only same-origin activity-image paths may become an <img> source.
+        final rawImageUrl = (itemMap['imageUrl']?.toString() ?? '').trim();
+        final imageUrl = RegExp(
+          r'^/api/learning/activity-image/[A-Za-z0-9_.%~-]{1,200}$',
+        ).hasMatch(rawImageUrl)
+            ? rawImageUrl
+            : null;
+        targets.add(_TapItem(
+          id: id,
+          label: label,
+          icon: icon.isEmpty ? null : icon,
+          imageUrl: imageUrl,
+        ));
       }
       if (targets.length < 2) continue;
 
@@ -443,6 +462,16 @@ class _TapTargetGameState extends State<TapTargetGame> {
       state: state,
       tint: ChildGamePalette.tintFor(index),
       semanticLabel: '目标 ${item.label}',
+      // <img>/Image.network cannot send an Authorization header — append the
+      // JWT as a query param (the JWT strategy already accepts ?token=).
+      imageUrl: item.imageUrl == null
+          ? null
+          : () {
+              final token = ApiService().token;
+              return token == null || token.isEmpty
+                  ? item.imageUrl
+                  : '${item.imageUrl!}?token=${Uri.encodeComponent(token)}';
+            }(),
       onTap: locked ? null : () => _tapItem(item),
     );
   }

@@ -116,56 +116,37 @@ const Map<String, String> _shapeEmoji = {
 };
 
 /// MuMu / 老 Android 的 emoji 字体较旧：Unicode 11 之后的新图形会渲染成
-/// 「方框带叉」的豆腐块，部分 dingbat 会退化成黑白字形（实测 🧺 🪷 ☃️）。
-/// 内容工厂随时可能生成更新的 emoji，所以在**渲染层**统一做兼容，而不是
-/// 只改某一份样例数据：语义映射优先，其余按稳定 hash 换成已验证可用的图形。
+/// 「方框带叉」的豆腐块，部分 dingbat 会退化成黑白字形（实测 🪷 ☃️）。
+///
+/// **语义保真是硬约束**（2026-11 修复）：这是给 3-6 岁孩子看图识字的教育
+/// 产品，替换图形时「能显示」远远不够——把 🧸 玩具熊换成 🎈 气球、把 🧺
+/// 篮子换成 🏠 房子，等于在教错概念，比老设备上显示豆腐块更糟。曾经的
+/// hash 随机兜底更会把任意新图形换成语义无关的图，已一并移除。
+///
+/// 因此这里只保留**语义等价或明确上位词**的替换；找不到语义等价替代的
+/// 图形（🧸 🧺 🧱 🧩 等）原样返回，交给系统字体处理。现代设备都能正常显示，
+/// 极老设备最多缺字，但绝不会给出一张与文字无关的图。
 const Map<String, String> _compatEmoji = {
-  '🪷': '🌸', // 荷花：实测缺字
-  '🧺': '🏠', // 篮子 / 送回家：实测缺字
-  '☃': '⛄', // 文字雪人：实测黑白异形
-  '🃏': '🎲', '🦊': '🐻', '🦉': '🐦', '🦋': '🌸', '🦆': '🐤',
-  '🧩': '🎨', '🧸': '🎈', '🪁': '🎈', '🧱': '🎨',
+  '🪷': '🌸', // 荷花 → 花（同为花）
+  '☃': '⛄', // 文字雪人 → 雪人（黑白异形）
+  '🃏': '🎲', // 扑克牌 → 骰子（同为桌面游戏）
+  '🦉': '🐦', // 猫头鹰 → 鸟（上位词）
+  '⛰': '🌋', // 山 → 火山（同为山）
+  '🌧': '☔', // 下雨 → 雨伞（同为雨天）
+  '🖍': '🎨', // 蜡笔 → 画画（同为绘画）
   '🟦': '🔷', '🟡': '☀️', '🟢': '🍀', '🟣': '🍇', '🟠': '🍊',
-  '⛰': '🌋', '🌧': '☔', '🖍': '🎨',
 };
 
-/// 只在老字体上确认可用的彩色图形，用于兜底未知的新 emoji。
-const List<String> _legacySafeGlyphs = [
-  '🌸', '🌷', '🍀', '🌈', '⭐', '🎈', '🎁', '🐻', '🐦', '🍎',
-  '🍉', '🍒', '🎉', '⛄', '☀️', '🌙', '🐟', '🚗', '⚽', '📚',
-  '🎨', '✏️', '🏠', '🐱', '🍇',
-];
-
-/// 老 Android emoji 字体基本缺失的码点区间（Unicode 9~14 新增动物/物件、
-/// 12/13 彩色几何），外加几个会退化成黑白字形的 dingbat。
-bool _isLegacyUnsupported(int cp) =>
-    (cp >= 0x1F7D0 && cp <= 0x1F7FF) ||
-    (cp >= 0x1F980 && cp <= 0x1FAFF) ||
-    cp == 0x1F327 ||
-    cp == 0x26F0 ||
-    cp == 0x2603 ||
-    cp == 0x1F58D;
-
-int _glyphHash(String value) {
-  var hash = 0;
-  for (final rune in value.runes) {
-    hash = (hash * 31 + rune) & 0x7FFFFFFF;
-  }
-  return hash;
-}
-
-/// 把任意题目图形转换成老 Android 也能完整显示的图形。
+/// 把题目图形转换成老 Android 也能显示的图形，且不改变它的语义。
 ///
-/// - 已验证可用的老 emoji 原样返回（🐱 / 🌸 / 🎉 / 🤔 …）；
-/// - 已知缺字的图形按语义替换（🪷→🌸、🧺→🏠、☃️→⛄）；
-/// - 未来内容工厂生成的未知新 emoji，按 glyph 的稳定 hash 兜底，绝不空屏；
+/// - 未命中的图形一律原样返回（包括内容工厂新生成的 emoji）；
+/// - 只在基础图形被替换时丢弃变体选择符 / keycap（如 ☃️ → ⛄）；
 /// - 描红题的汉字/数字是 `isTextGlyph`，调用方会跳过本函数。
 String safeChildGlyph(String glyph) {
   if (glyph.isEmpty) return glyph;
   final buffer = StringBuffer();
   var replaced = false;
   for (final rune in glyph.runes) {
-    // 变体选择符 / keycap：基础图形被替换时丢弃，否则保留（如 ❄️、1️⃣）。
     if (rune == 0xFE0F || rune == 0x20E3) {
       if (!replaced) buffer.writeCharCode(rune);
       continue;
@@ -175,17 +156,11 @@ String safeChildGlyph(String glyph) {
     if (mapped != null) {
       buffer.write(mapped);
       replaced = true;
-    } else if (_isLegacyUnsupported(rune)) {
-      buffer.write(
-        _legacySafeGlyphs[_glyphHash(glyph) % _legacySafeGlyphs.length],
-      );
-      replaced = true;
     } else {
       buffer.write(ch);
     }
   }
-  final result = buffer.toString();
-  return result.isEmpty ? _legacySafeGlyphs.first : result;
+  return buffer.toString();
 }
 
 /// 无 icon 时的中文关键词 → emoji 兜底，保证「不要都是文字」。
@@ -243,6 +218,76 @@ String childSpeechText(String text) => text
     )
     .trim();
 
+/// 卡片主视觉：情景图优先，加载失败回落到大 emoji / 字形。
+class _TileVisual extends StatefulWidget {
+  final ChildVisual visual;
+  final String? imageUrl;
+  final Color background;
+  final double size;
+
+  const _TileVisual({
+    required this.visual,
+    required this.imageUrl,
+    required this.background,
+    required this.size,
+  });
+
+  @override
+  State<_TileVisual> createState() => _TileVisualState();
+}
+
+class _TileVisualState extends State<_TileVisual> {
+  bool _failed = false;
+
+  @override
+  void didUpdateWidget(covariant _TileVisual oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) _failed = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrl != null && !_failed) {
+      return Image.network(
+        widget.imageUrl!,
+        fit: BoxFit.contain,
+        width: widget.size * 0.72,
+        height: widget.size * 0.72,
+        errorBuilder: (_, __, ___) {
+          // errorBuilder runs during build — schedule the flag change for
+          // after the frame to avoid "setState() during build".
+          if (!_failed) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _failed = true);
+            });
+          }
+          return _glyph();
+        },
+      );
+    }
+    return _glyph();
+  }
+
+  Widget _glyph() => Text(
+        widget.visual.isTextGlyph
+            ? widget.visual.glyph
+            : safeChildGlyph(widget.visual.glyph),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize:
+              widget.visual.isTextGlyph ? widget.size * 0.44 : widget.size * 0.42,
+          fontWeight:
+              widget.visual.isTextGlyph ? FontWeight.w900 : FontWeight.w600,
+          color: widget.visual.isTextGlyph
+              ? ChildGamePalette.inkOn(widget.background)
+              : null,
+          height: 1.1,
+        ),
+      );
+}
+
 enum ChildTileState { normal, selected, correct, wrong, dimmed, revealed }
 
 /// 大图形卡片：幼儿游戏的主要操作单元。
@@ -258,6 +303,9 @@ class ChildVisualTile extends StatefulWidget {
   final double size;
   final Color? tint;
   final String? semanticLabel;
+  /// Optional situation picture URL (with auth token appended by the caller).
+  /// When set and loadable, it replaces the emoji as the main visual.
+  final String? imageUrl;
 
   const ChildVisualTile({
     super.key,
@@ -268,6 +316,7 @@ class ChildVisualTile extends StatefulWidget {
     this.size = 104,
     this.tint,
     this.semanticLabel,
+    this.imageUrl,
   });
 
   @override
@@ -369,25 +418,11 @@ class _ChildVisualTileState extends State<ChildVisualTile> {
                 children: [
                   Expanded(
                     child: Center(
-                      child: Text(
-                        widget.visual.isTextGlyph
-                            ? widget.visual.glyph
-                            : safeChildGlyph(widget.visual.glyph),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: widget.visual.isTextGlyph
-                              ? widget.size * 0.44
-                              : widget.size * 0.42,
-                          fontWeight: widget.visual.isTextGlyph
-                              ? FontWeight.w900
-                              : FontWeight.w600,
-                          color: widget.visual.isTextGlyph
-                              ? ChildGamePalette.inkOn(_background())
-                              : null,
-                          height: 1.1,
-                        ),
+                      child: _TileVisual(
+                        visual: widget.visual,
+                        imageUrl: widget.imageUrl,
+                        background: _background(),
+                        size: widget.size,
                       ),
                     ),
                   ),

@@ -6,6 +6,14 @@ import type { ActivityType } from '../../agent-framework/core/types/tool-metadat
  * lesson ended up as the same line-matching game. Pick from an age-appropriate
  * pool instead: 3-4 pools are icon-based (no reading required), 5-6 adds
  * text-based types. trace_path is excluded — the write step already traces.
+ *
+ * tap_target is "hear one short sentence → tap one picture", so it only works
+ * when every target is a concrete, depictable noun (小猫 / 苹果 / 汽车). Social
+ * and emotional topics are abstract behaviours (分享、轮流、交换、礼貌…): no
+ * single emoji can express them to a 3-6 year old, which produces games a child
+ * literally cannot play. Those domains are excluded from tap_target; the
+ * remaining types (matching, sequencing, drag_sort …) carry abstract content
+ * far better. See 2026-11 fix for assignment "分享玩具一起玩".
  */
 
 const POOL_3_4: ActivityType[] = [
@@ -42,6 +50,12 @@ export function practiceTypePool(ctx: PracticeTypeContext): ActivityType[] {
   }
   if (domain === 'art') {
     pool.push('color_fill');
+  }
+  // Abstract social/emotional content cannot be expressed by a single emoji;
+  // tap_target would generate an unplayable "tap the right picture" game.
+  if (domain === 'social') {
+    const index = pool.indexOf('tap_target');
+    if (index >= 0) pool.splice(index, 1);
   }
   return pool;
 }

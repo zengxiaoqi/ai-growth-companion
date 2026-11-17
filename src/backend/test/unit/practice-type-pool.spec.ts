@@ -34,6 +34,19 @@ describe('practice-type-pool', () => {
     expect(practiceTypePool({ ageGroup: '5-6', domain: 'science' })).not.toContain('color_fill');
   });
 
+  it('social domain never gets tap_target: abstract behaviour cannot be a single picture', () => {
+    for (const ageGroup of ['3-4', '5-6']) {
+      const pool = practiceTypePool({ ageGroup, domain: 'social' });
+      expect(pool).not.toContain('tap_target');
+      expect(pool.length).toBeGreaterThanOrEqual(4);
+      for (let i = 0; i < 100; i++) {
+        expect(pickPracticeActivityType({ ageGroup, domain: 'social' })).not.toBe('tap_target');
+      }
+    }
+    // Concrete domains keep tap_target available.
+    expect(practiceTypePool({ ageGroup: '5-6', domain: 'science' })).toContain('tap_target');
+  });
+
   it('picks valid pool members and produces variety across lessons', () => {
     const ctx = { ageGroup: '5-6', domain: 'science' };
     const pool = practiceTypePool(ctx);

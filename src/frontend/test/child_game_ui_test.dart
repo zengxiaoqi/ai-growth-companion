@@ -43,15 +43,26 @@ void main() {
     });
   });
 
-  group('safeChildGlyph — 老 Android / MuMu emoji 字体兼容', () {
-    test('实测缺字的图形按语义替换', () {
-      expect(safeChildGlyph('🪷'), '🌸'); // 荷花
-      expect(safeChildGlyph('🧺'), '🏠'); // 篮子 / 送回家
-      expect(safeChildGlyph('☃️'), '⛄'); // 黑白文字雪人
-      expect(safeChildGlyph('🃏'), '🎲');
+  group('safeChildGlyph — 老 Android / MuMu emoji 字体兼容（语义保真）', () {
+    test('实测缺字的图形只按语义等价替换', () {
+      expect(safeChildGlyph('🪷'), '🌸'); // 荷花 → 花
+      expect(safeChildGlyph('☃️'), '⛄'); // 黑白文字雪人 → 雪人
+      expect(safeChildGlyph('🃏'), '🎲'); // 扑克牌 → 骰子
+      expect(safeChildGlyph('🦉'), '🐦'); // 猫头鹰 → 鸟（上位词）
     });
 
-    test('已验证可用的老 emoji 与带变体选择符的组合原样保留', () {
+    test('语义不等价的替换一律禁止：绝不把图换成无关图形', () {
+      // 幼儿看图识字产品：教错概念比老设备缺字更糟。
+      expect(safeChildGlyph('🧸'), '🧸'); // 玩具熊不能变成气球
+      expect(safeChildGlyph('🧺'), '🧺'); // 篮子不能变成房子
+      expect(safeChildGlyph('🧱'), '🧱'); // 积木不能变成调色板
+      expect(safeChildGlyph('🦊'), '🦊'); // 狐狸不能变成熊
+      expect(safeChildGlyph('🦋'), '🦋'); // 蝴蝶不能变成花
+      expect(safeChildGlyph('🦆'), '🦆'); // 鸭子不能变成小鸡
+      expect(safeChildGlyph('🧩'), '🧩'); // 拼图不能变成调色板
+    });
+
+    test('已验证可用的 emoji 与带变体选择符的组合原样保留', () {
       expect(safeChildGlyph('🐱'), '🐱');
       expect(safeChildGlyph('🌸'), '🌸');
       expect(safeChildGlyph('🎉'), '🎉');
@@ -59,12 +70,9 @@ void main() {
       expect(safeChildGlyph('1️⃣'), '1️⃣');
     });
 
-    test('内容工厂生成未知的新 emoji 时兜底成可用图形，且结果稳定', () {
-      const unknown = '🫧'; // Unicode 14，老字体一定没有
-      final a = safeChildGlyph(unknown);
-      expect(a, safeChildGlyph(unknown));
-      expect(a, isNot(unknown));
-      expect(a.runes.isNotEmpty, isTrue);
+    test('未知的新 emoji 原样保留，不再随机换成无关图形', () {
+      const unknown = '🫧'; // Unicode 14
+      expect(safeChildGlyph(unknown), unknown);
       expect(safeChildGlyph(''), '');
     });
 
@@ -99,6 +107,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('火'), findsNWidgets(2), reason: '大字形 + 小标签');
+    });
+  });
+
+  group('ChildVisualTile — 情景图优先，加载失败回落 emoji', () {
+    testWidgets('无 imageUrl 时仍显示大图形', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: ChildVisualTile(
+              visual: childVisual(icon: '🧸', label: '玩具熊'),
+              label: '玩具熊',
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('🧸'), findsOneWidget);
     });
   });
 

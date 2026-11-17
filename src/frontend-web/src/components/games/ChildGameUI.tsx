@@ -99,33 +99,23 @@ function hashString(value: string): number {
 
 /**
  * MuMu and older Android WebViews ship an emoji font that predates Unicode 11:
- * newer pictographs render as tofu boxes (🧺 🪷) and some dingbats degrade to
- * monochrome glyphs (☃️). The content factory may emit any emoji, so the fix
- * belongs in the render layer — keep it identical to the Flutter `safeChildGlyph`.
+ * a few glyphs render as tofu boxes (🪷) and some dingbats degrade to
+ * monochrome shapes (☃️). The content factory may emit any emoji, so the fix
+ * belongs in the render layer — keep it identical to Flutter `safeChildGlyph`.
+ *
+ * Semantic fidelity is a hard constraint (fixed 2026-11): for 3-6 year olds
+ * learning by matching pictures to words, swapping 🧸 teddy bear → 🎈 balloon
+ * or 🧺 basket → 🏠 house teaches the WRONG concept — worse than a tofu box on
+ * a very old device. The old hash-based random fallback could turn any new
+ * glyph into an unrelated picture and has been removed. Only semantic
+ * equivalents (or clear hypernyms) are substituted; everything else is
+ * returned untouched and left to the system font.
  */
 const COMPAT_EMOJI: Record<string, string> = {
-  '🪷': '🌸', '🧺': '🏠', '☃': '⛄', '🃏': '🎲', '🦊': '🐻',
-  '🦉': '🐦', '🦋': '🌸', '🦆': '🐤', '🧩': '🎨', '🧸': '🎈',
-  '🪁': '🎈', '🧱': '🎨', '🟦': '🔷', '🟡': '☀️', '🟢': '🍀',
-  '🟣': '🍇', '🟠': '🍊', '⛰': '🌋', '🌧': '☔', '🖍': '🎨',
+  '🪷': '🌸', '☃': '⛄', '🃏': '🎲', '🦉': '🐦',
+  '⛰': '🌋', '🌧': '☔', '🖍': '🎨',
+  '🟦': '🔷', '🟡': '☀️', '🟢': '🍀', '🟣': '🍇', '🟠': '🍊',
 };
-
-const LEGACY_SAFE_GLYPHS = [
-  '🌸', '🌷', '🍀', '🌈', '⭐', '🎈', '🎁', '🐻', '🐦', '🍎',
-  '🍉', '🍒', '🎉', '⛄', '☀️', '🌙', '🐟', '🚗', '⚽', '📚',
-  '🎨', '✏️', '🏠', '🐱', '🍇',
-];
-
-function isLegacyUnsupported(cp: number): boolean {
-  return (
-    (cp >= 0x1f7d0 && cp <= 0x1f7ff) ||
-    (cp >= 0x1f980 && cp <= 0x1faff) ||
-    cp === 0x1f327 ||
-    cp === 0x26f0 ||
-    cp === 0x2603 ||
-    cp === 0x1f58d
-  );
-}
 
 export function safeGlyph(glyph: string): string {
   if (!glyph) return glyph;
@@ -143,14 +133,11 @@ export function safeGlyph(glyph: string): string {
     if (mapped) {
       out += mapped;
       replaced = true;
-    } else if (isLegacyUnsupported(cp)) {
-      out += LEGACY_SAFE_GLYPHS[hashString(glyph) % LEGACY_SAFE_GLYPHS.length];
-      replaced = true;
     } else {
       out += ch;
     }
   }
-  return out || LEGACY_SAFE_GLYPHS[0];
+  return out;
 }
 
 /** Always returns a glyph: explicit icon → shape → label keyword → stable hash. */
@@ -219,6 +206,8 @@ export type VisualTileState =
 interface VisualTileProps {
   visual: string;
   label: string;
+  /** Optional same-origin situation picture; preferred over `visual` emoji. */
+  imageUrl?: string;
   state?: VisualTileState;
   onClick?: () => void;
   ariaLabel?: string;
@@ -255,9 +244,54 @@ const TILE_EMOJI_CLASS = {
   lg: 'text-5xl',
 } as const;
 
+/** Append the JWT to a media URL — <img> cannot send an Authorization header. */
+export function withAuthToken(url: string): string {
+  let token = '';
+  try {
+    token = localStorage.getItem('auth_token') || '';
+  } catch {
+    // Storage may be blocked in private mode; the image simply falls back.
+  }
+  return token ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url;
+}
+
+/** Situation picture with graceful fallback to the emoji if it fails to load. */
+function SituationPicture({
+  src,
+  fallback,
+  size,
+}: {
+  src: string;
+  fallback: string;
+  size: 'sm' | 'md' | 'lg';
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span className={cn('leading-none drop-shadow-sm', TILE_EMOJI_CLASS[size])} aria-hidden="true">
+        {fallback}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden="true"
+      className={cn('object-contain', {
+        'h-12 w-12': size === 'sm',
+        'h-16 w-16': size === 'md',
+        'h-20 w-20': size === 'lg',
+      })}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function VisualTile({
   visual,
   label,
+  imageUrl,
   state = 'normal',
   onClick,
   ariaLabel,
@@ -281,12 +315,16 @@ export function VisualTile({
 
   const inner = (
     <>
-      <span
-        className={cn('leading-none drop-shadow-sm', TILE_EMOJI_CLASS[size])}
-        aria-hidden="true"
-      >
-        {visual}
-      </span>
+      {imageUrl ? (
+        <SituationPicture src={withAuthToken(imageUrl)} fallback={visual} size={size} />
+      ) : (
+        <span
+          className={cn('leading-none drop-shadow-sm', TILE_EMOJI_CLASS[size])}
+          aria-hidden="true"
+        >
+          {visual}
+        </span>
+      )}
       <span className="text-center text-xs font-bold leading-tight">{label}</span>
     </>
   );

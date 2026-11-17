@@ -618,6 +618,9 @@ export class GenerateActivityTool {
           'Generate 3-6 rounds about the given topic.',
           'Each round is {id, prompt, targets, correctIds}: prompt is <=20 chars and MUST name every correct target (e.g. "请点出小猫"); targets is 2-4 items {id, label, icon} with unique labels; correctIds lists 1-2 target ids.',
           'icon is one emoji matching the label. All rounds must stay on the given topic.',
+          'CRITICAL: tap_target is "hear a sentence, tap one picture" for pre-readers. Every target label MUST be a concrete, visually depictable noun (小猫, 苹果, 汽车, 积木). NEVER use abstract actions, social behaviours, emotions or states as labels — 分享、轮流、交换玩具、一个人玩、一起收拾、说出请求、等待一会儿、开心 CANNOT be drawn as a single picture and a 3-6 year old cannot play them.',
+          'If the topic is abstract (sharing, emotions, politeness), express it through concrete objects from that topic (玩具汽车、积木、小熊、糖果), never through the abstract behaviour itself.',
+          'icon MUST literally depict its label (小猫→🐱); an abstract symbol (🔄 for 交换) or an unrelated emoji (🧸 for 一个人玩) is forbidden.',
           'The child hears the prompt read aloud, so keep it a simple spoken sentence without punctuation tricks.',
           'passingScore is 0-100; timeLimitSec is 30-300.',
         ];

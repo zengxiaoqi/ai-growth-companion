@@ -174,6 +174,29 @@ describe('tap_target parameter contract', () => {
       expect(capped.rounds).toHaveLength(TAP_TARGET_LIMITS.maxRounds);
     });
 
+    it('accepts same-origin situation-picture URLs and rejects cross-origin ones', () => {
+      const withImage = makeValidRaw();
+      withImage.rounds[0].targets[0].imageUrl = '/api/learning/activity-image/%E5%B0%8F%E7%8C%AB';
+      const activity = sanitizeTapTargetParams(withImage, ctx);
+      expect(activity.rounds[0].targets[0].imageUrl).toBe(
+        '/api/learning/activity-image/%E5%B0%8F%E7%8C%AB',
+      );
+      expect(validateTapTargetParams(activity).ok).toBe(true);
+
+      for (const bad of [
+        'https://evil.example/x.png',
+        '//evil.example/x.png',
+        '/api/learning/activity-image/../../etc/passwd',
+        'javascript:alert(1)',
+        '/api/learning/activity-image/this-subject-is-way-too-long',
+      ]) {
+        const raw = makeValidRaw();
+        raw.rounds[0].targets[0].imageUrl = bad;
+        const sanitized = sanitizeTapTargetParams(raw, ctx);
+        expect(sanitized.rounds[0].targets[0].imageUrl).toBeUndefined();
+      }
+    });
+
     it('rejects script/HTML/URL content in any text field', () => {
       const raw1 = makeValidRaw();
       raw1.rounds[0].prompt = '<script>alert(1)</script>';
@@ -293,6 +316,25 @@ describe('tap_target whitelist single source of truth', () => {
       expect(prompt).toContain('correctIds');
       expect(prompt).toContain('MUST name every correct target');
       expect(prompt).toMatch(/Never output HTML|URLs|URL/);
+    }
+  });
+
+  it('both generateActivity prompts forbid abstract labels and unrelated icons', () => {
+    const args = {
+      type: 'tap_target',
+      topic: '分享玩具：大家一起玩更开心',
+      difficulty: 2,
+      ageGroup: '5-6',
+      domain: 'social',
+    };
+    const prompts = [
+      (new FrameworkGenerateActivityTool({} as any) as any).buildPrompt(args, 1, [], []),
+      (new LegacyGenerateActivityTool({} as any) as any).buildPrompt(args, 1, []),
+    ] as string[];
+    for (const prompt of prompts) {
+      expect(prompt).toContain('concrete, visually depictable noun');
+      expect(prompt).toContain('交换玩具、一个人玩、一起收拾');
+      expect(prompt).toContain('icon MUST literally depict its label');
     }
   });
 

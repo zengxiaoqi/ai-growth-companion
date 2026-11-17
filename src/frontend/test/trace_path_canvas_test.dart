@@ -218,6 +218,29 @@ void main() {
       expect(find.textContaining('滚轮不能画笔画'), findsWidgets);
     });
 
+    testWidgets('短促的一格伪滑动也拦得住', (tester) async {
+      await pumpCanvas(tester);
+      final box = findCanvasBox(tester);
+
+      // 每格滚轮可能只注入一小段滑动：60px、5 步、16ms 走完
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        box.localToGlobal(const Offset(140, 100)),
+        timeStamp: const Duration(seconds: 4),
+      );
+      for (var i = 1; i <= 5; i++) {
+        await gesture.moveTo(
+          box.localToGlobal(Offset(140, 100 + i * 12.0)),
+          timeStamp: Duration(milliseconds: 4000 + i * 4),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 4024));
+      await tester.pumpAndSettle();
+
+      expect(readPercent(tester), 0, reason: '短促的伪滑动也不应该留下笔画');
+    });
+
     testWidgets('有抖动、有加减速的真实书写不会被误判', (tester) async {
       await pumpCanvas(tester);
       final box = findCanvasBox(tester);

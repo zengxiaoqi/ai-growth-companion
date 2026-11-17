@@ -866,14 +866,17 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       if (maxStep > 1 && minStep / maxStep > 0.8) _sigUniformStep = true;
     }
 
-    // ④ 速度超过人手（> 3000 画布像素/秒），或整笔在同一时刻完成
-    if (_hasStrokeClock && _strokeTravel >= 60) {
+    // ④ 速度超过人手：整笔零耗时、平均速度过高、或极短时间内走完一段
+    if (_hasStrokeClock) {
       final micros = (_strokeLastStamp - _strokeStartStamp).inMicroseconds;
-      if (micros <= 0) {
-        // 几十上百像素的笔画耗时为零：只可能是注入事件
+      if (_strokeTravel >= 40 && micros <= 0) {
+        // 几十像素的笔画耗时为零：只可能是注入事件
         _sigTooFast = true;
-      } else if (_strokeTravel / (micros / 1000000) > 3000) {
-        _sigTooFast = true;
+      } else if (micros > 0 && _strokeTravel >= 56) {
+        final speed = _strokeTravel / (micros / 1000000);
+        if (speed > 3000 || (_strokeTravel >= 80 && micros <= 120000)) {
+          _sigTooFast = true;
+        }
       }
     }
 
@@ -973,7 +976,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
         _strokeOffInkSegments += 1;
       }
       final total = _strokeOnInkSegments + _strokeOffInkSegments;
-      if (total >= 6 && _strokeOffInkSegments / total > 0.65) {
+      if (total >= 4 && _strokeOffInkSegments / total > 0.65) {
         _sigOffInk = true;
       }
     }

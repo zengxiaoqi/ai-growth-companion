@@ -592,4 +592,129 @@ describe('LessonVideoQueueService', () => {
     expect(payload.watchScene).toBeUndefined();
     expect(payload.modules).toBeUndefined();
   });
+
+  describe('course-pack storyboard fast path', () => {
+    const alignedPayload = {
+      topic: '认识动物老虎',
+      title: '老虎观察课',
+      ageGroup: '5-6',
+      domain: 'science',
+      visualStory: {
+        scenes: [
+          {
+            scene: '老虎登场',
+            imagePrompt: '森林里的卡通老虎展示黑色条纹',
+            narration: '老虎是大型猫科动物，身上有黑色条纹。',
+            onScreenText: '老虎条纹',
+            durationSec: 12,
+            animationTemplate: 'science.animal-intro',
+            animationParams: { animal: 'tiger' },
+          },
+          {
+            scene: '老虎捕食',
+            imagePrompt: '老虎在草丛边观察猎物',
+            narration: '老虎爱吃肉，会安静观察再行动。',
+            onScreenText: '爱吃肉',
+            durationSec: 10,
+          },
+        ],
+      },
+      videoLesson: { shots: [] },
+    };
+
+    it('skips the storyboard agent when course-pack scenes are topic-aligned', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('pack-video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      const result = await (agentService as any).generateVideoBuffer(
+        { id: 40, contentId: 62, childId: 3, cacheKey: 'pack-cache', renderEngine: 'auto' },
+        alignedPayload,
+      );
+
+      expect(videoAgent.generateViaAgent).not.toHaveBeenCalled();
+      expect(videoAgent.generateRemotionComposition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          topic: '认识动物老虎',
+          sceneCount: 2,
+          scenes: expect.arrayContaining([
+            expect.objectContaining({
+              title: '老虎登场',
+              narration: '老虎是大型猫科动物，身上有黑色条纹。',
+              visualDescription: '森林里的卡通老虎展示黑色条纹',
+              animationTemplate: { id: 'science.animal-intro', params: { animal: 'tiger' } },
+              emphasis: 'intro',
+            }),
+            expect.objectContaining({ title: '老虎捕食', emphasis: 'summary' }),
+          ]),
+        }),
+        expect.anything(),
+        expect.any(Map),
+      );
+      expect(result.buffer).toEqual(Buffer.from('pack-video'));
+    });
+
+    it('still runs the storyboard agent when pack scenes are off-topic', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('agent-video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      await (agentService as any).generateVideoBuffer(
+        { id: 41, contentId: 62, childId: 3, cacheKey: 'off-topic', renderEngine: 'auto' },
+        {
+          ...alignedPayload,
+          visualStory: {
+            scenes: [{ scene: '春天花园', narration: '春天来了，花开了。', onScreenText: '春天' }],
+          },
+        },
+      );
+
+      expect(videoAgent.generateViaAgent).toHaveBeenCalled();
+    });
+
+    it('falls back to the agent when aligned scenes have no narration at all', () => {
+      const storyboard = (service as any).buildStoryboardFromPackScenes({
+        ...alignedPayload,
+        visualStory: {
+          scenes: alignedPayload.visualStory.scenes.map((scene) => ({
+            ...scene,
+            narration: '',
+          })),
+        },
+      });
+      expect(storyboard).toBeNull();
+    });
+
+    it('synthesizes a storyboard from aligned watchScene.scenes when visualStory is empty', () => {
+      const storyboard = (service as any).buildStoryboardFromPackScenes({
+        topic: '认识动物老虎',
+        domain: 'science',
+        visualStory: {},
+        watchScene: {
+          scenes: [{ title: '老虎登场', narration: '老虎有条纹。', durationSec: 99 }],
+        },
+      });
+
+      expect(storyboard).toMatchObject({
+        topic: '认识动物老虎',
+        sceneCount: 1,
+        scenes: [expect.objectContaining({ title: '老虎登场', durationSec: 30 })],
+      });
+    });
+  });
+
+  it('claims the newest pending task first so the lesson being previewed renders next', async () => {
+    taskRepo.findOne.mockResolvedValue(null);
+    await (service as any).processNextTask();
+    expect(taskRepo.findOne).toHaveBeenCalledWith({
+      where: { status: 'pending' },
+      order: { createdAt: 'DESC' },
+    });
+  });
 });

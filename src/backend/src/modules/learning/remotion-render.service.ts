@@ -2034,7 +2034,7 @@ export class RemotionRenderService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cpuCount = Math.max(1, (require('os').cpus() || []).length);
-      const concurrency = Math.min(cpuCount - 1 || 1, 4);
+      const concurrency = Math.min(cpuCount - 1 || 1, 8);
       const chromePath = this.resolveChromePath();
       const args = [
         'render',
@@ -2180,7 +2180,7 @@ export class RemotionRenderService implements OnModuleInit {
     return new Promise((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const cpuCount = Math.max(1, (require('os').cpus() || []).length);
-      const concurrency = Math.min(cpuCount - 1 || 1, 4); // Use N-1 cores, max 4
+      const concurrency = Math.min(cpuCount - 1 || 1, 8); // N-1 cores, cap 8（1080p 全量渲染是出片耗时大头）
       const chromePath = this.resolveChromePath();
       const args = [
         'render',

@@ -426,9 +426,12 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processNextTask(): Promise<void> {
+    //  newest-first：单 worker 串行渲染，家长/孩子正在预览的永远是最新生成的课。
+    //  FIFO 会让新课排在十几分钟的旧积压后面（实测排队 5 分钟~1.5 小时），
+    //  看起来像"点了预览才开始生成"。旧任务仍会在空闲时按新→旧补完。
     const pending = await this.taskRepo.findOne({
       where: { status: 'pending' },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'DESC' },
     });
     if (!pending) return;
 
@@ -528,6 +531,18 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           ' engine=dsh: skipping agent pipeline, delegating to DSH',
       );
       return this.generateVideoBufferWithEngines(task, payload);
+    }
+
+    // --- Course-pack fast path: 课程包 watch 步已带主题对齐的分镜场景（旁白、
+    // 画面描述、动画模板齐全）时直接合成 storyboard 进渲染引擎。再跑一遍
+    // video-generator agent 是双重 LLM：多花约 1 分钟，还可能把已对齐的课程内容改写跑偏。 ---
+    const packStoryboard = this.buildStoryboardFromPackScenes(payload);
+    if (packStoryboard) {
+      this.logger.log(
+        `[generateVideoBuffer] taskId=${task.id} course-pack scenes aligned (${packStoryboard.scenes.length} scenes), skipping storyboard agent`,
+      );
+      const enrichedPayload = this.enrichPayloadWithStoryboard(payload, packStoryboard);
+      return this.generateVideoBufferWithEngines(task, enrichedPayload);
     }
 
     // --- Agent-first path: use VideoGenerationAgentService when available ---
@@ -651,6 +666,71 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
           animationParams: scene.animationTemplate?.params || {},
         })),
       },
+    };
+  }
+
+  /** 课程包场景 → storyboard：字段映射与 enrichPayloadWithStoryboard 互逆，渲染层无感。 */
+  private buildStoryboardFromPackScenes(
+    payload: Record<string, any>,
+  ): Record<string, any> | null {
+    const topic = this.toText(payload?.topic);
+    if (!topic) return null;
+
+    const visualScenes = Array.isArray(payload?.visualStory?.scenes)
+      ? payload.visualStory.scenes
+      : [];
+    const watchScenes = Array.isArray(payload?.watchScene?.scenes) ? payload.watchScene.scenes : [];
+    const source = this.isVideoContentAligned(topic, visualScenes)
+      ? visualScenes
+      : this.isVideoContentAligned(topic, watchScenes)
+        ? watchScenes
+        : [];
+    if (source.length === 0) return null;
+
+    const capped = source.slice(0, 12);
+    const scenes = capped.map((raw: any, index: number) => {
+      const title = this.toText(raw?.scene || raw?.title, `场景${index + 1}`);
+      const template = raw?.animationTemplate;
+      return {
+        id: `scene-${index + 1}`,
+        sequence: index + 1,
+        title,
+        concept: this.toText(raw?.onScreenText, title),
+        narration: this.toText(raw?.narration),
+        onScreenText: this.toText(raw?.onScreenText),
+        visualDescription: this.toText(
+          raw?.imagePrompt || raw?.visualDescription || raw?.visualPrompt,
+          `${topic}教学场景：${title}，卡通教育风格`,
+        ),
+        durationSec: this.toInt(raw?.durationSec, 12, 4, 30),
+        transitionToNext: 'fade',
+        emphasis: index === 0 ? 'intro' : index === capped.length - 1 ? 'summary' : 'core-concept',
+        ...(template
+          ? {
+              animationTemplate:
+                typeof template === 'string'
+                  ? { id: template, params: raw?.animationParams || {} }
+                  : template,
+            }
+          : {}),
+        ...(raw?.beats ? { beats: raw.beats } : {}),
+        ...(raw?.figure ? { figure: raw.figure } : {}),
+        ...(raw?.sceneGraph ? { sceneGraph: raw.sceneGraph } : {}),
+      };
+    });
+
+    // 全程无旁白的场景序列交给 agent 路径补写，避免渲染出默片。
+    if (!scenes.some((scene) => scene.narration)) return null;
+
+    return {
+      title: this.toText(payload?.title, `${topic} 视频讲解`),
+      topic,
+      domain: this.toText(payload?.domain, 'science'),
+      totalDurationSec: scenes.reduce((sum, scene) => sum + scene.durationSec, 0),
+      sceneCount: scenes.length,
+      scenes,
+      visualTheme: { primaryPalette: 'colorful', accentColor: '#00B4D8', mood: 'playful' },
+      narrativeArc: `${topic}：导入 → 讲解 → 小结`,
     };
   }
 

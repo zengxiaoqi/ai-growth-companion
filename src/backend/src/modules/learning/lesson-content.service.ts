@@ -152,8 +152,8 @@ export class LessonContentService implements OnModuleInit {
   private readonly logger = new Logger(LessonContentService.name);
 
   async onModuleInit(): Promise<void> {
-    // Recover content records stuck in 'generating' status from previous server crash/restart
-    const _staleThresholdMinutes = 5;
+    // Generation runs in-process and is only triggered by HTTP requests, so any
+    // 'generating' record at startup is an orphan from a crash/restart — no age threshold.
     try {
       const result = await this.contentRepo
         .createQueryBuilder()
@@ -162,13 +162,10 @@ export class LessonContentService implements OnModuleInit {
           status: 'generation_failed',
           subtitle: '生成中断：服务器重启，请重新生成',
         })
-        .where(
-          "status = :status AND contentType = :contentType AND updatedAt < datetime('now', '-5 minutes')",
-          {
-            status: 'generating',
-            contentType: 'structured_lesson',
-          },
-        )
+        .where('status = :status AND contentType = :contentType', {
+          status: 'generating',
+          contentType: 'structured_lesson',
+        })
         .execute();
 
       if (result.affected && result.affected > 0) {

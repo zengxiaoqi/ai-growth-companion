@@ -72,6 +72,27 @@ describe('LessonContentService modifyDraft scene sync', () => {
     service = module.get(LessonContentService);
   });
 
+  it('onModuleInit fails every orphaned generating lesson regardless of age', async () => {
+    const execute = jest.fn().mockResolvedValue({ affected: 2 });
+    const where = jest.fn().mockReturnValue({ execute });
+    const set = jest.fn().mockReturnValue({ where });
+    const update = jest.fn().mockReturnValue({ set });
+    contentRepo.createQueryBuilder.mockReturnValue({ update });
+
+    await service.onModuleInit();
+
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'generation_failed' }),
+    );
+    const [clause, params] = where.mock.calls[0];
+    expect(clause).not.toContain('datetime');
+    expect(params).toEqual({
+      status: 'generating',
+      contentType: 'structured_lesson',
+    });
+    expect(execute).toHaveBeenCalled();
+  });
+
   it('returns child draft lessons ordered by newest first', async () => {
     const builder = {
       select: jest.fn().mockReturnThis(),

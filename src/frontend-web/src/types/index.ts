@@ -651,7 +651,6 @@ export interface GenerateCoursePackRequest {
   ageGroup?: '3-4' | '5-6';
   domain?: 'language' | 'math' | 'science' | 'art' | 'social';
   durationMinutes?: number;
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   includeGame?: boolean;
   includeAudio?: boolean;
@@ -692,7 +691,6 @@ export interface GenerateWeeklyCoursePackRequest {
   childId: number;
   ageGroup?: '3-4' | '5-6';
   durationMinutes?: number;
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   includeGame?: boolean;
   includeAudio?: boolean;
@@ -806,7 +804,6 @@ export interface GenerateLessonParams {
   childId: number;
   ageGroup?: '3-4' | '5-6';
   domain?: 'language' | 'math' | 'science' | 'art' | 'social';
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   durationMinutes?: number;
   parentPrompt?: string;

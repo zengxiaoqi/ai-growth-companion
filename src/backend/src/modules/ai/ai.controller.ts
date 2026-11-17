@@ -89,6 +89,7 @@ export class AiController {
       bookId?: number;
       bookTitle?: string;
       mode?: ChatMode;
+      regenerate?: boolean;
     },
     @Res() res: Response,
   ) {
@@ -136,6 +137,7 @@ export class AiController {
         bookId: body.bookId,
         bookTitle: body.bookTitle,
         mode: body.mode,
+        regenerate: body.regenerate === true,
       });
 
       for await (const event of stream) {
@@ -665,7 +667,6 @@ export class AiController {
       childId: number;
       ageGroup?: '3-4' | '5-6';
       durationMinutes?: number;
-      focus?: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty?: number;
       includeGame?: boolean;
       includeAudio?: boolean;
@@ -719,7 +720,6 @@ export class AiController {
       ageGroup?: '3-4' | '5-6';
       domain?: 'language' | 'math' | 'science' | 'art' | 'social';
       durationMinutes?: number;
-      focus?: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty?: number;
       includeGame?: boolean;
       includeAudio?: boolean;

@@ -188,7 +188,7 @@ describe('GenerateCoursePackTool', () => {
       await tool.execute({
         topic: '10以内加法',
         ageGroup: '5-6',
-        focus: 'math',
+        domain: 'math',
         durationMinutes: 20,
         parentPrompt: '给我一套10以内加法课程',
       }),
@@ -224,7 +224,7 @@ describe('GenerateCoursePackTool', () => {
     const result = JSON.parse(
       await tool.execute({
         topic: '汉字故事',
-        focus: 'literacy',
+        domain: 'language',
       }),
     );
 
@@ -270,7 +270,7 @@ describe('GenerateCoursePackTool', () => {
     const result = JSON.parse(
       await tool.execute({
         topic: '认识汉字：天、地、人',
-        focus: 'literacy',
+        domain: 'language',
       }),
     );
 
@@ -339,7 +339,7 @@ describe('GenerateCoursePackTool', () => {
       await tool.execute({
         topic: '四季变化',
         ageGroup: '5-6',
-        focus: 'science',
+        domain: 'science',
         includeGame: false,
       }),
     );
@@ -419,7 +419,6 @@ describe('GenerateCoursePackTool', () => {
       await tool.execute({
         topic: '认识动物',
         ageGroup: '5-6',
-        focus: 'literacy',
         domain: 'language',
         includeGame: false,
       }),
@@ -517,7 +516,6 @@ describe('GenerateCoursePackTool', () => {
           topic: '认识汉字',
           ageGroup: '5-6',
           domain: 'language',
-          focus: 'literacy',
           includeGame: false,
         }),
       );

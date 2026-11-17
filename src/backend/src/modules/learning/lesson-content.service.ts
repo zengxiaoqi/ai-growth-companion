@@ -75,7 +75,6 @@ export interface GenerateLessonParams {
   parentId: number;
   ageGroup?: AgeGroup;
   domain?: LessonDomain;
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   durationMinutes?: number;
   parentPrompt?: string;
@@ -341,7 +340,6 @@ export class LessonContentService implements OnModuleInit {
         topic,
         ageGroup,
         // 保留生成参数，失败重试时可按原参数重跑
-        focus: params.focus || 'mixed',
         parentPrompt: params.parentPrompt || '',
         summary: '',
         outcomes: [],
@@ -371,7 +369,6 @@ export class LessonContentService implements OnModuleInit {
       topic,
       ageGroup = '5-6',
       domain = 'language',
-      focus = 'mixed',
       difficulty = ageGroup === '3-4' ? 1 : 2,
       durationMinutes = 20,
       parentPrompt = '',
@@ -379,7 +376,7 @@ export class LessonContentService implements OnModuleInit {
 
     try {
       // 1 & 2. Generate course pack AND practice game in parallel
-      const practiceType = pickPracticeActivityType({ ageGroup, domain, focus });
+      const practiceType = pickPracticeActivityType({ ageGroup, domain });
       this.logger.log(
         `[contentId=${contentId}] Step 1/2: Generating course pack + practice game in parallel...`,
       );
@@ -392,7 +389,6 @@ export class LessonContentService implements OnModuleInit {
           topic,
           ageGroup,
           domain,
-          focus,
           difficulty,
           durationMinutes,
           includeGame: false,
@@ -460,7 +456,7 @@ export class LessonContentService implements OnModuleInit {
         );
         const improved = await this.regenerateCoursePackWithFeedback(
           contentId,
-          { topic, ageGroup, domain, focus, difficulty, durationMinutes, parentPrompt },
+          { topic, ageGroup, domain, difficulty, durationMinutes, parentPrompt },
           quality,
         );
         if (improved && improved.quality.score >= quality.score) {
@@ -546,7 +542,6 @@ export class LessonContentService implements OnModuleInit {
       parentId: content.parentId!,
       ageGroup: (content.ageRange as AgeGroup) || stored.ageGroup || '5-6',
       domain: (content.domain as LessonDomain) || 'language',
-      focus: stored.focus || 'mixed',
       difficulty: content.difficulty ?? undefined,
       durationMinutes: content.durationMinutes ?? undefined,
       parentPrompt: stored.parentPrompt || '',
@@ -614,7 +609,6 @@ export class LessonContentService implements OnModuleInit {
       topic: string;
       ageGroup: AgeGroup;
       domain: LessonDomain;
-      focus: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty: number;
       durationMinutes: number;
       parentPrompt: string;
@@ -630,7 +624,6 @@ export class LessonContentService implements OnModuleInit {
         topic: params.topic,
         ageGroup: params.ageGroup,
         domain: params.domain,
-        focus: params.focus,
         difficulty: params.difficulty,
         durationMinutes: params.durationMinutes,
         includeGame: false,
@@ -794,7 +787,6 @@ export class LessonContentService implements OnModuleInit {
       topic: string;
       ageGroup: AgeGroup;
       domain: LessonDomain;
-      focus: 'literacy' | 'math' | 'science' | 'mixed';
       difficulty: number;
       durationMinutes: number;
       includeGame: boolean;
@@ -1158,7 +1150,7 @@ export class LessonContentService implements OnModuleInit {
     const dataType = practiceData?.type;
     const practiceType = isActivityType(dataType)
       ? dataType
-      : this.resolveGameType(coursePack.focus || 'mixed');
+      : this.resolveGameType(domain);
     const practiceScene = this.resolvePracticeScene(
       coursePack,
       practiceData,
@@ -1282,14 +1274,13 @@ export class LessonContentService implements OnModuleInit {
     };
   }
 
-  private resolveGameType(focus: string): ActivityType {
+  private resolveGameType(domain: string): ActivityType {
     const map: Record<string, ActivityType> = {
-      literacy: 'fill_blank',
+      language: 'fill_blank',
       math: 'quiz',
       science: 'connection',
-      mixed: 'matching',
     };
-    return map[focus] || 'matching';
+    return map[domain] || 'matching';
   }
 
   private buildFallbackActivity(

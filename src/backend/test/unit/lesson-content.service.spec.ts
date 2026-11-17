@@ -834,9 +834,9 @@ describe('LessonContentService assembleLesson practice type', () => {
   const practiceGame = (lesson: any) =>
     lesson.steps.find((s: any) => s.id === 'practice').module.game;
 
-  it('follows the activity data type instead of the focus-derived type', () => {
+  it('follows the activity data type instead of the domain-derived type', () => {
     const lesson = (service as any).assembleLesson(
-      { focus: 'literacy', modules: {} },
+      { domain: 'language', modules: {} },
       {
         type: 'matching',
         title: '彩虹的颜色',
@@ -847,18 +847,18 @@ describe('LessonContentService assembleLesson practice type', () => {
     expect(practiceGame(lesson).activityType).toBe('matching');
   });
 
-  it('falls back to focus-derived type when data has no valid type', () => {
+  it('falls back to domain-derived type when data has no valid type', () => {
     const lesson = (service as any).assembleLesson(
-      { focus: 'literacy', modules: {} },
+      { domain: 'language', modules: {} },
       { title: '彩虹的颜色' },
       meta,
     );
     expect(practiceGame(lesson).activityType).toBe('fill_blank');
   });
 
-  it('falls back to focus-derived type when practice data is missing', () => {
+  it('falls back to domain-derived type when practice data is missing', () => {
     const lesson = (service as any).assembleLesson(
-      { focus: 'math', modules: {} },
+      { domain: 'math', modules: {} },
       null,
       meta,
     );

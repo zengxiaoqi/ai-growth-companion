@@ -102,7 +102,6 @@ describe('GenerateCoursePackTool scene output', () => {
       await tool.execute({
         topic: '四季变化',
         ageGroup: '5-6',
-        focus: 'literacy',
         domain: 'language',
         durationMinutes: 20,
         parentPrompt: 'generate a season lesson',
@@ -222,7 +221,6 @@ describe('GenerateCoursePackTool scene output', () => {
       await tool.execute({
         topic: '山河湖海',
         ageGroup: '5-6',
-        focus: 'literacy',
         domain: 'language',
         durationMinutes: 20,
         parentPrompt: 'teach the character 河',

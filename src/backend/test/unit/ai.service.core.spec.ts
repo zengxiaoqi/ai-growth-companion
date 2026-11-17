@@ -623,26 +623,16 @@ describe('AiService core public methods', () => {
       });
     });
 
-    describe('weeklyFocusLabel', () => {
-      it('returns literacy label', () => {
-        expect((service as any).weeklyFocusLabel(1, 'literacy')).toBe('Language and literacy');
-      });
-
-      it('returns math label', () => {
-        expect((service as any).weeklyFocusLabel(3, 'math')).toBe('Math thinking');
-      });
-
-      it('returns science label', () => {
-        expect((service as any).weeklyFocusLabel(2, 'science')).toBe('Science exploration');
-      });
-
-      it('rotates through labels for mixed focus', () => {
-        const labels = ['Language', 'Math', 'Science', 'Reading', 'Speaking', 'Hands-on', 'Review'];
-        for (let i = 1; i <= 7; i++) {
-          expect((service as any).weeklyFocusLabel(i, 'mixed')).toBe(
-            labels[(i - 1) % labels.length],
-          );
+    describe('weeklyDomainForDay', () => {
+      it('rotates language/math/science by day', () => {
+        const domains = ['language', 'math', 'science'];
+        for (let i = 1; i <= 9; i++) {
+          expect((service as any).weeklyDomainForDay(i)).toBe(domains[(i - 1) % 3]);
         }
+      });
+
+      it('clamps day numbers below 1', () => {
+        expect((service as any).weeklyDomainForDay(0)).toBe('language');
       });
     });
 

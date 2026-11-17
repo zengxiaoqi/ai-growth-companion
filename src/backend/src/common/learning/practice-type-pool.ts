@@ -32,14 +32,12 @@ const POOL_5_6: ActivityType[] = [
 export interface PracticeTypeContext {
   ageGroup: string;
   domain?: string;
-  focus?: string;
 }
 
 export function practiceTypePool(ctx: PracticeTypeContext): ActivityType[] {
   const pool = ctx.ageGroup === '3-4' ? [...POOL_3_4] : [...POOL_5_6];
   const domain = ctx.domain;
-  const literacy = domain === 'language' || ctx.focus === 'literacy';
-  if (ctx.ageGroup !== '3-4' && literacy) {
+  if (ctx.ageGroup !== '3-4' && domain === 'language') {
     pool.push('fill_blank');
   }
   if (domain === 'art') {

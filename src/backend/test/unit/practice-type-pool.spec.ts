@@ -22,9 +22,8 @@ describe('practice-type-pool', () => {
     expect(new Set(pool).size).toBe(pool.length);
   });
 
-  it('fill_blank only for 5-6 language/literacy', () => {
+  it('fill_blank only for 5-6 language', () => {
     expect(practiceTypePool({ ageGroup: '5-6', domain: 'language' })).toContain('fill_blank');
-    expect(practiceTypePool({ ageGroup: '5-6', focus: 'literacy' })).toContain('fill_blank');
     expect(practiceTypePool({ ageGroup: '3-4', domain: 'language' })).not.toContain('fill_blank');
     expect(practiceTypePool({ ageGroup: '5-6', domain: 'science' })).not.toContain('fill_blank');
   });

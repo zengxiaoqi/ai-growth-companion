@@ -11,7 +11,6 @@ type CourseAgentArgs = {
   topic: string;
   ageGroup: '3-4' | '5-6';
   domain?: 'language' | 'math' | 'science' | 'art' | 'social';
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
   difficulty?: number;
   durationMinutes?: number;
   includeGame?: boolean;
@@ -46,7 +45,6 @@ export class CourseGenerationAgentService {
       metadata: {
         contentId: args.contentId,
         domain: args.domain,
-        focus: args.focus,
       },
     };
 
@@ -106,12 +104,11 @@ export class CourseGenerationAgentService {
       `主题：${args.topic}`,
       `年龄段：${args.ageGroup}`,
       `领域：${args.domain || '自动判断'}`,
-      `重点：${args.focus || 'mixed'}`,
       `难度：${args.difficulty || 2}`,
       `时长：${args.durationMinutes || 20}分钟`,
       `家长要求：${args.parentPrompt || args.topic}`,
       '',
-      '必须调用 generateCoursePack 工具一次，并传入上述 topic、ageGroup、domain、focus、difficulty、durationMinutes、includeGame、includeAudio、includeVideo、parentPrompt。',
+      '必须调用 generateCoursePack 工具一次，并传入上述 topic、ageGroup、domain、difficulty、durationMinutes、includeGame、includeAudio、includeVideo、parentPrompt。',
       '返回时只总结工具生成结果，不要自行编造课程内容。',
     ].join('\n');
   }

@@ -35,12 +35,13 @@ class CoursePackManagerScreen extends StatefulWidget {
 }
 
 class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
-  // 重点方向选项
-  static const List<_FocusOption> _focusOptions = [
-    _FocusOption(value: 'mixed', label: '综合'),
-    _FocusOption(value: 'literacy', label: '语文'),
-    _FocusOption(value: 'math', label: '数学'),
-    _FocusOption(value: 'science', label: '科学'),
+  // 学习领域选项
+  static const List<_DomainOption> _domainOptions = [
+    _DomainOption(value: 'language', label: '语言'),
+    _DomainOption(value: 'math', label: '数学'),
+    _DomainOption(value: 'science', label: '科学'),
+    _DomainOption(value: 'art', label: '艺术'),
+    _DomainOption(value: 'social', label: '社交'),
   ];
 
   // 时长选项
@@ -49,7 +50,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
   // 表单状态
   final TextEditingController _topicController = TextEditingController();
   final TextEditingController _jsonController = TextEditingController();
-  String _selectedFocus = 'mixed';
+  String _selectedDomain = 'language';
   int _selectedDuration = 20;
 
   // 数据状态
@@ -164,7 +165,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
     final result = await api.generateCoursePack(
       topic: topic,
       childId: childId,
-      focus: _selectedFocus,
+      domain: _selectedDomain,
       durationMinutes: _selectedDuration,
     );
 
@@ -465,7 +466,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
             // 重点方向 + 时长
             Row(
               children: [
-                Expanded(child: _buildFocusSelector()),
+                Expanded(child: _buildDomainSelector()),
                 const SizedBox(width: 12),
                 Expanded(child: _buildDurationSelector()),
               ],
@@ -508,8 +509,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
     );
   }
 
-  /// 重点方向选择器
-  Widget _buildFocusSelector() {
+  /// 学习领域选择器
+  Widget _buildDomainSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
@@ -521,7 +522,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '重点方向',
+            '学习领域',
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -531,8 +532,8 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: true,
-              value: _selectedFocus,
-              items: _focusOptions
+              value: _selectedDomain,
+              items: _domainOptions
                   .map((opt) => DropdownMenuItem(
                         value: opt.value,
                         child: Text(opt.label,
@@ -541,7 +542,7 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
                       ))
                   .toList(),
               onChanged: (value) {
-                if (value != null) setState(() => _selectedFocus = value);
+                if (value != null) setState(() => _selectedDomain = value);
               },
               icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
             ),
@@ -925,10 +926,10 @@ class _CoursePackManagerScreenState extends State<CoursePackManagerScreen> {
   }
 }
 
-/// 重点方向选项数据
-class _FocusOption {
+/// 学习领域选项数据
+class _DomainOption {
   final String value;
   final String label;
 
-  const _FocusOption({required this.value, required this.label});
+  const _DomainOption({required this.value, required this.label});
 }

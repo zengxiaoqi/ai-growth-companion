@@ -31,13 +31,6 @@ class LessonGeneratorScreen extends StatefulWidget {
 class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
     with SingleTickerProviderStateMixin {
   // ── 配置数据 ──
-  static const List<_FocusOption> _focusOptions = [
-    _FocusOption(value: 'mixed', label: '综合'),
-    _FocusOption(value: 'literacy', label: '语文'),
-    _FocusOption(value: 'math', label: '数学'),
-    _FocusOption(value: 'science', label: '科学'),
-  ];
-
   static const List<_DomainOption> _domainOptions = [
     _DomainOption(value: 'language', label: '语言'),
     _DomainOption(value: 'math', label: '数学'),
@@ -106,7 +99,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
   int? _selectedChildId;
 
   final TextEditingController _topicController = TextEditingController();
-  String _selectedFocus = 'mixed';
   String _selectedDomain = 'language';
   String _selectedAgeGroup = '5-6';
 
@@ -405,7 +397,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
           topic: topic,
           childId: _selectedChildId!,
           domain: _selectedDomain,
-          focus: _selectedFocus,
           ageGroup: _selectedAgeGroup,
           durationMinutes: 20);
       if (!mounted) return;
@@ -1427,15 +1418,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
                   .toList(),
               selectedValue: _selectedDomain,
               onSelected: (v) => setState(() => _selectedDomain = v)),
-          const SizedBox(height: 14),
-          _buildLabel('专注方向'),
-          const SizedBox(height: 6),
-          _buildChipSelector(
-              items: _focusOptions
-                  .map((f) => _ChipItem(value: f.value, label: f.label))
-                  .toList(),
-              selectedValue: _selectedFocus,
-              onSelected: (v) => setState(() => _selectedFocus = v)),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
@@ -2257,12 +2239,6 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
 }
 
 // ── 数据类 ──
-
-class _FocusOption {
-  final String value;
-  final String label;
-  const _FocusOption({required this.value, required this.label});
-}
 
 class _DomainOption {
   final String value;

@@ -23,7 +23,6 @@ type GenerateCoursePackInput = {
   topic: string;
   ageGroup?: string;
   durationMinutes?: number;
-  focus?: string;
   domain?: string;
   difficulty?: number;
   includeGame?: boolean;
@@ -51,11 +50,6 @@ export class GenerateCoursePackTool extends BaseTool<GenerateCoursePackInput> {
         durationMinutes: {
           type: 'number',
           description: '课程时长(分钟, 10-45, 默认20)',
-        },
-        focus: {
-          type: 'string',
-          enum: ['literacy', 'math', 'science', 'mixed'],
-          description: '课程重点(默认mixed)',
         },
         domain: {
           type: 'string',

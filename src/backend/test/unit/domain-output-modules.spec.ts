@@ -162,7 +162,7 @@ describe('assembleLesson domain-adaptive output step', () => {
 
   const assemble = (domain: string, modules: Record<string, any> = {}) =>
     (service as any).assembleLesson(
-      { domain, modules, focus: 'mixed' },
+      { domain, modules },
       null,
       { topic: '测试主题', ageGroup: '5-6', domain, summary: '', outcomes: [] },
     );

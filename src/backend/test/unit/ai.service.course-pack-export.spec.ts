@@ -412,7 +412,6 @@ describe('AiService course pack export', () => {
       topic: '汉字启蒙',
       childId: 22,
       days: 3,
-      focus: 'literacy',
       includeGame: true,
       includeAudio: true,
       includeVideo: true,
@@ -423,6 +422,9 @@ describe('AiService course pack export', () => {
     expect(result.items).toHaveLength(3);
     expect(result.items.every((item: any) => item.saved === true)).toBe(true);
     expect(learningArchiveService.createStudyPlanRecord).toHaveBeenCalledTimes(3);
+    expect(
+      generateCoursePackTool.execute.mock.calls.map((call: any[]) => call[0].domain),
+    ).toEqual(['language', 'math', 'science']);
   });
 
   it('builds TTS narration without cue labels and promotes subtitle text over generic shot names', async () => {

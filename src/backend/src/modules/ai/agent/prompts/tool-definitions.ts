@@ -388,11 +388,6 @@ export const toolDefinitions: ChatCompletionTool[] = [
             type: 'number',
             description: 'Total course duration in minutes (10-45)',
           },
-          focus: {
-            type: 'string',
-            enum: ['literacy', 'math', 'science', 'mixed'],
-            description: 'Primary focus area',
-          },
           difficulty: {
             type: 'number',
             minimum: 1,

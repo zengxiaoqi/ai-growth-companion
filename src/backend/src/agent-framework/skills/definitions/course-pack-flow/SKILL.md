@@ -21,11 +21,11 @@ variables:
     required: false
     defaultValue: 20
     description: 课程时长(分钟)
-  - name: focus
+  - name: domain
     type: string
     required: false
-    defaultValue: mixed
-    description: 重点领域
+    defaultValue: language
+    description: 学习领域(language/math/science/art/social)
 requiredTools:
   - generateCoursePack
 chainTo: activity-validation
@@ -42,4 +42,4 @@ ageGroups:
 
 - 包含听说读写四个模块和互动游戏
 - 总时长{{durationMinutes}}分钟
-- 重点领域{{focus}}
+- 学习领域{{domain}}

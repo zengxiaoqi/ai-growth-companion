@@ -16,13 +16,6 @@ interface LessonGeneratorProps {
   onDraftLessonUpdated?: () => void | Promise<void>;
 }
 
-const FOCUS_OPTIONS = [
-  { value: 'mixed', label: '综合' },
-  { value: 'literacy', label: '语文' },
-  { value: 'math', label: '数学' },
-  { value: 'science', label: '科学' },
-] as const;
-
 const DOMAIN_OPTIONS = [
   { value: 'language', label: '语言' },
   { value: 'math', label: '数学' },
@@ -109,7 +102,6 @@ export default function LessonGenerator({
   onDraftLessonUpdated,
 }: LessonGeneratorProps) {
   const [topic, setTopic] = useState('');
-  const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
   const [domain, setDomain] = useState<(typeof DOMAIN_OPTIONS)[number]['value']>('language');
   const [domainTouched, setDomainTouched] = useState(false);
   const [ageGroup, setAgeGroup] = useState<'3-4' | '5-6'>(childAgeGroup || '5-6');
@@ -359,7 +351,6 @@ export default function LessonGenerator({
         childId: selectedChildId,
         ageGroup,
         domain: domainTouched ? domain : undefined,
-        focus,
         durationMinutes: 20,
       } as any);
 
@@ -705,21 +696,6 @@ export default function LessonGenerator({
                 disabled={isGenerating}
               >
                 {DOMAIN_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-on-surface-variant">重点</label>
-              <select
-                value={focus}
-                onChange={(e) => setFocus(e.target.value as any)}
-                className="w-full rounded-lg border border-outline-variant/30 bg-surface-container px-2 py-2 text-sm text-on-surface"
-                disabled={isGenerating}
-              >
-                {FOCUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>

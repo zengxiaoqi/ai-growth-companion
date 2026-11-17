@@ -11,11 +11,12 @@ interface CoursePackManagerProps {
   onInitialRecordConsumed?: () => void;
 }
 
-const FOCUS_OPTIONS = [
-  { value: 'mixed', label: '综合' },
-  { value: 'literacy', label: '语文' },
+const DOMAIN_OPTIONS = [
+  { value: 'language', label: '语言' },
   { value: 'math', label: '数学' },
   { value: 'science', label: '科学' },
+  { value: 'art', label: '艺术' },
+  { value: 'social', label: '社交' },
 ] as const;
 
 type ExportFormat =
@@ -35,7 +36,7 @@ export default function CoursePackManager({
   onInitialRecordConsumed,
 }: CoursePackManagerProps) {
   const [topic, setTopic] = useState('');
-  const [focus, setFocus] = useState<(typeof FOCUS_OPTIONS)[number]['value']>('mixed');
+  const [domain, setDomain] = useState<(typeof DOMAIN_OPTIONS)[number]['value']>('language');
   const [durationMinutes, setDurationMinutes] = useState(20);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -111,7 +112,7 @@ export default function CoursePackManager({
         topic: topic.trim(),
         parentPrompt: topic.trim(),
         childId: selectedChildId,
-        focus,
+        domain,
         durationMinutes,
         includeGame: true,
         includeAudio: true,
@@ -134,7 +135,7 @@ export default function CoursePackManager({
     }
   }, [
     durationMinutes,
-    focus,
+    domain,
     loadPacks,
     loadVersionHistory,
     onCoursePackGenerated,
@@ -300,7 +301,6 @@ export default function CoursePackManager({
         topic: topic.trim(),
         parentPrompt: topic.trim(),
         childId: selectedChildId,
-        focus,
         durationMinutes,
         includeGame: true,
         includeAudio: true,
@@ -320,7 +320,6 @@ export default function CoursePackManager({
     }
   }, [
     durationMinutes,
-    focus,
     loadPacks,
     onCoursePackGenerated,
     selectedChildId,
@@ -361,13 +360,13 @@ export default function CoursePackManager({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-bold text-on-surface-variant">重点方向</label>
+            <label className="mb-1 block text-xs font-bold text-on-surface-variant">学习领域</label>
             <select
-              value={focus}
-              onChange={(event) => setFocus(event.target.value as any)}
+              value={domain}
+              onChange={(event) => setDomain(event.target.value as any)}
               className="h-11 w-full rounded-xl border border-outline-variant/30 bg-surface px-3 text-sm outline-none transition focus:border-primary"
             >
-              {FOCUS_OPTIONS.map((item) => (
+              {DOMAIN_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
                 </option>

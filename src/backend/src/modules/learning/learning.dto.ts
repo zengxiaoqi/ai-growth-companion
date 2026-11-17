@@ -143,14 +143,6 @@ export class GenerateDraftDto {
   @IsString()
   ageGroup?: '3-4' | '5-6';
 
-  @ApiPropertyOptional({
-    description: 'Focus area',
-    enum: ['literacy', 'math', 'science', 'mixed'],
-  })
-  @IsOptional()
-  @IsString()
-  focus?: 'literacy' | 'math' | 'science' | 'mixed';
-
   @ApiPropertyOptional({ description: 'Duration in minutes' })
   @IsOptional()
   @IsNumber()

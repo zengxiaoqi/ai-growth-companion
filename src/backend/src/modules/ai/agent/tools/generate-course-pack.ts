@@ -27,7 +27,6 @@ import {
   knowledgeCardFactLines,
 } from '../../../../common/learning/knowledge-card-registry';
 
-type CourseFocus = 'literacy' | 'math' | 'science' | 'mixed';
 type AgeGroup = '3-4' | '5-6';
 type CourseDomain = 'language' | 'math' | 'science' | 'art' | 'social';
 
@@ -35,7 +34,6 @@ type GenerateCoursePackArgs = {
   topic: string;
   ageGroup?: AgeGroup;
   durationMinutes?: number;
-  focus?: CourseFocus;
   domain?: CourseDomain;
   difficulty?: number;
   includeGame?: boolean;
@@ -48,7 +46,6 @@ type NormalizedArgs = {
   topic: string;
   ageGroup: AgeGroup;
   durationMinutes: number;
-  focus: CourseFocus;
   difficulty: number;
   includeGame: boolean;
   includeAudio: boolean;
@@ -173,7 +170,7 @@ export class GenerateCoursePackTool {
         source?.durationMinutes,
         Math.max(10, Math.ceil(this.toSafeInt(source?.videoLesson?.durationSec, 120) / 60)),
       ),
-      focus: this.deriveFocusFromPack(source),
+      domain: this.normalizeDomain(source?.domain) ?? undefined,
       difficulty: this.toSafeInt(source?.difficulty, 2),
       includeAudio: true,
       includeVideo: true,
@@ -184,7 +181,6 @@ export class GenerateCoursePackTool {
     const next = JSON.parse(JSON.stringify(source || {}));
     next.topic = this.toText(next.topic, normalized.topic);
     next.ageGroup = this.toText(next.ageGroup, normalized.ageGroup);
-    next.focus = this.toText(next.focus, normalized.focus);
     next.durationMinutes = this.toSafeInt(next.durationMinutes, normalized.durationMinutes);
     next.visualStory =
       next.visualStory && typeof next.visualStory === 'object' ? next.visualStory : {};
@@ -348,7 +344,6 @@ ${this.outputModuleSchemaBlock(args.domain)}
       `Topic: ${args.topic}`,
       `Age group: ${args.ageGroup}`,
       `Domain: ${args.domain}`,
-      `Focus: ${args.focus}`,
       `Duration: ${args.durationMinutes} minutes`,
       ...difficultyPromptLines(args.ageGroup ?? '5-6', args.difficulty ?? 1, args.domain),
       `Parent request: ${args.parentPrompt}`,
@@ -550,24 +545,6 @@ ${this.outputModuleSchemaBlock(args.domain)}
     return lines;
   }
 
-  private deriveFocusFromPack(pack: Record<string, any>): CourseFocus {
-    const focus = this.toText(pack?.focus).toLowerCase();
-    if (focus === 'literacy' || focus === 'math' || focus === 'science' || focus === 'mixed') {
-      return focus;
-    }
-
-    const source = [
-      this.toText(pack?.topic),
-      this.toText(pack?.title),
-      this.toText(pack?.summary),
-    ].join(' ');
-
-    if (/汉字|识字|字词|拼音|阅读|朗读/.test(source)) return 'literacy';
-    if (/数字|数数|加法|减法|数学|图形|排序/.test(source)) return 'math';
-    if (/科学|动物|植物|天气|季节|实验|观察/.test(source)) return 'science';
-    return 'mixed';
-  }
-
   private buildOutputModules(
     args: NormalizedArgs,
     raw: Record<string, any>,
@@ -678,7 +655,6 @@ ${this.outputModuleSchemaBlock(args.domain)}
       title: this.toText(raw?.title, `${args.topic} 全方位学习课`),
       topic: args.topic,
       ageGroup: args.ageGroup,
-      focus: args.focus,
       domain: args.domain,
       durationMinutes: args.durationMinutes,
       summary: this.toText(
@@ -1268,7 +1244,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
     demonstrationCaption: string;
     practiceNarration: string;
   } {
-    switch (args.focus) {
+    switch (args.domain) {
       case 'math':
         return {
           observationNarration: `请仔细观察${args.topic}里的数量、顺序和大小规律，和老师一起数一数、比一比。`,
@@ -1277,7 +1253,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
           demonstrationCaption: '跟着老师做一做',
           practiceNarration: '现在轮到你啦，试着自己数一数、找一找，再大声说出答案。',
         };
-      case 'literacy':
+      case 'language':
         return {
           observationNarration: `先看清${args.topic}里的字词和图画，跟着老师认一认、读一读、说一说。`,
           observationCaption: '认一认，读一读',
@@ -1317,10 +1293,10 @@ ${this.outputModuleSchemaBlock(args.domain)}
     if (curriculumUnits.length >= 2) {
       return curriculumUnits.slice(0, 4);
     }
-    return this.extractTopicTeachingUnits(args.topic, args.focus);
+    return this.extractTopicTeachingUnits(args.topic, args.domain);
   }
 
-  private extractTopicTeachingUnits(topic: string, focus: CourseFocus): string[] {
+  private extractTopicTeachingUnits(topic: string, domain: CourseDomain): string[] {
     const source = this.toText(topic);
     if (!source) return [];
 
@@ -1350,7 +1326,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       }
     }
 
-    if (focus === 'literacy' || /汉字|识字|字词|生字/.test(source)) {
+    if (domain === 'language' || /汉字|识字|字词|生字/.test(source)) {
       const chars = Array.from(source.matchAll(/[\u4e00-\u9fff]/g))
         .map((match) => match[0])
         .filter((char) => !'认识汉字识字学习全方位课程'.includes(char));
@@ -1364,43 +1340,43 @@ ${this.outputModuleSchemaBlock(args.domain)}
   }
 
   private describeUnitLabel(unit: string, args: NormalizedArgs, index: number): string {
-    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.focus);
+    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.domain);
     if (literacyLike && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
       return `${unit}字`;
     }
-    if (args.focus === 'math' && /^\d+$/.test(unit)) {
+    if (args.domain === 'math' && /^\d+$/.test(unit)) {
       return `${unit}`;
     }
     return unit || `重点${index + 1}`;
   }
 
   private buildUnitCaption(unit: string, args: NormalizedArgs, index: number): string {
-    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.focus);
+    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.domain);
     if (literacyLike && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
       return `认识“${unit}”字`;
     }
-    if (args.focus === 'math' && /^\d+$/.test(unit)) {
+    if (args.domain === 'math' && /^\d+$/.test(unit)) {
       return `认识数字${unit}`;
     }
     return `学习${this.describeUnitLabel(unit, args, index)}`;
   }
 
   private buildUnitVisualPrompt(unit: string, args: NormalizedArgs, _index: number): string {
-    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.focus);
+    const literacyLike = this.isLiteracyLikeTopic(args.topic, args.domain);
     if (literacyLike && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
       return `课堂画面中放大展示汉字“${unit}”，老师用手势讲解字形和字义，并配合生活场景插图`;
     }
-    if (args.focus === 'math' && /^\d+$/.test(unit)) {
+    if (args.domain === 'math' && /^\d+$/.test(unit)) {
       return `老师展示数字${unit}的卡片和对应数量的物体，帮助孩子建立数字概念`;
     }
-    if (args.focus === 'science') {
+    if (args.domain === 'science') {
       return `用动画演示${unit}的现象与变化过程，画面清晰标注关键部分，配合老师讲解`;
     }
     return `老师围绕${unit}进行重点讲解，画面中有清晰的教学卡片和互动提示`;
   }
 
   private buildUnitNarration(unit: string, args: NormalizedArgs, _index: number): string {
-    if (this.isLiteracyLikeTopic(args.topic, args.focus) && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
+    if (this.isLiteracyLikeTopic(args.topic, args.domain) && /^[\u4e00-\u9fff]{1,2}$/.test(unit)) {
       const glossary = this.getCharacterGlossary(unit);
       if (glossary) {
         return `先来看”${unit}”字。${glossary.meaning}。${glossary.shape}。请你跟老师读一读：”${unit}”。`;
@@ -1408,14 +1384,14 @@ ${this.outputModuleSchemaBlock(args.domain)}
       return `先来看”${unit}”字。请你先看清它的样子，再跟着老师读一读，想一想这个字在生活里会出现在什么地方。`;
     }
 
-    if (args.focus === 'math' && /^\d+$/.test(unit)) {
+    if (args.domain === 'math' && /^\d+$/.test(unit)) {
       return `现在我们来认识数字${unit}。请你看看有多少个物体，再把数字${unit}大声读出来。`;
     }
 
     const curriculumSeed = this.getCurriculumSeed(args);
     const fact = curriculumSeed?.unitFacts?.[unit];
     if (fact) {
-      const verb = args.focus === 'science' ? '观察' : '学习';
+      const verb = args.domain === 'science' ? '观察' : '学习';
       return `现在我们来${verb}${unit}。${this.unitFactBody(unit, fact)}。请你仔细看，跟老师一起说一说。`;
     }
 
@@ -1445,8 +1421,8 @@ ${this.outputModuleSchemaBlock(args.domain)}
     return `真棒，今天我们已经认识了${args.topic}。记住一个关键点，等会讲给爸爸妈妈听吧。`;
   }
 
-  private isLiteracyLikeTopic(topic: string, focus: CourseFocus): boolean {
-    return focus === 'literacy' || /汉字|识字|字词|生字/.test(this.toText(topic));
+  private isLiteracyLikeTopic(topic: string, domain: CourseDomain): boolean {
+    return domain === 'language' || /汉字|识字|字词|生字/.test(this.toText(topic));
   }
 
   private getCharacterGlossary(unit: string): { meaning: string; shape: string } | null {
@@ -1496,60 +1472,21 @@ ${this.outputModuleSchemaBlock(args.domain)}
     if (!topic) throw new Error('topic is required');
 
     const parentPrompt = this.toText(args?.parentPrompt, topic);
-    const requestedFocus = this.toText(args?.focus, 'mixed') as CourseFocus;
-    let safeFocus: CourseFocus = ['literacy', 'math', 'science', 'mixed'].includes(requestedFocus)
-      ? requestedFocus
-      : 'mixed';
     const difficulty = Math.max(
       1,
       Math.min(3, this.toSafeInt(args?.difficulty, ageGroup === '3-4' ? 1 : 2)),
     );
     const durationMinutes = Math.max(10, Math.min(45, this.toSafeInt(args?.durationMinutes, 20)));
 
-    const explicitDomain = this.normalizeDomain(args?.domain);
-    const inferredFocus = this.deriveFocusFromPack({
-      topic,
-      title: topic,
-      summary: parentPrompt,
-    });
-
-    if (safeFocus === 'mixed') {
-      const focusFromDomain = this.mapDomainToFocus(explicitDomain);
-      if (focusFromDomain) {
-        safeFocus = focusFromDomain;
-      } else if (inferredFocus !== 'mixed') {
-        safeFocus = inferredFocus;
-      }
-    }
-
-    const domainMap: Record<CourseFocus, CourseDomain> = {
-      literacy: 'language',
-      math: 'math',
-      science: 'science',
-      mixed: 'language',
-    };
-    const gameTypeMap: Record<CourseFocus, ActivityType> = {
-      literacy: 'fill_blank',
-      math: 'quiz',
-      science: 'connection',
-      mixed: 'matching',
-    };
-    let domain =
-      explicitDomain ??
-      (safeFocus === 'mixed'
-        ? this.inferDomainFromText(`${topic} ${parentPrompt}`)
-        : domainMap[safeFocus]);
-    // 'language' is the UI default; an explicit science/math focus must win over it.
-    if (domain === 'language' && (safeFocus === 'science' || safeFocus === 'math')) {
-      domain = domainMap[safeFocus];
-    }
-    const gameType = this.resolveGameType(safeFocus, domain);
+    const domain =
+      this.normalizeDomain(args?.domain) ??
+      this.inferDomainFromText(`${topic} ${parentPrompt}`);
+    const gameType = this.resolveGameType(domain);
 
     return {
       topic,
       ageGroup,
       durationMinutes,
-      focus: safeFocus,
       difficulty,
       includeGame: this.toBoolean(args?.includeGame, true),
       includeAudio: this.toBoolean(args?.includeAudio, true),
@@ -1559,7 +1496,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       gameType:
         this.toText((args as any)?.gameType) && ACTIVITY_TYPES.includes((args as any).gameType)
           ? (args as any).gameType
-          : gameType || gameTypeMap[safeFocus],
+          : gameType,
     };
   }
 
@@ -1577,18 +1514,11 @@ ${this.outputModuleSchemaBlock(args.domain)}
     return null;
   }
 
-  private mapDomainToFocus(domain: CourseDomain | null): CourseFocus | null {
-    if (domain === 'language') return 'literacy';
-    if (domain === 'math') return 'math';
-    if (domain === 'science') return 'science';
-    return null;
-  }
-
   private inferDomainFromText(source: string): CourseDomain {
     const text = this.toText(source);
     if (!text) return 'language';
 
-    if (/数学|数感|数字|计数|加减|形状|图形|排序|规律/.test(text)) return 'math';
+    if (/数学|数感|数字|计数|加法|减法|加减|形状|图形|排序|规律/.test(text)) return 'math';
     if (/科学|动物|植物|天气|季节|四季|自然|实验|观察|昼夜|太阳|月亮|地球|水循环/.test(text))
       return 'science';
     if (/画画|绘画|颜色|色彩|手工|涂鸦|美术|折纸/.test(text)) return 'art';
@@ -1597,10 +1527,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
     return 'language';
   }
 
-  private resolveGameType(focus: CourseFocus, domain: CourseDomain): ActivityType {
-    if (focus === 'literacy') return 'fill_blank';
-    if (focus === 'math') return 'quiz';
-    if (focus === 'science') return 'connection';
+  private resolveGameType(domain: CourseDomain): ActivityType {
     if (domain === 'science') return 'connection';
     if (domain === 'math') return 'quiz';
     if (domain === 'language') return 'fill_blank';

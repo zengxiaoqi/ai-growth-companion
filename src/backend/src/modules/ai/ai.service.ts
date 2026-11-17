@@ -1230,7 +1230,6 @@ export class AiService {
     ageGroup?: '3-4' | '5-6';
     domain?: 'language' | 'math' | 'science' | 'art' | 'social';
     durationMinutes?: number;
-    focus?: 'literacy' | 'math' | 'science' | 'mixed';
     difficulty?: number;
     includeGame?: boolean;
     includeAudio?: boolean;
@@ -1269,7 +1268,6 @@ export class AiService {
       ageGroup: resolvedAgeGroup,
       domain: params.domain,
       durationMinutes: params.durationMinutes,
-      focus: params.focus,
       difficulty: params.difficulty,
       includeGame: params.includeGame,
       includeAudio: params.includeAudio,
@@ -1331,7 +1329,6 @@ export class AiService {
     childId: number;
     ageGroup?: '3-4' | '5-6';
     durationMinutes?: number;
-    focus?: 'literacy' | 'math' | 'science' | 'mixed';
     difficulty?: number;
     includeGame?: boolean;
     includeAudio?: boolean;
@@ -1355,7 +1352,6 @@ export class AiService {
 
     const totalDays = Math.min(14, Math.max(1, Number(params.days) || 7));
     const startDate = this.resolveWeeklyStartDate(params.startDate);
-    const focus = params.focus || 'mixed';
     const planItems: Record<string, any>[] = [];
 
     for (let i = 0; i < totalDays; i++) {
@@ -1364,10 +1360,11 @@ export class AiService {
       const dateLabel = this.formatDateKey(current);
       const dayNo = i + 1;
       const dayTopic = `${topic} - Day ${dayNo}`;
+      const dayDomain = this.weeklyDomainForDay(dayNo);
       const dayPrompt = [
         params.parentPrompt || topic,
         `Generate lesson for day ${dayNo}, date ${dateLabel}.`,
-        `Focus of today: ${this.weeklyFocusLabel(dayNo, focus)}.`,
+        `Domain of today: ${dayDomain}.`,
       ].join(' ');
 
       try {
@@ -1376,7 +1373,7 @@ export class AiService {
           childId,
           ageGroup: params.ageGroup,
           durationMinutes: params.durationMinutes,
-          focus: params.focus,
+          domain: dayDomain,
           difficulty: params.difficulty,
           includeGame: params.includeGame,
           includeAudio: params.includeAudio,
@@ -1698,15 +1695,9 @@ export class AiService {
     return `${year}-${month}-${day}`;
   }
 
-  private weeklyFocusLabel(
-    dayNo: number,
-    focus: 'literacy' | 'math' | 'science' | 'mixed',
-  ): string {
-    if (focus === 'literacy') return 'Language and literacy';
-    if (focus === 'math') return 'Math thinking';
-    if (focus === 'science') return 'Science exploration';
-    const labels = ['Language', 'Math', 'Science', 'Reading', 'Speaking', 'Hands-on', 'Review'];
-    return labels[(Math.max(1, dayNo) - 1) % labels.length];
+  private weeklyDomainForDay(dayNo: number): 'language' | 'math' | 'science' {
+    const domains = ['language', 'math', 'science'] as const;
+    return domains[(Math.max(1, dayNo) - 1) % domains.length];
   }
 
   private buildNarrationText(pack: Record<string, any>): string {

@@ -42,7 +42,6 @@ describe('CourseGenerationAgentService', () => {
       topic: '认识动物老虎',
       ageGroup: '5-6',
       domain: 'science',
-      focus: 'science',
       includeGame: false,
       includeAudio: false,
       includeVideo: true,

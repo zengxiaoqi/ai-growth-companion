@@ -16,6 +16,9 @@ import '../../utils/app_logger.dart';
 import '../games/game_renderer.dart';
 import '../parent/web_video_impl.dart';
 import 'animation_scene_player.dart';
+import 'drawing_step_canvas.dart';
+import 'experiment_step_player.dart';
+import 'roleplay_step_player.dart';
 import 'trace_path_canvas.dart';
 import 'lesson_scene_models.dart';
 
@@ -41,6 +44,24 @@ Map<String, Map<String, dynamic>> _stepMeta = {
     'label': '写',
     'icon': Icons.edit_rounded,
     'color': AppTheme.softPurple,
+  },
+  'drawing': {
+    'emoji': '🎨',
+    'label': '画',
+    'icon': Icons.brush_rounded,
+    'color': Color(0xFFF783AC),
+  },
+  'roleplay': {
+    'emoji': '🎭',
+    'label': '演',
+    'icon': Icons.theater_comedy_rounded,
+    'color': Color(0xFFE8B93E),
+  },
+  'experiment': {
+    'emoji': '🔬',
+    'label': '做',
+    'icon': Icons.science_rounded,
+    'color': Color(0xFF4DABF7),
   },
   'practice': {
     'emoji': '🎮',
@@ -546,6 +567,36 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           buf.writeln('检查项${i + 1}：${checklist[i]}');
         }
         break;
+      case 'drawing':
+        final drawing = module['drawing'] is Map
+            ? (module['drawing'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v))
+            : <String, dynamic>{};
+        final prompt = drawing['prompt']?.toString() ?? '';
+        final reference = drawing['reference']?.toString() ?? '';
+        if (prompt.isNotEmpty) buf.writeln(prompt);
+        if (reference.isNotEmpty) buf.writeln('小提示：$reference');
+        break;
+      case 'experiment':
+        final experiment = module['experiment'] is Map
+            ? (module['experiment'] as Map)
+                .map((k, v) => MapEntry(k.toString(), v))
+            : <String, dynamic>{};
+        final question = experiment['question']?.toString() ?? '';
+        if (question.isNotEmpty) buf.writeln(question);
+        final steps = experiment['steps'] is List
+            ? experiment['steps'] as List
+            : const [];
+        for (final s in steps) {
+          if (s is Map) {
+            final instruction = s['instruction']?.toString() ?? '';
+            if (instruction.isNotEmpty) buf.writeln(instruction);
+          }
+        }
+        break;
+      case 'roleplay':
+        // 对话播放器自带逐轮 TTS，这里不重复朗读
+        break;
       case 'practice':
         final game = module['game'] is Map
             ? (module['game'] as Map).map((k, v) => MapEntry(k.toString(), v))
@@ -621,7 +672,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     // watch 步骤的视频/动画已自带 narration 配音，自动朗读会造成「双音」。
     // 仅对非 watch 步骤（read/write/practice）自动 TTS 朗读。
     final step = _steps[_currentStepIndex];
-    if (step.type == 'watch') return;
+    if (step.type == 'watch' || step.type == 'roleplay') return;
 
     final tts = TtsService();
 
@@ -712,6 +763,12 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
           type = 'read';
         } else if (moduleType == 'writing') {
           type = 'write';
+        } else if (moduleType == 'drawing') {
+          type = 'drawing';
+        } else if (moduleType == 'roleplay') {
+          type = 'roleplay';
+        } else if (moduleType == 'experiment') {
+          type = 'experiment';
         } else if (moduleType == 'game') {
           type = 'practice';
         } else {
@@ -950,7 +1007,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      meta['label'] as String,
+                      step.label,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1204,6 +1261,9 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             'watch' => _buildWatchStep(step, isCompleted),
             'read' => _buildReadStep(step, isCompleted),
             'write' => _buildWriteStep(step, isCompleted),
+            'drawing' => _buildDrawingStep(step, isCompleted),
+            'roleplay' => _buildRoleplayStep(step, isCompleted),
+            'experiment' => _buildExperimentStep(step, isCompleted),
             _ => _buildGenericStep(step, isCompleted),
           },
           // 提交中提示
@@ -1344,7 +1404,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${meta['label']} - $title',
+                '${step.label} - $title',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1366,6 +1426,12 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         return '阅读学习';
       case 'write':
         return '书写练习';
+      case 'drawing':
+        return '自由画画';
+      case 'roleplay':
+        return '角色扮演';
+      case 'experiment':
+        return '模拟小实验';
       case 'practice':
         return '互动练习';
       default:
@@ -1751,6 +1817,48 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       isCompleted: isCompleted,
       onComplete: (score, data) => _completeStep(
         score: score ?? 80,
+        interactionData: data,
+      ),
+    );
+  }
+
+  // ─── Drawing / Roleplay / Experiment 步骤（领域输出模块）─────────────
+
+  Map<String, dynamic> _moduleData(_LessonStep step, String key) {
+    final raw = step.module[key];
+    return raw is Map
+        ? raw.map((k, v) => MapEntry(k.toString(), v))
+        : <String, dynamic>{};
+  }
+
+  Widget _buildDrawingStep(_LessonStep step, bool isCompleted) {
+    return DrawingStepCanvas(
+      data: _moduleData(step, 'drawing'),
+      isCompleted: isCompleted,
+      onComplete: (score, data) => _completeStep(
+        score: score,
+        interactionData: data,
+      ),
+    );
+  }
+
+  Widget _buildRoleplayStep(_LessonStep step, bool isCompleted) {
+    return RoleplayStepPlayer(
+      data: _moduleData(step, 'roleplay'),
+      isCompleted: isCompleted,
+      onComplete: (score, data) => _completeStep(
+        score: score,
+        interactionData: data,
+      ),
+    );
+  }
+
+  Widget _buildExperimentStep(_LessonStep step, bool isCompleted) {
+    return ExperimentStepPlayer(
+      data: _moduleData(step, 'experiment'),
+      isCompleted: isCompleted,
+      onComplete: (score, data) => _completeStep(
+        score: score,
         interactionData: data,
       ),
     );

@@ -649,7 +649,7 @@ export default function LessonGenerator({
         <h3 className="text-lg font-medium text-on-surface">一键生成学习课程</h3>
       </div>
       <p className="text-sm text-on-surface-variant">
-        输入学习主题，AI 自动生成包含"看、读、写、练"四步的完整课程
+        输入学习主题，AI 自动生成"看→理解→输出→练"四步课程，理解与输出步按领域自适应（读/写、观察/做、赏/画、听说/演）
       </p>
 
       {/* 后台仍在生成的任务提示 */}
@@ -1265,14 +1265,20 @@ function getStepTitle(step: StructuredLessonStep): string {
   if (m.type === 'video') return '教学视频';
   if (m.type === 'reading') return m.reading?.goal || '阅读理解';
   if (m.type === 'writing') return m.writing?.goal || '书写练习';
+  if (m.type === 'drawing') return m.drawing?.title || '自由画画';
+  if (m.type === 'roleplay') return m.roleplay?.title || '角色扮演';
+  if (m.type === 'experiment') return m.experiment?.title || '模拟小实验';
   if (m.type === 'game') return '互动练习';
   return step.module.type;
 }
 
 function StepPreview({ step }: { step: StructuredLessonStep }) {
   const m = step.module;
-  const sceneStepType =
-    step.id === 'watch'
+  const isDomainOutput =
+    m.type === 'drawing' || m.type === 'roleplay' || m.type === 'experiment';
+  const sceneStepType = isDomainOutput
+    ? null
+    : step.id === 'watch'
       ? 'watch'
       : step.id === 'write'
         ? 'write'
@@ -1343,6 +1349,53 @@ function StepPreview({ step }: { step: StructuredLessonStep }) {
         <p className="font-medium">书写练习</p>
         {m.writing?.tracingItems?.length > 0 && <p>描红: {m.writing.tracingItems.join(', ')}</p>}
         {m.writing?.practiceTasks?.length > 0 && <p>练习: {m.writing.practiceTasks.join('; ')}</p>}
+      </div>
+    );
+  }
+
+  if (m.type === 'drawing') {
+    const checklist = m.drawing?.checklist || [];
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">🎨 自由画画</p>
+        <p className="line-clamp-2 text-on-surface-variant">{m.drawing?.prompt || '画一画主题内容'}</p>
+        {checklist.length > 0 && (
+          <p className="text-on-surface-variant">自评: {checklist.join('; ')}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (m.type === 'roleplay') {
+    const turns = m.roleplay?.turns || [];
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">🎭 角色扮演</p>
+        <p className="line-clamp-2 text-on-surface-variant">{m.roleplay?.scenario || '情景对话'}</p>
+        {turns.slice(0, 2).map((t: any, i: number) => (
+          <p key={i} className="text-on-surface-variant">
+            {i + 1}. {t.text}
+          </p>
+        ))}
+        {turns.length > 2 && <p className="text-on-surface-variant">...共 {turns.length} 轮对话</p>}
+      </div>
+    );
+  }
+
+  if (m.type === 'experiment') {
+    const expSteps = m.experiment?.steps || [];
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">🔬 模拟小实验</p>
+        <p className="line-clamp-2 text-on-surface-variant">{m.experiment?.question || '动手试一试'}</p>
+        {expSteps.slice(0, 2).map((s: any, i: number) => (
+          <p key={i} className="text-on-surface-variant">
+            {i + 1}. {s.instruction}
+          </p>
+        ))}
+        {expSteps.length > 2 && (
+          <p className="text-on-surface-variant">...共 {expSteps.length} 步实验</p>
+        )}
       </div>
     );
   }

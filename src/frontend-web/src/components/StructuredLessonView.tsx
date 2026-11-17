@@ -15,6 +15,7 @@ import { Button, Card } from './ui';
 import { normalizeActivityType, normalizeActivityData } from './ai-chat/activity-normalizer';
 import LessonScenePlayer from '@/scenes/LessonScenePlayer';
 import { resolveLessonSceneDocument } from '@/scenes/scene-helpers';
+import { DrawStep, RoleplayStep, ExperimentStep } from './lesson-output-steps';
 
 interface StructuredLessonViewProps {
   contentId: number;
@@ -26,7 +27,23 @@ const STEP_META: Record<string, { emoji: string; label: string; color: string }>
   watch: { emoji: '\u{1F441}', label: '看', color: 'bg-blue-100 text-blue-700' },
   read: { emoji: '\u{1F4D6}', label: '读', color: 'bg-yellow-100 text-yellow-700' },
   write: { emoji: '\u{270D}', label: '写', color: 'bg-purple-100 text-purple-700' },
+  drawing: { emoji: '\u{1F3A8}', label: '画', color: 'bg-pink-100 text-pink-700' },
+  roleplay: { emoji: '\u{1F3AD}', label: '演', color: 'bg-amber-100 text-amber-700' },
+  experiment: { emoji: '\u{1F52C}', label: '做', color: 'bg-sky-100 text-sky-700' },
   practice: { emoji: '\u{1F3AE}', label: '练', color: 'bg-orange-100 text-orange-700' },
+};
+
+const STEP_ICON_EMOJI: Record<string, string> = {
+  eye: '\u{1F441}',
+  book: '\u{1F4D6}',
+  search: '\u{1F50D}',
+  palette: '\u{1F3A8}',
+  chat: '\u{1F4AC}',
+  pen: '\u{270D}',
+  brush: '\u{1F58C}',
+  masks: '\u{1F3AD}',
+  flask: '\u{1F52C}',
+  gamepad: '\u{1F3AE}',
 };
 
 export default function StructuredLessonView({
@@ -254,11 +271,13 @@ export default function StructuredLessonView({
       {/* Step Navigation */}
       <div className="flex gap-1 overflow-x-auto px-4 py-3 scrollbar-hide">
         {steps.map((step, i) => {
-          const meta = STEP_META[step.id] || {
-            emoji: '\u{1F4DD}',
-            label: step.label,
-            color: 'bg-surface-container text-on-surface-variant',
-          };
+          const meta = STEP_META[step.module?.type || ''] ||
+            STEP_META[step.id] || {
+              emoji: '\u{1F4DD}',
+              label: step.label,
+              color: 'bg-surface-container text-on-surface-variant',
+            };
+          const label = step.label || meta.label;
           const isDone = completedSteps.has(step.id);
           const isCurrent = i === currentStepIndex;
           return (
@@ -277,8 +296,8 @@ export default function StructuredLessonView({
                     : 'bg-surface-container text-on-surface-variant',
               )}
             >
-              <span>{meta.emoji}</span>
-              <span>{meta.label}</span>
+              <span>{STEP_ICON_EMOJI[step.icon] || meta.emoji}</span>
+              <span>{label}</span>
               {isDone && <Check className="h-3 w-3" />}
             </button>
           );
@@ -379,7 +398,7 @@ function StepContent({
   isCompleted,
 }: StepContentProps) {
   const m = step.module;
-  const meta = STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: '' };
+  const meta = STEP_META[m.type] || STEP_META[step.id] || { emoji: '\u{1F4DD}', label: step.label, color: '' };
 
   return (
     <AnimatePresence mode="wait">
@@ -392,7 +411,7 @@ function StepContent({
         className="space-y-4"
       >
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{meta.emoji}</span>
+          <span className="text-2xl">{STEP_ICON_EMOJI[step.icon] || meta.emoji}</span>
           <h3 className="text-lg font-bold text-on-surface">
             {step.label} - {getStepTitle(step)}
           </h3>
@@ -412,6 +431,15 @@ function StepContent({
         )}
         {m.type === 'writing' && (
           <WriteStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
+        {m.type === 'drawing' && (
+          <DrawStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
+        {m.type === 'roleplay' && (
+          <RoleplayStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+        )}
+        {m.type === 'experiment' && (
+          <ExperimentStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
         )}
         {m.type === 'game' && (
           <PracticeStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
@@ -433,6 +461,9 @@ function getStepTitle(step: StructuredLessonStep): string {
   if (m.type === 'video') return '观看动画讲解';
   if (m.type === 'reading') return '阅读学习';
   if (m.type === 'writing') return '书写练习';
+  if (m.type === 'drawing') return '自由画画';
+  if (m.type === 'roleplay') return '角色扮演';
+  if (m.type === 'experiment') return '模拟小实验';
   if (m.type === 'game') return '互动练习';
   return '';
 }

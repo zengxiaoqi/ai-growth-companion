@@ -727,14 +727,58 @@ export interface ConversationMessageHistory {
 }
 
 // Structured Lesson Types
+export interface DrawingModuleData {
+  title?: string;
+  prompt: string;
+  reference?: string;
+  suggestedColors?: string[];
+  minStrokes?: number;
+  checklist?: string[];
+}
+
+export interface RoleplayTurn {
+  speaker: string;
+  text: string;
+  childLine?: string;
+  keywords?: string[];
+  options?: string[];
+}
+
+export interface RoleplayModuleData {
+  title?: string;
+  scenario?: string;
+  roles?: { id: string; name: string }[];
+  turns: RoleplayTurn[];
+  minTurns?: number;
+}
+
+export interface ExperimentStepData {
+  instruction: string;
+  action?: string;
+  targets?: string[];
+  reveal?: string;
+  observe?: { question: string; options: string[]; correctIndex: number };
+}
+
+export interface ExperimentModuleData {
+  title?: string;
+  question?: string;
+  materials?: string[];
+  steps: ExperimentStepData[];
+  conclusion?: string;
+}
+
 export interface StructuredLessonStep {
   id: string;
   label: string;
   icon: string;
   order: number;
   module: {
-    type: 'video' | 'reading' | 'writing' | 'game';
+    type: 'video' | 'reading' | 'writing' | 'game' | 'drawing' | 'roleplay' | 'experiment';
     scene?: LessonSceneDocument;
+    drawing?: DrawingModuleData;
+    roleplay?: RoleplayModuleData;
+    experiment?: ExperimentModuleData;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };

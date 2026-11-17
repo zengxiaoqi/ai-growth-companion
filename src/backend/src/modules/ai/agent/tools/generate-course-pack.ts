@@ -12,10 +12,14 @@ import {
   deriveWriteSceneDocument,
   inferWatchTemplateHint,
   normalizeTracingItems,
+  sanitizeDrawingModule,
+  sanitizeRoleplayModule,
+  sanitizeExperimentModule,
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from '../../../learning/lesson-scene';
 import { getCoursePackCurriculumSeed } from '../../../learning/course-curriculum-fallback';
+import { getDomainStepPlan } from '../../../learning/domain-step-plan';
 import { difficultyPromptLines } from '../../../../common/learning/difficulty-profiles';
 import {
   ensureKnowledgeCard,
@@ -318,12 +322,7 @@ export class GenerateCoursePackTool {
       "keywords": ["string", "string", "string"],
       "questions": ["string", "string"]
     },
-    "writing": {
-      "goal": "string",
-      "tracingItems": ["string", "string"],
-      "practiceTasks": ["string", "string"],
-      "checklist": ["string", "string"]
-    }
+${this.outputModuleSchemaBlock(args.domain)}
   },
   "visualStory": {
     "style": "string",
@@ -410,12 +409,7 @@ export class GenerateCoursePackTool {
       '- Each narration segment: 20-60 Chinese characters',
       '- Include specific knowledge points, not generic greetings',
       '',
-      '## writing Module Requirements:',
-      '- tracingItems: 2-4 items, each 1-2 common Chinese characters/digits/letters DIRECTLY tied to the topic (e.g. topic 海洋动物 → 鱼、鲸、海). NEVER the full topic name when it is longer than 2 characters, NEVER generic placeholders like "关键词".',
-      args.ageGroup === '3-4'
-        ? '- Age 3-4: prefer single visually-simple characters (e.g. 大、小、水、火、山) or digits 1-5; no complex or rare characters.'
-        : '- Age 5-6: 1-2 character topic words are fine (e.g. 海龟、蓝鲸); avoid rare/complex characters.',
-      '- practiceTasks and checklist must be topic-specific and follow the difficulty constraints above; no generic tasks like "写下你最喜欢的知识点".',
+      ...this.outputModuleRequirements(args),
       '',
       ...this.knowledgeCardPromptBlock(args),
       'Animation templates:',
@@ -452,6 +446,110 @@ export class GenerateCoursePackTool {
     return defaults[domain] || 'language.story-scene';
   }
 
+  private outputModuleSchemaBlock(domain: string): string {
+    const outputType = getDomainStepPlan(domain).step3.moduleType;
+    if (outputType === 'drawing') {
+      return `    "drawing": {
+      "title": "string",
+      "prompt": "string",
+      "reference": "string",
+      "suggestedColors": ["#FF6B6B", "#4DABF7", "#FFD43B"],
+      "minStrokes": 6,
+      "checklist": ["string", "string"]
+    }`;
+    }
+    if (outputType === 'roleplay') {
+      return `    "roleplay": {
+      "title": "string",
+      "scenario": "string",
+      "roles": [{"id":"string","name":"string"}],
+      "turns": [{"speaker":"string","text":"string","childLine":"string","keywords":["string"],"options":["string","string"]}],
+      "minTurns": 3
+    }`;
+    }
+    if (outputType === 'experiment') {
+      return `    "experiment": {
+      "title": "string",
+      "question": "string",
+      "materials": ["string", "string"],
+      "steps": [{"instruction":"string","action":"tap_target","targets":["string","string"],"reveal":"string","observe":{"question":"string","options":["string","string"],"correctIndex":0}}],
+      "conclusion": "string"
+    }`;
+    }
+    return `    "writing": {
+      "goal": "string",
+      "tracingItems": ["string", "string"],
+      "practiceTasks": ["string", "string"],
+      "checklist": ["string", "string"]
+    }`;
+  }
+
+  private outputModuleRequirements(args: NormalizedArgs): string[] {
+    const plan = getDomainStepPlan(args.domain);
+    const outputType = plan.step3.moduleType;
+    const isYoung = args.ageGroup === '3-4';
+    const readingRoles: Record<string, string> = {
+      language: 'a read-aloud / comprehension card',
+      math: 'a number-sense / concept card (counting, shapes, comparing)',
+      science: 'an observation guide card: what to observe, how to look, what to notice',
+      art: 'an appreciation card: notice colors/shapes/lines and express feelings',
+      social: 'a listen-and-speak situation card: hear a short dialogue and practice the key sentence',
+    };
+    const lines = [
+      `## Step Layout for domain "${args.domain}":`,
+      `- The reading module serves the "${plan.step2.label}" step: it is ${readingRoles[args.domain] || readingRoles.language}. Shape goal/text/questions accordingly.`,
+      `- The output step is "${plan.step3.label}" (modules.${outputType}). Generate ONLY this output module, not the others.`,
+      '',
+    ];
+
+    if (outputType === 'drawing') {
+      lines.push(
+        '## drawing Module Requirements (free drawing canvas):',
+        '- prompt: one specific drawing task tied to the topic (e.g. topic 彩虹 → "画一道你见过的彩虹").',
+        '- reference: a short hint describing what to include (subjects, colors), shown as guidance.',
+        '- suggestedColors: 4-8 hex colors (#RRGGBB) relevant to the topic.',
+        '- checklist: 2 topic-specific self-check items.',
+        isYoung
+          ? '- Age 3-4: single simple subject, minStrokes 4-6.'
+          : '- Age 5-6: richer subject with 2+ elements, minStrokes 6-10.',
+      );
+    } else if (outputType === 'roleplay') {
+      lines.push(
+        '## roleplay Module Requirements (spoken dialogue with a character):',
+        '- scenario: a concrete daily-life situation tied to the topic (greeting/sharing/feelings/safety).',
+        '- roles: 1-2 characters with friendly names (e.g. 小熊、兔老师).',
+        isYoung
+          ? '- turns: exactly 3 turns; childLine ≤ 8 Chinese characters.'
+          : '- turns: 3-5 turns; childLine ≤ 15 Chinese characters.',
+        '- Each turn: character line (text), the child\'s expected reply (childLine), 1-3 keywords, options (childLine plus one plausible alternative).',
+        '- Lines must be natural spoken Chinese, warm and polite; never lecture.',
+        '- minTurns: 3.',
+      );
+    } else if (outputType === 'experiment') {
+      lines.push(
+        '## experiment Module Requirements (ON-SCREEN simulated experiment):',
+        '- The experiment is simulated by tapping on screen; NEVER require real fire, knives, hot water or unsupervised materials.',
+        '- question: one testable question tied to the topic (e.g. "哪些东西会浮在水面上？").',
+        '- materials: 2-4 safe everyday items shown on screen.',
+        isYoung
+          ? '- steps: 2-3 steps.'
+          : '- steps: 3-4 steps.',
+        '- Each step: instruction (what to tap/do), action "tap_target", targets (2-3 tappable item names), reveal (the observable result in one sentence), observe (a 2-option question about what happened with correctIndex).',
+        '- conclusion: one sentence a child can remember.',
+      );
+    } else {
+      lines.push(
+        '## writing Module Requirements:',
+        '- tracingItems: 2-4 items, each 1-2 common Chinese characters/digits/letters DIRECTLY tied to the topic (e.g. topic 海洋动物 → 鱼、鲸、海). NEVER the full topic name when it is longer than 2 characters, NEVER generic placeholders like "关键词".',
+        isYoung
+          ? '- Age 3-4: prefer single visually-simple characters (e.g. 大、小、水、火、山) or digits 1-5; no complex or rare characters.'
+          : '- Age 5-6: 1-2 character topic words are fine (e.g. 海龟、蓝鲸); avoid rare/complex characters.',
+        '- practiceTasks and checklist must be topic-specific and follow the difficulty constraints above; no generic tasks like "写下你最喜欢的知识点".',
+      );
+    }
+    return lines;
+  }
+
   private deriveFocusFromPack(pack: Record<string, any>): CourseFocus {
     const focus = this.toText(pack?.focus).toLowerCase();
     if (focus === 'literacy' || focus === 'math' || focus === 'science' || focus === 'mixed') {
@@ -468,6 +566,61 @@ export class GenerateCoursePackTool {
     if (/数字|数数|加法|减法|数学|图形|排序/.test(source)) return 'math';
     if (/科学|动物|植物|天气|季节|实验|观察/.test(source)) return 'science';
     return 'mixed';
+  }
+
+  private buildOutputModules(
+    args: NormalizedArgs,
+    raw: Record<string, any>,
+    curriculumSeed: ReturnType<typeof getCoursePackCurriculumSeed>,
+  ): Record<string, any> {
+    const outputType = getDomainStepPlan(args.domain).step3.moduleType;
+
+    if (outputType === 'drawing') {
+      return {
+        drawing: sanitizeDrawingModule(
+          raw?.modules?.drawing || curriculumSeed?.drawingTask,
+          args.topic,
+        ),
+      };
+    }
+    if (outputType === 'roleplay') {
+      return {
+        roleplay: sanitizeRoleplayModule(
+          raw?.modules?.roleplay || curriculumSeed?.roleplayScript,
+          args.topic,
+        ),
+      };
+    }
+    if (outputType === 'experiment') {
+      return {
+        experiment: sanitizeExperimentModule(
+          raw?.modules?.experiment || curriculumSeed?.experimentSteps,
+          args.topic,
+        ),
+      };
+    }
+
+    const writing = raw?.modules?.writing || {};
+    const fallbackWritingTasks = curriculumSeed?.practiceTasks?.length
+      ? curriculumSeed.practiceTasks
+      : ['写下你最喜欢的知识点。', '用一句话总结今天的学习内容。'];
+    return {
+      writing: {
+        goal: this.toText(writing?.goal, '通过书写和练习巩固今天学到的知识。'),
+        tracingItems: normalizeTracingItems(
+          Array.isArray(writing?.tracingItems) && writing.tracingItems.length > 0
+            ? writing.tracingItems
+            : curriculumSeed?.tracingItems,
+          args.topic,
+        ),
+        practiceTasks: this.toStringArray(writing?.practiceTasks, 2, fallbackWritingTasks),
+        checklist: this.toStringArray(
+          writing?.checklist,
+          2,
+          curriculumSeed?.outcomes?.slice(0, 2) || ['书写清楚', '表达完整'],
+        ),
+      },
+    };
   }
 
   private sanitizeCoursePack(
@@ -492,7 +645,6 @@ export class GenerateCoursePackTool {
     const listening = raw?.modules?.listening || {};
     const speaking = raw?.modules?.speaking || {};
     const reading = raw?.modules?.reading || {};
-    const writing = raw?.modules?.writing || {};
 
     const scenes = this.normalizeSceneList(raw?.visualStory?.scenes, args);
     const fallbackListeningQuestions = curriculumSeed?.listeningQuestions?.length
@@ -504,20 +656,21 @@ export class GenerateCoursePackTool {
     const fallbackReadingQuestions = curriculumSeed?.quizItems?.length
       ? curriculumSeed.quizItems.map((item) => item.question).slice(0, 3)
       : ['这段内容讲了什么？', '你学到了什么？'];
-    const fallbackWritingTasks = curriculumSeed?.practiceTasks?.length
-      ? curriculumSeed.practiceTasks
-      : ['写下你最喜欢的知识点。', '用一句话总结今天的学习内容。'];
     const shots = this.normalizeShotList(raw?.videoLesson?.shots, args);
     const watchScene = this.normalizeWatchScene(
       raw?.watch?.scene,
       { visualStory: { scenes }, videoLesson: { shots } },
       args,
     );
-    const writeScene = this.normalizeWriteScene(
-      raw?.write?.scene || raw?.modules?.writing?.scene,
-      writing,
-      args,
-    );
+    const outputType = getDomainStepPlan(args.domain).step3.moduleType;
+    const writeScene =
+      outputType === 'writing'
+        ? this.normalizeWriteScene(
+            raw?.write?.scene || raw?.modules?.writing?.scene,
+            raw?.modules?.writing || {},
+            args,
+          )
+        : null;
     const practiceScene = this.normalizePracticeScene(raw?.practice?.scene);
 
     const pack: Record<string, any> = {
@@ -553,24 +706,10 @@ export class GenerateCoursePackTool {
           keywords: this.toStringArray(reading?.keywords, 3, fallbackReadingKeywords),
           questions: this.toStringArray(reading?.questions, 2, fallbackReadingQuestions),
         },
-        writing: {
-          goal: this.toText(writing?.goal, '通过书写和练习巩固今天学到的知识。'),
-          tracingItems: normalizeTracingItems(
-            Array.isArray(writing?.tracingItems) && writing.tracingItems.length > 0
-              ? writing.tracingItems
-              : curriculumSeed?.tracingItems,
-            args.topic,
-          ),
-          practiceTasks: this.toStringArray(writing?.practiceTasks, 2, fallbackWritingTasks),
-          checklist: this.toStringArray(
-            writing?.checklist,
-            2,
-            curriculumSeed?.outcomes?.slice(0, 2) || ['书写清楚', '表达完整'],
-          ),
-        },
+        ...this.buildOutputModules(args, raw, curriculumSeed),
       },
       watch: { scene: watchScene },
-      write: { scene: writeScene },
+      write: writeScene ? { scene: writeScene } : undefined,
       practice: practiceScene ? { scene: practiceScene } : undefined,
       visualStory: {
         style: this.toText(raw?.visualStory?.style, 'storyboard illustration'),

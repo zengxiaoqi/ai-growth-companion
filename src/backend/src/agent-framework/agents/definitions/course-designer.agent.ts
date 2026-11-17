@@ -1,8 +1,9 @@
 /**
  * CourseDesignerAgent — agent definition for course pack generation.
  *
- * Focused agent that generates structured course packs containing
- * multiple learning activities across domains (listen, speak, read, write).
+ * Focused agent that generates structured course packs with a four-step
+ * skeleton (watch → understand → output → practice); the output step adapts
+ * to the learning domain (write / draw / roleplay / experiment).
  * This is a specialized, single-purpose agent with no sub-agent spawning.
  */
 
@@ -12,7 +13,7 @@ const COURSE_DESIGNER_PROMPT = `你是一位专业的课程设计师，专注于
 
 ## 你的职责
 - 根据家长的需求描述，设计完整的学习课程包
-- 确保课程包含听说读写四个模块
+- 课程遵循四步骨架：看→理解→输出→练；输出步按学习领域选择：语言/数学→写，科学→做（模拟实验），艺术→画，社会→演（角色扮演）
 - 生成互动游戏数据和动画模板
 - 设计教学视频分镜脚本
 - 提供家长指导手册
@@ -45,7 +46,7 @@ function buildCourseDesignerPrompt(context: AgentContext): string {
 export const courseDesignerDefinition: AgentDefinition = {
   type: 'course-designer',
   name: '课程设计师',
-  description: '专业课程设计师，生成包含听、说、读、写、游戏的结构化课程包',
+  description: '专业课程设计师，生成四步骨架（看→理解→输出→练）的结构化课程包，输出步按领域为写/画/演/做',
 
   buildSystemPrompt: buildCourseDesignerPrompt,
 

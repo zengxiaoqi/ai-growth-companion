@@ -39,6 +39,9 @@ type LessonModules = {
   listening?: Record<string, any>;
   reading?: Record<string, any>;
   writing?: Record<string, any>;
+  drawing?: Record<string, any>;
+  roleplay?: Record<string, any>;
+  experiment?: Record<string, any>;
   game?: Record<string, any>;
   quiz?: Record<string, any>;
 };
@@ -502,6 +505,9 @@ export class RemotionRenderService implements OnModuleInit {
               listening: this.asRecord(input.modules.listening),
               reading: this.asRecord(input.modules.reading),
               writing: this.asRecord(input.modules.writing),
+              drawing: this.asRecord(input.modules.drawing),
+              roleplay: this.asRecord(input.modules.roleplay),
+              experiment: this.asRecord(input.modules.experiment),
               game: this.asRecord(input.modules.game),
               quiz: this.asRecord(input.modules.quiz),
             }
@@ -520,9 +526,16 @@ export class RemotionRenderService implements OnModuleInit {
 
   private hasSupplementSlides(modules?: LessonModules): boolean {
     if (!modules) return false;
-    return [modules.listening, modules.reading, modules.writing, modules.game, modules.quiz].some(
-      (entry) => entry && Object.keys(entry).length > 0,
-    );
+    return [
+      modules.listening,
+      modules.reading,
+      modules.writing,
+      modules.drawing,
+      modules.roleplay,
+      modules.experiment,
+      modules.game,
+      modules.quiz,
+    ].some((entry) => entry && Object.keys(entry).length > 0);
   }
 
   private buildVideoDataFromLesson(payload: LessonVideoPayload): TeachingVideoData {
@@ -646,6 +659,18 @@ export class RemotionRenderService implements OnModuleInit {
     const writingSlide = this.buildWritingSlide(modules.writing, startIndex + slides.length);
     if (writingSlide) slides.push(writingSlide);
 
+    const drawingSlide = this.buildDrawingSlide(modules.drawing, startIndex + slides.length);
+    if (drawingSlide) slides.push(drawingSlide);
+
+    const roleplaySlide = this.buildRoleplaySlide(modules.roleplay, startIndex + slides.length);
+    if (roleplaySlide) slides.push(roleplaySlide);
+
+    const experimentSlide = this.buildExperimentSlide(
+      modules.experiment,
+      startIndex + slides.length,
+    );
+    if (experimentSlide) slides.push(experimentSlide);
+
     const practiceSlide = this.buildPracticeSlide(modules.game, startIndex + slides.length);
     if (practiceSlide) slides.push(practiceSlide);
 
@@ -762,6 +787,103 @@ export class RemotionRenderService implements OnModuleInit {
         this.toText(
           practiceTasks[0],
           firstTarget ? `我们来描一描${firstTarget}。` : '拿起笔，跟着老师一起写一写。',
+        ),
+        300,
+      ),
+    };
+  }
+
+  private buildDrawingSlide(
+    drawing: Record<string, any> | undefined,
+    _index: number,
+  ): TeachingSlide | null {
+    if (!drawing || Object.keys(drawing).length === 0) return null;
+    const checklist = Array.isArray(drawing.checklist) ? drawing.checklist : [];
+    const items = this.createItems(
+      [this.toText(drawing.reference), ...checklist.map((entry: any) => this.toText(entry))]
+        .filter(Boolean)
+        .slice(0, 8),
+      ['🎨', '🖌️', '🌈', '⭐'],
+    );
+
+    return {
+      title: this.toText(drawing.title, '画一画').slice(0, 24),
+      emoji: '🎨',
+      subtitle: this.toText(drawing.prompt, '画出你自己的想法').slice(0, 60),
+      bgColor: '#FFF0F6',
+      accentColor: '#FF6B9D',
+      layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
+      items: items.length > 0 ? items : undefined,
+      narration: this.truncateAtSentenceEnd(
+        this.toText(drawing.prompt, '拿起画笔，画出你自己的想法吧。'),
+        300,
+      ),
+    };
+  }
+
+  private buildRoleplaySlide(
+    roleplay: Record<string, any> | undefined,
+    _index: number,
+  ): TeachingSlide | null {
+    if (!roleplay || Object.keys(roleplay).length === 0) return null;
+    const turns = Array.isArray(roleplay.turns) ? roleplay.turns : [];
+    const items = this.createItems(
+      turns
+        .slice(0, 6)
+        .map((turn: any) => this.toText(turn?.text))
+        .filter(Boolean),
+      ['🎭', '💬', '🗣️', '⭐'],
+    );
+
+    return {
+      title: this.toText(roleplay.title, '演一演').slice(0, 24),
+      emoji: '🎭',
+      subtitle: this.toText(roleplay.scenario, '和小伙伴一起演一演').slice(0, 60),
+      bgColor: '#FFFBEB',
+      accentColor: '#E67E22',
+      layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
+      items: items.length > 0 ? items : undefined,
+      narration: this.truncateAtSentenceEnd(
+        this.toText(
+          roleplay.scenario,
+          turns[0]?.text ? this.toText(turns[0].text) : '和小伙伴一起演一演小故事。',
+        ),
+        300,
+      ),
+    };
+  }
+
+  private buildExperimentSlide(
+    experiment: Record<string, any> | undefined,
+    _index: number,
+  ): TeachingSlide | null {
+    if (!experiment || Object.keys(experiment).length === 0) return null;
+    const steps = Array.isArray(experiment.steps) ? experiment.steps : [];
+    const materials = Array.isArray(experiment.materials) ? experiment.materials : [];
+    const items = this.createItems(
+      [
+        ...materials.map((entry: any) => this.toText(entry)),
+        ...steps.slice(0, 4).map((entry: any) => this.toText(entry?.instruction)),
+      ]
+        .filter(Boolean)
+        .slice(0, 8),
+      ['🔬', '🧪', '🔍', '💡'],
+    );
+
+    return {
+      title: this.toText(experiment.title, '小实验').slice(0, 24),
+      emoji: '🔬',
+      subtitle: this.toText(experiment.question, '动手试一试，看看会发生什么').slice(0, 60),
+      bgColor: '#E8F8FF',
+      accentColor: '#00B4D8',
+      layout: items.length >= 3 ? 'grid' : items.length > 0 ? 'list' : 'hero',
+      items: items.length > 0 ? items : undefined,
+      narration: this.truncateAtSentenceEnd(
+        this.toText(
+          experiment.question,
+          steps[0]?.instruction
+            ? this.toText(steps[0].instruction)
+            : '我们一起做个小实验，看看会发生什么。',
         ),
         300,
       ),

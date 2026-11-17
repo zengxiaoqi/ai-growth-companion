@@ -6,6 +6,7 @@ import {
   IsInt,
   IsArray,
   IsObject,
+  IsIn,
   Min,
   Max,
   MinLength,
@@ -128,6 +129,14 @@ export class GenerateDraftDto {
   @IsOptional()
   @IsString()
   subject?: string;
+
+  @ApiPropertyOptional({
+    description: 'Learning domain; drives the domain-adaptive output step',
+    enum: ['language', 'math', 'science', 'art', 'social'],
+  })
+  @IsOptional()
+  @IsIn(['language', 'math', 'science', 'art', 'social'])
+  domain?: 'language' | 'math' | 'science' | 'art' | 'social';
 
   @ApiPropertyOptional({ description: 'Age group', enum: ['3-4', '5-6'] })
   @IsOptional()

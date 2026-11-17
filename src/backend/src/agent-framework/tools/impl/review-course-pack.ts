@@ -16,6 +16,7 @@ import {
   findKnowledgeCard,
   knowledgeCardFactLines,
 } from '../../../common/learning/knowledge-card-registry';
+import { getDomainStepPlan } from '../../../modules/learning/domain-step-plan';
 
 export type ReviewCoursePackArgs = {
   topic: string;
@@ -74,6 +75,21 @@ export function collectTeachingText(coursePack: Record<string, any>): string[] {
   toStringArray(modules?.writing?.tracingItems).forEach(push);
   toStringArray(modules?.listening?.questions).forEach(push);
   toStringArray(modules?.speaking?.prompts?.map?.((p: any) => p?.prompt ?? p)).forEach(push);
+  push(modules?.drawing?.prompt);
+  push(modules?.drawing?.reference);
+  toStringArray(modules?.drawing?.checklist).forEach(push);
+  push(modules?.roleplay?.scenario);
+  (Array.isArray(modules?.roleplay?.turns) ? modules.roleplay.turns : []).forEach((t: any) => {
+    push(t?.text);
+    push(t?.childLine);
+  });
+  push(modules?.experiment?.question);
+  (Array.isArray(modules?.experiment?.steps) ? modules.experiment.steps : []).forEach((s: any) => {
+    push(s?.instruction);
+    push(s?.reveal);
+    push(s?.observe?.question);
+  });
+  push(modules?.experiment?.conclusion);
   const scenes = Array.isArray(coursePack?.visualStory?.scenes) ? coursePack.visualStory.scenes : [];
   scenes.forEach((s: any) => push(s?.narration));
   return texts;
@@ -119,6 +135,18 @@ function countGeneric(texts: string[]): number {
     if (GENERIC_PATTERNS.some((re) => re.test(text))) count += 1;
   }
   return count;
+}
+
+function outputModulePresent(modules: Record<string, any>, domain?: string): boolean {
+  const outputType = getDomainStepPlan(domain).step3.moduleType;
+  if (outputType === 'drawing') return !!toText(modules?.drawing?.prompt);
+  if (outputType === 'roleplay') {
+    return Array.isArray(modules?.roleplay?.turns) && modules.roleplay.turns.length > 0;
+  }
+  if (outputType === 'experiment') {
+    return Array.isArray(modules?.experiment?.steps) && modules.experiment.steps.length > 0;
+  }
+  return toStringArray(modules?.writing?.tracingItems).length > 0;
 }
 
 function chineseCharCount(text: string): number {
@@ -190,15 +218,19 @@ export function ruleBasedCourseReview(args: ReviewCoursePackArgs): CourseQuality
   // 5. Structural completeness: modules + scene arc.
   const modules = coursePack?.modules ?? {};
   const hasReading = !!toText(modules?.reading?.text);
-  const hasWriting = toStringArray(modules?.writing?.tracingItems).length > 0;
+  const hasOutput = outputModulePresent(modules, args.domain || coursePack?.domain);
   const scenes = Array.isArray(coursePack?.visualStory?.scenes) ? coursePack.visualStory.scenes : [];
   let structuralCompleteness = 0;
   structuralCompleteness += hasReading ? 6 : 0;
-  structuralCompleteness += hasWriting ? 5 : 0;
+  structuralCompleteness += hasOutput ? 5 : 0;
   structuralCompleteness += scenes.length >= 3 ? 9 : scenes.length > 0 ? 5 : 0;
   if (!hasReading) {
     issues.push('缺少阅读模块文本');
     suggestions.push('补充阅读模块');
+  }
+  if (!hasOutput) {
+    issues.push('缺少领域输出模块（写/画/演/做）');
+    suggestions.push('按领域补充输出模块内容');
   }
   if (scenes.length < 3) {
     issues.push(`动画场景仅 ${scenes.length} 个（建议至少 3 个）`);

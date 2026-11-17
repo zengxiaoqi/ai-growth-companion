@@ -419,7 +419,8 @@ describe('GenerateCoursePackTool', () => {
       await tool.execute({
         topic: '认识动物',
         ageGroup: '5-6',
-        focus: 'science',
+        focus: 'literacy',
+        domain: 'language',
         includeGame: false,
       }),
     );
@@ -434,5 +435,95 @@ describe('GenerateCoursePackTool', () => {
     // Reading keywords include seed keywords
     const keywords: string[] = result.modules?.reading?.keywords || [];
     expect(keywords.some((k: string) => k.includes('猫') || k.includes('狗'))).toBe(true);
+  });
+
+  describe('domain-adaptive output module', () => {
+    const minimalPack = {
+      title: '主题课',
+      summary: '一句话简介',
+      outcomes: ['认识主题'],
+      modules: { reading: { text: '这是阅读文本。', keywords: ['主题'] } },
+    };
+
+    it.each([
+      ['art', 'drawing'],
+      ['science', 'experiment'],
+      ['social', 'roleplay'],
+    ])('%s domain assembles modules.%s (not writing)', async (domain, key) => {
+      llmClient.generateJson.mockResolvedValueOnce(JSON.stringify(minimalPack));
+      const result = JSON.parse(
+        await tool.execute({
+          topic: '多彩的世界',
+          ageGroup: '5-6',
+          domain: domain as 'art' | 'science' | 'social',
+          includeGame: false,
+        }),
+      );
+      expect(result.modules?.[key]).toBeDefined();
+      expect(result.modules?.writing).toBeUndefined();
+      expect(result.write?.scene).toBeUndefined();
+    });
+
+    it('art drawing falls back to a themed prompt when LLM omits it', async () => {
+      llmClient.generateJson.mockResolvedValueOnce(JSON.stringify(minimalPack));
+      const result = JSON.parse(
+        await tool.execute({
+          topic: '彩虹',
+          ageGroup: '5-6',
+          domain: 'art',
+          includeGame: false,
+        }),
+      );
+      expect(result.modules?.drawing?.prompt).toBeTruthy();
+      expect(result.modules?.drawing?.suggestedColors?.length).toBeGreaterThan(0);
+    });
+
+    it('social roleplay fallback always offers tappable options', async () => {
+      llmClient.generateJson.mockResolvedValueOnce(JSON.stringify(minimalPack));
+      const result = JSON.parse(
+        await tool.execute({
+          topic: '打招呼',
+          ageGroup: '3-4',
+          domain: 'social',
+          includeGame: false,
+        }),
+      );
+      const turns = result.modules?.roleplay?.turns || [];
+      expect(turns.length).toBeGreaterThan(0);
+      for (const turn of turns) {
+        expect(turn.options.length).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    it('science experiment fallback has steps with observe questions', async () => {
+      llmClient.generateJson.mockResolvedValueOnce(JSON.stringify(minimalPack));
+      const result = JSON.parse(
+        await tool.execute({
+          topic: '沉与浮',
+          ageGroup: '5-6',
+          domain: 'science',
+          includeGame: false,
+        }),
+      );
+      const steps = result.modules?.experiment?.steps || [];
+      expect(steps.length).toBeGreaterThan(0);
+      expect(result.modules?.experiment?.conclusion).toBeTruthy();
+    });
+
+    it('language domain still produces writing with a write scene', async () => {
+      llmClient.generateJson.mockResolvedValueOnce(JSON.stringify(minimalPack));
+      const result = JSON.parse(
+        await tool.execute({
+          topic: '认识汉字',
+          ageGroup: '5-6',
+          domain: 'language',
+          focus: 'literacy',
+          includeGame: false,
+        }),
+      );
+      expect(result.modules?.writing).toBeDefined();
+      expect(result.modules?.drawing).toBeUndefined();
+      expect(result.write?.scene?.stepType).toBe('write');
+    });
   });
 });

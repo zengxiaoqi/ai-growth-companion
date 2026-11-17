@@ -7,8 +7,14 @@ export type ActivityData = Record<string, any> & {
   title?: string;
 };
 
-export type LessonSceneStepType = 'watch' | 'write' | 'practice';
-export type LessonSceneMode = 'playback' | 'guided_trace' | 'activity_shell';
+export type LessonSceneStepType = 'watch' | 'write' | 'draw' | 'roleplay' | 'experiment' | 'practice';
+export type LessonSceneMode =
+  | 'playback'
+  | 'guided_trace'
+  | 'free_draw'
+  | 'dialogue'
+  | 'simulation'
+  | 'activity_shell';
 export type SceneTimelineActionType =
   | 'enter'
   | 'move'
@@ -90,7 +96,45 @@ export interface LaunchActivityInteraction {
   activityData: ActivityData;
 }
 
-export type SceneInteraction = TracePathInteraction | LaunchActivityInteraction;
+export interface FreeDrawInteraction {
+  type: 'free_draw';
+  prompt?: string;
+  suggestedColors?: string[];
+  minStrokes?: number;
+}
+
+export interface DialogueTurnInteraction {
+  type: 'dialogue_turn';
+  prompt?: string;
+  speaker?: string;
+  text?: string;
+  childLine?: string;
+  keywords?: string[];
+  options?: string[];
+}
+
+export interface ExperimentObserve {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+export interface ExperimentStepInteraction {
+  type: 'experiment_step';
+  prompt?: string;
+  instruction?: string;
+  action?: string;
+  targets?: string[];
+  reveal?: string;
+  observe?: ExperimentObserve;
+}
+
+export type SceneInteraction =
+  | TracePathInteraction
+  | LaunchActivityInteraction
+  | FreeDrawInteraction
+  | DialogueTurnInteraction
+  | ExperimentStepInteraction;
 
 export interface LessonScene {
   id: string;
@@ -123,8 +167,22 @@ export interface LessonSceneDocument {
 
 type AnyRecord = Record<string, any>;
 
-const ALLOWED_STEP_TYPES = new Set<LessonSceneStepType>(['watch', 'write', 'practice']);
-const ALLOWED_MODES = new Set<LessonSceneMode>(['playback', 'guided_trace', 'activity_shell']);
+const ALLOWED_STEP_TYPES = new Set<LessonSceneStepType>([
+  'watch',
+  'write',
+  'draw',
+  'roleplay',
+  'experiment',
+  'practice',
+]);
+const ALLOWED_MODES = new Set<LessonSceneMode>([
+  'playback',
+  'guided_trace',
+  'free_draw',
+  'dialogue',
+  'simulation',
+  'activity_shell',
+]);
 const ALLOWED_TIMELINE_TYPES = new Set<SceneTimelineActionType>([
   'enter',
   'move',
@@ -153,6 +211,31 @@ function toStringArray(value: any, max = 6): string[] {
     .map((item) => toText(item))
     .filter(Boolean)
     .slice(0, max);
+}
+
+const DEFAULT_DRAW_COLORS = [
+  '#FF6B6B',
+  '#FFA94D',
+  '#FFD43B',
+  '#69DB7C',
+  '#4DABF7',
+  '#9775FA',
+  '#F783AC',
+  '#8D6E63',
+];
+
+function sanitizeHexColors(value: any): string[] {
+  const colors = toStringArray(value, 10).filter((color) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color));
+  return colors.length > 0 ? colors : [...DEFAULT_DRAW_COLORS];
+}
+
+function sanitizeObserve(raw: any): ExperimentObserve | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const question = toText(raw.question);
+  const options = toStringArray(raw.options, 4);
+  if (!question || options.length < 2) return undefined;
+  const correctIndex = toSafeInt(raw.correctIndex, 0, 0, options.length - 1);
+  return { question, options, correctIndex };
 }
 
 function sanitizeBackground(raw: any): SceneBackground | undefined {
@@ -306,6 +389,44 @@ function sanitizeInteraction(raw: any): SceneInteraction | undefined {
       prompt: toText(raw.prompt) || undefined,
       activityType,
       activityData,
+    };
+  }
+
+  if (type === 'free_draw') {
+    return {
+      type: 'free_draw',
+      prompt: toText(raw.prompt) || undefined,
+      suggestedColors: sanitizeHexColors(raw.suggestedColors),
+      minStrokes: raw.minStrokes != null ? toSafeInt(raw.minStrokes, 6, 1, 30) : undefined,
+    };
+  }
+
+  if (type === 'dialogue_turn') {
+    const text = toText(raw.text);
+    const childLine = toText(raw.childLine);
+    if (!text && !childLine) return undefined;
+    return {
+      type: 'dialogue_turn',
+      prompt: toText(raw.prompt) || undefined,
+      speaker: toText(raw.speaker) || undefined,
+      text: text || undefined,
+      childLine: childLine || undefined,
+      keywords: toStringArray(raw.keywords, 6),
+      options: toStringArray(raw.options, 4),
+    };
+  }
+
+  if (type === 'experiment_step') {
+    const instruction = toText(raw.instruction || raw.prompt);
+    if (!instruction) return undefined;
+    return {
+      type: 'experiment_step',
+      prompt: toText(raw.prompt) || undefined,
+      instruction,
+      action: toText(raw.action, 'tap_target'),
+      targets: toStringArray(raw.targets, 6),
+      reveal: toText(raw.reveal) || undefined,
+      observe: sanitizeObserve(raw.observe),
     };
   }
 
@@ -889,6 +1010,365 @@ export function derivePracticeSceneDocument(
         visual: {
           background: { type: 'day' },
           caption: '练习完成',
+          effects: ['celebrate'],
+        },
+      },
+    ],
+    completionPolicy: { type: 'any_interaction', passingScore: 80 },
+  };
+}
+
+// ─── 领域输出模块：drawing / roleplay / experiment ──────────────────────
+
+export interface DrawingModuleData {
+  title: string;
+  prompt: string;
+  reference?: string;
+  suggestedColors: string[];
+  minStrokes: number;
+  checklist: string[];
+}
+
+export function sanitizeDrawingModule(raw: any, topic: string): DrawingModuleData {
+  const prompt = toText(raw?.prompt || raw?.task || raw?.goal, `画一画你心中的${topic}`);
+  const checklist = toStringArray(raw?.checklist, 4);
+  return {
+    title: toText(raw?.title, `${topic} 创意画`),
+    prompt,
+    reference: toText(raw?.reference || raw?.hint) || undefined,
+    suggestedColors: sanitizeHexColors(raw?.suggestedColors),
+    minStrokes: toSafeInt(raw?.minStrokes, 6, 1, 30),
+    checklist:
+      checklist.length > 0 ? checklist : [`画出了${topic}的样子`, '用到了自己喜欢的颜色'],
+  };
+}
+
+export interface RoleplayTurn {
+  speaker: string;
+  text: string;
+  childLine: string;
+  keywords: string[];
+  options: string[];
+}
+
+export interface RoleplayModuleData {
+  title: string;
+  scenario: string;
+  roles: Array<{ id: string; name: string }>;
+  turns: RoleplayTurn[];
+  minTurns: number;
+}
+
+function fallbackRoleplayTurns(topic: string): RoleplayTurn[] {
+  return [
+    {
+      speaker: '小伙伴',
+      text: `你好！我们一起聊聊${topic}吧！`,
+      childLine: '你好！',
+      keywords: ['你好'],
+      options: ['你好！', '再听一次'],
+    },
+    {
+      speaker: '小伙伴',
+      text: `你最喜欢${topic}的什么呀？`,
+      childLine: `我最喜欢${topic}啦！`,
+      keywords: ['喜欢'],
+      options: [`我最喜欢${topic}啦！`, '再听一次'],
+    },
+    {
+      speaker: '小伙伴',
+      text: '和你聊天真开心，下次再一起玩！',
+      childLine: '下次见！',
+      keywords: ['再见', '下次'],
+      options: ['下次见！', '再听一次'],
+    },
+  ];
+}
+
+export function sanitizeRoleplayModule(raw: any, topic: string): RoleplayModuleData {
+  const roles = (Array.isArray(raw?.roles) ? raw.roles : [])
+    .map((entry: any, index: number) => ({
+      id: toText(entry?.id, `role-${index + 1}`),
+      name: toText(entry?.name || entry?.label),
+    }))
+    .filter((entry: { name: string }) => entry.name)
+    .slice(0, 4);
+
+  const turns = (Array.isArray(raw?.turns) ? raw.turns : [])
+    .map((entry: any): RoleplayTurn | null => {
+      const text = toText(entry?.text || entry?.line);
+      const childLine = toText(entry?.childLine || entry?.expectedResponse || entry?.reply);
+      if (!text && !childLine) return null;
+      const options = toStringArray(entry?.options, 4);
+      return {
+        speaker: toText(entry?.speaker, '小伙伴'),
+        text: text || childLine,
+        childLine: childLine || text,
+        keywords: toStringArray(entry?.keywords, 6),
+        options:
+          options.length >= 2
+            ? options
+            : [childLine || text, '再听一次'],
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8) as RoleplayTurn[];
+
+  const finalTurns = turns.length > 0 ? turns : fallbackRoleplayTurns(topic);
+  return {
+    title: toText(raw?.title, `${topic} 情景表演`),
+    scenario: toText(raw?.scenario || raw?.setting, `一起来演一演关于${topic}的小故事`),
+    roles: roles.length > 0 ? roles : [{ id: 'partner', name: '小伙伴' }],
+    turns: finalTurns,
+    minTurns: Math.min(finalTurns.length, toSafeInt(raw?.minTurns, 3, 1, 8)),
+  };
+}
+
+export interface ExperimentStepData {
+  instruction: string;
+  action: string;
+  targets: string[];
+  reveal: string;
+  observe?: ExperimentObserve;
+}
+
+export interface ExperimentModuleData {
+  title: string;
+  question: string;
+  materials: string[];
+  steps: ExperimentStepData[];
+  conclusion: string;
+}
+
+export function sanitizeExperimentModule(raw: any, topic: string): ExperimentModuleData {
+  const steps = (Array.isArray(raw?.steps) ? raw.steps : [])
+    .map((entry: any, index: number): ExperimentStepData | null => {
+      const instruction = toText(entry?.instruction || entry?.text || entry?.prompt);
+      if (!instruction) return null;
+      const targets = toStringArray(entry?.targets, 6);
+      return {
+        instruction,
+        action: toText(entry?.action, 'tap_target'),
+        targets: targets.length > 0 ? targets : ['试一试'],
+        reveal: toText(entry?.reveal || entry?.result, '仔细看看发生了什么变化'),
+        observe: sanitizeObserve(entry?.observe),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6) as ExperimentStepData[];
+
+  const finalSteps =
+    steps.length > 0
+      ? steps
+      : [
+          {
+            instruction: `点一点，看看${topic}会发生什么`,
+            action: 'tap_target',
+            targets: [topic],
+            reveal: `${topic}真有趣，你发现了吗？`,
+            observe: {
+              question: '你看到了什么？',
+              options: ['有新发现', '没有变化'],
+              correctIndex: 0,
+            },
+          },
+        ];
+
+  return {
+    title: toText(raw?.title, `${topic} 小实验`),
+    question: toText(raw?.question, `关于${topic}，你想知道什么？`),
+    materials: toStringArray(raw?.materials, 6),
+    steps: finalSteps,
+    conclusion: toText(raw?.conclusion, `今天我们通过小实验发现了${topic}的秘密`),
+  };
+}
+
+export function deriveDrawingSceneDocument(
+  drawing: DrawingModuleData,
+  topic: string,
+): LessonSceneDocument {
+  return {
+    version: 1,
+    stepType: 'draw',
+    mode: 'free_draw',
+    scenes: [
+      {
+        id: 'draw-intro',
+        title: drawing.title,
+        narration: drawing.prompt,
+        onScreenText: drawing.title,
+        durationSec: 10,
+        visual: {
+          background: { type: 'indoor' },
+          caption: drawing.reference || drawing.prompt,
+          characters: [{ id: 'teacher', label: '老师' }],
+        },
+      },
+      {
+        id: 'draw-canvas',
+        title: `画一画${topic}`,
+        narration: '拿起画笔，画出你自己的想法吧。',
+        onScreenText: drawing.prompt,
+        durationSec: 60,
+        visual: {
+          background: { type: 'abstract' },
+          caption: drawing.prompt,
+          effects: ['focus'],
+        },
+        interaction: {
+          type: 'free_draw',
+          prompt: drawing.prompt,
+          suggestedColors: drawing.suggestedColors,
+          minStrokes: drawing.minStrokes,
+        },
+      },
+      {
+        id: 'draw-share',
+        title: '欣赏作品',
+        narration: '画得真棒！看看自己的作品，说说画了什么。',
+        onScreenText: '我的作品',
+        durationSec: 10,
+        visual: {
+          background: { type: 'day' },
+          caption: '我的作品',
+          effects: ['celebrate'],
+          items: drawing.checklist.slice(0, 3).map((label, index) => ({
+            id: `draw-check-${index + 1}`,
+            label,
+          })),
+        },
+      },
+    ],
+    completionPolicy: { type: 'any_interaction', passingScore: 80 },
+  };
+}
+
+export function deriveRoleplaySceneDocument(
+  roleplay: RoleplayModuleData,
+  topic: string,
+): LessonSceneDocument {
+  const turnScenes = roleplay.turns.slice(0, 8).map((turn, index) => ({
+    id: `roleplay-turn-${index + 1}`,
+    title: `${turn.speaker}说话`,
+    narration: turn.text,
+    onScreenText: turn.text,
+    durationSec: 15,
+    visual: {
+      background: { type: 'indoor' as const },
+      caption: roleplay.scenario,
+      characters: roleplay.roles.slice(0, 3).map((role) => ({
+        id: role.id,
+        label: role.name,
+      })),
+    },
+    interaction: {
+      type: 'dialogue_turn' as const,
+      prompt: `轮到你啦：${turn.childLine}`,
+      speaker: turn.speaker,
+      text: turn.text,
+      childLine: turn.childLine,
+      keywords: turn.keywords,
+      options: turn.options,
+    },
+  }));
+
+  return {
+    version: 1,
+    stepType: 'roleplay',
+    mode: 'dialogue',
+    scenes: [
+      {
+        id: 'roleplay-intro',
+        title: roleplay.title,
+        narration: roleplay.scenario,
+        onScreenText: roleplay.scenario,
+        durationSec: 10,
+        visual: {
+          background: { type: 'indoor' },
+          caption: roleplay.scenario,
+          characters: roleplay.roles.slice(0, 3).map((role) => ({
+            id: role.id,
+            label: role.name,
+          })),
+        },
+      },
+      ...turnScenes,
+      {
+        id: 'roleplay-outro',
+        title: '表演结束',
+        narration: `演得真好！${topic}的小故事演完啦。`,
+        onScreenText: '表演结束',
+        durationSec: 8,
+        visual: {
+          background: { type: 'day' },
+          caption: '表演结束',
+          effects: ['celebrate'],
+        },
+      },
+    ],
+    completionPolicy: { type: 'any_interaction', passingScore: 80 },
+  };
+}
+
+export function deriveExperimentSceneDocument(
+  experiment: ExperimentModuleData,
+  topic: string,
+): LessonSceneDocument {
+  const stepScenes = experiment.steps.slice(0, 6).map((step, index) => ({
+    id: `experiment-step-${index + 1}`,
+    title: `第 ${index + 1} 步`,
+    narration: step.instruction,
+    onScreenText: step.instruction,
+    durationSec: 20,
+    visual: {
+      background: { type: 'indoor' as const },
+      caption: experiment.question,
+      items: step.targets.slice(0, 4).map((label, itemIndex) => ({
+        id: `exp-target-${index + 1}-${itemIndex + 1}`,
+        label,
+      })),
+    },
+    interaction: {
+      type: 'experiment_step' as const,
+      prompt: step.instruction,
+      instruction: step.instruction,
+      action: step.action,
+      targets: step.targets,
+      reveal: step.reveal,
+      observe: step.observe,
+    },
+  }));
+
+  return {
+    version: 1,
+    stepType: 'experiment',
+    mode: 'simulation',
+    scenes: [
+      {
+        id: 'experiment-intro',
+        title: experiment.title,
+        narration: experiment.question,
+        onScreenText: experiment.question,
+        durationSec: 10,
+        visual: {
+          background: { type: 'indoor' },
+          caption: experiment.question,
+          items: experiment.materials.slice(0, 4).map((label, index) => ({
+            id: `exp-material-${index + 1}`,
+            label,
+          })),
+        },
+      },
+      ...stepScenes,
+      {
+        id: 'experiment-conclusion',
+        title: '实验发现',
+        narration: experiment.conclusion,
+        onScreenText: experiment.conclusion,
+        durationSec: 10,
+        visual: {
+          background: { type: 'day' },
+          caption: experiment.conclusion,
           effects: ['celebrate'],
         },
       },

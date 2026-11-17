@@ -4,6 +4,11 @@ import {
   findKnowledgeCard,
   type KnowledgeCardView,
 } from '../../common/learning/knowledge-card-registry';
+import type {
+  DrawingModuleData,
+  RoleplayModuleData,
+  ExperimentModuleData,
+} from './lesson-scene';
 
 export interface CurriculumQuizItem {
   question: string;
@@ -23,6 +28,9 @@ export interface CourseCurriculumSeed {
   practiceTasks: string[];
   matchingPairs: Array<{ left: string; right: string }>;
   quizItems: CurriculumQuizItem[];
+  drawingTask?: Partial<DrawingModuleData>;
+  roleplayScript?: Partial<RoleplayModuleData>;
+  experimentSteps?: Partial<ExperimentModuleData>;
 }
 
 type AgeGroup = '3-4' | '5-6';
@@ -156,6 +164,7 @@ function seedFromCard(card: KnowledgeCardView, topic: string): CourseCurriculumS
     practiceTasks: matchingPairs.slice(0, 2).map((pair) => `说一说${pair.left}${pair.right}`),
     matchingPairs,
     quizItems,
+    ...buildOutputSeeds(topic, teachingUnits),
   };
 }
 
@@ -251,6 +260,83 @@ function buildSeed(record: CurriculumRecord, topic: string): CourseCurriculumSee
     practiceTasks,
     matchingPairs,
     quizItems,
+    ...buildOutputSeeds(topic, teachingUnits),
+  };
+}
+
+function buildOutputSeeds(
+  topic: string,
+  units: string[],
+): Pick<CourseCurriculumSeed, 'drawingTask' | 'roleplayScript' | 'experimentSteps'> {
+  const focus = units[0] || topic;
+  return {
+    drawingTask: {
+      title: `${topic} 创意画`,
+      prompt: `画一画你认识的${topic}`,
+      reference: `可以画上${units.slice(0, 2).join('、') || topic}的样子，涂上喜欢的颜色`,
+      suggestedColors: ['#FF6B6B', '#FFA94D', '#FFD43B', '#69DB7C', '#4DABF7', '#9775FA'],
+      minStrokes: 6,
+      checklist: [`画出了${focus}的样子`, '用到了两种以上的颜色'],
+    },
+    roleplayScript: {
+      title: `${topic} 情景表演`,
+      scenario: `和小伙伴一起演一演关于${topic}的小故事`,
+      roles: [{ id: 'partner', name: '小伙伴' }],
+      turns: [
+        {
+          speaker: '小伙伴',
+          text: `你知道${focus}吗？`,
+          childLine: `我知道${focus}！`,
+          keywords: ['知道'],
+          options: [`我知道${focus}！`, '再听一次'],
+        },
+        {
+          speaker: '小伙伴',
+          text: `你最喜欢${topic}的什么呀？`,
+          childLine: `我最喜欢${focus}啦！`,
+          keywords: ['喜欢'],
+          options: [`我最喜欢${focus}啦！`, '再听一次'],
+        },
+        {
+          speaker: '小伙伴',
+          text: '和你一起真开心，下次再玩！',
+          childLine: '下次见！',
+          keywords: ['再见', '下次'],
+          options: ['下次见！', '再听一次'],
+        },
+      ],
+      minTurns: 3,
+    },
+    experimentSteps: {
+      title: `${topic} 小实验`,
+      question: `关于${topic}，会有什么有趣的发现呢？`,
+      materials: [focus, '观察卡'],
+      steps: [
+        {
+          instruction: `点一点${focus}，看看会发生什么`,
+          action: 'tap_target',
+          targets: [focus, '放大镜'],
+          reveal: `${focus}有了新变化，仔细看看！`,
+          observe: {
+            question: '你看到变化了吗？',
+            options: ['看到变化了', '没有变化'],
+            correctIndex: 0,
+          },
+        },
+        {
+          instruction: '换个角度比一比，哪里不一样',
+          action: 'tap_target',
+          targets: ['比一比', '再看一次'],
+          reveal: '比一比，就能发现不一样的地方！',
+          observe: {
+            question: '找到不一样的地方了吗？',
+            options: ['找到了', '还要再看看'],
+            correctIndex: 0,
+          },
+        },
+      ],
+      conclusion: `今天我们发现了${topic}的小秘密`,
+    },
   };
 }
 

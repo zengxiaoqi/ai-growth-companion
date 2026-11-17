@@ -29,15 +29,21 @@ import {
   derivePracticeSceneDocument,
   deriveWatchSceneDocument,
   deriveWriteSceneDocument,
+  deriveDrawingSceneDocument,
+  deriveRoleplaySceneDocument,
+  deriveExperimentSceneDocument,
+  sanitizeDrawingModule,
+  sanitizeRoleplayModule,
+  sanitizeExperimentModule,
   sanitizeSceneDocument,
   type LessonSceneDocument,
 } from './lesson-scene';
 import { getCoursePackCurriculumSeed } from './course-curriculum-fallback';
+import { getDomainStepPlan, type LessonDomain, type OutputModuleType } from './domain-step-plan';
 import { pickPracticeActivityType } from '../../common/learning/practice-type-pool';
 import { bankRecordResults } from '../../common/activity/question-bank-registry';
 
 type AgeGroup = '3-4' | '5-6';
-type LessonDomain = 'language' | 'math' | 'science' | 'art' | 'social';
 
 export interface SaveDraftDirectlyParams {
   title: string;
@@ -127,13 +133,6 @@ interface LessonQualityInfo {
 interface ModifyLessonDraftOptions {
   stepId?: string;
 }
-
-const _STEP_DEFINITIONS: Array<{ id: string; label: string; icon: string }> = [
-  { id: 'watch', label: '看', icon: 'eye' },
-  { id: 'read', label: '读', icon: 'book' },
-  { id: 'write', label: '写', icon: 'pen' },
-  { id: 'practice', label: '练', icon: 'gamepad' },
-];
 
 export interface DraftLessonSummary {
   id: number;
@@ -870,9 +869,10 @@ export class LessonContentService implements OnModuleInit {
         : '- You may update multiple steps if the parent request is about the whole lesson.',
       '- Keep all content age-appropriate and in Chinese for learner-facing text.',
       '- Return the COMPLETE updated lesson JSON (same structure).',
-      '- Do NOT change the "type", "version", or "steps[].id" fields.',
+      '- Do NOT change the "type", "version", "steps[].id", or "steps[].module.type" fields.',
       '- Preserve steps[].module.scene unless the parent request explicitly changes that step.',
       '- If watch/write/practice content changes, update the related steps[].module.scene to stay in sync.',
+      '- For drawing/roleplay/experiment steps, keep module.drawing/module.roleplay/module.experiment data and module.scene in sync.',
       '- Return strict JSON only. No markdown. No explanation.',
     ].join('\n');
 
@@ -1116,7 +1116,10 @@ export class LessonContentService implements OnModuleInit {
       videoLesson: watchModule.videoLesson || {},
       modules: {
         reading: readModule.reading || {},
-        writing: writeModule.writing || {},
+        ...(writeModule.writing ? { writing: writeModule.writing } : {}),
+        ...(writeModule.drawing ? { drawing: writeModule.drawing } : {}),
+        ...(writeModule.roleplay ? { roleplay: writeModule.roleplay } : {}),
+        ...(writeModule.experiment ? { experiment: writeModule.experiment } : {}),
       },
     };
 
@@ -1149,12 +1152,11 @@ export class LessonContentService implements OnModuleInit {
   ): StructuredLessonContent {
     const modules = coursePack.modules || {};
     const parentGuide = coursePack.parentGuide || {};
-    const watchScene = this.resolveWatchScene(
-      coursePack,
-      meta.topic,
-      (coursePack.domain as string) || meta.domain,
-    );
-    const writeScene = this.resolveWriteScene(coursePack, meta.topic);
+    const domain = ((coursePack.domain as LessonDomain) ||
+      meta.domain ||
+      'language') as LessonDomain;
+    const plan = getDomainStepPlan(domain);
+    const watchScene = this.resolveWatchScene(coursePack, meta.topic, domain);
     // 外层 activityType 必须跟随实际题型数据，否则渲染端按外层类型取题会拿到空题
     const dataType = practiceData?.type;
     const practiceType = isActivityType(dataType)
@@ -1182,25 +1184,15 @@ export class LessonContentService implements OnModuleInit {
       },
       {
         id: 'read',
-        label: '读',
-        icon: 'book',
+        label: plan.step2.label,
+        icon: plan.step2.icon,
         order: 2,
         module: {
           type: 'reading',
           reading: modules.reading || {},
         },
       },
-      {
-        id: 'write',
-        label: '写',
-        icon: 'pen',
-        order: 3,
-        module: {
-          type: 'writing',
-          scene: writeScene,
-          writing: modules.writing || {},
-        },
-      },
+      this.buildOutputStep(coursePack, plan.step3, meta.topic),
       {
         id: 'practice',
         label: '练',
@@ -1222,7 +1214,7 @@ export class LessonContentService implements OnModuleInit {
       version: 1,
       topic: meta.topic,
       ageGroup: meta.ageGroup,
-      domain: meta.domain,
+      domain,
       summary: meta.summary || `围绕${meta.topic}的四步综合课程`,
       outcomes: meta.outcomes || [],
       sourceCoursePackId: null,
@@ -1233,6 +1225,63 @@ export class LessonContentService implements OnModuleInit {
         afterClass: parentGuide.afterClass || [],
       },
       generatedAt: new Date().toISOString(),
+    };
+  }
+
+  private buildOutputStep(
+    coursePack: Record<string, any>,
+    plan: { label: string; icon: string; moduleType: OutputModuleType },
+    topic: string,
+  ): LessonStep {
+    const modules = coursePack.modules || {};
+    const base = { id: 'write', label: plan.label, icon: plan.icon, order: 3 };
+
+    if (plan.moduleType === 'drawing') {
+      const drawing = sanitizeDrawingModule(modules.drawing || coursePack.drawing, topic);
+      return {
+        ...base,
+        module: {
+          type: 'drawing',
+          scene: this.resolveDrawingScene(coursePack, drawing, topic),
+          drawing,
+        },
+      };
+    }
+
+    if (plan.moduleType === 'roleplay') {
+      const roleplay = sanitizeRoleplayModule(modules.roleplay || coursePack.roleplay, topic);
+      return {
+        ...base,
+        module: {
+          type: 'roleplay',
+          scene: this.resolveRoleplayScene(coursePack, roleplay, topic),
+          roleplay,
+        },
+      };
+    }
+
+    if (plan.moduleType === 'experiment') {
+      const experiment = sanitizeExperimentModule(
+        modules.experiment || coursePack.experiment,
+        topic,
+      );
+      return {
+        ...base,
+        module: {
+          type: 'experiment',
+          scene: this.resolveExperimentScene(coursePack, experiment, topic),
+          experiment,
+        },
+      };
+    }
+
+    return {
+      ...base,
+      module: {
+        type: 'writing',
+        scene: this.resolveWriteScene(coursePack, topic),
+        writing: modules.writing || {},
+      },
     };
   }
 
@@ -1455,6 +1504,48 @@ export class LessonContentService implements OnModuleInit {
     );
   }
 
+  private resolveDrawingScene(
+    coursePack: Record<string, any>,
+    drawing: ReturnType<typeof sanitizeDrawingModule>,
+    topic: string,
+  ): LessonSceneDocument {
+    return (
+      sanitizeSceneDocument(
+        coursePack?.draw?.scene || coursePack?.modules?.drawing?.scene,
+        'draw',
+        'free_draw',
+      ) || deriveDrawingSceneDocument(drawing, topic)
+    );
+  }
+
+  private resolveRoleplayScene(
+    coursePack: Record<string, any>,
+    roleplay: ReturnType<typeof sanitizeRoleplayModule>,
+    topic: string,
+  ): LessonSceneDocument {
+    return (
+      sanitizeSceneDocument(
+        coursePack?.roleplay?.scene || coursePack?.modules?.roleplay?.scene,
+        'roleplay',
+        'dialogue',
+      ) || deriveRoleplaySceneDocument(roleplay, topic)
+    );
+  }
+
+  private resolveExperimentScene(
+    coursePack: Record<string, any>,
+    experiment: ReturnType<typeof sanitizeExperimentModule>,
+    topic: string,
+  ): LessonSceneDocument {
+    return (
+      sanitizeSceneDocument(
+        coursePack?.experiment?.scene || coursePack?.modules?.experiment?.scene,
+        'experiment',
+        'simulation',
+      ) || deriveExperimentSceneDocument(experiment, topic)
+    );
+  }
+
   private resolvePracticeScene(
     coursePack: Record<string, any>,
     practiceData: Record<string, any> | null,
@@ -1548,12 +1639,23 @@ export class LessonContentService implements OnModuleInit {
       };
     }
 
-    if (step.id === 'write' || module.type === 'writing') {
+    if (
+      step.id === 'write' ||
+      ['writing', 'drawing', 'roleplay', 'experiment'].includes(module.type)
+    ) {
+      const scene =
+        module.type === 'drawing'
+          ? this.resolveModifiedDrawingScene(module, originalModule, topic)
+          : module.type === 'roleplay'
+            ? this.resolveModifiedRoleplayScene(module, originalModule, topic)
+            : module.type === 'experiment'
+              ? this.resolveModifiedExperimentScene(module, originalModule, topic)
+              : this.resolveModifiedWriteScene(module, originalModule, topic);
       return {
         ...step,
         module: {
           ...module,
-          scene: this.resolveModifiedWriteScene(module, originalModule, topic),
+          scene,
         } as unknown as LessonStep['module'],
       };
     }
@@ -1638,6 +1740,84 @@ export class LessonContentService implements OnModuleInit {
     );
   }
 
+  private resolveModifiedDrawingScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'draw', 'free_draw');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.drawing, module?.drawing);
+    const drawing = sanitizeDrawingModule(module?.drawing || originalModule?.drawing, topic);
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return deriveDrawingSceneDocument(drawing, topic);
+    }
+
+    return (
+      nextScene ||
+      sanitizeSceneDocument(originalModule?.scene, 'draw', 'free_draw') ||
+      deriveDrawingSceneDocument(drawing, topic)
+    );
+  }
+
+  private resolveModifiedRoleplayScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'roleplay', 'dialogue');
+    const sourceChanged = this.didSceneSourceChange(originalModule?.roleplay, module?.roleplay);
+    const roleplay = sanitizeRoleplayModule(module?.roleplay || originalModule?.roleplay, topic);
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return deriveRoleplaySceneDocument(roleplay, topic);
+    }
+
+    return (
+      nextScene ||
+      sanitizeSceneDocument(originalModule?.scene, 'roleplay', 'dialogue') ||
+      deriveRoleplaySceneDocument(roleplay, topic)
+    );
+  }
+
+  private resolveModifiedExperimentScene(
+    module: Record<string, any>,
+    originalModule: Record<string, any>,
+    topic: string,
+  ): LessonSceneDocument {
+    const nextScene = sanitizeSceneDocument(module?.scene, 'experiment', 'simulation');
+    const sourceChanged = this.didSceneSourceChange(
+      originalModule?.experiment,
+      module?.experiment,
+    );
+    const experiment = sanitizeExperimentModule(
+      module?.experiment || originalModule?.experiment,
+      topic,
+    );
+
+    if (nextScene && this.didSceneDocChange(originalModule?.scene, module?.scene)) {
+      return nextScene;
+    }
+
+    if (sourceChanged) {
+      return deriveExperimentSceneDocument(experiment, topic);
+    }
+
+    return (
+      nextScene ||
+      sanitizeSceneDocument(originalModule?.scene, 'experiment', 'simulation') ||
+      deriveExperimentSceneDocument(experiment, topic)
+    );
+  }
+
   private resolveModifiedPracticeScene(
     module: Record<string, any>,
     originalModule: Record<string, any>,
@@ -1708,6 +1888,9 @@ export class LessonContentService implements OnModuleInit {
     if (module.type === 'video') return '观看动画讲解';
     if (module.type === 'reading') return this.toText(module.reading?.goal, '阅读理解');
     if (module.type === 'writing') return this.toText(module.writing?.goal, '书写练习');
+    if (module.type === 'drawing') return this.toText(module.drawing?.title, '创意绘画');
+    if (module.type === 'roleplay') return this.toText(module.roleplay?.title, '角色扮演');
+    if (module.type === 'experiment') return this.toText(module.experiment?.title, '模拟小实验');
     if (module.type === 'game') return '互动练习';
     return step.label;
   }
@@ -1747,6 +1930,39 @@ export class LessonContentService implements OnModuleInit {
     }
     if (module.type === 'game') {
       return [this.toText(module.game?.activityType), this.toText(module.game?.activityData?.title)]
+        .filter(Boolean)
+        .join(' | ');
+    }
+    if (module.type === 'drawing') {
+      return [this.toText(module.drawing?.prompt), this.toText(module.drawing?.reference)]
+        .filter(Boolean)
+        .join(' | ');
+    }
+    if (module.type === 'roleplay') {
+      return [
+        this.toText(module.roleplay?.scenario),
+        Array.isArray(module.roleplay?.turns)
+          ? module.roleplay.turns
+              .slice(0, 3)
+              .map((turn: any) => this.toText(turn?.text))
+              .filter(Boolean)
+              .join(' | ')
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
+    }
+    if (module.type === 'experiment') {
+      return [
+        this.toText(module.experiment?.question),
+        Array.isArray(module.experiment?.steps)
+          ? module.experiment.steps
+              .slice(0, 3)
+              .map((entry: any) => this.toText(entry?.instruction))
+              .filter(Boolean)
+              .join(' | ')
+          : '',
+      ]
         .filter(Boolean)
         .join(' | ');
     }

@@ -102,7 +102,8 @@ describe('GenerateCoursePackTool scene output', () => {
       await tool.execute({
         topic: '四季变化',
         ageGroup: '5-6',
-        focus: 'science',
+        focus: 'literacy',
+        domain: 'language',
         durationMinutes: 20,
         parentPrompt: 'generate a season lesson',
       }),

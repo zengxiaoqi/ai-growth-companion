@@ -366,7 +366,7 @@ export const toolDefinitions: ChatCompletionTool[] = [
     function: {
       name: 'generateCoursePack',
       description:
-        'Generate a complete home-learning course pack from one parent sentence, including listening/speaking/reading/writing modules, game data, visual-story prompts, and video storyboard.',
+        'Generate a complete home-learning course pack from one parent sentence with a four-step skeleton (watch → understand → output → practice). The output module adapts to the domain: writing (language/math), drawing (art), roleplay (social), experiment (science). Includes game data, visual-story prompts, and video storyboard.',
       parameters: {
         type: 'object',
         properties: {
@@ -378,6 +378,11 @@ export const toolDefinitions: ChatCompletionTool[] = [
             type: 'string',
             enum: ['3-4', '5-6'],
             description: 'Target age group',
+          },
+          domain: {
+            type: 'string',
+            enum: ['language', 'math', 'science', 'art', 'social'],
+            description: 'Learning domain; determines the output step module',
           },
           durationMinutes: {
             type: 'number',

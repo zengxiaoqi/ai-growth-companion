@@ -153,6 +153,109 @@ void main() {
     });
   });
 
+  group('TracePathCanvas — 模拟器把滚轮翻译成滑动时不画线', () {
+    testWidgets('匀速笔直的伪拖拽被整笔回滚', (tester) async {
+      await pumpCanvas(tester);
+      final box = findCanvasBox(tester);
+
+      // 模拟器把滚轮插值成的滑动：同一 x、等距、几毫秒内走完全程
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        box.localToGlobal(const Offset(140, 20)),
+        timeStamp: const Duration(seconds: 1),
+      );
+      for (var i = 1; i <= 8; i++) {
+        await gesture.moveTo(
+          box.localToGlobal(Offset(140, 20 + i * 30.0)),
+          timeStamp: Duration(milliseconds: 1000 + i),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 1010));
+      await tester.pumpAndSettle();
+
+      expect(readPercent(tester), 0, reason: '伪拖拽不应该留下笔画');
+      expect(find.textContaining('没有算'), findsOneWidget,
+          reason: '应该提示这一笔没被算入');
+    });
+
+    testWidgets('滚轮之后紧跟的拖拽也不画线', (tester) async {
+      await pumpCanvas(tester);
+      final box = findCanvasBox(tester);
+      final center = box.localToGlobal(box.size.center(Offset.zero));
+
+      final mouse = TestPointer(1, PointerDeviceKind.mouse);
+      await tester.sendEventToBinding(mouse.hover(center));
+      await tester.sendEventToBinding(
+        mouse.scroll(
+          const Offset(0, 160),
+          timeStamp: const Duration(seconds: 3),
+        ),
+      );
+      await tester.pump();
+
+      // 同一股滚动紧跟被翻译成的鼠标拖拽（冷却期内）
+      final gesture = await tester.createGesture(
+        pointer: 2,
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryButton,
+      );
+      await gesture.down(
+        center,
+        timeStamp: const Duration(seconds: 3, milliseconds: 40),
+      );
+      for (var i = 1; i <= 5; i++) {
+        await gesture.moveTo(
+          center + Offset(0, 20.0 * i),
+          timeStamp: Duration(milliseconds: 3040 + i * 40),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 3300));
+      await tester.pumpAndSettle();
+
+      expect(readPercent(tester), 0, reason: '滚轮之后的伪拖拽不应该画线');
+      expect(find.textContaining('滚轮不能画笔画'), findsWidgets);
+    });
+
+    testWidgets('有抖动、有加减速的真实书写不会被误判', (tester) async {
+      await pumpCanvas(tester);
+      final box = findCanvasBox(tester);
+
+      // 手写的竖笔：横向有抖动，步长有快慢
+      const steps = <double>[
+        10, 14, 18, 22, 24, 20, 16, 12, 9, 6, 4, 25, 22, 20, 18, 15, 12, 10,
+      ];
+      final points = <Offset>[];
+      var y = 25.0;
+      for (var i = 0; i < steps.length; i++) {
+        y += steps[i];
+        points.add(Offset(140 + (i.isEven ? 2.5 : -2.0), y));
+      }
+
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        box.localToGlobal(const Offset(140, 25)),
+        timeStamp: const Duration(seconds: 2),
+      );
+      var ms = 2000;
+      for (final point in points) {
+        ms += 16;
+        await gesture.moveTo(
+          box.localToGlobal(point),
+          timeStamp: Duration(milliseconds: ms),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: Duration(milliseconds: ms + 16));
+      await tester.pumpAndSettle();
+
+      expect(readPercent(tester), greaterThan(0),
+          reason: '真实书写的笔画不应该被当成滚轮丢掉');
+      expect(find.textContaining('没有算'), findsNothing);
+    });
+  });
+
   group('TracePathCanvas — 一次只写一个字', () {
     testWidgets('多字文本只显示当前字，并有步骤提示', (tester) async {
       await pumpCanvas(tester, text: '海星');

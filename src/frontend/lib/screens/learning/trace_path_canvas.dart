@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -18,6 +19,9 @@ import 'lesson_scene_models.dart';
 /// - **不参与外层滚动**：用 [Listener] 直接收指针事件，配合
 ///   [EagerGestureRecognizer] 抢赢手势竞技场；滚轮事件在画板内被吞掉，
 ///   描红时页面既不滚动也不翻页。
+/// - **过滤机器输入**：有些模拟器/输入法把滚轮翻译成一串匀速笔直的伪拖拽，
+///   框架层看不到"滚动"这个意图。这里按"笔直 + 匀速 + 超快/超长"多特征
+///   联合判定，整笔回滚，避免滚动鼠标在画板上留下竖线。
 /// - **覆盖率按像素采样**：只有真正落在笔画上的点才算覆盖目标。
 class TracePathCanvas extends StatefulWidget {
   /// 描红目标（文字或形状）
@@ -72,6 +76,18 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
   /// 区域内被描到的比例低于此值，判定为"这一片还没写到"
   static const double _regionCoveredRatio = 0.3;
+
+  /// 滚轮信号之后的冷却时间
+  ///
+  /// 模拟器把滚轮翻译成"滑动"时，伪拖拽紧跟滚动信号而来；
+  /// 这段时间内落下的笔一律不算书写。
+  static const Duration _scrollCooldown = Duration(milliseconds: 400);
+
+  /// 伪输入被忽略时的提示
+  static const String _ignoredInputHint = '这一笔没有算，请沿着浅色字形慢慢描。';
+
+  /// 滚轮在画板上时的提示
+  static const String _scrollHint = '滚轮不能画笔画，请按住左键或直接用手指描。';
 
   /// 用户绘制的笔画线段
   final List<_Segment> _segments = [];
@@ -135,6 +151,43 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
   /// 画布区域 Key（用于把手势坐标精确映射到画布坐标）
   final GlobalKey _paintKey = GlobalKey();
+
+  /// 最近一次滚轮/滚动信号的时间戳
+  ///
+  /// 部分模拟器（以及把滚轮映射成"滑动"的输入法）在发出滚动信号后，
+  /// 还会把同一股滚动翻译成一串伪拖拽事件；这类事件紧跟滚动之后
+  /// [_scrollCooldown] 内到达，必须当作滚动而不是书写。
+  Duration? _lastScrollStamp;
+
+  /// 当前笔画是否已被判定为"不是人写出来的"，判定后整笔回滚且不再继续画
+  bool _strokeRejected = false;
+
+  /// 本笔画第一条线段在 [_segments] 中的下标（用于整笔回滚）
+  int _strokeSegmentStart = 0;
+
+  // 本笔画的输入特征，用来识别"机器生成的滑动"
+  Duration _strokeStartStamp = Duration.zero;
+  Duration _strokeLastStamp = Duration.zero;
+  bool _hasStrokeClock = false;
+  int _strokeMoveCount = 0;
+  double _strokeTravel = 0;
+  double _strokeMinX = 0;
+  double _strokeMaxX = 0;
+  double _strokeMinY = 0;
+  double _strokeMaxY = 0;
+  final List<double> _strokeSteps = [];
+
+  // 各种"机器特征"命中标记，命中足够多项才判定为伪输入
+  bool _sigInstantStart = false;
+  bool _sigStraightAxis = false;
+  bool _sigUniformStep = false;
+  bool _sigTooFast = false;
+  bool _sigLongStraight = false;
+  bool _sigOffInk = false;
+
+  /// 本笔画里"碰到字形"和"完全没碰到字形"的段数（用于判断是不是在空白处瞎划）
+  int _strokeOnInkSegments = 0;
+  int _strokeOffInkSegments = 0;
 
   bool get _isLastStep => _stepIndex >= _steps.length - 1;
 
@@ -209,6 +262,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     _stepSolved = false;
     _warning = null;
     _guideLayout = null;
+    _resetStrokeFeatures(0, 0);
   }
 
   /// 应用采样点集合（同时重置覆盖统计，避免下标错位）
@@ -590,23 +644,49 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
       // 故意不处理：滚轮在描红画板上不产生任何滚动
     });
 
-    // 滚轮期间结束当前笔画，避免残留连线
-    _activePoint = null;
-    _activePointerId = null;
+    if (event.timeStamp > Duration.zero) _lastScrollStamp = event.timeStamp;
+    _rejectStroke();
+    _endActiveStroke();
+
+    if (!_stepSolved) {
+      setState(() => _warning = _scrollHint);
+    }
+    if (kDebugMode) {
+      debugPrint('[trace-input] scroll delta=${event.scrollDelta} '
+          'kind=${event.kind.name} at=${event.localPosition}');
+    }
   }
 
   void _handlePointerDown(PointerDownEvent event) {
     if (_stepSolved || _activePointerId != null) return;
-    // 鼠标只认左键（滚轮/悬停产生的杂散事件直接忽略）
+    // 鼠标只认左键（滚轮/悬停/中键产生的杂散事件直接忽略）
     if (event.kind == PointerDeviceKind.mouse &&
         (event.buttons & kPrimaryMouseButton) == 0) {
       return;
     }
 
+    final point = _normalizePosition(event.localPosition);
+    _resetStrokeFeatures(point.dx, point.dy);
+    _strokeStartStamp = event.timeStamp;
+    _strokeLastStamp = event.timeStamp;
+
+    // 滚轮刚过去：紧跟的这段拖拽是同一股滚动被翻译出来的，不是书写
+    final lastScroll = _lastScrollStamp;
+    if (lastScroll != null && event.timeStamp > Duration.zero) {
+      final since = event.timeStamp - lastScroll;
+      if (since < _scrollCooldown && since > -_scrollCooldown) {
+        _strokeRejected = true;
+      }
+    }
+
     setState(() {
       _activePointerId = event.pointer;
-      _warning = null;
-      _activePoint = _normalizePosition(event.localPosition);
+      _activePoint = point;
+      if (_strokeRejected) {
+        _warning = _scrollHint;
+      } else {
+        _warning = null;
+      }
     });
   }
 
@@ -617,22 +697,36 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     // 鼠标松开后（含滚轮/悬停导致的伪移动）不再画线
     if (event.kind == PointerDeviceKind.mouse &&
         (event.buttons & kPrimaryMouseButton) == 0) {
-      _activePoint = null;
-      _activePointerId = null;
+      _endActiveStroke();
       return;
     }
 
     final nextPoint = _normalizePosition(event.localPosition);
-
-    // 同一次事件里跳过大半个画布：多半不是正常书写（模拟器把滚轮/
-    // 惯性滑动塞成了指针移动）。不连成一条长线，只把落点挪过去。
-    if ((nextPoint - _activePoint!).distance > _canvasSize * 0.45) {
+    if (_strokeRejected) {
       setState(() => _activePoint = nextPoint);
       return;
     }
 
-    final segment = _Segment(_activePoint!, nextPoint);
+    final previous = _activePoint!;
+    final distance = (nextPoint - previous).distance;
 
+    // 单次事件跳过大半个画布：不是正常书写（滚轮/惯性滑动塞进来的指针移动），
+    // 不连成一条长线，只把落点挪过去。
+    if (distance > _canvasSize * 0.45) {
+      setState(() => _activePoint = nextPoint);
+      return;
+    }
+
+    // 先判特征，再决定这一段要不要记入画布：
+    // 否则伪造的滑动会先污染覆盖率，等判出来时已经"描完"了。
+    _trackStrokeFeatures(event.timeStamp, nextPoint, distance);
+    if (_shouldRejectStroke()) {
+      setState(() => _activePoint = nextPoint);
+      _rejectStroke();
+      return;
+    }
+
+    final segment = _Segment(previous, nextPoint);
     setState(() {
       _segments.add(segment);
       _activePoint = nextPoint;
@@ -643,10 +737,13 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
   void _handlePointerUp(PointerEvent event) {
     if (event.pointer != _activePointerId) return;
-    _activePointerId = null;
-    _activePoint = null;
 
-    if (_stepSolved) return;
+    final rejected = _strokeRejected;
+    _endActiveStroke();
+    _logStroke(event, rejected);
+    _resetStrokeFeatures(0, 0);
+
+    if (rejected || _stepSolved) return;
 
     final missing = _missingRegions;
     final String? hint;
@@ -660,6 +757,172 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     if (hint != null) {
       setState(() => _warning = hint);
     }
+  }
+
+  /// 结束当前笔画（不回收已画的墨迹）
+  void _endActiveStroke() {
+    _activePointerId = null;
+    _activePoint = null;
+  }
+
+  /// 判定当前笔画不是书写：整笔回滚，覆盖率重算
+  ///
+  /// 回滚是必须的——伪输入一旦先把覆盖率抬高，就会出现"什么都没写却描完了"。
+  void _rejectStroke() {
+    if (_strokeRejected && _segments.length <= _strokeSegmentStart) return;
+    _strokeRejected = true;
+
+    setState(() {
+      if (_segments.length > _strokeSegmentStart) {
+        _segments.removeRange(_strokeSegmentStart, _segments.length);
+        _applySamples(_samplePoints);
+      }
+      if (!_stepSolved) _warning = _ignoredInputHint;
+    });
+
+    if (kDebugMode) {
+      debugPrint('[trace-input] 拦截伪输入 moves=$_strokeMoveCount '
+          'travel=${_strokeTravel.toStringAsFixed(1)} '
+          'signals=${_signalSummary()}');
+    }
+  }
+
+  /// 清空当前笔画的输入特征
+  void _resetStrokeFeatures(double x, double y) {
+    _strokeRejected = false;
+    _strokeSegmentStart = _segments.length;
+    _strokeStartStamp = Duration.zero;
+    _strokeLastStamp = Duration.zero;
+    _hasStrokeClock = false;
+    _strokeMoveCount = 0;
+    _strokeTravel = 0;
+    _strokeSteps.clear();
+    _strokeMinX = x;
+    _strokeMaxX = x;
+    _strokeMinY = y;
+    _strokeMaxY = y;
+    _sigInstantStart = false;
+    _sigStraightAxis = false;
+    _sigUniformStep = false;
+    _sigTooFast = false;
+    _sigLongStraight = false;
+    _sigOffInk = false;
+    _strokeOnInkSegments = 0;
+    _strokeOffInkSegments = 0;
+  }
+
+  /// 记录这一段移动的"机器特征"
+  ///
+  /// 人手书写一定有加减速、有横向抖动、速度有上限；
+  /// 而滚轮被翻译出来的滑动是匀速、笔直、瞬间完成的。
+  void _trackStrokeFeatures(
+    Duration stamp,
+    ui.Offset to,
+    double distance,
+  ) {
+    _strokeMoveCount += 1;
+    _strokeTravel += distance;
+    _strokeSteps.add(distance);
+    if (_strokeSteps.length > 8) _strokeSteps.removeAt(0);
+
+    _strokeMinX = math.min(_strokeMinX, to.dx);
+    _strokeMaxX = math.max(_strokeMaxX, to.dx);
+    _strokeMinY = math.min(_strokeMinY, to.dy);
+    _strokeMaxY = math.max(_strokeMaxY, to.dy);
+
+    if (stamp > Duration.zero && _strokeStartStamp > Duration.zero) {
+      _hasStrokeClock = true;
+    }
+    final dt = _hasStrokeClock && stamp > Duration.zero
+        ? stamp - _strokeLastStamp
+        : Duration.zero;
+    if (stamp > Duration.zero) _strokeLastStamp = stamp;
+
+    // ① 落笔后不到 25ms 就窜出 24px 以上：注入事件的典型特征
+    if (_strokeMoveCount == 1 &&
+        _hasStrokeClock &&
+        dt > Duration.zero &&
+        dt < const Duration(milliseconds: 25) &&
+        distance > 24) {
+      _sigInstantStart = true;
+    }
+
+    final spanX = _strokeMaxX - _strokeMinX;
+    final spanY = _strokeMaxY - _strokeMinY;
+    final vertical = spanY >= spanX;
+    final crossSpan = vertical ? spanX : spanY;
+    final alongSpan = vertical ? spanY : spanX;
+
+    // ② 整笔几乎是数学意义上的直线（横向抖动 < 1.2 画布像素）
+    if (_strokeMoveCount >= 4 && alongSpan >= 56 && crossSpan < 1.2) {
+      _sigStraightAxis = true;
+    }
+
+    // ③ 一步一格的匀速推进：插值出来的滑动必然等距
+    if (_strokeSteps.length >= 4 && _strokeTravel >= 40) {
+      final recent = _strokeSteps.sublist(_strokeSteps.length - 4);
+      final maxStep = recent.reduce(math.max);
+      final minStep = recent.reduce(math.min);
+      if (maxStep > 1 && minStep / maxStep > 0.8) _sigUniformStep = true;
+    }
+
+    // ④ 速度超过人手（> 3000 画布像素/秒），或整笔在同一时刻完成
+    if (_hasStrokeClock && _strokeTravel >= 60) {
+      final micros = (_strokeLastStamp - _strokeStartStamp).inMicroseconds;
+      if (micros <= 0) {
+        // 几十上百像素的笔画耗时为零：只可能是注入事件
+        _sigTooFast = true;
+      } else if (_strokeTravel / (micros / 1000000) > 3000) {
+        _sigTooFast = true;
+      }
+    }
+
+    // ⑤ 一条 200px 以上、零横向抖动的直线
+    if (alongSpan >= _canvasSize * 0.7 && crossSpan < 1.2) {
+      _sigLongStraight = true;
+    }
+  }
+
+  /// 命中足够多的机器特征才判定为伪输入
+  ///
+  /// 单看某一项都可能误伤真实书写（比如认真写一竖确实是直的），
+  /// 所以要求"直线 + 匀速 + 超快/超长"这类组合同时成立；
+  /// 另外没有事件时间信息时（测试环境等）一律不做猜测。
+  bool _shouldRejectStroke() {
+    if (!_hasStrokeClock) return false;
+
+    var hits = 0;
+    if (_sigInstantStart) hits++;
+    if (_sigStraightAxis) hits++;
+    if (_sigUniformStep) hits++;
+    if (_sigTooFast) hits++;
+    if (_sigLongStraight) hits++;
+    if (_sigOffInk) hits++;
+    return hits >= 3;
+  }
+
+  String _signalSummary() {
+    final names = <String>[
+      if (_sigInstantStart) '瞬间窜出',
+      if (_sigStraightAxis) '笔直',
+      if (_sigUniformStep) '匀速',
+      if (_sigTooFast) '超快',
+      if (_sigLongStraight) '超长直线',
+      if (_sigOffInk) '偏离字形',
+    ];
+    return names.isEmpty ? '无' : names.join('+');
+  }
+
+  void _logStroke(PointerEvent event, bool rejected) {
+    if (!kDebugMode || _strokeMoveCount == 0) return;
+    debugPrint('[trace-input] stroke kind=${event.kind.name} '
+        'moves=$_strokeMoveCount '
+        'travel=${_strokeTravel.toStringAsFixed(1)} '
+        'durMs=${(_strokeLastStamp - _strokeStartStamp).inMilliseconds} '
+        'spanX=${(_strokeMaxX - _strokeMinX).toStringAsFixed(1)} '
+        'spanY=${(_strokeMaxY - _strokeMinY).toStringAsFixed(1)} '
+        'clock=$_hasStrokeClock signals=${_signalSummary()} '
+        'rejected=$rejected');
   }
 
   /// 手势坐标 -> 画布坐标
@@ -684,26 +947,43 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   }
 
   /// 记录一段笔画覆盖到的采样点
-  bool _accumulateCoverage(_Segment segment) {
+  ///
+  /// [trackInk] 为 true 时顺带统计这一段是否碰到字形（供伪输入判定使用），
+  /// 重算覆盖率时传 false，避免污染当前笔画的统计。
+  bool _accumulateCoverage(_Segment segment, {bool trackInk = false}) {
     if (_samplePoints.isEmpty) return false;
 
     var added = false;
+    var touchesInk = false;
     for (var i = 0; i < _samplePoints.length; i++) {
+      final distance = _distanceToSegment(_samplePoints[i], segment);
+      if (distance <= _coverageTolerance * 1.6) touchesInk = true;
+      if (distance > _coverageTolerance) continue;
       if (_coveredPoints.contains(i)) continue;
-      if (_distanceToSegment(_samplePoints[i], segment) > _coverageTolerance) {
-        continue;
-      }
       _coveredPoints.add(i);
       final region = _regionOfPoint[i];
       if (region >= 0) _regionCovered[region] += 1;
       added = true;
+    }
+
+    if (trackInk) {
+      if (touchesInk) {
+        _strokeOnInkSegments += 1;
+      } else {
+        _strokeOffInkSegments += 1;
+      }
+      final total = _strokeOnInkSegments + _strokeOffInkSegments;
+      if (total >= 6 && _strokeOffInkSegments / total > 0.65) {
+        _sigOffInk = true;
+      }
     }
     return added;
   }
 
   /// 更新覆盖率并判定是否完成
   void _updateCoverage(_Segment segment) {
-    if (_accumulateCoverage(segment) && _samplePoints.isNotEmpty) {
+    if (_accumulateCoverage(segment, trackInk: true) &&
+        _samplePoints.isNotEmpty) {
       setState(() => _coverage = _coveredPoints.length / _samplePoints.length);
     }
     if (_stepSolved) return;

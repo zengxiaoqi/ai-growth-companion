@@ -1725,6 +1725,7 @@ export class RemotionRenderService implements OnModuleInit {
     const propsPath = path.join(taskDir, 'props.json');
     const entryPath = path.join(taskDir, 'index.ts');
 
+    let rendered = false;
     try {
       const tsResult = await checkGeneratedFiles(taskDir, this.remotionDir);
       if (!tsResult.passed) {
@@ -1749,6 +1750,7 @@ export class RemotionRenderService implements OnModuleInit {
         propsPath,
         onProgress,
       );
+      rendered = true;
     } catch (err) {
       if (preserveFailedDir) {
         this.logger.warn(
@@ -1758,8 +1760,22 @@ export class RemotionRenderService implements OnModuleInit {
       throw err;
     } finally {
       if (!preserveFailedDir) {
-        await this.safeRemove(taskDir);
-        await this.safeRemove(publicTaskDir);
+        // 渲染失败但创作 checkpoint（author-meta.json）在：留目录给重试续渲，
+        // 否则十几分钟的创作成果随一次渲染失败清零。成功出片已入缓存，照常清。
+        const keepCheckpoint =
+          !rendered &&
+          (await fs
+            .access(path.join(taskDir, 'author-meta.json'))
+            .then(() => true)
+            .catch(() => false));
+        if (keepCheckpoint) {
+          this.logger.warn(
+            `[renderPreparedComposition] render failed — keeping authored checkpoint for retry: ${taskDir}`,
+          );
+        } else {
+          await this.safeRemove(taskDir);
+          await this.safeRemove(publicTaskDir);
+        }
       }
     }
   }

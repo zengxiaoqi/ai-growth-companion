@@ -73,7 +73,12 @@ export class AgentRemotionService {
     }
 
     const remotionDir = this.remotionRender.remotionProjectDir;
-    const taskName = `task-${task.id}-${Date.now()}`;
+    // 确定性目录名（task + cacheKey 哈希）：重试落回同一目录，创作 checkpoint 才找得回。
+    // Date.now() 命名会让每次重试开新目录，中断留下的半成品永远复用不上。
+    const taskName = `task-${task.id}-${createHash('sha1')
+      .update(task.cacheKey || `task-${task.id}`)
+      .digest('hex')
+      .slice(0, 10)}`;
     const taskDir = path.join(remotionDir, '.generated', 'remotion-tasks', taskName);
     const publicTaskDir = path.join(remotionDir, 'public', '.generated', 'remotion-tasks', taskName);
     const publicTaskRel = `.generated/remotion-tasks/${taskName}`;
@@ -97,14 +102,27 @@ export class AgentRemotionService {
       );
       await fs.writeFile(path.join(taskDir, 'props.json'), JSON.stringify(props), 'utf-8');
 
-      const { stillsRounds } = await this.runAuthorLoop(task, props, taskDir, compositionId);
+      const propsHash = createHash('sha1').update(JSON.stringify(props)).digest('hex');
+      const metaPath = path.join(taskDir, 'author-meta.json');
+      const checkpoint = await this.readAuthorCheckpoint(metaPath, propsHash, taskDir, remotionDir);
+      let stillsRounds: number;
+      if (checkpoint) {
+        stillsRounds = checkpoint.stillsRounds;
+        this.logger.log(
+          `[agent-remotion] taskId=${task.id} resuming authored composition from checkpoint (stillsRounds=${stillsRounds})`,
+        );
+      } else {
+        ({ stillsRounds } = await this.runAuthorLoop(task, props, taskDir, compositionId));
 
-      const contract = await validateAuthorTaskDir(taskDir, remotionDir);
-      if (!contract.ok) {
-        throw new Error(`author contract failed after loop:\n${contract.errors.join('\n')}`);
+        const contract = await validateAuthorTaskDir(taskDir, remotionDir);
+        if (!contract.ok) {
+          throw new Error(`author contract failed after loop:\n${contract.errors.join('\n')}`);
+        }
+        // 创作 checkpoint：props 未变且契约仍通过时，重试跳过创作循环直接渲染
+        await fs.writeFile(metaPath, JSON.stringify({ propsHash, stillsRounds }), 'utf-8');
       }
 
-      // 目录清理交给 renderPreparedComposition 的 finally（成功/失败都清）
+      // 目录清理交给 renderPreparedComposition 的 finally（成功清；失败留创作 checkpoint）
       ownsDirs = false;
       await this.remotionRender.renderPreparedComposition(
         taskDir,
@@ -115,9 +133,15 @@ export class AgentRemotionService {
       return { stillsRounds, sceneTimeline: buildSceneTimeline(props.scenes) };
     } catch (err) {
       if (ownsDirs) {
-        if (preserve) {
+        // 有创作 checkpoint 就留目录：重试可跳过创作直接续渲；进程被杀不走清理，
+        // 目录天然留下。无 checkpoint 的半成品才清，避免磁盘堆积。
+        const hasCheckpoint = await fs
+          .access(path.join(taskDir, 'author-meta.json'))
+          .then(() => true)
+          .catch(() => false);
+        if (preserve || hasCheckpoint) {
           this.logger.warn(
-            `[agent-remotion] taskId=${task.id} REMOTION_PRESERVE_FAILED_TASK_DIR=true — keeping ${taskDir}`,
+            `[agent-remotion] taskId=${task.id} keeping task dir (preserve=${preserve}, checkpoint=${hasCheckpoint}): ${taskDir}`,
           );
         } else {
           await fs.rm(taskDir, { recursive: true, force: true }).catch(() => {});
@@ -125,6 +149,24 @@ export class AgentRemotionService {
         }
       }
       throw err;
+    }
+  }
+
+  /** 创作 checkpoint：props 哈希一致且契约仍通过 → 复用已创作的合成，跳过创作循环。 */
+  private async readAuthorCheckpoint(
+    metaPath: string,
+    propsHash: string,
+    taskDir: string,
+    remotionDir: string,
+  ): Promise<{ stillsRounds: number } | null> {
+    try {
+      const meta = JSON.parse(await fs.readFile(metaPath, 'utf-8'));
+      if (meta?.propsHash !== propsHash) return null;
+      const contract = await validateAuthorTaskDir(taskDir, remotionDir);
+      if (!contract.ok) return null;
+      return { stillsRounds: Number(meta.stillsRounds) || 0 };
+    } catch {
+      return null;
     }
   }
 

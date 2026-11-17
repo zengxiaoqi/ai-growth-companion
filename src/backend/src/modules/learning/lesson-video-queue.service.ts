@@ -175,25 +175,32 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
 
   private async resetOrphanedProcessingTasks(): Promise<void> {
     try {
-      // Only reset tasks that have been 'processing' for more than 10 minutes.
-      // This prevents killing tasks that are still actively being worked on by
-      // another process instance that started recently.
-      const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
+      // 单 worker 不变量：init 时本进程还没开始渲染，任何 'processing' 行都是
+      // 上一个进程被重启/杀死留下的僵尸。复活为 pending 从断点续跑（storyboard、
+      // TTS、创作目录都有磁盘 checkpoint）。旧逻辑"只处理 >10min 且置 failed"：
+      // 10min 内重启的任务永久卡死，>10min 的被判死不再重试——正是"重启后没法
+      // 重新生成"的坑。顺带治愈被旧逻辑误判的 failed 行。
       const result = await this.taskRepo
         .createQueryBuilder()
         .update(VideoGenerationTask)
         .set({
-          status: 'failed',
-          errorMessage: 'Server restarted during processing (task was stale)',
-        })
-        .where("status = 'processing' AND startedAt < :staleThreshold", { staleThreshold })
+          status: 'pending',
+          progress: 0,
+          errorMessage: null,
+          // 被中断的尝试不额外加罚：超预算的计数拉回预算线，保证复活后还有
+          // 一次机会；若再失败则走正常失败路径终结，不会无限重试。
+          attemptCount: () => `MIN(attemptCount, ${this.maxRetries})`,
+        } as any)
+        .where(
+          "status = 'processing' OR (status = 'failed' AND errorMessage LIKE 'Server restarted during processing%')",
+        )
         .execute();
       if (result.affected && result.affected > 0) {
         this.logger.warn(
-          `Reset ${result.affected} stale 'processing' task(s) to 'failed' (older than 10 min)`,
+          `Recovered ${result.affected} interrupted video task(s) to 'pending' for checkpoint resume`,
         );
       } else {
-        this.logger.log('No stale processing tasks to reset');
+        this.logger.log('No interrupted video tasks to recover');
       }
     } catch (error: any) {
       this.logger.warn(`Failed to reset orphaned tasks: ${error?.message}`);
@@ -533,6 +540,16 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       return this.generateVideoBufferWithEngines(task, payload);
     }
 
+    // --- 断点续跑：上一次尝试已把 storyboard 写回 requestPayload，重试跳过
+    // 分镜阶段直接进渲染引擎（分镜 agent 是纯 LLM 开销，重跑没有新增信息）。 ---
+    const persistedStoryboard = payload?.__storyboard;
+    if (Array.isArray(persistedStoryboard?.scenes) && persistedStoryboard.scenes.length > 0) {
+      this.logger.log(
+        `[generateVideoBuffer] taskId=${task.id} resuming from persisted storyboard (${persistedStoryboard.scenes.length} scenes)`,
+      );
+      return this.generateVideoBufferWithEngines(task, payload);
+    }
+
     // --- Course-pack fast path: 课程包 watch 步已带主题对齐的分镜场景（旁白、
     // 画面描述、动画模板齐全）时直接合成 storyboard 进渲染引擎。再跑一遍
     // video-generator agent 是双重 LLM：多花约 1 分钟，还可能把已对齐的课程内容改写跑偏。 ---
@@ -587,6 +604,10 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
                 ([name, content]) => ({ name, content }),
               );
             }
+            // storyboard 断点：写回 requestPayload，重启/中断后的重试免跑分镜 agent
+            try {
+              await this.taskRepo.update(task.id, { requestPayload: enrichedPayload } as any);
+            } catch {}
             // Fall through to render the enriched payload via existing engines
             return this.generateVideoBufferWithEngines(task, enrichedPayload);
           }
@@ -611,6 +632,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
                 fallbackStoryboard,
                 { passed: true, score: 70 },
               );
+              try {
+                await this.taskRepo.update(task.id, { requestPayload: enrichedPayload } as any);
+              } catch {}
               return this.generateVideoBufferWithEngines(task, enrichedPayload);
             }
           } catch (fallbackError: any) {

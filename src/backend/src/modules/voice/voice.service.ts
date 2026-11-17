@@ -1,5 +1,8 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { EdgeTTS } from '@andresaya/edge-tts';
+import { createHash } from 'crypto';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { AiService } from '../ai/ai.service';
 import type { WordBoundary } from '../learning/subtitle-timing';
 
@@ -81,6 +84,12 @@ export class VoiceService {
     const clean = this.sanitizeForTTS(text);
     // 语速参数校验：仅接受 ±N% 形式，非法回落默认 +12%（pitch 不变）
     const safeRate = rate && /^[+-]\d{1,3}%$/.test(rate) ? rate : '+12%';
+    // 同文本+音色+语速的合成结果是确定的：落盘缓存让断点重试/重复课程免走网络合成
+    const cacheKey = createHash('sha1')
+      .update(JSON.stringify([clean, voice, safeRate, '+2Hz']))
+      .digest('hex');
+    const cached = await this.readTtsCache(cacheKey);
+    if (cached) return cached;
     const tts = new EdgeTTS();
     await tts.synthesize(clean || '嗯嗯', voice, {
       outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
@@ -113,7 +122,44 @@ export class VoiceService {
       durationMs = 0;
     }
 
-    return { buffer, wordBoundaries, durationMs };
+    const result = { buffer, wordBoundaries, durationMs };
+    await this.writeTtsCache(cacheKey, result);
+    return result;
+  }
+
+  private get ttsCacheDir(): string {
+    return process.env.TTS_CACHE_DIR || path.join(process.cwd(), 'storage', 'tts-cache');
+  }
+
+  private async readTtsCache(key: string): Promise<TtsWithTimingResult | null> {
+    try {
+      const [buffer, metaRaw] = await Promise.all([
+        fs.readFile(path.join(this.ttsCacheDir, `${key}.mp3`)),
+        fs.readFile(path.join(this.ttsCacheDir, `${key}.json`), 'utf-8'),
+      ]);
+      if (buffer.length === 0) return null;
+      const meta = JSON.parse(metaRaw);
+      return {
+        buffer,
+        wordBoundaries: Array.isArray(meta.wordBoundaries) ? meta.wordBoundaries : [],
+        durationMs: Number(meta.durationMs) || 0,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeTtsCache(key: string, result: TtsWithTimingResult): Promise<void> {
+    try {
+      await fs.mkdir(this.ttsCacheDir, { recursive: true });
+      await fs.writeFile(path.join(this.ttsCacheDir, `${key}.mp3`), result.buffer);
+      await fs.writeFile(
+        path.join(this.ttsCacheDir, `${key}.json`),
+        JSON.stringify({ wordBoundaries: result.wordBoundaries, durationMs: result.durationMs }),
+      );
+    } catch (error: any) {
+      this.logger.warn(`TTS cache write failed (non-fatal): ${error?.message || 'unknown'}`);
+    }
   }
 
   // ============ 以下保留原有功能，TTS 部分改用 Edge-TTS ============

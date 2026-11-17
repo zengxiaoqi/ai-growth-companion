@@ -259,4 +259,60 @@ describe('AgentRemotionService', () => {
       service.renderToVideo(TASK, { topic: '彩虹' }, '/tmp/out.mp4'),
     ).rejects.toThrow(/missing topic or storyboard/);
   });
+
+  describe('author checkpoint (restart resume)', () => {
+    const okLoop = () =>
+      jest.fn(async (..._args: any[]) => ({
+        response: '{"status":"ok"}',
+        toolCalls: [
+          { tool: 'renderStills', args: {}, resultSummary: '{"frames":["a.png"],"roundsUsed":1}' },
+        ],
+      }));
+
+    it('skips the author loop on retry when props and contract are unchanged', async () => {
+      const runLoop = okLoop();
+      const { service, remotionRender } = makeService(remotionDir, runLoop);
+
+      const first = await service.renderToVideo(TASK, PAYLOAD, '/tmp/out.mp4');
+      const second = await service.renderToVideo(TASK, PAYLOAD, '/tmp/out.mp4');
+
+      expect(runLoop).toHaveBeenCalledTimes(1);
+      expect(first.stillsRounds).toBe(1);
+      expect(second.stillsRounds).toBe(1);
+      expect(remotionRender.renderPreparedComposition).toHaveBeenCalledTimes(2);
+    });
+
+    it('re-authors when props changed since the checkpoint', async () => {
+      const runLoop = okLoop();
+      const { service } = makeService(remotionDir, runLoop);
+
+      await service.renderToVideo(TASK, PAYLOAD, '/tmp/out.mp4');
+      const changed = {
+        ...PAYLOAD,
+        __storyboard: {
+          ...PAYLOAD.__storyboard,
+          scenes: [{ ...PAYLOAD.__storyboard.scenes[0], beats: [{ sentenceIndex: 0, motion: 'slide' }] }],
+        },
+      };
+      await service.renderToVideo(TASK, changed, '/tmp/out.mp4');
+
+      expect(runLoop).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps the checkpoint dir when the full render fails, then resumes without re-authoring', async () => {
+      const runLoop = okLoop();
+      const { service, remotionRender } = makeService(remotionDir, runLoop);
+      remotionRender.renderPreparedComposition.mockRejectedValueOnce(new Error('render blew up'));
+
+      await expect(service.renderToVideo(TASK, PAYLOAD, '/tmp/out.mp4')).rejects.toThrow(
+        'render blew up',
+      );
+      const tasksRoot = path.join(remotionDir, '.generated', 'remotion-tasks');
+      expect(await fs.readdir(tasksRoot)).toHaveLength(1);
+
+      await service.renderToVideo(TASK, PAYLOAD, '/tmp/out.mp4');
+      expect(runLoop).toHaveBeenCalledTimes(1);
+      expect(remotionRender.renderPreparedComposition).toHaveBeenCalledTimes(2);
+    });
+  });
 });

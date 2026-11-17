@@ -717,4 +717,92 @@ describe('LessonVideoQueueService', () => {
       order: { createdAt: 'DESC' },
     });
   });
+
+  describe('restart checkpoint resume', () => {
+    it('recovers interrupted processing tasks to pending instead of leaving zombies', async () => {
+      const chain: any = {
+        update: jest.fn(),
+        set: jest.fn(),
+        where: jest.fn(),
+        execute: jest.fn().mockResolvedValue({ affected: 2 }),
+      };
+      chain.update.mockReturnValue(chain);
+      chain.set.mockReturnValue(chain);
+      chain.where.mockReturnValue(chain);
+      (taskRepo as any).createQueryBuilder = jest.fn().mockReturnValue(chain);
+
+      await (service as any).resetOrphanedProcessingTasks();
+
+      expect(chain.set).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'pending', progress: 0 }),
+      );
+      // 超预算的僵尸也要复活：计数拉回预算线而非拒绝复活
+      expect(typeof chain.set.mock.calls[0][0].attemptCount).toBe('function');
+      const [whereSql] = chain.where.mock.calls[0];
+      expect(whereSql).toContain("status = 'processing'");
+      expect(whereSql).toContain('Server restarted during processing');
+    });
+
+    it('resumes from a persisted storyboard without rerunning the storyboard agent', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('resume-video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      const result = await (agentService as any).generateVideoBuffer(
+        { id: 42, contentId: 62, childId: 3, cacheKey: 'resume-cache', renderEngine: 'auto' },
+        {
+          topic: '认识动物老虎',
+          ageGroup: '5-6',
+          domain: 'science',
+          __storyboard: {
+            title: '认识动物老虎视频',
+            topic: '认识动物老虎',
+            scenes: [
+              {
+                sequence: 1,
+                title: '老虎登场',
+                narration: '老虎是大型猫科动物。',
+                durationSec: 12,
+              },
+            ],
+          },
+        },
+      );
+
+      expect(videoAgent.generateViaAgent).not.toHaveBeenCalled();
+      expect(videoAgent.generateRemotionComposition).toHaveBeenCalledWith(
+        expect.objectContaining({ topic: '认识动物老虎' }),
+        expect.anything(),
+        expect.any(Map),
+      );
+      expect(result.buffer).toEqual(Buffer.from('resume-video'));
+    });
+
+    it('persists the agent storyboard into requestPayload as a resume checkpoint', async () => {
+      const videoAgent = createVideoAgent();
+      const agentService = createAgentBackedService(videoAgent);
+      remotionRender.renderGeneratedComposition.mockResolvedValue(undefined);
+      jest.spyOn(fs, 'mkdir').mockResolvedValue(undefined as any);
+      jest.spyOn(fs, 'readFile').mockResolvedValue(Buffer.from('video'));
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+
+      await (agentService as any).generateVideoBuffer(
+        { id: 43, contentId: 62, childId: 3, cacheKey: 'persist-cache', renderEngine: 'auto' },
+        { topic: '认识动物老虎', ageGroup: '5-6', domain: 'science' },
+      );
+
+      expect(videoAgent.generateViaAgent).toHaveBeenCalled();
+      expect(taskRepo.update).toHaveBeenCalledWith(
+        43,
+        expect.objectContaining({
+          requestPayload: expect.objectContaining({
+            __storyboard: expect.objectContaining({ topic: '认识动物老虎' }),
+          }),
+        }),
+      );
+    });
+  });
 });

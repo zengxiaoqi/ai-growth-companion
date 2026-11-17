@@ -632,4 +632,44 @@ describe('RemotionRenderService', () => {
     expect(window.end).toBeLessThanOrEqual(scene.durationFrames);
     expect(window.end).toBeGreaterThan(window.start);
   }, 60000);
+
+  it('keeps the authored checkpoint dir on render failure, cleans otherwise', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'prepared-'));
+    const taskDir = path.join(root, 'task-1-abc');
+    await fs.mkdir(taskDir, { recursive: true });
+    await fs.writeFile(path.join(taskDir, 'props.json'), '{}', 'utf-8');
+    await fs.writeFile(path.join(taskDir, 'index.ts'), '', 'utf-8');
+    jest
+      .spyOn(service as any, 'runGeneratedRemotionRender')
+      .mockRejectedValue(new Error('render died'));
+    const removeSpy = jest.spyOn(service as any, 'safeRemove').mockResolvedValue(undefined);
+
+    try {
+      // 无 checkpoint：失败照常清理
+      await expect(
+        (service as any).renderPreparedComposition(taskDir, 'Comp', '/tmp/out.mp4'),
+      ).rejects.toThrow('render died');
+      expect(removeSpy).toHaveBeenCalledWith(taskDir);
+
+      // 有创作 checkpoint：失败留目录给重试续渲
+      removeSpy.mockClear();
+      await fs.writeFile(
+        path.join(taskDir, 'author-meta.json'),
+        JSON.stringify({ propsHash: 'x', stillsRounds: 1 }),
+        'utf-8',
+      );
+      await expect(
+        (service as any).renderPreparedComposition(taskDir, 'Comp', '/tmp/out.mp4'),
+      ).rejects.toThrow('render died');
+      expect(removeSpy).not.toHaveBeenCalled();
+
+      // 成功出片：即使有 checkpoint 也清理（视频已入缓存）
+      removeSpy.mockClear();
+      (service as any).runGeneratedRemotionRender.mockResolvedValue(undefined);
+      await (service as any).renderPreparedComposition(taskDir, 'Comp', '/tmp/out.mp4');
+      expect(removeSpy).toHaveBeenCalledWith(taskDir);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });

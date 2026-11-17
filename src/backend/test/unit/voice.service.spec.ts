@@ -1,5 +1,8 @@
 import { VoiceService } from '../../src/modules/voice/voice.service';
 import { EdgeTTS } from '@andresaya/edge-tts';
+import { promises as fs } from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 // Mock EdgeTTS
 jest.mock('@andresaya/edge-tts', () => ({
@@ -11,10 +14,19 @@ jest.mock('@andresaya/edge-tts', () => ({
 
 describe('VoiceService', () => {
   let service: VoiceService;
+  let cacheDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // 每个用例独立缓存目录：磁盘缓存跨用例会命中，污染 EdgeTTS 调用计数断言
+    cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tts-cache-'));
+    process.env.TTS_CACHE_DIR = cacheDir;
     service = new VoiceService();
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    delete process.env.TTS_CACHE_DIR;
+    await fs.rm(cacheDir, { recursive: true, force: true });
   });
 
   describe('textToSpeech', () => {
@@ -75,6 +87,33 @@ describe('VoiceService', () => {
         'en-US-AriaNeural',
         expect.objectContaining({ rate: '+12%' }),
       );
+    });
+  });
+
+  describe('TTS disk cache (checkpoint resume)', () => {
+    it('reuses cached audio for identical text/voice/rate without re-synthesizing', async () => {
+      const first = await service.textToSpeechWithTiming('缓存测试');
+      const second = await service.textToSpeechWithTiming('缓存测试');
+
+      expect((EdgeTTS as unknown as jest.Mock).mock.calls.length).toBe(1);
+      expect(second.buffer.equals(first.buffer)).toBe(true);
+      expect(second.durationMs).toBe(first.durationMs);
+    });
+
+    it('synthesizes again when the voice differs', async () => {
+      await service.textToSpeechWithTiming('缓存测试', 'zh-CN-XiaoyiNeural');
+      await service.textToSpeechWithTiming('缓存测试', 'zh-CN-YunxiNeural');
+
+      expect((EdgeTTS as unknown as jest.Mock).mock.calls.length).toBe(2);
+    });
+
+    it('survives a service restart (new instance reads the same disk cache)', async () => {
+      const first = await service.textToSpeechWithTiming('重启后继续');
+      const restarted = new VoiceService();
+      const second = await restarted.textToSpeechWithTiming('重启后继续');
+
+      expect((EdgeTTS as unknown as jest.Mock).mock.calls.length).toBe(1);
+      expect(second.buffer.equals(first.buffer)).toBe(true);
     });
   });
 

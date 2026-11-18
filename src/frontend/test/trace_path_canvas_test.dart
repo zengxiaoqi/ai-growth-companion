@@ -154,24 +154,25 @@ void main() {
   });
 
   group('TracePathCanvas — 模拟器把滚轮翻译成滑动时不画线', () {
-    testWidgets('匀速笔直的伪拖拽被整笔回滚', (tester) async {
+    testWidgets('空白处的匀速笔直伪拖拽被整笔回滚', (tester) async {
       await pumpCanvas(tester);
       final box = findCanvasBox(tester);
 
-      // 模拟器把滚轮插值成的滑动：同一 x、等距、几毫秒内走完全程
+      // 模拟器把滚轮插值成的滑动：同一 x（画布左侧空白处）、等距、
+      // 几毫秒内走完全程
       final gesture = await tester.createGesture();
       await gesture.down(
-        box.localToGlobal(const Offset(140, 20)),
+        box.localToGlobal(const Offset(2, 15)),
         timeStamp: const Duration(seconds: 1),
       );
       for (var i = 1; i <= 8; i++) {
         await gesture.moveTo(
-          box.localToGlobal(Offset(140, 20 + i * 30.0)),
-          timeStamp: Duration(milliseconds: 1000 + i),
+          box.localToGlobal(Offset(2, 15 + i * 30.0)),
+          timeStamp: Duration(milliseconds: 1000 + i + (i - 1) * 4),
         );
         await tester.pump();
       }
-      await gesture.up(timeStamp: const Duration(milliseconds: 1010));
+      await gesture.up(timeStamp: const Duration(milliseconds: 1040));
       await tester.pumpAndSettle();
 
       expect(readPercent(tester), 0, reason: '伪拖拽不应该留下笔画');
@@ -218,19 +219,19 @@ void main() {
       expect(find.textContaining('滚轮不能画笔画'), findsWidgets);
     });
 
-    testWidgets('短促的一格伪滑动也拦得住', (tester) async {
+    testWidgets('整笔零耗时的短滑动也拦得住', (tester) async {
       await pumpCanvas(tester);
       final box = findCanvasBox(tester);
 
-      // 每格滚轮可能只注入一小段滑动：60px、5 步、16ms 走完
+      // 每格滚轮可能只注入一小段滑动：100px、5 步、16ms 走完，且在空白处
       final gesture = await tester.createGesture();
       await gesture.down(
-        box.localToGlobal(const Offset(140, 100)),
+        box.localToGlobal(const Offset(2, 20)),
         timeStamp: const Duration(seconds: 4),
       );
       for (var i = 1; i <= 5; i++) {
         await gesture.moveTo(
-          box.localToGlobal(Offset(140, 100 + i * 12.0)),
+          box.localToGlobal(Offset(2, 20 + i * 20.0)),
           timeStamp: Duration(milliseconds: 4000 + i * 4),
         );
         await tester.pump();
@@ -276,6 +277,33 @@ void main() {
       expect(readPercent(tester), greaterThan(0),
           reason: '真实书写的笔画不应该被当成滚轮丢掉');
       expect(find.textContaining('没有算'), findsNothing);
+    });
+
+    testWidgets('又快又直的横画压在字形上，不能被当成滚轮删掉', (tester) async {
+      // 回归：鼠标拖出来的横画天然"笔直、匀速、快"，曾被误判成滚轮整笔
+      // 回滚，导致覆盖率突然掉下去、画面上突然冒出一大片暖色。
+      await pumpCanvas(tester);
+      final box = findCanvasBox(tester);
+
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        box.localToGlobal(const Offset(40, 140)),
+        timeStamp: const Duration(seconds: 5),
+      );
+      for (var i = 1; i <= 10; i++) {
+        await gesture.moveTo(
+          box.localToGlobal(Offset(40 + i * 20.0, 140)),
+          timeStamp: Duration(milliseconds: 5000 + i * 8),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 5088));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('没有算'), findsNothing,
+          reason: '压在字形上的横画被当成滚轮删掉了');
+      expect(readPercent(tester), greaterThan(0),
+          reason: '横画应该计入覆盖率');
     });
   });
 
@@ -359,6 +387,23 @@ void main() {
           reason: '还有整片笔画没描到，不应该判定完成并跳到下一个字');
       expect(find.textContaining('没描到'), findsWidgets,
           reason: '应该提示还有哪些地方没描到');
+    });
+
+    testWidgets('漏笔数量按"笔画"统计，不会给出几十处的提示', (tester) async {
+      await pumpCanvas(tester, minCoverage: 0.05);
+      final box = findCanvasBox(tester);
+
+      // 只描中间一竖：剩下的墨迹是其左右两片，应按 2 笔算，而不是十几处
+      await traceLine(tester, box, [
+        for (var i = 0; i <= 12; i++) Offset(140, 30 + i * 18.0),
+      ]);
+
+      final chip = tester.widget<Text>(find.textContaining('笔没描到').first);
+      final count = int.parse(
+        RegExp(r'\d+').firstMatch(chip.data!)!.group(0)!,
+      );
+      expect(count, lessThanOrEqualTo(3),
+          reason: '缺失块按笔画统计，漏两片不应该报成十几处');
     });
 
     testWidgets('整片都描到后才判定完成', (tester) async {

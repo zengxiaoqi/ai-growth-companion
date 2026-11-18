@@ -20,9 +20,12 @@ import 'lesson_scene_models.dart';
 ///   [EagerGestureRecognizer] 抢赢手势竞技场；滚轮事件在画板内被吞掉，
 ///   描红时页面既不滚动也不翻页。
 /// - **过滤机器输入**：有些模拟器/输入法把滚轮翻译成一串匀速笔直的伪拖拽，
-///   框架层看不到"滚动"这个意图。这里按"笔直 + 匀速 + 超快/超长"多特征
-///   联合判定，整笔回滚，避免滚动鼠标在画板上留下竖线。
+///   框架层看不到"滚动"这个意图。判定必须"从静止瞬间窜出 + 笔直 + 超人手
+///   速度"同时成立，或者在空白处匀速划直线——压在字形上的真实书写永远
+///   不会被回滚。
 /// - **覆盖率按像素采样**：只有真正落在笔画上的点才算覆盖目标。
+/// - **漏笔提示按墨迹形状**：把未覆盖的采样点聚成连通块，漏掉哪一笔就只把
+///   那一笔的墨迹标成暖色，不再是整格方块。
 class TracePathCanvas extends StatefulWidget {
   /// 描红目标（文字或形状）
   final dynamic target; // TraceGlyphTarget | TracePolylineTarget
@@ -65,17 +68,23 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   /// 之间的间距通常远大于 2 倍容差，不会把没写的那一笔也算成已覆盖。
   static const double _coverageTolerance = 14.0;
 
-  /// 局部检查网格：把格子切成 8x8，逐块检查墨迹是否被描到
+  /// 局部检查：把未覆盖的墨迹聚成连通块，再按"块"判断漏了哪一笔
   ///
-  /// 只看整体覆盖率会出现"漏了一两笔但占比仍有七成"的误判，
-  /// 逐块检查能保证每个有笔画的角落都被写到。
-  static const int _regionGrid = 8;
+  /// 早先用 8x8 的粗网格逐格判定，格子里只要有墨迹就要求描到三成，
+  /// 结果一个笔画拐角就会被算成好几个"缺失区域"（出现过"还缺 20 处"
+  /// 这种完全没道理的提示）。改成连通块后，漏一整笔才算一个缺失，
+  /// 与孩子理解的"还差几笔"一致。
+  static const double _missingCellSize = 10.0;
 
-  /// 区域内至少有这么多采样点才算"有墨迹"，忽略笔画末端的零星采样点
-  static const int _regionMinSamples = 14;
+  /// 缺失块面积占全部墨迹的比例达到这个值，才算"漏了一笔"
+  ///
+  /// 太小吃笔画末端的采样抖动会误报，太大又会漏掉细小笔画。
+  static const double _missingBlobRatio = 0.03;
 
-  /// 区域内被描到的比例低于此值，判定为"这一片还没写到"
-  static const double _regionCoveredRatio = 0.3;
+  /// 覆盖率到 minCoverage 的这个比例后，才把漏掉的笔画标成暖色
+  ///
+  /// 描一半就给满屏橙色，孩子会以为画布被涂坏了。
+  static const double _highlightCoverageFactor = 0.8;
 
   /// 滚轮信号之后的冷却时间
   ///
@@ -94,15 +103,6 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
   /// 已覆盖的采样点索引
   final Set<int> _coveredPoints = {};
-
-  /// 采样点所属区域下标（-1 表示未归属）
-  List<int> _regionOfPoint = const [];
-
-  /// 每个区域内的采样点总数
-  List<int> _regionTotals = const [];
-
-  /// 每个区域内已被描到的采样点数
-  List<int> _regionCovered = const [];
 
   /// 当前活动点（用于连续绘制）
   ui.Offset? _activePoint;
@@ -269,24 +269,6 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   void _setSamples(List<ui.Offset> samples) {
     _samplePoints = samples;
     _coveredPoints.clear();
-
-    final regionCount = _regionGrid * _regionGrid;
-    _regionOfPoint = List<int>.filled(samples.length, -1);
-    _regionTotals = List<int>.filled(regionCount, 0);
-    _regionCovered = List<int>.filled(regionCount, 0);
-
-    for (var i = 0; i < samples.length; i++) {
-      final point = samples[i];
-      final cx = (point.dx / _canvasSize * _regionGrid)
-          .floor()
-          .clamp(0, _regionGrid - 1);
-      final cy = (point.dy / _canvasSize * _regionGrid)
-          .floor()
-          .clamp(0, _regionGrid - 1);
-      final region = cy * _regionGrid + cx;
-      _regionOfPoint[i] = region;
-      _regionTotals[region] += 1;
-    }
   }
 
   /// 采样点变化后重算已有笔画的覆盖情况
@@ -303,33 +285,83 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
         : _coveredPoints.length / _samplePoints.length;
   }
 
-  /// 还没描到的区域数量
-  int get _missingRegions {
-    var missing = 0;
-    for (var i = 0; i < _regionTotals.length; i++) {
-      final total = _regionTotals[i];
-      if (total < _regionMinSamples) continue;
-      if (_regionCovered[i] / total < _regionCoveredRatio) missing++;
-    }
-    return missing;
-  }
+  /// 还没描到的笔画数量（未覆盖墨迹的连通块）
+  int get _missingStrokes => _analyzeMissingInk().blobCount;
 
-  /// 还没描到的区域矩形（把漏掉的笔画标成暖色用）
-  List<ui.Rect> get _pendingRegionRects {
-    const cell = _canvasSize / _regionGrid;
-    final rects = <ui.Rect>[];
-    for (var i = 0; i < _regionTotals.length; i++) {
-      final total = _regionTotals[i];
-      if (total < _regionMinSamples) continue;
-      if (_regionCovered[i] / total >= _regionCoveredRatio) continue;
-      rects.add(ui.Rect.fromLTWH(
-        (i % _regionGrid) * cell,
-        (i ~/ _regionGrid) * cell,
-        cell,
-        cell,
-      ));
+  /// 分析未覆盖的墨迹
+  ///
+  /// 把未覆盖采样点按 [_missingCellSize] 的细格聚成连通块：
+  /// - [blobCount]：面积明显的缺失块数量，对应"还差几笔"
+  /// - [largestRatio]：最大缺失块占全部墨迹的比例
+  /// - [highlight]：需要标暖色的采样点（只取明显缺失块里的点）
+  _MissingInk _analyzeMissingInk({bool withHighlight = false}) {
+    if (_samplePoints.isEmpty) return _MissingInk.empty;
+
+    final cells = (_canvasSize / _missingCellSize).ceil();
+    final counts = List<int>.filled(cells * cells, 0);
+
+    for (var i = 0; i < _samplePoints.length; i++) {
+      if (_coveredPoints.contains(i)) continue;
+      final point = _samplePoints[i];
+      final cx = (point.dx / _missingCellSize).floor().clamp(0, cells - 1);
+      final cy = (point.dy / _missingCellSize).floor().clamp(0, cells - 1);
+      counts[cy * cells + cx] += 1;
     }
-    return rects;
+
+    final visited = List<bool>.filled(cells * cells, false);
+    final highlighted = List<bool>.filled(cells * cells, false);
+    final total = _samplePoints.length;
+    var blobCount = 0;
+    var largestRatio = 0.0;
+
+    for (var start = 0; start < counts.length; start++) {
+      if (visited[start] || counts[start] == 0) continue;
+
+      final queue = <int>[start];
+      visited[start] = true;
+      final members = <int>[];
+      var area = 0;
+
+      while (queue.isNotEmpty) {
+        final cell = queue.removeLast();
+        members.add(cell);
+        area += counts[cell];
+
+        final x = cell % cells;
+        final y = cell ~/ cells;
+        for (var d = 0; d < 4; d++) {
+          final nx = d == 0 ? x + 1 : (d == 1 ? x - 1 : x);
+          final ny = d == 2 ? y + 1 : (d == 3 ? y - 1 : y);
+          if (nx < 0 || ny < 0 || nx >= cells || ny >= cells) continue;
+          final next = ny * cells + nx;
+          if (visited[next] || counts[next] == 0) continue;
+          visited[next] = true;
+          queue.add(next);
+        }
+      }
+
+      final ratio = area / total;
+      if (ratio < _missingBlobRatio) continue;
+
+      blobCount += 1;
+      if (ratio > largestRatio) largestRatio = ratio;
+      for (final cell in members) {
+        highlighted[cell] = true;
+      }
+    }
+
+    final highlight = <ui.Offset>[];
+    if (withHighlight && blobCount > 0) {
+      for (var i = 0; i < _samplePoints.length; i++) {
+        if (_coveredPoints.contains(i)) continue;
+        final point = _samplePoints[i];
+        final cx = (point.dx / _missingCellSize).floor().clamp(0, cells - 1);
+        final cy = (point.dy / _missingCellSize).floor().clamp(0, cells - 1);
+        if (highlighted[cy * cells + cx]) highlight.add(point);
+      }
+    }
+
+    return _MissingInk(blobCount, largestRatio, highlight);
   }
 
   /// 重来当前字
@@ -440,17 +472,16 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     final text = _currentText;
     if (text.isEmpty) return;
 
-    // 兜底：离屏渲染在某些平台（如部分 web 后端）可能迟迟不返回或抛错，
-    // 超过 400ms 还没拿到布局就退化为「估算布局 + 包围盒采样」，
-    // 保证描红始终可用，不会出现"有格子但没有字」的状态。
+    // 兜底：离屏渲染在某些平台可能迟迟不返回或抛错，超过 800ms 还没拿到
+    // 布局就退化为「估算布局 + 包围盒采样」，保证描红始终可用。
+    // 真布局随后到达时由 _applyGuide 把已画的墨迹一起搬过去，不会错位。
     _guideWatchdog?.cancel();
-    _guideWatchdog = Timer(const Duration(milliseconds: 400), () {
+    _guideWatchdog = Timer(const Duration(milliseconds: 800), () {
       if (!mounted || gen != _guideGeneration) return;
       if (_guideLayout != null) return;
       final layout = _fallbackLayout(text);
       setState(() {
-        _guideLayout = layout;
-        if (!_stepSolved) _applySamples(_fallbackSampling(layout, text));
+        _applyGuide(layout, _fallbackSampling(layout, text));
       });
     });
 
@@ -459,9 +490,39 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     if (!mounted || gen != _guideGeneration) return;
 
     setState(() {
-      _guideLayout = guide.layout;
-      if (!_stepSolved) _applySamples(guide.samples);
+      _applyGuide(guide.layout, guide.samples);
     });
+  }
+
+  /// 应用参考字布局与采样点
+  ///
+  /// 参考字是异步渲染的，可能在已经落笔后才换成更准确的布局。这时如果把
+  /// 新布局直接铺上去，字会"跳"一下，之前描的笔画就全部错位、覆盖率凭空
+  /// 掉下去（截图里"描了半天只有 46%"就是这个问题）。所以布局变化时把
+  /// 已有笔画按同样的缩放/平移搬过去，让墨迹始终贴在字形上。
+  void _applyGuide(_GlyphLayout layout, List<ui.Offset> samples) {
+    final previous = _guideLayout;
+    _guideLayout = layout;
+
+    if (previous != null &&
+        previous.fontSize > 0 &&
+        layout.fontSize > 0 &&
+        (_segments.isNotEmpty || _activePoint != null)) {
+      final scale = layout.fontSize / previous.fontSize;
+      final shift = (layout.offset - previous.offset).distance;
+      if ((scale - 1).abs() > 0.01 || shift > 0.5) {
+        ui.Offset map(ui.Offset point) =>
+            layout.offset + (point - previous.offset) * scale;
+        for (var i = 0; i < _segments.length; i++) {
+          final segment = _segments[i];
+          _segments[i] = _Segment(map(segment.start), map(segment.end));
+        }
+        final active = _activePoint;
+        if (active != null) _activePoint = map(active);
+      }
+    }
+
+    if (!_stepSolved) _applySamples(samples);
   }
 
   /// 构建字形参考：按真实墨迹计算字号/偏移，并按像素采样覆盖点
@@ -745,12 +806,12 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
 
     if (rejected || _stepSolved) return;
 
-    final missing = _missingRegions;
+    final missing = _missingStrokes;
     final String? hint;
     if (_coverage < widget.minCoverage) {
       hint = '继续沿着浅色字形描一描，尽量把笔画都盖到。';
     } else if (missing > 0) {
-      hint = '还有 $missing 处没描到，橙色笔画就是漏掉的，补上就完成了。';
+      hint = '还有 $missing 笔没描到，暖色就是漏掉的笔画，补上就完成了。';
     } else {
       hint = null;
     }
@@ -838,12 +899,13 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
         : Duration.zero;
     if (stamp > Duration.zero) _strokeLastStamp = stamp;
 
-    // ① 落笔后不到 25ms 就窜出 24px 以上：注入事件的典型特征
+    // ① 落笔后第一帧就窜出 18px 以上：注入事件的典型特征
+    //（人手从静止起步，第一帧位移一定很小）
     if (_strokeMoveCount == 1 &&
         _hasStrokeClock &&
         dt > Duration.zero &&
         dt < const Duration(milliseconds: 25) &&
-        distance > 24) {
+        distance > 18) {
       _sigInstantStart = true;
     }
 
@@ -886,22 +948,28 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     }
   }
 
-  /// 命中足够多的机器特征才判定为伪输入
+  /// 判定当前笔画是不是注入的滑动
   ///
-  /// 单看某一项都可能误伤真实书写（比如认真写一竖确实是直的），
-  /// 所以要求"直线 + 匀速 + 超快/超长"这类组合同时成立；
-  /// 另外没有事件时间信息时（测试环境等）一律不做猜测。
+  /// 之前只要"笔直 + 匀速 + 快"三项成立就回滚，结果真实书写的横画（鼠标
+  /// 拖得笔直、匀速、又快）被当成滚轮整笔删掉，覆盖率凭空掉了。
+  ///
+  /// 现在只有两种组合才回滚，而且都必须"完全没碰到字形"：
+  /// 1. 从静止瞬间窜出 + 绝对笔直 + 超人手速度（注入事件的典型组合，
+  ///    人手从静止起步不可能第一帧就飞出去）；
+  /// 2. 匀速 + 绝对笔直 + 超快/超长（模拟器插值出来的滑动）。
+  ///
+  /// 只要笔画落在字形墨迹上，就一定是孩子在写，一律不回滚——
+  /// 之前少了这条限制，鼠标拖出来的笔直横画被当成滚轮整笔删掉，
+  /// 覆盖率凭空掉下去，孩子还以为自己写错了。
   bool _shouldRejectStroke() {
-    if (!_hasStrokeClock) return false;
+    if (!_hasStrokeClock || _strokeMoveCount < 3) return false;
+    if (!_sigOffInk) return false;
 
-    var hits = 0;
-    if (_sigInstantStart) hits++;
-    if (_sigStraightAxis) hits++;
-    if (_sigUniformStep) hits++;
-    if (_sigTooFast) hits++;
-    if (_sigLongStraight) hits++;
-    if (_sigOffInk) hits++;
-    return hits >= 3;
+    if (_sigInstantStart && _sigStraightAxis && _sigTooFast) return true;
+    if (_sigStraightAxis && _sigUniformStep && (_sigTooFast || _sigLongStraight)) {
+      return true;
+    }
+    return false;
   }
 
   String _signalSummary() {
@@ -960,12 +1028,12 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     var touchesInk = false;
     for (var i = 0; i < _samplePoints.length; i++) {
       final distance = _distanceToSegment(_samplePoints[i], segment);
-      if (distance <= _coverageTolerance * 1.6) touchesInk = true;
+      // "碰到墨迹"与"算作覆盖"用同一把尺子：能盖住采样点就是写在字上，
+      // 否则再多留一圈容差会把画布边缘也算成字，伪滑动就判不出来了。
+      if (distance <= _coverageTolerance) touchesInk = true;
       if (distance > _coverageTolerance) continue;
       if (_coveredPoints.contains(i)) continue;
       _coveredPoints.add(i);
-      final region = _regionOfPoint[i];
-      if (region >= 0) _regionCovered[region] += 1;
       added = true;
     }
 
@@ -998,15 +1066,15 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     }
     if (_coverage < widget.minCoverage) return;
 
-    // 整体占比够了还不够：逐块检查，漏掉的笔画所在区域必须也被描到，
+    // 整体占比够了还不够：漏掉的整笔必须也描到，
     // 否则会出现"还差一两笔就提示完成"的情况。
-    final missing = _missingRegions;
+    final missing = _missingStrokes;
     if (missing == 0) {
       _finishStep();
       return;
     }
 
-    final hint = '还有 $missing 处没描到，橙色笔画就是漏掉的，补上就完成了。';
+    final hint = '还有 $missing 笔没描到，暖色就是漏掉的笔画，补上就完成了。';
     if (_warning != hint) {
       setState(() => _warning = hint);
     }
@@ -1147,12 +1215,15 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
     );
   }
 
-  /// 需要标暖色的区域：只在快描完时才提示，避免一落笔满屏橙色
-  List<ui.Rect> get _pendingRegionsForPaint {
+  /// 需要标暖色的采样点：只在快描完时才提示，避免描一半满屏橙色
+  List<ui.Offset> get _highlightPointsForPaint {
     if (_stepSolved) return const [];
     if (widget.minCoverage <= 0) return const [];
-    if (_coverage < widget.minCoverage * 0.55) return const [];
-    return _pendingRegionRects;
+    if (_coverage < widget.minCoverage * _highlightCoverageFactor) return const [];
+
+    final missing = _analyzeMissingInk(withHighlight: true);
+    if (missing.blobCount == 0) return const [];
+    return missing.highlight;
   }
 
   Widget _buildCanvasSurface() {
@@ -1192,7 +1263,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
                   canvasSize: _canvasSize,
                   guideText: _currentText,
                   guideLayout: _guideLayout,
-                  pendingRegions: _pendingRegionsForPaint,
+                  highlightPoints: _highlightPointsForPaint,
                 ),
                 size: const Size(_canvasSize, _canvasSize),
               ),
@@ -1226,7 +1297,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
   Widget _buildStatus() {
     final message = _statusMessage();
     final percent = (_coverage * 100).round();
-    final missing = _stepSolved ? 0 : _missingRegions;
+    final missing = _stepSolved ? 0 : _missingStrokes;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1274,7 +1345,7 @@ class _TracePathCanvasState extends State<TracePathCanvas> {
             if (missing > 0 && !_stepSolved) ...[
               const SizedBox(width: 8),
               Text(
-                '还缺 $missing 处',
+                '还差 $missing 笔没描到',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1424,6 +1495,22 @@ class _InkScan {
   });
 }
 
+/// 未覆盖墨迹的统计结果
+class _MissingInk {
+  /// 面积明显的缺失块数量（对应"还差几笔"）
+  final int blobCount;
+
+  /// 最大缺失块占全部墨迹的比例
+  final double largestRatio;
+
+  /// 需要标暖色的采样点
+  final List<ui.Offset> highlight;
+
+  const _MissingInk(this.blobCount, this.largestRatio, this.highlight);
+
+  static const _MissingInk empty = _MissingInk(0, 0.0, <ui.Offset>[]);
+}
+
 /// 参考字数据
 class _GuideData {
   final _GlyphLayout layout;
@@ -1439,8 +1526,8 @@ class _TracePathPainter extends CustomPainter {
   final String guideText;
   final _GlyphLayout? guideLayout;
 
-  /// 还没描到的区域：把这些区域里的参考字标成暖色，提示"这几笔还没写"
-  final List<ui.Rect> pendingRegions;
+  /// 漏掉的笔画：这些采样点上的参考字标成暖色，提示"这几笔还没写"
+  final List<ui.Offset> highlightPoints;
 
   _TracePathPainter({
     required this.target,
@@ -1448,7 +1535,7 @@ class _TracePathPainter extends CustomPainter {
     required this.canvasSize,
     required this.guideText,
     required this.guideLayout,
-    this.pendingRegions = const [],
+    this.highlightPoints = const [],
   });
 
   @override
@@ -1508,9 +1595,22 @@ class _TracePathPainter extends CustomPainter {
     }
   }
 
-  /// 把还没描到的区域里的参考笔画标成暖色
+  /// 把漏掉的笔画标成暖色
+  ///
+  /// 用"未覆盖采样点"拼出遮罩，暖色只覆盖真正没描到的墨迹，
+  /// 所以看起来是笔画本身变了颜色，而不是整格方块。
   void _drawPendingHint(Canvas canvas, _GlyphLayout layout) {
-    if (pendingRegions.isEmpty || guideText.isEmpty) return;
+    if (highlightPoints.isEmpty || guideText.isEmpty) return;
+
+    final mask = ui.Path();
+    const half = 3.5;
+    for (final point in highlightPoints) {
+      mask.addRect(ui.Rect.fromCenter(
+        center: point,
+        width: half * 2,
+        height: half * 2,
+      ));
+    }
 
     final hintPainter = TextPainter(
       text: TextSpan(
@@ -1518,19 +1618,17 @@ class _TracePathPainter extends CustomPainter {
         style: TextStyle(
           fontSize: layout.fontSize,
           fontWeight: FontWeight.w900,
-          color: const ui.Color(0xFFF59E0B),
+          color: const ui.Color(0xFFF59E0B).withValues(alpha: 0.6),
         ),
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
 
-    for (final rect in pendingRegions) {
-      canvas.save();
-      canvas.clipRect(rect);
-      hintPainter.paint(canvas, layout.offset);
-      canvas.restore();
-    }
+    canvas.save();
+    canvas.clipPath(mask);
+    hintPainter.paint(canvas, layout.offset);
+    canvas.restore();
   }
 
   /// 绘制米字格
@@ -1583,7 +1681,7 @@ class _TracePathPainter extends CustomPainter {
         canvasSize != oldDelegate.canvasSize ||
         guideText != oldDelegate.guideText ||
         guideLayout != oldDelegate.guideLayout ||
-        pendingRegions.length != oldDelegate.pendingRegions.length ||
+        highlightPoints.length != oldDelegate.highlightPoints.length ||
         !identical(target, oldDelegate.target);
   }
 }

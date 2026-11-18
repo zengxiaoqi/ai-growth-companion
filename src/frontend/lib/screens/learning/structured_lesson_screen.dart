@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
@@ -2993,17 +2994,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
 
       setState(() => _isInitialized = true);
 
-      // Listen for playback completion
-      _controller!.addListener(() {
-        if (!mounted) return;
-        final position = _controller!.value.position;
-        final duration = _controller!.value.duration;
-        if (position >= duration &&
-            duration > Duration.zero &&
-            !_hasCompleted) {
-          _hasCompleted = true;
-        }
-      });
+      _controller!.addListener(_onControllerUpdate);
 
       // Auto-play
       _controller!.play();
@@ -3018,8 +3009,62 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
 
   @override
   void dispose() {
+    _controller?.removeListener(_onControllerUpdate);
     _controller?.dispose();
     super.dispose();
+  }
+
+  /// 播放状态每次变化都刷新 UI，否则进度条/时间/按钮图标全部停在初始帧
+  void _onControllerUpdate() {
+    if (!mounted) return;
+    final value = _controller!.value;
+    if (!_hasCompleted &&
+        value.duration > Duration.zero &&
+        value.position >= value.duration) {
+      _hasCompleted = true;
+    }
+    setState(() {});
+  }
+
+  bool get _isEnded {
+    final value = _controller!.value;
+    return value.duration > Duration.zero &&
+        value.position >= value.duration &&
+        !value.isPlaying;
+  }
+
+  void _togglePlayPause() {
+    final controller = _controller!;
+    if (_isEnded) {
+      controller.seekTo(Duration.zero);
+      controller.play();
+    } else if (controller.value.isPlaying) {
+      controller.pause();
+    } else {
+      controller.play();
+    }
+  }
+
+  void _seekBy(Duration delta) {
+    final controller = _controller!;
+    final target = controller.value.position + delta;
+    controller.seekTo(target < Duration.zero
+        ? Duration.zero
+        : target > controller.value.duration
+            ? controller.value.duration
+            : target);
+  }
+
+  void _enterFullscreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FullscreenVideoPage(
+          controller: _controller!,
+          restoreOrientation: MediaQuery.orientationOf(context),
+        ),
+      ),
+    );
   }
 
   @override
@@ -3049,13 +3094,9 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
       return _buildWebVideo();
     }
 
-    final position = _controller!.value.position;
-    final duration = _controller!.value.duration;
     final isPlaying = _controller!.value.isPlaying;
     final isBuffering = _controller!.value.isBuffering;
-    final progress = duration > Duration.zero
-        ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
+    final aspectRatio = _controller!.value.aspectRatio;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3064,70 +3105,61 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
         ClipRRect(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           child: AspectRatio(
-            aspectRatio: _controller!.value.aspectRatio,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                VideoPlayer(_controller!),
-                // Play/pause overlay
-                if (!isPlaying && !isBuffering)
+            aspectRatio: aspectRatio > 0 ? aspectRatio : 16 / 9,
+            child: ColoredBox(
+              color: Colors.black,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
                   GestureDetector(
-                    onTap: () => _controller!.play(),
-                    child: Container(
-                      color: Colors.black26,
-                      child: const Icon(
-                        Icons.play_circle_fill_rounded,
-                        size: 64,
-                        color: Colors.white70,
+                    onTap: _togglePlayPause,
+                    child: VideoPlayer(_controller!),
+                  ),
+                  // Paused / ended overlay
+                  if (!isPlaying && !isBuffering)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: ColoredBox(
+                          color: Colors.black26,
+                          child: Center(
+                            child: Icon(
+                              _isEnded
+                                  ? Icons.replay_rounded
+                                  : Icons.play_circle_fill_rounded,
+                              size: 64,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                  // Buffering indicator
+                  if (isBuffering)
+                    const CircularProgressIndicator(color: Colors.white70),
+                  // Fullscreen button
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.fullscreen_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      tooltip: '全屏播放',
+                      onPressed: _enterFullscreen,
+                    ),
                   ),
-                // Buffering indicator
-                if (isBuffering)
-                  const Center(
-                    child: CircularProgressIndicator(color: Colors.white70),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
 
         const SizedBox(height: 12),
 
-        // Progress bar
-        Row(
-          children: [
-            Text(
-              _formatDuration(position),
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            ),
-            Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 4,
-                  thumbShape:
-                      const RoundSliderThumbShape(enabledThumbRadius: 6),
-                  activeTrackColor: AppTheme.primaryColor,
-                  inactiveTrackColor: AppTheme.active.isDarkSurface
-                      ? AppTheme.active.line
-                      : Colors.grey.shade200,
-                  thumbColor: AppTheme.primaryColor,
-                ),
-                child: Slider(
-                  value: progress,
-                  onChanged: (value) {
-                    final targetMs = (value * duration.inMilliseconds).round();
-                    _controller!.seekTo(Duration(milliseconds: targetMs));
-                  },
-                ),
-              ),
-            ),
-            Text(
-              _formatDuration(duration),
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
+        // Progress bar（可拖动定位）
+        _VideoSeekBar(controller: _controller!),
 
         const SizedBox(height: 8),
 
@@ -3138,12 +3170,7 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
             // Rewind 10s
             IconButton(
               icon: const Icon(Icons.replay_10_rounded),
-              onPressed: () {
-                final newPos = position - const Duration(seconds: 10);
-                _controller!.seekTo(
-                  newPos < Duration.zero ? Duration.zero : newPos,
-                );
-              },
+              onPressed: () => _seekBy(const Duration(seconds: -10)),
               tooltip: '后退10秒',
               color: AppTheme.primaryColor,
             ),
@@ -3159,24 +3186,13 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
                   color: AppTheme.active.onPrimary,
                   size: 28,
                 ),
-                onPressed: () {
-                  if (isPlaying) {
-                    _controller!.pause();
-                  } else {
-                    _controller!.play();
-                  }
-                },
+                onPressed: _togglePlayPause,
               ),
             ),
             // Forward 10s
             IconButton(
               icon: const Icon(Icons.forward_10_rounded),
-              onPressed: () {
-                final newPos = position + const Duration(seconds: 10);
-                _controller!.seekTo(
-                  newPos > duration ? duration : newPos,
-                );
-              },
+              onPressed: () => _seekBy(const Duration(seconds: 10)),
               tooltip: '快进10秒',
               color: AppTheme.primaryColor,
             ),
@@ -3292,9 +3308,353 @@ class _LessonVideoPlayerState extends State<LessonVideoPlayer> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+}
+
+// ─── 视频进度条（可拖动定位）────────────────────────────────────────────
+
+/// 独立监听 controller 的进度条：拖动时显示目标位置，松手才 seek，
+/// 播放中时间标签与滑块随播放实时前进。
+class _VideoSeekBar extends StatefulWidget {
+  final VideoPlayerController controller;
+  final bool onDark;
+
+  const _VideoSeekBar({required this.controller, this.onDark = false});
+
+  @override
+  State<_VideoSeekBar> createState() => _VideoSeekBarState();
+}
+
+class _VideoSeekBarState extends State<_VideoSeekBar> {
+  double? _dragValueMs;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onUpdate);
+  }
+
+  @override
+  void didUpdateWidget(_VideoSeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onUpdate);
+      widget.controller.addListener(_onUpdate);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onUpdate);
+    super.dispose();
+  }
+
+  void _onUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  String _format(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = widget.controller.value;
+    final totalMs = value.duration.inMilliseconds;
+    final positionMs = _dragValueMs ??
+        value.position.inMilliseconds
+            .toDouble()
+            .clamp(0.0, totalMs.toDouble())
+            .toDouble();
+    final sliderValue =
+        totalMs > 0 ? (positionMs / totalMs).clamp(0.0, 1.0).toDouble() : 0.0;
+
+    final activeColor = widget.onDark ? Colors.white : AppTheme.primaryColor;
+    final inactiveColor = widget.onDark
+        ? Colors.white24
+        : AppTheme.active.isDarkSurface
+            ? AppTheme.active.line
+            : Colors.grey.shade300;
+    final labelColor = widget.onDark ? Colors.white70 : AppTheme.textSecondary;
+    final labelStyle = TextStyle(fontSize: 12, color: labelColor);
+
+    return Row(
+      children: [
+        Text(
+          _format(Duration(milliseconds: positionMs.round())),
+          style: labelStyle,
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              activeTrackColor: activeColor,
+              inactiveTrackColor: inactiveColor,
+              thumbColor: activeColor,
+              overlayColor: activeColor.withValues(alpha: 0.15),
+            ),
+            child: Slider(
+              value: sliderValue,
+              onChanged: totalMs > 0
+                  ? (v) => setState(() => _dragValueMs = v * totalMs)
+                  : null,
+              onChangeStart: (_) => setState(() => _dragValueMs =
+                  value.position.inMilliseconds.toDouble()),
+              onChangeEnd: (v) {
+                widget.controller.seekTo(
+                  Duration(milliseconds: (v * totalMs).round()),
+                );
+                setState(() => _dragValueMs = null);
+              },
+            ),
+          ),
+        ),
+        Text(_format(value.duration), style: labelStyle),
+      ],
+    );
+  }
+}
+
+// ─── 全屏播放页 ─────────────────────────────────────────────────────────
+
+/// 横屏全屏播放：复用同一个 controller，进出全屏不中断播放。
+/// 点击画面显示/隐藏控制层，播放中 3 秒无操作自动隐藏。
+class _FullscreenVideoPage extends StatefulWidget {
+  final VideoPlayerController controller;
+  final Orientation restoreOrientation;
+
+  const _FullscreenVideoPage({
+    required this.controller,
+    required this.restoreOrientation,
+  });
+
+  @override
+  State<_FullscreenVideoPage> createState() => _FullscreenVideoPageState();
+}
+
+class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
+  bool _controlsVisible = true;
+  Timer? _hideTimer;
+
+  /// 退出全屏时先锁回进入前的方向，再交还系统：部分设备（模拟器）的
+  /// 传感器在旋转后停留在横屏，直接放开会卡在横屏；而一直锁死又会
+  /// 废掉自动旋转。世代号保证重进全屏时旧的交还定时器失效。
+  static int _orientGen = 0;
+  int _gen = 0;
+
+  VideoPlayerController get _controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _gen = ++_orientGen;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    _controller.addListener(_onUpdate);
+    _scheduleHide();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _controller.removeListener(_onUpdate);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations(
+      widget.restoreOrientation == Orientation.landscape
+          ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+          : [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
+    );
+    final gen = _gen;
+    Timer(const Duration(seconds: 1), () {
+      if (gen == _orientGen) SystemChrome.setPreferredOrientations([]);
+    });
+    super.dispose();
+  }
+
+  void _onUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _isEnded {
+    final value = _controller.value;
+    return value.duration > Duration.zero &&
+        value.position >= value.duration &&
+        !value.isPlaying;
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    if (_controller.value.isPlaying) {
+      _hideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _controlsVisible = false);
+      });
+    }
+  }
+
+  void _toggleControls() {
+    setState(() => _controlsVisible = !_controlsVisible);
+    if (_controlsVisible) _scheduleHide();
+  }
+
+  void _togglePlayPause() {
+    if (_isEnded) {
+      _controller.seekTo(Duration.zero);
+      _controller.play();
+    } else if (_controller.value.isPlaying) {
+      _controller.pause();
+    } else {
+      _controller.play();
+    }
+    setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  void _seekBy(Duration delta) {
+    final target = _controller.value.position + delta;
+    _controller.seekTo(target < Duration.zero
+        ? Duration.zero
+        : target > _controller.value.duration
+            ? _controller.value.duration
+            : target);
+    setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _controller.value;
+    final aspect = value.aspectRatio;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggleControls,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Center(
+              child: aspect > 0
+                  ? AspectRatio(
+                      aspectRatio: aspect,
+                      child: VideoPlayer(_controller),
+                    )
+                  : VideoPlayer(_controller),
+            ),
+            if (value.isBuffering)
+              const Center(
+                child: CircularProgressIndicator(color: Colors.white70),
+              ),
+            if (!value.isPlaying && !value.isBuffering)
+              Center(
+                child: IconButton(
+                  iconSize: 72,
+                  icon: Icon(
+                    _isEnded
+                        ? Icons.replay_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: Colors.white70,
+                  ),
+                  onPressed: _togglePlayPause,
+                ),
+              ),
+            // 控制层
+            IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black54,
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black87,
+                      ],
+                      stops: [0, 0.25, 0.6, 1],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.fullscreen_exit_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                            tooltip: '退出全屏',
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                        const Spacer(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _VideoSeekBar(
+                            controller: _controller,
+                            onDark: true,
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.replay_10_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              tooltip: '后退10秒',
+                              onPressed: () =>
+                                  _seekBy(const Duration(seconds: -10)),
+                            ),
+                            const SizedBox(width: 24),
+                            IconButton(
+                              icon: Icon(
+                                value.isPlaying
+                                    ? Icons.pause_circle_filled_rounded
+                                    : Icons.play_circle_fill_rounded,
+                                color: Colors.white,
+                                size: 52,
+                              ),
+                              tooltip: value.isPlaying ? '暂停' : '播放',
+                              onPressed: _togglePlayPause,
+                            ),
+                            const SizedBox(width: 24),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.forward_10_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              tooltip: '快进10秒',
+                              onPressed: () =>
+                                  _seekBy(const Duration(seconds: 10)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

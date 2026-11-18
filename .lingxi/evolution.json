@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-11-18",
-  "analysis_count": 177,
-  "commit_count": 790,
-  "last_commit": "2026-11-17T02:30:00+08:00",
-  "remote_head": "7d7ab99",
-  "commits_ahead_remote": 0,
+  "last_analysis": "2026-11-19",
+  "analysis_count": 178,
+  "commit_count": 791,
+  "last_commit": "2026-11-18T02:06:06+08:00",
+  "remote_head": "7772fed",
+  "commits_ahead_remote": 1,
   "uncommitted_files": [],
   "stale_days": 0,
   "capabilities": {
@@ -12,7 +12,7 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 99,
-    "code_quality": 99
+    "code_quality": 98
   },
   "active_plans": [],
   "completed_actions": [
@@ -25,17 +25,23 @@
     "pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
     "Flutter build freshness check must account for post-build-web.sh cleaning old version files — keep latest 2 versions only.",
     "Prettier formatting should be run proactively after any commit that touches TS files — 81 errors accumulated from multi-commit style drift.",
-    "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns instead."
+    "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns instead.",
+    "Test failures can occur from stale mock expectations when feature scope expands (e.g., CASUAL_TOOL_CATALOG gains new entries like playMusic)."
   ],
   "metrics": {
-    "backend_files": 193,
-    "backend_test_files": 38,
-    "flutter_files": 63,
-    "web_files": 97,
-    "content_files": 46,
-    "total_lines": 12200,
+    "backend_files": 320,
+    "backend_test_files": 120,
+    "flutter_files": 142,
+    "web_files": 121,
+    "content_files": 54,
+    "total_lines": 6377,
     "uploads_size_mb": 832,
     "voice_unit_tests": 39,
-    "reward_unit_tests": 89
+    "reward_unit_tests": 89,
+    "total_tests": 1760,
+    "tests_passed": 1759,
+    "tests_failed": 1,
+    "flutter_issues": 13,
+    "flutter_build_version": "v1787475201"
   }
 }

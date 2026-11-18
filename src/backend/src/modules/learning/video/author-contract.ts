@@ -45,6 +45,9 @@ export type AuthorScene = {
   overlaySrcs?: string[];
   /** sceneGraph 节点 id → 图标素材（public 相对路径） */
   graphIcons?: Record<string, string>;
+  /** 部位讲解场景：服务层从标题/旁白推导。存在时必须用 ./part-focus 的
+   * PartFocusStage 渲染（组件自带角色几何与放大裁剪，保证放大区域==部位）。 */
+  partFocus?: { subject: string; part: string; callout?: string };
 };
 
 export type AuthorLessonProps = {
@@ -92,6 +95,7 @@ export type AuthorScene = {
   backgroundSrc?: string;
   overlaySrcs?: string[];
   graphIcons?: Record<string, string>;
+  partFocus?: { subject: string; part: string; callout?: string };
 };
 
 export type AuthorLessonProps = {
@@ -158,6 +162,141 @@ export const swellScale = (progress01: number, direction: "grow" | "shrink"): nu
   direction === "grow" ? 1 + 0.28 * clamp01(progress01) : 1 - 0.28 * clamp01(progress01);
 `;
 
+/** 预置进任务目录的 part-focus.tsx：部位讲解的"正确即构造"组件。
+ * 角色几何与放大镜裁剪共用同一张 CAT_PARTS 坐标表与同一个 CatFigure，
+ * 放大区域必然等于被讲部位——作者只传 part/callout，无法再画错裁剪。
+ * 未知部位退化为整只角色居中（不给出误导性的局部裁剪）。 */
+export const AUTHOR_PART_FOCUS_TSX = `import React, { useId } from "react";
+import { ageAmplitude, progress, springEnter } from "./motion-helpers";
+
+type Part = { cx: number; cy: number; r: number };
+
+/** 猫角色坐标表（CatFigure 的 400×440 空间）。左卡与放大镜共用，单一真源。 */
+const CAT_PARTS: Record<string, Part> = {
+  头: { cx: 200, cy: 185, r: 150 },
+  眼睛: { cx: 200, cy: 168, r: 88 },
+  鼻子: { cx: 200, cy: 236, r: 48 },
+  耳朵: { cx: 200, cy: 78, r: 122 },
+  胡须: { cx: 200, cy: 252, r: 122 },
+  嘴巴: { cx: 200, cy: 268, r: 54 },
+  尾巴: { cx: 320, cy: 330, r: 96 },
+  条纹: { cx: 200, cy: 360, r: 122 },
+  爪子: { cx: 200, cy: 408, r: 92 },
+};
+
+const resolvePart = (part: string): Part => {
+  const key = Object.keys(CAT_PARTS).find((k) => part.includes(k));
+  return key ? CAT_PARTS[key] : { cx: 200, cy: 220, r: 210 };
+};
+
+/** 纯 SVG 猫角色（400×440 坐标），左卡与放大镜裁剪复用同一份。 */
+const CatFigure: React.FC = () => (
+  <g>
+    <path d="M310 340 q70 -10 62 -78 q-4 -34 -34 -40" fill="none" stroke="#F6A94E" strokeWidth="26" strokeLinecap="round" />
+    <ellipse cx="200" cy="360" rx="118" ry="68" fill="#F6A94E" stroke="#7A4A1F" strokeWidth="6" />
+    <path d="M150 312 q6 26 0 44 M185 306 q6 30 0 52 M220 306 q6 30 0 52 M252 312 q6 26 0 44" fill="none" stroke="#D3883E" strokeWidth="9" strokeLinecap="round" />
+    <ellipse cx="160" cy="408" rx="30" ry="17" fill="#F6A94E" stroke="#7A4A1F" strokeWidth="5" />
+    <ellipse cx="240" cy="408" rx="30" ry="17" fill="#F6A94E" stroke="#7A4A1F" strokeWidth="5" />
+    <path d="M120 122 L92 30 L178 74 Z" fill="#F6A94E" stroke="#7A4A1F" strokeWidth="6" strokeLinejoin="round" />
+    <path d="M124 104 L108 52 L160 78 Z" fill="#F7BFC6" />
+    <path d="M280 122 L308 30 L222 74 Z" fill="#F6A94E" stroke="#7A4A1F" strokeWidth="6" strokeLinejoin="round" />
+    <path d="M276 104 L292 52 L240 78 Z" fill="#F7BFC6" />
+    <circle cx="200" cy="185" r="148" fill="#FBF3DC" stroke="#C9BFA8" strokeWidth="5" />
+    <path d="M170 52 q4 20 0 40 M200 46 q4 22 0 44 M230 52 q4 20 0 40" fill="none" stroke="#E8D9B8" strokeWidth="7" strokeLinecap="round" />
+    <ellipse cx="150" cy="168" rx="27" ry="35" fill="#FFFFFF" stroke="#4A3B2A" strokeWidth="5" />
+    <ellipse cx="150" cy="170" rx="13" ry="25" fill="#35C46B" />
+    <ellipse cx="150" cy="172" rx="5" ry="16" fill="#1E5B36" />
+    <circle cx="145" cy="158" r="6" fill="#FFFFFF" />
+    <ellipse cx="250" cy="168" rx="27" ry="35" fill="#FFFFFF" stroke="#4A3B2A" strokeWidth="5" />
+    <ellipse cx="250" cy="170" rx="13" ry="25" fill="#35C46B" />
+    <ellipse cx="250" cy="172" rx="5" ry="16" fill="#1E5B36" />
+    <circle cx="245" cy="158" r="6" fill="#FFFFFF" />
+    <path d="M182 228 L218 228 L200 250 Z" fill="#F26D9C" stroke="#7A4A1F" strokeWidth="4" strokeLinejoin="round" />
+    <path d="M200 250 q0 12 -14 15 M200 250 q0 12 14 15" fill="none" stroke="#7A4A1F" strokeWidth="4" strokeLinecap="round" />
+    <path d="M62 236 L120 244 M62 260 L120 258 M338 236 L280 244 M338 260 L280 258" fill="none" stroke="#C9BFA8" strokeWidth="4" strokeLinecap="round" />
+  </g>
+);
+
+export type PartFocusProps = {
+  frame: number;
+  fps: number;
+  part: string;
+  callout: string;
+  accent: string;
+  ageGroup: string;
+};
+
+const CARD = { x: 110, y: 170, w: 760, h: 760 };
+const MAG = { cx: 1360, cy: 250, r: 150 };
+const CALL = { x: 1180, y: 430, w: 640, h: 240 };
+const S = 1.5;
+const OX = CARD.x + (CARD.w - 400 * S) / 2;
+const OY = CARD.y + (CARD.h - 440 * S) / 2;
+
+const wrap = (text: string, n: number): string[] => {
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += n) out.push(text.slice(i, i + n));
+  return out.length ? out : [""];
+};
+
+/** 部位讲解舞台：左卡角色+虚线焦点圈，右上放大镜（裁剪==部位），右下讲解卡。
+ * frame 传场景局部帧。标题/背景/进度条由作者的场景外壳负责。 */
+export const PartFocusStage: React.FC<PartFocusProps> = ({ frame, fps, part, callout, accent, ageGroup }) => {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const p = resolvePart(part);
+  const amp = ageAmplitude(ageGroup);
+  const cardK = springEnter(frame, 0, fps, "pop");
+  const magK = springEnter(frame, 10, fps, "pop");
+  const callK = springEnter(frame, 18, fps, "pop");
+  const guideO = progress(frame, 12, 26);
+  const breath = 1 + 0.04 * amp * Math.sin(frame / 5.7);
+  const px = OX + S * p.cx;
+  const py = OY + S * p.cy;
+  const zoom = ((MAG.r * 0.82) / p.r) * (1 + 0.03 * amp * Math.sin(frame / 6));
+  const ccx = CARD.x + CARD.w / 2;
+  const ccy = CARD.y + CARD.h / 2;
+  const lines = wrap(callout, 13);
+  const clipId = "mag-" + uid;
+  return (
+    <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+      <defs>
+        <clipPath id={clipId}>
+          <circle cx={MAG.cx} cy={MAG.cy} r={MAG.r - 7} />
+        </clipPath>
+      </defs>
+      <g opacity={cardK} transform={"translate(" + ccx + " " + ccy + ") scale(" + cardK + ") translate(" + -ccx + " " + -ccy + ")"}>
+        <rect x={CARD.x} y={CARD.y} width={CARD.w} height={CARD.h} rx="40" fill="#FFFFFF" opacity="0.92" />
+        <g transform={"translate(" + OX + " " + OY + ") scale(" + S + ")"}>
+          <CatFigure />
+        </g>
+      </g>
+      <g opacity={guideO}>
+        <path d={"M" + px + " " + py + " Q " + (px + MAG.cx) / 2 + " " + (py - 60) + " " + MAG.cx + " " + MAG.cy} fill="none" stroke={accent} strokeWidth="6" strokeDasharray="14 12" strokeLinecap="round" />
+        <circle cx={px} cy={py} r="12" fill={accent} />
+        <circle cx={px} cy={py} r={S * p.r * 0.95 * breath} fill="none" stroke="#35C4E0" strokeWidth="7" strokeDasharray="20 14" strokeLinecap="round" />
+      </g>
+      <g opacity={magK} transform={"translate(" + MAG.cx + " " + MAG.cy + ") scale(" + magK + ") translate(" + -MAG.cx + " " + -MAG.cy + ")"}>
+        <g clipPath={"url(#" + clipId + ")"}>
+          <circle cx={MAG.cx} cy={MAG.cy} r={MAG.r} fill="#FFFFFF" />
+          <g transform={"translate(" + MAG.cx + " " + MAG.cy + ") scale(" + zoom + ") translate(" + -p.cx + " " + -p.cy + ")"}>
+            <CatFigure />
+          </g>
+        </g>
+        <circle cx={MAG.cx} cy={MAG.cy} r={MAG.r} fill="none" stroke={accent} strokeWidth="9" />
+      </g>
+      <g opacity={callK} transform={"translate(" + (CALL.x + CALL.w / 2) + " " + (CALL.y + CALL.h / 2) + ") scale(" + callK + ") translate(" + -(CALL.x + CALL.w / 2) + " " + -(CALL.y + CALL.h / 2) + ")"}>
+        <rect x={CALL.x} y={CALL.y} width={CALL.w} height={CALL.h} rx="28" fill="#FFFFFF" stroke={accent} strokeWidth="6" />
+        <rect x={CALL.x + 28} y={CALL.y - 26} width={part.length * 44 + 40} height="56" rx="28" fill={accent} />
+        <text x={CALL.x + 48} y={CALL.y + 14} fontSize="38" fontWeight="700" fill="#FFFFFF" fontFamily="sans-serif">{part}</text>
+        {lines.map((ln, i) => (
+          <text key={i} x={CALL.x + 40} y={CALL.y + 88 + i * 56} fontSize="40" fontWeight="600" fill="#203040" fontFamily="sans-serif">{ln}</text>
+        ))}
+      </g>
+    </svg>
+  );
+};
+`;
+
 export const AUTHOR_INDEX_TS = `import { registerRoot } from "remotion";
 import { RemotionRoot } from "./Root";
 
@@ -207,7 +346,7 @@ const FORBIDDEN: Array<[RegExp, string]> = [
   [/from\s+["'](fs|child_process|net|http|https|os|path|node:[a-z_]+)["']/, 'node builtin import'],
 ];
 
-const ALLOWED_IMPORT = /^(react|react\/[a-z-]+|remotion|\.\/contract|\.\/motion-helpers)$/;
+const ALLOWED_IMPORT = /^(react|react\/[a-z-]+|remotion|\.\/contract|\.\/motion-helpers|\.\/part-focus)$/;
 
 /** 剥离注释与单/双引号字符串内容（保留模板字面量——${} 里可能是真代码）。
  * 禁项检查只应落在真实代码上：注释里的 "document"/"window" 曾让 task 15 反复
@@ -244,7 +383,7 @@ export function validateAuthorSource(source: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = importRe.exec(source))) {
     if (!ALLOWED_IMPORT.test(m[1])) {
-      errors.push(`import not allowed: ${m[1]} (only react / remotion / ./contract / ./motion-helpers)`);
+      errors.push(`import not allowed: ${m[1]} (only react / remotion / ./contract / ./motion-helpers / ./part-focus)`);
     }
   }
   // 入场/退场禁用线性缓动（skill 硬规则里唯一可静态强制的一条）。连续运动

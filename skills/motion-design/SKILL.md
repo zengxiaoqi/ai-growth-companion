@@ -62,6 +62,26 @@ Helpers are optional, not mandatory: bespoke motion the helpers don't cover
 `interpolate`/`spring` following the recipes below. Preferring helpers shrinks
 the code you must write and keeps the common cases on tuned parameters.
 
+## Part-focus (magnifier) scenes — use the preset, never hand-roll the crop
+
+When a scene carries `partFocus` (`{subject, part, callout}`), it is a
+part-explanation beat ("now look at the cat's **eyes**"). Render it with the
+preset component, which owns the character geometry AND the magnifier crop from
+one shared coordinate table — so the zoomed region always equals the spoken part:
+
+```tsx
+import { PartFocusStage } from "./part-focus";
+<PartFocusStage frame={localFrame} fps={fps} part={scene.partFocus.part}
+  callout={scene.partFocus.callout ?? scene.onScreenText}
+  accent={scene.accentColor} ageGroup={ageGroup} />
+```
+
+Do NOT draw your own character + magnifier clip for these scenes: a hand-written
+crop transform is exactly how eyes/nose scenes ended up zoomed on the ear. The
+preset guarantees alignment by construction; you only add the scene shell
+(background, title, progress band, narration audio). Unknown parts degrade to a
+whole-character view, never a misleading partial crop.
+
 ## Easing and anticipation recipes
 
 - Entrances: spring or cubic-bezier(0.22, 1, 0.36, 1) (ease-out-quint). Never linear —

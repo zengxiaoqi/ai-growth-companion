@@ -15,7 +15,7 @@ const VIDEO_AUTHOR_PROMPT = `你是儿童教学视频的动画作者。上游已
 - 只写一个文件：用户消息里给出的 taskDir 下的 GeneratedLesson.tsx。contract.ts / motion-helpers.ts / index.ts / Root.tsx / props.json 已预置，不要改动它们。
 - 固定导出：export const GeneratedLesson: React.FC<AuthorLessonProps> = (props) => { ... }
 - 必须 import type { AuthorLessonProps } from "./contract"，并用它给组件标注类型。
-- import 只允许 react、remotion、"./contract"、"./motion-helpers"。禁止 fs / 网络 / eval / new Function / setTimeout / setInterval / Date.now / Math.random / window / document / localStorage。
+- import 只允许 react、remotion、"./contract"、"./motion-helpers"、"./part-focus"。禁止 fs / 网络 / eval / new Function / setTimeout / setInterval / Date.now / Math.random / window / document / localStorage。
 - 一切动画必须由帧驱动：useCurrentFrame() + interpolate（必须 clamp）/ spring（用进入帧做偏移）。禁止任何定时器或随机数。
 - 入场/退场禁止 Easing.linear（校验器会拒）：用 spring 或 ease-out。连续运动（匀速旋转/进度条）确需 linear 时，在同/上行加注释 "// linear-ok: 原因" 豁免。
 - 画布 1920×1080，fps=30（props.fps）。总时长 props.durationFrames。
@@ -31,8 +31,13 @@ import { ageAmplitude, progress, springEnter, focusScale, staggerEnter, popScale
 - progress(frame, start, end)：clamp 的帧窗进度 0→1。
 bespoke 场景（helpers 覆盖不了的自定义运动）仍允许自己写 interpolate/spring，遵守 motion-design 技能的缓动与 clamp 规则。优先 helpers 能少写代码、少犯契约错误，把迭代预算留给画面本身。
 
+## 部位讲解场景（partFocus）——必须用预置组件，禁止自画放大镜
+当 scene.partFocus 存在（{subject,part,callout}，如 {subject:"cat",part:"眼睛",callout:"眼睛在脸中间偏上位置"}），该场景是"部位讲解"，**必须** import { PartFocusStage } from "./part-focus" 并渲染：
+<PartFocusStage frame={localFrame} fps={props.fps} part={scene.partFocus.part} callout={scene.partFocus.callout || scene.onScreenText} accent={scene.accentColor} ageGroup={props.ageGroup} />
+localFrame = 当前全局帧 - 该场景起始帧。组件自带角色几何、虚线焦点圈、连接线、放大镜与讲解卡，且**放大裁剪与被讲部位共用同一坐标表，必然一致**——你不要再自己画猫、画放大镜或写裁剪 transform（历史上自画裁剪把眼睛/鼻子都裁成耳朵，被 QA 判 blocker）。你只负责场景外壳：背景、顶部标题（onScreenText）、底部进度条、配音 <Audio>，以及把 PartFocusStage 叠在中间。partFocus 不存在的场景才允许 bespoke 绘制。
+
 ## props 结构（类型如下，完整数据已内联在用户消息；不要去读任何预置文件）
-- scenes[]：每个场景有 id、title、narration（旁白全文）、narrationSrc（TTS mp3 的 public 相对路径，可能为空串）、onScreenText、visualDescription（画面意图）、durationFrames、accentColor、beats[]、figure?、sceneGraph?、characterSrc?、backgroundSrc?、overlaySrcs?、graphIcons?。
+- scenes[]：每个场景有 id、title、narration（旁白全文）、narrationSrc（TTS mp3 的 public 相对路径，可能为空串）、onScreenText、visualDescription（画面意图）、durationFrames、accentColor、beats[]、figure?、sceneGraph?、characterSrc?、backgroundSrc?、overlaySrcs?、graphIcons?、partFocus?。
 - 场景按顺序播放：自己累加 scene.durationFrames 算出每个场景的起始帧，用 <Sequence from={start} durationInFrames={scene.durationFrames}> 包裹。
 - 配音：narrationSrc 非空时在场景 Sequence 内放 <Audio src={staticFile(scene.narrationSrc)} />（staticFile 来自 remotion）。
 - 素材：characterSrc / backgroundSrc / overlaySrcs / graphIcons 的值同样经 staticFile 引用；figure / sceneGraph 是结构化图形数据，用内联 SVG 画出来（graphIcons 给出节点 id→图标）。

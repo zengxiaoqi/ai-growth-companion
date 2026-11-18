@@ -26,6 +26,7 @@ import {
   AUTHOR_CONTRACT_TS,
   AUTHOR_INDEX_TS,
   AUTHOR_MOTION_HELPERS_TS,
+  AUTHOR_PART_FOCUS_TSX,
   buildAuthorRootTsx,
   validateAuthorTaskDir,
   type AuthorLessonProps,
@@ -94,6 +95,7 @@ export class AgentRemotionService {
       const props = await this.buildProps(task, payload, storyboard, publicTaskDir, publicTaskRel);
       await fs.writeFile(path.join(taskDir, 'contract.ts'), AUTHOR_CONTRACT_TS, 'utf-8');
       await fs.writeFile(path.join(taskDir, 'motion-helpers.ts'), AUTHOR_MOTION_HELPERS_TS, 'utf-8');
+      await fs.writeFile(path.join(taskDir, 'part-focus.tsx'), AUTHOR_PART_FOCUS_TSX, 'utf-8');
       await fs.writeFile(path.join(taskDir, 'index.ts'), AUTHOR_INDEX_TS, 'utf-8');
       await fs.writeFile(
         path.join(taskDir, 'Root.tsx'),
@@ -227,6 +229,7 @@ export class AgentRemotionService {
           ? s.visualAssets.overlayAssetSrc
           : undefined,
         graphIcons: s.graphIcons && Object.keys(s.graphIcons).length ? s.graphIcons : undefined,
+        partFocus: this.derivePartFocus(String(s.title || ''), narration, String(payload?.topic || '')),
       });
     }
 
@@ -243,6 +246,25 @@ export class AgentRemotionService {
         : '#E8F8FF',
       scenes,
     };
+  }
+
+  /** 部位讲解场景推导：仅猫主题且标题点名某部位时产出 partFocus，
+   * 交给预置 PartFocusStage 保证放大区域==部位。intro/summary 不点名部位→不产出。 */
+  private derivePartFocus(
+    title: string,
+    narration: string,
+    topic: string,
+  ): { subject: string; part: string; callout?: string } | undefined {
+    if (!/猫/.test(title) && !/猫/.test(topic)) return undefined;
+    if (!/讲解|认识|学习/.test(title)) return undefined;
+    const parts = ['眼睛', '鼻子', '耳朵', '胡须', '嘴巴', '尾巴', '爪子', '条纹', '头'];
+    const part = parts.find((p) => title.includes(p));
+    if (!part) return undefined;
+    const callout = narration
+      .split(/。/)
+      .map((s) => s.trim())
+      .find((s) => s.includes(part) && s.length >= 6 && !/^(现在|请你|跟我|跟老师)/.test(s));
+    return { subject: 'cat', part, callout: callout || undefined };
   }
 
   /** 创作 agent 主循环：authoring 模型覆盖 + 硬超时（abort）+ 终态 JSON 校验。 */

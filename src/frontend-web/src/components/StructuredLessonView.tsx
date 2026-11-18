@@ -9,6 +9,7 @@ import type {
   StructuredLessonStep,
   LessonProgress,
   ActivityResult,
+  ReadAloudEvaluation,
 } from '@/types';
 import GameRenderer from './games/GameRenderer';
 import { Button, Card } from './ui';
@@ -321,6 +322,7 @@ export default function StructuredLessonView({
             step={currentStep}
             contentId={contentId}
             childId={childId}
+            ageGroup={lesson?.ageGroup}
             isCompleting={isCompleting}
             onComplete={handleCompleteStep}
             isCompleted={completedSteps.has(currentStep.id)}
@@ -384,6 +386,7 @@ interface StepContentProps {
   step: StructuredLessonStep;
   contentId: number;
   childId?: number;
+  ageGroup?: '3-4' | '5-6';
   isCompleting: boolean;
   onComplete: (score?: number, interactionData?: Record<string, any>) => void;
   isCompleted: boolean;
@@ -393,6 +396,7 @@ function StepContent({
   step,
   contentId,
   childId,
+  ageGroup,
   isCompleting,
   onComplete,
   isCompleted,
@@ -427,7 +431,12 @@ function StepContent({
           />
         )}
         {m.type === 'reading' && (
-          <ReadStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
+          <ReadStep
+            module={m}
+            ageGroup={ageGroup}
+            onComplete={onComplete}
+            isCompleted={isCompleted}
+          />
         )}
         {m.type === 'writing' && (
           <WriteStep module={m} onComplete={onComplete} isCompleted={isCompleted} />
@@ -948,59 +957,524 @@ function LegacyFallbackCards({
 
 // ─── Read Step ──────────────────────────────────────────────────────────
 
+interface ReadingCard {
+  sentence: string;
+  emoji: string;
+  discover: string;
+}
+
+interface ReadingQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explain: string;
+}
+
+const SENTENCE_EMOJI: [string, string][] = [
+  ['猫', '🐱'], ['狗', '🐶'], ['鸟', '🐦'], ['燕', '🐦'], ['鱼', '🐟'],
+  ['兔', '🐰'], ['鸭', '🦆'], ['太阳', '☀️'], ['白天', '☀️'], ['月亮', '🌙'],
+  ['晚上', '🌙'], ['星', '⭐'], ['花', '🌸'], ['树', '🌳'], ['森林', '🌳'],
+  ['雨', '🌧️'], ['彩虹', '🌈'], ['圆', '🔵'], ['方', '🟦'], ['尖', '🔺'],
+  ['尾巴', '🐾'], ['耳朵', '👂'], ['眼睛', '👀'], ['条纹', '🐯'],
+  ['妈妈', '❤️'], ['爱', '❤️'], ['春天', '🌱'], ['雪', '⛄'],
+];
+
+function pickSentenceEmoji(sentence: string): string {
+  for (const [kw, emoji] of SENTENCE_EMOJI) {
+    if (sentence.includes(kw)) return emoji;
+  }
+  return '📖';
+}
+
+function splitReadSentences(text: string): string[] {
+  return (text.match(/[^。！？!?\n]+[。！？!?]?/g) || [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function deriveReadingCards(reading: any): ReadingCard[] {
+  const fallbackDiscover = '找一找，句子里藏着什么小秘密？';
+  if (Array.isArray(reading.cards) && reading.cards.length >= 2) {
+    return reading.cards
+      .filter((c: any) => c && typeof c.sentence === 'string' && c.sentence.trim())
+      .slice(0, 6)
+      .map((c: any) => ({
+        sentence: c.sentence.trim(),
+        emoji: typeof c.emoji === 'string' && c.emoji ? c.emoji : pickSentenceEmoji(c.sentence),
+        discover: typeof c.discover === 'string' && c.discover ? c.discover : fallbackDiscover,
+      }));
+  }
+  return splitReadSentences(reading.text || '')
+    .slice(0, 6)
+    .map((sentence) => ({
+      sentence,
+      emoji: pickSentenceEmoji(sentence),
+      discover: fallbackDiscover,
+    }));
+}
+
+function normalizeReadingQuestions(raw: any): ReadingQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((q: any): ReadingQuestion | null => {
+      if (typeof q === 'string' && q.trim()) {
+        return { question: q.trim(), options: [], correctIndex: 0, explain: '' };
+      }
+      if (q && typeof q.question === 'string' && q.question.trim()) {
+        const options = (Array.isArray(q.options) ? q.options : [])
+          .filter((o: any) => typeof o === 'string' && o.trim())
+          .slice(0, 4);
+        const idx = Number.isInteger(q.correctIndex) ? q.correctIndex : 0;
+        return {
+          question: q.question.trim(),
+          options,
+          correctIndex: options.length > 1 ? Math.max(0, Math.min(idx, options.length - 1)) : 0,
+          explain: typeof q.explain === 'string' ? q.explain : '',
+        };
+      }
+      return null;
+    })
+    .filter((q: ReadingQuestion | null): q is ReadingQuestion => q !== null)
+    .slice(0, 3);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function speakZh(text: string) {
+  if (!text || typeof window === 'undefined' || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+  utterance.rate = 0.85;
+  window.speechSynthesis.speak(utterance);
+}
+
+function SentenceText({
+  sentence,
+  keywords,
+  onTapKeyword,
+}: {
+  sentence: string;
+  keywords: string[];
+  onTapKeyword: (kw: string) => void;
+}) {
+  const present = keywords.filter((k) => k && sentence.includes(k));
+  if (present.length === 0) return <>{sentence}</>;
+  const re = new RegExp(`(${present.map(escapeRegExp).join('|')})`, 'g');
+  return (
+    <>
+      {sentence.split(re).map((part, i) =>
+        present.includes(part) ? (
+          <button
+            key={i}
+            type="button"
+            className="font-bold text-primary underline decoration-dotted"
+            onClick={() => onTapKeyword(part)}
+          >
+            {part}
+          </button>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function ReadStep({
   module: m,
+  ageGroup,
   onComplete,
   isCompleted,
 }: {
   module: any;
-  onComplete: (score?: number) => void;
+  ageGroup?: '3-4' | '5-6';
+  onComplete: (score?: number, data?: Record<string, any>) => void;
   isCompleted: boolean;
 }) {
   const reading = m.reading || {};
-  const keywords: string[] = reading.keywords || [];
+  const keywords: string[] = Array.isArray(reading.keywords) ? reading.keywords : [];
+  const cards = useMemo(() => deriveReadingCards(reading), [reading]);
+  const questions = useMemo(() => normalizeReadingQuestions(reading.questions), [reading]);
+
+  const [quizCorrect, setQuizCorrect] = useState<number[]>([]);
+  const [quizWrong, setQuizWrong] = useState<Record<number, number[]>>({});
+  const [results, setResults] = useState<Record<number, ReadAloudEvaluation>>({});
+  const [practiced, setPracticed] = useState<number[]>([]);
+  const [listeningIdx, setListeningIdx] = useState<number | null>(null);
+  const [evaluatingIdx, setEvaluatingIdx] = useState<number | null>(null);
+  const [interim, setInterim] = useState('');
+  const [unsupported, setUnsupported] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+  const recRef = useRef<any>(null);
+  const startedAtRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      const rec = recRef.current;
+      if (rec) {
+        rec.onend = null;
+        rec.onerror = null;
+        try { rec.abort(); } catch { /* noop */ }
+      }
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  const stopRecognition = () => {
+    const rec = recRef.current;
+    if (rec) {
+      rec.onend = null;
+      rec.onerror = null;
+      try { rec.abort(); } catch { /* noop */ }
+      recRef.current = null;
+    }
+    setListeningIdx(null);
+    setInterim('');
+  };
+
+  const startReadAloud = (idx: number, sentence: string) => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setUnsupported(true);
+      return;
+    }
+    stopRecognition();
+    window.speechSynthesis?.cancel();
+    setHint(null);
+
+    const rec = new SR();
+    rec.lang = 'zh-CN';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    let finalText = '';
+    let denied = false;
+
+    rec.onresult = (e: any) => {
+      let interimText = '';
+      for (let i = e.resultIndex; i < e.results.length; i += 1) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interimText += r[0].transcript;
+      }
+      setInterim((finalText + interimText).trim());
+    };
+    rec.onerror = (e: any) => {
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        denied = true;
+        setUnsupported(true);
+        setHint(null);
+      } else {
+        setHint('没听清声音，再试一次吧。');
+      }
+    };
+    rec.onend = async () => {
+      recRef.current = null;
+      setListeningIdx(null);
+      setInterim('');
+      const text = finalText.trim();
+      if (!text) {
+        if (!denied) setHint('没听到你读，再大声读一遍吧。');
+        return;
+      }
+      setEvaluatingIdx(idx);
+      try {
+        const ev = await api.evaluateReadAloud({
+          targetText: sentence,
+          recognizedText: text,
+          ageGroup,
+          durationMs: Date.now() - startedAtRef.current,
+        });
+        setResults((prev) => ({ ...prev, [idx]: ev }));
+        if (ev.feedbackAudio) {
+          try {
+            new Audio(`data:audio/mpeg;base64,${ev.feedbackAudio}`).play().catch(() => {});
+          } catch { /* noop */ }
+        }
+      } catch {
+        setHint('评分没连上服务器，再试一次吧。');
+      } finally {
+        setEvaluatingIdx(null);
+      }
+    };
+
+    recRef.current = rec;
+    startedAtRef.current = Date.now();
+    setListeningIdx(idx);
+    try {
+      rec.start();
+    } catch {
+      setHint('语音识别启动失败，先听示范跟读吧。');
+      setListeningIdx(null);
+      recRef.current = null;
+    }
+  };
+
+  const answerQuiz = (qIdx: number, optIdx: number, q: ReadingQuestion) => {
+    if (quizCorrect.includes(qIdx)) return;
+    if (optIdx === q.correctIndex) {
+      setQuizCorrect((prev) => [...prev, qIdx]);
+      speakZh(`答对啦！${q.explain}`);
+    } else {
+      setQuizWrong((prev) => ({
+        ...prev,
+        [qIdx]: [...(prev[qIdx] || []), optIdx],
+      }));
+      speakZh('再想一想？');
+    }
+  };
+
+  const choiceQuestions = questions.filter((q) => q.options.length >= 2);
+  const starsList = Object.values(results).map((r) => r.stars);
+  const quizPart = choiceQuestions.length
+    ? Math.round((15 * quizCorrect.length) / choiceQuestions.length)
+    : 0;
+  const readPart = starsList.length
+    ? Math.round((10 * (starsList.reduce<number>((a, b) => a + b, 0) / starsList.length)) / 3)
+    : practiced.length > 0
+      ? 5
+      : 0;
+  const score = Math.min(100, 75 + quizPart + readPart);
 
   return (
     <div className="space-y-3">
-      {reading.goal && <p className="text-sm text-on-surface-variant">目标: {reading.goal}</p>}
+      {reading.goal && (
+        <div className="rounded-xl bg-primary-container/30 p-3 text-sm text-on-surface">
+          🎯 {reading.goal}
+        </div>
+      )}
 
-      <Card className="p-4">
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">
-          {reading.text || '暂无阅读内容'}
-        </p>
-      </Card>
+      {cards.length === 0 && (
+        <Card className="p-4">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">
+            {reading.text || '暂无阅读内容'}
+          </p>
+        </Card>
+      )}
+
+      {cards.map((card, idx) => {
+        const result = results[idx];
+        const isListening = listeningIdx === idx;
+        const isEvaluating = evaluatingIdx === idx;
+        return (
+          <Card key={idx} className="space-y-2 p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-4xl leading-none">{card.emoji}</span>
+              <p className="flex-1 text-base leading-relaxed text-on-surface">
+                <SentenceText
+                  sentence={card.sentence}
+                  keywords={keywords}
+                  onTapKeyword={speakZh}
+                />
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="text-left text-xs text-secondary hover:underline"
+              onClick={() => speakZh(card.discover)}
+            >
+              💡 {card.discover}
+            </button>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" onClick={() => speakZh(card.sentence)}>
+                <Volume2 className="mr-1 h-4 w-4" /> 听一听
+              </Button>
+              {!unsupported && !isListening && !isEvaluating && (
+                <Button variant="secondary" size="sm" onClick={() => startReadAloud(idx, card.sentence)}>
+                  🎤 我来读
+                </Button>
+              )}
+              {isListening && (
+                <Button variant="secondary" size="sm" onClick={stopRecognition}>
+                  读完了
+                </Button>
+              )}
+            </div>
+
+            {isListening && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                <span className="animate-pulse text-lg">🎤</span>
+                <span>正在听你读…</span>
+                {interim && <span className="text-on-surface-variant">{interim}</span>}
+              </div>
+            )}
+            {isEvaluating && (
+              <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+                <Loader2 className="h-4 w-4 animate-spin" /> 正在评分…
+              </div>
+            )}
+
+            {result && (
+              <div className="space-y-2 rounded-lg bg-surface-variant/30 p-3">
+                <div className="flex items-center gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        'h-5 w-5',
+                        i < result.stars
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-outline-variant/40',
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="text-lg leading-relaxed">
+                  {result.chars.map((c, i) => (
+                    <span
+                      key={i}
+                      className={
+                        c.status === 'read'
+                          ? 'font-medium text-green-600'
+                          : 'text-orange-600 underline decoration-wavy'
+                      }
+                    >
+                      {c.char}
+                    </span>
+                  ))}
+                </p>
+                <p className="text-sm text-on-surface">{result.feedback}</p>
+                {result.fluencyNote && (
+                  <p className="text-xs text-on-surface-variant">⏱ {result.fluencyNote}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => speakZh(card.sentence)}>
+                    <Volume2 className="mr-1 h-4 w-4" /> 听示范
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => startReadAloud(idx, card.sentence)}>
+                    再读一次
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {unsupported && !result && (
+              <div className="space-y-2 rounded-lg bg-surface-variant/30 p-3">
+                <p className="text-xs text-on-surface-variant">
+                  这台设备暂时不支持语音识别，没法逐字评分。先听示范，再大声跟读一遍吧！
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => speakZh(card.sentence)}>
+                    <Volume2 className="mr-1 h-4 w-4" /> 听示范
+                  </Button>
+                  {!practiced.includes(idx) && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setPracticed((prev) => [...prev, idx])}
+                    >
+                      我读完了
+                    </Button>
+                  )}
+                  {practiced.includes(idx) && (
+                    <span className="flex items-center gap-1 text-sm text-primary">
+                      <CheckCircle className="h-4 w-4" /> 跟读完成
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+
+      {hint && <p className="text-xs text-orange-600">{hint}</p>}
 
       {keywords.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-on-surface-variant">关键词:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-on-surface-variant">点一点，听发音:</span>
           {keywords.map((kw, i) => (
-            <span
+            <button
               key={i}
-              className="rounded-full bg-secondary-container/20 px-2 py-0.5 text-xs font-medium text-secondary"
+              type="button"
+              className="rounded-full bg-secondary-container/20 px-2 py-0.5 text-xs font-medium text-secondary hover:bg-secondary-container/40"
+              onClick={() => speakZh(kw)}
             >
               {kw}
-            </span>
+            </button>
           ))}
         </div>
       )}
 
-      {reading.questions?.length > 0 && (
-        <Card className="p-4">
-          <p className="mb-2 text-sm font-medium text-on-surface">理解问题:</p>
-          <ul className="space-y-1">
-            {reading.questions.map((q: string, i: number) => (
-              <li key={i} className="text-sm text-on-surface-variant">
-                {i + 1}. {q}
-              </li>
-            ))}
-          </ul>
+      {questions.length > 0 && (
+        <Card className="space-y-3 p-4">
+          <p className="text-sm font-medium text-on-surface">理解小问题:</p>
+          {questions.map((q, qIdx) => {
+            const answered = quizCorrect.includes(qIdx);
+            const wrongOpts = quizWrong[qIdx] || [];
+            if (q.options.length < 2) {
+              return (
+                <div key={qIdx} className="flex items-center gap-2">
+                  <p className="flex-1 text-sm text-on-surface-variant">
+                    {qIdx + 1}. {q.question}
+                  </p>
+                  <Button variant="secondary" size="sm" onClick={() => speakZh(q.question)}>
+                    说一说
+                  </Button>
+                </div>
+              );
+            }
+            return (
+              <div key={qIdx} className="space-y-2">
+                <p className="text-sm text-on-surface">
+                  {qIdx + 1}. {q.question}
+                </p>
+                <div className="grid gap-2">
+                  {q.options.map((opt, optIdx) => {
+                    const isCorrect = answered && optIdx === q.correctIndex;
+                    const isWrong = wrongOpts.includes(optIdx);
+                    return (
+                      <button
+                        key={optIdx}
+                        type="button"
+                        disabled={answered}
+                        className={cn(
+                          'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                          isCorrect
+                            ? 'border-green-500 bg-green-50 font-medium text-green-700'
+                            : isWrong
+                              ? 'border-orange-400 bg-orange-50 text-orange-600'
+                              : 'border-outline-variant/40 text-on-surface hover:bg-surface-variant/40',
+                          answered && !isCorrect && 'opacity-60',
+                        )}
+                        onClick={() => answerQuiz(qIdx, optIdx, q)}
+                      >
+                        {opt}
+                        {isCorrect && ' ✓'}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answered && q.explain && (
+                  <p className="text-xs text-green-700">💡 {q.explain}</p>
+                )}
+              </div>
+            );
+          })}
         </Card>
       )}
 
       {!isCompleted && (
-        <Button className="w-full" onClick={() => onComplete(85)}>
+        <Button
+          className="w-full"
+          onClick={() =>
+            onComplete(score, {
+              readCards: cards.length,
+              readAloud: {
+                attempts: Object.keys(results).length + practiced.length,
+                stars: starsList,
+              },
+              quiz: { correct: quizCorrect.length, total: choiceQuestions.length },
+            })
+          }
+        >
           <Check className="mr-2 h-4 w-4" />
-          读完了，进入下一步
+          完成了，进入下一步
         </Button>
       )}
       {isCompleted && (

@@ -1,11 +1,15 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Res, BadRequestException } from '@nestjs/common';
 import { Response } from 'express';
 import { VoiceService } from './voice.service';
+import { ReadAloudService } from './read-aloud.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @Controller('voice')
 export class VoiceController {
-  constructor(private readonly voiceService: VoiceService) {}
+  constructor(
+    private readonly voiceService: VoiceService,
+    private readonly readAloudService: ReadAloudService,
+  ) {}
 
   /**
    * 文字转语音 - 返回 MP3 音频流
@@ -27,6 +31,27 @@ export class VoiceController {
     res.setHeader('Content-Length', audioBuffer.length);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(audioBuffer);
+  }
+
+  /**
+   * 跟读评估：设备端/浏览器识别出的文本与目标句对齐打分。
+   * 评分与识别来源解耦，任何 STT 来源都可接入。
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('read-aloud/evaluate')
+  async evaluateReadAloud(
+    @Body()
+    body: {
+      targetText: string;
+      recognizedText?: string;
+      ageGroup?: string;
+      durationMs?: number;
+    },
+  ) {
+    if (!body?.targetText) {
+      throw new BadRequestException('targetText is required');
+    }
+    return this.readAloudService.evaluate(body);
   }
 
   /**

@@ -680,6 +680,27 @@ class ApiService {
     });
   }
 
+  /// 跟读评估：识别文本与目标句字级对齐打分（星级/逐字反馈/鼓励语音）
+  Future<ApiResult<Map<String, dynamic>>> evaluateReadAloud({
+    required String targetText,
+    required String recognizedText,
+    String? ageGroup,
+    int? durationMs,
+  }) {
+    return _wrapRequest(() async {
+      final response = await _dio.post(
+        '/voice/read-aloud/evaluate',
+        data: {
+          'targetText': targetText,
+          'recognizedText': recognizedText,
+          if (ageGroup != null) 'ageGroup': ageGroup,
+          if (durationMs != null) 'durationMs': durationMs,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    });
+  }
+
   Future<Map<String, dynamic>?> completeLessonStep({
     required int contentId,
     required String stepId,

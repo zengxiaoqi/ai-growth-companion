@@ -22,6 +22,7 @@ import 'experiment_step_player.dart';
 import 'roleplay_step_player.dart';
 import 'trace_path_canvas.dart';
 import 'lesson_scene_models.dart';
+import 'read_step_content.dart';
 
 final _log = AppLogger('StructuredLessonScreen');
 
@@ -133,6 +134,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Map<String, dynamic>? _content;
   String _lessonTitle = '课程';
   String _ageGroup = '';
+  String _domain = 'language';
   List<_LessonStep> _steps = const [];
   _LessonProgress _progress = const _LessonProgress(completedSteps: {});
 
@@ -218,6 +220,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             content['age_range']?.toString() ??
             content['ageRange']?.toString() ??
             '';
+        _domain = parsed?['domain']?.toString() ?? 'language';
         _steps = steps;
         _progress = progress;
         _currentStepIndex = startIndex;
@@ -515,7 +518,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             reading['text']?.toString() ?? module['content']?.toString() ?? '';
         final questions = reading['questions'] is List
             ? (reading['questions'] as List)
-                .map((e) => e?.toString() ?? '')
+                .map((e) => (e is Map ? e['question'] : e)?.toString() ?? '')
                 .where((e) => e.isNotEmpty)
                 .toList()
             : <String>[];
@@ -1630,144 +1633,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         ? (module['reading'] as Map).map((k, v) => MapEntry(k.toString(), v))
         : <String, dynamic>{};
 
-    final text =
-        reading['text']?.toString() ?? module['content']?.toString() ?? '';
-    final goal = reading['goal']?.toString() ?? '';
-    final keywords = reading['keywords'] is List
-        ? (reading['keywords'] as List)
-            .map((e) => e?.toString() ?? '')
-            .where((e) => e.isNotEmpty)
-            .toList()
-        : <String>[];
-    final questions = reading['questions'] is List
-        ? (reading['questions'] as List)
-            .map((e) => e?.toString() ?? '')
-            .where((e) => e.isNotEmpty)
-            .toList()
-        : <String>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 学习目标
-        if (goal.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.secondaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.flag_rounded,
-                    size: 18, color: AppTheme.secondaryColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '目标: $goal',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        if (goal.isNotEmpty) const SizedBox(height: 12),
-
-        // 阅读内容卡片
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.active.card,
-            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            boxShadow: AppTheme.softShadow(),
-          ),
-          child: Text(
-            text.isNotEmpty ? text : '暂无阅读内容',
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.8,
-              color: AppTheme.textColor,
-            ),
-          ),
-        ),
-
-        // 关键词
-        if (keywords.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              Text(
-                '关键词:',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-              ),
-              ...keywords.map((kw) => Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      kw,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.secondaryColor,
-                      ),
-                    ),
-                  )),
-            ],
-          ),
-        ],
-
-        // 理解问题
-        if (questions.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.active.card,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              boxShadow: AppTheme.softShadow(),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '理解问题:',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...questions.asMap().entries.map((entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        '${entry.key + 1}. ${entry.value}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    )),
-              ],
-            ),
-          ),
-        ],
-
-        // 完成按钮
-        const SizedBox(height: 16),
-        _buildCompleteButton(isCompleted, defaultScore: 85),
-      ],
+    return ReadStepContent(
+      reading: reading,
+      ageGroup: _ageGroup,
+      domain: _domain,
+      isCompleted: isCompleted,
+      onComplete: (score, data) =>
+          _completeStep(score: score, interactionData: data),
     );
   }
 

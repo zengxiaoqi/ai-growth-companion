@@ -70,7 +70,16 @@ export function collectTeachingText(coursePack: Record<string, any>): string[] {
     if (t) texts.push(t);
   };
   push(modules?.reading?.text);
-  toStringArray(modules?.reading?.questions).forEach(push);
+  (Array.isArray(modules?.reading?.cards) ? modules.reading.cards : []).forEach((c: any) => {
+    push(c?.sentence);
+    push(c?.discover);
+  });
+  (Array.isArray(modules?.reading?.questions) ? modules.reading.questions : []).forEach((q: any) => {
+    if (typeof q === 'string') return push(q);
+    push(q?.question);
+    toStringArray(q?.options).forEach(push);
+    push(q?.explain);
+  });
   toStringArray(modules?.writing?.practiceTasks).forEach(push);
   toStringArray(modules?.writing?.tracingItems).forEach(push);
   toStringArray(modules?.listening?.questions).forEach(push);

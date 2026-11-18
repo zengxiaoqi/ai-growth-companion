@@ -41,6 +41,7 @@ import type {
   QuickVideoGenerateRequest,
   QuickVideoGenerateResponse,
   MusicSearchResult,
+  ReadAloudEvaluation,
 } from '@/types';
 
 export interface CasualToolInfo {
@@ -560,6 +561,19 @@ class ApiService {
   getTTSUrl(text: string, voice?: string): string {
     const q = voice ? `&voice=${encodeURIComponent(voice)}` : '';
     return `${API_BASE_URL}/voice/tts?text=${encodeURIComponent(text)}${q}`;
+  }
+
+  // 跟读评估：识别文本与目标句字级对齐打分（星级/逐字反馈/鼓励语音）
+  async evaluateReadAloud(body: {
+    targetText: string;
+    recognizedText: string;
+    ageGroup?: string;
+    durationMs?: number;
+  }): Promise<ReadAloudEvaluation> {
+    return this.request<ReadAloudEvaluation>('/voice/read-aloud/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   // Music - 多音源儿歌搜索（需 JWT），播放走 token 能力 URL（无需鉴权头）

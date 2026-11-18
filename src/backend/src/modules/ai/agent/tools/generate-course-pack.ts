@@ -316,7 +316,8 @@ export class GenerateCoursePackTool {
       "goal": "string",
       "text": "string",
       "keywords": ["string", "string", "string"],
-      "questions": ["string", "string"]
+      "cards": [{"sentence":"string","emoji":"string","discover":"string"}],
+      "questions": [{"question":"string","options":["string","string","string"],"correctIndex":0,"explain":"string"}]
     },
 ${this.outputModuleSchemaBlock(args.domain)}
   },
@@ -494,6 +495,17 @@ ${this.outputModuleSchemaBlock(args.domain)}
       `## Step Layout for domain "${args.domain}":`,
       `- The reading module serves the "${plan.step2.label}" step: it is ${readingRoles[args.domain] || readingRoles.language}. Shape goal/text/questions accordingly.`,
       `- The output step is "${plan.step3.label}" (modules.${outputType}). Generate ONLY this output module, not the others.`,
+      '',
+      '## reading Module Requirements (interactive cards, CRITICAL):',
+      '- text: one coherent paragraph; cards MUST split that same paragraph verbatim into sentence cards (concatenating card sentences reproduces text).',
+      isYoung
+        ? '- cards: 3-4 cards; each sentence ≤ 15 Chinese characters.'
+        : '- cards: 4-6 cards; each sentence ≤ 25 Chinese characters.',
+      '- Each card: sentence (one complete sentence from text), emoji (ONE emoji picturing the sentence subject, e.g. 🐱☀️), discover (a short interactive prompt inviting the child to look/notice/feel/say, 8-20 chars, domain-aware: art→shapes/colors/feelings, science→what do you notice, language→try reading it, math→count/compare, social→what would you say).',
+      '- questions: exactly 2 multiple-choice comprehension questions about text; each with 3 short options (≤ 10 chars), correctIndex, and explain (one warm sentence telling why). Options must be plausible, never "以上都对".',
+      isYoung
+        ? '- Age 3-4: questions about concrete facts visible in text (what/which color/how many).'
+        : '- Age 5-6: one concrete fact question + one simple why/feeling question.',
       '',
     ];
 
@@ -673,15 +685,13 @@ ${this.outputModuleSchemaBlock(args.domain)}
           warmup: this.toText(speaking?.warmup, `先用一句话说说你知道的${args.topic}。`),
           prompts: this.normalizeSpeakingPrompts(speaking?.prompts, args.topic),
         },
-        reading: {
-          goal: this.toText(reading?.goal, `阅读并理解与${args.topic}相关的内容。`),
-          text: this.toText(
-            reading?.text,
-            curriculumSeed?.readingText || `今天我们一起学习${args.topic}，请大声读一读。`,
-          ),
-          keywords: this.toStringArray(reading?.keywords, 3, fallbackReadingKeywords),
-          questions: this.toStringArray(reading?.questions, 2, fallbackReadingQuestions),
-        },
+        reading: this.normalizeReadingModule(
+          reading,
+          args,
+          curriculumSeed,
+          fallbackReadingKeywords,
+          fallbackReadingQuestions,
+        ),
         ...this.buildOutputModules(args, raw, curriculumSeed),
       },
       watch: { scene: watchScene },
@@ -799,6 +809,137 @@ ${this.outputModuleSchemaBlock(args.domain)}
     } | null,
   ): Record<string, any> {
     return this.sanitizeCoursePack(args, {}, gameBundle);
+  }
+
+  private normalizeReadingModule(
+    raw: Record<string, any>,
+    args: NormalizedArgs,
+    curriculumSeed: ReturnType<typeof getCoursePackCurriculumSeed>,
+    fallbackKeywords: string[],
+    fallbackQuestions: string[],
+  ): Record<string, any> {
+    const text = this.toText(
+      raw?.text,
+      curriculumSeed?.readingText || `今天我们一起学习${args.topic}，请大声读一读。`,
+    );
+    const cards = this.normalizeReadingCards(raw?.cards, text, args);
+    const questions = this.normalizeReadingQuestions(raw?.questions, fallbackQuestions);
+    // 跟读目标挑短句：长句对 3-4 岁挫败感太强
+    const maxLen = args.ageGroup === '3-4' ? 16 : 24;
+    const readAloud = cards
+      .map((c) => c.sentence)
+      .filter((s) => s.replace(/[^\u4e00-\u9fffA-Za-z0-9]/g, '').length <= maxLen)
+      .slice(0, 3);
+    return {
+      goal: this.toText(raw?.goal, `阅读并理解与${args.topic}相关的内容。`),
+      text,
+      keywords: this.toStringArray(raw?.keywords, 3, fallbackKeywords),
+      cards,
+      questions,
+      readAloud: readAloud.length > 0 ? readAloud : cards.slice(0, 1).map((c) => c.sentence),
+    };
+  }
+
+  private normalizeReadingCards(
+    rawCards: any,
+    text: string,
+    args: NormalizedArgs,
+  ): Array<{ sentence: string; emoji: string; discover: string }> {
+    const fromLlm = (Array.isArray(rawCards) ? rawCards : [])
+      .map((c: any) => ({
+        sentence: this.toText(c?.sentence),
+        emoji: this.toText(c?.emoji),
+        discover: this.toText(c?.discover),
+      }))
+      .filter((c: any) => c.sentence);
+    const base =
+      fromLlm.length >= 2
+        ? fromLlm
+        : this.splitSentences(text).map((sentence) => ({ sentence, emoji: '', discover: '' }));
+    return base.slice(0, 6).map((c: any) => ({
+      sentence: c.sentence,
+      emoji: c.emoji || this.pickSentenceEmoji(c.sentence, args.domain),
+      discover: c.discover || this.defaultDiscoverPrompt(args.domain),
+    }));
+  }
+
+  private splitSentences(text: string): string[] {
+    return (text.match(/[^。！？!?\n]+[。！？!?]?/g) || [])
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  private pickSentenceEmoji(sentence: string, domain: string): string {
+    const map: Array<[RegExp, string]> = [
+      [/猫/, '🐱'], [/狗/, '🐶'], [/鸟|燕子/, '🐦'], [/鱼/, '🐟'],
+      [/兔/, '🐰'], [/鸭/, '🦆'], [/太阳|白天/, '☀️'], [/月亮|晚上/, '🌙'],
+      [/星星/, '⭐'], [/花/, '🌸'], [/树|森林/, '🌳'], [/雨/, '🌧️'],
+      [/彩虹/, '🌈'], [/圆/, '⭕'], [/方/, '🟦'], [/三角|尖/, '🔺'],
+      [/尾巴/, '🐾'], [/耳朵/, '👂'], [/眼睛/, '👀'], [/条纹/, '🐯'],
+      [/妈妈|爱/, '❤️'], [/春天/, '🌱'], [/冬|雪/, '⛄'],
+    ];
+    for (const [re, emoji] of map) if (re.test(sentence)) return emoji;
+    const byDomain: Record<string, string> = {
+      art: '🎨',
+      language: '📖',
+      math: '🔢',
+      science: '🔭',
+      social: '💬',
+    };
+    return byDomain[domain] || '📖';
+  }
+
+  private defaultDiscoverPrompt(domain: string): string {
+    switch (domain) {
+      case 'art':
+        return '你发现了什么形状和颜色？说说你的感觉。';
+      case 'science':
+        return '你发现了什么？说一说。';
+      case 'math':
+        return '一起数一数、比一比。';
+      case 'social':
+        return '你会怎么说呢？';
+      default:
+        return '你能把这句话说给大家听吗？';
+    }
+  }
+
+  private normalizeReadingQuestions(
+    rawQuestions: any,
+    fallback: string[],
+  ): Array<{ question: string; options: string[]; correctIndex: number; explain: string }> {
+    const arr = Array.isArray(rawQuestions) ? rawQuestions : [];
+    const normalized = arr
+      .map((q: any) => {
+        if (typeof q === 'string') {
+          return { question: this.toText(q), options: [] as string[], correctIndex: 0, explain: '' };
+        }
+        const options = (Array.isArray(q?.options) ? q.options : [])
+          .map((o: any) => this.toText(o))
+          .filter(Boolean)
+          .slice(0, 4);
+        const correctIndex = Math.max(
+          0,
+          Math.min(options.length - 1, this.toSafeInt(q?.correctIndex, 0)),
+        );
+        return {
+          question: this.toText(q?.question),
+          options,
+          correctIndex: options.length > 1 ? correctIndex : 0,
+          explain: this.toText(q?.explain),
+        };
+      })
+      .filter((q: any) => q.question);
+    const base =
+      normalized.length >= 1
+        ? normalized
+        : fallback.map((question) => ({
+            question,
+            options: [] as string[],
+            correctIndex: 0,
+            explain: '',
+          }));
+    return base.slice(0, 3);
   }
 
   private normalizeSceneList(rawScenes: any, args: NormalizedArgs): Array<Record<string, any>> {

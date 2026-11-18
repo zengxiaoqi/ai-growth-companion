@@ -135,6 +135,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   String _lessonTitle = '课程';
   String _ageGroup = '';
   String _domain = 'language';
+  String _topic = '';
   List<_LessonStep> _steps = const [];
   _LessonProgress _progress = const _LessonProgress(completedSteps: {});
 
@@ -221,6 +222,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             content['ageRange']?.toString() ??
             '';
         _domain = parsed?['domain']?.toString() ?? 'language';
+        _topic = parsed?['topic']?.toString() ?? _lessonTitle;
         _steps = steps;
         _progress = progress;
         _currentStepIndex = startIndex;
@@ -1637,6 +1639,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
       reading: reading,
       ageGroup: _ageGroup,
       domain: _domain,
+      topic: _topic,
       isCompleted: isCompleted,
       onComplete: (score, data) =>
           _completeStep(score: score, interactionData: data),

@@ -26,7 +26,8 @@ describe('GenerateCoursePackTool reading normalization', () => {
     expect(reading.cards).toHaveLength(3);
     expect(reading.cards.map((c: any) => c.sentence).join('')).toBe(text);
     expect(reading.cards[0].emoji).toBe('🐱');
-    expect(reading.cards[2].emoji).toBe('🐾');
+    // 尾巴向上弯 describes a part of the lesson subject → subject emoji, not paw prints
+    expect(reading.cards[2].emoji).toBe('🐱');
     for (const card of reading.cards) {
       expect(card.discover).toBeTruthy();
     }
@@ -101,5 +102,69 @@ describe('GenerateCoursePackTool reading normalization', () => {
     const text = Array.from({ length: 10 }, (_, i) => `第${i}句话。`).join('');
     const reading = normalize({ text });
     expect(reading.cards).toHaveLength(6);
+  });
+
+  it('picks emoji by sentence meaning, not incidental characters', () => {
+    const reading = normalize({ text: '鼻子在下方。尾巴向上弯。方形积木放在桌上。' });
+    expect(reading.cards.map((c: any) => c.emoji)).toEqual(['👃', '🐱', '🟦']);
+  });
+
+  it('does not match single-char keywords inside unrelated words', () => {
+    const reading = normalize(
+      { text: '今天是星期天。地方真大。' },
+      args({ topic: '认识时间', domain: 'science' }),
+    );
+    expect(reading.cards.map((c: any) => c.emoji)).toEqual(['🔭', '🔭']);
+  });
+
+  it('overrides mismatched emoji stored by older packs', () => {
+    const reading = normalize({
+      text: 'ignored',
+      cards: [
+        { sentence: '鼻子在下方。', emoji: '🟦' },
+        { sentence: '尾巴向上弯。', emoji: '🐾' },
+      ],
+    });
+    expect(reading.cards.map((c: any) => c.emoji)).toEqual(['👃', '🐱']);
+  });
+
+  it('trusts LLM part-level emoji when nothing competing (relaxed validation)', () => {
+    const reading = normalize(
+      {
+        text: 'ignored',
+        cards: [
+          { sentence: '能听到远处的声音。', emoji: '👂' },
+          { sentence: '用来闻气味。', emoji: '👃' },
+        ],
+      },
+      args({ topic: '认识身体', domain: 'science' }),
+    );
+    // in-map part emoji, no literal keyword and no competing subject → kept as-is
+    expect(reading.cards.map((c: any) => c.emoji)).toEqual(['👂', '👃']);
+  });
+
+  it('keeps stored emoji when the curated map has no match', () => {
+    const reading = normalize({
+      text: 'ignored',
+      cards: [
+        { sentence: '大家真开心。', emoji: '😄' },
+        { sentence: '小猫去钓鱼。', emoji: '🎣' },
+      ],
+    });
+    expect(reading.cards[0].emoji).toBe('😄');
+    expect(reading.cards[1].emoji).toBe('🎣');
+  });
+
+  it('falls back to topic subject then domain default', () => {
+    const withSubject = normalize(
+      { text: '今天很开心。' },
+      args({ topic: '认识小狗', domain: 'language' }),
+    );
+    expect(withSubject.cards[0].emoji).toBe('🐶');
+    const withoutSubject = normalize(
+      { text: '今天很开心。' },
+      args({ topic: '10以内加法', domain: 'math' }),
+    );
+    expect(withoutSubject.cards[0].emoji).toBe('🔢');
   });
 });

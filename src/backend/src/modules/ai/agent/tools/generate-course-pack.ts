@@ -501,7 +501,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
       isYoung
         ? '- cards: 3-4 cards; each sentence ≤ 15 Chinese characters.'
         : '- cards: 4-6 cards; each sentence ≤ 25 Chinese characters.',
-      '- Each card: sentence (one complete sentence from text), emoji (ONE emoji picturing the sentence subject, e.g. 🐱☀️), discover (a short interactive prompt inviting the child to look/notice/feel/say, 8-20 chars, domain-aware: art→shapes/colors/feelings, science→what do you notice, language→try reading it, math→count/compare, social→what would you say).',
+      '- Each card: sentence (one complete sentence from text), emoji (ONE emoji depicting what the sentence is ABOUT: its subject or the part it describes, e.g. "鼻子在下方"→👃, "尾巴向上弯" in a cat lesson→🐱; never pick by an incidental character inside a word — 方 in 下方 is NOT a square), discover (a short interactive prompt inviting the child to look/notice/feel/say, 8-20 chars, domain-aware: art→shapes/colors/feelings, science→what do you notice, language→try reading it, math→count/compare, social→what would you say).',
       '- questions: exactly 2 multiple-choice comprehension questions about text; each with 3 short options (≤ 10 chars), correctIndex, and explain (one warm sentence telling why). Options must be plausible, never "以上都对".',
       isYoung
         ? '- Age 3-4: questions about concrete facts visible in text (what/which color/how many).'
@@ -858,7 +858,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
         : this.splitSentences(text).map((sentence) => ({ sentence, emoji: '', discover: '' }));
     return base.slice(0, 6).map((c: any) => ({
       sentence: c.sentence,
-      emoji: c.emoji || this.pickSentenceEmoji(c.sentence, args.domain),
+      emoji: this.resolveCardEmoji(c.sentence, args.topic, c.emoji, args.domain),
       discover: c.discover || this.defaultDiscoverPrompt(args.domain),
     }));
   }
@@ -869,16 +869,40 @@ ${this.outputModuleSchemaBlock(args.domain)}
       .filter(Boolean);
   }
 
-  private pickSentenceEmoji(sentence: string, domain: string): string {
+  private resolveCardEmoji(
+    sentence: string,
+    topic: string,
+    stored: string,
+    domain: string,
+  ): string {
+    // whole-word keywords only: single chars like 方/圆/尖 match inside unrelated words (下方→🟦)
     const map: Array<[RegExp, string]> = [
-      [/猫/, '🐱'], [/狗/, '🐶'], [/鸟|燕子/, '🐦'], [/鱼/, '🐟'],
+      [/猫/, '🐱'], [/狗/, '🐶'], [/老虎/, '🐯'], [/鸟|燕/, '🐦'], [/鱼/, '🐟'],
       [/兔/, '🐰'], [/鸭/, '🦆'], [/太阳|白天/, '☀️'], [/月亮|晚上/, '🌙'],
-      [/星星/, '⭐'], [/花/, '🌸'], [/树|森林/, '🌳'], [/雨/, '🌧️'],
-      [/彩虹/, '🌈'], [/圆/, '⭕'], [/方/, '🟦'], [/三角|尖/, '🔺'],
-      [/尾巴/, '🐾'], [/耳朵/, '👂'], [/眼睛/, '👀'], [/条纹/, '🐯'],
-      [/妈妈|爱/, '❤️'], [/春天/, '🌱'], [/冬|雪/, '⛄'],
+      [/星星/, '⭐'], [/雪|冬天/, '⛄'], [/彩虹/, '🌈'], [/雨/, '🌧️'],
+      [/花/, '🌸'], [/树|森林/, '🌳'], [/春天/, '🌱'],
+      [/鼻子/, '👃'], [/嘴巴/, '👄'], [/耳朵/, '👂'], [/眼睛/, '👀'],
+      [/爪子|脚印/, '🐾'], [/条纹/, '🐯'],
+      [/圆形|圆圈|圆圆/, '⭕'], [/方形|正方形|方块/, '🟦'], [/三角|尖尖/, '🔺'],
+      [/妈妈|爱/, '❤️'],
     ];
-    for (const [re, emoji] of map) if (re.test(sentence)) return emoji;
+    // LLM now emits part-level emoji directly; trust a stored pick unless it is a
+    // legacy artifact: an in-map emoji the vocabulary does not justify AND the
+    // sentence/topic clearly depicts a different curated subject (下方→🟦, 尾巴→🐾).
+    // With no competing match the stored part-level emoji is kept as-is (relaxed).
+    const sentenceMatch = map.find(([re]) => re.test(sentence));
+    const topicMatch = topic ? map.find(([re]) => re.test(topic)) : undefined;
+    if (stored) {
+      const inMap = map.some(([, e]) => e === stored);
+      const justified =
+        !inMap || map.some(([re, e]) => e === stored && (re.test(sentence) || re.test(topic)));
+      if (justified) return stored;
+      if (!sentenceMatch && !topicMatch) return stored;
+    }
+    return (sentenceMatch || topicMatch)?.[1] ?? this.domainEmoji(domain);
+  }
+
+  private domainEmoji(domain: string): string {
     const byDomain: Record<string, string> = {
       art: '🎨',
       language: '📖',

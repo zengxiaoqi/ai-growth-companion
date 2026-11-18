@@ -35,6 +35,7 @@ class ReadStepContent extends StatefulWidget {
   final Map<String, dynamic> reading;
   final String ageGroup;
   final String domain;
+  final String topic;
   final bool isCompleted;
   final void Function(int score, Map<String, dynamic> interactionData) onComplete;
 
@@ -43,6 +44,7 @@ class ReadStepContent extends StatefulWidget {
     required this.reading,
     required this.ageGroup,
     required this.domain,
+    this.topic = '',
     required this.isCompleted,
     required this.onComplete,
   });
@@ -99,7 +101,7 @@ class _ReadStepContentState extends State<ReadStepContent> {
     return base.take(6).map((c) {
       return _ReadCard(
         c.sentence,
-        c.emoji.isNotEmpty ? c.emoji : _pickEmoji(c.sentence),
+        _resolveEmoji(c.sentence, c.emoji),
         c.discover.isNotEmpty ? c.discover : _defaultDiscover(),
       );
     }).toList();
@@ -113,18 +115,50 @@ class _ReadStepContentState extends State<ReadStepContent> {
         .toList();
   }
 
-  String _pickEmoji(String sentence) {
+  // whole-word keywords only: single chars like 方/圆/尖 match inside unrelated words (下方→🟦)
+  String _resolveEmoji(String sentence, String stored) {
     const map = <String, String>{
-      '猫': '🐱', '狗': '🐶', '鸟': '🐦', '燕': '🐦', '鱼': '🐟',
+      '猫': '🐱', '狗': '🐶', '老虎': '🐯', '鸟': '🐦', '燕': '🐦', '鱼': '🐟',
       '兔': '🐰', '鸭': '🦆', '太阳': '☀️', '白天': '☀️', '月亮': '🌙',
-      '晚上': '🌙', '星': '⭐', '花': '🌸', '树': '🌳', '森林': '🌳',
-      '雨': '🌧️', '彩虹': '🌈', '圆': '⭕', '方': '🟦', '尖': '🔺',
-      '尾巴': '🐾', '耳朵': '👂', '眼睛': '👀', '条纹': '🐯',
-      '妈妈': '❤️', '爱': '❤️', '春天': '🌱', '雪': '⛄',
+      '晚上': '🌙', '星星': '⭐', '雪': '⛄', '冬天': '⛄', '彩虹': '🌈',
+      '雨': '🌧️', '花': '🌸', '树': '🌳', '森林': '🌳', '春天': '🌱',
+      '鼻子': '👃', '嘴巴': '👄', '耳朵': '👂', '眼睛': '👀',
+      '爪子': '🐾', '脚印': '🐾', '条纹': '🐯',
+      '圆形': '⭕', '圆圈': '⭕', '圆圆': '⭕',
+      '方形': '🟦', '正方形': '🟦', '方块': '🟦', '三角': '🔺', '尖尖': '🔺',
+      '妈妈': '❤️', '爱': '❤️',
     };
+    // LLM emits part-level emoji directly; trust a stored pick unless it is a
+    // legacy artifact: an in-map emoji the vocabulary does not justify AND the
+    // sentence/topic clearly depicts a different curated subject (下方→🟦, 尾巴→🐾).
+    // With no competing match the stored part-level emoji is kept as-is (relaxed).
+    String? sentenceEmoji;
     for (final e in map.entries) {
-      if (sentence.contains(e.key)) return e.value;
+      if (sentence.contains(e.key)) {
+        sentenceEmoji = e.value;
+        break;
+      }
     }
+    String? topicEmoji;
+    for (final e in map.entries) {
+      if (widget.topic.contains(e.key)) {
+        topicEmoji = e.value;
+        break;
+      }
+    }
+    if (stored.isNotEmpty) {
+      final sameEmoji = map.entries.where((e) => e.value == stored).toList();
+      final justified = sameEmoji.isEmpty ||
+          sameEmoji.any(
+            (e) => sentence.contains(e.key) || widget.topic.contains(e.key),
+          );
+      if (justified) return stored;
+      if (sentenceEmoji == null && topicEmoji == null) return stored;
+    }
+    return sentenceEmoji ?? topicEmoji ?? _domainEmoji();
+  }
+
+  String _domainEmoji() {
     const byDomain = {
       'art': '🎨', 'language': '📖', 'math': '🔢', 'science': '🔭', 'social': '💬',
     };

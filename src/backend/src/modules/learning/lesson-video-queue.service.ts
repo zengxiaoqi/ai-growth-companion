@@ -1636,7 +1636,20 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     await fs.writeFile(target, buffer);
     // 统一浏览器兼容转码：full-range yuvj420p → limited-range yuv420p bt709。
     // 各引擎（remotion/hyperframes/dsh）输出编码不一，这里兜底一次，保证 Web 端可解码。
-    return this.dshBridge.ensureBrowserCompatible(target);
+    const playablePath = await this.dshBridge.ensureBrowserCompatible(target);
+    // 转码成功后原片不再被任何任务引用（localVideoPath 只存 compat 路径），
+    // 留着既占磁盘、又不会被 cleanupExpiredCache 清掉。转码失败降级时返回的是
+    // 原路径，此时必须保留原片作为播放源。
+    if (playablePath !== target) {
+      try {
+        await fs.unlink(target);
+      } catch (error: any) {
+        this.logger.warn(
+          `Failed to remove redundant original video ${target}: ${error?.message || error}`,
+        );
+      }
+    }
+    return playablePath;
   }
 
   private async cleanupExpiredCache(): Promise<void> {
@@ -1647,9 +1660,17 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     for (const task of expired) {
       if (!task.expiresAt || task.expiresAt > now) continue;
       if (task.localVideoPath) {
+        const resolved = path.resolve(task.localVideoPath);
         try {
-          await fs.unlink(path.resolve(task.localVideoPath));
+          await fs.unlink(resolved);
         } catch {}
+        // 历史任务把 .compat.mp4 存进 localVideoPath，对应的原始渲染文件
+        // （<cacheKey>.mp4）已无人引用、也不会被上面的删除覆盖，这里一并回收。
+        if (/\.compat\.mp4$/i.test(resolved)) {
+          try {
+            await fs.unlink(resolved.replace(/\.compat\.mp4$/i, '.mp4'));
+          } catch {}
+        }
       }
       await this.taskRepo.delete(task.id);
     }

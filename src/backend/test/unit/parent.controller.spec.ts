@@ -116,22 +116,26 @@ describe('ParentController', () => {
       const result = await controller.getCasualTools('2', req);
 
       expect(usersService.canAccessChild).toHaveBeenCalledWith(1, 'parent', 2);
-      expect(result.default).toEqual(['translate', 'playStory']);
+      expect(result.default).toEqual(['translate', 'playStory', 'playMusic']);
       expect(result.override).toEqual(['translate']);
       expect(result.effective).toEqual(['translate']);
-      expect(result.available.map((t: any) => t.name)).toEqual(['translate', 'playStory']);
+      expect(result.available.map((t: any) => t.name)).toEqual([
+        'translate',
+        'playStory',
+        'playMusic',
+      ]);
     });
 
     it('falls back to default when override is null', async () => {
       usersService.canAccessChild.mockResolvedValue(true);
       parentService.getCasualTools.mockResolvedValue(null);
-      configService.get.mockReturnValue('playStory');
+      configService.get.mockReturnValue('playMusic');
 
       const result = await controller.getCasualTools('2', req);
 
       expect(result.override).toBeNull();
-      expect(result.default).toEqual(['playStory']);
-      expect(result.effective).toEqual(['playStory']);
+      expect(result.default).toEqual(['playMusic']);
+      expect(result.effective).toEqual(['playMusic']);
     });
 
     it('rejects non-parent callers', async () => {
@@ -159,16 +163,22 @@ describe('ParentController', () => {
     });
 
     it('deduplicates and persists a valid tool list', async () => {
-      parentService.setCasualTools.mockResolvedValue({ casualTools: ['translate', 'playStory'] });
+      parentService.setCasualTools.mockResolvedValue({
+        casualTools: ['translate', 'playStory', 'playMusic'],
+      });
 
       const result = await controller.setCasualTools(
         '2',
-        { tools: ['translate', 'playStory', 'translate'] },
+        { tools: ['translate', 'playStory', 'playMusic', 'translate'] },
         req,
       );
 
-      expect(parentService.setCasualTools).toHaveBeenCalledWith(1, 2, ['translate', 'playStory']);
-      expect(result).toEqual({ override: ['translate', 'playStory'] });
+      expect(parentService.setCasualTools).toHaveBeenCalledWith(1, 2, [
+        'translate',
+        'playStory',
+        'playMusic',
+      ]);
+      expect(result).toEqual({ override: ['translate', 'playStory', 'playMusic'] });
     });
 
     it('accepts null to inherit the default', async () => {

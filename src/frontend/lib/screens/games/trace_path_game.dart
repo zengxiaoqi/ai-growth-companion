@@ -75,7 +75,6 @@ class _TracePathGameState extends State<TracePathGame> {
   static const Duration _evaluateDelay = Duration(seconds: 1);
 
   static const int _maxTargets = 4;
-  static const int _minTargets = 2;
 
   List<_GlyphTarget> _targets = const [];
   double _minCoverage = 0.7;

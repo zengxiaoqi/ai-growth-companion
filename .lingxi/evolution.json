@@ -1,10 +1,10 @@
 {
-  "last_analysis": "2026-11-19",
-  "analysis_count": 178,
-  "commit_count": 791,
-  "last_commit": "2026-11-18T02:06:06+08:00",
-  "remote_head": "7772fed",
-  "commits_ahead_remote": 1,
+  "last_analysis": "2026-11-20",
+  "analysis_count": 179,
+  "commit_count": 794,
+  "last_commit": "2026-11-20T02:00:00+08:00",
+  "remote_head": "8a89415",
+  "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
   "capabilities": {
@@ -12,14 +12,15 @@
     "parent_dashboard": 100,
     "content_system": 100,
     "infrastructure": 99,
-    "code_quality": 98
+    "code_quality": 99
   },
   "active_plans": [],
   "completed_actions": [
     "2026-11-11: Daily evolution analysis #172 — All systems healthy. No new commits since Nov 10.",
     "2026-11-16: Daily evolution analysis #174 — 15 new commits since Nov 11. Games P1 Plan B fully landed (6 parameterized activity types dual-end). Voice TTS markdown stripping fix. Music bridge integration. PlayMusic AI tool. Per-activity process details in parent reports. Casual chat tool configuration. Flutter Web rebuilt and deployed v1787475201. All builds passing. Deploy verified HTTPS 200.",
     "2026-11-16: Autonomous evaluation #175 — Fixed 81 prettier lint errors in backend source and test files. Build clean, 114 unit tests passing for voice/reward modules. No stale Flutter builds. pubspec.lock committed as c7bc6c0.",
-    "2026-11-17: Daily evolution analysis #176 — All systems healthy. No new commits since Nov 16."
+    "2026-11-17: Daily evolution analysis #176 — All systems healthy. No new commits since Nov 16.",
+    "2026-11-19: Daily evolution analysis #178 — 4 new commits. Fixed parent.controller.spec.ts test expectations for CASUAL_TOOL_CATALOG playMusic addition. Removed unused _minTargets field from trace_path_game.dart."
   ],
   "lessons_learned": [
     "pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
@@ -39,9 +40,9 @@
     "voice_unit_tests": 39,
     "reward_unit_tests": 89,
     "total_tests": 1760,
-    "tests_passed": 1759,
-    "tests_failed": 1,
-    "flutter_issues": 13,
+    "tests_passed": 1760,
+    "tests_failed": 0,
+    "flutter_issues": 0,
     "flutter_build_version": "v1787475201"
   }
 }

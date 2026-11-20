@@ -12,6 +12,7 @@ import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/child_theme.dart';
 import 'widgets/illustration_grid.dart';
+import 'widgets/step_wizard.dart';
 
 class _ReadCard {
   final String sentence;
@@ -62,7 +63,11 @@ class _ReadStepContentState extends State<ReadStepContent> {
   late List<_ReadQuestion> _questions;
 
   final Map<int, int> _cardStars = {};
+  /// 每页句卡是否互动过（点过「听一听」或「我来读」），决定能否翻到下一页。
+  final Set<int> _cardInteracted = {};
   final Set<int> _quizCorrect = {};
+  /// 开放题「说一说」单独记账，不混进选择题得分。
+  final Set<int> _openQuestionsDone = {};
   final Map<int, Set<int>> _quizWrong = {};
   bool _readPracticed = false;
   int _readAttempts = 0;
@@ -237,6 +242,7 @@ class _ReadStepContentState extends State<ReadStepContent> {
         onStars: (stars) {
           setState(() {
             _readAttempts++;
+            _cardInteracted.add(cardIndex);
             if (stars == null) {
               _readPracticed = true;
             } else {
@@ -260,55 +266,78 @@ class _ReadStepContentState extends State<ReadStepContent> {
     }
   }
 
+  /// 开放题没有对错，孩子点过「说一说」即视为完成这一页。
+  void _markOpenQuestionDone(int qi) {
+    _speak('把你的答案说给大家听吧！');
+    setState(() => _openQuestionsDone.add(qi));
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = AppTheme.active;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_goal.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.secondaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.flag_rounded, size: 18, color: AppTheme.secondaryColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('目标: $_goal',
-                      style: TextStyle(fontSize: 14, color: AppTheme.textColor)),
-                ),
-              ],
-            ),
+
+    // 一步一步：一张句卡一页、一道题一页。
+    // 每页的「听一听 / 我来读 / 答对」是翻页钥匙，做完才点亮下一步。
+    final pages = <WizardPage>[];
+
+    for (var i = 0; i < _cards.length; i++) {
+      pages.add(WizardPage(
+        label: '第 ${i + 1} / ${_cards.length} 句 · 听一听，再读一读',
+        done: _cardInteracted.contains(i),
+        content: _buildCard(i, _cards[i], palette),
+      ));
+    }
+
+    if (_questions.isNotEmpty) {
+      for (var qi = 0; qi < _questions.length; qi++) {
+        pages.add(WizardPage(
+          label: '想一想 ${qi + 1} / ${_questions.length}',
+          done: _questions[qi].isChoice
+              ? _quizCorrect.contains(qi)
+              : _openQuestionsDone.contains(qi),
+          content: _buildQuestion(qi, _questions[qi], palette),
+        ));
+      }
+    }
+
+    // 没有句卡也没有问题时，至少给一页占位，避免空向导。
+    if (pages.isEmpty) {
+      pages.add(const WizardPage(
+        label: '阅读学习',
+        done: true,
+        content: SizedBox.shrink(),
+      ));
+    }
+
+    return StepWizard(
+      allDone: widget.isCompleted,
+      header: _goal.isNotEmpty ? _buildGoal(palette) : null,
+      pages: pages,
+      onAllDone: () => widget.onComplete(_computeScore(), {
+        'readCards': _cards.length,
+        'readAloud': {'attempts': _readAttempts, 'stars': _cardStars},
+        'quiz': {'correct': _quizCorrect.length, 'total': _choiceCount},
+      }),
+    );
+  }
+
+  Widget _buildGoal(ChildThemePalette palette) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag_rounded, size: 18, color: AppTheme.secondaryColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('目标: $_goal',
+                style: TextStyle(fontSize: 14, color: AppTheme.textColor)),
           ),
-        if (_goal.isNotEmpty) const SizedBox(height: 12),
-
-        // 句卡：插图 + 点读 + 我来读
-        for (var i = 0; i < _cards.length; i++) ...[
-          _buildCard(i, _cards[i], palette),
-          const SizedBox(height: 12),
         ],
-
-        // 理解问题：选择题互动 / 开放说一说
-        if (_questions.isNotEmpty) ...[
-          Text('理解问题',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: palette.ink)),
-          const SizedBox(height: 8),
-          for (var qi = 0; qi < _questions.length; qi++) ...[
-            _buildQuestion(qi, _questions[qi], palette),
-            const SizedBox(height: 10),
-          ],
-        ],
-
-        const SizedBox(height: 8),
-        _buildCompleteButton(palette),
-      ],
+      ),
     );
   }
 
@@ -370,9 +399,14 @@ class _ReadStepContentState extends State<ReadStepContent> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _speak(card.sentence),
+                  onPressed: () {
+                    _speak(card.sentence);
+                    setState(() => _cardInteracted.add(index));
+                  },
                   icon: const Icon(Icons.volume_up_rounded, size: 18),
-                  label: const Text('听一听'),
+                  label: Text(
+                    _cardInteracted.contains(index) ? '听过啦 ✓' : '听一听',
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -479,8 +513,8 @@ class _ReadStepContentState extends State<ReadStepContent> {
               alignment: Alignment.centerLeft,
               child: ActionChip(
                 avatar: const Text('🗣', style: TextStyle(fontSize: 14)),
-                label: const Text('说一说你的答案'),
-                onPressed: () => _speak('把你的答案说给大家听吧！'),
+                label: Text(_openQuestionsDone.contains(qi) ? '说得真棒 ✓' : '说一说你的答案'),
+                onPressed: () => _markOpenQuestionDone(qi),
               ),
             ),
           ],
@@ -545,40 +579,6 @@ class _ReadStepContentState extends State<ReadStepContent> {
     );
   }
 
-  Widget _buildCompleteButton(ChildThemePalette palette) {
-    if (widget.isCompleted) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_rounded, size: 20, color: AppTheme.primaryColor),
-          const SizedBox(width: 6),
-          Text('已完成',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryColor)),
-        ],
-      );
-    }
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: FilledButton.icon(
-        onPressed: () => widget.onComplete(_computeScore(), {
-          'readCards': _cards.length,
-          'readAloud': {'attempts': _readAttempts, 'stars': _cardStars},
-          'quiz': {'correct': _quizCorrect.length, 'total': _choiceCount},
-        }),
-        icon: const Icon(Icons.check_rounded),
-        label: const Text('完成了，进入下一步'),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          foregroundColor: palette.onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      ),
-    );
-  }
 }
 
 // ─── 跟读评估 ────────────────────────────────────────────────────────────

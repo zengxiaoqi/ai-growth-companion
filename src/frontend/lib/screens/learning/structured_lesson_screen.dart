@@ -23,6 +23,7 @@ import 'roleplay_step_player.dart';
 import 'trace_path_canvas.dart';
 import 'lesson_scene_models.dart';
 import 'read_step_content.dart';
+import 'widgets/step_wizard.dart';
 
 final _log = AppLogger('StructuredLessonScreen');
 
@@ -1243,10 +1244,13 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildStepContent(_LessonStep step) {
     final isCompleted = _progress.completedSteps.contains(step.id);
 
-    // 练习步骤里的游戏需要「吃掉剩余高度」并在内部自己滚动：
-    // 之前是塞进外层 SingleChildScrollView + 固定 430 高度，卡片一多就溢出
-    // （BOTTOM OVERFLOWED BY N PIXELS），也和页面底部导航抢位置。
-    if (step.type == 'practice') {
+    // read(听说/读/赏)、write、practice 都是「一步步翻页」的模式：
+    // 内容组件内部用 StepWizard 管理每页，并有自己的 Expanded + 滚动兜底。
+    // 必须让它们吃掉剩余高度，不能再塞进外层 SingleChildScrollView，
+    // 否则 Expanded 拿到无界高度会报 "RenderFlex children have non-zero flex"。
+    if (step.type == 'read' ||
+        step.type == 'write' ||
+        step.type == 'practice') {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Column(
@@ -1255,7 +1259,11 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
             _buildTtsBar(),
             _buildStepTitle(step),
             const SizedBox(height: 10),
-            Expanded(child: _buildPracticeStep(step, isCompleted)),
+            Expanded(child: switch (step.type) {
+              'read' => _buildReadStep(step, isCompleted),
+              'write' => _buildWriteStep(step, isCompleted),
+              _ => _buildPracticeStep(step, isCompleted),
+            }),
           ],
         ),
       );
@@ -1927,6 +1935,11 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildBottomNavigation() {
     final hasPrev = _currentStepIndex > 0;
     final hasNext = _currentStepIndex < _steps.length - 1;
+    // 一步一步：本级「下一步」要等当前步骤做完才亮起。
+    // 预览模式例外——家长要能自由翻看各步骤，不受完成状态限制。
+    final currentDone = _steps.isNotEmpty &&
+        _progress.completedSteps.contains(_steps[_currentStepIndex].id);
+    final canNext = hasNext && (widget.previewMode || currentDone);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1962,13 +1975,15 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
               color: AppTheme.textSecondary,
             ),
           ),
-          // 下一步
+          // 下一步：当前步骤完成才亮起（预览模式可自由翻看）
           TextButton.icon(
-            onPressed: hasNext ? _goToNextStep : null,
-            icon: const Text('下一步'),
+            onPressed: canNext ? _goToNextStep : null,
+            icon: Text(
+              hasNext && !canNext ? '先完成这一步' : '下一步',
+            ),
             label: const Icon(Icons.arrow_forward_rounded, size: 18),
             style: TextButton.styleFrom(
-              foregroundColor: hasNext
+              foregroundColor: canNext
                   ? AppTheme.primaryColor
                   : AppTheme.textSecondary.withValues(alpha: 0.3),
             ),
@@ -2356,6 +2371,9 @@ class _WriteStepContent extends StatefulWidget {
 class _WriteStepContentState extends State<_WriteStepContent> {
   late Set<int> _checkedItems;
 
+  /// 每条书写任务是否需要孩子点「我记住啦」确认，作为翻页钥匙。
+  final Set<int> _taskDone = {};
+
   /// 描红整体结果（所有字写完后才有值）
   TraceResult? _traceResult;
 
@@ -2398,171 +2416,209 @@ class _WriteStepContentState extends State<_WriteStepContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 学习目标
-        if (widget.goal.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.softPurple.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.flag_rounded, size: 18, color: AppTheme.softPurple),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '目标: ${widget.goal}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textColor,
-                    ),
-                  ),
-                ),
-              ],
+    // 一步一步：描红 → 每条书写任务 → 自检清单，各占一页。
+    final pages = <WizardPage>[];
+
+    if (_hasTracing) {
+      pages.add(WizardPage(
+        label: '描红练习 · 写完一个字自动进入下一个',
+        done: _allTraced,
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTracingHeader(),
+            const SizedBox(height: 8),
+            ..._buildTraceCanvas(),
+          ],
+        ),
+      ));
+    }
+
+    for (var i = 0; i < widget.tasks.length; i++) {
+      pages.add(WizardPage(
+        label: '书写任务 ${i + 1} / ${widget.tasks.length}',
+        done: _taskDone.contains(i),
+        content: _buildTaskCard(i),
+      ));
+    }
+
+    if (widget.checklist.isNotEmpty) {
+      final allChecked = widget.checklist.asMap().entries.every(
+        (entry) => _checkedItems.contains(entry.key),
+      );
+      pages.add(WizardPage(
+        label: '自检清单 · 做到一项勾一项',
+        done: allChecked,
+        content: _buildChecklistCard(),
+      ));
+    }
+
+    if (pages.isEmpty) {
+      pages.add(const WizardPage(
+        label: '书写练习',
+        done: true,
+        content: SizedBox.shrink(),
+      ));
+    }
+
+    return StepWizard(
+      allDone: widget.isCompleted,
+      header: widget.goal.isNotEmpty ? _buildGoal() : null,
+      pages: pages,
+      onAllDone: () {
+        final traceResult = _traceResult;
+        widget.onComplete(traceResult?.score ?? 80, {
+          'checkedItems': _checkedItems.toList(),
+          if (traceResult != null)
+            'traceResults': [
+              {
+                'coverage': traceResult.coverage,
+                'attempts': traceResult.attempts,
+                'score': traceResult.score,
+              },
+            ],
+        });
+      },
+    );
+  }
+
+  Widget _buildGoal() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.softPurple.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag_rounded, size: 18, color: AppTheme.softPurple),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('目标: ${widget.goal}',
+                style: TextStyle(fontSize: 14, color: AppTheme.textColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTaskCard(int index) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.active.card,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        boxShadow: AppTheme.softShadow(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('✏️', style: TextStyle(fontSize: 30)),
+          const SizedBox(height: 8),
+          Text(
+            widget.tasks[index],
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textColor,
             ),
           ),
-        if (widget.goal.isNotEmpty) const SizedBox(height: 12),
-
-        // 描红练习 — 交互式 TracePathCanvas
-        if (_hasTracing) ...[
-          _buildTracingHeader(),
-          const SizedBox(height: 8),
-          ..._buildTraceCanvas(),
-          const SizedBox(height: 12),
-        ],
-
-        // 书写任务
-        if (widget.tasks.isNotEmpty) ...[
-          Container(
+          const SizedBox(height: 14),
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.active.card,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              boxShadow: AppTheme.softShadow(),
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _taskDone.add(index)),
+              icon: Icon(
+                _taskDone.contains(index)
+                    ? Icons.check_circle_rounded
+                    : Icons.edit_rounded,
+                size: 18,
+              ),
+              label: Text(_taskDone.contains(index) ? '我写完啦 ✓' : '我写完啦'),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '书写任务',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...widget.tasks.asMap().entries.map((entry) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChecklistCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.active.card,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        boxShadow: AppTheme.softShadow(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('自检清单',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textColor)),
+          const SizedBox(height: 8),
+          ...widget.checklist.asMap().entries.map((entry) {
+            final isChecked = _checkedItems.contains(entry.key);
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isChecked) {
+                    _checkedItems.remove(entry.key);
+                  } else {
+                    _checkedItems.add(entry.key);
+                  }
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: isChecked
+                            ? AppTheme.primaryColor
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: isChecked
+                              ? AppTheme.primaryColor
+                              : AppTheme.active.gameCardLineStrong,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: isChecked
+                          ? Icon(Icons.check,
+                              size: 16, color: AppTheme.active.onPrimary)
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
                       child: Text(
-                        '${entry.key + 1}. ${entry.value}',
+                        entry.value,
                         style: TextStyle(
                           fontSize: 14,
-                          color: AppTheme.textSecondary,
+                          color: isChecked
+                              ? AppTheme.textSecondary
+                              : AppTheme.textColor,
+                          decoration: isChecked
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                       ),
-                    )),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-
-        // 自检清单
-        if (widget.checklist.isNotEmpty) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.active.card,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              boxShadow: AppTheme.softShadow(),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '自检清单',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...widget.checklist.asMap().entries.map((entry) {
-                  final isChecked = _checkedItems.contains(entry.key);
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (isChecked) {
-                          _checkedItems.remove(entry.key);
-                        } else {
-                          _checkedItems.add(entry.key);
-                        }
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: isChecked
-                                  ? AppTheme.primaryColor
-                                  : Colors.transparent,
-                              border: Border.all(
-                                color: isChecked
-                                    ? AppTheme.primaryColor
-                                    : AppTheme.active.gameCardLineStrong,
-                                width: 2,
-                              ),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: isChecked
-                                ? Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: AppTheme.active.onPrimary,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              entry.value,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isChecked
-                                    ? AppTheme.textSecondary
-                                    : AppTheme.textColor,
-                                decoration: isChecked
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  );
-                }),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            );
+          }),
         ],
-
-        // 完成按钮
-        _buildCompleteButton(),
-      ],
+      ),
     );
   }
 
@@ -2682,87 +2738,6 @@ class _WriteStepContentState extends State<_WriteStepContent> {
     ];
   }
 
-  Widget _buildCompleteButton() {
-    if (widget.isCompleted) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_rounded,
-              size: 20, color: AppTheme.primaryColor),
-          SizedBox(width: 6),
-          Text(
-            '已完成',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ],
-      );
-    }
-
-    // 如果有描红但未完成，禁用按钮并提示
-    final canComplete = !_hasTracing || _allTraced;
-    final buttonLabel = _hasTracing && !_allTraced ? '请先完成描红练习 ✍' : '写完了，进入下一步';
-
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: canComplete
-                ? () {
-                    final traceResult = _traceResult;
-                    widget.onComplete(
-                      traceResult?.score ?? 80,
-                      {
-                        'checkedItems': _checkedItems.toList(),
-                        if (traceResult != null)
-                          'traceResults': [
-                            {
-                              'coverage': traceResult.coverage,
-                              'attempts': traceResult.attempts,
-                              'score': traceResult.score,
-                            },
-                          ],
-                      },
-                    );
-                  }
-                : null,
-            icon: const Icon(Icons.check_rounded),
-            label: Text(buttonLabel),
-            style: FilledButton.styleFrom(
-              backgroundColor: canComplete
-                  ? AppTheme.primaryColor
-                  : (AppTheme.active.isDarkSurface
-                      ? AppTheme.active.soft
-                      : Colors.grey.shade300),
-              foregroundColor:
-                  canComplete
-                      ? AppTheme.active.onPrimary
-                      : AppTheme.textSecondary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-        ),
-        if (_hasTracing && !_allTraced)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              '还有 ${_traceChars.length} 个字需要描完哦~',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
 // ─── 空内容占位 ─────────────────────────────────────────────────────────

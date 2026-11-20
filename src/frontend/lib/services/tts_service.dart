@@ -92,7 +92,8 @@ class TtsService {
   ///
   /// 内部先停止已有朗读，再开始朗读新文本。
   /// 返回的 [onComplete] Future 在朗读自然结束时 resolve。
-  Future<void> speak(String text, {String? voice}) async {
+  /// [rate] 为 ±N% 形式的语速（低龄儿童可传负值放慢，后端默认 +12% 偏快）。
+  Future<void> speak(String text, {String? voice, String? rate}) async {
     if (text.isEmpty) return;
 
     // 安全停止当前朗读，清理状态
@@ -102,7 +103,7 @@ class TtsService {
     final completer = Completer<void>();
     _speakCompleter = completer;
 
-    final url = _buildUrl(text, voice: voice);
+    final url = _buildUrl(text, voice: voice, rate: rate);
 
     try {
       // 15s 超时兜底：后端 TTS 生成慢/卡住时放弃本次播报，继续对话循环

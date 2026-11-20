@@ -5,23 +5,33 @@ import 'package:flutter/material.dart';
 import '../../services/speech_recognition_service.dart';
 import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/roleplay_voice.dart';
 
 /// 角色扮演对话步骤（social 领域「演」一步）。
 ///
-/// 每轮：角色台词 TTS → 孩子跟读/应答。语音识别是增强路径，关键词宽松
-/// 匹配；ASR 不可用或失败时全程可点选 options 兜底（3-4 岁语音不可靠）。
-/// 完成判定 = 完成轮数 ≥ minTurns。
+/// 每轮：场景/题目 TTS → 角色台词 TTS → 逐项播报选项 → 孩子跟读/应答。
+/// 语音识别是增强路径，关键词宽松匹配；ASR 不可用或失败时全程可点选 options
+/// 兜底（3-4 岁语音不可靠）。完成判定 = 完成轮数 ≥ minTurns。
+///
+/// 语音注意：底层 completion 事件在真机可能丢失，所有等待都有超时兜底，
+/// 失败时明确提示并提供「再听一次 / 小喇叭」，绝不把孩子卡在「正在说话」。
 class RoleplayStepPlayer extends StatefulWidget {
   final Map<String, dynamic> data;
+  final String ageGroup;
   final bool isCompleted;
   final void Function(int score, Map<String, dynamic> interactionData)
       onComplete;
 
+  /// 上层「朗读」按钮的重播信号；计数变化即重读当前轮。
+  final ValueNotifier<int>? replaySignal;
+
   const RoleplayStepPlayer({
     super.key,
     required this.data,
+    this.ageGroup = '',
     required this.isCompleted,
     required this.onComplete,
+    this.replaySignal,
   });
 
   @override
@@ -68,6 +78,9 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
   late final String _scenario;
   late final List<_Turn> _turns;
   late final int _minTurns;
+  late final String _ttsRate;
+  late final String _listenHint;
+  late final String _optionHint;
 
   int _turnIndex = 0;
   int _turnsCompleted = 0;
@@ -75,13 +88,23 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
   bool _asrSupported = false;
   bool _isListening = false;
   bool _isSpeaking = false;
+  bool _isReadingOptions = false;
+  bool _ttsUnavailable = false;
+  int _activeOptionIndex = -1;
   bool _awaitingResponse = false;
   String _feedback = '';
   bool _allDone = false;
 
+  /// 每次重新播报 +1，旧播报的异步结果据此作废，避免乱序串音。
+  int _speakEpoch = 0;
+
   @override
   void initState() {
     super.initState();
+    _ttsRate = roleplayTtsRate(widget.ageGroup);
+    _listenHint = roleplayListenHint(widget.ageGroup);
+    _optionHint = roleplayOptionHint(widget.ageGroup);
+
     final d = widget.data;
     _scenario = d['scenario']?.toString() ?? '';
     _minTurns = (d['minTurns'] is num)
@@ -119,7 +142,13 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
     }
     _turns = turns;
 
+    final signal = widget.replaySignal;
+    if (signal != null) {
+      signal.addListener(_onReplaySignal);
+    }
+
     if (!widget.isCompleted && _turns.isNotEmpty) {
+      _tts.init();
       _initAsr();
       WidgetsBinding.instance.addPostFrameCallback((_) => _playTurn());
     }
@@ -131,6 +160,11 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
         .map((e) => e?.toString().trim() ?? '')
         .where((e) => e.isNotEmpty)
         .toList();
+  }
+
+  void _onReplaySignal() {
+    if (!mounted || widget.isCompleted || _turns.isEmpty) return;
+    _playTurn();
   }
 
   Future<void> _initAsr() async {
@@ -150,34 +184,169 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
     }
   }
 
+  /// 播报单句；返回 false 表示没有拿到可靠的播放完成信号（可能没声音）。
+  Future<bool> _speakText(String text, int epoch) async {
+    final clean = text.trim();
+    if (clean.isEmpty) return true;
+    try {
+      await _tts.speak(clean, rate: _ttsRate);
+      // 播放启动失败时 TtsService 会把 isSpeaking 置回 false（静默吞掉异常），
+      // 这里据此标记「没声音」，让界面给出明确提示而不是假装播完了。
+      if (!_tts.isSpeaking) return false;
+      var completed = true;
+      await _tts.onComplete.timeout(
+        roleplayTtsTimeout(clean, rate: _ttsRate),
+        onTimeout: () => completed = false,
+      );
+      return epoch == _speakEpoch && completed;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _pause(int epoch, Duration duration) async {
+    await Future.delayed(duration);
+    return mounted && epoch == _speakEpoch;
+  }
+
   Future<void> _playTurn() async {
     if (!mounted || _turnIndex >= _turns.length) return;
+    final epoch = ++_speakEpoch;
+    await _tts.stop();
+    if (!mounted || epoch != _speakEpoch) return;
+
     final turn = _turns[_turnIndex];
     setState(() {
       _awaitingResponse = false;
       _feedback = '';
       _isSpeaking = true;
+      _isReadingOptions = false;
+      _ttsUnavailable = false;
+      _activeOptionIndex = -1;
     });
+
+    // 第一轮先读场景/题目，孩子才明白在演什么；后续轮只读台词避免啰嗦。
+    if (_turnIndex == 0 && _scenario.isNotEmpty) {
+      final ok = await _speakText('先听故事：$_scenario', epoch);
+      if (!ok || !await _pause(epoch, const Duration(milliseconds: 350))) {
+        return _finishSpeaking(epoch, ok: false);
+      }
+    }
+
     final line = turn.speakerName.isNotEmpty
         ? '${turn.speakerName}说：${turn.text}'
         : turn.text;
-    await _tts.speak(line);
-    await _tts.onComplete;
-    if (!mounted) return;
+    final ok = await _speakText(line, epoch);
+    if (!mounted || epoch != _speakEpoch) return;
+    _finishSpeaking(epoch, ok: ok);
+    if (ok && turn.options.isNotEmpty) {
+      await _readOptions(epoch);
+    }
+  }
+
+  void _finishSpeaking(int epoch, {required bool ok}) {
+    if (!mounted || epoch != _speakEpoch) return;
     setState(() {
       _isSpeaking = false;
       _awaitingResponse = true;
+      _ttsUnavailable = !ok;
+      if (!ok) _feedback = '没听到声音？点小喇叭再试一次';
+    });
+  }
+
+  /// 逐项朗读选项，并高亮当前正在读的那一项（低龄孩子不识字也能跟听）。
+  Future<void> _readOptions(int epoch) async {
+    if (!mounted || epoch != _speakEpoch || _turnIndex >= _turns.length) return;
+    final options = _turns[_turnIndex].options;
+    if (options.isEmpty) return;
+    setState(() {
+      _isReadingOptions = true;
+      _activeOptionIndex = -1;
+    });
+    for (var i = 0; i < options.length; i++) {
+      if (!mounted || epoch != _speakEpoch) return;
+      setState(() => _activeOptionIndex = i);
+      final ok = await _speakText('选项${i + 1}：${options[i]}', epoch);
+      if (!ok) break;
+      if (!await _pause(epoch, const Duration(milliseconds: 250))) return;
+    }
+    if (!mounted || epoch != _speakEpoch) return;
+    setState(() {
+      _isReadingOptions = false;
+      _activeOptionIndex = -1;
     });
   }
 
   Future<void> _replayTurn() async {
-    if (_isSpeaking || _isListening) return;
+    if (_isListening) await _stopListening();
     await _playTurn();
+  }
+
+  Future<void> _replayOptions() async {
+    if (_turnIndex >= _turns.length || _turns[_turnIndex].options.isEmpty) {
+      return;
+    }
+    final epoch = ++_speakEpoch;
+    await _tts.stop();
+    if (mounted && epoch == _speakEpoch) {
+      await _readOptions(epoch);
+    }
+  }
+
+  /// 单独重读某一项（点选项右侧小喇叭）。
+  Future<void> _speakOption(int index) async {
+    if (_turnIndex >= _turns.length) return;
+    final option = _turns[_turnIndex].options[index];
+    final epoch = ++_speakEpoch;
+    await _tts.stop();
+    if (!mounted || epoch != _speakEpoch) return;
+    setState(() {
+      _isReadingOptions = true;
+      _activeOptionIndex = index;
+      _ttsUnavailable = false;
+    });
+    final ok = await _speakText('选项${index + 1}：$option', epoch);
+    if (!mounted || epoch != _speakEpoch) return;
+    setState(() {
+      _isReadingOptions = false;
+      _activeOptionIndex = -1;
+      if (!ok) _ttsUnavailable = true;
+    });
+  }
+
+  /// 重读气泡里的任意一句（题目台词/孩子的示范回答）。
+  Future<void> _speakBubble(String text) async {
+    final epoch = ++_speakEpoch;
+    await _tts.stop();
+    if (!mounted || epoch != _speakEpoch) return;
+    setState(() {
+      // 可能打断场景/台词播报：直接进入可作答状态，避免卡在「正在说话」
+      _isSpeaking = false;
+      _awaitingResponse = true;
+      _isReadingOptions = true;
+      _activeOptionIndex = -1;
+      _ttsUnavailable = false;
+    });
+    final ok = await _speakText(text, epoch);
+    if (!mounted || epoch != _speakEpoch) return;
+    setState(() {
+      _isReadingOptions = false;
+      if (!ok) _ttsUnavailable = true;
+    });
   }
 
   Future<void> _startListening() async {
     final asr = _asr;
     if (asr == null || !_asrSupported || _isListening) return;
+    if (_isReadingOptions) {
+      ++_speakEpoch;
+      await _tts.stop();
+      if (!mounted) return;
+      setState(() {
+        _isReadingOptions = false;
+        _activeOptionIndex = -1;
+      });
+    }
     setState(() {
       _isListening = true;
       _feedback = '我在听，大声说出来吧！';
@@ -221,8 +390,16 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
     if (mounted) setState(() => _isListening = false);
   }
 
-  void _pickOption(String option) {
+  Future<void> _pickOption(String option) async {
     if (!_awaitingResponse || _turnIndex >= _turns.length) return;
+    // 孩子点了答案就停掉正在播的选项，避免声音压住他的操作反馈。
+    ++_speakEpoch;
+    await _tts.stop();
+    if (!mounted) return;
+    setState(() {
+      _isReadingOptions = false;
+      _activeOptionIndex = -1;
+    });
     final turn = _turns[_turnIndex];
     final correct = turn.isCorrectOption(option) ||
         (!turn.options.any(turn.isCorrectOption) &&
@@ -262,6 +439,8 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
 
   @override
   void dispose() {
+    widget.replaySignal?.removeListener(_onReplaySignal);
+    _speakEpoch++;
     _tts.stop();
     _asr?.dispose();
     super.dispose();
@@ -327,17 +506,29 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
           name: turn.speakerName.isEmpty ? '小伙伴' : turn.speakerName,
           text: turn.text,
           isChild: false,
+          onSpeak: () => _speakBubble(turn.text),
         ),
         const SizedBox(height: 10),
         if (turn.childLine.isNotEmpty)
-          _speechBubble(name: '你', text: turn.childLine, isChild: true),
+          _speechBubble(
+            name: '你',
+            text: turn.childLine,
+            isChild: true,
+            onSpeak: () => _speakBubble(turn.childLine),
+          ),
         const SizedBox(height: 12),
         if (_isSpeaking)
-          _statusRow(Icons.volume_up_rounded, '小伙伴在说话，认真听…')
+          _statusRow(Icons.volume_up_rounded, _listenHint)
+        else if (_isReadingOptions)
+          _statusRow(Icons.volume_up_rounded, _optionHint)
         else if (_isListening)
           _statusRow(Icons.mic_rounded, '我在听你说…')
         else if (_feedback.isNotEmpty)
-          _statusRow(Icons.chat_bubble_outline_rounded, _feedback),
+          _statusRow(
+            _ttsUnavailable ? Icons.warning_amber_rounded : Icons.chat_bubble_outline_rounded,
+            _feedback,
+            color: _ttsUnavailable ? AppTheme.warningColor : null,
+          ),
         const SizedBox(height: 10),
         if (_awaitingResponse) ...[
           Row(
@@ -374,26 +565,76 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          for (final option in turn.options)
+          if (turn.options.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _replayOptions,
+                icon: const Icon(Icons.volume_up_rounded, size: 18),
+                label: Text(
+                  _isReadingOptions ? '正在读选项…' : '听选项',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+          ],
+          for (var i = 0; i < turn.options.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => _pickOption(option),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    side: BorderSide(color: AppTheme.active.line),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pickOption(turn.options[i]),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(
+                          color: _activeOptionIndex == i
+                              ? AppTheme.primaryColor
+                              : AppTheme.active.line,
+                          width: _activeOptionIndex == i ? 2 : 1,
+                        ),
+                        backgroundColor: _activeOptionIndex == i
+                            ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                            : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        turn.options[i],
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppTheme.textColor,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    option,
-                    style: TextStyle(fontSize: 15, color: AppTheme.textColor),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: () => _speakOption(i),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: BorderSide(color: AppTheme.active.line),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.volume_up_rounded,
+                        size: 20,
+                        color: _activeOptionIndex == i
+                            ? AppTheme.primaryColor
+                            : AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
         ],
@@ -433,6 +674,7 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
     required String name,
     required String text,
     required bool isChild,
+    required VoidCallback onSpeak,
   }) {
     return Align(
       alignment: isChild ? Alignment.centerRight : Alignment.centerLeft,
@@ -459,9 +701,30 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              text,
-              style: TextStyle(fontSize: 16, color: AppTheme.textColor),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    text,
+                    style: TextStyle(fontSize: 16, color: AppTheme.textColor),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: onSpeak,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.volume_up_rounded,
+                      size: 18,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -469,15 +732,18 @@ class _RoleplayStepPlayerState extends State<RoleplayStepPlayer> {
     );
   }
 
-  Widget _statusRow(IconData icon, String text) {
+  Widget _statusRow(IconData icon, String text, {Color? color}) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppTheme.secondaryColor),
+        Icon(icon, size: 18, color: color ?? AppTheme.secondaryColor),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+            style: TextStyle(
+              fontSize: 13,
+              color: color ?? AppTheme.textSecondary,
+            ),
           ),
         ),
       ],

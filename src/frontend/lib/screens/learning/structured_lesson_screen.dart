@@ -151,6 +151,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   // TTS 朗读状态
   bool _isSpeakingStep = false;
+  // 角色扮演组件自带逐轮 TTS；顶部「朗读」按钮通过它重播当前轮
+  final ValueNotifier<int> _roleplayReadRequest = ValueNotifier<int>(0);
 
   // 视频生成状态
   String? _videoUrl;
@@ -169,6 +171,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   @override
   void dispose() {
     _videoPollTimer?.cancel();
+    _roleplayReadRequest.dispose();
     TtsService().stop();
     super.dispose();
   }
@@ -636,6 +639,12 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
 
   Future<void> _speakStepContent() async {
     if (_steps.isEmpty || _currentStepIndex >= _steps.length) return;
+
+    // 角色扮演的朗读由播放器自行处理（场景→台词→选项），这里只转发重播信号
+    if (_steps[_currentStepIndex].type == 'roleplay') {
+      _roleplayReadRequest.value++;
+      return;
+    }
 
     final tts = TtsService();
 
@@ -1721,6 +1730,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
   Widget _buildRoleplayStep(_LessonStep step, bool isCompleted) {
     return RoleplayStepPlayer(
       data: _moduleData(step, 'roleplay'),
+      ageGroup: _ageGroup,
+      replaySignal: _roleplayReadRequest,
       isCompleted: isCompleted,
       onComplete: (score, data) => _completeStep(
         score: score,

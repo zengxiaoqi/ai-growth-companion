@@ -91,11 +91,19 @@ export class VoiceService {
     const cached = await this.readTtsCache(cacheKey);
     if (cached) return cached;
     const tts = new EdgeTTS();
-    await tts.synthesize(clean || '嗯嗯', voice, {
-      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
-      rate: safeRate,
-      pitch: '+2Hz',
-    });
+    try {
+      await tts.synthesize(clean || '嗯嗯', voice, {
+        outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+        rate: safeRate,
+        pitch: '+2Hz',
+      });
+    } catch (error: any) {
+      // Edge TTS 依赖外部 WebSocket；失败时留下可诊断日志（原先只向上抛 500）
+      this.logger.error(
+        `Edge TTS synthesize failed (voice=${voice}, rate=${safeRate}, len=${clean.length}): ${error?.message || error}`,
+      );
+      throw error;
+    }
     const buffer = tts.toBuffer();
 
     let wordBoundaries: WordBoundary[] = [];

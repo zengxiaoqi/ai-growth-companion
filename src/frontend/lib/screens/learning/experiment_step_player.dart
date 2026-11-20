@@ -24,10 +24,18 @@ String? _pictureUrlFor(String label) {
 /// accepts ?token= (same approach as tap_target_game.dart).
 String? _withToken(String? url) {
   if (url == null || url.isEmpty) return null;
+  var resolved = url;
+  // Debug Flutter Web (flutter run on :8080) has no /api proxy, so a relative
+  // /api/... picture URL would 404. Send it to whichever backend the rest of
+  // the app uses. Release builds keep the relative path (nginx proxies it).
+  if (url.startsWith('/api/') && ApiService.baseUrl.startsWith('http')) {
+    final origin = ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    resolved = '$origin$url';
+  }
   final token = ApiService().token;
   return token == null || token.isEmpty
-      ? url
-      : '$url?token=${Uri.encodeComponent(token)}';
+      ? resolved
+      : '$resolved?token=${Uri.encodeComponent(token)}';
 }
 
 /// 屏幕内模拟实验步骤（science 领域「做」一步）。

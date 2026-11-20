@@ -68,8 +68,9 @@ done
 echo ""
 echo "[3] Adding load() error handling..."
 python3 -c "
-import re
-with open('$BOOTSTRAP_JS', 'r') as f:
+import re, sys
+path = sys.argv[1]  # pass as argv so MSYS converts /d/... to D:\... for Windows Python
+with open(path, 'r') as f:
     content = f.read()
 # Replace the last line containing '});' with .catch() version
 content = re.sub(
@@ -77,10 +78,10 @@ content = re.sub(
     ').catch(function(err) { console.error(\"Flutter failed to load:\", err); var el = document.getElementById(\"lingxi-loader\"); if (el) { el.querySelector(\"p\").textContent = \"\\u52a0\\u8f7d\\u5931\\u8d25\\uff0c\\u8bf7\\u5237\\u65b0\\u9875\\u9762\\u91cd\\u8bd5\"; el.querySelector(\"p\").style.color = \"red\"; } var errEl = document.getElementById(\"lingxi-error\"); if (errEl) { errEl.textContent = err.message || \"\\u672a\\u77e5\\u9519\\u8bef\"; errEl.classList.add(\"show\"); } });',
     content
 )
-with open('$BOOTSTRAP_JS', 'w') as f:
+with open(path, 'w') as f:
     f.write(content)
 print('  ✓ .catch() added')
-"
+" "$BOOTSTRAP_JS"
 
 # --- Step 4: Copy updated index.html to build/web ---
 echo ""

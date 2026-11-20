@@ -1114,92 +1114,114 @@ class _GameRendererState extends State<GameRenderer> {
       );
     }
 
-    switch (_resolvedType) {
-      case 'quiz':
-        return QuizGame(
+    // 固定高度布局的题型（纵向没有 Expanded）放进有界容器时，若内容超过
+    // 一屏会溢出并显示黄黑条纹。统一给它们加「超高才滚动」的兜底：
+    // 有界高度时用 SingleChildScrollView + ConstrainedBox(minHeight=maxHeight)，
+    // 内容没超高时照样铺满、不出现滚动条；无界高度场景直接返回原组件。
+    const fixedLayoutTypes = {'quiz', 'true_false', 'fill_blank'};
+    final needsScrollGuard = fixedLayoutTypes.contains(_resolvedType);
+
+    Widget buildGame() => switch (_resolvedType) {
+      'quiz' =>
+        QuizGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'true_false':
-        return TrueFalseGame(
+        ),
+      'true_false' =>
+        TrueFalseGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'matching':
-        return MatchingGame(
+        ),
+      'matching' =>
+        MatchingGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'fill_blank':
-        return FillBlankGame(
+        ),
+      'fill_blank' =>
+        FillBlankGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'sequencing':
-        return SequencingGame(
+        ),
+      'sequencing' =>
+        SequencingGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'connection':
-        return ConnectionGame(
+        ),
+      'connection' =>
+        ConnectionGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'puzzle':
-        return PuzzleGame(
+        ),
+      'puzzle' =>
+        PuzzleGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'drag_sort':
-        return DragSortGame(
+        ),
+      'drag_sort' =>
+        DragSortGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'memory_flip':
-        return MemoryFlipGame(
+        ),
+      'memory_flip' =>
+        MemoryFlipGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'pattern_next':
-        return PatternNextGame(
+        ),
+      'pattern_next' =>
+        PatternNextGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'trace_path':
-        return TracePathGame(
+        ),
+      'trace_path' =>
+        TracePathGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'color_fill':
-        return ColorFillGame(
+        ),
+      'color_fill' =>
+        ColorFillGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      case 'tap_target':
-        return TapTargetGame(
+        ),
+      'tap_target' =>
+        TapTargetGame(
           data: _resolvedData,
           onExit: widget.onExit,
           onFinished: widget.onCompleted,
-        );
-      default:
-        return Center(
+        ),
+      _ =>
+        Center(
           child: Text(
             '暂不支持的游戏类型：$_resolvedType',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
+        ),
+    };
+
+    if (!needsScrollGuard) return buildGame();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final game = buildGame();
+        if (!constraints.hasBoundedHeight) return game;
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: game,
+          ),
         );
-    }
+      },
+    );
+
   }
 }

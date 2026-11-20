@@ -1,0 +1,18 @@
+[
+  {
+    "title": "修复 parent.controller.spec.ts 测试期望值",
+    "description": "CASUAL_TOOL_CATALOG 已新增 playMusic，测试期望值仍是旧列表 ['translate', 'playStory']，需更新为包含 playMusic",
+    "category": "test",
+    "estimated_complexity": "low",
+    "affected_area": "backend",
+    "tier": 1
+  },
+  {
+    "title": "清理 trace_path_game.dart 未使用字段",
+    "description": "_minTargets 静态常量定义但未使用，Flutter analyze 报告 warning",
+    "category": "refactor",
+    "estimated_complexity": "low",
+    "affected_area": "frontend-flutter",
+    "tier": 2
+  }
+]

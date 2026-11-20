@@ -542,6 +542,7 @@ ${this.outputModuleSchemaBlock(args.domain)}
           ? '- steps: 2-3 steps.'
           : '- steps: 3-4 steps.',
         '- Each step: instruction (what to tap/do), action "tap_target", targets (2-3 tappable item names), reveal (the observable result in one sentence), observe (a 2-option question about what happened with correctIndex).',
+        '- Use CONCRETE nouns for targets and materials (e.g. "棕熊", "青蛙", "麻雀" — never "棕熊卡片"): each one gets its own child-friendly illustration shown on the interactive card.',
         '- conclusion: one sentence a child can remember.',
       );
     } else {

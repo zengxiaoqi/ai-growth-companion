@@ -756,6 +756,8 @@ export interface ExperimentStepData {
   instruction: string;
   action?: string;
   targets?: string[];
+  /** Same-origin picture URLs, index-aligned with targets. */
+  targetImageUrls?: Array<string | null>;
   reveal?: string;
   observe?: { question: string; options: string[]; correctIndex: number };
 }
@@ -764,6 +766,8 @@ export interface ExperimentModuleData {
   title?: string;
   question?: string;
   materials?: string[];
+  /** Same-origin picture URLs, index-aligned with materials. */
+  materialImageUrls?: Array<string | null>;
   steps: ExperimentStepData[];
   conclusion?: string;
 }

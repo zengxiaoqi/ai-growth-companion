@@ -1128,6 +1128,8 @@ export interface ExperimentStepData {
   instruction: string;
   action: string;
   targets: string[];
+  /** Same-origin situation-picture URL per target (index-aligned, nullable). */
+  targetImageUrls?: Array<string | null>;
   reveal: string;
   observe?: ExperimentObserve;
 }
@@ -1136,8 +1138,26 @@ export interface ExperimentModuleData {
   title: string;
   question: string;
   materials: string[];
+  /** Same-origin situation-picture URL per material (index-aligned, nullable). */
+  materialImageUrls?: Array<string | null>;
   steps: ExperimentStepData[];
   conclusion: string;
+}
+
+/**
+ * Build the lazy-generated situation-picture URL for an experiment label.
+ *
+ * Labels commonly read "棕熊卡片" — drawing that verbatim would produce a
+ * picture of a *card*, not of a bear. Strip the trailing "卡片/卡/图/图片"
+ * suffix so the endpoint receives the subject itself. The validation mirrors
+ * GET /api/learning/activity-image/:subject (<= 12 chars, no paths or markup).
+ */
+export function toActivityImageUrl(label: unknown): string | null {
+  const raw = typeof label === 'string' ? label.trim() : '';
+  if (!raw) return null;
+  const subject = raw.replace(/(?:卡片|图片|插画|卡|图)$/u, '').trim();
+  if (!subject || subject.length > 12 || /[\\/\x00-\x1f<>]/.test(subject)) return null;
+  return `/api/learning/activity-image/${encodeURIComponent(subject)}`;
 }
 
 export function sanitizeExperimentModule(raw: any, topic: string): ExperimentModuleData {
@@ -1146,10 +1166,12 @@ export function sanitizeExperimentModule(raw: any, topic: string): ExperimentMod
       const instruction = toText(entry?.instruction || entry?.text || entry?.prompt);
       if (!instruction) return null;
       const targets = toStringArray(entry?.targets, 6);
+      const finalTargets = targets.length > 0 ? targets : ['试一试'];
       return {
         instruction,
         action: toText(entry?.action, 'tap_target'),
-        targets: targets.length > 0 ? targets : ['试一试'],
+        targets: finalTargets,
+        targetImageUrls: finalTargets.map((target) => toActivityImageUrl(target)),
         reveal: toText(entry?.reveal || entry?.result, '仔细看看发生了什么变化'),
         observe: sanitizeObserve(entry?.observe),
       };
@@ -1165,6 +1187,7 @@ export function sanitizeExperimentModule(raw: any, topic: string): ExperimentMod
             instruction: `点一点，看看${topic}会发生什么`,
             action: 'tap_target',
             targets: [topic],
+            targetImageUrls: [toActivityImageUrl(topic)],
             reveal: `${topic}真有趣，你发现了吗？`,
             observe: {
               question: '你看到了什么？',
@@ -1174,10 +1197,13 @@ export function sanitizeExperimentModule(raw: any, topic: string): ExperimentMod
           },
         ];
 
+  const materials = toStringArray(raw?.materials, 6);
+
   return {
     title: toText(raw?.title, `${topic} 小实验`),
     question: toText(raw?.question, `关于${topic}，你想知道什么？`),
-    materials: toStringArray(raw?.materials, 6),
+    materials,
+    materialImageUrls: materials.map((material) => toActivityImageUrl(material)),
     steps: finalSteps,
     conclusion: toText(raw?.conclusion, `今天我们通过小实验发现了${topic}的秘密`),
   };

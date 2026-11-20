@@ -2,8 +2,33 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../services/api_service.dart';
 import '../../services/tts_service.dart';
 import '../../theme/app_theme.dart';
+
+/// Build the same same-origin picture URL the backend embeds in new lessons.
+/// Old draft lessons have no URL field, so labels are normalized here too.
+/// "棕熊卡片" must become "棕熊" — drawing the verbatim label would render a
+/// picture of a card instead of the animal.
+String? _pictureUrlFor(String label) {
+  final cleaned = label.trim().replaceFirst(RegExp(r'(卡片|图片|插画|卡|图)$'), '');
+  if (cleaned.isEmpty ||
+      cleaned.length > 12 ||
+      RegExp(r'[\\/<>\x00-\x1f]').hasMatch(cleaned)) {
+    return null;
+  }
+  return '/api/learning/activity-image/${Uri.encodeComponent(cleaned)}';
+}
+
+/// Image.network cannot send an Authorization header; the JWT strategy also
+/// accepts ?token= (same approach as tap_target_game.dart).
+String? _withToken(String? url) {
+  if (url == null || url.isEmpty) return null;
+  final token = ApiService().token;
+  return token == null || token.isEmpty
+      ? url
+      : '$url?token=${Uri.encodeComponent(token)}';
+}
 
 /// 屏幕内模拟实验步骤（science 领域「做」一步）。
 ///
@@ -29,6 +54,7 @@ class ExperimentStepPlayer extends StatefulWidget {
 class _ExpStep {
   final String instruction;
   final List<String> targets;
+  final List<String?> targetImageUrls;
   final String reveal;
   final String observeQuestion;
   final List<String> observeOptions;
@@ -37,6 +63,7 @@ class _ExpStep {
   _ExpStep({
     required this.instruction,
     required this.targets,
+    required this.targetImageUrls,
     required this.reveal,
     required this.observeQuestion,
     required this.observeOptions,
@@ -51,6 +78,7 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
 
   late final String _question;
   late final List<String> _materials;
+  late final List<String?> _materialImageUrls;
   late final List<_ExpStep> _steps;
   late final String _conclusion;
 
@@ -71,6 +99,7 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
     final d = widget.data;
     _question = d['question']?.toString() ?? '';
     _materials = _stringList(d['materials']);
+    _materialImageUrls = _pictureUrls(d['materialImageUrls'], _materials);
     _conclusion = d['conclusion']?.toString() ?? '';
 
     final steps = <_ExpStep>[];
@@ -83,6 +112,7 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
         final observe = s['observe'];
         final observeMap = observe is Map ? observe : const {};
         final options = _stringList(observeMap['options']);
+        final targets = _stringList(s['targets']);
         final rawIndex = observeMap['correctIndex'];
         var correctIndex =
             (rawIndex is num) ? rawIndex.toInt() : 0;
@@ -91,7 +121,8 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
         }
         steps.add(_ExpStep(
           instruction: instruction,
-          targets: _stringList(s['targets']),
+          targets: targets,
+          targetImageUrls: _pictureUrls(s['targetImageUrls'], targets),
           reveal: s['reveal']?.toString() ?? '',
           observeQuestion: observeMap['question']?.toString() ?? '',
           observeOptions: options,
@@ -112,6 +143,18 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
         .map((e) => e?.toString().trim() ?? '')
         .where((e) => e.isNotEmpty)
         .toList();
+  }
+
+  /// Prefer the URL embedded by the backend; fall back to deriving one from
+  /// the label so already-generated lessons gain picture cards immediately.
+  static List<String?> _pictureUrls(dynamic value, List<String> labels) {
+    return List<String?>.generate(labels.length, (i) {
+      if (value is List && i < value.length) {
+        final stored = value[i]?.toString().trim();
+        if (stored != null && stored.isNotEmpty) return stored;
+      }
+      return _pictureUrlFor(labels[i]);
+    });
   }
 
   Future<void> _speak(String text) async {
@@ -291,18 +334,26 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
                 Text('材料：',
                     style: TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary)),
-                for (final m in _materials)
+                for (var i = 0; i < _materials.length; i++)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                        horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTheme.active.card,
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: AppTheme.active.line),
                     ),
-                    child: Text(m,
-                        style: TextStyle(
-                            fontSize: 13, color: AppTheme.textColor)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _smallPicture(_materialImageUrls[i]),
+                        if (_materialImageUrls[i] != null)
+                          const SizedBox(width: 4),
+                        Text(_materials[i],
+                            style: TextStyle(
+                                fontSize: 13, color: AppTheme.textColor)),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -359,40 +410,36 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
 
   int get _stepCount => _steps.length;
 
+  Widget _smallPicture(String? url) {
+    final resolved = _withToken(url);
+    if (resolved == null) return const SizedBox.shrink();
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: Image.network(
+        resolved,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      ),
+    );
+  }
+
   Widget _targetGrid(_ExpStep step) {
     final targets = step.targets.isEmpty ? ['点一点'] : step.targets;
+    final imageUrls = step.targetImageUrls.length == targets.length
+        ? step.targetImageUrls
+        : List<String?>.generate(
+            targets.length, (i) => _pictureUrlFor(targets[i]));
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        for (final target in targets)
-          GestureDetector(
-            onTap: () => _tapTarget(target),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: _tappedTarget == target
-                    ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                    : const Color(0xFFE8F8FF),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _tappedTarget == target
-                      ? AppTheme.primaryColor
-                      : AppTheme.secondaryColor.withValues(alpha: 0.4),
-                  width: 2,
-                ),
-              ),
-              child: Text(
-                target,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textColor,
-                ),
-              ),
-            ),
+        for (var i = 0; i < targets.length; i++)
+          _PictureTargetCard(
+            label: targets[i],
+            imageUrl: imageUrls[i],
+            selected: _tappedTarget == targets[i],
+            onTap: () => _tapTarget(targets[i]),
           ),
       ],
     );
@@ -513,4 +560,100 @@ class _ExperimentStepPlayerState extends State<ExperimentStepPlayer> {
       ),
     );
   }
+}
+
+/// A picture card for one experiment target: illustration on top, label below.
+/// Tapping anywhere on the card keeps the original tap_target interaction.
+class _PictureTargetCard extends StatefulWidget {
+  final String label;
+  final String? imageUrl;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PictureTargetCard({
+    required this.label,
+    required this.imageUrl,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_PictureTargetCard> createState() => _PictureTargetCardState();
+}
+
+class _PictureTargetCardState extends State<_PictureTargetCard> {
+  bool _failed = false;
+
+  @override
+  void didUpdateWidget(covariant _PictureTargetCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) _failed = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = _withToken(widget.imageUrl);
+    final showPicture = resolved != null && !_failed;
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 108,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        decoration: BoxDecoration(
+          color: widget.selected
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : const Color(0xFFE8F8FF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: widget.selected
+                ? AppTheme.primaryColor
+                : AppTheme.secondaryColor.withValues(alpha: 0.4),
+            width: 2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 68,
+              height: 68,
+              child: showPicture
+                  ? Image.network(
+                      resolved,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) {
+                        if (!_failed) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) setState(() => _failed = true);
+                          });
+                        }
+                        return _fallbackIcon();
+                      },
+                    )
+                  : _fallbackIcon(),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _fallbackIcon() => Icon(
+        Icons.touch_app_rounded,
+        size: 40,
+        color: AppTheme.secondaryColor.withValues(alpha: 0.7),
+      );
 }

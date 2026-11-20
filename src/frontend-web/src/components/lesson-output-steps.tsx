@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CheckCircle, Microscope, Palette, RotateCcw, Volume2 } from '@/icons';
 import { Button, Card } from './ui';
+import { withAuthToken } from './games/ChildGameUI';
 import type {
   DrawingModuleData,
   ExperimentModuleData,
@@ -396,6 +397,39 @@ export function RoleplayStep({
   );
 }
 
+/** Old lessons have no URL field: derive the same URL from the label. */
+function experimentPictureUrl(label: string): string | null {
+  const subject = label.trim().replace(/(?:卡片|图片|插画|卡|图)$/u, '');
+  if (!subject || subject.length > 12 || /[\\/\x00-\x1f<>]/.test(subject)) return null;
+  return `/api/learning/activity-image/${encodeURIComponent(subject)}`;
+}
+
+function experimentPictureUrls(value: unknown, labels: string[]): Array<string | null> {
+  return labels.map((label, i) => {
+    if (Array.isArray(value) && typeof value[i] === 'string' && value[i]) {
+      return value[i] as string;
+    }
+    return experimentPictureUrl(label);
+  });
+}
+
+function ExperimentPicture({ url, className }: { url: string | null; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [url]);
+  if (!url || failed) {
+    return <span className={className} aria-hidden>🔬</span>;
+  }
+  return (
+    <img
+      src={withAuthToken(url)}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
 // ─── Experiment Step (science) ─────────────────────────────────────────
 
 export function ExperimentStep({
@@ -508,6 +542,11 @@ export function ExperimentStep({
   }
 
   const targets = step.targets && step.targets.length > 0 ? step.targets : ['点一点'];
+  const targetImageUrls = experimentPictureUrls(step?.targetImageUrls, targets);
+  const materialImageUrls = experimentPictureUrls(
+    data.materialImageUrls,
+    data.materials || [],
+  );
   const observeOptions = step.observe?.options || [];
 
   return (
@@ -521,7 +560,10 @@ export function ExperimentStep({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-on-surface-variant">材料：</span>
           {(data.materials || []).map((mat, i) => (
-            <span key={i} className="rounded-full border border-outline-variant/40 px-3 py-1 text-xs text-on-surface">
+            <span key={i} className="flex items-center gap-1 rounded-full border border-outline-variant/40 px-3 py-1 text-xs text-on-surface">
+              {materialImageUrls[i] && (
+                <ExperimentPicture url={materialImageUrls[i]} className="h-4 w-4 object-contain" />
+              )}
               {mat}
             </span>
           ))}
@@ -538,17 +580,21 @@ export function ExperimentStep({
 
       {phase === 'act' && (
         <div className="flex flex-wrap gap-3">
-          {targets.map((target) => (
+          {targets.map((target, i) => (
             <button
-              key={target}
+              key={`${target}-${i}`}
               onClick={() => tapTarget(target)}
-              className={`rounded-2xl border-2 px-5 py-4 text-base font-semibold text-on-surface transition ${
+              className={`flex w-28 flex-col items-center gap-2 rounded-2xl border-2 px-3 py-3 text-base font-semibold text-on-surface transition ${
                 tappedTarget === target
                   ? 'border-primary bg-primary/10'
                   : 'border-sky-300 bg-sky-50 hover:border-sky-500'
               }`}
             >
-              {target}
+              <ExperimentPicture
+                url={targetImageUrls[i]}
+                className="h-16 w-16 object-contain text-4xl text-center leading-[4rem]"
+              />
+              <span className="text-center text-sm leading-tight">{target}</span>
             </button>
           ))}
         </div>

@@ -1122,92 +1122,78 @@ class _GameRendererState extends State<GameRenderer> {
     final needsScrollGuard = fixedLayoutTypes.contains(_resolvedType);
 
     Widget buildGame() => switch (_resolvedType) {
-      'quiz' =>
-        QuizGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'true_false' =>
-        TrueFalseGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'matching' =>
-        MatchingGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'fill_blank' =>
-        FillBlankGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'sequencing' =>
-        SequencingGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'connection' =>
-        ConnectionGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'puzzle' =>
-        PuzzleGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'drag_sort' =>
-        DragSortGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'memory_flip' =>
-        MemoryFlipGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'pattern_next' =>
-        PatternNextGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'trace_path' =>
-        TracePathGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'color_fill' =>
-        ColorFillGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      'tap_target' =>
-        TapTargetGame(
-          data: _resolvedData,
-          onExit: widget.onExit,
-          onFinished: widget.onCompleted,
-        ),
-      _ =>
-        Center(
-          child: Text(
-            '暂不支持的游戏类型：$_resolvedType',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ),
-    };
+          'quiz' => QuizGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'true_false' => TrueFalseGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'matching' => MatchingGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'fill_blank' => FillBlankGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'sequencing' => SequencingGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'connection' => ConnectionGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'puzzle' => PuzzleGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'drag_sort' => DragSortGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'memory_flip' => MemoryFlipGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'pattern_next' => PatternNextGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'trace_path' => TracePathGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'color_fill' => ColorFillGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          'tap_target' => TapTargetGame(
+              data: _resolvedData,
+              onExit: widget.onExit,
+              onFinished: widget.onCompleted,
+            ),
+          _ => Center(
+              child: Text(
+                '暂不支持的游戏类型：$_resolvedType',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+        };
 
     if (!needsScrollGuard) return buildGame();
     return LayoutBuilder(
@@ -1222,6 +1208,5 @@ class _GameRendererState extends State<GameRenderer> {
         );
       },
     );
-
   }
 }

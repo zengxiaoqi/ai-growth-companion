@@ -6,7 +6,7 @@ import 'package:lingxi_companion/screens/games/game_renderer.dart';
 import 'package:lingxi_companion/services/api_service.dart';
 
 /// 回归测试：课程「练」步骤把游戏放进固定高度的 Expanded 里，
- /// 固定布局的题型（quiz 等）内容超高时不能溢出（黄黑条纹 BOTTOM OVERFLOWED）。
+/// 固定布局的题型（quiz 等）内容超高时不能溢出（黄黑条纹 BOTTOM OVERFLOWED）。
 void main() {
   Widget buildHarness({required double height}) {
     final quizData = <String, dynamic>{
@@ -48,7 +48,6 @@ void main() {
     await tester.pumpAndSettle();
 
     final errors = tester.takeException();
-    expect(errors, isNull,
-        reason: '固定高度 + 超长题目内容不应溢出（Flutter 会画黄黑条纹）');
+    expect(errors, isNull, reason: '固定高度 + 超长题目内容不应溢出（Flutter 会画黄黑条纹）');
   });
 }

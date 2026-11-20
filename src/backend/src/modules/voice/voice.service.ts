@@ -5,6 +5,10 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { AiService } from '../ai/ai.service';
 import type { WordBoundary } from '../learning/subtitle-timing';
+import {
+  installEdgeTtsV2Patch,
+  LEGACY_EDGE_WSS_URL,
+} from './edge-tts-v2';
 
 /** TTS 结果：音频 + 词级时间戳（offset/duration 单位 100ns，相对音频起点） */
 export type TtsWithTimingResult = {
@@ -90,21 +94,26 @@ export class VoiceService {
       .digest('hex');
     const cached = await this.readTtsCache(cacheKey);
     if (cached) return cached;
-    const tts = new EdgeTTS();
+    // Edge TTS 需 V2 令牌 + 旧端点；1.9.1 内置的是已失效的 V1 + 新端点
+    installEdgeTtsV2Patch();
+    const tts = new EdgeTTS({ wssUrl: LEGACY_EDGE_WSS_URL });
+    let buffer: Buffer;
     try {
       await tts.synthesize(clean || '嗯嗯', voice, {
         outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
         rate: safeRate,
         pitch: '+2Hz',
       });
+      buffer = tts.toBuffer();
     } catch (error: any) {
-      // Edge TTS 依赖外部 WebSocket；失败时留下可诊断日志（原先只向上抛 500）
+      // Edge TTS 依赖外部 WebSocket；失败时留下可诊断日志
       this.logger.error(
         `Edge TTS synthesize failed (voice=${voice}, rate=${safeRate}, len=${clean.length}): ${error?.message || error}`,
       );
-      throw error;
+      // 服务器出站 WSS 仍可能被网络策略拦截：走 HTTP 兜底，保证先有声音
+      if (process.env.TTS_HTTP_FALLBACK === 'false') throw error;
+      buffer = await this.synthesizeViaHttpFallback(clean || '嗯嗯', voice, safeRate);
     }
-    const buffer = tts.toBuffer();
 
     let wordBoundaries: WordBoundary[] = [];
     try {
@@ -133,6 +142,46 @@ export class VoiceService {
     const result = { buffer, wordBoundaries, durationMs };
     await this.writeTtsCache(cacheKey, result);
     return result;
+  }
+
+  /**
+   * HTTP 兜底配音：Edge TTS 的 WebSocket 被网络策略拦截时使用。
+   * 使用无需密钥的翻译 TTS，返回 MP3；无词级时间戳，字幕会退化为按字数估算。
+   * 可用 TTS_HTTP_FALLBACK=false 关闭（此时 Edge 失败会直接抛错）。
+   */
+  private async synthesizeViaHttpFallback(
+    text: string,
+    voice: string,
+    rate: string,
+  ): Promise<Buffer> {
+    const lan = voice.startsWith('en-') ? 'en' : 'zh';
+    const speed = rate.startsWith('-') ? 2 : rate.startsWith('+1') ? 4 : 3;
+    const url =
+      'https://fanyi.baidu.com/gettts?lan=' +
+      lan +
+      '&text=' +
+      encodeURIComponent(text) +
+      `&spd=${speed}&source=web`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 lingxi-tts-fallback' },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP TTS fallback status ${response.status}`);
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    // 校验确实是 MP3（ID3 头或 MPEG 帧同步），避免把错误 JSON 当音频返回
+    const isMp3 =
+      buffer.length > 128 &&
+      ((buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) ||
+        (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0));
+    if (!isMp3) {
+      throw new Error(`HTTP TTS fallback returned non-audio (${buffer.length} bytes)`);
+    }
+    this.logger.warn(
+      `Edge TTS unavailable; used HTTP fallback (${buffer.length} bytes, lan=${lan})`,
+    );
+    return buffer;
   }
 
   private get ttsCacheDir(): string {

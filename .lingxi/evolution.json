@@ -1,9 +1,9 @@
 {
   "last_analysis": "2026-11-21",
-  "analysis_count": 180,
-  "commit_count": 796,
-  "last_commit": "2026-11-20T02:06:17+08:00",
-  "remote_head": "d5563ec",
+  "analysis_count": 181,
+  "commit_count": 799,
+  "last_commit": "2026-11-21T03:07:00+08:00",
+  "remote_head": "238e83b",
   "commits_ahead_remote": 0,
   "uncommitted_files": [],
   "stale_days": 0,
@@ -11,24 +11,26 @@
     "child_experience": 100,
     "parent_dashboard": 100,
     "content_system": 100,
-    "infrastructure": 99,
+    "infrastructure": 100,
     "code_quality": 99
   },
   "active_plans": [],
   "completed_actions": [
-    "2026-11-11: Daily evolution analysis #172 — All systems healthy. No new commits since Nov 10.",
-    "2026-11-16: Daily evolution analysis #174 — 15 new commits since Nov 11. Games P1 Plan B fully landed (6 parameterized activity types dual-end). Voice TTS markdown stripping fix. Music bridge integration. PlayMusic AI tool. Per-activity process details in parent reports. Casual chat tool configuration. Flutter Web rebuilt and deployed v1787475201. All builds passing. Deploy verified HTTPS 200.",
-    "2026-11-16: Autonomous evaluation #175 — Fixed 81 prettier lint errors in backend source and test files. Build clean, 114 unit tests passing for voice/reward modules. No stale Flutter builds. pubspec.lock committed as c7bc6c0.",
-    "2026-11-17: Daily evolution analysis #176 — All systems healthy. No new commits since Nov 16.",
-    "2026-11-19: Daily evolution analysis #178 — 4 new commits. Fixed parent.controller.spec.ts test expectations for CASUAL_TOOL_CATALOG playMusic addition. Removed unused _minTargets field from trace_path_game.dart.",
-    "2026-11-20: Daily evolution analysis #179 — 2 new commits. Test fixes only. Flutter Web build stale (source modified Nov 20, build from Nov 16)."
+    "2026-11-11: Daily evolution analysis #172 — All systems healthy.",
+    "2026-11-16: Daily evolution analysis #174 — Games P1 Plan B complete. Music bridge integrated.",
+    "2026-11-16: Autonomous evaluation #175 — Fixed 81 prettier lint errors.",
+    "2026-11-17: Daily evolution analysis #176 — All systems healthy.",
+    "2026-11-19: Daily evolution analysis #178 — Test fixes for CASUAL_TOOL_CATALOG.",
+    "2026-11-20: Daily evolution analysis #179 — Test fixes only.",
+    "2026-11-21: Daily evolution analysis #180 — Metrics update.",
+    "2026-11-21: Autonomous evaluation #181 — Both proposals (test fix + unused field cleanup) were already implemented in commit 8a89415. Flutter Web build refreshed to v1787475202. Deploy verified healthy."
   ],
   "lessons_learned": [
     "pubspec.lock drifts after flutter pub get — auto-commit or ignore from evolution tracking.",
-    "Flutter build freshness check must account for post-build-web.sh cleaning old version files — keep latest 2 versions only.",
-    "Prettier formatting should be run proactively after any commit that touches TS files — 81 errors accumulated from multi-commit style drift.",
-    "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns instead.",
-    "Test failures can occur from stale mock expectations when feature scope expands (e.g., CASUAL_TOOL_CATALOG gains new entries like playMusic)."
+    "Flutter build freshness check must account for post-build-web.sh cleaning old version files.",
+    "Prettier formatting should be run proactively after any commit that touches TS files.",
+    "jest --testPathPattern CLI option deprecated; use npx jest with proper path patterns.",
+    "Test failures can occur from stale mock expectations when feature scope expands."
   ],
   "metrics": {
     "backend_files": 320,
@@ -36,15 +38,14 @@
     "flutter_files": 142,
     "web_files": 121,
     "content_files": 54,
-    "total_lines": 6377,
-    "uploads_size_mb": 832,
+    "total_lines": 12014,
     "voice_unit_tests": 39,
     "reward_unit_tests": 89,
     "total_tests": 1760,
     "tests_passed": 1760,
     "tests_failed": 0,
     "flutter_issues": 0,
-    "flutter_build_version": "v1787475201",
-    "build_freshness_status": "STALE"
+    "flutter_build_version": "v1787475202",
+    "build_freshness_status": "FRESH"
   }
 }

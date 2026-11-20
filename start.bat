@@ -114,7 +114,11 @@ echo   Backend is ready on port %BACKEND_PORT%.
 
 start "Frontend-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend-web && npx vite --host 0.0.0.0 --port 5173"
 
-start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d chrome --web-port 8080 --web-hostname 0.0.0.0"
+:: Use --web-hostname localhost, NOT 0.0.0.0. Flutter passes this value to
+:: Chrome as the URL (http://0.0.0.0:8080). 0.0.0.0 is a bind-only address:
+:: it is absent from NO_PROXY, so the debug-service websocket goes through the
+:: proxy and fails with "Waiting for connection ... No client connected".
+start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d chrome --web-port 8080 --web-hostname localhost"
 
 :: Short delay via ping: Git's GNU timeout may shadow timeout.exe on PATH.
 ping -n 4 127.0.0.1 >nul

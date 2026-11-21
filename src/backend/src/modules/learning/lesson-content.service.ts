@@ -173,6 +173,29 @@ export class LessonContentService implements OnModuleInit {
     } catch (error: any) {
       this.logger.warn(`Stuck generation recovery failed: ${error?.message}`);
     }
+
+    // Modification also runs in-process fire-and-forget. A 'modifying' record at
+    // startup is an orphan from a crash/restart — restore it to a retryable draft.
+    try {
+      const modResult = await this.contentRepo
+        .createQueryBuilder()
+        .update(Content)
+        .set({
+          status: 'modification_failed',
+          subtitle: '修改中断：服务器重启，请重新修改',
+        })
+        .where('status = :status AND contentType = :contentType', {
+          status: 'modifying',
+          contentType: 'structured_lesson',
+        })
+        .execute();
+
+      if (modResult.affected && modResult.affected > 0) {
+        this.logger.warn(`Recovered ${modResult.affected} stuck lesson modification(s) on startup`);
+      }
+    } catch (error: any) {
+      this.logger.warn(`Stuck modification recovery failed: ${error?.message}`);
+    }
   }
 
   constructor(
@@ -218,8 +241,8 @@ export class LessonContentService implements OnModuleInit {
       .where('content.childId = :childId', { childId })
       .andWhere('content.status IN (:...statuses)', {
         statuses: includeFailed
-          ? ['draft', 'generating', 'generation_failed']
-          : ['draft', 'generating'],
+          ? ['draft', 'generating', 'generation_failed', 'modifying', 'modification_failed']
+          : ['draft', 'generating', 'modifying'],
       })
       .andWhere('content.contentType = :contentType', {
         contentType: 'structured_lesson',
@@ -838,6 +861,68 @@ export class LessonContentService implements OnModuleInit {
     return this.generateCoursePackTool.execute(args);
   }
 
+  /**
+   * Start async lesson modification (AI conversational edit).
+   * Marks the draft as 'modifying', returns immediately, and applies the LLM
+   * edit in the background. The client polls GET /contents/:id for the terminal
+   * status ('draft' = done, 'modification_failed' = failed).
+   */
+  async startModification(
+    contentId: number,
+    parentId: number,
+    modification: string,
+    options: ModifyLessonDraftOptions = {},
+  ): Promise<Content> {
+    const content = await this.contentRepo.findOne({ where: { id: contentId } });
+    if (!content) throw new NotFoundException('Content not found');
+    if (content.status !== 'draft' && content.status !== 'modification_failed')
+      throw new ForbiddenException('Only draft lessons can be modified');
+
+    const lesson = content.content as unknown as StructuredLessonContent;
+    if (!lesson || lesson.type !== 'structured_lesson') {
+      throw new ForbiddenException('Not a structured lesson');
+    }
+
+    // Mark as modifying so concurrent submissions are rejected and the client
+    // can observe progress. The current content stays intact until the edit lands.
+    content.status = 'modifying';
+    content.subtitle = 'AI 正在修改课程，请稍候...';
+    const placeholder = await this.contentRepo.save(content);
+    this.logger.log(`Lesson modification started: contentId=${contentId}`);
+
+    this.runModification(contentId, modification, options).catch((err: any) => {
+      this.logger.error(
+        `Background modification failed for contentId=${contentId}: ${err?.message}`,
+      );
+    });
+
+    return placeholder;
+  }
+
+  private async runModification(
+    contentId: number,
+    modification: string,
+    options: ModifyLessonDraftOptions,
+  ): Promise<void> {
+    const content = await this.contentRepo.findOne({ where: { id: contentId } });
+    if (!content) throw new NotFoundException('Content not found');
+
+    try {
+      await this.applyModification(content, modification, options);
+      this.logger.log(`Lesson modified: contentId=${contentId}`);
+    } catch (error: any) {
+      // Flip to a terminal failure state so the polling client stops waiting.
+      const latest = await this.contentRepo.findOne({ where: { id: contentId } });
+      if (latest) {
+        latest.status = 'modification_failed';
+        latest.subtitle = `修改失败：${error?.message || '请重试'}`;
+        await this.contentRepo.save(latest);
+      }
+      throw error;
+    }
+  }
+
+  /** Synchronous modification path (used by scene-edit saves / legacy callers). */
   async modifyDraft(
     contentId: number,
     parentId: number,
@@ -856,46 +941,81 @@ export class LessonContentService implements OnModuleInit {
       throw new ForbiddenException('Not a structured lesson');
     }
 
+    return this.applyModification(content, modification, options);
+  }
+
+  /**
+   * Shared core: build the edit prompt, ask the LLM for the updated lesson,
+   * merge it back and persist. Uses a single 16384-token call to avoid the
+   * 4096 -> 8192 -> 16384 escalation that made whole-lesson edits time out.
+   */
+  private async applyModification(
+    content: Content,
+    modification: string,
+    options: ModifyLessonDraftOptions,
+  ): Promise<Content> {
+    const lesson = content.content as unknown as StructuredLessonContent;
     const targetStep = options.stepId
       ? lesson.steps.find((step) => step.id === options.stepId) || null
       : null;
 
-    // Send modification request to LLM
+    // Send modification request to LLM. We ask for a DELTA (only the fields /
+    // steps that change) instead of the whole lesson: the server merges the
+    // delta onto the original lesson via mergeModifiedLesson. Returning the
+    // complete lesson used to blow past 16384 tokens and time out.
+    const lightweightLesson = {
+      topic: lesson.topic,
+      summary: (lesson as any).summary,
+      outcomes: (lesson as any).outcomes,
+      ageGroup: (lesson as any).ageGroup,
+      // Include each step's text + a LIGHTWEIGHT scene-beat summary (id +
+      // title + narration only). The full visualStory/videoLesson/scene
+      // payloads are intentionally omitted: sending them makes the LLM echo
+      // huge objects back and blow the token budget. Instead the LLM returns
+      // edited scene beats, which the server applies onto the original scene.
+      steps: (lesson.steps || []).map((s) => this.stepPreviewForPrompt(s)),
+    };
     const prompt = [
-      'You are a curriculum designer. A parent has requested modifications to a lesson plan.',
-      `Current lesson JSON:\n${JSON.stringify(lesson, null, 2)}`,
+      'You are a curriculum designer. A parent has requested a modification to a lesson plan.',
+      `Lesson overview:\n${JSON.stringify(lightweightLesson)}`,
       `Parent's modification request: ${modification}`,
       targetStep
-        ? `Target step for this edit:\n${JSON.stringify(this.describeStepForPrompt(targetStep), null, 2)}`
-        : 'Target step for this edit: all steps (whole-lesson edit).',
+        ? `The step to modify (id, text, module fields, and scene beats):\n${JSON.stringify(this.stepForEditWithBeats(targetStep))}\nThis is a SINGLE-STEP edit: focus on this step and keep other steps unchanged.`
+        : 'No single target step: this is a WHOLE-LESSON edit. Apply the request across the lesson and update the affected steps below.',
+      '',
+      'Output a JSON PATCH containing ONLY the fields you want to change. Do NOT repeat unchanged data.',
+      'Shape:',
+      '- To change lesson-level info: {"summary": "...", "outcomes": [...], "topic": "..."} (only the keys you change).',
+      '- To change a step: {"steps": [{"id": "<step id>", ...the fields to change inside that step...}]}.',
+      '  Inside a step you may include "title", "narration", "onScreenText".',
+      '  To change what learners SEE/HEAR in the preview, include "sceneBeats": [{"index": 0, "narration": "...", "onScreenText": "..."}, ...].',
+      '  "index" is the 0-based position in that step\'s sceneBeats list; include only the beats whose text you change, preserving their order and count. Edited beats are written back into module.scene so the preview reflects them.',
       'Rules:',
-      '- Apply the modification to the relevant parts of the lesson.',
-      targetStep
-        ? `- Focus on step "${targetStep.id}" first and keep other steps unchanged unless a small sync update is necessary.`
-        : '- You may update multiple steps if the parent request is about the whole lesson.',
-      '- Keep all content age-appropriate and in Chinese for learner-facing text.',
-      '- Return the COMPLETE updated lesson JSON (same structure).',
-      '- Do NOT change the "type", "version", "steps[].id", or "steps[].module.type" fields.',
-      '- Preserve steps[].module.scene unless the parent request explicitly changes that step.',
-      '- If watch/write/practice content changes, update the related steps[].module.scene to stay in sync.',
-      '- For drawing/roleplay/experiment steps, keep module.drawing/module.roleplay/module.experiment data and module.scene in sync.',
+      '- For WHOLE-LESSON edits: if the request changes what is taught or shown, update the affected steps\' "narration" AND/OR "sceneBeats" — do NOT only change the top-level summary, otherwise the student preview will look unchanged.',
+      '- Keep all learner-facing text in Chinese and age-appropriate.',
+      '- NEVER change "type", "version", "steps[].id", or "steps[].module.type".',
+      '- For step changes, ALWAYS include that step\'s "id" so it can be matched.',
       '- Return strict JSON only. No markdown. No explanation.',
     ].join('\n');
 
-    const llmResponse = await this.llmClient.generate(prompt);
+    const llmResponse = await this.llmClient.generate(prompt, undefined, {
+      maxTokens: 8192,
+    });
     const updated = this.parseJson(llmResponse);
 
-    if (updated && updated.steps) {
+    // Accept any non-empty patch: mergeModifiedLesson overlays it on the original.
+    if (updated && Object.keys(updated).length > 0) {
       const merged = this.mergeModifiedLesson(lesson, updated);
       const nextTopic = this.toText((merged as any)?.topic, lesson.topic);
       content.content = merged as any;
       content.title = this.toText(
         (updated as any)?.title,
-        nextTopic ? `${nextTopic} 鍏ㄦ柟浣嶅涔犺` : content.title,
+        nextTopic ? `${nextTopic} 全方位学习课` : content.title,
       );
       content.subtitle = this.toText((merged as any)?.summary, content.subtitle || '');
+      content.status = 'draft';
       const saved = await this.contentRepo.save(content);
-      this.logger.log(`Lesson modified: contentId=${contentId}`);
+
       return saved;
     }
 
@@ -1590,16 +1710,26 @@ export class LessonContentService implements OnModuleInit {
 
     const steps = originalLesson.steps.map((originalStep) => {
       const updatedStep = stepsById.get(originalStep.id) || {};
+      const sceneBeats = Array.isArray((updatedStep as any)?.sceneBeats)
+        ? (updatedStep as any).sceneBeats
+        : null;
+      const stepPatch = { ...(updatedStep as Record<string, any>) };
+      delete stepPatch.sceneBeats; // delta-only helper, never persist onto the lesson
       const mergedStep: LessonStep = {
         ...originalStep,
-        ...(updatedStep as Record<string, any>),
+        ...stepPatch,
         module: {
           ...(originalStep.module || {}),
-          ...((updatedStep as any)?.module || {}),
+          ...((stepPatch as any)?.module || {}),
         },
       };
 
-      return this.syncModifiedStepScene(mergedStep, originalStep, topic);
+      // Sync module sources first (may rebuild module.scene), THEN overlay the
+      // explicit scene-beat text edits so they are never overwritten.
+      const synced = this.syncModifiedStepScene(mergedStep, originalStep, topic);
+      return sceneBeats
+        ? this.applySceneBeatEdits(synced, sceneBeats)
+        : synced;
     });
 
     return {
@@ -1886,6 +2016,74 @@ export class LessonContentService implements OnModuleInit {
       title: this.describeStepTitle(step),
       summary: this.describeStepSummary(step),
     };
+  }
+
+  /** Editable view of a step for delta modification: module fields minus the
+   * heavy visual scene payload, which is kept in sync separately. */
+  private stepForEditPrompt(step: LessonStep): Record<string, any> {
+    const module = { ...((step.module as Record<string, any>) || {}) };
+    delete module.scene; // heavy; server keeps original scene unless explicitly changed
+    return {
+      id: step.id,
+      label: step.label,
+      title: (step as any).title,
+      narration: (step as any).narration,
+      onScreenText: (step as any).onScreenText,
+      module,
+    };
+  }
+
+  /// Lightweight view of a step for the LLM: text fields plus only the
+  /// narration/on-screen text of each scene beat (no visual/timeline payloads).
+  private stepPreviewForPrompt(step: LessonStep): Record<string, any> {
+    const module = (step.module as Record<string, any>) || {};
+    const scene = module.scene as Record<string, any> | undefined;
+    const sceneBeats = Array.isArray(scene?.scenes)
+      ? scene.scenes.map((beat: any, index: number) => ({
+          index,
+          title: this.toText(beat?.title, ''),
+          narration: this.toText(beat?.narration, ''),
+          onScreenText: this.toText(beat?.onScreenText, ''),
+        }))
+      : [];
+    return {
+      id: step.id,
+      label: step.label,
+      title: (step as any).title,
+      narration: (step as any).narration,
+      onScreenText: (step as any).onScreenText,
+      sceneBeats,
+    };
+  }
+
+  /// Editable view for a single-step edit: full module (minus scene) + beats.
+  private stepForEditWithBeats(step: LessonStep): Record<string, any> {
+    return { ...this.stepForEditPrompt(step), ...this.stepPreviewForPrompt(step) };
+  }
+
+  /// Apply index-based scene-beat text edits onto the step's module.scene.
+  private applySceneBeatEdits(
+    step: LessonStep,
+    edits: any[],
+  ): LessonStep {
+    const module = { ...((step.module as Record<string, any>) || {}) };
+    const scene = module.scene as Record<string, any> | undefined;
+    if (!scene || !Array.isArray(scene.scenes)) return step;
+
+    const scenes = scene.scenes.map((beat: any) => ({ ...beat }));
+    for (const edit of edits) {
+      if (!edit || typeof edit !== 'object') continue;
+      const idx = Number(edit.index);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= scenes.length) continue;
+      if (typeof edit.narration === 'string' && edit.narration.trim()) {
+        scenes[idx].narration = edit.narration;
+      }
+      if (typeof edit.onScreenText === 'string' && edit.onScreenText.trim()) {
+        scenes[idx].onScreenText = edit.onScreenText;
+      }
+    }
+    module.scene = { ...scene, scenes };
+    return { ...step, module: module as unknown as LessonStep['module'] };
   }
 
   private describeStepTitle(step: LessonStep): string {

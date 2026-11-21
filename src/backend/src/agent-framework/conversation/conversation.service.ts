@@ -196,6 +196,48 @@ export class ConversationService {
     return this.cacheSession(conv);
   }
 
+  /**
+   * Drop the trailing turn so it can be answered again.
+   *
+   * Removes the last `user` message together with the assistant/tool traffic
+   * that answered it, and returns that user text. The user message goes too,
+   * because the retry persists it again through the normal write path — that
+   * keeps exactly one copy of the question in the transcript instead of two
+   * identical ones in a row.
+   *
+   * Returns null when there is nothing to rewind (unknown session, or a
+   * conversation with no user message yet).
+   */
+  async rewindLastTurn(sessionId: string): Promise<string | null> {
+    const session = await this.resolveSession(sessionId);
+    if (!session) return null;
+
+    const messages = await this.messageRepo.find({
+      where: { conversationId: session.conversationId },
+      order: { createdAt: 'ASC' },
+    });
+    if (!messages.length) return null;
+
+    let lastUserIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        lastUserIndex = i;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) return null;
+
+    const userText = messages[lastUserIndex].content ?? '';
+    const staleIds = messages.slice(lastUserIndex).map((m) => m.id);
+    // Deleted by id rather than by timestamp: several messages of one turn can
+    // share the same second, and a range delete would take the previous turn
+    // with them.
+    await this.messageRepo.delete(staleIds);
+    this.markSummaryPending(sessionId);
+
+    return userText;
+  }
+
   /** Persist a message to the conversation. */
   async addMessage(
     sessionId: string,

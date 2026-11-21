@@ -290,7 +290,6 @@ export class AiService {
     domain?: string;
   }> {
     const {
-      message,
       sessionId,
       context,
       viewerId,
@@ -299,7 +298,23 @@ export class AiService {
       bookId,
       bookTitle,
       mode,
+      regenerate,
     } = params;
+
+    // Regenerate: rewind the previous turn first, so the text that gets
+    // answered is the stored question and the retry leaves one copy of it in
+    // the transcript rather than appending a duplicate.
+    let message = params.message;
+    if (regenerate) {
+      const rewound = sessionId
+        ? await this.conversationService.rewindLastTurn(sessionId)
+        : null;
+      if (rewound === null) {
+        yield { type: 'error', message: '这条还没法重新回答，再问一次吧~', sessionId };
+        return;
+      }
+      message = rewound;
+    }
 
     // Parent mode: always routed by authenticated viewer type
     if (viewerType === 'parent') {

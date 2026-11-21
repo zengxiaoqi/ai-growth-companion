@@ -323,6 +323,7 @@ export default function StructuredLessonView({
             contentId={contentId}
             childId={childId}
             ageGroup={lesson?.ageGroup}
+            topic={lesson?.topic || content?.title}
             isCompleting={isCompleting}
             onComplete={handleCompleteStep}
             isCompleted={completedSteps.has(currentStep.id)}
@@ -387,6 +388,7 @@ interface StepContentProps {
   contentId: number;
   childId?: number;
   ageGroup?: '3-4' | '5-6';
+  topic?: string;
   isCompleting: boolean;
   onComplete: (score?: number, interactionData?: Record<string, any>) => void;
   isCompleted: boolean;
@@ -397,6 +399,7 @@ function StepContent({
   contentId,
   childId,
   ageGroup,
+  topic,
   isCompleting,
   onComplete,
   isCompleted,
@@ -434,6 +437,7 @@ function StepContent({
           <ReadStep
             module={m}
             ageGroup={ageGroup}
+            topic={topic}
             onComplete={onComplete}
             isCompleted={isCompleted}
           />
@@ -971,17 +975,33 @@ interface ReadingQuestion {
 }
 
 const SENTENCE_EMOJI: [string, string][] = [
-  ['猫', '🐱'], ['狗', '🐶'], ['鸟', '🐦'], ['燕', '🐦'], ['鱼', '🐟'],
+  ['猫', '🐱'], ['狗', '🐶'], ['老虎', '🐯'], ['鸟', '🐦'], ['燕', '🐦'], ['鱼', '🐟'],
   ['兔', '🐰'], ['鸭', '🦆'], ['太阳', '☀️'], ['白天', '☀️'], ['月亮', '🌙'],
-  ['晚上', '🌙'], ['星', '⭐'], ['花', '🌸'], ['树', '🌳'], ['森林', '🌳'],
-  ['雨', '🌧️'], ['彩虹', '🌈'], ['圆', '🔵'], ['方', '🟦'], ['尖', '🔺'],
-  ['尾巴', '🐾'], ['耳朵', '👂'], ['眼睛', '👀'], ['条纹', '🐯'],
-  ['妈妈', '❤️'], ['爱', '❤️'], ['春天', '🌱'], ['雪', '⛄'],
+  ['晚上', '🌙'], ['星星', '⭐'], ['雪', '⛄'], ['冬天', '⛄'], ['彩虹', '🌈'],
+  ['雨', '🌧️'], ['花', '🌸'], ['树', '🌳'], ['森林', '🌳'], ['春天', '🌱'],
+  ['鼻子', '👃'], ['嘴巴', '👄'], ['耳朵', '👂'], ['眼睛', '👀'],
+  ['爪子', '🐾'], ['脚印', '🐾'], ['条纹', '🐯'],
+  ['圆形', '⭕'], ['圆圈', '⭕'], ['圆圆', '⭕'],
+  ['方形', '🟦'], ['正方形', '🟦'], ['方块', '🟦'], ['三角', '🔺'], ['尖尖', '🔺'],
+  ['妈妈', '❤️'], ['爱', '❤️'],
 ];
 
-function pickSentenceEmoji(sentence: string): string {
+// whole-word keywords only: single chars like 方/圆/尖 match inside unrelated words (下方→🟦)
+function resolveCardEmoji(sentence: string, topic: string, stored: string): string {
+  // older pickers stored mismatched emoji (尾巴→🐾); keep a stored emoji only when
+  // the vocabulary justifies it from sentence/topic, or it is beyond the vocabulary
+  const justified =
+    !SENTENCE_EMOJI.some(([, e]) => e === stored) ||
+    SENTENCE_EMOJI.some(
+      ([kw, e]) => e === stored && (sentence.includes(kw) || topic.includes(kw)),
+    );
+  if (stored && justified) return stored;
   for (const [kw, emoji] of SENTENCE_EMOJI) {
     if (sentence.includes(kw)) return emoji;
+  }
+  // sentences about a part of the subject (尾巴向上弯) picture the lesson subject
+  for (const [kw, emoji] of SENTENCE_EMOJI) {
+    if (topic && topic.includes(kw)) return emoji;
   }
   return '📖';
 }
@@ -992,7 +1012,7 @@ function splitReadSentences(text: string): string[] {
     .filter(Boolean);
 }
 
-function deriveReadingCards(reading: any): ReadingCard[] {
+function deriveReadingCards(reading: any, topic = ''): ReadingCard[] {
   const fallbackDiscover = '找一找，句子里藏着什么小秘密？';
   if (Array.isArray(reading.cards) && reading.cards.length >= 2) {
     return reading.cards
@@ -1000,7 +1020,11 @@ function deriveReadingCards(reading: any): ReadingCard[] {
       .slice(0, 6)
       .map((c: any) => ({
         sentence: c.sentence.trim(),
-        emoji: typeof c.emoji === 'string' && c.emoji ? c.emoji : pickSentenceEmoji(c.sentence),
+        emoji: resolveCardEmoji(
+          c.sentence.trim(),
+          topic,
+          typeof c.emoji === 'string' ? c.emoji.trim() : '',
+        ),
         discover: typeof c.discover === 'string' && c.discover ? c.discover : fallbackDiscover,
       }));
   }
@@ -1008,7 +1032,7 @@ function deriveReadingCards(reading: any): ReadingCard[] {
     .slice(0, 6)
     .map((sentence) => ({
       sentence,
-      emoji: pickSentenceEmoji(sentence),
+      emoji: resolveCardEmoji(sentence, topic, ''),
       discover: fallbackDiscover,
     }));
 }
@@ -1086,17 +1110,19 @@ function SentenceText({
 function ReadStep({
   module: m,
   ageGroup,
+  topic,
   onComplete,
   isCompleted,
 }: {
   module: any;
   ageGroup?: '3-4' | '5-6';
+  topic?: string;
   onComplete: (score?: number, data?: Record<string, any>) => void;
   isCompleted: boolean;
 }) {
   const reading = m.reading || {};
   const keywords: string[] = Array.isArray(reading.keywords) ? reading.keywords : [];
-  const cards = useMemo(() => deriveReadingCards(reading), [reading]);
+  const cards = useMemo(() => deriveReadingCards(reading, topic), [reading, topic]);
   const questions = useMemo(() => normalizeReadingQuestions(reading.questions), [reading]);
 
   const [quizCorrect, setQuizCorrect] = useState<number[]>([]);

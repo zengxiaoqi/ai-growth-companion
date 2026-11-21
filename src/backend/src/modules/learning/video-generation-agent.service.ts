@@ -583,6 +583,25 @@ export class VideoGenerationAgentService {
           ? `science.animal-${action === 'rest' ? 'habitat' : 'abilities'}`
           : 'dynamic.story-scene');
 
+      // 混色动画参数：storyboard 走 animationTemplate.params，course-pack 转来的
+      // 分镜走 animationParams / visual.templateParams。三处都收，交给渲染模板
+      // 画真实的「红+黄=橙」而不是通用单色同心圆。
+      // 最后一档从 payload.watchScene 按场景索引兜底——agent 重写的 storyboard
+      // 常常丢掉 params，但原始课程 JSON 里一定带着混色对。
+      const payloadScene = Array.isArray(payload?.watchScene?.scenes)
+        ? payload.watchScene.scenes[index]
+        : undefined;
+      const rawTemplateParams =
+        (scene?.animationTemplate && typeof scene.animationTemplate === 'object'
+          ? scene.animationTemplate.params
+          : undefined) ||
+        scene?.animationParams ||
+        scene?.visual?.templateParams ||
+        payloadScene?.visual?.templateParams ||
+        payloadScene?.animationParams ||
+        undefined;
+      const mixPairs = this.normalizeMixPairs(rawTemplateParams);
+
       // QA 参数修复轮会往分镜写显式覆盖；旧分镜无这两个字段，推导行为不变
       const accentOverride =
         typeof scene?.accentColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(scene.accentColor)
@@ -638,6 +657,9 @@ export class VideoGenerationAgentService {
                 hasAnimal: !!animalConfig,
               }),
         template,
+        // 渲染模板据此选领域专用画板（art→混色动画），并拿到归一化后的混色对
+        domain: this.toText(payload?.domain, '') || undefined,
+        mixPairs,
         generatedVisual: animalConfig
           ? `${animalConfig.id}-${action}-${habitat}-${animalConfig.visualTerms.slice(0, 3).join('-')}`
           : `dynamic-${habitat}-${tags.slice(0, 4).join('-')}`,
@@ -901,6 +923,8 @@ type GeneratedScene = {
   durationFrames: number;
   accentColor: string;
   domain?: string;
+  /** 归一化后的混色对 [{ a, b, result, aName, bName, resultName }]，仅 art.color-mixing 场景有 */
+  mixPairs?: Array<{ a: string; b: string; result: string; aName: string; bName: string; resultName: string }>;
   visualAssets?: {
     characterAssetSrc?: string;
     backgroundAssetSrc?: string;
@@ -1455,6 +1479,41 @@ const DomainVisual: React.FC<{ scene: GeneratedScene }> = ({ scene }) => {
   }
 
   if (domain === "art") {
+    const pairs = scene.mixPairs || [];
+    if (pairs.length > 0) {
+      // 真正的混色动画：每一对「色A + 色B = 结果」逐行出现，
+      // 两颗原色先飞入、碰撞时结果色从中心绽开，颜色名直接标在下方。
+      const rowGap = pairs.length > 3 ? 118 : 138;
+      const top = 150 - ((pairs.length - 1) * rowGap) / 2;
+      return (
+        <svg width="520" height="330" viewBox="0 0 520 330" style={{ overflow: "visible" }}>
+          {pairs.map((pair, i) => {
+            const rowY = top + i * rowGap;
+            const localFrame = frame - i * 22;
+            const grow = spring({ frame: localFrame, fps, config: { damping: 12, stiffness: 120 } });
+            const merge = interpolate(localFrame, [26, 42], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const spread = 96 - merge * 74;
+            const pop = merge > 0 ? spring({ frame: localFrame - 30, fps, config: { damping: 10, stiffness: 160 } }) : 0;
+            const r = 30 * grow;
+            return (
+              <g key={i} opacity={grow}>
+                <circle cx={260 - spread} cy={rowY} r={r} fill={pair.a} />
+                <circle cx={260 + spread} cy={rowY} r={r} fill={pair.b} />
+                <text x={260 - spread} y={rowY + r + 24} textAnchor="middle" fontSize="20" fontWeight="700" fill="#334155">{pair.aName}</text>
+                <text x={260 + spread} y={rowY + r + 24} textAnchor="middle" fontSize="20" fontWeight="700" fill="#334155">{pair.bName}</text>
+                {merge > 0 ? (
+                  <g opacity={merge}>
+                    <circle cx={260} cy={rowY} r={34 * pop} fill={pair.result} stroke="#fff" strokeWidth="3" />
+                    <text x={260} y={rowY + 8} textAnchor="middle" fontSize="22" fontWeight="800" fill="#fff">{pair.resultName}</text>
+                  </g>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+      );
+    }
+    // 无混色参数时的兜底：彩色圆点转圈（旧行为）
     const colors = ["#e91e63", "#9c27b0", "#2196f3", "#4caf50", "#ff9800", "#795548"];
     return (
       <svg width="480" height="320" viewBox="0 0 480 320" style={{ overflow: "visible" }}>
@@ -1779,8 +1838,14 @@ const SubtitleTrack: React.FC<{ scene: GeneratedScene; duration: number }> = ({ 
               <span
                 key={i}
                 style={{
-                  color: isCurrent ? accent : isSpoken ? "#fff" : "rgba(255,255,255,0.28)",
-                  textShadow: isCurrent ? "0 0 22px " + accent + ", 0 0 6px rgba(255,255,255,0.5)" : "none",
+                  // 当前朗读字保持白色（笔画始终可读），用下划线而非实心染色+强光晕标记；
+                  // 之前的 22px 蓝色光晕会把「色/蓝」这类字糊成一团彩色圆点，看起来像 emoji。
+                  color: isSpoken ? "#fff" : "rgba(255,255,255,0.28)",
+                  textShadow: isCurrent ? "0 0 8px rgba(255,255,255,0.45)" : "none",
+                  textDecoration: isCurrent ? "underline" : "none",
+                  textDecorationColor: isCurrent ? accent : "transparent",
+                  textDecorationThickness: isCurrent ? 4 : 0,
+                  textUnderlineOffset: isCurrent ? 8 : 0,
                 }}
               >
                 {tk}
@@ -3527,7 +3592,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
         <SceneGraphStage scene={scene} duration={duration} />
       ) : (
         <>
-          {scene.onScreenText ? (
+          {scene.onScreenText && scene.onScreenText !== scene.title ? (
             <div style={{ position: "absolute", left: 0, right: 0, top: 124, display: "flex", justifyContent: "center" }}>
               <div
                 style={{
@@ -3758,6 +3823,59 @@ export const GeneratedLesson: React.FC<GeneratedLessonProps> = ({ title, topic, 
   private toText(value: unknown, fallback = ''): string {
     if (value == null) return fallback;
     return String(value).trim() || fallback;
+  }
+
+  /**
+   * 归一化混色对：把 course-pack / storyboard 的多种 params 形态统一成
+   * [{ a, b, result }]，颜色名换成渲染层可直接用的十六进制色值。
+   * 认不出来的颜色名保留原文，交给渲染层的兜底色板。
+   */
+  private normalizeMixPairs(params: any): Array<{ a: string; b: string; result: string; aName: string; bName: string; resultName: string }> {
+    if (!params || typeof params !== 'object') return [];
+    const colorHex: Record<string, string> = {
+      红: '#ef4444', 红色: '#ef4444', red: '#ef4444',
+      黄: '#facc15', 黄色: '#facc15', yellow: '#facc15',
+      蓝: '#3b82f6', 蓝色: '#3b82f6', blue: '#3b82f6',
+      橙: '#fb923c', 橙色: '#fb923c', orange: '#fb923c',
+      绿: '#22c55e', 绿色: '#22c55e', green: '#22c55e',
+      紫: '#a855f7', 紫色: '#a855f7', purple: '#a855f7',
+      靛: '#6366f1', 靛色: '#6366f1', indigo: '#6366f1',
+    };
+    const toHex = (v: any): string => {
+      const s = this.toText(v);
+      if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+      return colorHex[s.toLowerCase()] || colorHex[s] || '';
+    };
+    const toName = (v: any): string => this.toText(v).slice(0, 6);
+
+    // 形态一：pairs: [[色A, 色B, 结果], ...]
+    const pairs = Array.isArray(params.pairs) ? params.pairs : null;
+    if (pairs) {
+      return pairs
+        .filter((p: any) => Array.isArray(p) && p.length >= 3)
+        .slice(0, 4)
+        .map((p: any) => ({
+          a: toHex(p[0]) || '#ef4444',
+          b: toHex(p[1]) || '#3b82f6',
+          result: toHex(p[2]) || '#a855f7',
+          aName: toName(p[0]),
+          bName: toName(p[1]),
+          resultName: toName(p[2]),
+        }));
+    }
+
+    // 形态二：color1 / color2 / resultLabel（单对）
+    if (params.color1 || params.color2 || params.resultLabel) {
+      return [{
+        a: toHex(params.color1) || '#ef4444',
+        b: toHex(params.color2) || '#facc15',
+        result: toHex(params.resultLabel) || '#fb923c',
+        aName: toName(params.color1) || '红',
+        bName: toName(params.color2) || '黄',
+        resultName: toName(params.resultLabel) || '橙',
+      }];
+    }
+    return [];
   }
 
   private extractStoryboard(toolCalls: AgentVideoResult['toolCalls']): VideoStoryboard | null {

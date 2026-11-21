@@ -4,6 +4,7 @@
 
 ## 📖 开发指南
 
+- **[🔐 部署前必做（安全配置）](#pre-deploy-security)** - 公开仓库上线前检查清单（必读）
 - **[前端开发](./docs/FLUTTER.md)** - Flutter 构建指南 (Android → iOS)
 - **[API 文档](./docs/API.md)** - 接口文档
 - **[任务看板](./docs/TASK-BOARD.md)** - 开发进度
@@ -135,6 +136,53 @@ GET /api/report?userId=1&period=weekly - 学习报告
 GET    /api/parent/controls/:parentId  - 获取设置
 PATCH  /api/parent/controls/:parentId  - 更新设置
 ```
+
+<a id="pre-deploy-security"></a>
+
+## 🔐 部署前必做（安全配置）
+
+> ⚠️ **本仓库是公开仓库**。安全加固已移除硬编码 JWT 密钥、禁止生产自动创建演示账号、默认关闭生产 Swagger。
+> **这些是破坏性变更**：未完成下列配置就部署，后端会**拒绝启动**；轮换密钥会使所有已登录用户退出。
+> 完整可执行步骤见 [部署检验清单 §0](./DEPLOYMENT-CHECKLIST.md#security-preflight)。
+
+| ✅ | 必做项 | 不做的后果 |
+|---|--------|-----------|
+| ☐ | 生成并配置强 `JWT_SECRET`（≥32 位随机串） | 缺失 / 占位值 / 弱密钥 → 后端 fail-fast 拒绝启动 |
+| ☐ | 删除生产库中已有的演示账号 `13800000001` / `13800000002` | 口令 `password123` 在公开仓库可查，等于敞开家长后台 |
+| ☐ | 配置 `CORS_ORIGINS` 为自有域名白名单 | 未配置时生产运行在「反射任意来源」兼容模式 |
+| ☐ | 生产不要设置 `SWAGGER_ENABLED=true` | `/api/docs` 会公开全部家长 / 儿童相关 API |
+| ☐ | 密钥只放环境变量 / GitHub Secrets，不写进仓库 | 公开仓库的历史提交无法真正删除 |
+| ☐ | 轮换曾出现在仓库中的飞书 Folder Token、Cloudflare Tunnel 及代理后台口令 | 删除文件不等于撤销凭证，历史提交仍可查 |
+
+**最小配置**
+
+```bash
+# 1) 生成密钥（不要提交、不要贴进日志或 issue）
+openssl rand -hex 32
+
+# 2) 写入生产环境变量 / .env
+NODE_ENV=production
+JWT_SECRET=<上一步输出，≥32 位>
+CORS_ORIGINS=https://app.example.com,https://parent.example.com
+# SWAGGER_ENABLED 保持未设置或 false
+
+# 3) 启动前自检：缺密钥会直接报错
+docker compose -f docker-compose.prod.yml config --quiet
+```
+
+**清理演示账号**（SQLite，操作前先备份）
+
+```bash
+cp /path/to/lingxi.db /path/to/lingxi.db.bak
+sqlite3 /path/to/lingxi.db "DELETE FROM users WHERE phone IN ('13800000001','13800000002');"
+sqlite3 /path/to/lingxi.db "SELECT count(*) FROM users WHERE phone LIKE '1380000000%';"  # 期望 0
+```
+
+删除后用 `POST /api/auth/register` 创建正式账号。seeder 的生产守卫只阻止**新建**演示账号，不会删除已存在的。
+
+> 本地开发不受阻断：未配置 `JWT_SECRET` 时使用进程级随机密钥，重启后旧 token 失效属正常现象。
+
+---
 
 ## 🚀 快速开始
 

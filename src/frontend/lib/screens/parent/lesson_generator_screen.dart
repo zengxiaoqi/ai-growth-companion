@@ -110,6 +110,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
   Timer? _pollTimer;
   int _pollCount = 0;
   static const _maxPollCount = 100;
+  /// 后台任务类型：'generate' | 'modify'，决定轮询终态与进度文案
+  String _pollKind = 'generate';
   String? _expandedStepId;
 
   // ── 页签与历史记录 ──
@@ -460,7 +462,36 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
     });
   }
 
-  void _startPolling(Map<String, dynamic> content) {
+  /// 异步修改完成：用最新内容刷新预览，但保留修改输入框清空与状态复位。
+  void _onLessonModified(Map<String, dynamic> content) {
+    final rawContent = content['content'];
+    Map<String, dynamic>? lesson;
+    if (rawContent is String) {
+      try {
+        lesson = jsonDecode(rawContent) as Map<String, dynamic>;
+      } catch (_) {}
+    } else if (rawContent is Map) {
+      lesson = rawContent.map((k, v) => MapEntry(k.toString(), v));
+    }
+    setState(() {
+      _generatedContent = content;
+      _lessonData = lesson;
+      _isModifying = false;
+      _generationProgress = '';
+      _modificationController.clear();
+      _sceneEdits = {};
+      _editingSceneIndex = null;
+      _previewSceneIndex = 0;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('课程已更新'), backgroundColor: Color(0xFF0B8F55)),
+      );
+    }
+  }
+
+  void _startPolling(Map<String, dynamic> content, {String kind = 'generate'}) {
+    _pollKind = kind;
     _pollTimer?.cancel();
     final contentId = _toInt(content['id']);
     if (contentId == null) return;
@@ -474,19 +505,27 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
           return;
         }
         final status = latest?['status']?.toString();
+        final isModify = _pollKind == 'modify';
+        final failedStatus = isModify ? 'modification_failed' : 'generation_failed';
         if (status == 'draft') {
           timer.cancel();
           _pollTimer = null;
-          _onLessonGenerated(latest!);
+          if (isModify) {
+            _onLessonModified(latest!);
+          } else {
+            _onLessonGenerated(latest!);
+          }
           _loadHistory(silent: true);
-        } else if (status == 'generation_failed') {
+        } else if (status == failedStatus) {
           timer.cancel();
           _pollTimer = null;
           setState(() {
-            _error = latest?['subtitle']?.toString() ?? '生成课程失败，请重试';
+            _error = latest?['subtitle']?.toString() ??
+                (isModify ? '修改课程失败，请重试' : '生成课程失败，请重试');
             _isGenerating = false;
+            _isModifying = false;
             _generationProgress = '';
-            _generatedContent = null;
+            if (!isModify) _generatedContent = null;
           });
           _loadHistory(silent: true);
         } else {
@@ -496,15 +535,19 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
             timer.cancel();
             _pollTimer = null;
             setState(() {
-              _error = '等待超时，任务仍在后台生成，可在历史记录中查看';
+              _error = isModify
+                  ? '等待超时，修改仍在后台进行，可在历史记录中查看'
+                  : '等待超时，任务仍在后台生成，可在历史记录中查看';
               _isGenerating = false;
+              _isModifying = false;
               _generationProgress = '';
-              _generatedContent = null;
+              if (!isModify) _generatedContent = null;
             });
             _loadHistory(silent: true);
           } else {
             final progress =
-                latest?['subtitle']?.toString() ?? 'AI 正在后台生成课程...';
+                latest?['subtitle']?.toString() ??
+                (isModify ? 'AI 正在后台修改课程...' : 'AI 正在后台生成课程...');
             if (progress != _generationProgress) {
               setState(() {
                 _generationProgress = progress;
@@ -529,7 +572,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
     final api = context.read<ApiService>();
     final selectedStep = _selectedStep;
     try {
-      final result = await api.modifyLesson(contentId, text,
+      // 异步修改：后端立即返回 status=modifying，随后轮询等待 draft / modification_failed
+      final result = await api.modifyLessonAsync(contentId, text,
           stepId: (_editScope == 'selected' && selectedStep != null)
               ? selectedStep['id']?.toString()
               : null);
@@ -541,28 +585,12 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
         });
         return;
       }
-      final rawContent = result['content'];
-      Map<String, dynamic>? lesson;
-      if (rawContent is String) {
-        try {
-          lesson = jsonDecode(rawContent) as Map<String, dynamic>;
-        } catch (_) {}
-      } else if (rawContent is Map) {
-        lesson = rawContent.map((k, v) => MapEntry(k.toString(), v));
-      }
       setState(() {
         _generatedContent = result;
-        _lessonData = lesson;
-        _isModifying = false;
-        _modificationController.clear();
-        _sceneEdits = {};
-        _editingSceneIndex = null;
-        _previewSceneIndex = 0;
+        _isModifying = true;
+        _generationProgress = result['subtitle']?.toString() ?? 'AI 正在后台修改课程...';
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('课程已更新'), backgroundColor: Color(0xFF0B8F55)));
-      }
+      _startPolling(result, kind: 'modify');
     } catch (e) {
       if (!mounted) return;
       setState(() {

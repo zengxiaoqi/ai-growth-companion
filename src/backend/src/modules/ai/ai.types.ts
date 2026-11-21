@@ -29,6 +29,15 @@ export interface ChatRequest {
     age?: number;
     currentPage?: string;
   };
+  /**
+   * Answer the last user turn again instead of appending a new one.
+   *
+   * The trailing user message and everything after it are dropped before the
+   * turn runs, so the retry re-persists exactly one copy of the question. The
+   * request's `message` is ignored when this is set; the stored user text is
+   * what gets answered.
+   */
+  regenerate?: boolean;
 }
 
 export interface ChatResponse {

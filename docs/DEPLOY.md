@@ -4,9 +4,15 @@
 > 
 > 版本：v1.0 | 更新时间：2026-04-13
 
+> 🔐 **部署前必读**：请先完成 [部署安全前置检查](../DEPLOYMENT-CHECKLIST.md#security-preflight)。
+> 本仓库公开，生产环境必须配置 ≥32 位 `JWT_SECRET`、删除演示账号、配置 `CORS_ORIGINS`；
+> 缺失密钥时 compose 与后端都会**拒绝启动**，Swagger 在生产默认关闭。
+
 ---
 
 ## 📋 目录
+
+- [0. 部署前安全前置检查](../DEPLOYMENT-CHECKLIST.md#security-preflight)
 
 - [1. 项目架构](#1-项目架构)
 - [2. 部署方案总览](#2-部署方案总览)
@@ -226,7 +232,7 @@ railway link
 
 | 变量名 | 说明 | 示例值 |
 |---|---|---|
-| `JWT_SECRET` | JWT 签名密钥，用于用户认证 | `my-super-secret-key-2026-very-long` |
+| `JWT_SECRET` | JWT 签名密钥（必填，≥32 位随机串；缺失或占位值将拒绝启动） | 用 `openssl rand -hex 32` 生成，勿写入文档 |
 | `LLM_BASE_URL` | LLM API 基础地址 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `LLM_API_KEY` | LLM API 密钥 | `sk-xxxxxxxxxxxxxxxxxxxxxxxx` |
 | `LLM_MODEL` | 使用的模型名称 | `qwen-plus` |
@@ -276,12 +282,15 @@ railway up --detach
 部署完成后，访问以下地址验证：
 
 ```bash
-# API 健康检查（应返回 JSON 数据）
+# API 健康检查（应返回 JSON 数据或 401，说明服务已响应）
 curl https://xxx.up.railway.app/api/contents
 
-# Swagger API 文档（应显示交互式文档页面）
-open https://xxx.up.railway.app/api/docs
+# Swagger 在生产默认关闭，应返回 404；若返回 200 说明 SWAGGER_ENABLED 被误设为 true
+curl -s -o /dev/null -w "%{http_code}\n" https://xxx.up.railway.app/api/docs
 ```
+
+> 部署后还需确认无法用公开口令 `13800000001 / password123` 登录，
+> 详见 [安全前置检查 §0.6](../DEPLOYMENT-CHECKLIST.md#06-部署后验证)。
 
 ### 4.8 数据库配置说明
 
@@ -356,17 +365,16 @@ if (databaseUrl) {
 
 ### 5.3 CORS 配置
 
-后端已默认开启 CORS（`origin: '*'`），开发阶段无需额外配置。
-生产环境建议限制允许的域名：
+后端通过 `CORS_ORIGINS` 环境变量控制允许跨域的来源（逗号分隔），无需修改代码：
 
-```typescript
-// src/backend/src/main.ts
-app.enableCors({
-  origin: 'https://zengxiaoqi.github.io',  // 限制前端域名
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true,
-});
+```bash
+# 生产 .env
+CORS_ORIGINS=https://<Flutter Web 域名>,https://<React Web 域名>
 ```
+
+- 未配置时：开发 / 测试放行全部来源；生产为兼容模式（反射调用方 Origin），并在启动日志打印警告。
+- 两个前端域各自通过 nginx 反代 `/api/`，属同源请求，不受 CORS 限制。
+- 不再使用 `origin: '*'` 配合 `credentials: true`：该组合会被浏览器拒绝，且等于向任意站点开放接口。
 
 ---
 
@@ -526,7 +534,7 @@ cp docker-compose.prod.yml docker-compose.yml
 
 # 创建 .env 文件
 cat > .env << 'EOF'
-JWT_SECRET=your-super-secret-key
+JWT_SECRET=PASTE_OUTPUT_OF_openssl_rand_-hex_32_HERE
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_API_KEY=your-api-key
 LLM_MODEL=qwen-plus
@@ -828,28 +836,21 @@ railway connect
 - ✅ 使用 GitHub Secrets 存储敏感信息
 - ✅ 定期轮换 JWT_SECRET 和 API 密钥
 - ✅ Railway 变量使用加密存储
+- ✅ 上线前逐项完成 [部署安全前置检查](../DEPLOYMENT-CHECKLIST.md#security-preflight)：JWT_SECRET、演示账号清理、CORS_ORIGINS、Swagger
 
 ### 12.2 生产环境配置
 
-```typescript
-// 1. 限制 CORS 来源
-app.enableCors({
-  origin: ['https://zengxiaoqi.github.io'],
-  credentials: true,
-});
+以下加固**已在代码中实现**，通过环境变量控制，不要再手工改 `main.ts`：
 
-// 2. 关闭 Swagger 文档（生产环境）
-if (process.env.NODE_ENV !== 'production') {
-  SwaggerModule.setup('api/docs', app, document);
-}
+| 项 | 实现位置 | 需要做的配置 |
+|---|---------|-------------|
+| CORS 白名单 | `main.ts` 读取 `CORS_ORIGINS`，不再用 `origin: '*'` | 设为自有域名，逗号分隔 |
+| 生产关闭 Swagger | `main.ts` 判断 `NODE_ENV` + `SWAGGER_ENABLED` | 保持未设置或 `false` |
+| 强 JWT 密钥 | `common/jwt-secret.ts` 强制 ≥32 位、拒绝占位值 | `openssl rand -hex 32` 生成后写入环境变量 |
+| 禁止生产演示账号 | `DatabaseSeederService` 的生产守卫 | 手动清理历史遗留账号，见检查清单 §0.3 |
+| HTTPS | Railway 自动提供；自部署使用 Let's Encrypt | 证书定期续期 |
 
-// 3. 使用强 JWT 密钥
-// JWT_SECRET 至少 32 位随机字符
-
-// 4. 启用 HTTPS
-// Railway 自动提供 HTTPS
-// 自部署使用 Let's Encrypt
-```
+> ⚠️ 密钥采用 fail-fast：配置缺失 / 弱密钥时后端拒绝启动，不会回退到任何默认密钥。
 
 ### 12.3 数据库安全
 

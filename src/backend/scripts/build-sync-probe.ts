@@ -59,6 +59,11 @@ async function main() {
     durationFrames,
   };
   await fs.writeFile(path.join(outDir, 'props.json'), JSON.stringify(props, null, 2));
+  // A/B 对照：同一份配音与时间轴，只关掉"发音驱动焦点"，用来量它到底有没有换来画面变化
+  await fs.writeFile(
+    path.join(outDir, 'props-off.json'),
+    JSON.stringify({ ...props, scenes: [{ ...enriched, spokenFocus: false }] }, null, 2),
+  );
 
   const meta = {
     scene: sceneIndex,

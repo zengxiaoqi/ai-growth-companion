@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { resolveJwtSecret } from '../../common/jwt-secret';
 import { AuthService } from './auth.service';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromUrlQueryParameter('token'),
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_SECRET', 'lingxi-secret-key'),
+      secretOrKey: resolveJwtSecret(configService),
     });
   }
 

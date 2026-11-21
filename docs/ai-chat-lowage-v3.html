@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小犀 AI 对话页 · 低龄版（3–4 岁）设计稿</title>
+<style>
+  :root{
+    --bg:#120C10;
+    --hair:#2C2027;
+    --txt:#F4E9EF;
+    --txt2:#A7949F;
+    --txt3:#75616C;
+    --accent:#FF9BC2;
+
+    /* candy 皮肤 token —— lib/theme/child_theme.dart */
+    --paper:#FFF2F7;
+    --card:#FFFFFF;
+    --ink:#4A2A46;
+    --ink2:#8A6A85;
+    --edge:#4A2A46;
+    --line:#F6DCE9;
+    --pop:#FF6FA5;
+    --cta:#FFD84D;
+    --cta-ink:#4A2A46;
+    --soft:#EAF6FF;
+    --r-lg:34px;
+    --r-md:26px;
+    --r-sm:18px;
+    --bw:3px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1100px 560px at 16% -8%, #2A1622 0%, transparent 62%),
+      radial-gradient(820px 460px at 94% 6%, #241A2E 0%, transparent 58%),
+      var(--bg);
+    color:var(--txt);
+    font-family:-apple-system,"SF Pro Text","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:56px 40px 96px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--txt3);margin-bottom:18px;}
+  .kicker i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:block;
+    box-shadow:0 0 0 4px rgba(255,155,194,.14);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;font-weight:700;}
+  h1 span{color:var(--accent);}
+  .lede{margin-top:14px;max-width:700px;color:var(--txt2);font-size:15px;line-height:1.78;}
+  .principles{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;}
+  .principles div{font-size:12.5px;color:var(--txt2);padding:8px 14px;border-radius:999px;
+    border:1px solid var(--hair);background:rgba(255,255,255,.02);}
+  .principles b{color:var(--txt);font-weight:600;}
+
+  section{margin-top:72px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;padding-bottom:18px;
+    border-bottom:1px solid var(--hair);margin-bottom:34px;}
+  .sec-no{font-size:12px;letter-spacing:.1em;color:var(--accent);font-weight:600;}
+  .sec-head h2{font-size:21px;font-weight:650;letter-spacing:-.01em;}
+  .sec-head p{color:var(--txt3);font-size:13px;margin-left:auto;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:34px;align-items:start;}
+
+  /* 手机壳 */
+  .phone{width:338px;height:716px;border-radius:44px;padding:9px;
+    background:linear-gradient(160deg,#332630,#161016 60%,#2B2028);
+    box-shadow:0 0 0 1px rgba(255,255,255,.06) inset,0 34px 70px -24px rgba(0,0,0,.85),0 6px 18px rgba(0,0,0,.5);
+    position:relative;flex-shrink:0;}
+  .phone::after{content:"";position:absolute;left:50%;top:16px;transform:translateX(-50%);
+    width:96px;height:22px;border-radius:999px;background:#0B070A;z-index:9;}
+  .screen{width:100%;height:100%;border-radius:36px;overflow:hidden;position:relative;
+    background:var(--paper);color:var(--ink);display:flex;flex-direction:column;
+    font-family:-apple-system,"PingFang SC","Noto Sans SC",system-ui,sans-serif;}
+  .statusbar{height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+    padding:0 20px;font-size:10.5px;font-weight:650;opacity:.75;}
+  .statusbar .dots{display:flex;gap:3px;align-items:center;}
+  .statusbar .dots b{width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.45;}
+  svg{display:block;}
+  .i{width:19px;height:19px;stroke:currentColor;stroke-width:2;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;}
+
+  /* 顶栏 */
+  .topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:6px 16px 14px;}
+  .avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(150deg,#FFE38A,var(--pop));border:2.5px solid var(--edge);
+    display:grid;place-items:center;font-size:16px;}
+  .who{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .name{font-size:17px;font-weight:800;letter-spacing:-.01em;}
+  .sub{font-size:10.5px;color:var(--ink2);}
+  .grow{flex:1;}
+  .top-actions{display:flex;align-items:center;gap:7px;}
+  .top-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+    border:2.5px solid var(--edge);background:var(--card);color:var(--ink);}
+  .top-icon .i{width:18px;height:18px;}
+  .top-icon.new{background:var(--pop);color:#fff;box-shadow:0 2px 0 rgba(74,42,70,.2);}
+
+  /* 消息 */
+  .stream{flex:1;overflow:hidden;padding:2px 16px 0;display:flex;flex-direction:column;gap:18px;}
+  .msg{display:flex;gap:9px;align-items:flex-start;}
+  .msg .av{width:32px;height:32px;border-radius:50%;flex-shrink:0;margin-top:2px;
+    background:linear-gradient(150deg,#FFE38A,var(--pop));border:2.5px solid var(--edge);
+    display:grid;place-items:center;font-size:13px;}
+  .msg .body{flex:1;min-width:0;}
+  .prose{font-size:18px;line-height:1.72;color:var(--ink);letter-spacing:.005em;font-weight:500;}
+  .prose .p{margin-bottom:4px;}
+  .ububble{align-self:flex-end;max-width:74%;background:var(--pop);color:#fff;
+    padding:11px 16px;border-radius:22px 22px 8px 22px;font-size:18px;line-height:1.5;font-weight:600;
+    box-shadow:0 4px 12px rgba(255,111,165,.25);}
+
+  /* 大卡片 */
+  .bigcard{margin-top:12px;background:var(--card);border:2.5px solid var(--edge);
+    border-radius:26px;padding:16px;box-shadow:0 6px 0 rgba(74,42,70,.12);}
+  .bigcard .hero{font-size:40px;line-height:1;margin-bottom:8px;}
+  .bigcard h4{font-size:20px;font-weight:800;letter-spacing:-.01em;}
+  .bigcard .desc{font-size:13px;color:var(--ink2);margin-top:2px;}
+  .btn-big{margin-top:12px;height:58px;border-radius:999px;background:var(--cta);color:var(--cta-ink);
+    font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;
+    border:2.5px solid var(--edge);box-shadow:0 4px 0 rgba(74,42,70,.2);}
+  .btn-big .i{width:18px;height:18px;fill:currentColor;stroke:none;}
+  .btn-big.pink{background:var(--pop);color:#fff;}
+  .btn-big.pink .i{fill:none;stroke:currentColor;stroke-width:2;}
+
+  .speak{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+    background:var(--card);border:2.5px solid var(--edge);color:var(--ink);
+    box-shadow:0 3px 0 rgba(74,42,70,.12);}
+  .speak .i{width:20px;height:20px;}
+
+  /* 大圆快捷入口 */
+  .quick{display:flex;gap:12px;margin-top:14px;}
+  .qcircle{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 0 12px;
+    border-radius:28px;background:var(--card);border:2.5px solid var(--edge);
+    box-shadow:0 4px 0 rgba(74,42,70,.1);}
+  .qcircle b{font-size:30px;line-height:1;}
+  .qcircle span{font-size:13px;font-weight:800;color:var(--ink);}
+
+  /* 输入区 */
+  .composer-zone{flex-shrink:0;padding:10px 14px 12px;
+    background:linear-gradient(to top,var(--paper) 66%,rgba(255,242,247,0) 100%);}
+  .tip{text-align:center;font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:8px;}
+  .composer{background:var(--card);border:var(--bw) solid var(--edge);border-radius:34px;
+    padding:9px 10px;box-shadow:0 10px 24px rgba(74,42,70,.13),0 3px 0 rgba(74,42,70,.06);}
+  .c-row{display:flex;align-items:center;gap:8px;}
+  .c-input{flex:1;text-align:center;font-size:15px;font-weight:600;color:var(--ink2);}
+  .c-input.live{color:var(--pop);}
+  .cbtn{width:48px;height:48px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;
+    background:var(--soft);border:2.5px solid var(--edge);color:var(--ink);}
+  .cbtn .i{width:22px;height:22px;}
+  .cbtn.sm{width:44px;height:44px;background:transparent;border-color:transparent;color:var(--ink2);}
+  .mic{width:64px;height:64px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;
+    background:var(--pop);color:#fff;border:2.5px solid var(--edge);
+    box-shadow:0 4px 0 rgba(74,42,70,.18);}
+  .mic .i{width:28px;height:28px;stroke-width:2.1;}
+  .mic.on{box-shadow:0 0 0 8px rgba(255,111,165,.18),0 0 0 16px rgba(255,111,165,.1),0 4px 0 rgba(74,42,70,.18);}
+  .hint{text-align:center;font-size:11px;color:var(--ink2);opacity:.75;margin-top:8px;}
+
+  /* 声波 */
+  .wave{display:flex;align-items:center;gap:3px;height:22px;}
+  .wave i{width:4px;border-radius:3px;background:var(--pop);animation:wave 1s ease-in-out infinite;}
+  .wave i:nth-child(1){height:8px;animation-delay:0s}
+  .wave i:nth-child(2){height:16px;animation-delay:.1s}
+  .wave i:nth-child(3){height:22px;animation-delay:.2s}
+  .wave i:nth-child(4){height:12px;animation-delay:.3s}
+  .wave i:nth-child(5){height:18px;animation-delay:.25s}
+  .wave i:nth-child(6){height:9px;animation-delay:.15s}
+  @keyframes wave{0%,100%{transform:scaleY(.45)}50%{transform:scaleY(1)}}
+
+  /* 工具面板 */
+  .panel{background:var(--card);border:var(--bw) solid var(--edge);border-radius:28px;
+    padding:14px 14px 12px;margin-bottom:10px;box-shadow:0 16px 30px rgba(74,42,70,.16);}
+  .panel .ttl{font-size:12px;font-weight:800;color:var(--ink2);margin:0 4px 10px;}
+  .tools-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .tool{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:20px;
+    background:var(--soft);border:2px solid var(--edge);}
+  .tool.alt{background:#FFEAF2;border-color:#FFC3DA;}
+  .tool .bx{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;
+    background:var(--card);border:2px solid var(--edge);}
+  .tool .bx .i{width:20px;height:20px;}
+  .tool span{font-size:14px;font-weight:800;}
+
+  /* 底部导航 */
+  .tabbar{flex-shrink:0;height:62px;display:flex;align-items:center;justify-content:space-around;
+    background:var(--card);border-top:2px solid var(--line);padding:0 10px;}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;
+    color:var(--ink2);opacity:.6;}
+  .tab .i{width:21px;height:21px;}
+  .tab.on{color:#C2447A;opacity:1;font-weight:800;}
+  .tab.on .pill{width:40px;height:30px;border-radius:999px;background:rgba(255,111,165,.16);
+    display:grid;place-items:center;}
+
+  /* 标注 */
+  .notes{margin-top:20px;width:338px;}
+  .notes h5{font-size:12px;letter-spacing:.06em;color:var(--txt3);text-transform:uppercase;
+    margin-bottom:10px;font-weight:600;}
+  .notes li{list-style:none;display:flex;gap:9px;font-size:12.5px;line-height:1.62;color:var(--txt2);padding:5px 0;}
+  .notes li b{color:var(--txt);font-weight:600;}
+  .num{flex-shrink:0;width:17px;height:17px;border-radius:50%;margin-top:1px;display:grid;
+    place-items:center;font-size:9.5px;font-weight:700;color:#120C10;background:var(--accent);}
+
+  /* 差异表 */
+  .spec{margin-top:34px;border:1px solid var(--hair);border-radius:18px;overflow:hidden;}
+  .spec table{width:100%;border-collapse:collapse;font-size:13px;}
+  .spec th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--txt3);font-weight:600;padding:14px 18px;background:rgba(255,255,255,.02);
+    border-bottom:1px solid var(--hair);}
+  .spec td{padding:13px 18px;border-bottom:1px solid rgba(44,32,39,.7);color:var(--txt2);}
+  .spec tr:last-child td{border-bottom:none;}
+  .spec td:first-child{color:var(--txt);font-weight:600;width:170px;}
+  .spec code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+    color:var(--accent);background:rgba(255,155,194,.09);padding:2px 7px;border-radius:6px;}
+
+  .diff{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px;}
+  .dcell{border-radius:18px;padding:18px 20px;border:1px solid var(--hair);background:rgba(255,255,255,.02);}
+  .dcell h6{font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;color:var(--txt3);}
+  .dcell li{list-style:none;font-size:13px;line-height:1.72;color:var(--txt2);padding-left:16px;position:relative;}
+  .dcell li::before{content:"";position:absolute;left:2px;top:9px;width:5px;height:5px;border-radius:50%;
+    background:currentColor;opacity:.4;}
+
+  @media (max-width:820px){
+    body{padding:32px 16px 64px;}
+    h1{font-size:27px;}
+    .grid{justify-items:center;}
+    .diff{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker"><i></i> 灵犀伴学 · AI 对话页 · 低龄版（3–4 岁 / level 0）· 2026-11-13</div>
+  <h1>大字、大话筒、<span>一次只做一件事</span></h1>
+  <p class="lede">
+    3–4 岁不识字、手指精度低、注意力只有 3–5 分钟。这一版不是把标准版缩小，而是按"能自己用起来"重做：
+    语音即发送、单屏单任务、所有触控面 ≥ 56px、不出现任何管理型功能。
+    配色沿用系统按年龄自动匹配的 candy 皮肤（粉底 + 深梅描边 + 亮黄主按钮）。
+  </p>
+  <div class="principles">
+    <div><b>语音优先</b> 说完自动发</div>
+    <div><b>触控 56+</b> 最小可点面积</div>
+    <div><b>零管理项</b> 无导出/清空/设置</div>
+    <div><b>单屏单任务</b> 一次一个按钮</div>
+  </div>
+
+  <!-- ══════════ 01 ══════════ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">01</span>
+      <h2>首屏 · 聆听 · 对话</h2>
+      <p>三个核心状态</p>
+    </div>
+
+    <div class="grid">
+
+      <!-- ① 首屏 -->
+      <div class="cell">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div class="topbar">
+              <div class="avatar">🐻</div>
+              <div class="who"><div class="name">小犀</div><div class="sub">陪你说话</div></div>
+              <div class="grow"></div>
+              <div class="top-actions">
+                <div class="top-icon new" title="新建会话"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M12 5.5v13M5.5 12h13"/></svg></div>
+                <div class="top-icon" title="打电话"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h3l2 4-2 2a10 10 0 0 0 5 5l2-2 4 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></svg></div>
+                <div class="top-icon" title="历史会话"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              </div>
+            </div>
+
+            <div class="stream">
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose">
+                    <div class="p">嗨，我是小犀 🐻</div>
+                    <div class="p">想听故事，还是玩游戏？</div>
+                  </div>
+
+                  <div class="quick">
+                    <div class="qcircle"><b>📖</b><span>讲故事</span></div>
+                    <div class="qcircle"><b>🎮</b><span>玩游戏</span></div>
+                    <div class="qcircle"><b>🎵</b><span>听儿歌</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-zone">
+              <div class="tip">点一下话筒，说给我听</div>
+              <div class="composer">
+                <div class="c-row">
+                  <div class="cbtn"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="mic"><svg class="i" viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="cbtn sm"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10.5 10h.01M14.5 10h.01M18 10h.01M8 14h8"/></svg></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z"/></svg>首页</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>学习</div>
+              <div class="tab on"><div class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>AI</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>我的</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>① 首屏</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>三个大圆入口：</b>84px 圆角块，emoji 30px + 两字标签，只给「讲故事 / 玩游戏 / 听儿歌」，最多三个，第四个开始孩子就选不动。</span></li>
+            <li><span class="num">2</span><span><b>输入栏只有两件事：</b>中间 64px 大话筒（唯一强调色），左边相册、右边键盘（44px，弱化），没有发送钮 —— 说完自动发送。</span></li>
+            <li><span class="num">3</span><span><b>顶栏三键放大到 38px：</b>新建（粉色实心）/ 打电话 / 历史，间距 7px 保证不误触。</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ② 聆听 -->
+      <div class="cell">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div class="topbar">
+              <div class="avatar">🐻</div>
+              <div class="who"><div class="name">小犀</div><div class="sub">正在听你说</div></div>
+              <div class="grow"></div>
+              <div class="top-actions">
+                <div class="top-icon new" title="新建会话"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M12 5.5v13M5.5 12h13"/></svg></div>
+                <div class="top-icon" title="打电话"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h3l2 4-2 2a10 10 0 0 0 5 5l2-2 4 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></svg></div>
+                <div class="top-icon" title="历史会话"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              </div>
+            </div>
+
+            <div class="stream">
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose">
+                    <div class="p" style="color:var(--ink2);font-size:16px;">我在听，慢慢说～</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-zone">
+              <div class="tip" style="color:var(--pop);display:flex;align-items:center;justify-content:center;gap:9px;">
+                我在听…
+                <span class="wave" style="height:16px;"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                说完等一下就好
+              </div>
+              <div class="composer" style="border-color:var(--pop);">
+                <div class="c-row" style="display:grid;grid-template-columns:48px 1fr 48px;align-items:center;">
+                  <div class="cbtn" style="opacity:.4;"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></svg></div>
+                  <div style="display:flex;justify-content:center;">
+                    <div class="mic on"><svg class="i" viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></div>
+                  </div>
+                  <div class="cbtn sm" style="opacity:.3;"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10.5 10h.01M14.5 10h.01M18 10h.01M8 14h8"/></svg></div>
+                </div>
+              </div>
+              <div class="hint">说错了？再点一下话筒重新说</div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z"/></svg>首页</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>学习</div>
+              <div class="tab on"><div class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>AI</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>我的</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>② 聆听中</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>三处同时给反馈：</b>话筒外双光环呼吸、右侧声波条、上方文案变粉色 —— 孩子不确定"有没有在听"，要多通道确认。</span></li>
+            <li><span class="num">2</span><span><b>不给孩子"取消"按钮：</b>说错了就再点一次话筒，只有一种恢复路径，避免出现两个相反动作。</span></li>
+            <li><span class="num">3</span><span><b>相机键降透明度：</b>聆听期间锁住其他入口，防止边说边点导致输入被打断。</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ③ 对话 -->
+      <div class="cell">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div class="topbar">
+              <div class="avatar">🐻</div>
+              <div class="who"><div class="name">小犀</div><div class="sub">认汉字 · 第 2 关</div></div>
+              <div class="grow"></div>
+              <div class="top-actions">
+                <div class="top-icon new" title="新建会话"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M12 5.5v13M5.5 12h13"/></svg></div>
+                <div class="top-icon" title="打电话"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h3l2 4-2 2a10 10 0 0 0 5 5l2-2 4 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></svg></div>
+                <div class="top-icon" title="历史会话"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              </div>
+            </div>
+
+            <div class="stream" style="gap:14px;">
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose">
+                    <div class="p">认识「日」这个字吧！</div>
+                  </div>
+
+                  <div class="bigcard" style="padding:14px;">
+                    <div class="hero" style="margin-bottom:6px;">☀️</div>
+                    <h4>日</h4>
+                    <div class="desc">太阳出来啦，这个字读 rì</div>
+                    <div class="btn-big">
+                      <svg class="i" viewBox="0 0 24 24"><path d="M8 5l12 7-12 7z"/></svg>
+                      看一看
+                    </div>
+                  </div>
+
+                  <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+                    <div class="speak"><svg class="i" viewBox="0 0 24 24"><path d="M4 9v6h3l5 4V5L7 9H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ububble">我想再玩一次</div>
+
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose" style="font-size:17px;">好呀，再来一次 🎉</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-zone">
+              <div class="composer">
+                <div class="c-row">
+                  <div class="cbtn"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="mic"><svg class="i" viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="cbtn sm"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10.5 10h.01M14.5 10h.01M18 10h.01M8 14h8"/></svg></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z"/></svg>首页</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>学习</div>
+              <div class="tab on"><div class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>AI</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>我的</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>③ 对话中</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>正文 18px / 1.72：</b>最多两行就断句，不出现长段落；一句话只表达一件事。</span></li>
+            <li><span class="num">2</span><span><b>卡片一次只推一张：</b>40px emoji 当头图，字当标题，一个 58px 大按钮，没有第二个选项。</span></li>
+            <li><span class="num">3</span><span><b>只留一个 44px 大喇叭：</b>没有复制、没有重答、没有三点菜单 —— 这三个都是给家长看的，放进家长端。</span></li>
+            <li><span class="num">4</span><span><b>孩子气泡用强调粉：</b>18px 加粗白字，和 AI 的纸面文字一眼分开。</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════ 02 ══════════ -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-no">02</span>
+      <h2>扩展态 · 拍照与文字</h2>
+      <p>工具面板 / 键盘输入</p>
+    </div>
+
+    <div class="grid">
+
+      <!-- ④ 拍照 -->
+      <div class="cell">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div class="topbar">
+              <div class="avatar">🐻</div>
+              <div class="who"><div class="name">小犀</div><div class="sub">陪你说话</div></div>
+              <div class="grow"></div>
+              <div class="top-actions">
+                <div class="top-icon new" title="新建会话"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M12 5.5v13M5.5 12h13"/></svg></div>
+                <div class="top-icon" title="打电话"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h3l2 4-2 2a10 10 0 0 0 5 5l2-2 4 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></svg></div>
+                <div class="top-icon" title="历史会话"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              </div>
+            </div>
+
+            <div class="stream" style="opacity:.4;">
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose" style="font-size:17px;">把你想问的东西拍给我看 📷</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-zone">
+              <div class="panel">
+                <div class="ttl">给小犀看看</div>
+                <div class="tools-grid">
+                  <div class="tool alt"><div class="bx"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.4"/><path d="M9 6l1.4-2h3.2L15 6"/></svg></div><span>拍照</span></div>
+                  <div class="tool"><div class="bx"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></svg></div><span>相册</span></div>
+                </div>
+              </div>
+
+              <div class="composer">
+                <div class="c-row">
+                  <div class="cbtn" style="background:var(--pop);color:#fff;">
+                    <svg class="i" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.4"/><path d="M9 6l1.4-2h3.2L15 6"/></svg>
+                  </div>
+                  <div class="grow"></div>
+                  <div class="mic"><svg class="i" viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="cbtn sm"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6.5 10h.01M10.5 10h.01M14.5 10h.01M18 10h.01M8 14h8"/></svg></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z"/></svg>首页</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>学习</div>
+              <div class="tab on"><div class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>AI</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>我的</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>④ 工具面板</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>只有两格：</b>拍照 / 相册，横向两列、每格 56px 高，图标 + 大字，不识字也能选。</span></li>
+            <li><span class="num">2</span><span><b>没有文件、没有导出、没有清空：</b>这三项孩子用不到，误触代价却很高。</span></li>
+            <li><span class="num">3</span><span><b>入口是相机而不是 ＋：</b>3–4 岁不认识"加号代表更多"，直接画相机，所见即所得。</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ⑤ 键盘态 -->
+      <div class="cell">
+        <div class="phone">
+          <div class="screen">
+            <div class="statusbar"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div class="topbar">
+              <div class="avatar">🐻</div>
+              <div class="who"><div class="name">小犀</div><div class="sub">陪你说话</div></div>
+              <div class="grow"></div>
+              <div class="top-actions">
+                <div class="top-icon new" title="新建会话"><svg class="i" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M12 5.5v13M5.5 12h13"/></svg></div>
+                <div class="top-icon" title="打电话"><svg class="i" viewBox="0 0 24 24"><path d="M6 4h3l2 4-2 2a10 10 0 0 0 5 5l2-2 4 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z"/></svg></div>
+                <div class="top-icon" title="历史会话"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+              </div>
+            </div>
+
+            <div class="stream">
+              <div class="msg">
+                <div class="av">🐻</div>
+                <div class="body">
+                  <div class="prose" style="font-size:17px;color:var(--ink2);">想让爸爸妈妈帮你打字也可以～</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-zone">
+              <div class="composer" style="border-radius:28px;">
+                <div style="font-size:20px;font-weight:600;color:var(--ink);padding:6px 6px 10px;">妈妈 今天<span style="display:inline-block;width:2px;height:20px;background:var(--pop);vertical-align:-4px;margin-left:2px;"></span></div>
+                <div class="c-row">
+                  <div class="cbtn"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M4 17l5-4 4 3 3-2 4 3"/></svg></div>
+                  <div class="grow"></div>
+                  <div class="cbtn sm"><svg class="i" viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg></div>
+                  <div style="display:flex;align-items:center;justify-content:center;height:56px;padding:0 26px;
+                              border-radius:999px;background:var(--cta);border:2.5px solid var(--edge);
+                              font-size:17px;font-weight:800;box-shadow:0 4px 0 rgba(74,42,70,.2);">发送</div>
+                </div>
+              </div>
+              <div class="hint">只有打了字才会出现发送按钮</div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z"/></svg>首页</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>学习</div>
+              <div class="tab on"><div class="pill"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/></svg></div>AI</div>
+              <div class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>我的</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>⑤ 键盘态（给家长/大孩子）</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>默认不出现输入框：</b>低龄档以语音为唯一主路径，键盘是次要出口，点了右侧键盘键才展开。</span></li>
+            <li><span class="num">2</span><span><b>只有打了字才长出发送钮：</b>56px 黄色胶囊，避免孩子误点空白发送。</span></li>
+            <li><span class="num">3</span><span><b>字号 20px：</b>给孩子看着念、给家长在旁辅助输入都够大。</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ⑥ 家长端差异说明 -->
+      <div class="cell">
+        <div class="phone" style="height:716px;">
+          <div class="screen" style="background:linear-gradient(170deg,#2B1A2A,#1A1119);color:#F4E9EF;">
+            <div class="statusbar" style="color:#F4E9EF;opacity:.6;"><span>12:31</span><span class="dots"><b></b><b></b><b></b></span></div>
+            <div style="padding:6px 22px 0;">
+              <div style="font-size:11px;letter-spacing:.14em;color:#FF9BC2;font-weight:700;">家长提示</div>
+              <div style="font-size:22px;font-weight:800;line-height:1.4;margin-top:10px;">低龄档里<br>孩子看不到什么</div>
+              <div style="font-size:13px;line-height:1.8;color:#C4AEB9;margin-top:10px;">
+                所有"管理型"和"二次操作"都被移出孩子的视线，需要时从家长端进入。
+              </div>
+            </div>
+            <div style="padding:18px 18px 0;display:flex;flex-direction:column;gap:10px;">
+              <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:14px 16px;">
+                <div style="font-size:13.5px;font-weight:700;margin-bottom:4px;">✕ 思考过程</div>
+                <div style="font-size:12.5px;line-height:1.65;color:#B9A4B0;">孩子不需要看推理链，长文本还会挤压首屏；家长端可查看完整记录。</div>
+              </div>
+              <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:14px 16px;">
+                <div style="font-size:13.5px;font-weight:700;margin-bottom:4px;">✕ 复制 / 重答 / 三点菜单</div>
+                <div style="font-size:12.5px;line-height:1.65;color:#B9A4B0;">都是"对一个回答不满意"的元操作，3–4 岁没有这个心智模型，只会造成误触。</div>
+              </div>
+              <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:14px 16px;">
+                <div style="font-size:13.5px;font-weight:700;margin-bottom:4px;">✕ 导出 / 清空 / 设置</div>
+                <div style="font-size:12.5px;line-height:1.65;color:#B9A4B0;">归入「历史会话 → 更多」，需要家长锁（长按标题 2 秒）才能进入。</div>
+              </div>
+              <div style="background:rgba(255,155,194,.12);border:1px solid rgba(255,155,194,.3);border-radius:18px;padding:14px 16px;">
+                <div style="font-size:13.5px;font-weight:700;margin-bottom:4px;color:#FFC7DC;">✓ 保留的三个动作</div>
+                <div style="font-size:12.5px;line-height:1.65;color:#D8C2CD;">说话（大话筒）、拍照（相机键）、听一遍（大喇叭）。全部 ≥ 44px。</div>
+              </div>
+            </div>
+            <div style="margin-top:auto;padding:0 18px 26px;">
+              <div style="height:1px;background:rgba(255,255,255,.1);margin-bottom:14px;"></div>
+              <div style="font-size:11px;color:#8E7683;line-height:1.7;">* 具体家长锁样式见「家长端-设置」设计稿，本页只声明边界。</div>
+            </div>
+          </div>
+        </div>
+        <div class="notes">
+          <h5>⑥ 视线边界</h5>
+          <ul>
+            <li><span class="num">1</span><span><b>减法优先：</b>低龄版每增加一个按钮，误触率与放弃率都会上升，所以先问"能不能不给"。</span></li>
+            <li><span class="num">2</span><span><b>家长能力不减少：</b>只是换了入口 —— 历史会话页 + 家长锁，功能一个不少。</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="diff">
+      <div class="dcell">
+        <h6>标准版（4–6 岁 / 家长）</h6>
+        <ul>
+          <li>正文 14.5px / 1.62，思考过程 28px 胶囊可展开</li>
+          <li>输入栏：＋ 工具 / 英语陪练 / 话筒 / 发送</li>
+          <li>工具面板 4 格：拍照、相册、文件、英语陪练</li>
+          <li>消息底部：复制 / 朗读 / 重答</li>
+          <li>卡片：首个完整 + 其余折叠成 mini-row</li>
+          <li>快捷入口：4 个胶囊</li>
+        </ul>
+      </div>
+      <div class="dcell">
+        <h6>低龄版（3–4 岁 / level 0）</h6>
+        <ul>
+          <li>正文 18px / 1.72，无思考过程</li>
+          <li>输入栏：相机 / 64px 大话筒 / 键盘（无发送钮）</li>
+          <li>工具面板 2 格：拍照、相册</li>
+          <li>消息底部：只有一个 44px 大喇叭</li>
+          <li>卡片：一次一张，单 CTA 58px</li>
+          <li>快捷入口：3 个 84px 大圆</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="spec">
+      <table>
+        <thead>
+          <tr><th>规格项</th><th>取值</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>皮肤</td><td><code>candy</code>（随年龄自动）</td><td>粉底 #FFF2F7 / 描边 #4A2A46 / 主按钮 #FFD84D，圆角 34</td></tr>
+          <tr><td>最小触控面</td><td><code>44px</code>（次）/ <code>56px</code>（主）</td><td>大话筒 64，发送 56，喇叭 44，工具格 56×56</td></tr>
+          <tr><td>正文</td><td><code>18px / 1.72</code>，字重 500</td><td>单段不超过 2 行，超过就拆句或改由语音播报</td></tr>
+          <tr><td>输入胶囊</td><td>圆角 <code>34px</code>，描边 <code>3px</code></td><td>胶囊高度 82px，内边距 9/10，卡片同款描边语言</td></tr>
+          <tr><td>语音发送</td><td>识别结束 <code>600ms</code> 后自动发</td><td>期间底部提示「说完了，正在发…」，不出现确认弹窗</td></tr>
+          <tr><td>聆听反馈</td><td>双光环 <code>1.6s</code> 呼吸 + 6 根声波条</td><td>声波条随音量缩放，静音 2s 自动结束</td></tr>
+          <tr><td>卡片</td><td>圆角 26，描边 3，实心下阴影 4px</td><td>emoji 40 当作头图，标题 20/800，正文 13 说明</td></tr>
+          <tr><td>大按钮</td><td><code>58px</code> 高，圆角 999，描边 2.5</td><td>黄色 #FFD84D 底 + 深梅字，按下位移 2px</td></tr>
+          <tr><td>快捷圆块</td><td><code>84×84</code>，圆角 28</td><td>最多 3 个，超过则改为横向滚动</td></tr>
+          <tr><td>动效</td><td>280ms <code>cubic-bezier(.34,1.56,.64,1)</code></td><td>卡片入场 scale .94→1 + 上移 8px；孩子操作反馈要慢而明显</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</body>
+</html>

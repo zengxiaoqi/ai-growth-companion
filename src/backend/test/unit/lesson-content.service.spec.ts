@@ -131,7 +131,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
       childId: 22,
     });
     expect(builder.andWhere).toHaveBeenCalledWith('content.status IN (:...statuses)', {
-      statuses: ['draft', 'generating'],
+      statuses: ['draft', 'generating', 'modifying'],
     });
     expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', {
       contentType: 'structured_lesson',
@@ -192,7 +192,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
       childId: 22,
     });
     expect(builder.andWhere).toHaveBeenCalledWith('content.status IN (:...statuses)', {
-      statuses: ['draft', 'generating'],
+      statuses: ['draft', 'generating', 'modifying'],
     });
     expect(builder.andWhere).toHaveBeenCalledWith('content.contentType = :contentType', {
       contentType: 'structured_lesson',
@@ -500,10 +500,14 @@ describe('LessonContentService modifyDraft scene sync', () => {
     });
 
     const prompt = llmClient.generate.mock.calls[0][0];
-    expect(prompt).toContain('Target step for this edit');
-    expect(prompt).toContain('"id": "write"');
-    expect(prompt).toContain('"moduleType": "writing"');
-    expect(prompt).toContain('Focus on step "write" first');
+    expect(prompt).toContain('The step to modify');
+    expect(prompt).toContain('"id":"write"');
+    expect(prompt).toContain('"type":"writing"');
+    expect(prompt).toContain('JSON PATCH');
+    // delta prompt still asks for the matching module.scene when visuals change
+    expect(prompt).toContain('module.scene');
+    // maxTokens pinned to avoid the escalating retry that timed out whole-lesson edits
+    expect(llmClient.generate.mock.calls[0][2]).toEqual({ maxTokens: 8192 });
   });
 });
 

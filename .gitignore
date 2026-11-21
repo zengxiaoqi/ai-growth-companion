@@ -4,6 +4,8 @@ node_modules/
 *.db
 *.lock
 pub/
+__pycache__/
+*.pyc
 
 # IDE
 .idea/
@@ -60,6 +62,9 @@ bento-output/
 .workbuddy-ai/
 .workbuddy/memory/
 .workbuddy/skills/.installed
+# Local scratch / screenshots / credentials — must never be committed
+.workbuddy/tmp/
+.zcode/
 
 # Flutter android build output
 src/frontend/android/build/
@@ -69,3 +74,23 @@ dist-skills/
 check_pw.js
 *.db-shm
 *.db-wal
+*.db-journal
+
+# ── 安全：禁止把构建产物、运行环境与签名材料推到公开仓库 ──────────
+# 真实环境文件（.env / .env.local / .env.production ...），示例文件除外
+.env.*
+!.env.example
+# 运行时日志可能夹带请求体与 token
+*.log
+# 移动端构建产物与签名密钥
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+key.properties
+src/frontend/android/app/keystore/
+google-services.json
+GoogleService-Info.plist

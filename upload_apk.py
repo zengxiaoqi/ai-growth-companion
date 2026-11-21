@@ -1,16 +1,32 @@
 #!/usr/bin/env python3
-"""Upload a large APK to Feishu Cloud Drive using multipart upload API."""
+"""Upload a large APK to Feishu Cloud Drive using multipart upload API.
+
+Usage:
+    export FEISHU_FOLDER_TOKEN=<target folder token>
+    export APK_PATH=/path/to/app-release.apk   # optional
+    export VERSION_TAG=20261109                 # optional
+    # ~/.hermes/.env must contain FEISHU_APP_ID and FEISHU_APP_SECRET
+    python upload_apk.py
+"""
 import json
 import os
 import sys
 import requests
 
-APK_PATH = "/home/zxq/ai-growth-companion/src/frontend/build/app/outputs/flutter-apk/app-release.apk"
-VERSION_TAG = "20260726-0822"
-FOLDER_TOKEN = "nodcnvpo6DVKLW6z0Nr1qqqcZMg"  # root folder
+# Machine-specific paths and tenant-specific folder tokens must come from the
+# environment — this repository is public, so none of them are hardcoded here.
+APK_PATH = os.environ.get(
+    "APK_PATH",
+    os.path.join(os.path.dirname(__file__), "app-release.apk"),
+)
+VERSION_TAG = os.environ.get("VERSION_TAG", "dev")
+FOLDER_TOKEN = os.environ.get("FEISHU_FOLDER_TOKEN", "")
 
 def get_token():
+    # 凭证只从本机文件读取，绝不写入仓库
     env_file = os.path.expanduser("~/.hermes/.env")
+    if not os.path.isfile(env_file):
+        sys.exit(f"❌ 找不到凭证文件 {env_file}（需含 FEISHU_APP_ID / FEISHU_APP_SECRET）")
     app_id = app_secret = None
     with open(env_file) as f:
         for line in f:
@@ -31,6 +47,10 @@ def get_token():
     return token
 
 def main():
+    if not FOLDER_TOKEN:
+        sys.exit("❌ 请先设置环境变量 FEISHU_FOLDER_TOKEN（飞书云盘目标文件夹 token）")
+    if not os.path.isfile(APK_PATH):
+        sys.exit(f"❌ 找不到 APK：{APK_PATH}（可用环境变量 APK_PATH 指定路径）")
     token = get_token()
     headers = {"Authorization": f"Bearer {token}"}
     file_size = os.path.getsize(APK_PATH)

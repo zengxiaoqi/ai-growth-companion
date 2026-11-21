@@ -406,10 +406,30 @@ export class LearningController {
     return this.lessonContentService.deleteDraft(+id);
   }
 
+  @Post('lessons/:id/modify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '异步修改课程草稿（AI对话式修改，后台执行+前端轮询）' })
+  async modifyLessonAsync(@Request() req: any, @Param('id') id: string, @Body() body: ModifyDraftDto) {
+    const parentId = req.user?.sub;
+    if (req.user?.type !== 'parent') {
+      throw new ForbiddenException('仅家长可修改课程');
+    }
+    if (!body?.modification?.trim()) {
+      throw new BadRequestException('modification is required');
+    }
+    const content = await this.contentRepo.findOne({ where: { id: +id } });
+    if (!content) throw new NotFoundException('Content not found');
+    await this.assertAccessToChild(req, content.childId!);
+    return this.lessonContentService.startModification(+id, parentId, body.modification, {
+      stepId: body.stepId,
+    });
+  }
+
   @Patch('lessons/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: '修改课程草稿（AI对话式修改）' })
+  @ApiOperation({ summary: '修改课程草稿（同步，场景编辑保存用）' })
   async modifyLesson(@Request() req: any, @Param('id') id: string, @Body() body: ModifyDraftDto) {
     const parentId = req.user?.sub;
     if (req.user?.type !== 'parent') {

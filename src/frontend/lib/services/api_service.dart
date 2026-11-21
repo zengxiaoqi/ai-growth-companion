@@ -782,7 +782,25 @@ class ApiService {
     }
   }
 
-  /// 修改课程草稿 [FIXED: was POST /lessons/:id/edit, now PATCH /learning/lessons/:id]
+  /// 异步修改课程草稿：后端立即返回 status=modifying，前端轮询 getContentDetail 等结果。
+  /// 用于 AI 对话式修改（可能耗时数分钟）。
+  Future<Map<String, dynamic>?> modifyLessonAsync(int contentId, String modification, {String? stepId}) async {
+    try {
+      final response = await _dio.post('/learning/lessons/$contentId/modify', data: {
+        'modification': modification,
+        if (stepId != null) 'stepId': stepId,
+      });
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      if (response.data is Map) return (response.data as Map).map((k, v) => MapEntry(k.toString(), v));
+      return null;
+    } catch (e) {
+      _log.warning('Modify lesson async error: $e');
+      return null;
+    }
+  }
+
+  /// 修改课程草稿（同步）[FIXED: was POST /lessons/:id/edit, now PATCH /learning/lessons/:id]
+  /// 保留给场景编辑保存等快速调用；AI 对话式修改请用 modifyLessonAsync。
   Future<Map<String, dynamic>?> modifyLesson(int contentId, String modification, {String? stepId}) async {
     try {
       final response = await _dio.patch('/learning/lessons/$contentId', data: {

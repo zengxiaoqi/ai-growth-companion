@@ -2,6 +2,143 @@
 
 > 可复用到其他 Linux 环境的完整依赖检验清单。按顺序逐项检查，全部通过后系统可正常运行。
 
+> ⚠️ **先完成 [§0 安全前置检查](#security-preflight) 再往下走** —— 未完成会导致后端拒绝启动。
+
+---
+
+<a id="security-preflight"></a>
+
+## 0. 安全前置检查（必做，先于第 1 节）
+
+> 本仓库为**公开仓库**。以下项目来自 2026-11-09 的安全加固，属于**破坏性变更**：
+> 未配置 `JWT_SECRET` 时 compose 与后端都会拒绝启动；轮换密钥会使所有已签发 token 立即失效。
+> 请在部署窗口内按顺序执行，并预留用户重新登录的通知。
+> 摘要版见 [README §🔐 部署前必做](../README.md#pre-deploy-security)。
+
+### 0.1 检查清单
+
+| # | 项目 | 验证判据 | 状态 |
+|---|------|---------|------|
+| 0.1 | `JWT_SECRET` 为 ≥32 位随机串且非占位值 | `echo -n "$JWT_SECRET" \| wc -c` ≥ 32 | ☐ |
+| 0.2 | 生产库无演示账号 | `SELECT count(*) FROM users WHERE phone LIKE '1380000000%';` = 0 | ☐ |
+| 0.3 | `CORS_ORIGINS` 已配置为自有域名 | 环境变量非空，启动日志无兼容模式警告 | ☐ |
+| 0.4 | `SWAGGER_ENABLED` 未设为 `true` | `/api/docs` 返回 404 | ☐ |
+| 0.5 | 无密钥 / 数据库 / 签名文件被提交 | 见 0.5 命令，输出为空 | ☐ |
+| 0.6 | 历史泄露凭证已轮换 | 见 0.7 | ☐ |
+
+### 0.2 生成并配置 JWT_SECRET
+
+```bash
+# 生成（64 位十六进制，约 256 bit 熵）
+openssl rand -hex 32
+
+# 按部署方式写入：
+#   systemd  → ~/.config/systemd/user/lingxi-backend.service 的 Environment= / EnvironmentFile=
+#   Docker   → 根目录 .env（已被 .gitignore 忽略）
+#   Railway  → Dashboard → Variables
+#   CI/CD    → 仓库 Settings → Secrets and variables → Actions
+```
+
+**约束**（由 `src/backend/src/common/jwt-secret.ts` 强制）：
+
+- 生产模式（`NODE_ENV=production`）下，`JWT_SECRET` 缺失、少于 32 位、或等于 `.env.example` 中的占位值（如 `change-me-in-production`、`lingxi-secret-key-change-in-production`）都会**抛错并拒绝启动**。
+- `docker-compose.yml` / `docker-compose.prod.yml` 使用 `${JWT_SECRET:?...}`，漏配时 compose 层即报错。
+- 开发 / 测试模式未配置时使用**进程级随机密钥**：可正常启动，但每次重启旧 token 失效。
+
+```bash
+# 仓库根目录执行：启动前自检，应无输出、退出码 0
+docker compose -f docker-compose.prod.yml config --quiet
+
+# src/backend 目录执行：验证 fail-fast（应抛错，而不是静默使用默认密钥）
+cd src/backend
+NODE_ENV=production JWT_SECRET= node -e "require('./dist/common/jwt-secret').resolveJwtSecret()"
+```
+
+> ⚠️ **影响**：更换 `JWT_SECRET` 会让所有已签发 token 失效（签发有效期 7 天），全部用户需重新登录。请在低峰期执行。
+
+### 0.3 删除生产库中的演示账号
+
+`DatabaseSeederService` 已加生产守卫，**只阻止新建**，不会移除历史遗留账号。历史部署可能已写入
+`13800000001 / password123`（家长）与 `13800000002 / password123`（儿童）。口令在公开仓库的文档中可查，等同于公开后台入口。
+
+```bash
+# 1) 备份（务必先做）
+cp /path/to/lingxi.db /path/to/lingxi.db.bak-$(date +%Y%m%d%H%M)
+
+# 2) 先确认，避免误删真实用户
+sqlite3 /path/to/lingxi.db "SELECT id, phone, name, type FROM users WHERE phone LIKE '1380000000%';"
+
+# 3) 删除（TypeORM 实体表名为 users）
+sqlite3 /path/to/lingxi.db "DELETE FROM users WHERE phone IN ('13800000001','13800000002');"
+
+# 4) 验证：期望 0
+sqlite3 /path/to/lingxi.db "SELECT count(*) FROM users WHERE phone LIKE '1380000000%';"
+```
+
+服务器没有 `sqlite3` CLI 时可用 Node 替代：
+
+```bash
+node -e "const db=require('better-sqlite3')('/path/to/lingxi.db'); console.log(db.prepare('DELETE FROM users WHERE phone IN (?,?)').run('13800000001','13800000002'))"
+```
+
+删除后通过 `POST /api/auth/register` 创建正式家长账号，再在家长端绑定孩子。
+
+### 0.4 CORS 与 Swagger
+
+| 变量 | 生产建议值 | 说明 |
+|------|-----------|------|
+| `CORS_ORIGINS` | `https://<Flutter Web 域名>,https://<React Web 域名>` | 逗号分隔白名单；留空时生产为兼容模式（反射任意 Origin）并在启动日志打印警告 |
+| `SWAGGER_ENABLED` | 不设置 / `false` | 设为 `true` 会在生产暴露 `/api/docs` 完整 API 手册 |
+
+> 本项目两个前端域名各自通过 nginx 反代 `/api/`，属同源请求，不受 CORS 限制；配置白名单不会影响正常访问。
+
+### 0.5 密钥不入库自检
+
+```bash
+# 应无输出（.env.example 是模板，允许被跟踪）
+git ls-files | grep -E '(^|/)\.env($|\.(local|production|prod|staging))$|\.(pem|jks|keystore|apk|aab|db)$|key\.properties$'
+
+# 逐个确认敏感路径被忽略
+git check-ignore -v .env src/backend/.env src/backend/lingxi.db app-release.apk
+```
+
+`.gitignore` 已覆盖 `.env.*`、`*.log`、`*.apk` / `*.aab` / `*.jks` / `*.keystore` / `*.pem`、`key.properties` 等。
+注意：**对已跟踪文件追加忽略规则无效**，需 `git rm --cached <file>` 解除跟踪（本地文件保留）。
+
+### 0.6 部署后验证
+
+```bash
+# 后端启动日志无 fail-fast 错误、无 CORS 兼容模式警告
+journalctl --user -u lingxi-backend.service -n 100 --no-pager
+
+# Swagger 应不可访问（404）
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/api/docs
+
+# 用公开口令登录应失败（401）
+curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3001/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"phone":"13800000001","password":"password123"}'
+```
+
+### 0.7 历史泄露凭证的轮换
+
+公开仓库的历史提交中曾出现以下标识。**删除文件不会撤销它们**，需在对应平台轮换：
+
+- 飞书云盘 Folder Token，以及 App ID / Secret（若曾写入日志或截图）
+- Cloudflare Tunnel ID 与 `~/.cloudflared/<tunnel-id>.json` 凭证
+- 代理 / 运维后台口令（部署文档中曾出现明文示例）
+- 早期提交中的 `src/backend/.env`（内容为占位值、无真实密钥，仍建议确认）
+
+### 0.8 常见故障
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| `JWT_SECRET is missing or too weak for production` | 未配置 / 弱密钥 / 占位值 | 按 0.2 生成并写入，重启服务 |
+| `required variable JWT_SECRET is missing a value` | compose 环境变量为空 | 在 `.env` 或 CI Secrets 中补齐 |
+| 所有用户被登出 | 正常：密钥已轮换 | 通知用户重新登录 |
+| 启动日志出现 `CORS_ORIGINS 未配置` 警告 | 运行在兼容模式 | 按 0.4 配置白名单 |
+| `/api/docs` 仍可访问 | `SWAGGER_ENABLED=true` | 置为 `false` 并重启 |
+
 ---
 
 ## 1. 系统级依赖 (System Packages)
@@ -139,7 +276,7 @@ cp src/backend/.env.example src/backend/.env
 | 5.1 | `PORT` | 后端端口 | `3001` |
 | 5.2 | `NODE_ENV` | 环境标识 | `production` |
 | 5.3 | `DB_PATH` | SQLite数据库路径 | `lingxi.db` |
-| 5.4 | `JWT_SECRET` | JWT签名密钥 | **必须修改** |
+| 5.4 | `JWT_SECRET` | JWT签名密钥 | **必填，≥32 位随机串**（见 [§0.2](#02-生成并配置-jwt_secret)） |
 | 5.5 | `LLM_BASE_URL` | LLM API地址 | `http://openclaw.sany.com.cn/v1` |
 | 5.6 | `LLM_API_KEY` | LLM API密钥 | |
 | 5.7 | `LLM_MODEL` | LLM模型名 | `deepseek-v4-flash` |
@@ -153,8 +290,12 @@ cp src/backend/.env.example src/backend/.env
 | 5.15 | `VIDEO_PROVIDER_BASE_URL` | 视频API地址 | |
 | 5.16 | `VIDEO_PROVIDER_API_KEY` | 视频API密钥 | |
 | 5.17 | `SKILLS_DIR` | 技能目录 | `../../skills` |
+| 5.18 | `CORS_ORIGINS` | 允许跨域的来源白名单，逗号分隔 | **生产建议必填**（见 §0.4） |
+| 5.19 | `SWAGGER_ENABLED` | 生产是否开放 `/api/docs` | `false`（默认关闭） |
 
-> ⚠️ **JWT_SECRET**: 生产环境必须修改默认值 `lingxi-secret-key-change-in-production`
+> ⚠️ **JWT_SECRET**：生产环境缺失、少于 32 位或使用占位值都会让后端**拒绝启动**。
+> 先用 `openssl rand -hex 32` 生成，详见 [§0.2](#02-生成并配置-jwt_secret)。
+> ⚠️ 上线前请先完成 [§0 安全前置检查](#security-preflight)：删除演示账号、配置 `CORS_ORIGINS`、验证 Swagger 已关闭。
 
 ---
 
@@ -279,7 +420,7 @@ WantedBy=default.target
 
 ```bash
 # v2rayA 或其他代理 (如需)
-# Web UI: localhost:2017 (admin/hermes2026)
+# Web UI: localhost:2017 (凭据请查本机密码管理器，切勿写入仓库/文档)
 # SOCKS5: localhost:20170
 # HTTP:   localhost:20171
 

@@ -22,9 +22,10 @@ describe('JwtStrategy', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('constructor', () => {
-    it('uses JWT_SECRET from config with fallback', () => {
-      // ConfigService.get should have been called during construction
-      expect(configService.get).toHaveBeenCalledWith('JWT_SECRET', 'lingxi-secret-key');
+    it('reads JWT_SECRET without a hardcoded fallback key', () => {
+      // A public, hardcoded fallback would let anyone forge tokens for a
+      // deployment that forgot to set JWT_SECRET.
+      expect(configService.get).toHaveBeenCalledWith('JWT_SECRET');
     });
   });
 

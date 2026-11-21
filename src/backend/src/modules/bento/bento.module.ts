@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { resolveJwtSecret } from '../../common/jwt-secret';
 import { BentoService } from './bento.service';
 import { BentoController } from './bento.controller';
 import { BentoFileGenerator } from './generators/bento-file.generator';
@@ -19,7 +20,7 @@ import { UsersModule } from '../users/users.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET', 'lingxi-secret-key'),
+        secret: resolveJwtSecret(configService),
         signOptions: { expiresIn: '7d' },
       }),
       inject: [ConfigService],

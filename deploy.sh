@@ -28,8 +28,8 @@ BUILD_DIR="$FRONTEND_DIR/build/web"
 # ── 配置 ──────────────────────────────────────
 DOMAIN="lingxi.chataifree.eu.org"
 BACKEND_PORT=3001
-TEST_PHONE="13800000001"
-TEST_PASSWORD="password123"
+# 可选：仅本地调试时通过环境变量提供登录凭据，脚本不内置任何账号口令。
+# 生产环境不再 seed 弱口令演示账号（见 database/seeds/seeder.service.ts）。
 FLUTTER_BIN="$HOME/flutter/bin/flutter"
 NODE_BIN="$HOME/.nvm/versions/node/v22.22.0/bin/node"
 NPM_BIN="$HOME/.nvm/versions/node/v22.22.0/bin/npm"
@@ -260,29 +260,30 @@ verify() {
     ALL_OK=false
   fi
 
-  # 6d. 后端 API 登录
-  log "🔍 后端: API 登录"
-  local LOGIN_RESULT=$(curl -sf -X POST "http://localhost:$BACKEND_PORT/api/auth/login" \
-    -H "Content-Type: application/json" \
-    -d "{\"phone\":\"$TEST_PHONE\",\"password\":\"$TEST_PASSWORD\"}" 2>/dev/null || echo "")
-  local TOKEN=$(echo "$LOGIN_RESULT" | grep -o '"token":"[^"]*"' | head -1 | sed 's/"token":"//;s/"//')
-  if [ -n "$TOKEN" ]; then
-    ok "后端登录成功（token 已获取）"
+  # 6d. 后端 API 可达性（不依赖任何内置测试账号）
+  log "🔍 后端: API 可达性"
+  local API_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    "http://localhost:$BACKEND_PORT/api/contents" 2>/dev/null || echo "000")
+  # 401 也说明服务正常响应，只是该端点需要鉴权
+  if [ "$API_CODE" = "200" ] || [ "$API_CODE" = "201" ] || [ "$API_CODE" = "401" ]; then
+    ok "后端 API 可达: $API_CODE"
   else
-    fail "后端登录失败"
+    fail "后端 API 不可达: $API_CODE"
     ALL_OK=false
   fi
 
-  # 6e. 后端 API 内容列表
-  if [ -n "$TOKEN" ]; then
-    log "🔍 后端: API 内容列表"
-    local BE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-      "http://localhost:$BACKEND_PORT/api/contents" \
-      -H "Authorization: Bearer $TOKEN" 2>/dev/null || echo "000")
-    if [ "$BE_CODE" = "200" ] || [ "$BE_CODE" = "201" ]; then
-      ok "后端 API: $BE_CODE"
+  # 6e. 可选：鉴权链路登录验证
+  # 凭据只从环境变量读取，绝不写进脚本或仓库。未配置时跳过。
+  if [ -n "${DEPLOY_TEST_PHONE:-}" ] && [ -n "${DEPLOY_TEST_PASSWORD:-}" ]; then
+    log "🔍 后端: 登录验证（使用环境变量凭据）"
+    local LOGIN_RESULT=$(curl -sf -X POST "http://localhost:$BACKEND_PORT/api/auth/login" \
+      -H "Content-Type: application/json" \
+      -d "{\"phone\":\"$DEPLOY_TEST_PHONE\",\"password\":\"$DEPLOY_TEST_PASSWORD\"}" 2>/dev/null || echo "")
+    local TOKEN=$(echo "$LOGIN_RESULT" | grep -o '"token":"[^"]*"' | head -1 | sed 's/"token":"//;s/"//')
+    if [ -n "$TOKEN" ]; then
+      ok "登录验证通过"
     else
-      warn "后端 API: $BE_CODE（可能无需认证）"
+      warn "登录验证未通过（请确认凭据与账号状态）"
     fi
   fi
 
@@ -334,7 +335,7 @@ main() {
   echo -e "${GREEN}┌──────────────────────────────────────────────┐${NC}"
   echo -e "${GREEN}│  ✅ 部署完成！                                 │${NC}"
   echo -e "${GREEN}│  🌐  https://$DOMAIN                          │${NC}"
-  echo -e "${GREEN}│  📱  测试: 13800000001 / password123          │${NC}"
+  echo -e "${GREEN}│  🔐  账号请通过注册接口创建                    │${NC}"
   echo -e "${GREEN}└──────────────────────────────────────────────┘${NC}"
   echo ""
   echo "如需强制重新构建:  ./deploy.sh --clean"

@@ -118,6 +118,7 @@ export default function LessonGenerator({
   const [generationProgress, setGenerationProgress] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const pollKindRef = useRef<'generate' | 'modify'>('generate');
 
   // ── 页签与历史记录 ──
   const [tab, setTab] = useState<'generate' | 'history'>('generate');
@@ -429,22 +430,66 @@ export default function LessonGenerator({
 
     setIsModifying(true);
     setError(null);
+    setGenerationProgress('AI 正在修改课程...');
 
     try {
-      const updated = await api.modifyLesson(generatedContent.id, modificationText.trim(), {
+      // 异步修改：后端立即返回 status=modifying，随后轮询等待终态
+      const started = await api.modifyLessonAsync(generatedContent.id, modificationText.trim(), {
         stepId: editScope === 'selected' ? selectedStep?.id : undefined,
       });
-      setGeneratedContent(updated);
-      const lesson =
-        typeof updated.content === 'string' ? JSON.parse(updated.content) : updated.content;
-      setLessonData(lesson);
+      setGeneratedContent(started);
       setModificationText('');
-      resetVideoPreviewState();
-      await onDraftLessonUpdated?.();
+
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollKindRef.current = 'modify';
+      pollCountRef.current = 0;
+      setGenerationProgress(started.subtitle || 'AI 正在后台修改课程...');
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const latest = await api.getContent(started.id);
+          if (!latest) return;
+
+          if (latest.status === 'draft') {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            const lesson =
+              typeof latest.content === 'string' ? JSON.parse(latest.content) : latest.content;
+            setGeneratedContent(latest);
+            setLessonData(lesson);
+            setIsModifying(false);
+            setGenerationProgress('');
+            resetVideoPreviewState();
+            loadHistory(true);
+            await onDraftLessonUpdated?.();
+          } else if (latest.status === 'modification_failed') {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setIsModifying(false);
+            setGenerationProgress('');
+            setError(latest.subtitle || '修改课程失败，请重试');
+            loadHistory(true);
+          } else {
+            pollCountRef.current += 1;
+            if (pollCountRef.current >= 100) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setIsModifying(false);
+              setGenerationProgress('');
+              setError('等待超时，修改仍在后台进行，可在历史记录中查看');
+              loadHistory(true);
+            } else {
+              setGenerationProgress(latest.subtitle || 'AI 正在后台修改课程...');
+            }
+          }
+        } catch {
+          // Polling error — keep trying
+        }
+      }, 3000);
     } catch (err: any) {
       setError(err?.message || '修改课程失败');
-    } finally {
       setIsModifying(false);
+      setGenerationProgress('');
     }
   };
 

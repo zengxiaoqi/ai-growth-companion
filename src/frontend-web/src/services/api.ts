@@ -888,6 +888,19 @@ class ApiService {
     });
   }
 
+  /** 异步修改课程：后端立即返回 status=modifying，前端轮询 getContent 等待终态 */
+  async modifyLessonAsync(
+    id: number,
+    modification: string,
+    options?: { stepId?: string },
+  ): Promise<Content> {
+    return this.request<Content>(`/learning/lessons/${id}/modify`, {
+      method: 'POST',
+      body: JSON.stringify({ modification, stepId: options?.stepId }),
+    });
+  }
+
+  /** 同步修改（场景编辑保存用）。AI 对话式修改请用 modifyLessonAsync。 */
   async modifyLesson(
     id: number,
     modification: string,

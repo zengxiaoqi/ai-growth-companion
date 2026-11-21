@@ -1,0 +1,52 @@
+name: Deploy to InstaBox
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  workflow_dispatch:
+
+concurrency:
+  group: instabox-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Pull and rebuild on InstaBox
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install InstaBox CLI
+        run: npm install -g instabox
+
+      - name: Deploy to machine yes
+        env:
+          INSTABOX_API_KEY: ${{ secrets.INSTABOX_API_KEY }}
+          DEPLOY_SCRIPT: |
+            set -e
+            cd /data/ai-growth-companion
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose -f docker-compose.instabox.yml up -d --build --remove-orphans
+            docker image prune -f
+            echo "Deployed $(git rev-parse --short HEAD) at $(date)"
+        run: |
+          set -e
+          for attempt in 1 2 3 4 5 6; do
+            echo "Deployment attempt $attempt"
+            if printf '%s' "$DEPLOY_SCRIPT" | instabox exec yes --stdin --timeout 600 -- sh -s; then
+              echo "Deployment succeeded"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 60s"
+            sleep 60
+          done
+          echo "Deployment failed after 6 attempts"
+          exit 1

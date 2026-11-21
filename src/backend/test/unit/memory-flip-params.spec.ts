@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   MEMORY_FLIP_LIMITS,
   collectMemoryFlipBodyText,
@@ -123,9 +120,9 @@ describe('memory_flip parameter contract', () => {
         { id: 'p4', label: '四' },
         { id: 'p5', label: '五' },
       ];
-      expect(() =>
-        sanitizeMemoryFlipParams(makeValidRaw({ pairs: fivePairs }), ctx),
-      ).toThrow(/no child-friendly grid|supports/);
+      expect(() => sanitizeMemoryFlipParams(makeValidRaw({ pairs: fivePairs }), ctx)).toThrow(
+        /no child-friendly grid|supports/,
+      );
     });
 
     it('rejects duplicate faces (two pairs with identical label+icon)', () => {
@@ -215,9 +212,7 @@ describe('memory_flip whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

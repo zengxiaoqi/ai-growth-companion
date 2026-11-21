@@ -3,8 +3,9 @@ import { MusicError } from '../music-error';
 import { MusicConfig } from '../music.config';
 import { MediaSource, MusicSource, SourceTrack } from './types';
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-  + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const HASH_RE = /^[0-9A-Fa-f]{32}$/;
 
@@ -46,9 +47,10 @@ const kugou: MusicSource = {
   async search(query, limit, config: MusicConfig): Promise<SourceTrack[]> {
     // Paid entries are common; fetch extra to cover the filtering loss.
     const fetchCount = Math.min(limit * 2, 30);
-    const url = `${config.kugouSearchBase}/song_search_v2?keyword=${encodeURIComponent(query)}`
-      + `&page=1&pagesize=${fetchCount}&platform=WebFilter&userid=-1`
-      + '&clientver=2000&iscorrection=1&privilege_filter=0&filter=10';
+    const url =
+      `${config.kugouSearchBase}/song_search_v2?keyword=${encodeURIComponent(query)}` +
+      `&page=1&pagesize=${fetchCount}&platform=WebFilter&userid=-1` +
+      '&clientver=2000&iscorrection=1&privilege_filter=0&filter=10';
     const payload = await getJson(url, {
       timeoutMs: config.sourceTimeoutMs,
       headers: { referer: 'https://www.kugou.com/', 'user-agent': UA },
@@ -65,14 +67,16 @@ const kugou: MusicSource = {
       const seconds = Number(row.Duration);
       rows.push({
         id: hash,
-        albumId: typeof row.AlbumID === 'string' || typeof row.AlbumID === 'number'
-          ? String(row.AlbumID)
-          : '',
+        albumId:
+          typeof row.AlbumID === 'string' || typeof row.AlbumID === 'number'
+            ? String(row.AlbumID)
+            : '',
         title,
         artist: cleanName(row.SingerName),
-        duration: Number.isFinite(seconds) && seconds > 0 && seconds < 86400
-          ? Math.floor(seconds)
-          : undefined,
+        duration:
+          Number.isFinite(seconds) && seconds > 0 && seconds < 86400
+            ? Math.floor(seconds)
+            : undefined,
       });
       if (rows.length >= limit) break;
     }
@@ -84,8 +88,9 @@ const kugou: MusicSource = {
     if (!HASH_RE.test(hash)) {
       throw new MusicError('no_media_source', 'kugou');
     }
-    const url = `${config.kugouMediaBase}/app/i/getSongInfo.php`
-      + `?cmd=playInfo&hash=${encodeURIComponent(hash)}`;
+    const url =
+      `${config.kugouMediaBase}/app/i/getSongInfo.php` +
+      `?cmd=playInfo&hash=${encodeURIComponent(hash)}`;
     // This API serves JSON under a text/html content-type, so getJson would
     // reject it as an error page. Parse manually, still requiring an object.
     const { body } = await getText(url, {

@@ -4,12 +4,18 @@ import { MusicError } from '../music-error';
 import { MusicConfig } from '../music.config';
 import { MediaSource, MusicSource, SourceTrack } from './types';
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-  + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 const ENTITIES = new Map([
-  ['&nbsp;', ' '], ['&amp;', '&'], ['&lt;', '<'], ['&gt;', '>'],
-  ['&quot;', '"'], ['&#39;', "'"], ['&apos;', "'"],
+  ['&nbsp;', ' '],
+  ['&amp;', '&'],
+  ['&lt;', '<'],
+  ['&gt;', '>'],
+  ['&quot;', '"'],
+  ['&#39;', "'"],
+  ['&apos;', "'"],
 ]);
 
 function cleanName(value: unknown): string {
@@ -18,7 +24,10 @@ function cleanName(value: unknown): string {
   for (const [entity, replacement] of ENTITIES) {
     text = text.split(entity).join(replacement);
   }
-  return text.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function hasMp3(row: any): boolean {
@@ -42,9 +51,10 @@ const kuwo: MusicSource = {
   note: '非官方接口，完整 MP3',
 
   async search(query, limit, config: MusicConfig): Promise<SourceTrack[]> {
-    const url = `${config.kuwoSearchBase}/r.s?all=${encodeURIComponent(query)}`
-      + `&ft=music&itemset=web_2013&client=kt&pn=0&rn=${limit}`
-      + '&rformat=json&encoding=utf8';
+    const url =
+      `${config.kuwoSearchBase}/r.s?all=${encodeURIComponent(query)}` +
+      `&ft=music&itemset=web_2013&client=kt&pn=0&rn=${limit}` +
+      '&rformat=json&encoding=utf8';
     const { body, contentType } = await getText(url, {
       timeoutMs: config.sourceTimeoutMs,
       headers: { referer: 'https://www.kuwo.cn/', 'user-agent': UA },
@@ -71,9 +81,10 @@ const kuwo: MusicSource = {
         id: rid,
         title,
         artist: cleanName(row.ARTIST),
-        duration: Number.isFinite(seconds) && seconds > 0 && seconds < 86400
-          ? Math.floor(seconds)
-          : undefined,
+        duration:
+          Number.isFinite(seconds) && seconds > 0 && seconds < 86400
+            ? Math.floor(seconds)
+            : undefined,
       });
       if (rows.length >= limit) break;
     }
@@ -85,8 +96,9 @@ const kuwo: MusicSource = {
     if (!/^MUSIC_\d+$/.test(rid)) {
       throw new MusicError('no_media_source', 'kuwo');
     }
-    const url = `${config.kuwoMediaBase}/anti.s?type=convert_url`
-      + `&format=mp3&response=url&rid=${encodeURIComponent(rid)}`;
+    const url =
+      `${config.kuwoMediaBase}/anti.s?type=convert_url` +
+      `&format=mp3&response=url&rid=${encodeURIComponent(rid)}`;
     const { body } = await getText(url, {
       timeoutMs: config.sourceTimeoutMs,
       headers: { referer: 'https://www.kuwo.cn/', 'user-agent': UA },

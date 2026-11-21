@@ -1,10 +1,25 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ParentService } from './parent.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CASUAL_TOOL_CATALOG, isCasualToolName, parseCasualToolsEnv } from '../../common/policy/casual-tools';
+import {
+  CASUAL_TOOL_CATALOG,
+  isCasualToolName,
+  parseCasualToolsEnv,
+} from '../../common/policy/casual-tools';
 
 @ApiTags('家长控制')
 @Controller('parent')

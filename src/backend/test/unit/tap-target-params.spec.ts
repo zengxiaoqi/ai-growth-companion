@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   TAP_TARGET_LIMITS,
   collectTapTargetBodyText,
@@ -141,9 +138,7 @@ describe('tap_target parameter contract', () => {
 
       const dangling = makeValidRaw();
       dangling.rounds[0].correctIds = ['nope'];
-      expect(() => sanitizeTapTargetParams(dangling, ctx)).toThrow(
-        /correctIds must reference/,
-      );
+      expect(() => sanitizeTapTargetParams(dangling, ctx)).toThrow(/correctIds must reference/);
     });
 
     it('rejects too-few rounds or targets and caps round/target counts', () => {
@@ -153,9 +148,7 @@ describe('tap_target parameter contract', () => {
 
       const thinRound = makeValidRaw();
       thinRound.rounds[0].targets = [thinRound.rounds[0].targets[0]];
-      expect(() => sanitizeTapTargetParams(thinRound, ctx)).toThrow(
-        /at least 2 valid targets/,
-      );
+      expect(() => sanitizeTapTargetParams(thinRound, ctx)).toThrow(/at least 2 valid targets/);
 
       const capped = sanitizeTapTargetParams(
         makeValidRaw({
@@ -240,9 +233,7 @@ describe('tap_target parameter contract', () => {
 
       const dangling = makeValidRaw();
       dangling.rounds[0].correctIds = ['nope'];
-      expect(validateTapTargetParams(dangling).reason).toMatch(
-        /does not reference a target/,
-      );
+      expect(validateTapTargetParams(dangling).reason).toMatch(/does not reference a target/);
 
       const unnamed = makeValidRaw();
       unnamed.rounds[0].prompt = '请点出它';
@@ -256,9 +247,9 @@ describe('tap_target parameter contract', () => {
 
     it('collectTapTargetBodyText is a no-op for legacy activity types', () => {
       expect(collectTapTargetBodyText(null)).toBe('');
-      expect(
-        collectTapTargetBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] }),
-      ).toBe('');
+      expect(collectTapTargetBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] })).toBe(
+        '',
+      );
       expect(collectTapTargetBodyText(makeValidRaw())).toContain('小猫');
     });
   });
@@ -285,9 +276,7 @@ describe('tap_target whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

@@ -154,10 +154,7 @@ export interface MemoryFlipContext {
  * Throws with a human-readable reason so the tool's existing 3-attempt
  * reflection loop can feed the failure back to the model.
  */
-export function sanitizeMemoryFlipParams(
-  raw: any,
-  ctx: MemoryFlipContext,
-): MemoryFlipActivity {
+export function sanitizeMemoryFlipParams(raw: any, ctx: MemoryFlipContext): MemoryFlipActivity {
   const rawPairs = Array.isArray(raw?.pairs) ? raw.pairs : [];
   const usedPairIds = new Set<string>();
   const usedFaces = new Set<string>();
@@ -218,11 +215,7 @@ export function sanitizeMemoryFlipParams(
     ageGroup: toText(ctx.ageGroup),
     pairs,
     gridSize: { ...grid },
-    passingScore: clamp(
-      toInt(raw?.passingScore, MEMORY_FLIP_LIMITS.defaultPassingScore),
-      0,
-      100,
-    ),
+    passingScore: clamp(toInt(raw?.passingScore, MEMORY_FLIP_LIMITS.defaultPassingScore), 0, 100),
     timeLimitSec: clamp(
       toInt(raw?.timeLimitSec, MEMORY_FLIP_LIMITS.defaultTimeLimitSec),
       MEMORY_FLIP_LIMITS.minTimeLimitSec,
@@ -256,11 +249,7 @@ export function simulateMemoryFlipPlay(activity: MemoryFlipActivity): MemoryFlip
   const score = total > 0 && gridOk ? Math.round((total / total) * 100) : 0;
   return {
     ok: total > 0 && gridOk && score === 100,
-    reason: total > 0
-      ? gridOk
-        ? undefined
-        : 'grid size does not fit pairs'
-      : 'no pairs to play',
+    reason: total > 0 ? (gridOk ? undefined : 'grid size does not fit pairs') : 'no pairs to play',
     score,
     total,
     flips,
@@ -301,7 +290,10 @@ export function validateMemoryFlipParams(value: unknown): MemoryFlipValidation {
     if (charLength(pair.label) > MEMORY_FLIP_LIMITS.maxLabelLength) {
       return { ok: false, reason: `pair label too long ${pair.id}` };
     }
-    if (pair.icon && (!isSafeParamText(pair.icon) || charLength(pair.icon) > MEMORY_FLIP_LIMITS.maxIconLength)) {
+    if (
+      pair.icon &&
+      (!isSafeParamText(pair.icon) || charLength(pair.icon) > MEMORY_FLIP_LIMITS.maxIconLength)
+    ) {
       return { ok: false, reason: `unsafe pair icon ${pair.id}` };
     }
     const face = `${pair.label}|${pair.icon || ''}`;

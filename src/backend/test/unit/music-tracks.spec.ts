@@ -13,10 +13,13 @@ const base = { limit: 5, maxCandidates: 3, preferFull: true };
 
 describe('groupTracks (ranking)', () => {
   it('merges same song across sources, full version first, duration from full', () => {
-    const groups = groupTracks([
-      row('itunes', '小星星', '儿歌多多', { duration: 30, __full: false }),
-      row('kuwo', '小星星', '儿歌多多', { duration: 112 }),
-    ], base);
+    const groups = groupTracks(
+      [
+        row('itunes', '小星星', '儿歌多多', { duration: 30, __full: false }),
+        row('kuwo', '小星星', '儿歌多多', { duration: 112 }),
+      ],
+      base,
+    );
     expect(groups).toHaveLength(1);
     expect(groups[0].candidates).toHaveLength(2);
     expect(groups[0].candidates[0].provider).toBe('kuwo');
@@ -24,66 +27,84 @@ describe('groupTracks (ranking)', () => {
   });
 
   it('preview-only songs rank after full songs even when seen first', () => {
-    const groups = groupTracks([
-      row('itunes', 'Only Preview', 'x', { duration: 30, __full: false }),
-      row('kuwo', 'Full Song', 'y', { duration: 200 }),
-    ], base);
+    const groups = groupTracks(
+      [
+        row('itunes', 'Only Preview', 'x', { duration: 30, __full: false }),
+        row('kuwo', 'Full Song', 'y', { duration: 200 }),
+      ],
+      base,
+    );
     expect(groups.map((g) => g.title)).toEqual(['Full Song', 'Only Preview']);
   });
 
   it('truncates after sorting: limit=1 keeps the full version', () => {
-    const groups = groupTracks([
-      row('itunes', 'Preview First', 'x', { duration: 30, __full: false }),
-      row('kuwo', 'Full Later', 'y', { duration: 200 }),
-    ], { ...base, limit: 1 });
+    const groups = groupTracks(
+      [
+        row('itunes', 'Preview First', 'x', { duration: 30, __full: false }),
+        row('kuwo', 'Full Later', 'y', { duration: 200 }),
+      ],
+      { ...base, limit: 1 },
+    );
     expect(groups.map((g) => g.title)).toEqual(['Full Later']);
   });
 
   it('preferFull=false keeps original interleaved order', () => {
-    const groups = groupTracks([
-      row('itunes', 'A', 'x', { duration: 30, __full: false }),
-      row('kuwo', 'A', 'x', { duration: 200 }),
-      row('netease', 'B', 'y', { duration: 90 }),
-    ], { ...base, preferFull: false });
+    const groups = groupTracks(
+      [
+        row('itunes', 'A', 'x', { duration: 30, __full: false }),
+        row('kuwo', 'A', 'x', { duration: 200 }),
+        row('netease', 'B', 'y', { duration: 90 }),
+      ],
+      { ...base, preferFull: false },
+    );
     expect(groups.map((g) => g.title)).toEqual(['A', 'B']);
     expect(groups[0].candidates[0].provider).toBe('itunes');
     expect(groups[0].duration_s).toBe(30);
   });
 
   it('same-provider duplicates do not take candidate slots', () => {
-    const groups = groupTracks([
-      row('kuwo', 'A', 'x', { duration: 100 }),
-      row('kuwo', 'A', 'x', { duration: 101 }),
-    ], base);
+    const groups = groupTracks(
+      [row('kuwo', 'A', 'x', { duration: 100 }), row('kuwo', 'A', 'x', { duration: 101 })],
+      base,
+    );
     expect(groups[0].candidates).toHaveLength(1);
   });
 
   it('candidate cap keeps full versions first', () => {
-    const groups = groupTracks([
-      row('itunes', 'A', 'x', { duration: 30, __full: false }),
-      row('kuwo', 'A', 'x', { duration: 100 }),
-      row('netease', 'A', 'x', { duration: 101 }),
-    ], { ...base, maxCandidates: 2 });
+    const groups = groupTracks(
+      [
+        row('itunes', 'A', 'x', { duration: 30, __full: false }),
+        row('kuwo', 'A', 'x', { duration: 100 }),
+        row('netease', 'A', 'x', { duration: 101 }),
+      ],
+      { ...base, maxCandidates: 2 },
+    );
     expect(groups[0].candidates).toHaveLength(2);
     expect(groups[0].candidates.map((c) => c.provider)).toEqual(['kuwo', 'netease']);
   });
 
   it('different artist or different title does not merge', () => {
-    const groups = groupTracks([
-      row('kuwo', '小星星', '儿歌多多', { duration: 100 }),
-      row('kuwo', '小星星', '汪苏泷', { duration: 100 }),
-      row('kuwo', '小星星 (Live)', '儿歌多多', { duration: 100 }),
-    ], base);
+    const groups = groupTracks(
+      [
+        row('kuwo', '小星星', '儿歌多多', { duration: 100 }),
+        row('kuwo', '小星星', '汪苏泷', { duration: 100 }),
+        row('kuwo', '小星星 (Live)', '儿歌多多', { duration: 100 }),
+      ],
+      base,
+    );
     expect(groups).toHaveLength(3);
   });
 
   it('merges punctuation variants and contained artist names', () => {
-    const groups = groupTracks([
-      row('itunes', 'Twinkle, Twinkle, Little Star', 'Wee Sing', { duration: 30, __full: false }),
-      row('kuwo', 'Twinkle Twinkle Little Star', 'Wee Sing', { duration: 122 }),
-      row('kugou', 'Baby Shark', 'Pinkfong', { duration: 96 }),
-      row('netease', 'Baby Shark', '碰碰狐PINKFONG', { duration: 98 }),
-    ], base);
+    const groups = groupTracks(
+      [
+        row('itunes', 'Twinkle, Twinkle, Little Star', 'Wee Sing', { duration: 30, __full: false }),
+        row('kuwo', 'Twinkle Twinkle Little Star', 'Wee Sing', { duration: 122 }),
+        row('kugou', 'Baby Shark', 'Pinkfong', { duration: 96 }),
+        row('netease', 'Baby Shark', '碰碰狐PINKFONG', { duration: 98 }),
+      ],
+      base,
+    );
     const twinkle = groups.filter((g) => /twinkle/i.test(g.title));
     expect(twinkle).toHaveLength(1);
     expect(twinkle[0].candidates[0].provider).toBe('kuwo');
@@ -94,54 +115,68 @@ describe('groupTracks (ranking)', () => {
   });
 
   it('same title with both artists empty merges strictly', () => {
-    const groups = groupTracks([
-      row('kuwo', '小星星', '', { duration: 100 }),
-      row('kugou', '小星星', '', { duration: 100 }),
-    ], base);
+    const groups = groupTracks(
+      [row('kuwo', '小星星', '', { duration: 100 }), row('kugou', '小星星', '', { duration: 100 })],
+      base,
+    );
     expect(groups).toHaveLength(1);
     expect(groups[0].candidates).toHaveLength(2);
   });
 
   it('drops overlong entries at search time, keeps unknown durations', () => {
-    const groups = groupTracks([
-      row('bilibili', 'Twinkle Twinkle Little Star', 'x', { duration: 8489 }),
-      row('kuwo', 'Twinkle Twinkle Little Star', 'y', { duration: 112 }),
-      row('kugou', 'No Duration', 'z'),
-    ], { ...base, maxSeconds: 1800 });
+    const groups = groupTracks(
+      [
+        row('bilibili', 'Twinkle Twinkle Little Star', 'x', { duration: 8489 }),
+        row('kuwo', 'Twinkle Twinkle Little Star', 'y', { duration: 112 }),
+        row('kugou', 'No Duration', 'z'),
+      ],
+      { ...base, maxSeconds: 1800 },
+    );
     expect(groups.map((g) => g.artist)).toEqual(['y', 'z']);
   });
 
   it('relevance filter drops unrelated rows', () => {
-    const groups = groupTracks([
-      row('netease', '两只老虎', '贝乐虎儿歌', { duration: 67 }),
-      row('bilibili', '宝贝宝贝', '李昕融', { duration: 200 }),
-      row('audius', '34.小星仔-v', 'Annie Lo', { duration: 231 }),
-      row('kuwo', '小星星', '儿歌多多', { duration: 74 }),
-    ], { ...base, query: '小星星', requireMatch: true });
+    const groups = groupTracks(
+      [
+        row('netease', '两只老虎', '贝乐虎儿歌', { duration: 67 }),
+        row('bilibili', '宝贝宝贝', '李昕融', { duration: 200 }),
+        row('audius', '34.小星仔-v', 'Annie Lo', { duration: 231 }),
+        row('kuwo', '小星星', '儿歌多多', { duration: 74 }),
+      ],
+      { ...base, query: '小星星', requireMatch: true },
+    );
     expect(groups.map((g) => g.title)).toEqual(['小星星']);
   });
 
   it('multi-word query matches whole string or any token', () => {
-    const groups = groupTracks([
-      row('kuwo', 'Twinkle Twinkle Little Star', '儿歌多多', { duration: 112 }),
-      row('kuwo', 'Baby Shark', 'Pinkfong', { duration: 96 }),
-      row('kuwo', 'Let It Go (English Version)', 'Idina Menzel', { duration: 224 }),
-    ], { ...base, query: 'twinkle twinkle little star', requireMatch: true });
+    const groups = groupTracks(
+      [
+        row('kuwo', 'Twinkle Twinkle Little Star', '儿歌多多', { duration: 112 }),
+        row('kuwo', 'Baby Shark', 'Pinkfong', { duration: 96 }),
+        row('kuwo', 'Let It Go (English Version)', 'Idina Menzel', { duration: 224 }),
+      ],
+      { ...base, query: 'twinkle twinkle little star', requireMatch: true },
+    );
     expect(groups.map((g) => g.title)).toEqual(['Twinkle Twinkle Little Star']);
   });
 
   it('matches query against artist field too', () => {
-    const groups = groupTracks([
-      row('netease', 'Baby Shark', 'Pinkfong', { duration: 96 }),
-      row('kuwo', '小星星', '儿歌多多', { duration: 74 }),
-    ], { ...base, query: 'pinkfong', requireMatch: true });
+    const groups = groupTracks(
+      [
+        row('netease', 'Baby Shark', 'Pinkfong', { duration: 96 }),
+        row('kuwo', '小星星', '儿歌多多', { duration: 74 }),
+      ],
+      { ...base, query: 'pinkfong', requireMatch: true },
+    );
     expect(groups.map((g) => g.artist)).toEqual(['Pinkfong']);
   });
 
   it('requireMatch=false trusts source ordering completely', () => {
-    const groups = groupTracks([
-      row('bilibili', '宝贝宝贝', '李昕融', { duration: 200 }),
-    ], { ...base, query: '小星星', requireMatch: false });
+    const groups = groupTracks([row('bilibili', '宝贝宝贝', '李昕融', { duration: 200 })], {
+      ...base,
+      query: '小星星',
+      requireMatch: false,
+    });
     expect(groups).toHaveLength(1);
   });
 });

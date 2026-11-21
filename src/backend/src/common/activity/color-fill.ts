@@ -198,40 +198,27 @@ export interface ColorFillContext {
  * Throws with a human-readable reason so the tool's existing 3-attempt
  * reflection loop can feed the failure back to the model.
  */
-export function sanitizeColorFillParams(
-  raw: any,
-  ctx: ColorFillContext,
-): ColorFillActivity {
+export function sanitizeColorFillParams(raw: any, ctx: ColorFillContext): ColorFillActivity {
   const rawRegions = Array.isArray(raw?.regions) ? raw.regions : [];
   const usedIds = new Set<string>();
   const regions: ColorFillRegion[] = [];
 
-  for (
-    let i = 0;
-    i < rawRegions.length && regions.length < COLOR_FILL_LIMITS.maxRegions;
-    i++
-  ) {
+  for (let i = 0; i < rawRegions.length && regions.length < COLOR_FILL_LIMITS.maxRegions; i++) {
     const entry = rawRegions[i];
     const shape = entry?.shape;
     const colorKey = entry?.colorKey;
     if (!isColorFillShape(shape)) {
-      throw new Error(
-        `regions[${i}].shape must be one of: ${COLOR_FILL_SHAPES.join(', ')}`,
-      );
+      throw new Error(`regions[${i}].shape must be one of: ${COLOR_FILL_SHAPES.join(', ')}`);
     }
     if (!isColorFillColor(colorKey)) {
-      throw new Error(
-        `regions[${i}].colorKey must be one of: ${COLOR_FILL_COLORS.join(', ')}`,
-      );
+      throw new Error(`regions[${i}].colorKey must be one of: ${COLOR_FILL_COLORS.join(', ')}`);
     }
     const id = uniqueId(safeId(entry?.id, `s${i + 1}`), usedIds);
     regions.push({ id, shape, colorKey });
   }
 
   if (regions.length < COLOR_FILL_LIMITS.minRegions) {
-    throw new Error(
-      `color_fill needs at least ${COLOR_FILL_LIMITS.minRegions} valid regions`,
-    );
+    throw new Error(`color_fill needs at least ${COLOR_FILL_LIMITS.minRegions} valid regions`);
   }
 
   const rawPalette = Array.isArray(raw?.palette) ? raw.palette : [];
@@ -246,9 +233,7 @@ export function sanitizeColorFillParams(
   }
 
   const targetColors = new Set(regions.map((region) => region.colorKey));
-  const missingColors = Array.from(targetColors).filter(
-    (color) => !seenPalette.has(color),
-  );
+  const missingColors = Array.from(targetColors).filter((color) => !seenPalette.has(color));
   if (missingColors.length > 0) {
     throw new Error(
       `palette must contain every region colorKey; missing: ${missingColors.join(', ')}`,
@@ -260,17 +245,10 @@ export function sanitizeColorFillParams(
     );
   }
   if (palette.length <= targetColors.size) {
-    throw new Error(
-      'palette must include at least one distractor color beyond the target colors',
-    );
+    throw new Error('palette must include at least one distractor color beyond the target colors');
   }
 
-  const title = safeText(
-    raw?.title,
-    'title',
-    COLOR_FILL_LIMITS.maxTitleLength,
-    `${ctx.topic}涂色`,
-  );
+  const title = safeText(raw?.title, 'title', COLOR_FILL_LIMITS.maxTitleLength, `${ctx.topic}涂色`);
   const prompt = safeText(raw?.prompt, 'prompt', COLOR_FILL_LIMITS.maxPromptLength);
 
   const activity: ColorFillActivity = {
@@ -281,12 +259,16 @@ export function sanitizeColorFillParams(
     regions,
     palette,
     passingScore: clamp(
-      Number.isFinite(Number(raw?.passingScore)) ? Math.trunc(Number(raw?.passingScore)) : COLOR_FILL_LIMITS.defaultPassingScore,
+      Number.isFinite(Number(raw?.passingScore))
+        ? Math.trunc(Number(raw?.passingScore))
+        : COLOR_FILL_LIMITS.defaultPassingScore,
       0,
       100,
     ),
     timeLimitSec: clamp(
-      Number.isFinite(Number(raw?.timeLimitSec)) ? Math.trunc(Number(raw?.timeLimitSec)) : COLOR_FILL_LIMITS.defaultTimeLimitSec,
+      Number.isFinite(Number(raw?.timeLimitSec))
+        ? Math.trunc(Number(raw?.timeLimitSec))
+        : COLOR_FILL_LIMITS.defaultTimeLimitSec,
       COLOR_FILL_LIMITS.minTimeLimitSec,
       COLOR_FILL_LIMITS.maxTimeLimitSec,
     ),
@@ -356,7 +338,8 @@ export function validateColorFillParams(value: unknown): ColorFillValidation {
     return { ok: false, reason: 'palette size out of range' };
   }
   for (const color of activity.palette) {
-    if (!isColorFillColor(color)) return { ok: false, reason: `unknown palette color ${color ?? ''}` };
+    if (!isColorFillColor(color))
+      return { ok: false, reason: `unknown palette color ${color ?? ''}` };
   }
   const targetColors = new Set(activity.regions.map((region) => region.colorKey));
   for (const color of targetColors) {

@@ -144,10 +144,7 @@ export interface PatternNextContext {
  * Throws with a human-readable reason so the tool's existing 3-attempt
  * reflection loop can feed the failure back to the model.
  */
-export function sanitizePatternNextParams(
-  raw: any,
-  ctx: PatternNextContext,
-): PatternNextActivity {
+export function sanitizePatternNextParams(raw: any, ctx: PatternNextContext): PatternNextActivity {
   const rawSequence = Array.isArray(raw?.sequence) ? raw.sequence : [];
   const usedSeqIds = new Set<string>();
   const sequence: PatternNextItem[] = [];
@@ -158,7 +155,11 @@ export function sanitizePatternNextParams(
     i++
   ) {
     const entry = rawSequence[i];
-    const label = safeText(entry?.label, `sequence[${i}].label`, PATTERN_NEXT_LIMITS.maxLabelLength);
+    const label = safeText(
+      entry?.label,
+      `sequence[${i}].label`,
+      PATTERN_NEXT_LIMITS.maxLabelLength,
+    );
     if (!label) continue;
     const icon = safeText(entry?.icon, `sequence[${i}].icon`, PATTERN_NEXT_LIMITS.maxIconLength);
     const id = uniqueId(safeId(entry?.id, `s${i + 1}`), usedSeqIds);
@@ -176,11 +177,7 @@ export function sanitizePatternNextParams(
   const usedOptionLabels = new Set<string>();
   const options: PatternNextOption[] = [];
 
-  for (
-    let i = 0;
-    i < rawOptions.length && options.length < PATTERN_NEXT_LIMITS.maxOptions;
-    i++
-  ) {
+  for (let i = 0; i < rawOptions.length && options.length < PATTERN_NEXT_LIMITS.maxOptions; i++) {
     const entry = rawOptions[i];
     const label = safeText(entry?.label, `options[${i}].label`, PATTERN_NEXT_LIMITS.maxLabelLength);
     if (!label) continue;
@@ -208,9 +205,7 @@ export function sanitizePatternNextParams(
     answerIndex = oneBased >= 0 && oneBased < options.length ? oneBased : -1;
   }
   if (answerIndex < 0) {
-    throw new Error(
-      `pattern_next answerIndex must point at one of the ${options.length} options`,
-    );
+    throw new Error(`pattern_next answerIndex must point at one of the ${options.length} options`);
   }
 
   const title = safeText(
@@ -229,11 +224,7 @@ export function sanitizePatternNextParams(
     sequence,
     options,
     answerIndex,
-    passingScore: clamp(
-      toInt(raw?.passingScore, PATTERN_NEXT_LIMITS.defaultPassingScore),
-      0,
-      100,
-    ),
+    passingScore: clamp(toInt(raw?.passingScore, PATTERN_NEXT_LIMITS.defaultPassingScore), 0, 100),
     timeLimitSec: clamp(
       toInt(raw?.timeLimitSec, PATTERN_NEXT_LIMITS.defaultTimeLimitSec),
       PATTERN_NEXT_LIMITS.minTimeLimitSec,
@@ -299,7 +290,10 @@ export function validatePatternNextParams(value: unknown): PatternNextValidation
     if (charLength(item.label) > PATTERN_NEXT_LIMITS.maxLabelLength) {
       return { ok: false, reason: `sequence label too long ${item.id}` };
     }
-    if (item.icon && (!isSafeParamText(item.icon) || charLength(item.icon) > PATTERN_NEXT_LIMITS.maxIconLength)) {
+    if (
+      item.icon &&
+      (!isSafeParamText(item.icon) || charLength(item.icon) > PATTERN_NEXT_LIMITS.maxIconLength)
+    ) {
       return { ok: false, reason: `unsafe sequence icon ${item.id}` };
     }
   }
@@ -318,7 +312,10 @@ export function validatePatternNextParams(value: unknown): PatternNextValidation
     if (charLength(option.label) > PATTERN_NEXT_LIMITS.maxLabelLength) {
       return { ok: false, reason: `option label too long ${option.id}` };
     }
-    if (option.icon && (!isSafeParamText(option.icon) || charLength(option.icon) > PATTERN_NEXT_LIMITS.maxIconLength)) {
+    if (
+      option.icon &&
+      (!isSafeParamText(option.icon) || charLength(option.icon) > PATTERN_NEXT_LIMITS.maxIconLength)
+    ) {
       return { ok: false, reason: `unsafe option icon ${option.id}` };
     }
     if (optionLabels.has(option.label)) {

@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-  ACTIVITY_TYPES,
-  isActivityType,
-} from '../../src/agent-framework/core/types/tool-metadata';
+import { ACTIVITY_TYPES, isActivityType } from '../../src/agent-framework/core/types/tool-metadata';
 import {
   COLOR_FILL_COLORS,
   COLOR_FILL_LIMITS,
@@ -98,22 +95,16 @@ describe('color_fill parameter contract', () => {
     it('rejects shapes and colors outside the fixed libraries', () => {
       const badShape = makeValidRaw();
       badShape.regions[0].shape = 'dragon';
-      expect(() => sanitizeColorFillParams(badShape, ctx)).toThrow(
-        /shape must be one of/,
-      );
+      expect(() => sanitizeColorFillParams(badShape, ctx)).toThrow(/shape must be one of/);
 
       const badColor = makeValidRaw();
       badColor.regions[1].colorKey = 'gold';
-      expect(() => sanitizeColorFillParams(badColor, ctx)).toThrow(
-        /colorKey must be one of/,
-      );
+      expect(() => sanitizeColorFillParams(badColor, ctx)).toThrow(/colorKey must be one of/);
     });
 
     it('requires the palette to cover every region color', () => {
       const missing = makeValidRaw({ palette: ['red', 'yellow', 'blue'] });
-      expect(() => sanitizeColorFillParams(missing, ctx)).toThrow(
-        /missing: white/,
-      );
+      expect(() => sanitizeColorFillParams(missing, ctx)).toThrow(/missing: white/);
     });
 
     it('requires at least one distractor color in the palette', () => {
@@ -124,9 +115,7 @@ describe('color_fill parameter contract', () => {
         ],
         palette: ['yellow', 'red'],
       });
-      expect(() => sanitizeColorFillParams(noDistractor, ctx)).toThrow(
-        /distractor/,
-      );
+      expect(() => sanitizeColorFillParams(noDistractor, ctx)).toThrow(/distractor/);
 
       const onlyTargets = makeValidRaw({
         regions: [
@@ -226,9 +215,9 @@ describe('color_fill parameter contract', () => {
 
     it('collectColorFillBodyText is a no-op for legacy activity types', () => {
       expect(collectColorFillBodyText(null)).toBe('');
-      expect(
-        collectColorFillBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] }),
-      ).toBe('');
+      expect(collectColorFillBodyText({ type: 'quiz', questions: [{ question: '1+1?' }] })).toBe(
+        '',
+      );
       expect(collectColorFillBodyText(makeValidRaw())).toContain('sun');
     });
   });
@@ -255,9 +244,7 @@ describe('color_fill whitelist single source of truth', () => {
 
   it('framework assignActivity schema and legacy tool definitions stay in sync', () => {
     const assign = new AssignActivityTool({} as any, {} as any, {} as any);
-    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([
-      ...ACTIVITY_TYPES,
-    ]);
+    expect(assign.metadata.inputSchema.properties.activityType.enum).toEqual([...ACTIVITY_TYPES]);
 
     const relevant = toolDefinitions.filter((def: any) =>
       ['generateActivity', 'assignActivity'].includes(def.function.name),

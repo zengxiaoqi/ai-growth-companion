@@ -94,7 +94,9 @@ export function loadMusicConfig(config: ConfigService): MusicConfig {
     // Kuwo's search API is http-only; that is the API itself, not the audio upstream.
     kuwoSearchBase: trimUrl(str(config, 'MUSIC_KUWO_SEARCH_BASE', 'http://search.kuwo.cn')),
     kuwoMediaBase: trimUrl(str(config, 'MUSIC_KUWO_MEDIA_BASE', 'http://antiserver.kuwo.cn')),
-    kugouSearchBase: trimUrl(str(config, 'MUSIC_KUGOU_SEARCH_BASE', 'https://songsearch.kugou.com')),
+    kugouSearchBase: trimUrl(
+      str(config, 'MUSIC_KUGOU_SEARCH_BASE', 'https://songsearch.kugou.com'),
+    ),
     kugouMediaBase: trimUrl(str(config, 'MUSIC_KUGOU_MEDIA_BASE', 'https://m.kugou.com')),
     upstreamTimeoutMs: int(config, 'MUSIC_UPSTREAM_TIMEOUT_MS', 20000, 1000, 60000),
     maxBytes: int(config, 'MUSIC_MAX_BYTES', 20 * 1024 * 1024, 65536, 100 * 1024 * 1024),

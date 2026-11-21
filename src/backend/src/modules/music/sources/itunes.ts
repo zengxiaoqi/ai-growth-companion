@@ -27,9 +27,10 @@ const itunes: MusicSource = {
       : ['hk', 'us'];
     const results = await Promise.allSettled(
       storefronts.map((country) => {
-        const url = `${config.itunesBase}/search`
-          + `?term=${encodeURIComponent(query)}&media=music&entity=song`
-          + `&limit=${limit}&country=${encodeURIComponent(country)}`;
+        const url =
+          `${config.itunesBase}/search` +
+          `?term=${encodeURIComponent(query)}&media=music&entity=song` +
+          `&limit=${limit}&country=${encodeURIComponent(country)}`;
         return getJson(url, { timeoutMs: config.sourceTimeoutMs });
       }),
     );

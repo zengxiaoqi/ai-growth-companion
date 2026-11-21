@@ -819,6 +819,68 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
     };
   }
 
+  /**
+   * Recover tool calls that a model/gateway emitted as XML text in `content`
+   * rather than the OpenAI `tool_calls` field. Recognized shape:
+   *   <tool_call>
+   *     <function=name>
+   *       <parameter=key>value</parameter>
+   *     </function>
+   *   </tool_call>
+   * Multiple <tool_call> blocks and repeated <parameter> tags are supported.
+   * If no XML tool call is found the original response is returned untouched.
+   */
+  private recoverXmlToolCalls(
+    content: string | null,
+    existing?: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }>,
+  ): {
+    content: string | null;
+    toolCalls?: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }>;
+  } {
+    if (existing?.length || !content || !content.includes('<tool_call>')) {
+      return { content, toolCalls: existing };
+    }
+    const blockRe = /<tool_call>\s*<function=([^>\s]+)>([\s\S]*?)<\/function>\s*<\/tool_call>/g;
+    const paramRe = /<parameter=([^>\s]+)>([\s\S]*?)<\/parameter>/g;
+    const toolCalls: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }> = [];
+    let block: RegExpExecArray | null;
+    while ((block = blockRe.exec(content)) !== null) {
+      const name = block[1]?.trim();
+      if (!name) continue;
+      const args: Record<string, string> = {};
+      let param: RegExpExecArray | null;
+      paramRe.lastIndex = 0;
+      while ((param = paramRe.exec(block[2])) !== null) {
+        const key = param[1]?.trim();
+        if (key) args[key] = param[2]?.trim() ?? '';
+      }
+      toolCalls.push({
+        id: `xml_${Date.now()}_${toolCalls.length}`,
+        type: 'function',
+        function: { name, arguments: JSON.stringify(args) },
+      });
+    }
+    if (!toolCalls.length) return { content, toolCalls: existing };
+    this.logger.warn(
+      `Recovered ${toolCalls.length} XML tool call(s) from model content: ${toolCalls.map((t) => t.function.name).join(', ')}`,
+    );
+    // Strip only the XML blocks; keep any other natural-language text.
+    const remaining = content.replace(blockRe, '').trim();
+    return { content: remaining || null, toolCalls };
+  }
+
   private fromPiAiResponse(result: any): LlmResponse {
     const textContent = result.content?.find((c: any) => c.type === 'text');
     const content = textContent?.text ?? null;
@@ -852,7 +914,13 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
               ? 'error'
               : undefined;
 
-    return { content, toolCalls, usage, finishReason };
+    const recovered = this.recoverXmlToolCalls(content, toolCalls);
+    return {
+      content: recovered.content,
+      toolCalls: recovered.toolCalls,
+      usage,
+      finishReason: recovered.toolCalls?.length ? 'tool_calls' : finishReason,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -961,23 +1029,31 @@ export class LlmClientService implements ILlmClient, OnModuleInit {
       ])) as ChatCompletion;
 
       const choice = response.choices[0];
+      const rawContent = choice?.message?.content ?? null;
+      const standardToolCalls = choice?.message?.tool_calls?.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: {
+          name: (tc as any).function?.name,
+          arguments: (tc as any).function?.arguments,
+        },
+      }));
+      // Some gateways/models occasionally serialize tool calls as XML text in
+      // `content` instead of the standard `tool_calls` field. Normalize those
+      // so downstream agents can execute them instead of echoing raw markup.
+      const recovered = this.recoverXmlToolCalls(rawContent, standardToolCalls);
       return {
-        content: choice?.message?.content ?? null,
-        toolCalls: choice?.message?.tool_calls?.map((tc) => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: {
-            name: (tc as any).function?.name,
-            arguments: (tc as any).function?.arguments,
-          },
-        })),
+        content: recovered.content,
+        toolCalls: recovered.toolCalls,
         usage: response.usage
           ? {
               promptTokens: response.usage.prompt_tokens,
               completionTokens: response.usage.completion_tokens,
             }
           : undefined,
-        finishReason: choice?.finish_reason ?? undefined,
+        finishReason: recovered.toolCalls?.length
+          ? 'tool_calls'
+          : choice?.finish_reason ?? undefined,
       };
     }, 'chatCompletion');
   }

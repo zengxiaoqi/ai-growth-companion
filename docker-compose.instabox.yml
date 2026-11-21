@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: lingxi-backend
     user: root
+    ports:
+      - "3000:3000"
     environment:
       PORT: 3000
       NODE_ENV: production
@@ -13,7 +15,7 @@ services:
       - .env
     volumes:
       - backend-data:/app/data
-      - ./src/backend/public:/app/public:ro
+      - ./src/backend/public:/app/public
     networks:
       - lingxi-network
     restart: unless-stopped

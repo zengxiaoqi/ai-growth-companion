@@ -7,6 +7,7 @@ import { CreateMemoryAndSafetyTables1700000000000 } from '../../src/database/mig
 import { AddCasualToolsToParentControls1762800000000 } from '../../src/database/migrations/1762800000000-AddCasualToolsToParentControls';
 import { CreateKnowledgeCards1794600000000 } from '../../src/database/migrations/1794600000000-CreateKnowledgeCards';
 import { CreateQuestionItems1794700000000 } from '../../src/database/migrations/1794700000000-CreateQuestionItems';
+import { AddVideoQaColumns1795270584987 } from '../../src/database/migrations/1795270584987-AddVideoQaColumns';
 
 /**
  * The baseline migration has exactly one job worth testing: after it runs, the
@@ -54,6 +55,7 @@ async function buildFromMigrations(): Promise<DataSource> {
       AddCasualToolsToParentControls1762800000000,
       CreateKnowledgeCards1794600000000,
       CreateQuestionItems1794700000000,
+      AddVideoQaColumns1795270584987,
     ] as any[],
     migrationsRun: false,
     synchronize: false,
@@ -110,6 +112,7 @@ describe('baseline migration', () => {
       'AddCasualToolsToParentControls1762800000000',
       'CreateKnowledgeCards1794600000000',
       'CreateQuestionItems1794700000000',
+      'AddVideoQaColumns1795270584987',
     ]);
   });
 

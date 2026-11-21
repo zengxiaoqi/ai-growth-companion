@@ -290,7 +290,9 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     });
     if (!content) throw new NotFoundException('Content not found');
 
-    const payload = this.buildPackPayloadFromContent(content);
+    const payload = this.syncVideoPayloadFromWatchScene(
+      this.buildPackPayloadFromContent(content),
+    );
     const cacheKey = this.computeCacheKey(content, payload);
     const normalizedEngine = this.normalizeRenderEngine(renderEngine);
     this.logger.log(
@@ -1710,6 +1712,59 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     return null;
+  }
+
+  /**
+   * Older lessons only had scene-beat edits written to watch.scene, while the
+   * renderer reads visualStory/videoLesson. Sync the current preview text by
+   * index before computing the cache key so regeneration never replays stale
+   * narration from those legacy fields.
+   */
+  private syncVideoPayloadFromWatchScene(payload: Record<string, any>): Record<string, any> {
+    const watchScenes = Array.isArray(payload?.watchScene?.scenes)
+      ? payload.watchScene.scenes
+      : [];
+    if (watchScenes.length === 0) return payload;
+
+    const syncBeats = (beats: any[], textKey: 'onScreenText' | 'caption') =>
+      beats.map((beat: any, index: number) => {
+        const source = watchScenes[index];
+        if (!source) return beat;
+        const updated = { ...beat };
+        const narration = this.toText(source.narration);
+        const onScreenText = this.toText(source.onScreenText || source.title);
+        if (narration) updated.narration = narration;
+        if (onScreenText) {
+          updated[textKey] = onScreenText;
+          updated[textKey === 'caption' ? 'onScreenText' : 'caption'] = onScreenText;
+        }
+        return updated;
+      });
+
+    const visualScenes = Array.isArray(payload?.visualStory?.scenes)
+      ? payload.visualStory.scenes
+      : [];
+    const shots = Array.isArray(payload?.videoLesson?.shots) ? payload.videoLesson.shots : [];
+
+    return {
+      ...payload,
+      ...(visualScenes.length > 0
+        ? {
+            visualStory: {
+              ...payload.visualStory,
+              scenes: syncBeats(visualScenes, 'onScreenText'),
+            },
+          }
+        : {}),
+      ...(shots.length > 0
+        ? {
+            videoLesson: {
+              ...payload.videoLesson,
+              shots: syncBeats(shots, 'caption'),
+            },
+          }
+        : {}),
+    };
   }
 
   private buildPackPayloadFromContent(content: Content): Record<string, any> {

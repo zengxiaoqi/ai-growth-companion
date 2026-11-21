@@ -850,11 +850,17 @@ class ApiService {
 
   // ═══ 教学视频 ═══
 
-  Future<Map<String, dynamic>?> createTeachingVideoTask(int lessonId, int childId, {bool force = false}) async {
+  Future<Map<String, dynamic>?> createTeachingVideoTask(
+    int lessonId,
+    int childId, {
+    bool force = false,
+    bool autoApprove = false,
+  }) async {
     try {
       final response = await _dio.post('/learning/lessons/$lessonId/teaching-video/tasks', data: {
         'childId': childId,
         'force': force,
+        'autoApprove': autoApprove,
       });
       return response.data as Map<String, dynamic>;
     } catch (e) {
@@ -890,10 +896,13 @@ class ApiService {
   }
 
   /// Get the full video playback URL (token passed separately via httpHeaders)
-  String getLessonVideoPlaybackUrl(int lessonId, int childId) {
+  /// [taskId] pins playback to a specific render so regenerated videos get a
+  /// fresh URL instead of replaying a cached MP4 from an older task.
+  String getLessonVideoPlaybackUrl(int lessonId, int childId, {int? taskId}) {
     // On Flutter Web, the <video> element cannot send Authorization headers.
     // Append the JWT token as a query parameter so the backend can authenticate.
-    final base = '$baseUrl/learning/lessons/$lessonId/teaching-video?childId=$childId';
+    final base = '$baseUrl/learning/lessons/$lessonId/teaching-video?childId=$childId'
+        '${taskId != null ? '&taskId=$taskId' : ''}';
     if (_token != null && _token!.isNotEmpty) {
       return '$base&token=${Uri.encodeComponent(_token!)}';
     }

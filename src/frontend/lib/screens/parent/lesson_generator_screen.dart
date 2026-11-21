@@ -130,6 +130,7 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
   int? _editingSceneIndex;
   int _previewSceneIndex = 0;
   bool _isSavingDraft = false;
+  bool _isRegeneratingVideo = false;
 
   @override
   void initState() {
@@ -668,7 +669,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('课程已发布到学生端！'), backgroundColor: Color(0xFF0B8F55)));
+            content: Text('课程已发布，教学视频正在按新内容生成'),
+            backgroundColor: Color(0xFF0B8F55)));
       }
     } catch (e) {
       if (!mounted) return;
@@ -676,6 +678,73 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
         _error = '确认发布失败: $e';
         _isConfirming = false;
       });
+    }
+  }
+
+  /// 按最新场景内容重新生成教学视频
+  Future<void> _handleRegenerateVideo() async {
+    final contentId = _toInt(_generatedContent?['id']);
+    final childId = _selectedChildId;
+    if (contentId == null || childId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请先选择孩子并生成课程')));
+      }
+      return;
+    }
+
+    setState(() => _isRegeneratingVideo = true);
+    final api = context.read<ApiService>();
+    try {
+      if (_sceneEdits.isNotEmpty) {
+        // 保存编辑：后端会把旁白同步到视频数据源，并强制重新入队渲染任务
+        final saved = await api.modifyLesson(contentId, _buildSceneEditDescription());
+        if (saved == null || saved['error'] != null) {
+          throw saved?['error']?.toString() ?? '保存场景修改失败';
+        }
+        final rawContent = saved['content'];
+        Map<String, dynamic>? lesson;
+        if (rawContent is String) {
+          try {
+            lesson = jsonDecode(rawContent) as Map<String, dynamic>;
+          } catch (_) {}
+        } else if (rawContent is Map) {
+          lesson = rawContent.map((k, v) => MapEntry(k.toString(), v));
+        }
+        if (!mounted) return;
+        setState(() {
+          _generatedContent = saved;
+          if (lesson != null) _lessonData = lesson;
+          _sceneEdits = {};
+          _editingSceneIndex = null;
+          _previewSceneIndex = 0;
+        });
+      } else {
+        // 没有未保存的编辑：直接强制重渲染当前课程
+        final task = await api.createTeachingVideoTask(
+          contentId,
+          childId,
+          force: true,
+          autoApprove: true,
+        );
+        if (task == null || task['error'] != null) {
+          throw task?['error']?.toString() ?? '创建视频任务失败';
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('视频正在按最新内容重新生成'),
+            backgroundColor: Color(0xFF0B8F55)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('重新生成视频失败: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRegeneratingVideo = false);
+      }
     }
   }
 
@@ -1540,10 +1609,18 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
               ),
             ),
             IconButton(
-                onPressed: _handleReset,
-                tooltip: '重新生成',
-                icon: Icon(Icons.refresh_rounded,
-                    size: 22, color: AppTheme.textSecondary)),
+                onPressed: (_isSavingDraft || _isRegeneratingVideo)
+                    ? null
+                    : _handleRegenerateVideo,
+                tooltip: '重新生成视频',
+                icon: _isRegeneratingVideo
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.refresh_rounded,
+                        size: 22, color: AppTheme.textSecondary)),
           ]),
         ),
       ),
@@ -1996,7 +2073,8 @@ class _LessonGeneratorScreenState extends State<LessonGeneratorScreen>
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('草稿已保存'), backgroundColor: Color(0xFF0B8F55)));
+            content: Text('草稿已保存，教学视频正在按新内容重新生成'),
+            backgroundColor: Color(0xFF0B8F55)));
       }
     } catch (e) {
       if (!mounted) return;

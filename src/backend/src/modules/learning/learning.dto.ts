@@ -306,6 +306,14 @@ export class CreateVideoTaskDto {
   @IsOptional()
   @IsString()
   engine?: string;
+
+  @ApiPropertyOptional({
+    description: 'Parent-initiated regeneration can be shown without a second approval',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoApprove?: boolean;
 }
 
 // ─── POST /learning/lessons/:id/video-approve ────────────────────────

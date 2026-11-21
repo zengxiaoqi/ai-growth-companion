@@ -307,6 +307,7 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
         final videoUrl = api.getLessonVideoPlaybackUrl(
           widget.contentId,
           widget.childId!,
+          taskId: int.tryParse(status['taskId']?.toString() ?? ''),
         );
         if (mounted) {
           setState(() {
@@ -1471,6 +1472,8 @@ class _StructuredLessonScreenState extends State<StructuredLessonScreen> {
     if (_videoUrl != null && _videoUrl!.isNotEmpty) {
       final api = context.read<ApiService>();
       return LessonVideoPlayer(
+        // Recreate the player when a regenerated task changes the URL.
+        key: ValueKey(_videoUrl),
         videoUrl: _videoUrl!,
         authToken: api.token,
         onComplete: (score) => _completeStep(score: score),

@@ -58,6 +58,23 @@ describe('LessonVideoQueueService', () => {
     jest.restoreAllMocks();
   });
 
+  it('syncs current watch scene text into legacy video payload fields', () => {
+    const payload = {
+      watchScene: {
+        scenes: [{ title: '分享讲解', narration: '新旁白', onScreenText: '新字幕' }],
+      },
+      visualStory: { scenes: [{ narration: '旧旁白', onScreenText: '旧字幕' }] },
+      videoLesson: { shots: [{ narration: '旧旁白', caption: '旧字幕' }] },
+    };
+
+    const synced = (service as any).syncVideoPayloadFromWatchScene(payload);
+
+    expect(synced.visualStory.scenes[0].narration).toBe('新旁白');
+    expect(synced.visualStory.scenes[0].onScreenText).toBe('新字幕');
+    expect(synced.videoLesson.shots[0].narration).toBe('新旁白');
+    expect(synced.videoLesson.shots[0].caption).toBe('新字幕');
+  });
+
   function createDynamicManifest(compositionId = 'GeneratedLesson_tiger') {
     return {
       compositionId,

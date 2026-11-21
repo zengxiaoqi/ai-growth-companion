@@ -133,6 +133,11 @@ interface ModifyLessonDraftOptions {
   stepId?: string;
 }
 
+/** Tracks whether a modification touched the data used to render the teaching video. */
+interface ModificationChangeTracker {
+  watchVideoChanged: boolean;
+}
+
 export interface DraftLessonSummary {
   id: number;
   title: string;
@@ -958,6 +963,7 @@ export class LessonContentService implements OnModuleInit {
     const targetStep = options.stepId
       ? lesson.steps.find((step) => step.id === options.stepId) || null
       : null;
+    const changeTracker: ModificationChangeTracker = { watchVideoChanged: false };
 
     // Send modification request to LLM. We ask for a DELTA (only the fields /
     // steps that change) instead of the whole lesson: the server merges the
@@ -989,7 +995,7 @@ export class LessonContentService implements OnModuleInit {
       '- To change a step: {"steps": [{"id": "<step id>", ...the fields to change inside that step...}]}.',
       '  Inside a step you may include "title", "narration", "onScreenText".',
       '  To change what learners SEE/HEAR in the preview, include "sceneBeats": [{"index": 0, "narration": "...", "onScreenText": "..."}, ...].',
-      '  "index" is the 0-based position in that step\'s sceneBeats list; include only the beats whose text you change, preserving their order and count. Edited beats are written back into module.scene so the preview reflects them.',
+      '  "index" is the 0-based position in that step\'s sceneBeats list; include only the beats whose text you change, preserving their order and count. Edited beats are written back into module.scene, module.visualStory.scenes and module.videoLesson.shots so both the preview and the rendered teaching video reflect them.',
       'Rules:',
       '- For WHOLE-LESSON edits: if the request changes what is taught or shown, update the affected steps\' "narration" AND/OR "sceneBeats" — do NOT only change the top-level summary, otherwise the student preview will look unchanged.',
       '- Keep all learner-facing text in Chinese and age-appropriate.',
@@ -1005,7 +1011,7 @@ export class LessonContentService implements OnModuleInit {
 
     // Accept any non-empty patch: mergeModifiedLesson overlays it on the original.
     if (updated && Object.keys(updated).length > 0) {
-      const merged = this.mergeModifiedLesson(lesson, updated);
+      const merged = this.mergeModifiedLesson(lesson, updated, changeTracker);
       const nextTopic = this.toText((merged as any)?.topic, lesson.topic);
       content.content = merged as any;
       content.title = this.toText(
@@ -1015,11 +1021,41 @@ export class LessonContentService implements OnModuleInit {
       content.subtitle = this.toText((merged as any)?.summary, content.subtitle || '');
       content.status = 'draft';
       const saved = await this.contentRepo.save(content);
+      await this.regenerateVideoForWatchEdits(saved, changeTracker);
 
       return saved;
     }
 
     throw new Error('Failed to apply modifications. Please try again.');
+  }
+
+  /**
+   * Scene edits are user-initiated, so a changed teaching-video source must lead
+   * to a fresh render instead of the cached MP4 being served forever.
+   * Parent-initiated edits are approved automatically (same as quick video).
+   */
+  private async regenerateVideoForWatchEdits(
+    content: Content,
+    tracker: ModificationChangeTracker,
+  ): Promise<void> {
+    if (!tracker.watchVideoChanged) return;
+    const childId = content.childId;
+    if (!childId) {
+      this.logger.warn(
+        `[modifyDraft] watch video changed for contentId=${content.id} but childId is missing; skipped regeneration`,
+      );
+      return;
+    }
+    try {
+      const task = await this.videoQueueService.enqueue(content.id, childId, true, 'auto', true);
+      this.logger.log(
+        `[modifyDraft] watch video changed, queued video taskId=${task.id} for contentId=${content.id}`,
+      );
+    } catch (error: any) {
+      this.logger.warn(
+        `[modifyDraft] failed to queue video regeneration for contentId=${content.id}: ${error?.message}`,
+      );
+    }
   }
 
   async confirmAndPublish(contentId: number, parentId: number, childId: number): Promise<Content> {
@@ -1693,6 +1729,7 @@ export class LessonContentService implements OnModuleInit {
   private mergeModifiedLesson(
     originalLesson: StructuredLessonContent,
     updatedLesson: Record<string, any>,
+    tracker?: ModificationChangeTracker,
   ): StructuredLessonContent {
     const merged = {
       ...originalLesson,
@@ -1715,6 +1752,18 @@ export class LessonContentService implements OnModuleInit {
         : null;
       const stepPatch = { ...(updatedStep as Record<string, any>) };
       delete stepPatch.sceneBeats; // delta-only helper, never persist onto the lesson
+
+      if (tracker && (originalStep.id === 'watch' || originalStep.module?.type === 'video')) {
+        const watchPatch = (stepPatch as any)?.module || {};
+        if (
+          (Array.isArray(sceneBeats) && sceneBeats.length > 0) ||
+          this.didSceneSourceChange(originalStep.module?.visualStory, watchPatch.visualStory) ||
+          this.didSceneSourceChange(originalStep.module?.videoLesson, watchPatch.videoLesson)
+        ) {
+          tracker.watchVideoChanged = true;
+        }
+      }
+
       const mergedStep: LessonStep = {
         ...originalStep,
         ...stepPatch,
@@ -2061,7 +2110,9 @@ export class LessonContentService implements OnModuleInit {
     return { ...this.stepForEditPrompt(step), ...this.stepPreviewForPrompt(step) };
   }
 
-  /// Apply index-based scene-beat text edits onto the step's module.scene.
+  /// Apply index-based scene-beat text edits to the preview scene AND to the
+  /// video sources. Historically only module.scene was updated, so the video
+  /// pipeline (which reads visualStory/videoLesson) kept rendering old text.
   private applySceneBeatEdits(
     step: LessonStep,
     edits: any[],
@@ -2083,7 +2134,66 @@ export class LessonContentService implements OnModuleInit {
       }
     }
     module.scene = { ...scene, scenes };
+
+    if (step.id === 'watch' || module.type === 'video') {
+      const fallbackScenes = scenes.map((beat: any) => ({
+        scene: beat.title,
+        narration: beat.narration,
+        onScreenText: beat.onScreenText,
+        durationSec: beat.durationSec,
+      }));
+      const fallbackShots = scenes.map((beat: any) => ({
+        shot: beat.title,
+        narration: beat.narration,
+        caption: beat.onScreenText,
+        durationSec: beat.durationSec,
+      }));
+      const visualStory =
+        module.visualStory && typeof module.visualStory === 'object'
+          ? module.visualStory
+          : {};
+      const videoLesson =
+        module.videoLesson && typeof module.videoLesson === 'object'
+          ? module.videoLesson
+          : {};
+      const visualScenes = Array.isArray(visualStory.scenes)
+        ? visualStory.scenes
+        : fallbackScenes;
+      const lessonShots = Array.isArray(videoLesson.shots) ? videoLesson.shots : fallbackShots;
+
+      module.visualStory = {
+        ...visualStory,
+        scenes: this.applySceneBeatEditsToVideoScenes(visualScenes, edits),
+      };
+      module.videoLesson = {
+        ...videoLesson,
+        shots: this.applySceneBeatEditsToVideoScenes(lessonShots, edits, 'caption'),
+      };
+    }
+
     return { ...step, module: module as unknown as LessonStep['module'] };
+  }
+
+  private applySceneBeatEditsToVideoScenes(
+    beats: any[],
+    edits: any[],
+    textKey: 'onScreenText' | 'caption' = 'onScreenText',
+  ): any[] {
+    return beats.map((beat: any, index: number) => {
+      const edit = edits.find((item: any) => Number(item?.index) === index);
+      if (!edit) return beat;
+      const updated = { ...beat };
+      if (typeof edit.narration === 'string' && edit.narration.trim()) {
+        updated.narration = edit.narration;
+      }
+      if (typeof edit.onScreenText === 'string' && edit.onScreenText.trim()) {
+        updated[textKey] = edit.onScreenText;
+        // Keep both labels in sync: visualStory uses onScreenText, videoLesson
+        // uses caption, and some older payloads carry either/both.
+        updated[textKey === 'caption' ? 'onScreenText' : 'caption'] = edit.onScreenText;
+      }
+      return updated;
+    });
   }
 
   private describeStepTitle(step: LessonStep): string {

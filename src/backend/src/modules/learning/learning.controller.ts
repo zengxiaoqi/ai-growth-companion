@@ -494,6 +494,7 @@ export class LearningController {
       resolvedChildId,
       !!body.force,
       (body?.engine || 'auto') as VideoRenderEngine,
+      !!body.autoApprove,
     );
     return {
       taskId: task.id,
@@ -607,6 +608,9 @@ export class LearningController {
     const body = await this.lessonVideoQueue.readVideoBuffer(task);
     const filename = `${safeTitle || `lesson-${id}`}-teaching-video.mp4`;
     const totalSize = body.length;
+
+    // A regenerated lesson must never replay the previous MP4 from a browser/CDN cache.
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
 
     // HTTP Range request support for video seeking/scrubbing
     const range = req.headers.range;

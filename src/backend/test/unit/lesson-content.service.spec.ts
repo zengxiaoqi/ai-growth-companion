@@ -19,6 +19,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
   let service: LessonContentService;
   let contentRepo: any;
   let llmClient: { generate: jest.Mock };
+  let videoQueue: { enqueue: jest.Mock };
   let assignmentRepo: any;
 
   beforeEach(async () => {
@@ -70,6 +71,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
     }).compile();
 
     service = module.get(LessonContentService);
+    videoQueue = module.get(LessonVideoQueueService);
   });
 
   it('onModuleInit fails every orphaned generating lesson regardless of age', async () => {
@@ -320,6 +322,69 @@ describe('LessonContentService modifyDraft scene sync', () => {
     expect(saved.subtitle).toBe('加入更多四季观察内容');
   });
 
+  it('syncs scene-beat edits into video sources and force-enqueues regeneration', async () => {
+    const lesson = {
+      type: 'structured_lesson',
+      version: 1,
+      topic: '学会分享',
+      ageGroup: '5-6',
+      summary: '原始总结',
+      outcomes: [],
+      parentGuide: { beforeClass: [], duringClass: [], afterClass: [] },
+      steps: [
+        {
+          id: 'watch',
+          label: '看',
+          icon: 'eye',
+          order: 1,
+          module: {
+            type: 'video',
+            scene: {
+              scenes: [
+                { id: 's1', title: '导入', narration: '旧旁白', onScreenText: '旧字幕', durationSec: 10 },
+              ],
+            },
+            visualStory: {
+              scenes: [
+                { scene: '导入', narration: '旧旁白', onScreenText: '旧字幕', durationSec: 10 },
+              ],
+            },
+            videoLesson: {
+              shots: [{ shot: '导入', narration: '旧旁白', caption: '旧字幕', durationSec: 10 }],
+            },
+          },
+        },
+      ],
+    };
+    contentRepo.findOne.mockResolvedValue({
+      id: 88,
+      status: 'draft',
+      childId: 7,
+      title: '学会分享 全方位学习课',
+      content: lesson,
+    });
+    llmClient.generate.mockResolvedValueOnce(
+      JSON.stringify({
+        steps: [
+          {
+            id: 'watch',
+            sceneBeats: [{ index: 0, narration: '新旁白', onScreenText: '新字幕' }],
+          },
+        ],
+      }),
+    );
+
+    const saved = await service.modifyDraft(88, 1, '把场景旁白改成新旁白');
+    const module = (saved.content as any).steps[0].module;
+
+    expect(module.scene.scenes[0].narration).toBe('新旁白');
+    expect(module.visualStory.scenes[0].narration).toBe('新旁白');
+    expect(module.visualStory.scenes[0].onScreenText).toBe('新字幕');
+    expect(module.videoLesson.shots[0].narration).toBe('新旁白');
+    expect(module.videoLesson.shots[0].caption).toBe('新字幕');
+    expect(videoQueue.enqueue).toHaveBeenCalledWith(88, 7, true, 'auto', true);
+  });
+
   it('keeps explicit edited scene when parent modification directly changes scene payload', async () => {
     const lesson = {
       type: 'structured_lesson',
@@ -422,6 +487,7 @@ describe('LessonContentService modifyDraft scene sync', () => {
     expect(writeStep.module.scene.scenes[0].title).toBe('描一描数字 1');
     expect(writeStep.module.scene.scenes[0].narration).toContain('新的提示');
     expect(writeStep.module.scene.scenes[0].interaction.targets[0].fontSize).toBe(90);
+    expect(videoQueue.enqueue).not.toHaveBeenCalled();
   });
   it('includes target step context in the llm prompt for step-scoped edits', async () => {
     const lesson = {

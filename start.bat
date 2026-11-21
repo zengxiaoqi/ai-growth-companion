@@ -64,6 +64,22 @@ set "PROJECT_DIR=%~dp0"
 :: Keep this file ASCII-only: cmd.exe reads .bat as ANSI, so UTF-8 text breaks parsing.
 set "BACKEND_PORT=3001"
 
+:: 4b. Pre-flight cleanup: kill stale Flutter/dart processes from a previous run.
+:: Multiple flutter run instances each spawn their own Dart Development Service,
+:: and the tooling then connects to the wrong DDS -> "not upgraded to websocket".
+:: Only dart* processes are killed (backend/frontend-web are Node, unaffected).
+echo [4b/7] Cleaning stale Flutter processes...
+tasklist /FI "IMAGENAME eq dart.exe" 2>nul | findstr /I "dart.exe" >nul
+if not errorlevel 1 (
+    echo   Found stale dart processes, terminating...
+    taskkill /F /IM dart.exe /T >nul 2>&1
+    taskkill /F /IM dartvm.exe /T >nul 2>&1
+    taskkill /F /IM dartaotruntime.exe /T >nul 2>&1
+    ping -n 2 127.0.0.1 >nul
+)
+echo   Flutter processes clean.
+echo.
+
 :: 5. Pre-flight: dev ports must be free before starting anything.
 :: A stale backend holding BACKEND_PORT is the usual cause of EADDRINUSE.
 echo [5/7] Checking dev ports...
@@ -114,14 +130,16 @@ echo   Backend is ready on port %BACKEND_PORT%.
 
 start "Frontend-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend-web && npx vite --host 0.0.0.0 --port 5173"
 
-:: Flutter Web: use the web-server device, NOT -d chrome.
-:: Reason 1: with -d chrome, Flutter hardcodes "localhost" to reach Chrome's
-::   DevTools port. On Windows localhost resolves to ::1 first, but Chrome binds
-::   that port to 127.0.0.1 only -> "Connection refused ... address = localhost".
-:: Reason 2: --web-hostname 0.0.0.0 makes Chrome open http://0.0.0.0:8080 which
-::   bypasses NO_PROXY and the debug websocket dies too.
-:: web-server skips the Chrome DevTools Protocol entirely; open the URL yourself.
-start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080"
+:: Flutter Web: -d chrome gives real hot reload (r/R) in a managed Chrome window.
+:: Two prerequisites are handled elsewhere in this script / setup:
+::   1) hosts maps localhost -> 127.0.0.1 (IPv4 first). Flutter hardcodes
+::      'localhost' to reach Chrome's DevTools port, which binds IPv4 only;
+::      without this, Windows resolves ::1 first -> connection refused.
+::   2) stale dart processes are killed above, so only one Dart Development
+::      Service runs -> no "not upgraded to websocket" from DDS mixing.
+:: --web-hostname 127.0.0.1 (NOT 0.0.0.0): an explicit address is not passed to
+::   Chrome as a browse-to URL here, but 127.0.0.1 also stays inside NO_PROXY.
+start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d chrome --web-port 8080 --web-hostname 127.0.0.1"
 
 :: Short delay via ping: Git's GNU timeout may shadow timeout.exe on PATH.
 ping -n 4 127.0.0.1 >nul
@@ -134,12 +152,14 @@ echo   Started!
 echo ========================================
 echo.
 echo   Frontend-Web : http://localhost:5173
-echo   Flutter-Web  : http://127.0.0.1:8080
+echo   Flutter-Web  : http://localhost:8080 (Chrome opens automatically)
 echo   Backend      : http://localhost:%BACKEND_PORT%/api
 echo   API Docs     : http://localhost:%BACKEND_PORT%/api/docs
 echo.
 echo   Note: Flutter dev server has no /api proxy; the app calls the
 echo         backend directly at port %BACKEND_PORT%.
+echo   Note: Flutter hot reload needs localhost mapped to 127.0.0.1 in hosts.
+echo         If Chrome shows "connection refused" / websocket errors, check hosts.
 echo   Note: Backend console QuickEdit is disabled at startup. Selecting text
 echo         in a Windows console otherwise blocks Node stdout and freezes all APIs.
 echo.
@@ -151,7 +171,7 @@ echo   To stop: close the service windows, or run stop.bat
 echo ========================================
 
 start http://localhost:5173
-start http://127.0.0.1:8080
+:: Flutter's -d chrome opens its own managed browser, no need to open 8080 here.
 
 echo.
 pause

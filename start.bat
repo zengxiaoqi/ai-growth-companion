@@ -114,11 +114,14 @@ echo   Backend is ready on port %BACKEND_PORT%.
 
 start "Frontend-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend-web && npx vite --host 0.0.0.0 --port 5173"
 
-:: Use --web-hostname localhost, NOT 0.0.0.0. Flutter passes this value to
-:: Chrome as the URL (http://0.0.0.0:8080). 0.0.0.0 is a bind-only address:
-:: it is absent from NO_PROXY, so the debug-service websocket goes through the
-:: proxy and fails with "Waiting for connection ... No client connected".
-start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d chrome --web-port 8080 --web-hostname localhost"
+:: Flutter Web: use the web-server device, NOT -d chrome.
+:: Reason 1: with -d chrome, Flutter hardcodes "localhost" to reach Chrome's
+::   DevTools port. On Windows localhost resolves to ::1 first, but Chrome binds
+::   that port to 127.0.0.1 only -> "Connection refused ... address = localhost".
+:: Reason 2: --web-hostname 0.0.0.0 makes Chrome open http://0.0.0.0:8080 which
+::   bypasses NO_PROXY and the debug websocket dies too.
+:: web-server skips the Chrome DevTools Protocol entirely; open the URL yourself.
+start "Flutter-Web" cmd /k "cd /d %PROJECT_DIR%src\frontend && flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080"
 
 :: Short delay via ping: Git's GNU timeout may shadow timeout.exe on PATH.
 ping -n 4 127.0.0.1 >nul
@@ -131,7 +134,7 @@ echo   Started!
 echo ========================================
 echo.
 echo   Frontend-Web : http://localhost:5173
-echo   Flutter-Web  : http://localhost:8080
+echo   Flutter-Web  : http://127.0.0.1:8080
 echo   Backend      : http://localhost:%BACKEND_PORT%/api
 echo   API Docs     : http://localhost:%BACKEND_PORT%/api/docs
 echo.
@@ -148,6 +151,7 @@ echo   To stop: close the service windows, or run stop.bat
 echo ========================================
 
 start http://localhost:5173
+start http://127.0.0.1:8080
 
 echo.
 pause

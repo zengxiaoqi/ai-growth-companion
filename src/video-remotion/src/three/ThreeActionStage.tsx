@@ -410,24 +410,28 @@ const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
 };
 
 /* ------------------------------------------------------------------ *
- * 道具：球（两条环带，比纯色球更容易看出滚动）
+ * 道具：球
+ *
+ * 缝线不是"套一个环"：torus 的管心落在球面上，就会有一半管子突出轮廓，
+ * 从侧面看是一圈蓝边（之前那版 radius*0.99 + tube 0.05*radius 就是这个问题，
+ * 视觉上像给红球描了个蓝边，而不是缝）。正确做法是让 torus 外缘正好等于
+ * 球半径：major = r - tube，管子嵌进表面，只露出贴近表面的一段。
  * ------------------------------------------------------------------ */
-const Ball: React.FC<{ position: Tri; radius: number; squash: number; spin: number; accent: string }> = ({
+const Ball: React.FC<{ position: Tri; radius: number; squash: number; spin: number }> = ({
   position,
   radius,
   squash,
   spin,
-  accent,
 }) => (
   <group position={position} rotation={[spin, 0, 0]} scale={[1 / squash, squash, 1 / squash]}>
     <mesh>
-      <sphereGeometry args={[radius, 24, 24]} />
+      <sphereGeometry args={[radius, 32, 24]} />
       <meshStandardMaterial color="#ef5f58" roughness={0.55} />
     </mesh>
     {[0, Math.PI / 2].map((rot) => (
-      <mesh key={rot} rotation={[rot, 0, 0]} scale={[1, 1, 1.005]}>
-        <torusGeometry args={[radius * 0.99, radius * 0.05, 8, 40]} />
-        <meshStandardMaterial color={accent} roughness={0.5} />
+      <mesh key={rot} rotation={[rot, 0, 0]}>
+        <torusGeometry args={[radius * 0.955, radius * 0.045, 8, 48]} />
+        <meshStandardMaterial color="#b8382f" roughness={0.5} />
       </mesh>
     ))}
   </group>
@@ -491,7 +495,6 @@ export const ThreeActionStage: React.FC<{
                 radius={BALL_RADIUS}
                 squash={dribble.squash}
                 spin={dribble.spin}
-                accent={accent}
               />
               <Blob
                 x={dribble.ball[0]}

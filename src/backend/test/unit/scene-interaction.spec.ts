@@ -9,6 +9,7 @@
 
 import {
   deriveInteractionFromText,
+  hasThreeMotionCue,
   normalizeSceneInteraction,
 } from '../../src/modules/learning/video/scene-interaction';
 import { findAnimalMentions } from '../../src/modules/learning/animal-subjects.config';
@@ -156,5 +157,55 @@ describe('normalizeSceneInteraction', () => {
       action3d: { motion: 'teleport', actorId: 'bear' },
     });
     expect(badMotion?.action3d).toBeUndefined();
+  });
+});
+
+/**
+ * 线上真实分镜的回归用例。
+ *
+ * 这些文案是接口实测产出的原样数据：visualDescription 走英文（生图提示词
+ * 那一路）、narration 走中文。判据最初只写中文，结果 5 幕滑梯课整课降级成
+ * 2D，且不报任何错。这组用例的作用就是让"静默降级"变成一次测试失败。
+ */
+describe('三维动作判据（中英双语）', () => {
+  it('英文视觉描述 + 中文旁白：滑下来能命中 slide', () => {
+    expect(
+      hasThreeMotionCue(
+        'The bear sits and slides down quickly with a happy open mouth, wind lines and sparkles around the slide, dynamic cartoon motion. 小熊坐好，脚朝前，双手放开，嗖的一下滑下来。',
+      ),
+    ).toBe('slide');
+  });
+
+  it('英文视觉描述 + 中文旁白：拍球能命中 dribble', () => {
+    expect(
+      hasThreeMotionCue(
+        'The bear lands at the bottom, jumps up, catches a red ball, pats it bouncing up and down, smiling widely in a colorful park scene. 滑到底，小熊跳起来，抱起皮球，拍拍拍。',
+      ),
+    ).toBe('dribble');
+  });
+
+  it('只出现滑梯不出现下滑：不命中，避免"爬上滑梯"演成滑行', () => {
+    expect(
+      hasThreeMotionCue(
+        'The cartoon bear carefully climbs the slide step by step, holding the rail with one hand. 小熊一步一步爬上滑梯，小手扶好。',
+      ),
+    ).toBeNull();
+  });
+
+  it('只出现球、没有拍/弹的动作：不命中', () => {
+    expect(
+      hasThreeMotionCue(
+        'A cheerful cartoon bear walks into a sunny park, waving at a tall colorful slide and a round red ball. 小熊来到公园，看到高高的滑梯和圆圆的皮球。',
+      ),
+    ).toBeNull();
+  });
+
+  it('分镜推导走的也是同一套判据（视觉描述英文时不再降级成 2D）', () => {
+    const r = derive(
+      'The bear sits and slides down quickly, wind lines and sparkles around the slide.',
+      { narration: '小熊坐好，嗖的一下滑下来。' },
+    );
+    expect(r?.verb).toBe('slide');
+    expect(r?.action3d?.motion).toBe('slide');
   });
 });

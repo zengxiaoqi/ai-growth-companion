@@ -82,7 +82,12 @@ export class VideoParamRepairService {
         patch.backgroundStyle === 'environment' ||
         patch.backgroundStyle === 'plain'
       ) {
-        if (scene.backgroundStyle !== patch.backgroundStyle) {
+        // plain 是纯白底（SceneBackground 里就是一块 #fff），把环境背景改成
+        // plain 等于把画面里的天空、草地、树全删掉。质检抱怨"背景不合适"时
+        // 这样"修"只会让画面更空——实测一轮修参后整片视频变白底，比修之前差。
+        // 素材对不上应该换 neutral（有主题柔光）或保留环境，不能一删了之。
+        const isDowngrade = scene.backgroundStyle === 'environment' && patch.backgroundStyle === 'plain';
+        if (!isDowngrade && scene.backgroundStyle !== patch.backgroundStyle) {
           scene.backgroundStyle = patch.backgroundStyle;
           changed = true;
         }
@@ -172,6 +177,9 @@ export class VideoParamRepairService {
     const prompt = [
       '以下教学视频分镜的视觉质检未达标。只允许修改参数：beats、backgroundStyle、accentColor。',
       '禁止改 sceneGraph 节点、figure 几何、旁白文字。',
+      'backgroundStyle 三选一：environment=有天空/地面的场景，neutral=带主题柔光的抽象底，plain=纯白。',
+      '若该幕发生在公园、森林等具体地方，保持 environment；只有内容确实"不发生在任何地方"才用 plain。',
+      'plain 会把背景整个抹掉，用它来"减少干扰"会让画面变空，属于错误修法。',
       '',
       '## 质检问题（blocker/major）',
       ...issues.map(

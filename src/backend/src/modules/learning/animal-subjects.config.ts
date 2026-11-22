@@ -227,6 +227,20 @@ export interface AnimalMention {
 }
 
 /**
+ * 反向表：id → 最完整的中文名。
+ *
+ * 英文别名命中时拿它当 label。名条是给孩子看的中文，"bear" 直接上屏会变成
+ * 中英混排，反查后中英两种输入最终都显示中文。
+ */
+const ID_TO_CN: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const [name, id] of Object.entries(CN_ANIMAL_MAP)) {
+    if (!out[id] || name.length > out[id].length) out[id] = name;
+  }
+  return out;
+})();
+
+/**
  * 找出一段文案里提到的**所有**角色，按出现顺序返回（同一角色只保留最早的一处）。
  *
  * findAnimalSubject 只回答"这一幕的主角是谁"，但"小熊把皮球递给小兔"这类
@@ -235,7 +249,26 @@ export interface AnimalMention {
 export function findAnimalMentions(source: string): AnimalMention[] {
   const hits = new Map<string, AnimalMention>();
   const consider = (name: string, id: string) => {
-    if (!name || !/[\u4e00-\u9fa5]/.test(name)) return;
+    if (!name) return;
+    const isCjk = /[\u4e00-\u9fa5]/.test(name);
+    if (!isCjk) {
+      // 英文别名也要认：visualDescription 走的是生图提示词那一路，几乎恒为
+      // 英文（"a cheerful cartoon bear ..."）。以前这里直接 return，导致英文
+      // 输入拿不到任何角色——上层 deriveInteractionFromText 见 mentions 为空
+      // 就整份放弃，交互层在英文分镜上等于不存在。
+      // 用词边界而不是 indexOf：bear 不能撞 beard，rat 不能撞 strawberry；
+      // 过短的别名（<=2）一律不认，避免 "ox" 之类的误命中。
+      if (name.length < 3) return;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`\\b${escaped}\\b`, 'i').exec(source);
+      if (!match) return;
+      const existing = hits.get(id);
+      if (!existing || match.index < existing.index) {
+        // 名条最终要给孩子看中文，英文命中时反查中文名
+        hits.set(id, { id, label: ID_TO_CN[id] || name, index: match.index });
+      }
+      return;
+    }
     let from = 0;
     while (true) {
       const index = source.indexOf(name, from);
@@ -255,6 +288,13 @@ export function findAnimalMentions(source: string): AnimalMention[] {
   for (const [name, id] of Object.entries(CN_ANIMAL_MAP)) consider(name, id);
   for (const subject of ANIMAL_SUBJECTS) {
     for (const keyword of subject.keywords) consider(keyword, subject.id);
+  }
+  // 英文名补一层：ANIMAL_VISUAL_TERMS 的第一个词约定就是这只动物的英文名
+  // （'bear': ['bear', 'fur', 'strong', 'forest']）。不加这层的话，只有
+  // tiger/rabbit/monkey 三个能靠 keywords 命中英文，其余动物在英文描
+  // 述里一律识别不到。
+  for (const [id, terms] of Object.entries(ANIMAL_VISUAL_TERMS)) {
+    if (terms[0]) consider(terms[0], id);
   }
 
   return Array.from(hits.values()).sort((a, b) => a.index - b.index);

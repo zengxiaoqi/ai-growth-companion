@@ -243,12 +243,24 @@ export function normalizeSceneInteraction(raw: unknown): SceneInteraction | null
  *  - 分镜推导 deriveInteractionFromText（决定这一幕怎么演）；
  *  - 队列排引擎（3D 幕只有内置模板能演，见 lesson-video-queue.service）。
  * 两处各写一份正则迟早会漂移，出现"分镜判成 3D、引擎却走 agent"的空转。
+ *
+ * 中英双语都要认：脚本里 narration 是中文，但 visualDescription 由生图
+ * 提示词那一路产出，几乎恒为英文（"the bear slides down the ramp"）。只认
+ * 中文的后果是线上 5 幕滑梯课全部落回 2D——大头像配一个小滑梯图标，看不
+ * 出"滑下来"，视觉 QA 直接打回重渲。这类漏判不会报错，只是静默降级，
+ * 比崩掉更难发现，所以判据必须覆盖两种语言。
  */
+const SLIDE_NOUN = /滑梯|\bslides?\b/i;
+const SLIDE_DESCEND =
+  /滑下来|滑下去|滑到底|往下滑|溜下来|从[^，。；]{0,8}滑|\bslid(?:e|es|ing)?\s+down\b|\bslid(?:e|es|ing)\b[^.]{0,16}\bdown\b/i;
+const DRIBBLE_CUE =
+  /(拍|运)[一]?(拍)?[^，。；]{0,2}(皮)?球|\bdribbl\w*|\bpat(?:s|ting)?\b[^.]{0,30}\b(?:ball|bounc\w*)|\bbounc\w*\b[^.]{0,30}\bball\b|\bball\b[^.]{0,30}\bbounc\w*/i;
+
 export function hasThreeMotionCue(text: string): Action3DMotion | null {
   const t = String(text || '');
   // 滑梯存在 + 明确的向下位移动词，缺一不可："爬上滑梯"是站着不动
-  if (/滑梯/.test(t) && /滑下来|滑下去|滑到底|往下滑|溜下来|从[^，。；]{0,8}滑/.test(t)) return 'slide';
-  if (/(拍|运)[一]?(拍)?[^，。；]{0,2}(皮)?球/.test(t)) return 'dribble';
+  if (SLIDE_NOUN.test(t) && SLIDE_DESCEND.test(t)) return 'slide';
+  if (DRIBBLE_CUE.test(t)) return 'dribble';
   return null;
 }
 

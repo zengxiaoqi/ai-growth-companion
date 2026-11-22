@@ -115,6 +115,44 @@ describe('VideoParamRepairService', () => {
     expect(result).toBeNull();
   });
 
+  it('环境背景不会被"修"成纯白底：plain 只当降级，neutral 照常放行', async () => {
+    const scene = { ...makeScene(), backgroundStyle: 'environment' as const };
+
+    // plain = SceneBackground 里的一块 #fff。把公园背景改成它，天空草地树全没了。
+    const toPlain = jest.fn().mockResolvedValue(
+      JSON.stringify({
+        scenes: [
+          {
+            index: 0,
+            beats: [
+              { sentenceIndex: 0, focus: 'n1', motion: 'focus-ring' },
+              { sentenceIndex: 1, focus: 'n2', motion: 'swell' },
+              { sentenceIndex: 2, focus: 'n3', motion: 'orbit' },
+            ],
+            backgroundStyle: 'plain',
+          },
+        ],
+      }),
+    );
+    const rejected = await makeService(toPlain).repair(
+      { scenes: [{ ...scene }] },
+      verdictWith([BLOCKER]),
+      '5-6',
+    );
+    expect(rejected!.scenes[0].backgroundStyle).toBe('environment');
+
+    // 同一个位置改成 neutral 是可以的：有主题柔光，不是白板
+    const toNeutral = jest.fn().mockResolvedValue(
+      JSON.stringify({ scenes: [{ index: 0, backgroundStyle: 'neutral' }] }),
+    );
+    const accepted = await makeService(toNeutral).repair(
+      { scenes: [{ ...scene }] },
+      verdictWith([BLOCKER]),
+      '5-6',
+    );
+    expect(accepted!.scenes[0].backgroundStyle).toBe('neutral');
+  });
+
   it('LLM 没听话时兜底网补齐未点名节点的 focus-ring', async () => {
     const generateJson = jest.fn().mockResolvedValue('{}');
     const service = makeService(generateJson);

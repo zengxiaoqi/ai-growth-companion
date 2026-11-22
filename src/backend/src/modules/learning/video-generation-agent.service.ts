@@ -637,7 +637,10 @@ export class VideoGenerationAgentService {
       // 角色交互层：把"小熊把皮球递给小兔"这类关系变成结构化动作，
       // 让画面演出"谁对谁做什么"而不是只把角色和道具并排摆出来。
       // 分镜若已带 interaction（LLM 新输出）优先用校验后的版本，否则从文案确定性提取。
-      const mentions = findAnimalMentions(visualDescription || source);
+      // 旁白也要进角色识别：visualDescription 是英文（"a cheerful bear"），
+      // 英文别名能认出角色但认不出"小熊乐乐"这种叫法；旁白才是孩子听到的名字，
+      // 而且总结幕常常只有旁白提到角色（"小熊先玩滑梯，再拍皮球"）。
+      const mentions = findAnimalMentions(`${visualDescription} ${narration} ${source}`);
       const interaction =
         normalizeSceneInteraction(scene?.interaction) ||
         deriveInteractionFromText({

@@ -38,6 +38,8 @@ import {
   normalizeSceneInteraction,
   type SceneInteraction,
 } from './video/scene-interaction';
+import { resolveAction3D, resolveActorRig } from './video/action3d-registry';
+import { THREE_ACTION_STAGE_TSX } from './video/three-stage-template';
 import {
   ageMotionProfile,
   beatWindows,
@@ -59,6 +61,15 @@ import {
   ENVIRONMENT_TAG_KEYWORDS,
   matchKeyword,
 } from './visual-keywords.config';
+
+/**
+ * 3D 舞台总开关。置 VIDEO_3D_STAGE=off 后，分镜不再挂 action3d，
+ * 滑梯/拍球退回 ActionStage 的 2D 降级演出——线上出问题时的唯一回滚动作，
+ * 不需要改代码或重部署。
+ */
+function is3dStageEnabled(): boolean {
+  return String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() !== 'off';
+}
 
 /** 场景里点名的实物 → 别名。与矢量库 assets/vector 下的素材一一对应。 */
 const SCENE_PROP_KEYWORDS: Record<string, string[]> = {
@@ -261,6 +272,14 @@ export class VideoGenerationAgentService {
       {
         path: 'GeneratedLesson.tsx',
         content: this.buildGeneratedLessonTsx(),
+      },
+      {
+        // 3D 舞台（方案 A）。单独成文件而不是塞进 GeneratedLesson 模板里：
+        // 组件本身有两百多行几何与动作代码，混进模板串会让分镜层的改动极难定位。
+        // 任务目录在 src/video-remotion/.generated/ 下，因此能正常解析
+        // three / @react-three/fiber / @remotion/three。
+        path: 'three/ThreeActionStage.tsx',
+        content: THREE_ACTION_STAGE_TSX,
       },
     ];
 
@@ -687,6 +706,28 @@ export class VideoGenerationAgentService {
           ? this.buildSceneChoreography(scene.beats, narration, durationSec, ageGroup, sceneGraph, figure)
           : undefined;
 
+      // 三维动作：分镜只给"谁在什么道具上做什么"，坐标与资产在这里定死。
+      // 解析失败（id 写错、动作与道具不匹配、场景太短）就整份丢掉，
+      // 渲染层退回 2D 演出——绝不带着半截参数去建几何体。
+      const action3d =
+        interaction && is3dStageEnabled()
+          ? resolveAction3D(interaction.action3d, {
+              verb: interaction.verb,
+              actorId: interaction.actors[0]?.id,
+              propId: interaction.propId,
+              sceneDurationFrames: Math.round(durationSec * 30),
+            })
+          : null;
+      const { action3d: _declaredAction3d, ...interactionBase } = interaction ?? ({} as SceneInteraction);
+      const interactionForRender = interaction
+        ? {
+            ...interactionBase,
+            ...(action3d
+              ? { action3d: { ...action3d, rig: resolveActorRig(action3d.actorId) } }
+              : {}),
+          }
+        : undefined;
+
       return {
         id: `scene-${index + 1}`,
         title,
@@ -696,7 +737,7 @@ export class VideoGenerationAgentService {
         assetKey,
         assetTags: tags,
         props,
-        interaction: interaction || undefined,
+        interaction: interactionForRender,
         action,
         habitat,
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
@@ -931,6 +972,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { Audio } from "@remotion/media";
+import { ThreeActionStage } from "./three/ThreeActionStage";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -963,12 +1005,38 @@ type ChoreographyView = {
  * point=指向、hold=手持。演员与道具是开放数据，坐标由下面的布局函数确定。
  */
 type InteractionActorView = { id: string; label: string; role: string };
+/**
+ * 三维动作视图（后端 action3d-registry.ts 的解析产物）。
+ * 这里的每个数字都已经在后端定死：渲染层不做任何"再猜一次"的计算，
+ * 保证同一份分镜在任何渲染批次里都得到同一画面。
+ */
+type Action3DView = {
+  renderer: "3d-procedural" | "3d-glb";
+  motion: "slide" | "dribble";
+  actorId: string;
+  propId?: string;
+  start: [number, number, number];
+  end: [number, number, number];
+  bounce?: { periodFrames: number; height: number };
+  ballRestY?: number;
+  durationFrames: number;
+  contactFrame?: number;
+  rig: {
+    fur: string;
+    belly: string;
+    ears: "round" | "long" | "pointy" | "flap" | "none";
+    tail: "stub" | "long" | "bushy";
+    scale: number;
+  };
+};
 type SceneInteractionView = {
   verb: string;
   actors: InteractionActorView[];
   propId?: string;
   speech?: string;
   caption?: string;
+  /** 有它就按三维动作演出（三个条件同时满足：动作受支持、资源已登记、开关开启） */
+  action3d?: Action3DView;
 };
 
 type GeneratedScene = {
@@ -1875,6 +1943,64 @@ const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ sc
   const speaker = actors.find((a) => a.role === "speaker") || actors[0];
   const helperA = actors[0];
   const helperB = actors[1];
+
+  /**
+   * 2D 降级：三维舞台不可用时（three 依赖缺失、VIDEO_3D_STAGE=off、动作未登记）
+   * 仍然要演出滑梯和拍球，否则这两个新动词会一路走到最后的 return null，
+   * 整幕只剩背景和字幕。降级版只保留"位移 + 节奏"这两个孩子能看懂的信息，
+   * 不假装有接触——接触是 3D 分支的职责。
+   */
+  if (it.verb === "slide" && helperA) {
+    const t = interpolate(frame, [0, duration * 0.86], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    const travel = Math.pow(t, 1.5);
+    const x = 300 + travel * 980;
+    const y = 250 + travel * 470;
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          <polygon points="250,210 1740,900 1740,986 250,296" fill="#ffb347" stroke="#e08b2f" strokeWidth={7} />
+          <polygon points="250,210 1740,900 1740,930 250,240" fill="#ffd08a" opacity={0.7} />
+          <rect x="120" y="180" width="150" height="18" rx="9" fill="#cf9a63" />
+          <rect x="120" y="180" width="18" height={760} fill="#cf9a63" />
+          <rect x="252" y="180" width="18" height="760" fill="#cf9a63" />
+          {[0, 1, 2, 3].map((i) => (
+            <rect key={i} x="128" y={300 + i * 170} width="132" height="16" rx="8" fill="#cf9a63" />
+          ))}
+        </svg>
+        <div style={{ position: "absolute", left: x, top: y, transform: "rotate(24deg)" }}>
+          <ActorFigure actor={helperA} frame={frame} facing={1} gesture="wave" accent={accent} />
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  if (it.verb === "dribble" && helperA) {
+    // 与 3D 分支同一套节奏：周期边界是球落地，熊掌在最高点搭上球顶
+    const period = 18;
+    const phase = (frame % period) / period;
+    const lift = Math.abs(Math.sin(Math.PI * phase));
+    const ballX = 1240;
+    const ballY = 800 - lift * 300;
+    const squash = 1 - 0.12 * Math.max(0, 1 - lift * 4);
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 380, top: 430 }}>
+          <ActorFigure actor={helperA} frame={frame} facing={1} gesture="offer" accent={accent} />
+        </div>
+        <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          <ellipse cx={ballX} cy="905" rx={120 - lift * 50} ry={26 - lift * 10} fill="#1b2a33" opacity={0.16} />
+          <g transform={"translate(" + ballX + " " + ballY + ") scale(" + (1 / squash).toFixed(3) + " " + squash.toFixed(3) + ")"}>
+            <circle cx="0" cy="0" r="86" fill="#ef5f58" stroke="#c8443e" strokeWidth={6} />
+            <path d="M -86 0 A 86 86 0 0 1 86 0" fill="none" stroke={accent} strokeWidth={14} opacity={0.85} />
+            <path d="M 0 -86 A 86 86 0 0 1 0 86" fill="none" stroke={accent} strokeWidth={14} opacity={0.85} />
+          </g>
+        </svg>
+      </AbsoluteFill>
+    );
+  }
 
   // 递给：左角色把道具沿弧线送到右角色手边
   if (it.verb === "handover" && giver && receiver) {
@@ -3965,6 +4091,14 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   // 角色交互优先于概念关系图：有"小熊把皮球递给小兔"这种明确动作时，
   // 就该演出这个动作，而不是退回抽象节点图。
   const hasInteraction = !hasFigure && !!scene.interaction && (scene.interaction.actors || []).length > 0;
+  // 三维舞台的准入：动作受支持，且后端已把坐标/资产解析成确定值。
+  // 命中就取代 2D 演出；关掉（VIDEO_3D_STAGE=off 或依赖缺失）时同一分镜
+  // 仍走 ActionStage 的降级分支，内容不变、只是没有接触关系。
+  const action3d = hasInteraction ? scene.interaction!.action3d : undefined;
+  const use3d = !!action3d && (action3d.motion === "slide" || action3d.motion === "dribble");
+  const accent = scene.accentColor || "#4d96ff";
+  // 3D 用冻结后的局部帧：收尾窗口里画面要钉住，不能自己继续动
+  const stageFrame = useLocalFrame();
   const hasGraph =
     !hasFigure && !hasInteraction && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
   const backgroundStyle = scene.backgroundStyle || "environment";
@@ -4010,6 +4144,22 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       </div>
       {hasFigure ? (
         <FigureStage scene={scene} duration={duration} />
+      ) : use3d && action3d ? (
+        <ThreeActionStage
+          frame={stageFrame}
+          scene={{
+            motion: action3d.motion,
+            actorId: action3d.actorId,
+            rig: action3d.rig,
+            start: action3d.start,
+            end: action3d.end,
+            bounce: action3d.bounce,
+            ballRestY: action3d.ballRestY,
+            durationFrames: action3d.durationFrames,
+            accent,
+            label: scene.interaction!.actors[0] ? scene.interaction!.actors[0].label : undefined,
+          }}
+        />
       ) : hasInteraction ? (
         <ActionStage scene={scene} duration={duration} />
       ) : hasGraph ? (

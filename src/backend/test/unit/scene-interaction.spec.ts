@@ -76,6 +76,33 @@ describe('deriveInteractionFromText', () => {
   it('没有角色或没有明确关系时返回 null，退回通用构图', () => {
     expect(derive('一片美丽的森林', { propIds: [] })).toBeNull();
   });
+
+  // ---- 三维动作（slide / dribble）-------------------------------------------
+  // 这两个动词是 3D 舞台的入口：命中就带 action3d，交给渲染层沿斜面滑行 /
+  // 掌球接触。误判的代价很高（会强行把普通场景做成 3D），所以判定条件要窄。
+
+  it('"小熊从滑梯上滑下来"识别成 slide，并带上三维动作描述', () => {
+    const r = derive('小熊坐在滑梯顶端，顺着滑梯滑下来，稳稳落在草地上', { propIds: ['slide'] });
+    expect(r?.verb).toBe('slide');
+    expect(r?.propId).toBe('slide');
+    expect(r?.action3d).toMatchObject({ motion: 'slide', renderer: '3d-procedural', actorId: 'bear' });
+    expect(r?.actors).toHaveLength(1);
+  });
+
+  it('只爬上滑梯、没有下滑动作时不判成 slide', () => {
+    expect(derive('小熊爬上滑梯，扶着扶手站稳', { propIds: ['slide'] })).toBeNull();
+  });
+
+  it('"小熊拍皮球"识别成 dribble，道具固定为 ball', () => {
+    const r = derive('小熊站在草地上拍皮球，球弹得高高的', { propIds: ['ball'] });
+    expect(r?.verb).toBe('dribble');
+    expect(r?.propId).toBe('ball');
+    expect(r?.action3d).toMatchObject({ motion: 'dribble', actorId: 'bear' });
+  });
+
+  it('"拍手"这类同字不同义的句子不会误判成拍球', () => {
+    expect(derive('小熊开心地拍拍手', { propIds: [] })).toBeNull();
+  });
 });
 
 describe('normalizeSceneInteraction', () => {
@@ -99,5 +126,35 @@ describe('normalizeSceneInteraction', () => {
   it('非法动词 / 空演员直接返回 null', () => {
     expect(normalizeSceneInteraction({ verb: 'teleport', actors: [{ id: 'bear', label: '小熊' }] })).toBeNull();
     expect(normalizeSceneInteraction({ verb: 'handover', actors: [] })).toBeNull();
+  });
+
+  it('透传合法的 action3d，并丢弃越界坐标（防止 NaN 进几何体）', () => {
+    const ok = normalizeSceneInteraction({
+      verb: 'slide',
+      actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+      propId: 'slide',
+      action3d: { motion: 'slide', actorId: 'BEAR', renderer: '3d-glb', start: [0, 3, 0], end: [4, 0, 0] },
+    });
+    expect(ok?.action3d).toMatchObject({
+      motion: 'slide',
+      actorId: 'bear',
+      renderer: '3d-glb',
+      start: [0, 3, 0],
+      end: [4, 0, 0],
+    });
+
+    const dirty = normalizeSceneInteraction({
+      verb: 'slide',
+      actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+      action3d: { motion: 'slide', actorId: 'bear', start: [0, 9999, 0] },
+    });
+    expect(dirty?.action3d?.start).toBeUndefined();
+
+    const badMotion = normalizeSceneInteraction({
+      verb: 'slide',
+      actors: [{ id: 'bear', label: '小熊', role: 'helper' }],
+      action3d: { motion: 'teleport', actorId: 'bear' },
+    });
+    expect(badMotion?.action3d).toBeUndefined();
   });
 });

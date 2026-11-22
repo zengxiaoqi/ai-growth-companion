@@ -175,6 +175,8 @@ describe('VideoGenerationAgentService', () => {
       'index.ts',
       'Root.tsx',
       'GeneratedLesson.tsx',
+      // 3D 舞台作为独立文件随任务目录下发，GeneratedLesson 用相对路径 import
+      'three/ThreeActionStage.tsx',
     ]);
     expect(generatedCode).toContain('Img');
     expect(generatedCode).toContain('TigerSvg');
@@ -517,5 +519,43 @@ describe('VideoGenerationAgentService', () => {
       // 有具体动物 → 环境背景，和接画板之前一致
       expect(built.backgroundStyle).toBe('environment');
     });
+  });
+
+  it('滑梯分镜解析成 3D 动作并随 props 下发（渲染层不再自己算坐标）', async () => {
+    const service = createService(new VisualAssetService());
+    const manifest = await service.generateRemotionComposition({
+      title: '小熊滑滑梯',
+      topic: '小熊滑滑梯',
+      domain: 'social',
+      totalDurationSec: 6,
+      sceneCount: 1,
+      scenes: [
+        {
+          id: 'scene-1',
+          sequence: 1,
+          title: '小熊滑滑梯',
+          concept: '排队轮流',
+          narration: '小熊爬上滑梯，从滑梯上滑下来，稳稳落在草地上。',
+          onScreenText: '滑下来',
+          visualDescription: '小熊坐在滑梯顶端，顺着滑梯滑下来',
+          durationSec: 6,
+          transitionToNext: 'fade',
+          emphasis: 'core-concept',
+        },
+      ],
+    } as any);
+
+    const built = manifest.props.scenes[0] as any;
+    expect(built.interaction?.verb).toBe('slide');
+    expect(built.interaction?.action3d).toMatchObject({
+      motion: 'slide',
+      propId: 'slide',
+      actorId: 'bear',
+    });
+    // 坐标与造型必须已由注册表补齐，渲染层拿到的是确定值
+    expect(built.interaction.action3d.start).toEqual(expect.any(Array));
+    expect(built.interaction.action3d.start).toHaveLength(3);
+    expect(built.interaction.action3d.rig.fur).toBeTruthy();
+    expect(built.interaction.action3d.durationFrames).toBeGreaterThan(0);
   });
 });

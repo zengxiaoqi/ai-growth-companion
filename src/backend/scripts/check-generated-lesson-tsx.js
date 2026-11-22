@@ -27,8 +27,10 @@ if (end < 0) {
 }
 const raw = source.slice(bodyStart, end);
 
-// 模板里只有一处 JS 插值：ANIMAL_EMOJI_MAP 的 JSON
-const template = raw.replace('${JSON.stringify(ANIMAL_EMOJI_MAP)}', '{}');
+// 模板里的 JS 插值（ANIMAL_EMOJI_MAP / VECTOR_ANIMAL_IDS / SCENE_PROP_LABELS …）
+// 都是把后端常量 JSON 化后塞进 TSX。这里统一换成 [] 再转译——脚本只检查语法，
+// 不检查数值；以前只替换第一处，剩下两处会让检查恒报 8 个假错误，等于没在守门。
+const template = raw.replace(/\$\{[^}]*\}/g, '[]');
 
 const result = ts.transpileModule(template, {
   compilerOptions: {

@@ -9,6 +9,7 @@
     "build": "nest build",
     "assets:vector": "node scripts/fetch-vector-assets.js",
     "check:lesson-template": "node scripts/check-generated-lesson-tsx.js",
+    "sync:three-stage": "node scripts/sync-three-stage.cjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

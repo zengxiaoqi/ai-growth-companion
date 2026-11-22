@@ -28,11 +28,22 @@ import { VideoGenerationAgentService } from './video-generation-agent.service';
 import { VisualQaService, type SceneQaInput, type SceneTimelineEntry, type VisualQaVerdict } from './visual-qa.service';
 import { VideoParamRepairService } from './video-param-repair.service';
 import { AgentRemotionService } from './agent-remotion.service';
+import { hasThreeMotionCue } from './video/scene-interaction';
 
 type ProviderStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
 
 type RenderAttemptEngine = VideoRenderEngine | 'dynamic-remotion' | 'agent-remotion';
 type RemotionFailureKind = 'environment' | 'generated-code' | 'unknown';
+
+/**
+ * 渲染器语法版本，参与缓存 key 计算。
+ *
+ * 为什么必须进 key：3D 舞台改的是"同一份分镜画出不同画面"。内容哈希不变时
+ * 会命中 2D 时代的旧 MP4，用户点「重新生成」也拿不到新画面，等于改了没用。
+ * 升版本号（3d-v1 → 3d-v2）会让旧缓存整体失效一次，这是有意的：
+ * 只有拿到新画面，版本才有意义。设成空串可临时回到"纯内容哈希"的行为。
+ */
+const RENDERER_SCHEMA_VERSION = String(process.env.VIDEO_RENDERER_SCHEMA_VERSION ?? '3d-v1').trim();
 
 const FALLBACK_RENDER_ENGINES: RenderAttemptEngine[] = [
   'agent-remotion',
@@ -770,7 +781,7 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
   }> {
     payload = this.ensureTopicAlignedVideoPayload(payload);
     const requestedEngine = this.normalizeRenderEngine(task.renderEngine);
-    const engineOrder = this.resolveEngineOrder(requestedEngine);
+    const engineOrder = this.resolveEngineOrder(requestedEngine, payload);
     const errors: string[] = [];
 
     this.logger.log(
@@ -2119,6 +2130,8 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
       contentId: content.id,
       updatedAt: content.updatedAt || '',
       payload,
+      // 渲染器版本进 key：同一份分镜换了渲染语法（2D → 3D 舞台）必须重新出片
+      rendererVersion: RENDERER_SCHEMA_VERSION,
     });
     return createHash('sha1').update(seed).digest('hex');
   }
@@ -2153,7 +2166,35 @@ export class LessonVideoQueueService implements OnModuleInit, OnModuleDestroy {
     return 'auto';
   }
 
-  private resolveEngineOrder(engine: VideoRenderEngine): RenderAttemptEngine[] {
+  private resolveEngineOrder(
+    engine: VideoRenderEngine,
+    payload?: Record<string, any>,
+  ): RenderAttemptEngine[] {
+    const base = this.baseEngineOrder(engine);
+    // 显式指定引擎时尊重调用方；只有 auto 才为了 3D 幕调整顺序
+    if (engine !== 'auto') return base;
+    if (!this.shouldPreferBuiltInTemplate(payload)) return base;
+    // 3D 动作幕（滑梯/拍球）只有内置模板演得出来：agent 引擎是让模型自己写一份
+    // GeneratedLesson.tsx，它不知道 action3d 的存在。不把 dynamic-remotion 提前，
+    // 3D 分支在默认配置下永远不会被走到（默认顺序里 agent-remotion 排第一）。
+    return ['dynamic-remotion', ...base.filter((item) => item !== 'dynamic-remotion')];
+  }
+
+  /**
+   * 分镜里是否有需要三维演出的幕。
+   * 判据用 scene-interaction 的 hasThreeMotionCue，与分镜推导共用同一套正则，
+   * 避免"分镜判成 3D、引擎却走 agent"的空转。
+   */
+  private shouldPreferBuiltInTemplate(payload?: Record<string, any>): boolean {
+    if (String(process.env.VIDEO_3D_STAGE ?? 'on').trim().toLowerCase() === 'off') return false;
+    const scenes = Array.isArray(payload?.__storyboard?.scenes) ? payload.__storyboard.scenes : [];
+    return scenes.some((scene: Record<string, any>) => {
+      const text = `${scene?.visualDescription || ''} ${scene?.narration || ''}`;
+      return hasThreeMotionCue(text) !== null;
+    });
+  }
+
+  private baseEngineOrder(engine: VideoRenderEngine): RenderAttemptEngine[] {
     if (engine === 'hyperframes') return ['hyperframes'];
     if (engine === 'remotion') return ['dynamic-remotion', 'remotion'];
     if (engine === 'dsh') return ['dsh', 'dynamic-remotion', 'remotion', 'hyperframes'];

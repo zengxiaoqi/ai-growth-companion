@@ -1,0 +1,84 @@
+/**
+ * 三维动作资产注册表的契约测试。
+ *
+ * 这一层的唯一职责是"把意图变成确定的数字与资产"，所以测试盯三件事：
+ *  1. 白名单：没登记的角色/道具回落到默认值，绝不产生不存在的模型路径；
+ *  2. 一致性：动作与道具必须匹配（滑梯配 slide、球配 dribble），不匹配就整份拒绝；
+ *  3. 确定性：同一份输入永远解析出同一组坐标，且动作时长被压进场景时长。
+ */
+
+import {
+  ACTOR_RIGS,
+  DEFAULT_ACTOR_RIG,
+  MOTION_DEFAULTS,
+  resolveAction3D,
+  resolveActorRig,
+  resolvePropKind,
+} from '../../src/modules/learning/video/action3d-registry';
+
+describe('resolveActorRig', () => {
+  it('已登记角色返回自己的造型参数', () => {
+    expect(resolveActorRig('bear').fur).toBe(ACTOR_RIGS.bear.fur);
+    expect(resolveActorRig('RABBIT').ears).toBe('long');
+  });
+
+  it('未登记角色回落默认形象，不会返回 undefined', () => {
+    expect(resolveActorRig('unicorn-with-hat')).toEqual(DEFAULT_ACTOR_RIG);
+    expect(resolveActorRig(undefined)).toEqual(DEFAULT_ACTOR_RIG);
+  });
+});
+
+describe('resolvePropKind', () => {
+  it('只认登记过的道具', () => {
+    expect(resolvePropKind('slide')).toBe('slide');
+    expect(resolvePropKind('BALL')).toBe('ball');
+    expect(resolvePropKind('cookie')).toBeNull();
+    expect(resolvePropKind(undefined)).toBeNull();
+  });
+});
+
+describe('resolveAction3D', () => {
+  it('只给 verb 也能解析：坐标与时长由注册表补齐', () => {
+    const r = resolveAction3D(undefined, { verb: 'slide', actorId: 'bear', sceneDurationFrames: 180 });
+    expect(r).toMatchObject({
+      motion: 'slide',
+      propId: 'slide',
+      renderer: '3d-procedural',
+      actorId: 'bear',
+    });
+    expect(r?.start).toEqual(MOTION_DEFAULTS.slide.start);
+    expect(r?.end).toEqual(MOTION_DEFAULTS.slide.end);
+    // 动作时长不超过默认值，且必须落在场景时长之内（留出收尾）
+    expect(r!.durationFrames).toBeLessThanOrEqual(MOTION_DEFAULTS.slide.durationFrames);
+    expect(r!.durationFrames).toBeLessThan(180);
+  });
+
+  it('场景很短时把动作压进场景，但不低于可控下限', () => {
+    const r = resolveAction3D(undefined, { verb: 'dribble', actorId: 'bear', sceneDurationFrames: 20 });
+    expect(r!.durationFrames).toBe(24);
+  });
+
+  it('动作与道具不匹配时整份拒绝（防止"骑着球滑滑梯"）', () => {
+    expect(resolveAction3D({ renderer: '3d-procedural', motion: 'slide', actorId: 'bear', propId: 'ball' })).toBeNull();
+    expect(resolveAction3D(undefined, { verb: 'slide', actorId: 'bear', propId: 'ball' })).toBeNull();
+  });
+
+  it('没有动作也没有对应动词时返回 null，调用方退回 2D 演出', () => {
+    expect(resolveAction3D(undefined, { verb: 'handover', actorId: 'bear' })).toBeNull();
+    expect(resolveAction3D(undefined, {})).toBeNull();
+  });
+
+  it('拍球带稳定的周期与静置高度，接触帧固定在周期起点', () => {
+    const a = resolveAction3D({ renderer: '3d-procedural', motion: 'dribble', actorId: 'bear' }, {});
+    const b = resolveAction3D({ renderer: '3d-procedural', motion: 'dribble', actorId: 'bear' }, {});
+    expect(a).toEqual(b);
+    expect(a?.bounce?.periodFrames).toBe(18);
+    expect(a?.contactFrame).toBe(0);
+    expect(a?.ballRestY).toBe(0.27);
+  });
+
+  it('滑梯的接触帧是落地点，即动作末帧', () => {
+    const r = resolveAction3D({ renderer: '3d-procedural', motion: 'slide', actorId: 'bear' }, {});
+    expect(r?.contactFrame).toBe(r?.durationFrames);
+  });
+});

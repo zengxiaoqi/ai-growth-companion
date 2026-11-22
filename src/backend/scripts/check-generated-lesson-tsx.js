@@ -57,7 +57,9 @@ const mustHave = [
   'const GroundShadow',
   'const splitNarration',
   'spring({ frame, fps',
-  'stageScale * breath * 1.4',
+  // 头像分支的取景必须来自景别层，不能再写死 top/scale
+  'portrait.scale',
+  'portrait.top',
   'assetProvider === "vector"',
   'built-in template is authoritative',
   'const SceneGraphStage',

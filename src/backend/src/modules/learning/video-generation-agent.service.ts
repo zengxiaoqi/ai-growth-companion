@@ -1043,6 +1043,7 @@ import { ThreeActionStage } from "./three/ThreeActionStage";
 import type { ThreeStageScene } from "./three/ThreeActionStage";
 import { Puppet2D } from "./character/Puppet2D";
 import type { MotionOp } from "./character/pose";
+import { portraitFraming, propSlot } from "./character/stage-layout";
 
 const ANIMAL_EMOJI_MAP: Record<string, string> = ${JSON.stringify(ANIMAL_EMOJI_MAP)};
 const VECTOR_ANIMAL_IDS: string[] = ${JSON.stringify(VECTOR_ANIMAL_IDS)};
@@ -4209,6 +4210,13 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   const hasGraph =
     !hasFigure && !hasInteraction && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
   const backgroundStyle = scene.backgroundStyle || "environment";
+  // 头像分支的取景盒子：贴地用底、离地 92%。徽章没有脚也没有地面，
+  // 不算世界坐标，但它同样不能侵入标题带——位置与缩放都从这里来。
+  const portrait = portraitFraming();
+  // 指认幕的道具槽位：站哪边就把道具放另一边，别挡住角色。坐标与尺寸都不再手写
+  const pointSlot = propSlot(
+    puppet && puppet.start && puppet.end && puppet.end[0] < puppet.start[0] ? -1 : 1,
+  );
 
   return (
     // 冻结在"子组件开始收尾淡出"之前（各组件都在 duration 前 ~12 帧起淡出）。
@@ -4285,9 +4293,7 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
               puppet.motion === "point" && scene.interaction!.propId
                 ? [
                     {
-                      x: 1430,
-                      y: 690,
-                      size: 280,
+                      ...pointSlot,
                       label: PROP_LABELS[scene.interaction!.propId] || "",
                       node: (
                         <PropArt id={scene.interaction!.propId} x={0} y={0} frame={stageFrame} />
@@ -4332,10 +4338,16 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
               position: "absolute",
               left: 0,
               right: 0,
-              top: 330,
+              // 景别：徽章是"特写"这一档，位置与缩放都由取景定律给出。
+              // 原来写死 top: 330 / scale 1.4，与标题带没有任何关系，
+              // 换字号或换容器尺寸就会压到标题上去。
+              // transform-origin 在底边中点：放大只往上长，下沿永远贴地。
+              top: portrait.top,
+              transformOrigin: "50% 100%",
               display: "flex",
               justifyContent: "center",
-              transform: "translateY(" + stageY + "px) scale(" + stageScale * breath * 1.4 + ") rotate(" + sway + "deg)",
+              transform:
+                "translateY(" + stageY + "px) scale(" + stageScale * breath * portrait.scale + ") rotate(" + sway + "deg)",
             }}
           >
             <div style={{ position: "relative", width: 760, height: 470 }}>

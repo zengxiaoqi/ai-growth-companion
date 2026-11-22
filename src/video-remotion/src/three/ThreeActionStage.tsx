@@ -34,6 +34,10 @@ import {
   type Pose,
   type Tri,
 } from "../character/pose";
+// 取景规则与布景几何都在 character/ 下：相机不再是"每个动作一组魔法数字"，
+// 而是由景别（worldHeight + shot）反推，地面永远落在 STAGE.groundY。
+import { framingFor, shotForMotion, STAGE, type Shot } from "../character/stage-layout";
+import { LADDER, SLIDE, actorHeadTop, slideWorldHeight } from "../character/setpiece";
 
 export type ThreeRig = {
   fur: string;
@@ -59,24 +63,19 @@ export type ThreeStageScene = {
 
 
 /* ------------------------------------------------------------------ *
- * 场景常量：相机与角色尺寸
+ * 取景
  *
- * 相机放在 z 轴上、y=0、看向 -Z（R3F 默认相机的朝向），画面垂直中心对应
- * 世界 lookY。这样"地面落在屏幕哪一行"是一个可算的量：
- *   屏幕Y = 540 + lookY * ppu，ppu = 1080 / (2 * z * tan(fov/2))
- * 滑梯需要装下 y=0…3.6 的整个结构，用 z=8（ppu≈185，地面 799，顶端 188）；
- * 拍球只需要装下小熊，用 z=6.2（ppu≈231，小熊约 380px 高）。
- * 两套取景共用同一 fov，切换动作时透视感一致。
+ * 相机不再有"按动作写死的一套参数"（曾经是 slide: z=8/lookY=1.55、
+ * dribble: z=6.2/lookY=1.15）。那套写法有两个后果：地面行跟着动作跳
+ * （2D 856、3D 827），以及"结构再高一点就出画"无法自动处理。
  *
- * 注意：不能用 `camera.position.y` 抬高视角——R3F 的默认相机会 lookAt(0,0,0)，
- * 抬高相机等于让画面俯视，地面会被拉到中线（实测地面落在 551px 而不是 799px）。
- * 正确做法是相机留在 y=0，把整个世界下移 lookY（见 <group position> 那一层）。
+ * 现在只由取景定律给一个 ppu，相机距离与 lookY 反推：
+ *   屏幕Y = 540 + lookY * ppu ⇒ lookY = (地面行 − 540) / ppu
+ *   z = 1080 / (2 * ppu * tan(fov/2))
+ *
+ * 注意：不能用 camera.position.y 抬高视角——R3F 的默认相机会 lookAt(0,0,0)，
+ * 抬高相机等于让画面俯视，地面会被拉到中线。相机留在 y=0，把世界下移 lookY。
  * ------------------------------------------------------------------ */
-const CAMERA = { fov: 40 };
-const VIEW = {
-  slide: { z: 8, lookY: 1.55 },
-  dribble: { z: 6.2, lookY: 1.15 },
-};
 
 
 /**
@@ -328,6 +327,10 @@ const Blob: React.FC<{ x: number; z: number; y?: number; r: number; opacity: num
 
 /* ------------------------------------------------------------------ *
  * 道具：滑梯
+ *
+ * 几何全部来自 character/setpiece.ts。这里只做"参数 → mesh"的翻译，
+ * 因为"平台多厚、护边多高"同时决定取景高度（见 slideWorldHeight），
+ * 两处各写一份，就会出现"画面装下了结构、取景却算矮了"的分裂。
  * ------------------------------------------------------------------ */
 const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
   const dx = end[0] - start[0];
@@ -342,39 +345,39 @@ const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
     <group>
       {/* 滑面 */}
       <mesh position={mid} rotation={[0, 0, angle]}>
-        <boxGeometry args={[len, 0.12, 1.4]} />
+        <boxGeometry args={[len, SLIDE.deckThickness, SLIDE.deckWidth]} />
         <meshStandardMaterial color={deckColor} roughness={0.7} />
       </mesh>
       {/* 两侧护边 */}
       {[-1, 1].map((side) => (
         <mesh
           key={side}
-          position={[mid[0], mid[1] + 0.09, side * 0.72]}
+          position={[mid[0], mid[1] + SLIDE.railLift, side * SLIDE.railHalf]}
           rotation={[0, 0, angle]}
         >
-          <boxGeometry args={[len, 0.18, 0.1]} />
+          <boxGeometry args={[len, SLIDE.railHeight, SLIDE.railThickness]} />
           <meshStandardMaterial color={railColor} roughness={0.65} />
         </mesh>
       ))}
       {/* 顶端平台 */}
-      <mesh position={[start[0] - Math.cos(angle) * 0.75, start[1] + 0.06, 0]}>
-        <boxGeometry args={[1.6, 0.12, 1.4]} />
+      <mesh position={[start[0] - Math.cos(angle) * SLIDE.platformInset, start[1] + SLIDE.platformThickness / 2, 0]}>
+        <boxGeometry args={[SLIDE.platformWidth, SLIDE.platformThickness, SLIDE.deckWidth]} />
         <meshStandardMaterial color={deckColor} roughness={0.7} />
       </mesh>
       {/* 顶端支柱：只留两根，四根会把左侧糊成一片栅栏 */}
       {[-1, 1].map((side) => (
         <mesh
           key={`post-${side}`}
-          position={[start[0] - Math.cos(angle) * 1.2, start[1] / 2 - 0.06, side * 0.6]}
+          position={[start[0] - Math.cos(angle) * SLIDE.topPostInset, start[1] / 2 - SLIDE.postLift, side * SLIDE.topPostHalfZ]}
         >
-          <cylinderGeometry args={[0.08, 0.08, Math.max(0.3, start[1] - 0.1), 10]} />
+          <cylinderGeometry args={[SLIDE.topPostRadius, SLIDE.topPostRadius, Math.max(0.3, start[1] - SLIDE.topPostFoot), 10]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
       {/* 底端支柱：滑道末端离地 0.3，不撑起来就是一块悬空的板 */}
       {[-1, 1].map((side) => (
-        <mesh key={`end-post-${side}`} position={[end[0] - 0.3, end[1] / 2, side * 0.5]}>
-          <cylinderGeometry args={[0.07, 0.07, Math.max(0.12, end[1] - 0.06), 10]} />
+        <mesh key={`end-post-${side}`} position={[end[0] - SLIDE.endPostInset, end[1] / 2, side * SLIDE.endPostHalfZ]}>
+          <cylinderGeometry args={[SLIDE.endPostRadius, SLIDE.endPostRadius, Math.max(0.12, end[1] - SLIDE.endPostFoot), 10]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
@@ -382,23 +385,23 @@ const SlideRig: React.FC<{ start: Tri; end: Tri }> = ({ start, end }) => {
       {[-1, 1].map((side) => (
         <mesh
           key={`ladder-${side}`}
-          position={[start[0] - Math.cos(angle) * 1.5 + side * 0.28, start[1] / 2 - 0.06, 0]}
+          position={[start[0] - Math.cos(angle) * SLIDE.ladderInset + side * LADDER.sideRailHalf, start[1] / 2 - SLIDE.postLift, 0]}
         >
-          <cylinderGeometry args={[0.05, 0.05, Math.max(0.5, start[1] - 0.12), 8]} />
+          <cylinderGeometry args={[LADDER.sidePostRadius, LADDER.sidePostRadius, Math.max(0.5, start[1] - SLIDE.ladderFoot), 8]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
-      {[0, 1, 2, 3, 4].map((i) => (
+      {Array.from({ length: LADDER.sideRungs }).map((_, i) => (
         <mesh
           key={`rung-${i}`}
           position={[
-            start[0] - Math.cos(angle) * 1.5,
-            0.28 + i * ((Math.max(0.5, start[1] - 0.3) - 0.28) / 4),
+            start[0] - Math.cos(angle) * SLIDE.ladderInset,
+            LADDER.sideRungStart + i * ((Math.max(0.5, start[1] - 0.3) - LADDER.sideRungStart) / (LADDER.sideRungs - 1)),
             0,
           ]}
           rotation={[0, 0, Math.PI / 2]}
         >
-          <cylinderGeometry args={[0.04, 0.04, 0.56, 8]} />
+          <cylinderGeometry args={[LADDER.sideRungRadius, LADDER.sideRungRadius, LADDER.sideRungLength, 8]} />
           <meshStandardMaterial color={postColor} roughness={0.8} />
         </mesh>
       ))}
@@ -439,11 +442,25 @@ export const ThreeActionStage: React.FC<{
   /** 场景局部帧（由 GeneratedLesson 的 useLocalFrame 传入，不用 useCurrentFrame：
    *  收尾窗口里画面要被钉在冻结帧上，否则最后一秒会自己动起来） */
   frame: number;
-}> = ({ scene, frame }) => {
+  /** 景别覆盖。不给就按动作判定：slide → wide，dribble → medium */
+  shot?: Shot;
+}> = ({ scene, frame, shot: shotOverride }) => {
   const { width, height } = useVideoConfig();
   const accent = scene.accent || "#4d96ff";
   const isSlide = scene.motion === "slide";
-  const view = isSlide ? VIEW.slide : VIEW.dribble;
+  const scale = scene.rig.scale || 1;
+
+  /**
+   * 取景：滑梯要装下"结构 + 平台上的坐姿角色"（contentHeight），
+   * 而"角色该画多大"只看站立身高（subjectHeight）——把坐姿高度当主体尺寸，
+   * 滑梯会被无谓推远。地面行固定，所以 2D/3D 之间切换时脚不会上下跳。
+   */
+  const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
+  const worldHeight = isSlide
+    ? slideWorldHeight(scene.start, scene.end, Math.max(1, scale))
+    : subjectHeight;
+  const shot = shotOverride ?? shotForMotion(scene.motion);
+  const view = framingFor({ contentHeight: worldHeight, subjectHeight }, shot).camera;
 
   const slide = isSlide ? slidePose(scene, frame) : null;
   const dribble = isSlide ? null : dribblePose(scene, frame);
@@ -454,7 +471,7 @@ export const ThreeActionStage: React.FC<{
       <ThreeCanvas
         width={width}
         height={height}
-        camera={{ position: [0, 0, view.z], fov: CAMERA.fov, near: 0.1, far: 100 }}
+        camera={{ position: [0, 0, view.z], fov: view.fov, near: 0.1, far: 100 }}
         style={{ position: "absolute", inset: 0, background: "transparent" }}
       >
         <ambientLight intensity={0.95} />
@@ -489,14 +506,14 @@ export const ThreeActionStage: React.FC<{
       </ThreeCanvas>
 
       {/* 角色名条：3D 里画不了可读文字，用 DOM 覆盖。
-          放在左上角而不是角色脚下——角色站在世界 y=0（屏幕约 854px），
-          脚下正好是字幕面板的位置，摆那儿会被字幕压掉一半。 */}
+          贴在标题带下沿（不是写死 132）：角色名和标题是同一条信息带的
+          两级，摆在不同来源的坐标上，改标题字号就会撞。 */}
       {scene.label ? (
         <div
           style={{
             position: "absolute",
             left: 64,
-            top: 132,
+            top: STAGE.titleBandBottom + 8,
             padding: "8px 26px",
             borderRadius: 999,
             background: accent,

@@ -124,7 +124,10 @@ export const MOTION_DEFAULTS: Record<Action3DMotion, MotionDefaults> = {
  * 但这里的单位是"角色局部世界单位"（髋部为原点、身高约 1.65），
  * 地面 y=0、站立髋部 0.66——与 video-remotion/src/character/pose.ts 同一套。
  *
- * climb 的终点只能到 1.5：再高角色头就顶到标题胶囊了，这是画面约束不是动作约束。
+ * climb 的终点取 1.5 是**动作设计值**（4 阶 × 每阶 0.21），不是画面约束。
+ * 早先这里写着"再高角色头就顶到标题胶囊"，那条约束已经上移到渲染层的景别层
+ * （character/stage-layout.ts）：取景按"这一幕最高的是梯子顶端"算缩放，
+ * 内容再高也只会自动退远。改这个数字不需要再考虑标题。
  * ------------------------------------------------------------------ */
 export interface PuppetDefaults {
   start?: Vec3;

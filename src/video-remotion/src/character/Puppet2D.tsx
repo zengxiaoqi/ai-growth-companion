@@ -29,18 +29,21 @@ import {
   type Pose,
   type Tri,
 } from './pose';
+import { framingFor, shotForMotion, type Shot } from './stage-layout';
+import { LADDER, actorHeadTop, ladderTopY } from './setpiece';
 
 /* ------------------------------------------------------------------ *
- * 投影参数
+ * 取景
  *
- * GROUND_Y 与三维舞台取同一个地面线（字幕面板顶边之上），分镜切换时角色
- * 不会上下跳。PPU 比 3D 大：2D 不需要装下滑梯的整个结构，主角可以画得更大。
- * climb 上升的空间从这里反推：头顶最高到 (1.67 + 0.84) 世界单位 ≈ 屏幕 203px，
- * 仍低于标题胶囊（底边约 100px）。
+ * 这里**没有** PPU / GROUND_Y 常量了。以前写死 PPU=265、GROUND_Y=856，
+ * 与"标题占多高、布景有多高"毫无关系：梯子顶到 2.75 世界单位时，
+ * 856 − 2.75×265 = 114px，正好钻进标题胶囊（底边 121）。
+ *
+ * 现在缩放由 stage-layout 的取景定律算出来：先问"这一幕最高的东西有多高"
+ * （布景注册表回答），再和"角色该画多大"取小者。内容再高，缩放自动变小，
+ * 撞标题这件事在算术上不成立。
  * ------------------------------------------------------------------ */
-const PPU = 265;
-const GROUND_Y = 856;
-/** climb 的最高点：再高角色头就顶到标题了 */
+/** climb 的角色最高点：动作设计值（4 阶 × 0.21），不再承担"别撞标题"的职责 */
 const MAX_STAND_Y = 1.55;
 
 export type Puppet2DScene = {
@@ -62,6 +65,11 @@ export type Puppet2DScene = {
   props?: Array<{ x: number; y: number; size: number; label?: string; node: React.ReactNode }>;
   /** 漂浮在角色之上的覆盖层（对话气泡等 HTML 元素，不能塞进 SVG） */
   overlay?: React.ReactNode;
+  /**
+   * 景别覆盖。不给就按动作自动判定（climb → wide，其余 → medium）。
+   * 只影响取景，不影响动作本身：动作的世界坐标由后端定死。
+   */
+  shot?: Shot;
 };
 
 /** 颜色压暗：给每个形状描一圈同色深边，角色不会糊进背景 */
@@ -274,6 +282,9 @@ const Head2D: React.FC<{ rig: ActorRig; head: [number, number]; r: number; tilt:
  * 没有它，"爬"在画面上就是一只浮在半空的熊——手脚找不到落点，观众读不出
  * 高度变化是在爬。这也是布景锚点的最小形态：道具不只是旁边摆一个图标，
  * 它要提供角色能够接触的表面。
+ *
+ * 所有几何都来自 setpiece.ts 的 LADDER：横档间距、首根位置、立杆间距。
+ * 组件只做投影，不持有任何"这个梯子长什么样"的数字。
  */
 const Ladder: React.FC<{
   x: number;
@@ -284,22 +295,20 @@ const Ladder: React.FC<{
   project: Projector;
   s: number;
 }> = ({ x, baseY, topY, spacing, project, s }) => {
-  const railHalf = 0.46;
+  const railHalf = LADDER.railHalf;
   const wood = '#c98a5a';
   const dark = '#8d5524';
   const left = project([x - railHalf, baseY, 0]);
   const right = project([x + railHalf, baseY, 0]);
   const leftTop = project([x - railHalf, topY, 0]);
   const rightTop = project([x + railHalf, topY, 0]);
-  const width = Math.max(9, 0.058 * s);
+  const width = Math.max(9, LADDER.railWidth * s);
   return (
     <g>
       <line x1={left[0]} y1={left[1]} x2={leftTop[0]} y2={leftTop[1]} stroke={dark} strokeWidth={width} strokeLinecap="round" />
       <line x1={right[0]} y1={right[1]} x2={rightTop[0]} y2={rightTop[1]} stroke={dark} strokeWidth={width} strokeLinecap="round" />
       {Array.from({ length: Math.max(2, Math.floor((topY - baseY) / spacing) + 1) }).map((_, i) => {
-        // 0.04 的起点不是随手写的：脚底在 -0.64、髋部 0.66 时，最下面那根横档
-        // 正好在脚下方 0.06 处，手脚与横档的误差在 1cm 以内
-        const y = baseY + 0.04 + spacing * i;
+        const y = baseY + LADDER.rungStart + spacing * i;
         const a = project([x - railHalf, y, 0]);
         const b = project([x + railHalf, y, 0]);
         return (
@@ -310,7 +319,7 @@ const Ladder: React.FC<{
             x2={b[0]}
             y2={b[1]}
             stroke={wood}
-            strokeWidth={width * 0.78}
+            strokeWidth={width * LADDER.rungWidthRatio}
             strokeLinecap="round"
           />
         );
@@ -347,8 +356,39 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
   const dirX = (scene.end?.[0] ?? 0) - (scene.start?.[0] ?? 0);
   const facing: 1 | -1 =
     pose.rotY > 0.2 ? 1 : pose.rotY < -0.2 ? -1 : dirX < -0.05 ? -1 : 1;
-  const cx = 960;
-  const s = scale * PPU;
+
+  const climb = scene.motion === 'climb';
+  // 每上一阶的高度：横档间距与它同源，所以手/脚永远落在横档附近
+  const climbStep = climb
+    ? ((scene.end?.[1] ?? SPEC.standHipY + 0.84) - (scene.start?.[1] ?? SPEC.standHipY)) /
+      Math.max(1, scene.steps ?? 4)
+    : 0.21;
+  // 梯子要高过举起的手（站地时手在 1.54）：否则爬到一半就没有横档可抓了
+  const ladderTop = ladderTopY(Math.min(MAX_STAND_Y, scene.end?.[1] ?? SPEC.standHipY + 0.84));
+
+  /**
+   * 取景：两个数分开问。
+   *
+   *  - contentHeight = 这一幕最高的东西（爬梯时是**梯子顶端**，不是角色头）。
+   *    这就是以前漏掉的一项：角色 2.51、梯子 2.75，估低了 0.24 世界单位，
+   *    屏幕上就是 60 多像素的越界。
+   *  - subjectHeight = **站立身高**，只表示"这个角色该画多大"。用动作终点
+   *    的头顶高度会把"爬得高"误当成"角色很大"，全景被无谓地推远
+   *    （实测梯子会缩到 365px，画面空一半）。
+   *
+   * rig.scale 只按"不小于 1"计入：小动物画小一点是造型意图，但取景要给
+   * 满尺寸留够空间，否则 giraffe(1.1) 会顶出去。
+   */
+  const subjectHeight = actorHeadTop(SPEC.standHipY, Math.max(1, scale));
+  const actorTop = actorHeadTop(Math.max(scene.end?.[1] ?? SPEC.standHipY, SPEC.standHipY), Math.max(1, scale));
+  const worldHeight = climb ? Math.max(ladderTop, actorTop) : actorTop;
+  const shot = scene.shot ?? shotForMotion(scene.motion);
+  const framing = framingFor({ contentHeight: worldHeight, subjectHeight }, shot);
+
+  const cx = framing.centerX;
+  const GROUND_Y = framing.groundY;
+  // 角色造型缩放仍作用在角色上；取景已经为满尺寸留了空间
+  const s = framing.ppu * scale;
 
   /**
    * 局部坐标（相对髋部）→ 屏幕。
@@ -384,14 +424,6 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
 
   const legColor = shade(rig.fur, 0.84);
   const armColor = rig.fur;
-  const climb = scene.motion === 'climb';
-  // 每上一阶的高度：横档间距与它同源，所以手/脚永远落在横档附近
-  const climbStep = climb
-    ? ((scene.end?.[1] ?? SPEC.standHipY + 0.84) - (scene.start?.[1] ?? SPEC.standHipY)) /
-      Math.max(1, scene.steps ?? 4)
-    : 0.21;
-  // 梯子要高过举起的手（站地时手在 1.54）：否则爬到一半就没有横档可抓了
-  const ladderTop = Math.min(MAX_STAND_Y, scene.end?.[1] ?? SPEC.standHipY + 0.84) + 1.25;
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -427,7 +459,7 @@ export const Puppet2D: React.FC<{ scene: Puppet2DScene; frame: number }> = ({ sc
             x={root[0]}
             baseY={0}
             topY={ladderTop}
-            spacing={Math.max(0.12, climbStep)}
+            spacing={Math.max(LADDER.minRungSpacing, climbStep)}
             project={projectWorld}
             s={s}
           />

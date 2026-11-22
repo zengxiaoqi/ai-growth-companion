@@ -41,6 +41,13 @@ export const SPEC = {
 /** 球半径（注册表是权威值，这里只给渲染兜底） */
 export const BALL_RADIUS = 0.26;
 
+/**
+ * 坐滑梯时髋部沿滑面法线抬起的距离（躯干底 -0.28 刚好压在滑面上）。
+ * 布景注册表要算"坐在平台上的角色头顶有多高"，必须用同一个数，
+ * 所以从这里导出，不在 setpiece.ts 里另抄一份。
+ */
+export const SLIDE_SEAT_LIFT = 0.27;
+
 /** 角色造型参数：两个渲染器共用同一份，造型改一次两边一起变 */
 export type ActorRig = {
   fur: string;
@@ -361,9 +368,9 @@ export function slidePose(input: MotionInput, frame: number): Pose {
   const px = sx + dx * p;
   const py = sy + dy * p;
 
-  // 坐姿：髋部沿法线抬起 0.27（躯干底 -0.28 刚好压在滑面上），双腿沿滑面
+  // 坐姿：髋部沿法线抬起 SLIDE_SEAT_LIFT（躯干底 -0.28 刚好压在滑面上），双腿沿滑面
   // 向前伸出而不是垂到板下面——垂下去会被滑板挡住，看起来像"浮在板上"。
-  const slideRoot: Tri = [px + nx * 0.27, py + ny * 0.27, 0];
+  const slideRoot: Tri = [px + nx * SLIDE_SEAT_LIFT, py + ny * SLIDE_SEAT_LIFT, 0];
   const swing = Math.sin(frame / 5) * 0.06;
   const sitting: Omit<Pose, "root"> = {
     rotZ: angle + 0.1,

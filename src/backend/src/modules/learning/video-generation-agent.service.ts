@@ -34,6 +34,11 @@ import {
 import { normalizeSceneGraph } from './video/scene-graph';
 import { normalizeFigureSpec } from './video/figure-spec';
 import {
+  deriveInteractionFromText,
+  normalizeSceneInteraction,
+  type SceneInteraction,
+} from './video/scene-interaction';
+import {
   ageMotionProfile,
   beatWindows,
   enforceAgeProfile,
@@ -45,6 +50,7 @@ import {
   ANIMAL_EMOJI_MAP,
   getInlineSvgAssetKeys,
   inferAnimalFromText,
+  findAnimalMentions,
 } from './animal-subjects.config';
 import {
   ACTION_KEYWORDS,
@@ -608,6 +614,19 @@ export class VideoGenerationAgentService {
       // 台词/视觉描述里点名的实物（皮球、饼干…）也进画面，
       // 否则孩子听到"看看小熊手里的皮球"时画面只有一只动物站着。
       const props = this.inferSceneProps(`${visualDescription} ${narration} ${onScreenText}`);
+      // 角色交互层：把"小熊把皮球递给小兔"这类关系变成结构化动作，
+      // 让画面演出"谁对谁做什么"而不是只把角色和道具并排摆出来。
+      // 分镜若已带 interaction（LLM 新输出）优先用校验后的版本，否则从文案确定性提取。
+      const mentions = findAnimalMentions(visualDescription || source);
+      const interaction =
+        normalizeSceneInteraction(scene?.interaction) ||
+        deriveInteractionFromText({
+          visualDescription,
+          narration,
+          onScreenText,
+          mentions,
+          propIds: props.map((p) => p.id),
+        });
       const template =
         this.toText(scene?.animationTemplate?.id || scene?.animationTemplate) ||
         (assetKey !== 'topic'
@@ -676,6 +695,7 @@ export class VideoGenerationAgentService {
         assetKey,
         assetTags: tags,
         props,
+        interaction: interaction || undefined,
         action,
         habitat,
         // 画板是画面主体，背景必须退到幕后，否则图形和森林草地互相抢
@@ -935,6 +955,20 @@ type ChoreographyView = {
   beats: BeatView[];
 };
 
+/**
+ * 角色交互（后端 scene-interaction.ts 的渲染端镜像）。
+ * verb 决定布局与动作：handover=递给、lift-together=一起抬、speak=说话气泡、
+ * point=指向、hold=手持。演员与道具是开放数据，坐标由下面的布局函数确定。
+ */
+type InteractionActorView = { id: string; label: string; role: string };
+type SceneInteractionView = {
+  verb: string;
+  actors: InteractionActorView[];
+  propId?: string;
+  speech?: string;
+  caption?: string;
+};
+
 type GeneratedScene = {
   id: string;
   title: string;
@@ -944,6 +978,8 @@ type GeneratedScene = {
   assetKey: string;
   assetTags: string[];
   props?: Array<{ id: string; label: string }>;
+  /** 角色间的结构化动作关系；有它就按关系演出画面，见 scene-interaction.ts */
+  interaction?: SceneInteractionView;
   action: string;
   habitat: string;
   /**
@@ -1670,6 +1706,246 @@ const PropArt: React.FC<{ id: string; x: number; y: number; frame: number }> = (
       </g>
     );
   }
+  return null;
+};
+
+/**
+ * 角色头像：emoji 大头像 + 名字标签，支持朝向与递出/接过动作。
+ * 用 emoji 而非矢量素材，是因为交互场景要同时出现两个不同角色
+ * （小熊递给小兔），而每个场景的 characterAssetSrc 只有一个主角。
+ */
+const ActorAvatar: React.FC<{
+  actor: InteractionActorView;
+  frame: number;
+  facing: 1 | -1;
+  gesture: "offer" | "receive" | "wave" | "idle";
+  accent: string;
+}> = ({ actor, frame, facing, gesture, accent }) => {
+  const emoji = ANIMAL_EMOJI_MAP[actor.id] || "🐾";
+  const bob = Math.sin(frame / 15 + facing) * 6;
+  // 递出：手臂/道具侧轻微前倾并上下送；接过：向内侧收；挥手：大幅摆动
+  const armSwing =
+    gesture === "offer"
+      ? interpolate(Math.sin(frame / 9), [-1, 1], [-14, 10])
+      : gesture === "receive"
+        ? interpolate(Math.sin(frame / 11 + 1), [-1, 1], [-8, 12])
+        : gesture === "wave"
+          ? interpolate(Math.sin(frame / 5), [-1, 1], [-26, 20])
+          : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        transform: "translateY(" + bob + "px)",
+      }}
+    >
+      <div
+        style={{
+          width: 300,
+          height: 300,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.92)",
+          border: "8px solid " + accent,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 22px 40px rgba(0,0,0,0.16)",
+          position: "relative",
+        }}
+      >
+        <span style={{ fontSize: 190, lineHeight: 1, transform: "scaleX(" + facing + ")" }}>{emoji}</span>
+        <span
+          style={{
+            position: "absolute",
+            right: facing > 0 ? -34 : "auto",
+            left: facing < 0 ? -34 : "auto",
+            bottom: 26,
+            fontSize: 96,
+            transform: "rotate(" + armSwing + "deg)",
+            transformOrigin: "bottom center",
+          }}
+        >
+          {"🤚"}
+        </span>
+      </div>
+      <div
+        style={{
+          marginTop: 20,
+          padding: "10px 30px",
+          borderRadius: 999,
+          background: accent,
+          color: "#fff",
+          fontSize: 40,
+          fontWeight: 900,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {actor.label}
+      </div>
+    </div>
+  );
+};
+
+/** 说话气泡：挂在说话者头顶，尾巴朝向听者 */
+const SpeechBubble: React.FC<{ text: string; side: "left" | "right"; accent: string; frame: number }> = ({
+  text,
+  side,
+  accent,
+  frame,
+}) => {
+  const pop = spring({ frame, fps: 30, config: { damping: 12, stiffness: 160 } });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 120,
+        left: side === "left" ? 380 : "auto",
+        right: side === "right" ? 380 : "auto",
+        transform: "scale(" + pop + ")",
+        transformOrigin: side === "left" ? "bottom left" : "bottom right",
+        maxWidth: 620,
+        padding: "26px 40px",
+        borderRadius: 36,
+        background: "#fff",
+        border: "6px solid " + accent,
+        boxShadow: "0 18px 34px rgba(0,0,0,0.14)",
+        fontSize: 46,
+        fontWeight: 900,
+        color: "#12303a",
+        textAlign: "center",
+        lineHeight: 1.35,
+      }}
+    >
+      {text}
+      <div
+        style={{
+          position: "absolute",
+          bottom: -30,
+          left: side === "left" ? 70 : "auto",
+          right: side === "right" ? 70 : "auto",
+          width: 0,
+          height: 0,
+          borderLeft: "24px solid transparent",
+          borderRight: "24px solid transparent",
+          borderTop: "30px solid " + accent,
+        }}
+      />
+    </div>
+  );
+};
+
+/**
+ * 按角色关系演出画面：把"谁对谁做什么"变成确定性的摆位与动作。
+ * 这是画面与台词匹配的关键——不再只是"角色居中 + 道具两侧"。
+ */
+const ActionStage: React.FC<{ scene: GeneratedScene; duration: number }> = ({ scene, duration }) => {
+  const frame = useLocalFrame();
+  const it = scene.interaction!;
+  const accent = scene.accentColor || "#4d96ff";
+  const actors = it.actors || [];
+  const giver = actors.find((a) => a.role === "giver") || actors[0];
+  const receiver = actors.find((a) => a.role === "receiver") || actors[1];
+  const speaker = actors.find((a) => a.role === "speaker") || actors[0];
+  const helperA = actors[0];
+  const helperB = actors[1];
+
+  // 递给：左角色把道具沿弧线送到右角色手边
+  if (it.verb === "handover" && giver && receiver) {
+    const t = interpolate(frame, [duration * 0.18, duration * 0.72], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+    const ease = 1 - Math.pow(1 - t, 3);
+    const propX = 640 + ease * 560;
+    const propY = 590 - Math.sin(ease * Math.PI) * 96;
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 300, top: 430 }}><ActorAvatar actor={giver} frame={frame} facing={1} gesture="offer" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 1300, top: 430 }}><ActorAvatar actor={receiver} frame={frame} facing={-1} gesture="receive" accent={accent} /></div>
+        {it.propId ? (
+          <>
+            <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+              <path
+                d={"M 660 620 Q 960 440 1260 620"}
+                fill="none"
+                stroke={accent}
+                strokeWidth={9}
+                strokeDasharray="18 20"
+                opacity={0.5}
+              />
+              <path d={"M 1240 596 L 1270 620 L 1240 644"} fill="none" stroke={accent} strokeWidth={12} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div style={{ position: "absolute", left: propX - 90, top: propY - 90 }}>
+              <svg width={180} height={180} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
+                <PropArt id={it.propId} x={0} y={0} frame={frame} />
+              </svg>
+            </div>
+          </>
+        ) : null}
+        {it.speech ? <SpeechBubble text={it.speech} side="right" accent={accent} frame={frame} /> : null}
+        <div style={{ position: "absolute", left: 0, right: 0, top: 880, textAlign: "center", fontSize: 46, fontWeight: 900, color: "#12303a" }}>
+          {it.caption || (giver.label + " 把" + (PROP_LABELS[it.propId || ""] || "") + "递给 " + receiver.label)}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // 一起抬：两个角色并排，合力把道具抬起来（道具在中间上下起伏 + 闪光）
+  if (it.verb === "lift-together" && helperA && helperB) {
+    const lift = Math.sin(frame / 12) * 18;
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 260, top: 470 }}><ActorAvatar actor={helperA} frame={frame} facing={1} gesture="wave" accent={accent} /></div>
+        <div style={{ position: "absolute", left: 1360, top: 470 }}><ActorAvatar actor={helperB} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
+        {it.propId ? (
+          <div style={{ position: "absolute", left: 810, top: 540 + lift }}>
+            <svg width={300} height={300} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 18px 20px rgba(0,0,0,0.2))" }}>
+              <PropArt id={it.propId} x={0} y={0} frame={frame} />
+            </svg>
+          </div>
+        ) : null}
+        <div style={{ position: "absolute", left: 0, right: 0, top: 880, textAlign: "center", fontSize: 46, fontWeight: 900, color: "#12303a" }}>
+          {it.caption || (helperA.label + "和" + helperB.label + "一起抬")}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // 说话：说话者一侧 + 气泡；第二个角色作为听话对象
+  if (it.verb === "speak" && speaker) {
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 1180, top: 430 }}><ActorAvatar actor={speaker} frame={frame} facing={-1} gesture="wave" accent={accent} /></div>
+        {actors[1] ? (
+          <div style={{ position: "absolute", left: 300, top: 470 }}><ActorAvatar actor={actors[1]} frame={frame} facing={1} gesture="idle" accent={accent} /></div>
+        ) : null}
+        {/* 说话者站在右侧，气泡必须挂在同一侧，否则看起来像左边角色在说 */}
+        {it.speech ? <SpeechBubble text={it.speech} side="right" accent={accent} frame={frame} /> : null}
+      </AbsoluteFill>
+    );
+  }
+
+  // 指认 / 手持：单角色 + 道具，箭头从角色指向道具
+  if ((it.verb === "point" || it.verb === "hold") && helperA) {
+    return (
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: 360, top: 430 }}><ActorAvatar actor={helperA} frame={frame} facing={1} gesture={it.verb === "point" ? "wave" : "receive"} accent={accent} /></div>
+        {it.propId ? (
+          <div style={{ position: "absolute", left: 1300, top: 480 }}>
+            <svg width={260} height={260} viewBox="-80 -80 160 160" style={{ overflow: "visible", filter: "drop-shadow(0 14px 16px rgba(0,0,0,0.2))" }}>
+              <PropArt id={it.propId} x={0} y={0} frame={frame} />
+            </svg>
+            <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, color: accent }}>{PROP_LABELS[it.propId] || ""}</div>
+          </div>
+        ) : null}
+        {it.speech ? <SpeechBubble text={it.speech} side="left" accent={accent} frame={frame} /> : null}
+      </AbsoluteFill>
+    );
+  }
+
   return null;
 };
 
@@ -3668,8 +3944,11 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
   // 关系图自带节点标签，屏幕上再叠一行同义文字只会干扰阅读。
   // 画板优先级最高：图形本身就是知识时，任何"节点+标签"的表达都是降级。
   const hasFigure = !!(scene.figure && scene.figure.shapes && scene.figure.shapes.length > 0);
+  // 角色交互优先于概念关系图：有"小熊把皮球递给小兔"这种明确动作时，
+  // 就该演出这个动作，而不是退回抽象节点图。
+  const hasInteraction = !hasFigure && !!scene.interaction && (scene.interaction.actors || []).length > 0;
   const hasGraph =
-    !hasFigure && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
+    !hasFigure && !hasInteraction && !!(scene.sceneGraph && scene.sceneGraph.nodes && scene.sceneGraph.nodes.length >= 2);
   const backgroundStyle = scene.backgroundStyle || "environment";
 
   return (
@@ -3713,6 +3992,8 @@ const SceneLayer: React.FC<{ scene: GeneratedScene; index: number; isLast: boole
       </div>
       {hasFigure ? (
         <FigureStage scene={scene} duration={duration} />
+      ) : hasInteraction ? (
+        <ActionStage scene={scene} duration={duration} />
       ) : hasGraph ? (
         <SceneGraphStage scene={scene} duration={duration} />
       ) : (

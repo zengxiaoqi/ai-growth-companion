@@ -64,6 +64,11 @@ export type StoryboardScene = {
   figure?: Record<string, unknown>;
   /** 句级编排：讲到哪句、强调谁、揭示什么、用什么动效。缺失时渲染层自行推导 */
   beats?: Beat[];
+  /**
+   * 角色交互关系：谁对谁做什么（递/一起抬/说话/指/手持）。
+   * 缺失时渲染层会从 visualDescription 确定性提取，但 LLM 直接写出来最准。
+   */
+  interaction?: Record<string, unknown>;
 };
 
 export type VideoStoryboard = {
@@ -265,6 +270,12 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "narration": "string (TTS旁白，40-80个中文字符，2-3个完整句子，温暖师生对话风格)",
       "onScreenText": "string (屏幕显示文字，4-12个中文字符)",
       "visualDescription": "string (30-60字的视觉构图描述：角色动作、物品位置、背景风格)",
+      "interaction": "object|null (角色之间有动作时才填，否则省略。让画面演出'谁对谁做什么'，不是只把角色摆着)",
+      "interaction.verb": "handover | lift-together | speak | point | hold",
+      "interaction.actors": "array of 1-3 { id, label, role }. id 用具体名词的英文或拼音小写(如 bear/rabbit/tiger); label 用旁白里的中文叫法(如 小熊/小兔); role 按动词: handover→giver+receiver, lift-together→helper+helper, speak→speaker+target, point/hold→helper",
+      "interaction.propId": "string (可选, 道具英文 id: ball | cookie | apple | banana | book | block | table | slide | star | heart)",
+      "interaction.speech": "string (可选, verb=speak 时角色说的话, 或递东西时说的'谢谢你'; 不要填提问式教学提示语)",
+      "interaction.caption": "string (可选, ≤10字, 画面下方的关系说明, 如'一起抬，更省力')",
       "durationSec": 6,
       "transitionToNext": "fade | slide | wipe | zoom",
       "emphasis": "intro | core-concept | example | practice | summary",
@@ -319,6 +330,17 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
       "- GOOD narration example: '小朋友，这是小兔子！兔子有长长的耳朵，短短的尾巴，最喜欢吃胡萝卜和青草。它跳起来蹦蹦跳跳的，好可爱呀！'",
       "- Each scene's concept must be a distinct knowledge point related to the topic.",
       '- visualDescription must describe specific characters, actions, items, and background.',
+      '',
+      '## Character interaction (MANDATORY when the scene shows someone DOING something to someone):',
+      '- If two characters interact (pass an object, lift together, talk, point), you MUST fill "interaction".',
+      '  The renderer uses it to ACT OUT the relation; without it the picture is just characters standing still.',
+      '- handover: one character gives a prop to another (giver + receiver, set propId).',
+      '- lift-together: two characters lift/carry one prop together (two helpers, set propId).',
+      '- speak: a character speaks a line (speaker + optional target, set speech to the exact words spoken).',
+      '- point / hold: one character points at or holds a prop (helper, set propId).',
+      '- Crucially: role "giver"/"speaker" must be the character the narration says is ACTING,',
+      '  not merely the first one mentioned. Set speech only to words a character actually says—',
+      '  never put teaching prompts like "小熊手里有什么？" into speech.',
       '',
       '## Narrative Arc:',
       `- Scene 1: intro (引入主题，激发兴趣)`,
@@ -522,6 +544,9 @@ export class GenerateVideoContentTool extends BaseTool<GenerateVideoContentArgs,
         : {}),
       ...(raw?.sceneGraph && typeof raw.sceneGraph === 'object'
         ? { sceneGraph: raw.sceneGraph as Record<string, unknown> }
+        : {}),
+      ...(raw?.interaction && typeof raw.interaction === 'object'
+        ? { interaction: raw.interaction as Record<string, unknown> }
         : {}),
       beats,
     };

@@ -218,6 +218,48 @@ function cnToAnimalId(name: string): string | null {
   return CN_ANIMAL_MAP[name] || null;
 }
 
+export interface AnimalMention {
+  id: string;
+  /** 文案里实际用的叫法（小熊 / 兔兔 / 小兔），直接拿去当画面标签 */
+  label: string;
+  /** 在原文里的位置，用于判断"谁先出现 / 谁把东西递给谁" */
+  index: number;
+}
+
+/**
+ * 找出一段文案里提到的**所有**角色，按出现顺序返回（同一角色只保留最早的一处）。
+ *
+ * findAnimalSubject 只回答"这一幕的主角是谁"，但"小熊把皮球递给小兔"这类
+ * 交互场景需要同时知道两个角色，才能按关系摆位。交互关系层用这个函数拿演员表。
+ */
+export function findAnimalMentions(source: string): AnimalMention[] {
+  const hits = new Map<string, AnimalMention>();
+  const consider = (name: string, id: string) => {
+    if (!name || !/[\u4e00-\u9fa5]/.test(name)) return;
+    let from = 0;
+    while (true) {
+      const index = source.indexOf(name, from);
+      if (index < 0) break;
+      const existing = hits.get(id);
+      if (
+        !existing ||
+        index < existing.index ||
+        (index === existing.index && name.length > existing.label.length)
+      ) {
+        hits.set(id, { id, label: name, index });
+      }
+      from = index + 1;
+    }
+  };
+
+  for (const [name, id] of Object.entries(CN_ANIMAL_MAP)) consider(name, id);
+  for (const subject of ANIMAL_SUBJECTS) {
+    for (const keyword of subject.keywords) consider(keyword, subject.id);
+  }
+
+  return Array.from(hits.values()).sort((a, b) => a.index - b.index);
+}
+
 export function getInlineSvgAssetKeys(): Set<string> {
   return new Set(ANIMAL_SUBJECTS.filter((s) => s.hasInlineSvg).map((s) => s.id));
 }
